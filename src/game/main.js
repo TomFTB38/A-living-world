@@ -22,10 +22,10 @@ class Game {
     this.canvas = $('gl');
     this.r = new Renderer(this.canvas);
     this.hud = new HUD(this.r.texSource);
-    this.settings = { preset: params.get('q') || 'moyen', scale: 0, fov: 60, sens: 1, radius: 9 };
+    this.settings = { preset: params.get('q') || 'moyen', scale: 0, fov: 60, sens: 1 };
     try { Object.assign(this.settings, JSON.parse(storage?.getItem('alw.settings') || '{}')); } catch (e) { /* réglages par défaut */ }
     if (params.get('q')) this.settings.preset = params.get('q');
-    if (params.get('r')) this.settings.radius = +params.get('r');
+    this.radiusParam = +params.get('r') || 0;
     this.input = { keys: new Set(), x: 0, z: 0, jump: false, sprint: false, crouch: false, lmb: false, rmb: false, touch: { x: 0, z: 0 } };
     this.view = { third: true, dist: 4.2, camDist: 4.2 };
     this.charModel = buildCharacter(this.r); this.anim = new CharacterAnim(this.charModel);
@@ -41,12 +41,14 @@ class Game {
     requestAnimationFrame((t) => this.loop(t));
   }
 
+  radius() { return this.radiusParam || (PRESETS[this.settings.preset] || PRESETS.moyen).radius; }
+
   startWorld(seed, save) {
     if (this.world) { for (const w of this.world.workers) w.terminate(); for (const c of this.world.chunks.values()) { this.r.freeMesh(c.opaque); this.r.freeMesh(c.deco); this.r.freeMesh(c.water); } if (this.world.far) this.r.freeMesh(this.world.far.mesh); }
     const edits = new Map(save ? save.edits.map(([k, e]) => [k, new Map(e)]) : []);
     this.seed = seed; this.worldId = save?.id || 'w' + seed; this.gen = new WorldGen(seed);
     const workers = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
-    this.world = new ClientWorld(this.r, seed, edits, { radius: this.settings.radius, workers });
+    this.world = new ClientWorld(this.r, seed, edits, { radius: this.radius(), workers });
     this.inv = save?.inventory || DEFAULT_INV.map((a) => ({ ...a })); this.sel = 0;
     if (save) { this.hour = save.time; this.player = new Player(...save.player.p); this.player.yaw = save.player.yaw; this.player.pitch = save.player.pitch; this.player.moveYaw = save.player.yaw; this.vit = save.player.vit || this.vit; }
     else { const s = this.findSpawn(); this.player = new Player(s[0], s[1], s[2]); this.player.yaw = s[3]; this.player.moveYaw = s[3]; this.player.pitch = -0.13; this.hour = 16.4; }
@@ -60,12 +62,13 @@ class Game {
     for (let r = 0; r < 1600; r += 13) for (let a = 0; a < 6.283; a += 0.45) {
       const x = Math.round(Math.cos(a) * r), z = Math.round(Math.sin(a) * r), c = g.column(x, z);
       if (c.path < 0.7 || c.water) continue;
-      const y = c.h, yy = Math.atan2(0.75, 0.2), bh = g.column(x - Math.sin(yy) * 4.5, z - Math.cos(yy) * 4.5).h;
+      const y = c.h, yy = Math.atan2(-0.75, 0.42), bh = g.column(x - Math.sin(yy) * 4.5, z - Math.cos(yy) * 4.5).h;
       if (bh > y + 0.6) continue; let f = c.forest * 2, flat = 0;
       for (const [dx, dz] of [[24, 0], [-24, 0], [0, 24], [0, -24], [17, 17], [-17, -17], [17, -17], [-17, 17]]) { const n = g.column(x + dx, z + dz); f += n.forest; flat += Math.abs(n.h - y); }
       let wet = 0; for (const [dx, dz] of [[14, 0], [-14, 0], [0, 14], [0, -14], [10, 10], [-10, -10], [10, -10], [-10, 10]]) if (g.column(x + dx, z + dz).water) wet = 1;
-      const s = f / 10 - flat * 0.006 - r / 9000 + wet * 0.35;
-      if (s > score) { score = s; best = [x + 0.5, Math.ceil(c.h) + 2, z + 0.5, Math.atan2(0.75, 0.2)]; }
+      const g2 = g.nForest.n2(x / 46 + 70, z / 46 - 40);
+      const s = -Math.abs(g2 - 0.1) * 0.5 + Math.min(f / 10, 0.8) - flat * 0.006 - r / 9000 + wet * 0.35;
+      if (s > score) { score = s; best = [x + 0.5, Math.ceil(c.h) + 2, z + 0.5, Math.atan2(-0.75, 0.42)]; }
     }
     return best || [0.5, Math.ceil(g.column(0, 0).h) + 3, 0.5, 0];
   }
@@ -142,7 +145,7 @@ class Game {
     $('btnNew').onclick = () => { const v = Number($('inSeed').value) || Math.floor(Math.random() * 1e9); this.startWorld(v, null); $('inSeed').value = v; this.toggleMenu(false); };
     const sel = $('selPreset'), fov = $('inFov'), sens = $('inSens');
     sel.value = this.settings.preset; fov.value = this.settings.fov; sens.value = this.settings.sens;
-    sel.onchange = () => { this.settings.preset = sel.value; this.dynScale = 1; this.applySettings(); };
+    sel.onchange = () => { this.settings.preset = sel.value; this.dynScale = 1; this.applySettings(); this.world.radius = this.radius(); };
     fov.oninput = () => { this.settings.fov = +fov.value; this.applySettings(); };
     sens.oninput = () => { this.settings.sens = +sens.value; this.applySettings(); };
   }
@@ -228,6 +231,7 @@ class Game {
     requestAnimationFrame((t) => this.loop(t));
     const t0 = performance.now(); let dt = (now - this.last) / 1000; this.last = now; if (!(dt > 0)) dt = 0.016; const rdt = dt; dt = Math.min(dt, 0.05);
     this.step(dt, rdt);
+    if (CAPTURE && (this.world.queued || this.world.pending)) return; // captures : pas de rendu logiciel pendant le chargement
     this.draw(dt);
     const cpu = performance.now() - t0, pr = this.prof;
     pr.cpu = pr.cpu * 0.92 + cpu * 0.08; pr.fps = pr.fps * 0.92 + (1 / Math.max(rdt, 0.001)) * 0.08;
@@ -278,7 +282,7 @@ class Game {
     this.target = reach; this.mineStep(dt);
     const actors = this.view.third ? this.anim.actors(p.p[0], p.p[1], p.p[2], this.player.speed > 0.2 ? p.moveYaw : p.yaw, p.speed, dt, this.mining, p.crouch) : [];
     const mc = reach ? Math.min(1, this.mine.t / Math.max(0.05, BLOCKS[reach.id].hardness)) : 0;
-    r.render({ eye, vp, viewM, proj, chunks: all.map(remap), visible: visible.map(remap), far: this.world.far, actors, time: this.elapsed + (this.fixTime || 0), target: reach ? { pos: [reach.x, reach.y, reach.z], color: [mc, 1 - mc * 0.6, 1 - mc, 1] } : null, farHole: (this.settings.radius - 0.6) * 32, cloud: 0.6, lightDirty: r.lightDirty, taa: this.taaOff ? false : undefined });
+    r.render({ eye, vp, viewM, proj, chunks: all.map(remap), visible: visible.map(remap), far: this.world.far, actors, time: this.elapsed + (this.fixTime || 0), target: reach && !this.camOverride ? { pos: [reach.x, reach.y, reach.z], color: [mc, 1 - mc * 0.6, 1 - mc, 1] } : null, farHole: (this.world.radius - 0.6) * 32, cloud: 0.42, lightDirty: r.lightDirty, taa: this.taaOff ? false : undefined });
     r.lightDirty = false;
     $('reticle').classList.toggle('hit', !!reach);
     this.hud.compass(p.yaw);

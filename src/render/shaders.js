@@ -47,12 +47,13 @@ void main(){
     vec2 dx=dFdx(uv),dy=dFdy(uv);
     vec4 a=textureGrad(uAlbedo,tc,dx,dy); vec4 m=textureGrad(uNormal,tc,dx,dy);
     alb=a.rgb*a.rgb*vTint; // texture sRGB approchée vers linéaire
+    alb=mix(vec3(dot(alb,vec3(.3,.6,.1))),alb,.86);
     alb*=.9+.2*h2;
     vec2 d=m.xy*2.-1.; nn=normalize(n+(T*d.x+B*d.y)*.9); rough=m.b;
     if(vKind==1){ trans=1.; rough=.5; alb*=1.05; }
   } else {
     float k=.92+.16*hash13(floor(vPos*7.)); alb*=alb*k*1.25;
-    if(vKind==3) trans=.7;
+    if(vKind==3){ trans=.45; alb=mix(vec3(dot(alb,vec3(.3,.6,.1))),alb,.72); }
     if(vKind==4) emis=1.;
   }
   gA=vec4(alb,vLit.x); gN=vec4(nn*.5+.5,rough); gL=vec4(vLit.y,vLit.z,trans,emis);
@@ -84,11 +85,11 @@ float shadowAt(vec3 wp,vec3 n,float dist,vec2 fc,int samples){
   float sh=sum/float(samples);
   float fade=sat((uCascade.z-dist)/(uCascade.z*.15)); return c==2?mix(1.,sh,fade):sh; }
 float cloudShade(vec3 wp){ if(uCloudShadow<=0.) return 1.; vec3 q=vec3(wp.xz*.0011+vec2(uTime*.004,uTime*.0017),.31);
-  float n=texture(uNoise,q.xzy).r; return mix(1.,smoothstep(.62,.34,n)*.62+.38,uCloudShadow); }
+  float n=texture(uNoise,q.xzy).r; return mix(1.,smoothstep(.56,.3,n)*.7+.3,uCloudShadow); }
 vec3 skyColor(vec3 d){
   float y=max(d.y,0.), t=pow(1.-y,3.6), mu=sat(dot(d,uSunDir));
   vec3 c=mix(uSkyTop,uSkyHor,t);
-  c+=uSunCol*(.012/(1.02-mu*.985)+.14*pow(mu,8.))*(.25+.75*t);
+  c+=uSunCol*(.0035/(1.02-mu*.985)+.05*pow(mu,8.))*(.25+.75*t);
   if(d.y<0.) c=mix(c,uGround,sat(-d.y*7.));
   return c; }
 `;
@@ -109,12 +110,12 @@ void main(){
   float NoL=dot(n,uSunDir), wrap=trans>0.?sat((NoL+.45)/1.45):sat(NoL);
   vec3 direct=uSunCol*wrap*sh;
   float back=pow(sat(dot(V,uSunDir)),5.)*trans;
-  vec3 bl=uSunCol*alb*vec3(1.35,1.5,.55)*back*sh*2.6;
+  vec3 bl=uSunCol*alb*vec3(1.2,1.4,.6)*back*sh*.9;
   float sky2=skyL*skyL*(3.-2.*skyL); float vis=vao*mix(1.,ss,.9);
   vec3 skyAmb=mix(uGround*.9,mix(uSkyHor,uSkyTop,.4)*vec3(1.,.95,.82)*.78,n.y*.5+.5);
   // lumière rebondie du couvert : sous les arbres, l'ambiance se teinte de vert et reste lisible
   vec3 canopy=vec3(.27,.36,.13)*mix(1.,.5,n.y*.5+.5);
-  vec3 amb=mix(canopy*.55,skyAmb,sky2*.85+.15)*(.25+.75*skyL)*vis;
+  vec3 amb=mix(canopy*1.25,skyAmb,sky2*.8+.2)*(.5+.5*skyL)*vis;
   vec3 blkc=vec3(1.,.62,.28)*pow(blk,2.1)*2.2*vao;
   vec3 c=alb*(direct+amb+blkc)+bl;
   // spéculaire de ciel et de soleil discret
@@ -190,7 +191,7 @@ void main(){
     float rho=uFog*hf*(.25+1.2*n*n);
     float s=sh(p,t);
     vec3 skyS=mix(uSkyHor,uSkyTop,.4)*.42;
-    acc+=tr*(uSunCol*s*ph*.3+skyS*.45)*rho*st;
+    acc+=tr*(uSunCol*s*ph*.085+skyS*.4)*rho*st;
     tr*=exp(-rho*st); t+=st; }
   o=vec4(acc,tr);
 }`;
@@ -299,7 +300,7 @@ void main(){
   c=pow(c,vec3(1./2.2));
   // étalonnage : ombres légèrement froides, hautes lumières chaudes, saturation maîtrisée
   float l=dot(c,vec3(.3,.59,.11));
-  c=mix(vec3(l),c,1.05);
+  c=mix(vec3(l),c,1.2);
   c*=mix(vec3(.97,1.,1.03),vec3(1.03,1.,.95),smoothstep(.1,.8,l));
   c=mix(c,c*c*(3.-2.*c),.22);
   c+=(ign(gl_FragCoord.xy)-.5)/255.;

@@ -186,7 +186,7 @@ function blade(o, x, y, z, a, w, h, lean, r, g, b, s, l, sky2) {
   o.v(tx - wx * 0.1, ty, tz - wz * 0.1, 0, nx, ny, nz, 170, 255, s, l, KIND.FOLIAGE, r * 1.12, g * 1.12, b * 1.12);
 }
 
-function stem(o, x, y, z, h, s, l) { box(o, x - 0.035, y, z - 0.035, x + 0.035, y + h, z + 0.035, 0.25, 0.42, 0.13, 0, s, l, KIND.FOLIAGE, false, 90); }
+function stem(o, x, y, z, h, s, l) { box(o, x - 0.016, y, z - 0.016, x + 0.016, y + h, z + 0.016, 0.25, 0.42, 0.13, 0, s, l, KIND.FOLIAGE, false, 90); }
 
 function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
   const r = new Rng(hashInt(wx, y, wz, 91)), m = BLOCKS[b].model;
@@ -360,7 +360,7 @@ export function farMesh(gen, ccx, ccz, cells = 110, step = 16) {
     const t = (gen.nDeco.n2(wx / 40, wz / 40) + 1) * 0.5;
     if (c.water) { cols[k * 3] = 0.22; cols[k * 3 + 1] = 0.36; cols[k * 3 + 2] = 0.42; }
     else if (canopy > 3) { cols[k * 3] = 0.2 + 0.1 * t; cols[k * 3 + 1] = 0.34 + 0.1 * t; cols[k * 3 + 2] = 0.09; }
-    else { cols[k * 3] = 0.4 + 0.08 * t; cols[k * 3 + 1] = 0.5 + 0.06 * t; cols[k * 3 + 2] = 0.16; }
+    else { cols[k * 3] = 0.42 + 0.1 * t; cols[k * 3 + 1] = 0.5 + 0.05 * t; cols[k * 3 + 2] = 0.2; }
   }
   for (let j = 0; j < cells; j++) for (let i = 0; i < cells; i++) {
     const k = i + j * N, a = hs[k], b = hs[k + 1], c = hs[k + N + 1], d = hs[k + N];

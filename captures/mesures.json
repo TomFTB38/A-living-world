@@ -1,0 +1,38 @@
+{
+ "bas": {
+  "radius": 6,
+  "chunks": 137,
+  "tris_max": 4114192,
+  "draws_max": 289,
+  "geo_mo": 104,
+  "heap_mo": 20,
+  "premier_affichage_s": 3.6,
+  "chargement_s": 7.6,
+  "gen_mesh_ms": 50.1,
+  "gpu_logiciel_ms": 0
+ },
+ "moyen": {
+  "radius": 8,
+  "chunks": 225,
+  "tris_max": 6163488,
+  "draws_max": 415,
+  "geo_mo": 166,
+  "heap_mo": 12,
+  "premier_affichage_s": 4.2,
+  "chargement_s": 13.8,
+  "gen_mesh_ms": 84.2,
+  "gpu_logiciel_ms": 0
+ },
+ "haut": {
+  "radius": 10,
+  "chunks": 349,
+  "tris_max": 9350214,
+  "draws_max": 579,
+  "geo_mo": 278,
+  "heap_mo": 17,
+  "premier_affichage_s": 7.0,
+  "chargement_s": 25.5,
+  "gen_mesh_ms": 88.5,
+  "gpu_logiciel_ms": 0
+ }
+}

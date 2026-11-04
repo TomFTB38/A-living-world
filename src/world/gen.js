@@ -3,7 +3,7 @@ import { Noise, Rng, hashInt, hashFloat, clamp, lerp, smooth } from '../core/noi
 import { CX, CH, CA, idx, B, IS_SOLID, IS_DECO } from './blocks.js';
 
 export const GEN_VERSION = 1;
-const TREE_CELL = 11, ROCK_CELL = 19, POND_CELL = 96, STAMP_REACH = 38;
+const TREE_CELL = 13, ROCK_CELL = 19, POND_CELL = 96, STAMP_REACH = 38;
 
 export class WorldGen {
   constructor(seed) {
@@ -232,14 +232,15 @@ export class WorldGen {
       const c = this.column(x, z), forest = c.forest;
       if (c.water || c.path > 0 || c.bank > 0.4) return null;
       const pick = hashFloat(gx, gz, s, 33);
-      if (pick > 0.1 + 0.52 * smooth(0.25, 0.55, forest)) return null;
+      const glade = smooth(-0.1, 0.45, this.nForest.n2(x / 46 + 70, z / 46 - 40));
+      if (pick > (0.08 + 0.56 * smooth(0.25, 0.55, forest)) * (1 - 0.85 * glade)) return null;
       const r = new Rng(hashInt(gx, gz, s, 34));
       const sp = this.nForest.n2(gx / 5.1 + 3, gz / 5.1 - 8), roll = r.next();
       const y = Math.floor(c.h);
       const age = r.next();
       if (roll < 0.34 + sp * 0.3) return growBirch(x, y, z, r, age);
       if (roll < 0.52) return growBeech(x, y, z, r, age);
-      return growOak(x, y, z, r, age * age);
+      return growOak(x, y, z, r, age * age * age);
     });
   }
 
@@ -299,10 +300,10 @@ function growOak(x, y, z, r, age) {
   const lean = [r.range(-0.1, 0.1), 1, r.range(-0.1, 0.1)];
   const trunk = g.limb([x, y - 1, z], lean, H, rad, rad * 0.72, log, r, 0.05, 0.03);
   // contreforts et racines apparentes
-  const roots = 4 + Math.floor(age * 3);
+  const roots = 3 + Math.floor(age * 3);
   for (let i = 0; i < roots; i++) {
     const a = (i / roots) * 6.283 + r.range(-0.3, 0.3);
-    g.limb([x + Math.cos(a) * rad * 0.6, y + rad * 0.9, z + Math.sin(a) * rad * 0.6], [Math.cos(a), -0.6, Math.sin(a)], rad * 2.4 + 2, rad * 0.5, 0.45, log, r, 0.1, -0.03);
+    g.limb([x + Math.cos(a) * rad * 0.6, y + rad * 0.9, z + Math.sin(a) * rad * 0.6], [Math.cos(a), -0.45, Math.sin(a)], rad * 2 + 2.5, rad * 0.42, 0.42, log, r, 0.14, -0.01);
   }
   const top = trunk[trunk.length - 1], arms = 3 + Math.floor(age * 3);
   for (let i = 0; i < arms; i++) {

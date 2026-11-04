@@ -6,9 +6,9 @@ import * as S from './shaders.js';
 import { VSIZE } from '../world/mesher.js';
 
 export const PRESETS = {
-  bas: { shadow: 1024, samples: 4, vol: 6, clouds: false, ssao: true, scale: 0.7 },
-  moyen: { shadow: 2048, samples: 6, vol: 10, clouds: true, ssao: true, scale: 0.85 },
-  haut: { shadow: 3072, samples: 8, vol: 14, clouds: true, ssao: true, scale: 1 },
+  bas: { shadow: 1024, samples: 4, vol: 6, clouds: false, ssao: true, scale: 0.7, radius: 6, lod: [1.3, 3.2] },
+  moyen: { shadow: 2048, samples: 6, vol: 10, clouds: true, ssao: true, scale: 0.85, radius: 8, lod: [1.8, 4] },
+  haut: { shadow: 3072, samples: 8, vol: 14, clouds: true, ssao: true, scale: 1, radius: 10, lod: [2.3, 4.6] },
 };
 const MAX_QUADS = 500000;
 const CASC = [26, 90, 300];
@@ -21,7 +21,7 @@ export class Renderer {
     this.gl = gl; this.canvas = canvas; this.frame = 0; this.time = 0; this.stats = { draws: 0, tris: 0, gpu: 0 };
     this.aniso = gl.getExtension('EXT_texture_filter_anisotropic');
     this.timer = gl.getExtension('EXT_disjoint_timer_query_webgl2'); this.q = null;
-    this.preset = PRESETS.moyen; this.fog = 0.0048; this.exposure = 0.62;
+    this.preset = PRESETS.moyen; this.fog = 0.0048; this.exposure = 0.52;
     this.sun = { dir: [0.4, 0.6, 0.3], col: [3, 3, 3], top: [0.2, 0.4, 0.8], hor: [0.6, 0.7, 0.9], ground: [0.2, 0.2, 0.15] };
     this.buildPrograms(); this.buildStatic(); this.prevVP = M.id();
   }
@@ -154,7 +154,7 @@ export class Renderer {
     const d = V.norm([Math.cos(a) * 0.82, el * 0.9 + 0.02, 0.38 + 0.2 * (1 - el)]); s.dir = d;
     const k = Math.min(1, Math.max(0, (d[1] + 0.06) / 0.5)), st = k * k * (3 - 2 * k), day = Math.min(1, Math.max(0, (d[1] + 0.1) / 0.25));
     const mix = (x, y, t) => [x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t];
-    s.col = mix([3.2, 1.45, 0.55], [4.5, 3.9, 2.9], st).map((c) => c * day + 0.02);
+    s.col = mix([4.2, 1.9, 0.75], [6.2, 5.3, 3.7], st).map((c) => c * day + 0.02);
     s.top = mix(mix([0.012, 0.02, 0.05], [0.19, 0.3, 0.62], day), [0.22, 0.46, 1.05], st);
     s.hor = mix(mix([0.03, 0.04, 0.08], [1.05, 0.62, 0.42], day), [0.82, 1.0, 1.25], st);
     s.ground = mix([0.02, 0.02, 0.025], [0.3, 0.3, 0.15], day);

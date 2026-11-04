@@ -85,9 +85,9 @@ export class ClientWorld {
       let c = this.chunks.get(k);
       if (!c) { c = { cx, cz, wx: cx * CX + CX / 2, wz: cz * CX + CX / 2, org: [cx * CX, 0, cz * CX], ver: 0, lod: -1, ready: false, busy: false, dirty: true, voxels: null, ymin: 0, ymax: CH }; this.chunks.set(k, c); }
       c.d = d;
-      const want = d <= 2.3 ? 0 : d <= 4.6 ? 1 : 2, needVox = d <= 3.2 && !c.voxels;
+      const L = this.r.preset.lod, want = d <= L[0] ? 0 : d <= L[1] ? 1 : 2, needVox = d <= 3.2 && !c.voxels;
       // hystérésis : on ne dégrade pas un chunk tant qu'il ne s'est pas franchement éloigné
-      const keep = c.ready && c.lod <= want && d <= (c.lod === 0 ? 3.1 : c.lod === 1 ? 5.4 : 99);
+      const keep = c.ready && c.lod <= want && d <= (c.lod === 0 ? L[0] + 0.8 : c.lod === 1 ? L[1] + 0.8 : 99);
       if (!c.busy && (c.dirty || !c.ready || !keep || needVox)) wanted.push([c.dirty && c.ready ? -10 + d : d + (c.ready ? 3 : 0), c, want, needVox]);
     }
     wanted.sort((a, b) => a[0] - b[0]);
