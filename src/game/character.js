@@ -3,7 +3,7 @@ import { VBuf, box, KIND } from '../world/mesher.js';
 import { hashFloat } from '../core/noise.js';
 import { M } from '../core/math.js';
 
-const C = { skin: [0.93, 0.7, 0.53], hair: [0.36, 0.2, 0.1], hair2: [0.46, 0.27, 0.13], shirt: [0.88, 0.82, 0.68], shirt2: [0.78, 0.72, 0.58], pants: [0.37, 0.3, 0.24], boot: [0.3, 0.17, 0.09], cuff: [0.62, 0.58, 0.5], bag: [0.46, 0.28, 0.14], bag2: [0.58, 0.38, 0.2], roll: [0.8, 0.68, 0.46], strap: [0.32, 0.19, 0.1], handle: [0.47, 0.27, 0.13], steel: [0.42, 0.45, 0.5], glove: [0.42, 0.24, 0.12] };
+const C = { skin: [0.93, 0.7, 0.53], hair: [0.27, 0.15, 0.08], hair2: [0.36, 0.2, 0.1], shirt: [0.88, 0.82, 0.68], shirt2: [0.78, 0.72, 0.58], pants: [0.37, 0.3, 0.24], boot: [0.3, 0.17, 0.09], cuff: [0.62, 0.58, 0.5], bag: [0.46, 0.28, 0.14], bag2: [0.58, 0.38, 0.2], roll: [0.8, 0.68, 0.46], strap: [0.32, 0.19, 0.1], handle: [0.47, 0.27, 0.13], steel: [0.42, 0.45, 0.5], glove: [0.42, 0.24, 0.12] };
 const k = KIND.FLAT, sk = 255;
 const Bx = (o, a, c) => box(o, a[0], a[1], a[2], a[3], a[4], a[5], c[0], c[1], c[2], 0, sk, 0, k, true);
 

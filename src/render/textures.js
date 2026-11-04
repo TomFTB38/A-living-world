@@ -62,7 +62,7 @@ function mossy(t, x, y) {
   return { c: mix3(st.c, g.c.map((c) => c * 0.82), k), h: lerp(st.h, 0.6 + 0.3 * t.val(x, y, 24), k), r: lerp(st.r, 0.9, k) };
 }
 function bark(t, x, y, dark, mid, light) {
-  const w = x + 3.5 * t.val(x, y, 4), ridges = Math.abs(Math.sin((w / 64) * Math.PI * 8)), brk = t.val(x * 1.5, y * 0.4, 8);
+  const w = x + 5 * t.val(x, y, 4), ridges = Math.abs(Math.sin((w / 64) * Math.PI * 4)), brk = t.val(x, y * 0.4, 8);
   const v = ridges * 0.72 + 0.28 * brk, deep = smooth(0.1, 0.4, v);
   const a = pal([dark, mid, light], v * 0.85 + 0.15 * t.val(x, y, 32));
   return { c: a.map((c) => c * (0.55 + 0.45 * deep)), h: v, r: 0.82 };

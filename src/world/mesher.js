@@ -222,7 +222,7 @@ function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
       const n = r.int(11, 15), base = r.range(0.82, 1.14), warm = r.next();
       for (let i = 0; i < n; i++) {
         const t = base * r.range(0.86, 1.14);
-        blade(o, x + r.next(), y, z + r.next(), r.range(0, 6.28), r.range(0.03, 0.05), r.range(0.24, 0.72), r.range(0.04, 0.2),
+        blade(o, x + r.next(), y, z + r.next(), r.range(0, 6.28), r.range(0.02, 0.036), r.range(0.22, 0.66), r.range(0.04, 0.2),
           (0.43 + 0.13 * warm) * t, (0.54 + 0.05 * warm) * t, (0.2 + 0.03 * warm) * t, s, l, Math.max(0, s - 25));
       }
       return;
@@ -237,7 +237,7 @@ function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
           const ax = cx + ca * dist, az = cz + sa * dist, ay = y + hh;
           const f0 = (k - 1) / seg, bx = cx + ca * L * f0, bz = cz + sa * L * f0, by = y + h0 * Math.sin(f0 * 2.1) * (1 - f0 * 0.25);
           const px2 = -sa * lw, pz2 = ca * lw, w = 40 + 170 * f;
-          const G = 0.48 * t + 0.06 * (k & 1), R = 0.3 * t, Bl = 0.16 * t;
+          const G = 0.42 * t + 0.05 * (k & 1), R = 0.3 * t, Bl = 0.17 * t;
           for (const side of [-1, 1]) {
             o.v(bx, by, bz, 0, 0, 1, 0, w, 190, s, l, KIND.FOLIAGE, R * 0.8, G * 0.8, Bl);
             o.v(ax, ay, az, 0, 0, 1, 0, w, 190, s, l, KIND.FOLIAGE, R, G, Bl);
@@ -269,7 +269,7 @@ function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
           const col = k > seg - 3 ? 1.15 : 1;
           box(o, a - w, yy, c - w, a + w, yy + hh, c + w, 0.5 * tone * col, 0.3 * tone * col, 0.82 * tone * col, 60 + 12 * k, s, l, KIND.FOLIAGE);
         }
-        for (let k = 0; k < 3; k++) { const t = r.range(0, 6.28); blade(o, a, y, c, t, 0.1, 0.32, 0.25, 0.24, 0.48, 0.14, s, l, s); }
+        for (let k = 0; k < 3; k++) { const t = r.range(0, 6.28); blade(o, a, y, c, t, 0.045, 0.3, 0.2, 0.3, 0.46, 0.17, s, l, s); }
       }
       return;
     }
@@ -280,7 +280,7 @@ function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
         stem(o, a, y, c, h, s, l);
         box(o, a - w, y + h, c - w, a + w, y + h + 0.07, c + w, col[0], col[1], col[2], 80, s, l, KIND.FOLIAGE);
       }
-      blade(o, x + 0.5, y, z + 0.5, r.range(0, 6.3), 0.1, 0.45, 0.2, 0.3, 0.52, 0.14, s, l, s);
+      blade(o, x + 0.5, y, z + 0.5, r.range(0, 6.3), 0.04, 0.34, 0.15, 0.36, 0.5, 0.18, s, l, s);
       return;
     }
     case 'mushroom': {

@@ -22,7 +22,7 @@ class Game {
     this.canvas = $('gl');
     this.r = new Renderer(this.canvas);
     this.hud = new HUD(this.r.texSource);
-    this.settings = { preset: params.get('q') || 'moyen', scale: 0, fov: 75, sens: 1, radius: 9 };
+    this.settings = { preset: params.get('q') || 'moyen', scale: 0, fov: 60, sens: 1, radius: 9 };
     try { Object.assign(this.settings, JSON.parse(storage?.getItem('alw.settings') || '{}')); } catch (e) { /* réglages par défaut */ }
     if (params.get('q')) this.settings.preset = params.get('q');
     if (params.get('r')) this.settings.radius = +params.get('r');
@@ -49,7 +49,7 @@ class Game {
     this.world = new ClientWorld(this.r, seed, edits, { radius: this.settings.radius, workers });
     this.inv = save?.inventory || DEFAULT_INV.map((a) => ({ ...a })); this.sel = 0;
     if (save) { this.hour = save.time; this.player = new Player(...save.player.p); this.player.yaw = save.player.yaw; this.player.pitch = save.player.pitch; this.player.moveYaw = save.player.yaw; this.vit = save.player.vit || this.vit; }
-    else { const s = this.findSpawn(); this.player = new Player(s[0], s[1], s[2]); this.player.yaw = s[3]; this.player.moveYaw = s[3]; this.hour = 16.4; }
+    else { const s = this.findSpawn(); this.player = new Player(s[0], s[1], s[2]); this.player.yaw = s[3]; this.player.moveYaw = s[3]; this.player.pitch = -0.13; this.hour = 16.4; }
     this.loaded = false; $('loading').classList.add('on'); this.r.reset = true;
     this.hud.inventory(this.inv, this.sel);
   }
@@ -60,7 +60,8 @@ class Game {
     for (let r = 0; r < 1600; r += 13) for (let a = 0; a < 6.283; a += 0.45) {
       const x = Math.round(Math.cos(a) * r), z = Math.round(Math.sin(a) * r), c = g.column(x, z);
       if (c.path < 0.7 || c.water) continue;
-      const y = c.h; let f = c.forest * 2, flat = 0;
+      const y = c.h, yy = Math.atan2(0.75, 0.2), bh = g.column(x - Math.sin(yy) * 4.5, z - Math.cos(yy) * 4.5).h;
+      if (bh > y + 0.6) continue; let f = c.forest * 2, flat = 0;
       for (const [dx, dz] of [[24, 0], [-24, 0], [0, 24], [0, -24], [17, 17], [-17, -17], [17, -17], [-17, 17]]) { const n = g.column(x + dx, z + dz); f += n.forest; flat += Math.abs(n.h - y); }
       let wet = 0; for (const [dx, dz] of [[14, 0], [-14, 0], [0, 14], [0, -14], [10, 10], [-10, -10], [10, -10], [-10, 10]]) if (g.column(x + dx, z + dz).water) wet = 1;
       const s = f / 10 - flat * 0.006 - r / 9000 + wet * 0.35;
@@ -186,7 +187,7 @@ class Game {
     const head = [p.p[0], p.p[1] + (p.crouch ? 1.32 : 1.62), p.p[2]], right = V.norm([Math.cos(p.yaw), 0, -Math.sin(p.yaw)]);
     if (!this.view.third) return { eye: head, f };
     // Caméra d'épaule, retenue par le terrain : le héros reste au tiers gauche, comme dans les références.
-    const anchor = V.add(V.add(head, V.mul(right, -0.85)), [0, 0.1, 0]), back = V.mul(f, -1); let d = this.view.dist;
+    const anchor = V.add(V.add(head, V.mul(right, -0.8)), [0, 0.42, 0]), back = V.mul(f, -1); let d = this.view.dist;
     const hit = raycast(this.world, anchor, V.norm(back), d + 0.3, (x, y, z) => { const b = this.world.get(x, y, z); return IS_DECO[b] || BLOCKS[b]?.shape === 'leaf'; });
     if (hit) d = Math.max(0.5, hit.t - 0.3);
     this.view.camDist += (d - this.view.camDist) * (d < this.view.camDist ? 0.5 : 0.08);
