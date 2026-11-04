@@ -1,0 +1,57 @@
+<title>A Living World</title>
+<style>
+:root{--ink:#f6f3e9;--panel:rgba(18,20,17,.58);--line:rgba(255,255,255,.14);--accent:#9ed44a}
+:root:not([data-theme="light"]){color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0d100c;overflow:hidden;color:var(--ink);font:500 15px/1.3 system-ui,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.pill{position:fixed;background:var(--panel);border-radius:9px;backdrop-filter:blur(5px);padding:7px 12px;text-shadow:0 1px 2px #0008}
+#brand{left:16px;top:14px;font-size:clamp(14px,1.5vw,21px);font-weight:700;letter-spacing:.02em;display:flex;gap:8px;align-items:center}#brand svg{width:1.05em;height:1.05em}
+#biome{right:16px;top:14px;font-size:clamp(14px,1.4vw,20px);font-weight:600;display:flex;gap:8px;align-items:center}#biome svg{width:1.1em;height:1.1em}
+#compassWrap{left:50%;top:14px;transform:translateX(-50%);width:min(320px,38vw);height:30px;padding:0;overflow:hidden}
+#compass{position:absolute;inset:0}#compass span{position:absolute;top:50%;transform:translate(-50%,-50%);font-weight:600}#compass .t{opacity:.5}#compassWrap:after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--accent)}
+#reticle{position:fixed;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);pointer-events:none;opacity:.88;filter:drop-shadow(0 0 1px #000)}
+#reticle:before,#reticle:after{content:"";position:absolute;background:#fff}#reticle:before{left:10px;top:0;width:2px;height:22px}#reticle:after{left:0;top:10px;width:22px;height:2px}#reticle.hit{transform:translate(-50%,-50%) scale(1.25)}
+#vitals{position:fixed;left:16px;bottom:16px;width:clamp(170px,16vw,250px);background:var(--panel);padding:10px;border-radius:10px;backdrop-filter:blur(5px);display:grid;gap:7px}
+.vit{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:center}.vit svg{width:22px;height:22px}.bar{position:relative;height:20px;border-radius:10px;background:#0007;overflow:hidden}.bar i{position:absolute;inset:0 auto 0 0;border-radius:10px}.bar b{position:absolute;inset:0;text-align:center;font-size:13px;line-height:20px;font-weight:600;text-shadow:0 1px 2px #000}
+#barHp{background:linear-gradient(#ee6b5c,#c63a2f)}#barFood{background:linear-gradient(#f0b24d,#c98a22)}#barWater{background:linear-gradient(#5db3ee,#2a7cc4)}
+#bottom{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);width:min(680px,50vw);min-width:360px}
+#item{text-align:center;height:20px;font-weight:600;text-shadow:0 1px 3px #000}
+#hotbar{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;background:var(--panel);padding:5px;border-radius:9px;backdrop-filter:blur(5px)}
+.slot{position:relative;aspect-ratio:1;border-radius:6px;background:rgba(255,255,255,.07);border:2px solid transparent}.slot.on{border-color:#fff;box-shadow:0 0 8px #fff6}.slot img{position:absolute;inset:9%;width:82%;height:82%;image-rendering:pixelated}.slot b{position:absolute;right:4px;bottom:1px;font-size:clamp(11px,1vw,15px);text-shadow:0 1px 2px #000}.slot i{position:absolute;left:4px;top:1px;font:500 10px system-ui;opacity:.6}
+#hints{position:fixed;right:16px;bottom:16px;display:grid;gap:6px;justify-items:end}#hints div{background:var(--panel);padding:5px 10px;border-radius:7px;font-weight:600;font-size:14px}#hints kbd{font:600 12px system-ui;border:1px solid #fff8;border-radius:4px;padding:1px 5px;margin-left:6px}
+#toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:var(--panel);padding:8px 16px;border-radius:9px;opacity:0;transition:opacity .25s;pointer-events:none}#toast.on{opacity:1}
+#prof{position:fixed;left:16px;top:66px;display:none;background:#000a;padding:9px 12px;border-radius:8px;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre}#prof.on{display:block}
+.layer{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,13,8,.55);backdrop-filter:blur(6px);padding:16px}.layer.on{display:flex}
+.card{background:rgba(22,25,19,.93);border:1px solid var(--line);border-radius:14px;padding:22px;width:min(460px,100%);max-height:100%;overflow:auto;user-select:text}
+.card h2{margin:0 0 14px;font-size:22px}.card h3{margin:16px 0 8px;font-size:14px;color:var(--accent)}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:9px 0}.row>*:last-child{flex:0 1 200px;min-width:0}
+input,select{width:100%;background:#0005;border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:7px 9px;font:inherit}input[type=range]{padding:0;accent-color:var(--accent)}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}button{background:#ffffff14;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px;font:600 14px system-ui;cursor:pointer}button:hover{background:#ffffff26}button.main{background:#6b9a2b;border-color:#8cbe41;grid-column:1/-1}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px;opacity:.9}
+#loading{background:#10140d;flex-direction:column;gap:16px}#loading h1{font-size:clamp(26px,5vw,44px);margin:0;letter-spacing:.03em}#loadTrack{width:min(340px,70vw);height:8px;border-radius:4px;background:#ffffff1c;overflow:hidden}#loadbar{height:100%;width:0;background:var(--accent);transition:width .2s}
+#fatal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#10140d;padding:24px;text-align:center;z-index:9}#fatal.on{display:flex}
+#touch{display:none}#touch.on{display:block}#touch button{position:fixed;width:68px;height:68px;border-radius:50%;background:#0005;right:18px}#tJump{bottom:110px}#tBreak{bottom:190px}#tPlace{bottom:270px}
+@media (max-width:760px){#bottom{min-width:0;width:calc(100vw - 32px);left:16px;transform:none;bottom:12px}#vitals{bottom:auto;top:58px;width:150px}#hints{display:none}#compassWrap{display:none}#biome{top:14px}}
+</style>
+<canvas id="gl"></canvas>
+<div class="pill" id="brand"><svg viewBox="0 0 24 24" fill="#9ed44a"><path d="M21 3C10 3 4 8 4 15c0 2 .6 3.600 1.500 5 1-4 4-8 9-10-4 3-7 7-8 11h3c1-1 1.500-2 2-3 7 0 11-6 10-15z"/></svg>A LIVING WORLD</div>
+<div class="pill" id="compassWrap"><div id="compass"></div></div>
+<div class="pill" id="biome"><svg viewBox="0 0 24 24" fill="#7fbf3e"><path d="M12 2c4 0 7 3 7 6 2 1 3 3 3 5 0 3-3 5-6 5h-3v4h-2v-4H8c-3 0-6-2-6-5 0-2 1-4 3-5 0-3 3-6 7-6z"/></svg><span id="biomeName">Forêt tempérée</span></div>
+<div id="reticle"></div>
+<div id="vitals">
+<div class="vit"><svg viewBox="0 0 24 24" fill="#e0483b"><path d="M12 21C5 15 2 11 2 7.500 2 4.500 4.500 3 6.800 3c2 0 3.700 1 5.200 3 1.500-2 3.200-3 5.200-3C19.500 3 22 4.500 22 7.500 22 11 19 15 12 21z"/></svg><div class="bar"><i id="barHp"></i><b id="tHp"></b></div></div>
+<div class="vit"><svg viewBox="0 0 24 24" fill="#d99a3a"><path d="M14 3c4 0 7 3 7 7 0 5-5 7-9 6l-5 5-3-1-1-3 5-5C7 8 10 3 14 3z"/></svg><div class="bar"><i id="barFood"></i><b id="tFood"></b></div></div>
+<div class="vit"><svg viewBox="0 0 24 24" fill="#52a8e6"><path d="M12 2c4 6 7 9 7 13a7 7 0 0 1-14 0c0-4 3-7 7-13z"/></svg><div class="bar"><i id="barWater"></i><b id="tWater"></b></div></div>
+</div>
+<div id="bottom"><div id="item"></div><div id="hotbar"></div></div>
+<div id="hints"><div>Casser <kbd>clic gauche</kbd></div><div>Poser <kbd>clic droit</kbd></div><div>Menu <kbd>Échap</kbd></div></div>
+<div id="toast"></div><pre id="prof"></pre>
+<div id="touch"><button id="tJump">Saut</button><button id="tBreak">Casser</button><button id="tPlace">Poser</button></div>
+<div class="layer" id="menu"><div class="card"><h2>A Living World</h2>
+<div class="btns"><button class="main" id="btnResume">Reprendre</button><button id="btnSave">Sauvegarder</button><button id="btnExport">Exporter le monde</button></div>
+<h3>Nouveau monde</h3><div class="row"><label for="inSeed">Seed</label><input id="inSeed" inputmode="numeric"></div><div class="btns"><button id="btnNew">Créer</button><button id="btnImport">Importer</button></div><input type="file" id="fileImport" accept=".alw" hidden>
+<h3>Graphismes</h3><div class="row"><label for="selPreset">Qualité</label><select id="selPreset"><option value="bas">Bas</option><option value="moyen">Moyen</option><option value="haut">Haut</option></select></div>
+<div class="row"><label for="inFov">Champ de vision</label><input id="inFov" type="range" min="55" max="100"></div><div class="row"><label for="inSens">Sensibilité</label><input id="inSens" type="range" min=".3" max="2.5" step=".1"></div>
+<h3>Commandes</h3><div class="keys"><b>ZQSD / WASD</b><span>se déplacer</span><b>Espace</b><span>sauter, remonter dans l'eau</span><b>Maj / Ctrl</b><span>sprint / s'accroupir</span><b>1 à 9, molette</b><span>objet sélectionné</span><b>C</b><span>changer de caméra</span><b>T / Y</b><span>avancer l'heure / figer le temps</span><b>F3</b><span>profilage</span><b>F5</b><span>sauvegarde rapide</span></div></div></div>
+<div class="layer on" id="loading"><h1>A LIVING WORLD</h1><div id="loadTrack"><div id="loadbar"></div></div></div>
+<div id="fatal"></div>
+<script>__GAME__</script>
