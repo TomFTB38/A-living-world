@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
+use crate::{font_data as fd, hud};
 
-const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; const FLOATS: usize = 180; const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; const DECO_SHADOW: f32 = 52.0;
+const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; const FLOATS: usize = 184; const UI_VERTS: u64 = 60_000; const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; const DECO_SHADOW: f32 = 52.0;
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32 }
 struct Part { buf: wgpu::Buffer, indices: u32 }
@@ -14,7 +15,7 @@ struct ChunkGpu { opaque: Option<Part>, deco: Option<Part>, water: Option<Part>,
 struct Far { part: Part, slot: u64 }
 /// Passe plein écran : son pipeline et le groupe de textures à lier.
 struct Full { pipe: wgpu::RenderPipeline, layout: wgpu::BindGroupLayout }
-struct Pipes { geom_o: wgpu::RenderPipeline, geom_d: wgpu::RenderPipeline, shadow_o: wgpu::RenderPipeline, shadow_d: wgpu::RenderPipeline, water: wgpu::RenderPipeline, water_layout: wgpu::BindGroupLayout, ssao: Full, blur_h: Full, blur_v: Full, light: Full, clouds: wgpu::RenderPipeline, volume: Full, compose: Full, taa: Full, first: Full, down: Full, up: Full, last: Full }
+struct Pipes { line: wgpu::RenderPipeline, ui: wgpu::RenderPipeline, geom_o: wgpu::RenderPipeline, geom_d: wgpu::RenderPipeline, shadow_o: wgpu::RenderPipeline, shadow_d: wgpu::RenderPipeline, water: wgpu::RenderPipeline, water_layout: wgpu::BindGroupLayout, ssao: Full, blur_h: Full, blur_v: Full, light: Full, clouds: wgpu::RenderPipeline, volume: Full, compose: Full, taa: Full, first: Full, down: Full, up: Full, last: Full }
 struct Rt { tex: wgpu::Texture, view: wgpu::TextureView }
 struct Targets {
     a: Rt, n: Rt, l: Rt, d: Rt, d2: Rt, hdr: Rt, scene: Rt, ao: Rt, ao2: Rt, vol: Rt, cl: Rt, comp: Rt, hist: [Rt; 2], bloom: Vec<Rt>,
@@ -22,7 +23,7 @@ struct Targets {
 }
 pub struct Gpu {
     surface: Option<wgpu::Surface<'static>>, device: wgpu::Device, queue: wgpu::Queue, config: wgpu::SurfaceConfiguration, format: wgpu::TextureFormat,
-    p: Pipes, t: Targets, frame0: wgpu::BindGroup, geom1: wgpu::BindGroup, ubuf: wgpu::Buffer, ibuf: wgpu::Buffer, inst: wgpu::Buffer,
+    p: Pipes, t: Targets, ui_buf: wgpu::Buffer, ui_u: wgpu::Buffer, ui_bind: wgpu::BindGroup, frame0: wgpu::BindGroup, geom1: wgpu::BindGroup, ubuf: wgpu::Buffer, ibuf: wgpu::Buffer, inst: wgpu::Buffer,
     shadow_views: Vec<wgpu::TextureView>, shadow_bind: Vec<wgpu::BindGroup>, shadow_buf: Vec<wgpu::Buffer>, shadow_vp: [M4; 3], shadow_size: u32, hole: f32,
     chunks: HashMap<(i32, i32), ChunkGpu>, far: Option<Far>, free: Vec<u64>, frame: u64, prev_vp: M4, reset: bool, capture: Option<Rt>,
 }
@@ -156,8 +157,27 @@ impl Gpu {
         let w_pl = d.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[&g0, &water_layout], push_constant_ranges: &[] });
         let m_w = module(include_str!("shaders/water.wgsl"));
         let water = d.create_render_pipeline(&wgpu::RenderPipelineDescriptor { label: Some("eau"), layout: Some(&w_pl), vertex: wgpu::VertexState { module: &m_w, entry_point: Some("vs_water"), compilation_options: Default::default(), buffers: &buffers }, fragment: Some(wgpu::FragmentState { module: &m_w, entry_point: Some("fs_water"), compilation_options: Default::default(), targets: &[Some(HDR.into())] }), primitive: prim(None), depth_stencil: ds(false, wgpu::CompareFunction::Greater), multisample: Default::default(), multiview: None, cache: None });
+        let m_l = module(include_str!("shaders/line.wgsl"));
+        let line_pl = d.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[&g0], push_constant_ranges: &[] });
+        let line = d.create_render_pipeline(&wgpu::RenderPipelineDescriptor { label: Some("contour"), layout: Some(&line_pl), vertex: wgpu::VertexState { module: &m_l, entry_point: Some("vs_line"), compilation_options: Default::default(), buffers: &[] }, fragment: Some(wgpu::FragmentState { module: &m_l, entry_point: Some("fs_line"), compilation_options: Default::default(), targets: &[Some(HDR.into())] }), primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::LineList, ..Default::default() }, depth_stencil: ds(false, wgpu::CompareFunction::Greater), multisample: Default::default(), multiview: None, cache: None });
+        // Interface
+        let font_tex = d.create_texture_with_data(&queue, &wgpu::TextureDescriptor { label: Some("police"), size: wgpu::Extent3d { width: fd::W, height: fd::H, depth_or_array_layers: 1 }, mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2, format: wgpu::TextureFormat::R8Unorm, usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST, view_formats: &[] }, wgpu::util::TextureDataOrder::LayerMajor, include_bytes!("../assets/font.r8"));
+        let font_view = font_tex.create_view(&Default::default());
+        let ui_buf = d.create_buffer(&wgpu::BufferDescriptor { label: Some("interface"), size: UI_VERTS * hud::VERT as u64, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let ui_u = d.create_buffer(&wgpu::BufferDescriptor { label: None, size: 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let ui_l = d.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: None, entries: &[
+            wgpu::BindGroupLayoutEntry { binding: 0, visibility: wgpu::ShaderStages::VERTEX, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None }, count: None },
+            wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2Array, multisampled: false }, count: None },
+            wgpu::BindGroupLayoutEntry { binding: 2, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
+            wgpu::BindGroupLayoutEntry { binding: 3, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
+        ] });
+        let ui_bind = d.create_bind_group(&wgpu::BindGroupDescriptor { label: None, layout: &ui_l, entries: &[wgpu::BindGroupEntry { binding: 0, resource: ui_u.as_entire_binding() }, wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&alb) }, wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&font_view) }, wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&s_clamp) }] });
+        let ui_pl = d.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[&ui_l], push_constant_ranges: &[] });
+        let m_ui = d.create_shader_module(wgpu::ShaderModuleDescriptor { label: None, source: wgpu::ShaderSource::Wgsl(include_str!("shaders/ui.wgsl").into()) });
+        let ui_attrs = [wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x2, offset: 0, shader_location: 0 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x2, offset: 8, shader_location: 1 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 16, shader_location: 2 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32, offset: 32, shader_location: 3 }];
+        let ui = d.create_render_pipeline(&wgpu::RenderPipelineDescriptor { label: Some("interface"), layout: Some(&ui_pl), vertex: wgpu::VertexState { module: &m_ui, entry_point: Some("vs_ui"), compilation_options: Default::default(), buffers: &[wgpu::VertexBufferLayout { array_stride: hud::VERT as u64, step_mode: wgpu::VertexStepMode::Vertex, attributes: &ui_attrs }] }, fragment: Some(wgpu::FragmentState { module: &m_ui, entry_point: Some("fs_ui"), compilation_options: Default::default(), targets: &[Some(wgpu::ColorTargetState { format, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })] }), primitive: prim(None), depth_stencil: None, multisample: Default::default(), multiview: None, cache: None });
         let clouds = full(include_str!("shaders/clouds.wgsl"), "", "fs_clouds", HDR, None).pipe;
-        let p = Pipes { geom_o, geom_d, shadow_o, shadow_d, water, water_layout,
+        let p = Pipes { line, ui, geom_o, geom_d, shadow_o, shadow_d, water, water_layout,
             ssao: full(include_str!("shaders/ssao.wgsl"), "DT", "fs_ssao", LDR, None), blur_h: full(blur, "TD", "fs_h", LDR, None), blur_v: full(blur, "TD", "fs_v", LDR, None),
             light: full(include_str!("shaders/light.wgsl"), "TTTDT", "fs_light", HDR, None), clouds, volume: full(include_str!("shaders/volume.wgsl"), "D", "fs_volume", HDR, None),
             compose: full(include_str!("shaders/compose.wgsl"), "TTTD", "fs_compose", HDR, None), taa: full(include_str!("shaders/taa.wgsl"), "TTD", "fs_taa", HDR, None),
@@ -166,7 +186,7 @@ impl Gpu {
         let t = targets(d, &p, config.width, config.height);
         let capture = if surface.is_none() { Some(rt(d, config.width, config.height, LDR, true)) } else { None };
         let free = (1..MAX_SLOTS).rev().collect();
-        Gpu { surface, p, t, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
+        Gpu { surface, p, t, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
     }
     pub fn resize(&mut self, w: u32, h: u32) {
         if w == 0 || h == 0 { return; }
@@ -187,7 +207,7 @@ impl Gpu {
     }
     pub fn forget(&mut self, k: (i32, i32)) { if let Some(c) = self.chunks.remove(&k) { self.free.push(c.slot); } }
     /// Une image complète. Rend le nombre de triangles envoyés.
-    pub fn render(&mut self, vp: &M4, view_m: &M4, proj: &M4, eye: [f64; 3], time: f64, s: &Sky, cloud: f32) -> usize {
+    pub fn render(&mut self, vp: &M4, view_m: &M4, proj: &M4, eye: [f64; 3], time: f64, s: &Sky, cloud: f32, aim: Option<([i32; 3], f32)>, ui: &hud::Ui) -> usize {
         let frame = match &self.surface { Some(sf) => match sf.get_current_texture() { Ok(f) => Some(f), Err(_) => { sf.configure(&self.device, &self.config); return 0; } }, None => None };
         let out_view = frame.as_ref().map(|f| f.texture.create_view(&Default::default()));
         let (w, h) = (self.config.width as f32, self.config.height as f32); self.frame += 1; let fr = self.frame; let mut tris = 0usize;
@@ -214,7 +234,7 @@ impl Gpu {
         // Constantes de l'image
         let ivp = view::invert(vp); let ip = view::invert(proj); let mut u: Vec<f32> = Vec::with_capacity(FLOATS);
         for m in [vp, &ivp, &self.prev_vp, view_m, proj, &ip, &self.shadow_vp[0], &self.shadow_vp[1], &self.shadow_vp[2]] { u.extend_from_slice(m); }
-        u.extend_from_slice(&[CASCADES[0] as f32, CASCADES[1] as f32, CASCADES[2] as f32, 0.0, eye[0] as f32, eye[1] as f32, eye[2] as f32, time as f32, s.dir[0], s.dir[1], s.dir[2], s.exposure, s.col[0], s.col[1], s.col[2], cloud, s.top[0], s.top[1], s.top[2], 1.0 / self.shadow_size as f32, s.hor[0], s.hor[1], s.hor[2], s.night, s.ground[0], s.ground[1], s.ground[2], 0.0048, jit[0], jit[1], w, h, (fr % 64) as f32, 0.0, self.hole, if self.reset { 1.0 } else { 0.0 }]);
+        u.extend_from_slice(&[CASCADES[0] as f32, CASCADES[1] as f32, CASCADES[2] as f32, 0.0, eye[0] as f32, eye[1] as f32, eye[2] as f32, time as f32, s.dir[0], s.dir[1], s.dir[2], s.exposure, s.col[0], s.col[1], s.col[2], cloud, s.top[0], s.top[1], s.top[2], 1.0 / self.shadow_size as f32, s.hor[0], s.hor[1], s.hor[2], s.night, s.ground[0], s.ground[1], s.ground[2], 0.0048, jit[0], jit[1], w, h, (fr % 64) as f32, 0.0, self.hole, if self.reset { 1.0 } else { 0.0 }, aim.map_or(0.0, |a| a.0[0] as f32), aim.map_or(0.0, |a| a.0[1] as f32), aim.map_or(0.0, |a| a.0[2] as f32), aim.map_or(0.0, |a| a.1)]);
         self.queue.write_buffer(&self.ubuf, 0, &bytes_f32(&u));
         let list: Vec<&ChunkGpu> = list_all.iter().copied().filter(|c| view::visible(vp, c.min, c.max)).collect();
         let t = &self.t; let g0 = &self.frame0;
@@ -246,6 +266,10 @@ impl Gpu {
             p.set_bind_group(0, g0, &[]); p.set_bind_group(1, &t.b_water, &[]); p.set_index_buffer(self.ibuf.slice(..), wgpu::IndexFormat::Uint32); p.set_pipeline(&self.p.water);
             for c in &list { if let Some(q) = &c.water { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }
         }
+        if aim.is_some() {
+            let mut p = enc.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("contour"), color_attachments: &[clear_color(&t.hdr.view, wgpu::LoadOp::Load)], depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment { view: &t.d.view, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store }), stencil_ops: None }), timestamp_writes: None, occlusion_query_set: None });
+            p.set_pipeline(&self.p.line); p.set_bind_group(0, g0, &[]); p.draw(0..24, 0..1);
+        }
         fullscreen(&mut enc, &self.p.compose.pipe, g0, Some(&t.b_comp), &t.comp.view, BLACK);
         let cur = (fr & 1) as usize;
         fullscreen(&mut enc, &self.p.taa.pipe, g0, Some(&t.b_taa[cur]), &t.hist[cur].view, BLACK);
@@ -254,6 +278,12 @@ impl Gpu {
         for i in (1..5).rev() { fullscreen(&mut enc, &self.p.up.pipe, g0, Some(&t.b_up[i - 1]), &t.bloom[i - 1].view, wgpu::LoadOp::Load); }
         let target = match (&out_view, &self.capture) { (Some(v), _) => v, (None, Some(c)) => &c.view, _ => unreachable!() };
         fullscreen(&mut enc, &self.p.last.pipe, g0, Some(&t.b_last[cur]), target, BLACK);
+        let verts = (ui.data.len() / 9).min(UI_VERTS as usize);
+        if verts > 0 {
+            self.queue.write_buffer(&self.ui_u, 0, &bytes_f32(&[w, h, 0.0, 0.0])); self.queue.write_buffer(&self.ui_buf, 0, &bytes_f32(&ui.data[..verts * 9]));
+            let mut p = enc.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("interface"), color_attachments: &[clear_color(target, wgpu::LoadOp::Load)], depth_stencil_attachment: None, timestamp_writes: None, occlusion_query_set: None });
+            p.set_pipeline(&self.p.ui); p.set_bind_group(0, &self.ui_bind, &[]); p.set_vertex_buffer(0, self.ui_buf.slice(..)); p.draw(0..verts as u32, 0..1);
+        }
         self.queue.submit([enc.finish()]); if let Some(f) = frame { f.present(); }
         self.prev_vp = *vp; self.reset = false;
         tris

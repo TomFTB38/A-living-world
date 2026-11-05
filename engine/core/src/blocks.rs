@@ -37,3 +37,13 @@ pub fn oriented_block(id: u8, axis: char) -> u8 {
     };
     v[match axis { 'x' => 0, 'y' => 1, _ => 2 }]
 }
+
+/// Axe de pose selon le regard. `prev` évite de basculer sans arrêt quand on vise entre deux directions.
+/// Modes : 0 selon le regard, 1 debout, 2 dans le sens du regard, 3 en travers.
+pub fn gaze_axis(dx: f64, dy: f64, dz: f64, mode: u8, prev: Option<char>) -> char {
+    let (ax, az) = (dx.abs(), dz.abs()); let mut h = if ax >= az { 'x' } else { 'z' };
+    if prev == Some('x') && ax * 1.25 > az { h = 'x'; } else if prev == Some('z') && az * 1.25 > ax { h = 'z'; }
+    match mode { 1 => 'y', 2 => h, 3 => if h == 'x' { 'z' } else { 'x' }, _ => if dy.abs() > if prev == Some('y') { 0.74 } else { 0.84 } { 'y' } else { h } }
+}
+pub const MODES: [&str; 4] = ["selon le regard", "debout", "dans le sens du regard", "en travers du regard"];
+pub fn by_name(n: &str) -> Option<u8> { BLOCKS.iter().find(|b| b.name == n).map(|b| b.id) }

@@ -13,7 +13,7 @@ type Key = (i32, i32);
 /// Niveau spécial : l'anneau de relief lointain, centré sur ce chunk.
 pub const FAR: u8 = 255;
 pub struct Built { pub key: Key, pub lod: u8, pub mesh: Mesh, pub voxels: Arc<Vec<u8>>, pub ms: f64 }
-struct Shared { queue: Mutex<Vec<(Key, u8)>>, wake: Condvar, voxels: Mutex<HashMap<Key, Arc<Vec<u8>>>>, stop: AtomicBool }
+struct Shared { queue: Mutex<Vec<(Key, u8)>>, wake: Condvar, voxels: Mutex<HashMap<Key, Arc<Vec<u8>>>>, edits: Mutex<HashMap<Key, HashMap<u32, u8>>>, stop: AtomicBool }
 pub struct Preset { pub radius: i32, pub lod1: f64, pub lod2: f64 }
 /// Réglages du PC : plus loin que le Haut du prototype, puisque la marge est là.
 pub const HIGH: Preset = Preset { radius: 10, lod1: 2.3, lod2: 4.6 };
@@ -22,8 +22,11 @@ pub struct Streamer { sh: Arc<Shared>, rx: Receiver<Built>, threads: Vec<JoinHan
 
 fn voxels_of(sh: &Shared, gen: &WorldGen, k: Key) -> Arc<Vec<u8>> {
     if let Some(v) = sh.voxels.lock().unwrap().get(&k) { return v.clone(); }
-    let v = Arc::new(gen.gen_chunk(k.0, k.1));
-    sh.voxels.lock().unwrap().entry(k).or_insert(v).clone()
+    let mut v = gen.gen_chunk(k.0, k.1);
+    // Les modifications du joueur priment toujours sur la génération. Même ordre de verrous que `edit`.
+    let mut all = sh.voxels.lock().unwrap();
+    if let Some(e) = sh.edits.lock().unwrap().get(&k) { for (i, id) in e { v[*i as usize] = *id; } }
+    all.entry(k).or_insert(Arc::new(v)).clone()
 }
 fn worker(sh: Arc<Shared>, tx: Sender<Built>, seed: i32) {
     let gen = WorldGen::new(seed); let mut m = Mesher::new();
@@ -43,7 +46,7 @@ fn worker(sh: Arc<Shared>, tx: Sender<Built>, seed: i32) {
 }
 impl Streamer {
     pub fn new(seed: i32, p: &Preset, threads: usize) -> Self {
-        let sh = Arc::new(Shared { queue: Mutex::new(Vec::new()), wake: Condvar::new(), voxels: Mutex::new(HashMap::new()), stop: AtomicBool::new(false) });
+        let sh = Arc::new(Shared { queue: Mutex::new(Vec::new()), wake: Condvar::new(), voxels: Mutex::new(HashMap::new()), edits: Mutex::new(HashMap::new()), stop: AtomicBool::new(false) });
         let (tx, rx) = channel();
         let threads = (0..threads.max(1)).map(|_| { let (s, t) = (sh.clone(), tx.clone()); std::thread::spawn(move || worker(s, t, seed)) }).collect();
         Streamer { sh, rx, threads, radius: p.radius, lods: (p.lod1, p.lod2), loaded: HashMap::new(), pending: HashSet::new(), vox: HashMap::new(), last: None, far_at: None }
@@ -78,10 +81,35 @@ impl Streamer {
             if b.lod == FAR { out.push(b); continue; }
             let d = (((b.key.0 - c.0).pow(2) + (b.key.1 - c.1).pow(2)) as f64).sqrt();
             if d > self.radius as f64 + 1.5 { continue; }
-            self.loaded.insert(b.key, b.lod); self.vox.insert(b.key, b.voxels.clone()); out.push(b);
+            // Une copie déjà modifiée ne doit pas être écrasée par un maillage parti plus tôt.
+            self.loaded.insert(b.key, b.lod); self.vox.entry(b.key).or_insert_with(|| b.voxels.clone()); out.push(b);
         }
         (out, gone)
     }
+    /// Pose un bloc. La modification survit au déchargement, et les chunks touchés sont remaillés aussitôt.
+    pub fn edit(&mut self, x: i32, y: i32, z: i32, id: u8) -> bool {
+        if !(0..CH as i32).contains(&y) { return false; }
+        let n = CX as i32; let k = (x.div_euclid(n), z.div_euclid(n)); let i = idx(x.rem_euclid(n) as usize, y as usize, z.rem_euclid(n) as usize);
+        if !self.vox.contains_key(&k) { return false; }
+        { let mut all = self.sh.voxels.lock().unwrap(); self.sh.edits.lock().unwrap().entry(k).or_default().insert(i as u32, id); if let Some(c) = all.get_mut(&k) { Arc::make_mut(c)[i] = id; } }
+        Arc::make_mut(self.vox.get_mut(&k).unwrap())[i] = id;
+        // La lumière porte à 8 blocs : les voisins proches du bord changent aussi.
+        let (lx, lz) = (x.rem_euclid(n), z.rem_euclid(n)); let mut keys = Vec::new();
+        for dz in -1..=1 { for dx in -1..=1 {
+            if (dx == -1 && lx >= 8) || (dx == 1 && lx < n - 8) || (dz == -1 && lz >= 8) || (dz == 1 && lz < n - 8) || (dx, dz) == (0, 0) { continue; }
+            keys.push((k.0 + dx, k.1 + dz));
+        } }
+        keys.push(k); // dernier de la file : il sort le premier
+        let c = self.last.unwrap_or(k); let mut q = self.sh.queue.lock().unwrap();
+        for key in keys {
+            if self.loaded.remove(&key).is_none() && key != k { continue; }
+            let lod = self.lod_for((((key.0 - c.0).pow(2) + (key.1 - c.1).pow(2)) as f64).sqrt());
+            q.push((key, lod)); self.pending.insert((key, lod));
+        }
+        drop(q); self.sh.wake.notify_all(); true
+    }
+    pub fn edits(&self) -> HashMap<Key, HashMap<u32, u8>> { self.sh.edits.lock().unwrap().clone() }
+    pub fn set_edits(&mut self, e: HashMap<Key, HashMap<u32, u8>>) { *self.sh.edits.lock().unwrap() = e; }
     pub fn waiting(&self) -> usize { self.pending.len() }
     pub fn loaded(&self) -> usize { self.loaded.len() }
 }

@@ -10,3 +10,4 @@ pub mod textures;
 pub mod player;
 pub mod stream;
 pub mod view;
+pub mod session;

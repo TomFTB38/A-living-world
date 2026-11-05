@@ -19,3 +19,5 @@ Les fichiers freesound viennent des dépôts Minetest Game, dont les notices don
 Les sons CC BY-SA de ce dépôt ne sont pas utilisés.
 
 blade, whoosh, puff, snort, loop_wind, loop_rain et le grondement de loop_fall sont générés par `tools/make_sounds.py`.
+
+Police de l'interface : Inter, SIL Open Font License 1.1.
