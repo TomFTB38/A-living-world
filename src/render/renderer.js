@@ -6,9 +6,9 @@ import * as S from './shaders.js';
 import { VSIZE } from '../world/mesher.js';
 
 export const PRESETS = {
-  bas: { shadow: 1024, samples: 4, vol: 6, clouds: false, ssao: true, scale: 0.7, radius: 6, lod: [1.3, 3.2], shadowStep: [3, 6, 12], decoShadow: 0, cloudStep: 1 },
-  moyen: { shadow: 2048, samples: 6, vol: 10, clouds: true, ssao: true, scale: 0.85, radius: 8, lod: [1.8, 4], shadowStep: [2, 4, 8], decoShadow: 34, cloudStep: 2 },
-  haut: { shadow: 3072, samples: 8, vol: 14, clouds: true, ssao: true, scale: 1, radius: 10, lod: [2.3, 4.6], shadowStep: [1, 2, 4], decoShadow: 52, cloudStep: 1 },
+  bas: { shadow: 1024, samples: 4, vol: 6, clouds: false, ssao: true, scale: 0.7, radius: 6, lod: [1.3, 3.2], shadowStep: [3, 6, 12], shadowOff: [0, 1, 2], decoShadow: 0, cloudStep: 1 },
+  moyen: { shadow: 2048, samples: 6, vol: 10, clouds: true, ssao: true, scale: 0.85, radius: 8, lod: [1.8, 4], shadowStep: [2, 4, 8], shadowOff: [0, 1, 7], decoShadow: 34, cloudStep: 2 },
+  haut: { shadow: 3072, samples: 8, vol: 14, clouds: true, ssao: true, scale: 1, radius: 10, lod: [2.3, 4.6], shadowStep: [1, 2, 4], shadowOff: [0, 1, 2], decoShadow: 52, cloudStep: 1 },
 };
 const MAX_QUADS = 500000;
 const CASC = [26, 90, 300];
@@ -183,10 +183,10 @@ export class Renderer {
       lx = Math.floor(lx / texel) * texel; ly = Math.floor(ly / texel) * texel;
       return M.mul(M.ortho(lx - R, lx + R, ly - R, ly + R, -lz - 420, -lz + 420), lv);
     };
-    // Cascades échelonnées : jamais deux grandes cascades sur la même image.
+    // Cascades échelonnées : en Moyen et Bas, jamais deux cascades sur la même image.
     const force = this.reset;
     for (let i = 0; i < 3; i++) {
-      if (!((fr + i) % p.shadowStep[i] === 0 || force || fr < 6)) continue;
+      if (!((fr + p.shadowOff[i]) % p.shadowStep[i] === 0 || force || fr < 6)) continue;
       const sv = snap(i); this.shadowVP[i] = sv;
       gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.tShadow, 0, i); gl.clear(gl.DEPTH_BUFFER_BIT);
       this.set(this.P.shadow, 'uVP', sv);
