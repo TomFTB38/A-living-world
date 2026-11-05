@@ -81,7 +81,7 @@ pub fn sky_at(hour: f64) -> Sky {
     let k = cl((d[1] + 0.06) / 0.5); let st = k * k * (3.0 - 2.0 * k); let day = cl((d[1] + 0.1) / 0.25); let night = 1.0 - cl((d[1] + 0.12) / 0.18); let moon = cl((-d[1] - 0.04) / 0.12);
     let moon_side = d[1] < -0.04;
     let dir = if moon_side { norm([-d[0], -d[1] + 0.05, d[2]]) } else { d };
-    let col = if moon_side { [0.13 * moon, 0.18 * moon, 0.3 * moon] } else { let c = mx([4.2, 1.9, 0.75], [6.2, 5.3, 3.7], st); let f = cl((d[1] + 0.04) / 0.14); [c[0] * f, c[1] * f, c[2] * f] };
+    let col = if moon_side { [0.13 * moon, 0.18 * moon, 0.3 * moon] } else { let c = mx([4.2, 1.9, 0.75], [4.9, 4.6, 3.75], st); let f = cl((d[1] + 0.04) / 0.14); [c[0] * f, c[1] * f, c[2] * f] };
     let f = |c: [f64; 3]| [c[0] as f32, c[1] as f32, c[2] as f32];
     Sky { dir: f(dir), col: f(col), top: f(mx(mx([0.012, 0.02, 0.05], [0.19, 0.3, 0.62], day), [0.22, 0.46, 1.05], st)), hor: f(mx(mx([0.03, 0.045, 0.09], [1.05, 0.62, 0.42], day), [0.82, 1.0, 1.25], st)), ground: f(mx([0.02, 0.022, 0.03], [0.3, 0.3, 0.15], day)), night: night as f32, exposure: (0.6 + 0.32 * night) as f32 }
 }

@@ -50,6 +50,7 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
     let a = textureSampleGrad(t_alb, s_rep, f, l, dx, dy); let m = textureSampleGrad(t_nrm, s_rep, f, l, dx, dy);
     alb = a.rgb * a.rgb * i.tint;
     alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.86);
+    if (layer0 >= 4 && layer0 < 16) { alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.74) * vec3f(0.84, 0.82, 0.86); } // terre : brune, pas orange
     let bark = layer0 >= BARK0 && layer0 < LEAF0;
     alb *= select(0.9 + 0.2 * h2, 0.84 + 0.32 * h2, bark);
     if (bark || (layer0 >= STONE0 && layer0 < GRAVEL0)) { let e = min(f, vec2f(1.0) - f); alb *= 0.8 + 0.2 * smoothstep(0.0, 0.04, min(e.x, e.y)); }
