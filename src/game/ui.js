@@ -33,7 +33,7 @@ export const ITEMS = {
 export class HUD {
   constructor(tex) {
     this.slots = [];
-    const icon = { pickaxe: toolIcon('pickaxe'), axe: toolIcon('axe'), sword: toolIcon('sword'), dirt: blockIcon(tex, 'dirt', 'dirt'), stone: blockIcon(tex, 'stone', 'stone'), planks: blockIcon(tex, 'planks', 'planks'), oak_log: blockIcon(tex, 'bark_oak', 'bark_oak'), birch_log: blockIcon(tex, 'bark_birch', 'bark_birch'), beech_log: blockIcon(tex, 'bark_beech', 'bark_beech'),
+    const icon = { pickaxe: toolIcon('pickaxe'), axe: toolIcon('axe'), sword: toolIcon('sword'), dirt: blockIcon(tex, 'dirt', 'dirt'), stone: blockIcon(tex, 'stone', 'stone'), planks: blockIcon(tex, 'planks', 'planks'), oak_log: blockIcon(tex, 'end_oak', 'bark_oak'), birch_log: blockIcon(tex, 'end_birch', 'bark_birch'), beech_log: blockIcon(tex, 'end_beech', 'bark_beech'),
       lantern: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><rect x="19" y="16" width="18" height="26" rx="2" fill="#ffc35a"/><path d="M16 14h24v5H16zM16 40h24v5H16zM25 7h6v8h-6z" fill="#4a2c15"/></svg>') };
     this.icon = icon; const bar = $('hotbar');
     for (let i = 0; i < 9; i++) { const d = document.createElement('div'); d.className = 'slot'; d.innerHTML = `<img alt=""><b></b><i>${i + 1}</i>`; bar.appendChild(d); this.slots.push(d); }

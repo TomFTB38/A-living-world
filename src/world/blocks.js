@@ -7,7 +7,7 @@ export const idx = (x, y, z) => x + z * CX + y * CX * CX;
 // Matériaux : chaque matériau occupe VARIANTS couches consécutives du texture array.
 export const VARIANTS = 4;
 export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'mossy_stone', 'limestone', 'granite', 'gravel', 'sand',
-  'bark_oak', 'bark_birch', 'bark_beech', 'leaf_oak', 'leaf_birch', 'leaf_beech', 'planks', 'forest_soil', 'water_foam'];
+  'bark_oak', 'bark_birch', 'bark_beech', 'leaf_oak', 'leaf_birch', 'leaf_beech', 'planks', 'forest_soil', 'water_foam', 'end_oak', 'end_birch', 'end_beech'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -23,9 +23,9 @@ const defs = [
   ['granite', 'cube', ['granite', 'granite', 'granite'], 1.6, { cat: 'rock' }],
   ['gravel', 'cube', ['gravel', 'gravel', 'gravel'], 0.5, { cat: 'terrain' }],
   ['sand', 'cube', ['sand', 'sand', 'sand'], 0.4, { cat: 'terrain' }],
-  ['oak_log', 'cube', ['bark_oak', 'bark_oak', 'bark_oak'], 1.0, { cat: 'wood' }],
-  ['birch_log', 'cube', ['bark_birch', 'bark_birch', 'bark_birch'], 0.9, { cat: 'wood' }],
-  ['beech_log', 'cube', ['bark_beech', 'bark_beech', 'bark_beech'], 1.0, { cat: 'wood' }],
+  ['oak_log', 'cube', ['end_oak', 'bark_oak', 'end_oak'], 1.0, { cat: 'wood' }],
+  ['birch_log', 'cube', ['end_birch', 'bark_birch', 'end_birch'], 0.9, { cat: 'wood' }],
+  ['beech_log', 'cube', ['end_beech', 'bark_beech', 'end_beech'], 1.0, { cat: 'wood' }],
   ['oak_leaves', 'leaf', ['leaf_oak', 'leaf_oak', 'leaf_oak'], 0.12, { cat: 'foliage', drop: null, tint: [1, 1, 0.9] }],
   ['birch_leaves', 'leaf', ['leaf_birch', 'leaf_birch', 'leaf_birch'], 0.12, { cat: 'foliage', drop: null, tint: [1.08, 1.08, 0.82] }],
   ['beech_leaves', 'leaf', ['leaf_beech', 'leaf_beech', 'leaf_beech'], 0.12, { cat: 'foliage', drop: null, tint: [0.92, 1.02, 0.86] }],

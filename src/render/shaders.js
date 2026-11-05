@@ -50,8 +50,8 @@ void main(){
     alb=a.rgb*a.rgb*vTint; // texture sRGB approchée vers linéaire
     alb=mix(vec3(dot(alb,vec3(.3,.6,.1))),alb,.86);
     bool isBark=vLayer>=${matLayer('bark_oak')}&&vLayer<${matLayer('leaf_oak')};
-    alb*=isBark?.76+.5*h2:.9+.2*h2;
-    if(isBark||(vLayer>=${matLayer('stone')}&&vLayer<${matLayer('gravel')})){ vec2 e=min(f,1.-f); alb*=.74+.26*smoothstep(0.,.045,min(e.x,e.y)); }
+    alb*=isBark?.84+.32*h2:.9+.2*h2;
+    if(isBark||(vLayer>=${matLayer('stone')}&&vLayer<${matLayer('gravel')})){ vec2 e=min(f,1.-f); alb*=.8+.2*smoothstep(0.,.04,min(e.x,e.y)); }
     vec2 d=m.xy*2.-1.; nn=normalize(n+(T*d.x+B*d.y)*.9); rough=m.b;
     if(vKind==1){ trans=1.; rough=.5; alb*=1.05; }
     // mousse en petits pixels sur les pierres et l'écorce, plus présente sur les faces hautes

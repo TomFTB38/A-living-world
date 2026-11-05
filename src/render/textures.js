@@ -61,22 +61,38 @@ function mossy(t, x, y) {
   const g = grassTop(t, x * 2, y * 2);
   return { c: mix3(st.c, g.c.map((c) => c * 0.82), k), h: lerp(st.h, 0.6 + 0.3 * t.val(x, y, 24), k), r: lerp(st.r, 0.9, k) };
 }
-// Plaques d'écorce allongées : Voronoï étiré, périodique car x est multiplié par un entier.
+// Écorce en côtes verticales : colonnes de largeur régulière, ondulées et coupées par endroits.
 function bark(t, x, y, colors, relief = 1) {
-  const [d1, d2, id] = t.vor(x * 3, y, 6), crack = smooth(0, 0.2, d2 - d1), n = t.fbm(x, y, 7, 3), s = t.val(x, y, 32), tone = t.p[id];
-  const c = pal(colors, 0.2 + 0.46 * tone + 0.42 * (n - 0.5) + 0.2 * (s - 0.5) + 0.22 * crack);
-  const k = 1 - relief * 0.5 * (1 - crack);
-  return { c: c.map((v) => v * k), h: crack * (0.55 + 0.45 * tone) + 0.15 * n, r: 0.84 };
+  const COLS = 12, w = x + 2.6 * t.fbm(x, y, 4, 2) - 1.3, q = ((w + 64) % 64) * COLS / 64, col = Math.floor(q) % COLS, u = q - Math.floor(q);
+  const tc = t.p[(col * 61 + 7) & 1023], seg = ((y + tc * 64) % 64) / 64 * 5, sid = Math.floor(seg), sf = seg - sid, ts = t.p[(col * 17 + sid * 131) & 1023];
+  const ridge = Math.pow(Math.sin(u * Math.PI), 0.7), gap = smooth(0, 0.07, sf) * smooth(1, 0.93, sf), n = t.fbm(x, y, 8, 3), fine = t.val(x, y * 0.5, 32);
+  const c = pal(colors, 0.16 + 0.34 * tc + 0.26 * ts + 0.3 * (n - 0.5) + 0.22 * ridge + 0.16 * (fine - 0.5));
+  const k = 1 - relief * (0.58 * (1 - ridge) + 0.3 * (1 - gap));
+  return { c: c.map((v) => v * k), h: ridge * (0.5 + 0.5 * ts) * (0.4 + 0.6 * gap), r: 0.84 };
 }
-const OAK = ['#3a2210', '#6b4424', '#9a6a3a', '#c39258'].map(hex), BEECH = ['#6a655b', '#8a8478', '#a8a295', '#c4beb0'].map(hex);
-const BIRCH = ['#d3cdbc', '#eae5d8', '#faf7ef'].map(hex), BIRCH_DARK = ['#17140f', '#3e3428'].map(hex);
+const OAK = ['#4a2c14', '#7a4f29', '#a8743f', '#cf9d62'].map(hex), BEECH = ['#726c60', '#938c7f', '#b0a99b', '#c9c3b5'].map(hex);
+const BIRCH = ['#d6d0bf', '#ece7da', '#fbf8f0'].map(hex), BIRCH_DARK = ['#17140f', '#3e3428'].map(hex);
+// Bouleau : marques noires franches, en rectangles irréguliers alignés sur les rangées.
 function birch(t, x, y) {
-  const [d1, , id] = t.vor(x, y * 3, 7), lens = t.p[id] > 0.6 && d1 < 0.3, scar = t.fbm(x, y, 3, 2) > 0.67;
-  if (lens || scar) return { c: pal(BIRCH_DARK, t.val(x, y, 32)), h: 0.12, r: 0.72 };
-  const band = 0.5 + 0.5 * Math.sin((y / 64) * Math.PI * 12 + 4 * t.val(x, y, 4)), n = t.fbm(x, y, 6, 3), warm = t.val(x, y, 5);
-  const c = pal(BIRCH, 0.25 + 0.55 * n + 0.18 * band);
-  return { c: [c[0], c[1] * (0.985 - 0.03 * warm), c[2] * (0.97 - 0.09 * warm)], h: 0.55 + 0.25 * band * n, r: 0.5 };
+  const row = Math.floor(y / 9), jit = Math.floor(t.p[(row * 29) & 1023] * 11), cell = Math.floor((x + jit) / 11) % 6, id = t.p[(cell * 37 + row * 101) & 1023];
+  const ry = y / 9 - row, rx = ((x + jit) / 11) % 1, inMark = id > 0.6 && ry > 0.16 + 0.2 * id && ry < 0.86 && rx > 0.1 && rx < 0.95;
+  if (inMark) return { c: pal(BIRCH_DARK, t.val(x, y, 32)), h: 0.12, r: 0.72 };
+  const n = t.fbm(x, y, 6, 3), warm = t.val(x, y, 5);
+  const c = pal(BIRCH, 0.22 + 0.7 * n);
+  return { c: [c[0], c[1] * (0.985 - 0.03 * warm), c[2] * (0.97 - 0.09 * warm)], h: 0.5 + 0.3 * n, r: 0.5 };
 }
+// Cœur de l'arbre : cernes concentriques déformés, moelle sombre, fentes radiales, couronne d'écorce.
+function woodEnd(t, x, y, wood, rim, barkFn) {
+  const dx = x - 31.5, dy = y - 31.5, r = Math.hypot(dx, dy), box = Math.max(Math.abs(dx), Math.abs(dy)), a = Math.atan2(dy, dx);
+  const edge = box > 27.5 + 1.6 * t.val(x, y, 8);
+  if (edge) { const b = barkFn(t, x, y); return { c: b.c.map((v) => v * rim), h: b.h, r: 0.85 }; }
+  const wob = 3.2 * t.fbm(x, y, 4, 2) - 1.6, q = r * 0.62 + wob, ring = 0.5 + 0.5 * Math.sin(q * 2.2), late = smooth(0.72, 0.96, ring);
+  const crack = Math.abs(Math.sin(a * 3 + 1.2 + 2 * t.val(x, y, 3))) < 0.035 && r > 5 && r < 24 ? 1 : 0, pith = smooth(4.5, 2, r);
+  const c = pal(wood, 0.7 - 0.27 * late + 0.14 * (t.val(x, y, 32) - 0.5) - 0.3 * pith - 0.12 * smooth(26, 21, r));
+  const k = (1 - 0.42 * crack) * (1 - 0.16 * smooth(21, 27, box));
+  return { c: c.map((v) => v * k), h: 0.45 + 0.3 * ring - 0.4 * crack, r: 0.7 };
+}
+const OAK_W = ['#5d3a1c', '#8e6133', '#bd8c52', '#dcb67e'].map(hex), BIRCH_W = ['#a98a5d', '#cdb080', '#e6d3a8', '#f3e8c9'].map(hex), BEECH_W = ['#8a6a48', '#b28f66', '#d0b08a', '#e4cdaa'].map(hex);
 function leaf(t, x, y, shift) {
   const [d1, d2, id] = t.vor(x, y, 11), rim = smooth(0, 0.14, d2 - d1), vein = smooth(0.26, 0.05, d1), m = t.fbm(x, y, 5, 2), g = t.val(x, y, 32);
   const c = pal(LEAF, 0.12 + 0.56 * t.p[id] + 0.3 * (m - 0.2) + 0.12 * vein + 0.1 * (g - 0.5));
@@ -99,12 +115,13 @@ const GEN = {
   sand: (t, x, y) => dirt(t, x, y, ['#a89268', '#c2ac7e', '#d2bf92', '#e0cfa6'].map(hex)),
   bark_oak: (t, x, y) => bark(t, x, y, OAK),
   bark_birch: birch,
-  bark_beech: (t, x, y) => bark(t, x, y, BEECH, 0.45),
+  bark_beech: (t, x, y) => bark(t, x, y, BEECH, 0.28),
   leaf_oak: (t, x, y) => leaf(t, x, y, [1, 1, 1]), leaf_birch: (t, x, y) => leaf(t, x, y, [1.2, 1.12, 0.9]), leaf_beech: (t, x, y) => leaf(t, x, y, [0.86, 1, 0.82]),
+  end_oak: (t, x, y) => woodEnd(t, x, y, OAK_W, 0.78, (a, b, c) => bark(a, b, c, OAK)), end_birch: (t, x, y) => woodEnd(t, x, y, BIRCH_W, 0.95, birch), end_beech: (t, x, y) => woodEnd(t, x, y, BEECH_W, 0.85, (a, b, c) => bark(a, b, c, BEECH, 0.28)),
   planks, water_foam: (t, x, y) => { const f = t.fbm(x, y, 8, 3); return { c: [f, f, f], h: f, r: 0.3 }; },
 };
 
-const DETAIL = { bark_oak: 0.3, bark_birch: 0.08, bark_beech: 0.18, leaf_oak: 0.16, leaf_birch: 0.16, leaf_beech: 0.16, stone: 0.2, mossy_stone: 0.2, limestone: 0.2, granite: 0.2, gravel: 0.22, dirt: 0.22, path: 0.2, forest_soil: 0.24, grass_top: 0.22, grass_side: 0.2, planks: 0.14, sand: 0.14 };
+const DETAIL = { bark_oak: 0.2, bark_birch: 0.08, bark_beech: 0.14, end_oak: 0.1, end_birch: 0.08, end_beech: 0.08, leaf_oak: 0.16, leaf_birch: 0.16, leaf_beech: 0.16, stone: 0.2, mossy_stone: 0.2, limestone: 0.2, granite: 0.2, gravel: 0.22, dirt: 0.22, path: 0.2, forest_soil: 0.24, grass_top: 0.22, grass_side: 0.2, planks: 0.14, sand: 0.14 };
 
 // Rend deux piles RGBA : albédo, normale XY + rugosité. Les motifs vivent dans un repère logique
 // de 64 unités ; à 128 pixels, une octave fine ajoute un vrai détail au lieu d'agrandir le motif.
