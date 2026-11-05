@@ -275,6 +275,16 @@ class Game {
     if (IS_SOLID[bid] && id[0] + 1 > p[0] - 0.3 && id[0] < p[0] + 0.3 && id[2] + 1 > p[2] - 0.3 && id[2] < p[2] + 0.3 && id[1] + 1 > p[1] && id[1] < p[1] + 1.8) return;
     if (this.world.set(id[0], id[1], id[2], bid)) { if (!this.creative) { it.n--; if (it.n <= 0) this.inv[this.sel] = null; } this.refreshInv(); this.anim.trigger(); this.dirtySave = true; }
   }
+  // Ce qui tenait sur le bloc retiré tombe avec lui : plantes au-dessus, lianes en dessous, champignons sur les côtés.
+  dropAttached(x, y, z) {
+    const w = this.world, up = w.get(x, y + 1, z);
+    if (up > 0 && IS_DECO[up] && up !== B.vine && up !== B.shelf_fungus && up !== B.fence) w.set(x, y + 1, z, 0);
+    for (let k = y - 1, n = 0; w.get(x, k, z) === B.vine && n < 12; k--, n++) w.set(x, k, z, 0);
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (w.get(x + dx, y, z + dz) === B.shelf_fungus) {
+      const kept = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => { const c = w.get(x + dx + a, y, z + dz + b); return c > 0 && BLOCKS[c].opaque; });
+      if (!kept) w.set(x + dx, y, z + dz, 0);
+    }
+  }
   mineStep(dt) {
     const go = this.input.lmb || this.autoMine > 0; if (this.autoMine > 0) this.autoMine -= dt;
     this.mining = false;
@@ -287,7 +297,7 @@ class Game {
     this.mine.t += dt * rate;
     if (this.mine.t >= b.hardness) {
       if (this.world.set(t.x, t.y, t.z, 0)) {
-        const up = this.world.get(t.x, t.y + 1, t.z); if (up > 0 && IS_DECO[up]) this.world.set(t.x, t.y + 1, t.z, 0);
+        this.dropAttached(t.x, t.y, t.z);
         if (b.drop && !this.creative) this.addItem(b.drop);
         this.dirtySave = true; this.autoMine = 0;
       }

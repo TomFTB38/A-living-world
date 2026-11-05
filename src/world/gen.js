@@ -337,11 +337,6 @@ function growOak(x, y, z, r, age) {
     const a = (i / roots) * 6.283 + r.range(-0.3, 0.3);
     g.limb([x + Math.cos(a) * rad * 0.6, y + rad * 0.9, z + Math.sin(a) * rad * 0.6], [Math.cos(a), -0.45, Math.sin(a)], rad * 2 + 2.5, rad * 0.42, 0.42, log, r, 0.14, -0.01);
   }
-  const fungi = Math.floor(age * 5) + (r.next() < 0.5 ? 1 : 0);
-  for (let i = 0; i < fungi; i++) {
-    const q = trunk[Math.floor(trunk.length * r.range(0.08, 0.5))], a = r.range(0, 6.283), d = rad * 0.9 + 0.7;
-    g.extra.push(Math.round(q[0] + Math.cos(a) * d), Math.round(q[1]), Math.round(q[2] + Math.sin(a) * d), B.shelf_fungus);
-  }
   const top = trunk[trunk.length - 1], arms = 3 + Math.floor(age * 3);
   for (let i = 0; i < arms; i++) {
     const a = (i / arms) * 6.283 + r.range(-0.4, 0.4), at = trunk[Math.floor(trunk.length * r.range(0.68, 0.98))];
@@ -358,6 +353,15 @@ function growOak(x, y, z, r, age) {
     }
   }
   g.blob(top[0], top[1] + 3, top[2], lerp(4, 6.5, age), lerp(3, 4.4, age), lf, r);
+  // Polypores : on part du cœur du tronc jusqu'à la première case libre, donc toujours collés à l'écorce.
+  const fungi = Math.floor(age * 5) + (r.next() < 0.5 ? 1 : 0), DIR = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  for (let i = 0; i < fungi; i++) {
+    const q = trunk[Math.floor(trunk.length * r.range(0.08, 0.5))], [dx, dz] = DIR[r.int(0, 3)], yy = Math.round(q[1]);
+    let cx = Math.round(q[0]), cz = Math.round(q[2]), steps = 0;
+    if (!g.wood.has(cx + ',' + yy + ',' + cz)) continue;
+    while (g.wood.has(cx + ',' + yy + ',' + cz) && steps++ < 12) { cx += dx; cz += dz; }
+    g.extra.push(cx, yy, cz, B.shelf_fungus);
+  }
   return g.finish();
 }
 

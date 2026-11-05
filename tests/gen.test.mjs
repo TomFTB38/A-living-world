@@ -49,3 +49,17 @@ test('la pierre normale ne contient plus la pierre moussue dans son matériau', 
 });
 import { BLOCKS } from '../src/world/blocks.js';
 const BLOCKS_STONE = () => BLOCKS[B.stone].dirFaces[0], BLOCKS_MOSS = () => BLOCKS[B.mossy_stone].dirFaces[0];
+test('rien ne flotte : polypores contre un bloc, plantes posées sur un sol, lianes suspendues', () => {
+  const s = new ChunkStore(20261104, 200), get = (x, y, z) => { const cx = Math.floor(x / 32), cz = Math.floor(z / 32); return s.get(cx, cz)[idx(x - cx * 32, y, z - cz * 32)]; };
+  const op = (b) => BLOCKS[b].opaque; let fungi = 0, loose = 0, plants = 0, floating = 0, vines = 0, freeV = 0;
+  const onGround = ['tall_grass', 'fern', 'daisy', 'lupine', 'pink_flower', 'yellow_flower', 'mushroom', 'flagstone'].map((n) => B[n]);
+  for (let cx = -3; cx < 3; cx++) for (let cz = -3; cz < 3; cz++) { const v = s.get(cx, cz);
+    for (let y = 2; y < 126; y++) for (let z = 0; z < 32; z++) for (let x = 0; x < 32; x++) { const b = v[idx(x, y, z)]; if (!b || b < B.tall_grass) continue; const wx = cx * 32 + x, wz = cz * 32 + z;
+      if (b === B.shelf_fungus) { fungi++; if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, c]) => op(get(wx + a, y, wz + c)))) loose++; }
+      else if (onGround.includes(b)) { plants++; if (!IS_SOLID[v[idx(x, y - 1, z)]]) floating++; }
+      else if (b === B.vine) { vines++; const u = v[idx(x, y + 1, z)]; if (u !== B.vine && !(u >= B.oak_leaves && u <= B.beech_leaves)) freeV++; } } }
+  console.log('polypores', fungi, loose, 'plantes', plants, floating, 'lianes', vines, freeV);
+  assert.ok(fungi > 5); assert.equal(loose, 0); assert.equal(floating, 0); assert.equal(freeV, 0);
+});
+import { ChunkStore } from '../src/world/store.js';
+import { idx } from '../src/world/blocks.js';

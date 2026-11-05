@@ -210,6 +210,7 @@ export function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
   if (m === 'fungus') {
     let dx = 0, dz = 0;
     if (IS_OPAQUE[vol[at(x + 1, y, z)]]) dx = 1; else if (IS_OPAQUE[vol[at(x - 1, y, z)]]) dx = -1; else if (IS_OPAQUE[vol[at(x, y, z + 1)]]) dz = 1; else if (IS_OPAQUE[vol[at(x, y, z - 1)]]) dz = -1;
+    else return; // support disparu : rien à afficher
     const n = r.int(2, 3);
     for (let i = 0; i < n; i++) {
       const w = r.range(0.2, 0.34), yy = y + 0.2 + i * 0.26, a = x + 0.5 + dx * (0.5 - w * 0.75) + (dz ? r.range(-0.25, 0.25) : 0), c = z + 0.5 + dz * (0.5 - w * 0.75) + (dx ? r.range(-0.25, 0.25) : 0), t = r.range(0.9, 1.1);
