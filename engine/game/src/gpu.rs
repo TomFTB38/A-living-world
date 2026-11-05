@@ -1,13 +1,14 @@
 //! Pipeline d'image : ombres en cascades, G-buffer, SSAO, lumière, nuages, brume, eau, composition, TAA, bloom, sortie.
 //! Tout ce qui touche à wgpu est ici ; le reste du jeu n'en dépend pas.
-use alw_core::{actors::{Draw, Models}, mesher::VSIZE, stream::{Built, FAR}, textures, view::{self, Sky, M4}};
+use alw_core::{actors::{Draw, Models}, mesher::VSIZE, session::ORDER, stream::{Built, FAR}, textures, view::{self, Sky, M4}, weather::Env};
 use std::collections::HashMap;
 use std::sync::Arc;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 use crate::{font_data as fd, hud};
 
-const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; const FLOATS: usize = 188; const MAX_ACTORS: u64 = 64; const UI_VERTS: u64 = 60_000; const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; const DECO_SHADOW: f32 = 52.0;
+const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; const FLOATS: usize = 192; const MAX_ACTORS: u64 = 96; const UI_VERTS: u64 = 60_000; const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; const DECO_SHADOW: f32 = 52.0;
+pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 6;
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32 }
 struct Part { buf: wgpu::Buffer, indices: u32 }
@@ -15,7 +16,7 @@ struct ChunkGpu { opaque: Option<Part>, deco: Option<Part>, water: Option<Part>,
 struct Far { part: Part, slot: u64 }
 /// Passe plein écran : son pipeline et le groupe de textures à lier.
 struct Full { pipe: wgpu::RenderPipeline, layout: wgpu::BindGroupLayout }
-struct Pipes { actor: wgpu::RenderPipeline, actor_shadow: wgpu::RenderPipeline, line: wgpu::RenderPipeline, ui: wgpu::RenderPipeline, geom_o: wgpu::RenderPipeline, geom_d: wgpu::RenderPipeline, shadow_o: wgpu::RenderPipeline, shadow_d: wgpu::RenderPipeline, water: wgpu::RenderPipeline, water_layout: wgpu::BindGroupLayout, ssao: Full, blur_h: Full, blur_v: Full, light: Full, clouds: wgpu::RenderPipeline, volume: Full, compose: Full, taa: Full, first: Full, down: Full, up: Full, last: Full }
+struct Pipes { rain: wgpu::RenderPipeline, actor: wgpu::RenderPipeline, actor_shadow: wgpu::RenderPipeline, line: wgpu::RenderPipeline, ui: wgpu::RenderPipeline, geom_o: wgpu::RenderPipeline, geom_d: wgpu::RenderPipeline, shadow_o: wgpu::RenderPipeline, shadow_d: wgpu::RenderPipeline, water: wgpu::RenderPipeline, water_layout: wgpu::BindGroupLayout, ssao: Full, blur_h: Full, blur_v: Full, light: Full, clouds: wgpu::RenderPipeline, volume: Full, compose: Full, taa: Full, first: Full, down: Full, up: Full, last: Full }
 struct Rt { tex: wgpu::Texture, view: wgpu::TextureView }
 struct Targets {
     a: Rt, n: Rt, l: Rt, d: Rt, d2: Rt, hdr: Rt, scene: Rt, ao: Rt, ao2: Rt, vol: Rt, cl: Rt, comp: Rt, hist: [Rt; 2], bloom: Vec<Rt>,
@@ -167,21 +168,27 @@ impl Gpu {
         // Interface
         let font_tex = d.create_texture_with_data(&queue, &wgpu::TextureDescriptor { label: Some("police"), size: wgpu::Extent3d { width: fd::W, height: fd::H, depth_or_array_layers: 1 }, mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2, format: wgpu::TextureFormat::R8Unorm, usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST, view_formats: &[] }, wgpu::util::TextureDataOrder::LayerMajor, include_bytes!("../assets/font.r8"));
         let font_view = font_tex.create_view(&Default::default());
+        // Icônes : chaque objet est rendu une fois en vraie 3D avec ses textures, sur fond transparent.
+        let icon_size = wgpu::Extent3d { width: ICON_CELL * ICON_COLS, height: ICON_CELL * ICON_COLS, depth_or_array_layers: 1 };
+        let icon_tex = d.create_texture(&wgpu::TextureDescriptor { label: Some("icônes"), size: icon_size, mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2, format: LDR, usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING, view_formats: &[] });
+        let icon_view = icon_tex.create_view(&Default::default());
         let ui_buf = d.create_buffer(&wgpu::BufferDescriptor { label: Some("interface"), size: UI_VERTS * hud::VERT as u64, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let ui_u = d.create_buffer(&wgpu::BufferDescriptor { label: None, size: 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let ui_l = d.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: None, entries: &[
             wgpu::BindGroupLayoutEntry { binding: 0, visibility: wgpu::ShaderStages::VERTEX, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None }, count: None },
-            wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2Array, multisampled: false }, count: None },
+            wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
             wgpu::BindGroupLayoutEntry { binding: 2, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
             wgpu::BindGroupLayoutEntry { binding: 3, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
         ] });
-        let ui_bind = d.create_bind_group(&wgpu::BindGroupDescriptor { label: None, layout: &ui_l, entries: &[wgpu::BindGroupEntry { binding: 0, resource: ui_u.as_entire_binding() }, wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&alb) }, wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&font_view) }, wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&s_clamp) }] });
+        let ui_bind = d.create_bind_group(&wgpu::BindGroupDescriptor { label: None, layout: &ui_l, entries: &[wgpu::BindGroupEntry { binding: 0, resource: ui_u.as_entire_binding() }, wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&font_view) }, wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&icon_view) }, wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&s_clamp) }] });
         let ui_pl = d.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[&ui_l], push_constant_ranges: &[] });
         let m_ui = d.create_shader_module(wgpu::ShaderModuleDescriptor { label: None, source: wgpu::ShaderSource::Wgsl(include_str!("shaders/ui.wgsl").into()) });
         let ui_attrs = [wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x2, offset: 0, shader_location: 0 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x2, offset: 8, shader_location: 1 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 16, shader_location: 2 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32, offset: 32, shader_location: 3 }];
         let ui = d.create_render_pipeline(&wgpu::RenderPipelineDescriptor { label: Some("interface"), layout: Some(&ui_pl), vertex: wgpu::VertexState { module: &m_ui, entry_point: Some("vs_ui"), compilation_options: Default::default(), buffers: &[wgpu::VertexBufferLayout { array_stride: hud::VERT as u64, step_mode: wgpu::VertexStepMode::Vertex, attributes: &ui_attrs }] }, fragment: Some(wgpu::FragmentState { module: &m_ui, entry_point: Some("fs_ui"), compilation_options: Default::default(), targets: &[Some(wgpu::ColorTargetState { format, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })] }), primitive: prim(None), depth_stencil: None, multisample: Default::default(), multiview: None, cache: None });
+        let m_rain = module(include_str!("shaders/rain.wgsl"));
+        let rain = d.create_render_pipeline(&wgpu::RenderPipelineDescriptor { label: Some("pluie"), layout: Some(&line_pl), vertex: wgpu::VertexState { module: &m_rain, entry_point: Some("vs_rain"), compilation_options: Default::default(), buffers: &[] }, fragment: Some(wgpu::FragmentState { module: &m_rain, entry_point: Some("fs_rain"), compilation_options: Default::default(), targets: &[Some(wgpu::ColorTargetState { format, blend: Some(wgpu::BlendState { color: wgpu::BlendComponent { src_factor: wgpu::BlendFactor::SrcAlpha, dst_factor: wgpu::BlendFactor::One, operation: wgpu::BlendOperation::Add }, alpha: wgpu::BlendComponent::OVER }), write_mask: wgpu::ColorWrites::ALL })] }), primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::LineList, ..Default::default() }, depth_stencil: None, multisample: Default::default(), multiview: None, cache: None });
         let clouds = full(include_str!("shaders/clouds.wgsl"), "", "fs_clouds", HDR, None).pipe;
-        let p = Pipes { actor, actor_shadow, line, ui, geom_o, geom_d, shadow_o, shadow_d, water, water_layout,
+        let p = Pipes { rain, actor, actor_shadow, line, ui, geom_o, geom_d, shadow_o, shadow_d, water, water_layout,
             ssao: full(include_str!("shaders/ssao.wgsl"), "DT", "fs_ssao", LDR, None), blur_h: full(blur, "TD", "fs_h", LDR, None), blur_v: full(blur, "TD", "fs_v", LDR, None),
             light: full(include_str!("shaders/light.wgsl"), "TTTDT", "fs_light", HDR, None), clouds, volume: full(include_str!("shaders/volume.wgsl"), "D", "fs_volume", HDR, None),
             compose: full(include_str!("shaders/compose.wgsl"), "TTTD", "fs_compose", HDR, None), taa: full(include_str!("shaders/taa.wgsl"), "TTDT", "fs_taa", HDR, None),
@@ -190,6 +197,29 @@ impl Gpu {
         let t = targets(d, &p, config.width, config.height);
         let actor_vb = d.create_buffer_init(&BufferInitDescriptor { label: Some("modèles"), contents: &models.data, usage: wgpu::BufferUsages::VERTEX });
         let actor_inst = d.create_buffer(&wgpu::BufferDescriptor { label: Some("morceaux"), size: MAX_ACTORS * 80, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        {
+            let tex_ms = |f: wgpu::TextureFormat| d.create_texture(&wgpu::TextureDescriptor { label: None, size: icon_size, mip_level_count: 1, sample_count: 4, dimension: wgpu::TextureDimension::D2, format: f, usage: wgpu::TextureUsages::RENDER_ATTACHMENT, view_formats: &[] }).create_view(&Default::default());
+            let (msaa, depth) = (tex_ms(LDR), tex_ms(DEPTH));
+            let l = d.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: None, entries: &[wgpu::BindGroupLayoutEntry { binding: 0, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2Array, multisampled: false }, count: None }, wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None }] });
+            let bg = d.create_bind_group(&wgpu::BindGroupDescriptor { label: None, layout: &l, entries: &[wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&alb) }, wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&s_rep) }] });
+            let pl = d.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[&l], push_constant_ranges: &[] });
+            let m = d.create_shader_module(wgpu::ShaderModuleDescriptor { label: None, source: wgpu::ShaderSource::Wgsl(include_str!("shaders/icon.wgsl").into()) });
+            let ia = [wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 0, shader_location: 5 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 16, shader_location: 6 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 32, shader_location: 7 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 48, shader_location: 8 }];
+            let vb = [wgpu::VertexBufferLayout { array_stride: VSIZE as u64, step_mode: wgpu::VertexStepMode::Vertex, attributes: &vattrs }, wgpu::VertexBufferLayout { array_stride: 64, step_mode: wgpu::VertexStepMode::Instance, attributes: &ia }];
+            let pipe = d.create_render_pipeline(&wgpu::RenderPipelineDescriptor { label: Some("icônes"), layout: Some(&pl), vertex: wgpu::VertexState { module: &m, entry_point: Some("vs_icon"), compilation_options: Default::default(), buffers: &vb }, fragment: Some(wgpu::FragmentState { module: &m, entry_point: Some("fs_icon"), compilation_options: Default::default(), targets: &[Some(LDR.into())] }), primitive: prim(None), depth_stencil: ds(true, wgpu::CompareFunction::Less), multisample: wgpu::MultisampleState { count: 4, ..Default::default() }, multiview: None, cache: None });
+            let mats: Vec<f32> = ORDER.iter().flat_map(|id| models.icon_matrix(id)).collect();
+            let ib = d.create_buffer_init(&BufferInitDescriptor { label: None, contents: &bytes_f32(&mats), usage: wgpu::BufferUsages::VERTEX });
+            let mut enc = d.create_command_encoder(&Default::default());
+            {
+                let mut p = enc.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("icônes"), color_attachments: &[Some(wgpu::RenderPassColorAttachment { view: &msaa, resolve_target: Some(&icon_view), ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT), store: wgpu::StoreOp::Store } })], depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment { view: &depth, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(1.0), store: wgpu::StoreOp::Store }), stencil_ops: None }), timestamp_writes: None, occlusion_query_set: None });
+                p.set_pipeline(&pipe); p.set_bind_group(0, &bg, &[]); p.set_index_buffer(ibuf.slice(..), wgpu::IndexFormat::Uint32); p.set_vertex_buffer(0, actor_vb.slice(..)); p.set_vertex_buffer(1, ib.slice(..));
+                for (i, id) in ORDER.iter().enumerate() {
+                    let (cx, cy) = (i as u32 % ICON_COLS, i as u32 / ICON_COLS); let r = models.held(id).expect("objet").r; let c = ICON_CELL as f32;
+                    p.set_viewport(cx as f32 * c, cy as f32 * c, c, c, 0.0, 1.0); p.draw_indexed(r.first..r.first + r.count, 0, i as u32..i as u32 + 1);
+                }
+            }
+            queue.submit([enc.finish()]);
+        }
         let capture = if surface.is_none() { Some(rt(d, config.width, config.height, LDR, true)) } else { None };
         let free = (1..MAX_SLOTS).rev().collect();
         Gpu { surface, p, t, actor_vb, actor_inst, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
@@ -213,7 +243,7 @@ impl Gpu {
     }
     pub fn forget(&mut self, k: (i32, i32)) { if let Some(c) = self.chunks.remove(&k) { self.free.push(c.slot); } }
     /// Une image complète. Rend le nombre de triangles envoyés.
-    pub fn render(&mut self, vp: &M4, view_m: &M4, proj: &M4, eye: [f64; 3], time: f64, s: &Sky, cloud: f32, aim: Option<([i32; 3], f32)>, ghost: Option<([i32; 3], bool)>, draws: &[Draw], ui: &hud::Ui) -> usize {
+    pub fn render(&mut self, vp: &M4, view_m: &M4, proj: &M4, eye: [f64; 3], time: f64, s: &Sky, env: Env, aim: Option<([i32; 3], f32)>, ghost: Option<([i32; 3], bool)>, draws: &[Draw], ui: &hud::Ui) -> usize {
         let frame = match &self.surface { Some(sf) => match sf.get_current_texture() { Ok(f) => Some(f), Err(_) => { sf.configure(&self.device, &self.config); return 0; } }, None => None };
         let out_view = frame.as_ref().map(|f| f.texture.create_view(&Default::default()));
         let (w, h) = (self.config.width as f32, self.config.height as f32); self.frame += 1; let fr = self.frame; let mut tris = 0usize;
@@ -221,7 +251,7 @@ impl Gpu {
         let jit = [(hal(fr % 8 + 1, 2) - 0.5) * 2.0 / w, (hal(fr % 8 + 1, 3) - 0.5) * 2.0 / h];
         let mut enc = self.device.create_command_encoder(&Default::default());
         let draws = &draws[..draws.len().min(MAX_ACTORS as usize)]; let mut inst: Vec<f32> = Vec::with_capacity(draws.len() * 20);
-        for d in draws { inst.extend_from_slice(&d.m); inst.extend_from_slice(&[d.view as u8 as f32, d.local as u8 as f32, 1.0, 0.0]); }
+        for d in draws { inst.extend_from_slice(&d.m); inst.extend_from_slice(&[d.view as u8 as f32, d.local as u8 as f32, d.hero as u8 as f32, 0.0]); }
         if !inst.is_empty() { self.queue.write_buffer(&self.actor_inst, 0, &bytes_f32(&inst)); }
         // Ombres : la cascade proche à chaque image, les lointaines à tour de rôle.
         let list_all: Vec<&ChunkGpu> = self.chunks.values().collect();
@@ -245,7 +275,7 @@ impl Gpu {
         // Constantes de l'image
         let ivp = view::invert(vp); let ip = view::invert(proj); let mut u: Vec<f32> = Vec::with_capacity(FLOATS);
         for m in [vp, &ivp, &self.prev_vp, view_m, proj, &ip, &self.shadow_vp[0], &self.shadow_vp[1], &self.shadow_vp[2]] { u.extend_from_slice(m); }
-        u.extend_from_slice(&[CASCADES[0] as f32, CASCADES[1] as f32, CASCADES[2] as f32, 0.0, eye[0] as f32, eye[1] as f32, eye[2] as f32, time as f32, s.dir[0], s.dir[1], s.dir[2], s.exposure, s.col[0], s.col[1], s.col[2], cloud, s.top[0], s.top[1], s.top[2], 1.0 / self.shadow_size as f32, s.hor[0], s.hor[1], s.hor[2], s.night, s.ground[0], s.ground[1], s.ground[2], 0.0048, jit[0], jit[1], w, h, (fr % 64) as f32, 0.0, self.hole, if self.reset { 1.0 } else { 0.0 }, aim.map_or(0.0, |a| a.0[0] as f32), aim.map_or(0.0, |a| a.0[1] as f32), aim.map_or(0.0, |a| a.0[2] as f32), aim.map_or(0.0, |a| a.1), ghost.map_or(0.0, |g| g.0[0] as f32), ghost.map_or(0.0, |g| g.0[1] as f32), ghost.map_or(0.0, |g| g.0[2] as f32), ghost.map_or(0.0, |g| g.1 as u8 as f32)]);
+        u.extend_from_slice(&[CASCADES[0] as f32, CASCADES[1] as f32, CASCADES[2] as f32, 0.0, eye[0] as f32, eye[1] as f32, eye[2] as f32, time as f32, s.dir[0], s.dir[1], s.dir[2], s.exposure, s.col[0], s.col[1], s.col[2], env.cloud, s.top[0], s.top[1], s.top[2], 1.0 / self.shadow_size as f32, s.hor[0], s.hor[1], s.hor[2], s.night, s.ground[0], s.ground[1], s.ground[2], 0.0048, jit[0], jit[1], w, h, (fr % 64) as f32, env.mist, self.hole, if self.reset { 1.0 } else { 0.0 }, aim.map_or(0.0, |a| a.0[0] as f32), aim.map_or(0.0, |a| a.0[1] as f32), aim.map_or(0.0, |a| a.0[2] as f32), aim.map_or(0.0, |a| a.1), ghost.map_or(0.0, |g| g.0[0] as f32), ghost.map_or(0.0, |g| g.0[1] as f32), ghost.map_or(0.0, |g| g.0[2] as f32), ghost.map_or(0.0, |g| g.1 as u8 as f32), env.fog_k, env.rain, 0.0, 0.0]);
         self.queue.write_buffer(&self.ubuf, 0, &bytes_f32(&u));
         let list: Vec<&ChunkGpu> = list_all.iter().copied().filter(|c| view::visible(vp, c.min, c.max)).collect();
         let t = &self.t; let g0 = &self.frame0;
@@ -290,6 +320,10 @@ impl Gpu {
         for i in (1..5).rev() { fullscreen(&mut enc, &self.p.up.pipe, g0, Some(&t.b_up[i - 1]), &t.bloom[i - 1].view, wgpu::LoadOp::Load); }
         let target = match (&out_view, &self.capture) { (Some(v), _) => v, (None, Some(c)) => &c.view, _ => unreachable!() };
         fullscreen(&mut enc, &self.p.last.pipe, g0, Some(&t.b_last[cur]), target, BLACK);
+        if env.rain > 0.02 && !env.covered {
+            let mut p = enc.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("pluie"), color_attachments: &[clear_color(target, wgpu::LoadOp::Load)], depth_stencil_attachment: None, timestamp_writes: None, occlusion_query_set: None });
+            p.set_pipeline(&self.p.rain); p.set_bind_group(0, g0, &[]); p.draw(0..(env.rain * 1100.0) as u32 * 2, 0..1);
+        }
         let verts = (ui.data.len() / 9).min(UI_VERTS as usize);
         if verts > 0 {
             self.queue.write_buffer(&self.ui_u, 0, &bytes_f32(&[w, h, 0.0, 0.0])); self.queue.write_buffer(&self.ui_buf, 0, &bytes_f32(&ui.data[..verts * 9]));

@@ -12,3 +12,7 @@ pub mod stream;
 pub mod view;
 pub mod session;
 pub mod actors;
+pub mod audio;
+mod sounds_data;
+pub mod weather;
+pub mod fauna;

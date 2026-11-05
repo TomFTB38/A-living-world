@@ -10,7 +10,7 @@ use std::collections::HashMap;
 type C = [f64; 3];
 const SKIN: C = [0.93, 0.7, 0.53]; const HAIR: C = [0.27, 0.15, 0.08]; const HAIR2: C = [0.36, 0.2, 0.1]; const SHIRT: C = [0.88, 0.82, 0.68]; const SHIRT2: C = [0.78, 0.72, 0.58]; const PANTS: C = [0.37, 0.3, 0.24]; const BOOT: C = [0.3, 0.17, 0.09]; const CUFF: C = [0.62, 0.58, 0.5];
 const BAG: C = [0.46, 0.28, 0.14]; const BAG2: C = [0.58, 0.38, 0.2]; const ROLL: C = [0.8, 0.68, 0.46]; const STRAP: C = [0.32, 0.19, 0.1]; const GLOVE: C = [0.42, 0.24, 0.12];
-fn b(o: &mut VBuf, a: [f64; 6], c: C) { bx(o, a[0], a[1], a[2], a[3], a[4], a[5], c[0], c[1], c[2], 0.0, 255.0, 0.0, kind::FLAT, true, 0.0, 255.0); }
+pub(crate) fn b(o: &mut VBuf, a: [f64; 6], c: C) { bx(o, a[0], a[1], a[2], a[3], a[4], a[5], c[0], c[1], c[2], 0.0, 255.0, 0.0, kind::FLAT, true, 0.0, 255.0); }
 
 #[derive(Clone, Copy, Default, Debug)] pub struct Range { pub first: u32, pub count: u32 }
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum Hold { Tool, Block, Deco }
@@ -119,13 +119,28 @@ impl Models {
             let local = hold == Hold::Block && it.block != Some(B::WATER);
             items.insert(it.id, Held { r: take(&mut all, o), hold, local });
         }
+        for (name, o) in crate::fauna::parts() { parts.insert(name, take(&mut all, o)); }
         let n = all.n; Models { data: all.data, n, char_verts, parts, items }
     }
     pub fn held(&self, id: &str) -> Option<Held> { self.items.get(id).copied() }
     pub fn bytes(&self) -> usize { self.n * VSIZE }
+    pub fn part(&self, n: &str) -> Range { self.parts[n] }
+    /// Cadrage d'une icône : vue de trois quarts pour les blocs, de face pour les outils, l'objet remplit sa case.
+    pub fn icon_matrix(&self, id: &str) -> M4 {
+        let h = self.items[id]; let (yaw, tilt): (f64, f64) = match h.hold { Hold::Tool => (0.0, 0.0), Hold::Block => (std::f64::consts::FRAC_PI_4, 0.6155), Hold::Deco => (0.6, 0.3) };
+        let (sy, cy, st, ct) = (yaw.sin(), yaw.cos(), tilt.sin(), tilt.cos()); let r = [[cy, 0.0, -sy], [-sy * st, ct, -cy * st], [sy * ct, st, cy * ct]];
+        let (a, b) = (h.r.first as usize / 6 * 4, (h.r.first + h.r.count) as usize / 6 * 4); let (mut lo, mut hi) = ([f64::MAX; 3], [f64::MIN; 3]);
+        for v in self.data[a * VSIZE..b * VSIZE].chunks_exact(VSIZE) {
+            let p = [0, 2, 4].map(|k| i16::from_le_bytes([v[k], v[k + 1]]) as f64 / 128.0);
+            for i in 0..3 { let q = r[i][0] * p[0] + r[i][1] * p[1] + r[i][2] * p[2]; lo[i] = lo[i].min(q); hi[i] = hi[i].max(q); }
+        }
+        let s = 1.84 / (hi[0] - lo[0]).max(hi[1] - lo[1]).max(0.01); let (cx, cy2) = ((lo[0] + hi[0]) * 0.5, (lo[1] + hi[1]) * 0.5); let dz = 1.0 / (hi[2] - lo[2]).max(0.01);
+        // Colonnes : x et y suivent la vue, la profondeur va de 0 (devant) à 1.
+        [(s * r[0][0]) as f32, (s * r[1][0]) as f32, (-dz * r[2][0]) as f32, 0.0, (s * r[0][1]) as f32, (s * r[1][1]) as f32, (-dz * r[2][1]) as f32, 0.0, (s * r[0][2]) as f32, (s * r[1][2]) as f32, (-dz * r[2][2]) as f32, 0.0, (-s * cx) as f32, (-s * cy2) as f32, (dz * hi[2]) as f32, 1.0]
+    }
 }
 /// Un morceau à dessiner : matrice, plage d'indices, et la façon de le traiter.
-#[derive(Clone, Copy, Debug)] pub struct Draw { pub m: M4, pub r: Range, pub view: bool, pub local: bool }
+#[derive(Clone, Copy, Debug)] pub struct Draw { pub m: M4, pub r: Range, pub view: bool, pub local: bool, pub hero: bool }
 fn hold_m(h: Hold) -> M4 { match h { Hold::Tool => mul(&trs(0.0, -0.58, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.0), &roll_z(-std::f64::consts::FRAC_PI_4)), Hold::Block => trs(-0.14, -0.76, -0.14, 0.0, 0.0, 0.28), Hold::Deco => trs(-0.28, -0.72, -0.1, 0.0, 0.0, 0.55) } }
 #[derive(Default, Clone, Copy)] pub struct AnimIn { pub speed: f64, pub ground: bool, pub vy: f64, pub crouch: bool, pub fly: bool, pub mining: bool }
 #[derive(Default)] pub struct Anim { phase: f64, walk: f64, run: f64, low: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64 }
@@ -151,11 +166,11 @@ impl Anim {
         let swing_a = if self.swing > 0.0 { -1.5 + cos(self.swing * 6.283) * 0.95 } else { 0.0 }; let punch_a = -sin(self.punch * pi) * 1.05;
         let arm_r = (if self.swing > 0.0 { swing_a } else { -0.5 - armv * 0.35 - 0.7 * a }) + punch_a;
         let base = trs(p[0], p[1], p[2], yaw, 0.0, 1.0); let t = mul(&base, &trs(0.0, hip, 0.0, 0.0, lean, 1.0)); let mut out = Vec::with_capacity(8);
-        let part = |n: &str| md.parts[n]; let mut put = |n: &str, m: M4| out.push(Draw { m, r: part(n), view: false, local: false });
+        let part = |n: &str| md.parts[n]; let mut put = |n: &str, m: M4| out.push(Draw { m, r: part(n), view: false, local: false, hero: true });
         put("torso", t); put("head", mul(&t, &trs(0.0, 0.64, 0.0, 0.0, -lean * 0.75 - pitch * 0.5, 1.0)));
         put("legL", mul(&base, &trs(0.13, hip, 0.0, 0.0, leg_l, 1.0))); put("legR", mul(&base, &trs(-0.13, hip, 0.0, 0.0, leg_r, 1.0)));
         let ar = mul(&t, &trs(-0.34, 0.58, 0.02, 0.0, arm_r, 1.0)); put("armL", mul(&t, &trs(0.34, 0.58, 0.0, 0.0, arm_l, 1.0))); put("armR", ar);
-        if let Some(h) = held { out.push(Draw { m: mul(&ar, &hold_m(h.hold)), r: h.r, view: false, local: h.local }); }
+        if let Some(h) = held { out.push(Draw { m: mul(&ar, &hold_m(h.hold)), r: h.r, view: false, local: h.local, hero: true }); }
         out
     }
     /// Première personne : poing si la main est vide, bloc seul s'il y en a un, bras et outil sinon.
@@ -163,17 +178,17 @@ impl Anim {
         let s = sin(self.phase); let c = cos(self.phase * 0.5); let w = self.walk * (1.0 - self.air); let pi = std::f64::consts::PI; let v = mul(&invert(view), &trs(0.0, 0.0, 0.0, pi, 0.0, 1.0));
         let strike = if self.swing > 0.0 { sin(self.swing * pi) } else { 0.0 }; let push = sin(self.punch * pi); let r = md.parts["fist"]; let mut out = Vec::new();
         let bx_ = c * 0.022 * w - 0.05 * self.run; let by = -s.abs() * 0.022 * w - 0.05 * self.low + 0.07 * self.air * (self.rise - 0.5);
-        let hand = |m: M4| Draw { m, r, view: true, local: false };
+        let hand = |m: M4| Draw { m, r, view: true, local: false, hero: true };
         match held {
             None => { let hit = strike.max(push); out.push(hand(mul(&v, &trs(-0.27 + bx_ + 0.08 * hit, -0.33 + by + 0.05 * hit, 0.2 + 0.2 * hit, 0.34 - 0.16 * hit, -2.06 - 0.3 * hit, 0.46)))); }
             Some(h) if h.hold == Hold::Tool => {
                 let arm = mul(&v, &trs(-0.235 + bx_, -0.25 + by - 0.06 * strike, 0.1 + 0.2 * push + 0.12 * strike, 0.22 + 0.3 * strike, -1.72 + 0.22 * self.run + 0.85 * strike - 0.3 * push, 0.46));
-                out.push(hand(arm)); out.push(Draw { m: mul(&arm, &hold_m(Hold::Tool)), r: h.r, view: true, local: h.local });
+                out.push(hand(arm)); out.push(Draw { m: mul(&arm, &hold_m(Hold::Tool)), r: h.r, view: true, local: h.local, hero: true });
             }
             Some(h) => {
                 let sc = if h.hold == Hold::Block { 0.26 } else { 0.46 };
                 let base = mul(&v, &trs(-0.29 + bx_ + 0.05 * strike, -0.2 + by - 0.1 * strike + 0.03 * push, 0.52 + 0.12 * push + 0.08 * strike, 0.62 + 0.25 * strike, 0.26 + 0.6 * strike - 0.3 * push, sc));
-                out.push(Draw { m: mul(&base, &trs(-0.5, if h.hold == Hold::Block { -0.5 } else { -0.4 }, -0.5, 0.0, 0.0, 1.0)), r: h.r, view: true, local: h.local });
+                out.push(Draw { m: mul(&base, &trs(-0.5, if h.hold == Hold::Block { -0.5 } else { -0.4 }, -0.5, 0.0, 0.0, 1.0)), r: h.r, view: true, local: h.local, hero: true });
             }
         }
         out

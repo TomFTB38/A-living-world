@@ -9,6 +9,7 @@ alw-core = { path = "../core" }
 wgpu = "24"
 winit = "0.30"
 pollster = "0.4"
+cpal = "0.15"
 
 [profile.release]
 opt-level = 3

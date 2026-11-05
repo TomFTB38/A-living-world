@@ -41,7 +41,7 @@ export const SOUNDS = {
   fence: mat('wood', [L('wood', 1.1, 0.4)], [L('plank', 1.14, 0.44)], [L('plank', 1.04, 0.56), L('woodl', 1.2, 0.3)]),
 };
 // L'outil se devine sous la matière : le métal tinte sur la roche, s'étouffe dans la terre, mord le bois.
-const TOOL = {
+export const TOOL = {
   pickaxe: { hard: L('metal', 1, 0.2), earth: L('sand', 1.3, 0.1), sand: L('sand', 1.4, 0.08), wood: L('plankdry', 1.2, 0.2), plant: L('leaf', 1.3, 0.1), metal: L('metal', 0.9, 0.3) },
   axe: { hard: L('metal', 0.8, 0.2), earth: L('sand', 1.15, 0.12), sand: L('sand', 1.25, 0.08), wood: L('chopdry', 1.05, 0.36), plant: L('leaf', 1, 0.18), metal: L('metal', 0.76, 0.3) },
   sword: { hard: L('metal', 1.36, 0.16), earth: L('sand', 1.5, 0.08), sand: L('sand', 1.6, 0.06), wood: L('plankdry', 1.5, 0.14), plant: L('leaf', 1.25, 0.2), metal: L('metal', 1.3, 0.26) },

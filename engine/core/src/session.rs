@@ -1,8 +1,12 @@
 //! La partie en cours : joueur, inventaire, visée, casse et pose, sauvegarde. Aucun lien avec la fenêtre ou le rendu.
 use crate::actors::{Anim, AnimIn, Draw, Models};
+use crate::audio::{pick_mood, Situation, SoundScape};
 use crate::blocks::*;
+use crate::fauna::{Ev, Fauna};
+use crate::gen::WorldGen;
 use crate::player::{Input, Player, Voxels};
 use crate::stream::{Preset, Streamer};
+use crate::weather::Weather;
 use std::collections::HashMap;
 
 pub const INV_SIZE: usize = 36; pub const STACK: u32 = 99;
@@ -13,6 +17,8 @@ const LABELS: [(&str, &str); 31] = [("grass", "Herbe"), ("dirt", "Terre"), ("pat
     ("tall_grass", "Herbes hautes"), ("fern", "Fougère"), ("daisy", "Marguerite"), ("lupine", "Lupin"), ("pink_flower", "Fleur rose"), ("yellow_flower", "Fleur jaune"), ("mushroom", "Champignon"), ("shelf_fungus", "Polypore"), ("lily_pad", "Nénuphar"), ("vine", "Liane"), ("flagstone", "Dalle"), ("lantern", "Lanterne"), ("water", "Eau")];
 /// Tous les objets : outils d'abord, puis l'ordre du catalogue.
 pub const ORDER: [&str; 34] = ["pickaxe", "axe", "sword", "grass", "dirt", "path", "forest_soil", "gravel", "sand", "stone", "mossy_stone", "limestone", "granite", "oak_log", "birch_log", "beech_log", "planks", "fence", "oak_leaves", "birch_leaves", "beech_leaves", "tall_grass", "fern", "daisy", "lupine", "pink_flower", "yellow_flower", "mushroom", "shelf_fungus", "lily_pad", "vine", "flagstone", "lantern", "water"];
+/// Onglets du catalogue créatif ; le premier montre tout.
+pub const TABS: [(&str, &[&str]); 7] = [("Tout", &ORDER), ("Terrain", &["grass", "dirt", "path", "forest_soil", "gravel", "sand", "water"]), ("Roches", &["stone", "mossy_stone", "limestone", "granite", "flagstone"]), ("Bois", &["oak_log", "birch_log", "beech_log", "planks", "fence"]), ("Feuillages", &["oak_leaves", "birch_leaves", "beech_leaves", "vine"]), ("Plantes", &["tall_grass", "fern", "daisy", "lupine", "pink_flower", "yellow_flower", "mushroom", "shelf_fungus", "lily_pad"]), ("Objets", &["pickaxe", "axe", "sword", "lantern"])];
 pub fn item(id: &str) -> Option<Item> {
     match id { "pickaxe" => return Some(Item { id: "pickaxe", label: "Pioche", block: None, tool: Some("rock") }), "axe" => return Some(Item { id: "axe", label: "Hache", block: None, tool: Some("wood") }), "sword" => return Some(Item { id: "sword", label: "Épée", block: None, tool: None }), _ => {} }
     LABELS.iter().find(|l| l.0 == id).map(|l| Item { id: l.0, label: l.1, block: by_name(l.0), tool: None })
@@ -42,13 +48,14 @@ pub fn raycast(w: &impl Voxels, o: [f64; 3], d: [f64; 3], max: f64, skip: &dyn F
 pub struct Actions { pub mine: bool, pub place: bool }
 pub struct Session {
     pub world: Streamer, pub player: Player, pub inv: [Option<Stack>; INV_SIZE], pub sel: usize, pub creative: bool, pub target: Option<Target>, pub orient: u8, pub hour: f64, pub vit: [f64; 3], pub seed: i32, pub third: bool, pub cam_dist: f64, pub eye: [f64; 3], pub look: [f64; 3], pub anim: Anim, pub inv_open: bool, pub cursor: Option<Stack>, pub from: Option<usize>,
-    mine_key: Option<(i32, i32, i32)>, pub mine_t: f64, cool: f64, axis: Option<char>, pub dirty: bool,
+    mine_key: Option<(i32, i32, i32)>, pub mine_t: f64, cool: f64, axis: Option<char>, pub dirty: bool, pub tab: usize,
+    pub fauna: Fauna, pub weather: Weather, pub sound: SoundScape, gen: WorldGen, pub elapsed: f64, hurt_at: f64, built: Vec<f64>, swing_t: f64, dig_t: f64, step_t: f64, water_t: f64, env_t: f64, was_wet: bool, was_ground: bool, fall_v: f64, brook: Option<[f64; 3]>, fall: Option<[f64; 3]>,
 }
 impl Session {
     pub fn new(seed: i32, p: &Preset, threads: usize, at: [f64; 3]) -> Self {
         let mut inv = [None; INV_SIZE];
         for (i, (it, n)) in [("pickaxe", None), ("axe", None), ("sword", None), ("lantern", Some(32)), ("dirt", Some(64)), ("stone", Some(32)), ("planks", Some(16))].into_iter().enumerate() { inv[i] = Some(Stack { item: it, n }); }
-        Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false }
+        Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, fauna: Fauna::new(seed), weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None }
     }
     pub fn held(&self) -> Option<Item> { self.inv[self.sel].and_then(|s| item(s.item)) }
     pub fn add_item(&mut self, id: &str, n: u32) {
@@ -78,17 +85,23 @@ impl Session {
         if is_solid(id) && x as f64 + 1.0 > p[0] - 0.3 && (x as f64) < p[0] + 0.3 && z as f64 + 1.0 > p[2] - 0.3 && (z as f64) < p[2] + 0.3 && y as f64 + 1.0 > p[1] && (y as f64) < p[1] + 1.8 { return false; }
         if !self.world.edit(x, y, z, id) { return false; }
         if !self.creative { let n = st.n.unwrap_or(0) - 1; self.inv[self.sel] = if n == 0 { None } else { Some(Stack { n: Some(n), ..st }) }; }
-        self.dirty = true; true
+        self.sound.place(BLOCKS[id as usize].name); self.built.push(self.elapsed); self.dirty = true; true
     }
+    /// L'objet tenu s'il s'agit d'un outil : c'est lui qui donne sa voix au coup.
+    fn tool_id(&self) -> Option<&'static str> { self.held().filter(|i| i.block.is_none()).map(|i| i.id) }
     fn mine_step(&mut self, dt: f64, go: bool) {
+        let tool = self.tool_id(); self.swing_t -= dt;
+        // Dans le vide, on frappe quand même, avec n'importe quoi.
+        if go && self.target.is_none() && self.swing_t <= 0.0 { self.swing_t = 0.3; self.sound.swing(tool, 1.0); }
         let Some(t) = self.target.filter(|_| go) else { self.mine_key = None; self.mine_t = 0.0; return };
         let key = (t.x, t.y, t.z); if self.mine_key != Some(key) { self.mine_key = Some(key); self.mine_t = 0.0; }
-        let b = BLOCKS[t.id as usize]; let tool = self.held().and_then(|i| i.tool);
-        let rate = if tool.is_some() && tool == Some(b.cat) { 3.0 } else if b.cat == "terrain" { 1.6 } else { 1.0 };
+        let b = BLOCKS[t.id as usize]; let kind = self.held().and_then(|i| i.tool);
+        let rate = if kind.is_some() && kind == Some(b.cat) { 3.0 } else if b.cat == "terrain" { 1.6 } else { 1.0 };
         if self.creative { self.cool -= dt; if self.cool > 0.0 { return; } self.cool = 0.2; self.mine_t = 1e9; }
-        self.mine_t += dt * rate;
+        self.mine_t += dt * rate; self.dig_t -= dt;
+        if self.dig_t <= 0.0 && !self.creative { self.dig_t = 0.3; self.sound.dig(b.name, tool); }
         if self.mine_t >= b.hardness {
-            if self.world.edit(t.x, t.y, t.z, 0) { self.drop_attached(t.x, t.y, t.z); if !self.creative { if let Some(d) = b.drop { self.add_item(d, 1); } } self.dirty = true; }
+            if self.world.edit(t.x, t.y, t.z, 0) { self.sound.break_block(b.name, tool); self.drop_attached(t.x, t.y, t.z); if !self.creative { if let Some(d) = b.drop { self.add_item(d, 1); } } self.dirty = true; }
             self.mine_key = None; self.mine_t = 0.0;
         }
     }
@@ -102,6 +115,51 @@ impl Session {
         let mining = a.mine && !open; self.anim.update(dt, AnimIn { speed: self.player.speed, ground: self.player.ground, vy: self.player.v[1], crouch: self.player.crouch, fly: self.player.fly, mining });
         if !self.creative { let k = if i.sprint { 2.0 } else { 1.0 }; self.vit[1] = (self.vit[1] - dt * 0.012 * k).max(0.0); self.vit[2] = (self.vit[2] - dt * 0.018 * k).max(0.0); }
         if self.player.in_water { self.vit[2] = (self.vit[2] + dt * 8.0).min(100.0); }
+        self.elapsed += dt; self.weather.update(dt);
+        if self.world.loaded() > 0 {
+            self.fauna.update(dt, &self.world, self.player.p, (self.sun_height() * 3.0).max(0.0));
+            for e in std::mem::take(&mut self.fauna.ev) { match e { Ev::Bird(p, v) => self.sound.bird(p, v), Ev::Wings(p) => self.sound.wings(p), Ev::Hoof(p, f) => self.sound.hoof(p, f), Ev::Alarm(p) => self.sound.deer_alarm(p), Ev::Call(p) => self.sound.deer_call(p) } }
+        }
+        self.audio_step(dt);
+    }
+    /// Hauteur du soleil, négative la nuit.
+    fn sun_height(&self) -> f64 { crate::det::sin((self.hour - 6.0) / 12.0 * std::f64::consts::PI) }
+    /// Tout ce qui blesse passe par ici : la musique de danger en dépend.
+    pub fn hurt(&mut self, n: f64) { self.vit[0] = (self.vit[0] - n).max(0.0); self.hurt_at = self.elapsed; self.sound.hurt(); }
+    /// Sous un toit ou dans une grotte, il ne pleut pas ; le feuillage laisse passer.
+    pub fn covered(&self, e: [f64; 3]) -> bool {
+        let (x, z, y0) = (e[0].floor() as i32, e[2].floor() as i32, e[1].floor() as i32 + 1);
+        (y0..y0 + 24).any(|y| self.world.get(x, y, z).is_some_and(|b| b > 0 && BLOCKS[b as usize].cat != "foliage" && BLOCKS[b as usize].cat != "fluid"))
+    }
+    /// Eau qui coule autour du joueur : les étangs sont silencieux, seuls ruisseaux et chutes s'entendent.
+    fn scan_water(&mut self) {
+        let p = self.player.p; let (x0, z0) = (p[0].floor() as i32, p[2].floor() as i32); let (mut bd, mut fd) = (1e9, 1e9); self.brook = None; self.fall = None;
+        for dz in (-24..=24).step_by(2) { for dx in (-24..=24).step_by(2) {
+            let (x, z) = (x0 + dx, z0 + dz); let c = self.gen.column(x as f64, z as f64); let lvl = c.water; if lvl == 0.0 || c.still { continue; }
+            let d = (dx * dx + dz * dz) as f64 + (lvl - p[1]) * (lvl - p[1]);
+            if d < bd { bd = d; self.brook = Some([x as f64, lvl, z as f64]); }
+            if d < fd { for (a, b) in [(2, 0), (-2, 0), (0, 2), (0, -2)] { let w = self.gen.column((x + a) as f64, (z + b) as f64).water; if w != 0.0 && lvl - w >= 3.0 { fd = d; self.fall = Some([x as f64, lvl - 2.0, z as f64]); break; } } }
+        } }
+    }
+    /// Sons : ambiance, pas selon le bloc, musique selon la situation.
+    fn audio_step(&mut self, dt: f64) {
+        let (p, yaw) = (self.player.p, self.player.yaw); let eye = [p[0], p[1] + 1.6, p[2]]; self.sound.ear = eye; self.sound.yaw = yaw; let w = self.weather.state;
+        self.water_t -= dt; if self.water_t <= 0.0 { self.water_t = 0.5; self.scan_water(); }
+        let at = |s: &Self, q: [f64; 3]| s.world.get(q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32);
+        let wet = self.player.in_water; if wet && !self.was_wet && self.player.v[1] < -2.0 { self.sound.splash((-self.player.v[1] as f32 / 7.0).min(1.2)); } self.was_wet = wet;
+        let below = at(self, [p[0], p[1] - 0.1, p[2]]).unwrap_or(0); let feet = at(self, [p[0], p[1] + 0.1, p[2]]).unwrap_or(0); let name = |b: u8| BLOCKS[b as usize].name; let pl = &self.player;
+        if pl.ground && pl.speed > 1.0 {
+            self.step_t -= dt * pl.speed;
+            if self.step_t <= 0.0 { self.step_t = 2.1; if below > 0 { self.sound.step(name(below), if feet != below && feet > 0 { Some(name(feet)) } else { None }); } }
+        } else if wet && pl.speed > 1.0 { self.step_t -= dt * pl.speed; if self.step_t <= 0.0 { self.step_t = 2.6; self.sound.step("water", None); } }
+        if pl.ground && !self.was_ground && self.fall_v < -7.0 && !pl.fly && below > 0 { self.sound.land(name(below)); }
+        self.was_ground = pl.ground; let vy = pl.v[1]; self.fall_v = if vy < -1.0 { vy } else if pl.ground { self.fall_v * 0.5 } else { self.fall_v };
+        self.env_t -= dt;
+        if self.env_t <= 0.0 {
+            self.env_t = 0.2; let covered = self.covered(eye); let sub = at(self, eye) == Some(B::WATER); self.sound.env(w.cloud, w.rain, covered, sub, self.brook, self.fall);
+            let now = self.elapsed; self.built.retain(|t| now - t < 25.0);
+            self.sound.mood(pick_mood(Situation { hurt: now - self.hurt_at < 12.0, enemy: false, food: self.vit[1], water: self.vit[2], submerged: sub, underground: p[1] < self.gen.column(p[0], p[2]).h - 4.0 && covered, building: self.built.len() >= 3, night: self.sun_height() < 0.0, rain: w.rain > 0.5 }));
+        }
     }
     /// Caméra : tête du joueur, ou épaule retenue par le terrain pour garder le héros au tiers gauche.
     pub fn camera(&mut self, dt: f64) -> ([f64; 3], [f64; 3]) {
@@ -115,7 +173,8 @@ impl Session {
     /// Ce que le rendu doit dessiner du personnage.
     pub fn draws(&self, md: &Models, view: &crate::view::M4) -> Vec<Draw> {
         let held = self.inv[self.sel].and_then(|s| md.held(s.item)); let p = &self.player;
-        if self.third { self.anim.third(md, p.p, if p.speed > 0.2 { p.move_yaw } else { p.yaw }, p.pitch, held) } else { self.anim.first(md, view, held) }
+        let mut o = if self.third { self.anim.third(md, p.p, if p.speed > 0.2 { p.move_yaw } else { p.yaw }, p.pitch, held) } else { self.anim.first(md, view, held) };
+        o.extend(self.fauna.draws(md)); o
     }
     /// Où irait le bloc tenu, et serait-il accepté ?
     pub fn ghost(&self) -> Option<([i32; 3], bool)> {
@@ -132,16 +191,41 @@ impl Session {
         let Some(i) = i else { if let Some(f) = self.from.take() { if self.inv[f].is_none() { self.inv[f] = Some(c); } else { self.add_item(c.item, c.n.unwrap_or(1)); } } return };
         match self.inv[i] {
             Some(o) if o.item == c.item && o.n.is_some() && c.n.is_some() => { let t = o.n.unwrap() + c.n.unwrap(); self.inv[i] = Some(Stack { n: Some(t.min(STACK)), ..o }); if t > STACK { let rest = Some(Stack { n: Some(t - STACK), ..o }); if let Some(f) = self.from { self.inv[f] = rest; } else { self.add_item(o.item, t - STACK); } } }
-            Some(o) => { self.inv[i] = Some(c); if let Some(f) = self.from { self.inv[f] = Some(o); } else { self.cursor = Some(o); } }
+            Some(o) => { self.inv[i] = Some(c); match self.from { Some(f) if self.inv[f].is_none() => self.inv[f] = Some(o), _ => { self.cursor = Some(o); self.dirty = true; return; } } }
             None => self.inv[i] = Some(c),
         }
         self.from = None; self.dirty = true;
+    }
+    /// Clic droit : prend la moitié du tas, le reste reste dans la case.
+    pub fn take_half(&mut self, i: usize) {
+        let (None, Some(s)) = (self.cursor, self.inv[i]) else { return }; let Some(n) = s.n else { return self.grab_slot(i) };
+        let k = n.div_ceil(2); self.cursor = Some(Stack { n: Some(k), ..s }); self.from = Some(i); self.inv[i] = if n == k { None } else { Some(Stack { n: Some(n - k), ..s }) };
+    }
+    /// Clic droit, objet en main : dépose une seule unité.
+    pub fn put_one(&mut self, i: usize) {
+        let Some(c) = self.cursor else { return }; let Some(n) = c.n else { return };
+        match self.inv[i] { None => self.inv[i] = Some(Stack { n: Some(1), ..c }), Some(o) if o.item == c.item && o.n.is_some_and(|k| k < STACK) => self.inv[i] = Some(Stack { n: o.n.map(|k| k + 1), ..o }), _ => return }
+        self.cursor = if n > 1 { Some(Stack { n: Some(n - 1), ..c }) } else { self.from = None; None }; self.dirty = true;
+    }
+    /// Maj+clic dans le catalogue : l'objet arrive directement dans la barre et il est sélectionné.
+    pub fn quick_catalog(&mut self, id: &'static str) {
+        let Some(it) = item(id) else { return }; let stack = Stack { item: it.id, n: it.block.map(|_| STACK) };
+        let i = self.inv[..9].iter().position(|s| s.is_some_and(|v| v.item == it.id)).or(self.inv[..9].iter().position(|s| s.is_none())).unwrap_or(self.sel);
+        self.inv[i] = Some(stack); self.sel = i; self.dirty = true;
+    }
+    /// Maj+clic sur une case : passe de la barre au sac, ou l'inverse.
+    pub fn quick_slot(&mut self, i: usize) {
+        let Some(mut s) = self.inv[i] else { return }; let range = if i < 9 { 9..INV_SIZE } else { 0..9 };
+        for k in range.clone() { if let (Some(o), Some(n)) = (self.inv[k], s.n) { if o.item == s.item { if let Some(c) = o.n { let m = n.min(STACK - c); self.inv[k] = Some(Stack { n: Some(c + m), ..o }); s.n = Some(n - m); } } } }
+        if s.n == Some(0) { self.inv[i] = None; self.dirty = true; return; }
+        if let Some(k) = range.clone().find(|k| self.inv[*k].is_none()) { self.inv[k] = Some(s); self.inv[i] = None; } else { self.inv[i] = Some(s); }
+        self.dirty = true;
     }
     pub fn progress(&self) -> f64 { match self.target { Some(t) if self.mine_key.is_some() => (self.mine_t / BLOCKS[t.id as usize].hardness.max(0.01)).min(1.0), _ => 0.0 } }
     pub fn set_creative(&mut self, on: bool) { self.creative = on; if !on { self.player.fly = false; } }
     /// Sauvegarde lisible : l'état du joueur, puis seulement ce qui diffère du monde généré.
     pub fn save_text(&self) -> String {
-        let p = &self.player; let mut s = format!("A Living World 1\nseed {}\nplayer {} {} {} {} {}\nhour {}\ncreative {}\nsel {}\nvit {} {} {}\n", self.seed, p.p[0], p.p[1], p.p[2], p.yaw, p.pitch, self.hour, self.creative as u8, self.sel, self.vit[0], self.vit[1], self.vit[2]);
+        let p = &self.player; let mut s = format!("A Living World 1\nseed {}\nplayer {} {} {} {} {}\nhour {}\ncreative {}\nsel {}\nvit {} {} {}\nweather {}\n", self.seed, p.p[0], p.p[1], p.p[2], p.yaw, p.pitch, self.hour, self.creative as u8, self.sel, self.vit[0], self.vit[1], self.vit[2], self.weather.t);
         for (i, it) in self.inv.iter().enumerate() { if let Some(v) = it { s += &format!("inv {} {} {}\n", i, v.item, v.n.map_or(-1, |n| n as i64)); } }
         for (k, e) in self.world.edits() { s += &format!("chunk {} {}", k.0, k.1); let mut l: Vec<_> = e.into_iter().collect(); l.sort(); for (i, id) in l { s += &format!(" {i}:{id}"); } s.push('\n'); }
         s
@@ -155,6 +239,7 @@ impl Session {
             match a.next() {
                 Some("player") => { for k in 0..3 { self.player.p[k] = num(a.next())?; } self.player.yaw = num(a.next())?; self.player.pitch = num(a.next())?; }
                 Some("hour") => self.hour = num(a.next())?, Some("creative") => self.creative = num(a.next())? != 0.0, Some("sel") => self.sel = (num(a.next())? as usize).min(INV_SIZE - 1),
+                Some("weather") => self.weather.t = num(a.next())?,
                 Some("vit") => { for k in 0..3 { self.vit[k] = num(a.next())?; } }
                 Some("inv") => { let i = num(a.next())? as usize; let id = a.next().unwrap_or(""); let n = num(a.next())?; if let (Some(it), true) = (item(id), i < INV_SIZE) { inv[i] = Some(Stack { item: it.id, n: if n < 0.0 { None } else { Some(n as u32) } }); } }
                 Some("chunk") => { let k = (num(a.next())? as i32, num(a.next())? as i32); let e = edits.entry(k).or_default(); for c in a { if let Some((i, id)) = c.split_once(':') { if let (Ok(i), Ok(id)) = (i.parse(), id.parse()) { e.insert(i, id); } } } }

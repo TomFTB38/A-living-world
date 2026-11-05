@@ -3,7 +3,7 @@
 import http.server, threading, json, glob, os
 from playwright.sync_api import sync_playwright
 D = '/home/claude/a-living-world/engine/game/src/shaders'; common = open(D + '/common.wgsl').read()
-mods = {os.path.basename(f)[:-5]: (open(f).read() if 'shadow' in f or 'ui.wgsl' in f else common + open(f).read()) for f in glob.glob(D + '/*.wgsl') if 'common' not in f}
+mods = {os.path.basename(f)[:-5]: (open(f).read() if 'shadow' in f or 'ui.wgsl' in f or 'icon.wgsl' in f else common + open(f).read()) for f in glob.glob(D + '/*.wgsl') if 'common' not in f}
 class Q(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a): pass
     def do_GET(self): self.send_response(200); self.send_header('content-type', 'text/html'); self.end_headers(); self.wfile.write(b'ok')

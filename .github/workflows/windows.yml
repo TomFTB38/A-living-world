@@ -30,6 +30,7 @@ jobs:
           engine/game/target/release/a-living-world.exe --capture capture/tiers.bmp -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 tiers 2>&1 | tee -a capture/journal.txt
           engine/game/target/release/a-living-world.exe --capture capture/bras.bmp -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 bras 2>&1 | tee -a capture/journal.txt
           engine/game/target/release/a-living-world.exe --capture capture/inv.bmp -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 inv 2>&1 | tee -a capture/journal.txt
+          for sc in creatif roches menu pluie brume faune; do engine/game/target/release/a-living-world.exe --capture capture/$sc.bmp -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 $sc 2>&1 | tee -a capture/journal.txt; done
       - name: Dépose la capture sur la branche captures
         shell: bash
         continue-on-error: true

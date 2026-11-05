@@ -4,6 +4,9 @@ import { hashInt, Noise, Rng } from '../../src/core/noise.js';
 import { WorldGen } from '../../src/world/gen.js';
 import { ChunkStore } from '../../src/world/store.js';
 import { meshChunk, farMesh } from '../../src/world/mesher.js';
+import { buildFauna, Fauna } from '../../src/game/animals.js';
+import { kindAt } from '../../src/game/weather.js';
+import { B } from '../../src/world/blocks.js';
 import { buildCharacter } from '../../src/game/character.js';
 import { buildItems } from '../../src/game/items.js';
 import { buildTextures, buildNoise3D } from '../../src/render/textures.js';
@@ -17,6 +20,17 @@ const n = new Noise(77); out.push(`noise ${bits(n.n2(12.5, -3.25))} ${bits(n.n3(
 const stub = { mesh: (ab, n) => ({ ab, n }) };
 const ch = buildCharacter(stub); out.push(`character ${ch.mesh.n} ${fnv(new Uint8Array(ch.mesh.ab))}`);
 const it = buildItems(stub); for (const k in it) { const q = it[k], a = new Uint8Array(it.pickaxe.mesh.ab), st = q.offset / 24 * 4 * 20, n = q.count / 6 * 4; out.push(`item ${k} ${n} ${fnv(a.subarray(st, st + n * 20))}`); }
+const fa = buildFauna(stub); for (const k in fa.rng) { const q = fa.rng[k], a = new Uint8Array(fa.mesh.ab), st = q.offset / 24 * 4 * 20, n = q.count / 6 * 4; out.push(`fauna ${k} ${n} ${fnv(a.subarray(st, st + n * 20))}`); }
+for (const t of [0, 100, 300, 700, 1500, 4000, 9999, 20000]) out.push(`weather ${t} ${kindAt(20261104, t)}`);
+{ // Parcours de la faune sur un petit monde fixe : même hasard, mêmes trajectoires.
+  const w = { get(x, y, z) { if (Math.abs(x) > 300 || Math.abs(z) > 300 || y < 0) return -1; const h = 40 + ((((x >> 3) * 7 + (z >> 3) * 13) & 3)); if (y < h) return B.dirt; if ((x & 63) === 5 && (z & 63) === 9 && y < h + 5) return B.stone; return 0; } };
+  const f = new Fauna(null, 20261104); let ev = 0; f.emit = () => { ev++; };
+  for (let k = 0; k < 3600; k++) {
+    const p = [0.5 + (Math.floor(k / 60) % 40), 44.2, 0.5];
+    f.update(1 / 60, w, { p }, k > 2400 ? 0 : 1);
+    if (k % 300 === 299) { let a = 0; for (const d of f.deer) a += d.p[0] + d.p[1] * 3 + d.p[2] * 7 + d.yaw; for (const b of f.birds) a += b.p[0] + b.p[1] * 3 + b.p[2] * 7; out.push(`ftrace ${k} ${f.deer.length} ${f.birds.length} ${ev} ${a}`); }
+  }
+}
 for (const seed of [20261104, 7, -1234]) {
   const g = new WorldGen(seed);
   for (const [cx, cz] of [[0, 0], [-2, 1], [3, -4], [-1, 0], [5, 5], [-8, -9]]) out.push(`chunk ${seed} ${cx} ${cz} ${fnv(g.genChunk(cx, cz))}`);

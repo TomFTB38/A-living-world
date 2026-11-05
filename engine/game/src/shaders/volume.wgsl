@@ -13,7 +13,7 @@ const STEPS = 14;
   var acc = vec3f(0.0); var tr = 1.0; let time = u.cam.w;
   for (var k = 0; k < STEPS; k++) {
     let p = u.cam.xyz + v * t; let hf = exp(-max(p.y - 52.0, 0.0) * 0.055) + 0.25;
-    let n = noise(p * 0.016 + vec3f(time * 0.012, 0.0, time * 0.007)); let rho = u.ground.w * hf * (0.3 + 1.15 * n * n);
+    let n = noise(p * 0.016 + vec3f(time * 0.012, 0.0, time * 0.007)); let rho = u.ground.w * u.weather.x * hf * (0.3 + 1.15 * n * n);
     let s = sh(p, t); let sky_s = mix(u.hor.rgb, u.top.rgb, 0.4) * 0.42;
     acc += tr * (u.sun_col.rgb * s * ph * 0.13 + sky_s * 0.14) * rho * st;
     tr *= exp(-rho * st); t += st;
