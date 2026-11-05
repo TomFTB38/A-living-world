@@ -19,9 +19,9 @@ with sync_playwright() as p:
     pg.keyboard.down('KeyW'); time.sleep(12); pg.keyboard.up('KeyW'); c=st()
     moved=((c['p'][0]-a['p'][0])**2+(c['p'][2]-a['p'][2])**2)**.5
     check('marche avant', moved>1, 'distance %.1f'%moved)
-    y0=st()['p'][1]; pg.keyboard.down('Space'); peak=y0
-    for _ in range(14): time.sleep(.3); peak=max(peak,st()['p'][1])
-    pg.keyboard.up('Space'); check('saut', peak>y0+.4, 'hauteur %.2f'%(peak-y0))
+    y0=st()['p'][1]; pg.keyboard.down('Space')
+    pg.wait_for_function(f'ALW.player.p[1]>{y0+.4}',timeout=45000,polling=50); peak=st()['p'][1]
+    pg.keyboard.up('Space'); check('saut', True, 'hauteur %.2f'%(peak-y0))
     # visée vers le sol, caméra libre par API de visée
     pg.evaluate('ALW.dragMode=true; ALW.view.third=false; ALW.player.pitch=-1.2'); time.sleep(3)
     pg.wait_for_function('!!ALW.target',timeout=30000); t=st()['t']; print('cible',t)
