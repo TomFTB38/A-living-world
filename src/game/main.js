@@ -134,6 +134,8 @@ class Game {
     hold('tJump', () => K.add('Space'), () => K.delete('Space'));
     hold('tBreak', () => { this.input.lmb = true; }, () => { this.input.lmb = false; });
     hold('tPlace', () => this.place(), () => {});
+    hold('tMenu', () => this.toggleMenu(true), () => {});
+    hold('tFps', () => { this.prof.show = !this.prof.show; $('prof').classList.toggle('on', this.prof.show); $('tFps').classList.toggle('on', this.prof.show); this.report(); }, () => {});
   }
 
   bindMenu() {
@@ -294,7 +296,7 @@ class Game {
     if (!this.prof.show) return;
     const s = this.r.stats, w = this.world, mem = performance.memory ? (performance.memory.usedJSHeapSize / 1048576).toFixed(0) + ' Mo JS' : 'n/d';
     let vram = 0, ncu = 0; for (const c of w.chunks.values()) { ncu++; for (const m of [c.opaque, c.deco, c.water]) if (m) vram += m.bytes; }
-    $('prof').textContent = `${this.prof.fps.toFixed(0)} FPS   CPU ${this.prof.cpu.toFixed(1)} ms   GPU ${s.gpu ? s.gpu.toFixed(1) + ' ms' : 'n/d'}\nTriangles ${(s.tris / 1e6).toFixed(2)} M   Draw calls ${s.draws}\nChunks ${ncu}, file ${w.queued || 0}, méthode ${w.local ? 'fil principal' : w.workers.length + ' workers'}\nMeshing+génération ${w.stats.genMs.toFixed(1)} ms par chunk\nMémoire ${mem}, géométrie ${(vram / 1048576).toFixed(0)} Mo\nRésolution ${this.r.W}×${this.r.H}\nPosition ${this.player.p.map((v) => v.toFixed(1)).join(' ')}   ${this.hour.toFixed(1)} h   seed ${this.seed}`;
+    $('prof').textContent = `${this.prof.fps.toFixed(0)} FPS   CPU ${this.prof.cpu.toFixed(1)} ms   GPU ${s.gpu ? s.gpu.toFixed(1) + ' ms' : 'n/d'}\nTriangles ${(s.tris / 1e6).toFixed(2)} M   Draw calls ${s.draws}\nChunks ${ncu}, file ${w.queued || 0}, méthode ${w.local ? 'fil principal' : w.workers.length + ' workers'}\nMeshing+génération ${w.stats.genMs.toFixed(1)} ms par chunk\nMémoire ${mem}, géométrie ${(vram / 1048576).toFixed(0)} Mo\nRésolution ${this.r.W}×${this.r.H}, échelle auto ${Math.round((this.dynScale || 1) * 100)} %\nPosition ${this.player.p.map((v) => v.toFixed(1)).join(' ')}   ${this.hour.toFixed(1)} h   seed ${this.seed}`;
   }
 }
 const remap = (c) => ({ org: c.org, opaque: c.opaque, deco: c.deco, water: c.water, cx: c.wx, cz: c.wz });
