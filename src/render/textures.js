@@ -55,21 +55,23 @@ function stone(t, x, y, a = STONE, cells = 5) {
   const tone = 0.34 + 0.32 * t.p[id] + 0.55 * (n - 0.5) + 0.3 * (s - 0.5) + 0.12 * crack;
   return { c: pal(a, tone * (0.72 + 0.28 * crack)), h: 0.2 + 0.6 * crack + 0.2 * n, r: 0.8 };
 }
-// Granit : roche brute, massive et sombre. Grands pans fracturés, fissures fines, cristaux à peine visibles.
-const GRANITE = ['#2c2728', '#4b4243', '#6a5d5b', '#8a7b74', '#a5968b'].map(hex);
+// Granit : pas de dalles, une masse cristalline en grains francs : feldspath rose, quartz clair, mica noir.
+const FELD = ['#7a5a52', '#9a7468', '#b98f7f', '#d3ab98'].map(hex), QUARTZ = ['#a9a5a0', '#c9c6c0', '#e6e3dc'].map(hex), MICA = ['#17151a', '#2d2a30', '#45414a'].map(hex);
 function granite(t, x, y) {
-  const wx = x + 6 * t.fbm(x, y, 4, 2) - 3, wy = y + 6 * t.fbm(x + 19, y + 7, 4, 2) - 3, [d1, d2, id] = t.vor(wx, wy, 3), [e1, e2, id2] = t.vor(wx + 11, wy + 3, 5);
-  const crack = smooth(0, 0.05, d2 - d1), broken = smooth(0.46, 0.6, t.fbm(x + 5, y + 31, 5, 3)), hair = 1 - broken * (1 - smooth(0, 0.03, e2 - e1)), n = t.fbm(x, y, 9, 4), f = t.val(x, y, 32), f2 = t.val(x + 7, y + 3, 32);
-  const tone = 0.26 + 0.32 * t.p[id] + 0.14 * t.p[id2] + 0.62 * (n - 0.5) + 0.12 * (f - 0.5), fleck = f2 > 0.84 ? 1.16 : f2 < 0.15 ? 0.82 : 1;
-  return { c: pal(GRANITE, tone).map((v) => v * fleck * (0.5 + 0.5 * crack) * (0.78 + 0.22 * hair)), h: 0.12 + 0.5 * crack * (0.7 + 0.3 * hair) + 0.38 * n, r: 0.76 };
+  const [d1, d2, id] = t.vor(x, y, 17), [e1, , id2] = t.vor(x + 9, y + 5, 27), r = t.p[id], m = t.p[id2], n = t.fbm(x, y, 6, 3), fine = t.val(x, y, 32);
+  const dark = m > 0.8 && e1 < 0.42, clear = r > 0.68, c = dark ? pal(MICA, n) : clear ? pal(QUARTZ, 0.2 + 0.7 * n) : pal(FELD, 0.15 + 0.6 * r + 0.35 * (n - 0.5) + 0.2 * (fine - 0.5));
+  const edge = smooth(0, 0.08, d2 - d1);
+  return { c: c.map((v) => v * (0.86 + 0.14 * edge)), h: 0.35 + 0.35 * edge + (clear ? 0.2 : 0) + 0.1 * n, r: clear ? 0.42 : 0.62 };
 }
-// Calcaire : roche claire et crème, en couches horizontales ondulées, piquée de petites cavités.
-const LIME = ['#9d9278', '#c4b99c', '#dcd3b8', '#f0e9d2'].map(hex);
+// Calcaire : roche brute, claire et usée. Cassures irrégulières, taches ocre, cavités de toutes tailles, aucune ligne droite.
+const LIME = ['#857a63', '#ad9f84', '#cdc0a4', '#e6dcc4'].map(hex);
 function limestone(t, x, y) {
-  const q = (((y + 3 * t.fbm(x, y, 3, 2) - 1.5) % 64 + 64) % 64) * 4 / 64, bed = Math.floor(q), u = q - bed, tb = t.p[(bed * 37 + 11) & 1023];
-  const seam = smooth(0, 0.06, u) * smooth(1, 0.93, u), [d1, , id] = t.vor(x, y, 8), pit = t.p[id] > 0.72 ? smooth(0.04, 0.17, d1) : 1, n = t.fbm(x, y * 0.5, 8, 3), fine = t.val(x * 0.5, y, 32);
-  const c = pal(LIME, 0.34 + 0.34 * tb + 0.4 * (n - 0.5) + 0.14 * (fine - 0.5));
-  return { c: c.map((v) => v * (0.62 + 0.38 * seam) * (0.68 + 0.32 * pit)), h: 0.25 + 0.5 * seam * pit + 0.2 * n, r: 0.88 };
+  const wx = x + 9 * t.fbm(x, y, 3, 3) - 4.5, wy = y + 9 * t.fbm(x + 23, y + 11, 3, 3) - 4.5, [d1, d2, id] = t.vor(wx, wy, 4);
+  const broken = smooth(0.42, 0.58, t.fbm(x + 41, y + 3, 4, 3)), crack = 1 - broken * (1 - smooth(0, 0.04, d2 - d1));
+  const [p1, , pid] = t.vor(x + 3, y + 8, 10), [q1, , qid] = t.vor(x + 17, y + 2, 22), big = t.p[pid] > 0.7 ? smooth(0.08, 0.34, p1) : 1, small = t.p[qid] > 0.8 ? smooth(0.1, 0.42, q1) : 1, pit = Math.min(big, small);
+  const n = t.fbm(x, y, 7, 4), stain = smooth(0.42, 0.72, t.fbm(x + 9, y + 40, 3, 3)), bed = 0.5 + 0.5 * Math.sin(wy * Math.PI * 6 / 64 + 5 * (n - 0.5));
+  const c = pal(LIME, 0.42 + 0.2 * t.p[id] + 0.85 * (n - 0.5) + 0.12 * (bed - 0.5)), k = (0.55 + 0.45 * crack) * (0.72 + 0.28 * pit);
+  return { c: [c[0] * k, c[1] * k * (1 - 0.05 * stain), c[2] * k * (1 - 0.14 * stain)], h: 0.1 + 0.42 * crack * pit + 0.48 * n * pit, r: 0.9 };
 }
 // Pierre moussue : couverture franche par le haut, débordant en coulures, bien distincte de la pierre nue.
 function mossy(t, x, y) {
