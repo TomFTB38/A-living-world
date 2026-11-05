@@ -7,7 +7,7 @@ use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 use crate::{font_data as fd, hud};
 
-const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; const FLOATS: usize = 192; const MAX_ACTORS: u64 = 96; const UI_VERTS: u64 = 60_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 52.0;
+const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; const FLOATS: usize = 192; const MAX_ACTORS: u64 = 128; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 60_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 52.0;
 pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 6;
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32, pub cascades: [f64; 3] }
@@ -24,7 +24,7 @@ struct Targets {
 }
 pub struct Gpu {
     surface: Option<wgpu::Surface<'static>>, device: wgpu::Device, queue: wgpu::Queue, config: wgpu::SurfaceConfiguration, format: wgpu::TextureFormat,
-    p: Pipes, t: Targets, actor_vb: wgpu::Buffer, actor_inst: wgpu::Buffer, ui_buf: wgpu::Buffer, ui_u: wgpu::Buffer, ui_bind: wgpu::BindGroup, frame0: wgpu::BindGroup, geom1: wgpu::BindGroup, ubuf: wgpu::Buffer, ibuf: wgpu::Buffer, inst: wgpu::Buffer,
+    p: Pipes, t: Targets, fall_vb: wgpu::Buffer, fall_serial: u64, actor_vb: wgpu::Buffer, actor_inst: wgpu::Buffer, ui_buf: wgpu::Buffer, ui_u: wgpu::Buffer, ui_bind: wgpu::BindGroup, frame0: wgpu::BindGroup, geom1: wgpu::BindGroup, ubuf: wgpu::Buffer, ibuf: wgpu::Buffer, inst: wgpu::Buffer,
     shadow_views: Vec<wgpu::TextureView>, shadow_bind: Vec<wgpu::BindGroup>, shadow_buf: Vec<wgpu::Buffer>, shadow_vp: [M4; 3], shadow_size: u32, hole: f32, cascades: [f64; 3],
     chunks: HashMap<(i32, i32), ChunkGpu>, far: Option<Far>, free: Vec<u64>, frame: u64, prev_vp: M4, reset: bool, capture: Option<Rt>,
 }
@@ -220,9 +220,10 @@ impl Gpu {
             }
             queue.submit([enc.finish()]);
         }
+        let fall_vb = d.create_buffer(&wgpu::BufferDescriptor { label: Some("arbre qui tombe"), size: FALL_BYTES, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let capture = if surface.is_none() { Some(rt(d, config.width, config.height, LDR, true)) } else { None };
         let free = (1..MAX_SLOTS).rev().collect();
-        Gpu { surface, p, t, actor_vb, actor_inst, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, cascades: o.cascades, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
+        Gpu { surface, p, t, fall_vb, fall_serial: 0, actor_vb, actor_inst, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, cascades: o.cascades, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
     }
     pub fn resize(&mut self, w: u32, h: u32) {
         if w == 0 || h == 0 { return; }
@@ -230,6 +231,8 @@ impl Gpu {
         if let Some(s) = &self.surface { s.configure(&self.device, &self.config); }
         self.t = targets(&self.device, &self.p, w, h); self.reset = true;
     }
+    /// Envoie le tronc en train de tomber, une seule fois par chute.
+    pub fn set_fall(&mut self, serial: u64, data: &[u8]) { if serial != self.fall_serial { self.fall_serial = serial; self.queue.write_buffer(&self.fall_vb, 0, &data[..data.len().min(FALL_BYTES as usize)]); } }
     fn set_origin(&self, slot: u64, o: [f32; 4]) { self.queue.write_buffer(&self.inst, slot * 16, &bytes_f32(&o)); }
     pub fn upload(&mut self, b: Built) {
         let m = &b.mesh; let (x, z) = (b.key.0 as f32 * 32.0, b.key.1 as f32 * 32.0);
@@ -267,7 +270,8 @@ impl Gpu {
             for c in &list_all { let (dx, dz) = (c.c[0] - ex, c.c[1] - ez); if dx * dx + dz * dz > r * r { continue; } if let Some(q) = &c.opaque { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }
             if i == 0 {
                 p.set_pipeline(&self.p.actor_shadow); p.set_vertex_buffer(0, self.actor_vb.slice(..)); p.set_vertex_buffer(1, self.actor_inst.slice(..));
-                for (k, d) in draws.iter().enumerate() { if !d.view { p.draw_indexed(d.r.first..d.r.first + d.r.count, 0, k as u32..k as u32 + 1); } }
+                for (k, d) in draws.iter().enumerate() { if !d.view && !d.dynamic { p.draw_indexed(d.r.first..d.r.first + d.r.count, 0, k as u32..k as u32 + 1); } }
+                p.set_vertex_buffer(0, self.fall_vb.slice(..)); for (k, d) in draws.iter().enumerate() { if d.dynamic { p.draw_indexed(d.r.first..d.r.first + d.r.count, 0, k as u32..k as u32 + 1); } }
                 p.set_pipeline(&self.p.shadow_d);
                 for c in &list_all { let (dx, dz) = (c.c[0] - ex, c.c[1] - ez); if dx * dx + dz * dz > DECO_SHADOW * DECO_SHADOW { continue; } if let Some(q) = &c.deco { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }
             }
@@ -287,7 +291,7 @@ impl Gpu {
             p.set_pipeline(&self.p.geom_o);
             for c in &list { if let Some(q) = &c.opaque { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }
             if let Some(f) = &self.far { p.set_vertex_buffer(0, f.part.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(f.slot * 16..f.slot * 16 + 16)); p.draw_indexed(0..f.part.indices, 0, 0..1); tris += f.part.indices as usize / 3; }
-            if !draws.is_empty() { p.set_pipeline(&self.p.actor); p.set_vertex_buffer(0, self.actor_vb.slice(..)); p.set_vertex_buffer(1, self.actor_inst.slice(..)); for (k, d) in draws.iter().enumerate() { p.draw_indexed(d.r.first..d.r.first + d.r.count, 0, k as u32..k as u32 + 1); } }
+            if !draws.is_empty() { p.set_pipeline(&self.p.actor); p.set_vertex_buffer(0, self.actor_vb.slice(..)); p.set_vertex_buffer(1, self.actor_inst.slice(..)); for (k, d) in draws.iter().enumerate() { if !d.dynamic { p.draw_indexed(d.r.first..d.r.first + d.r.count, 0, k as u32..k as u32 + 1); } } p.set_vertex_buffer(0, self.fall_vb.slice(..)); for (k, d) in draws.iter().enumerate() { if d.dynamic { p.draw_indexed(d.r.first..d.r.first + d.r.count, 0, k as u32..k as u32 + 1); } } }
             p.set_pipeline(&self.p.geom_d);
             for c in &list { if let Some(q) = &c.deco { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }
         }

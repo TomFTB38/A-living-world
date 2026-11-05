@@ -3,6 +3,8 @@ use crate::actors::{Anim, AnimIn, Draw, Models};
 use crate::audio::{pick_mood, Situation, SoundScape};
 use crate::blocks::*;
 use crate::fauna::{Ev, Fauna};
+use crate::felling::{find_tree, Fall, Tree, FELL_TIME};
+use crate::flow::Flow;
 use crate::gen::WorldGen;
 use crate::player::{Input, Player, Voxels};
 use crate::stream::{Preset, Streamer};
@@ -38,7 +40,7 @@ pub fn raycast(w: &impl Voxels, o: [f64; 3], d: [f64; 3], max: f64, skip: &dyn F
     for _ in 0..80 {
         if t > max { break; }
         let b = w.get(x, y, z)?;
-        if b > 0 && b != B::WATER && !skip(x, y, z, b) { return Some((Target { x, y, z, px, py, pz, id: b }, t)); }
+        if b > 0 && !is_water(b) && !skip(x, y, z, b) { return Some((Target { x, y, z, px, py, pz, id: b }, t)); }
         px = x; py = y; pz = z;
         if tx < ty && tx < tz { x += sx; t = tx; tx += tdx; } else if ty < tz { y += sy; t = ty; ty += tdy; } else { z += sz; t = tz; tz += tdz; }
     }
@@ -49,13 +51,13 @@ pub struct Actions { pub mine: bool, pub place: bool }
 pub struct Session {
     pub world: Streamer, pub player: Player, pub inv: [Option<Stack>; INV_SIZE], pub sel: usize, pub creative: bool, pub target: Option<Target>, pub orient: u8, pub hour: f64, pub vit: [f64; 3], pub seed: i32, pub third: bool, pub cam_dist: f64, pub eye: [f64; 3], pub look: [f64; 3], pub anim: Anim, pub inv_open: bool, pub cursor: Option<Stack>, pub from: Option<usize>,
     mine_key: Option<(i32, i32, i32)>, pub mine_t: f64, cool: f64, axis: Option<char>, pub dirty: bool, pub tab: usize,
-    pub fauna: Fauna, pub weather: Weather, pub sound: SoundScape, gen: WorldGen, pub elapsed: f64, hurt_at: f64, built: Vec<f64>, swing_t: f64, dig_t: f64, step_t: f64, water_t: f64, env_t: f64, was_wet: bool, was_ground: bool, fall_v: f64, brook: Option<[f64; 3]>, fall: Option<[f64; 3]>,
+    pub fauna: Fauna, pub weather: Weather, pub sound: SoundScape, gen: WorldGen, pub elapsed: f64, hurt_at: f64, built: Vec<f64>, swing_t: f64, dig_t: f64, step_t: f64, water_t: f64, env_t: f64, was_wet: bool, was_ground: bool, fall_v: f64, brook: Option<[f64; 3]>, fall: Option<[f64; 3]>, felling: Option<Tree>, pub falling: Option<Fall>, pub fall_serial: u64, pub flow: Flow,
 }
 impl Session {
     pub fn new(seed: i32, p: &Preset, threads: usize, at: [f64; 3]) -> Self {
         let mut inv = [None; INV_SIZE];
         for (i, (it, n)) in [("pickaxe", None), ("axe", None), ("sword", None), ("lantern", Some(32)), ("dirt", Some(64)), ("stone", Some(32)), ("planks", Some(16))].into_iter().enumerate() { inv[i] = Some(Stack { item: it, n }); }
-        Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, fauna: Fauna::new(seed), weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None }
+        Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, fauna: Fauna::new(seed), weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None, felling: None, falling: None, fall_serial: 0, flow: Flow::default() }
     }
     pub fn held(&self) -> Option<Item> { self.inv[self.sel].and_then(|s| item(s.item)) }
     pub fn add_item(&mut self, id: &str, n: u32) {
@@ -84,6 +86,7 @@ impl Session {
         let id = self.oriented(block); let p = self.player.p;
         if is_solid(id) && x as f64 + 1.0 > p[0] - 0.3 && (x as f64) < p[0] + 0.3 && z as f64 + 1.0 > p[2] - 0.3 && (z as f64) < p[2] + 0.3 && y as f64 + 1.0 > p[1] && (y as f64) < p[1] + 1.8 { return false; }
         if !self.world.edit(x, y, z, id) { return false; }
+        self.flow.touch(x, y, z);
         if !self.creative { let n = st.n.unwrap_or(0) - 1; self.inv[self.sel] = if n == 0 { None } else { Some(Stack { n: Some(n), ..st }) }; }
         self.sound.place(BLOCKS[id as usize].name); self.built.push(self.elapsed); self.dirty = true; true
     }
@@ -94,16 +97,33 @@ impl Session {
         // Dans le vide, on frappe quand même, avec n'importe quoi.
         if go && self.target.is_none() && self.swing_t <= 0.0 { self.swing_t = 0.3; self.sound.swing(tool, 1.0); }
         let Some(t) = self.target.filter(|_| go) else { self.mine_key = None; self.mine_t = 0.0; return };
-        let key = (t.x, t.y, t.z); if self.mine_key != Some(key) { self.mine_key = Some(key); self.mine_t = 0.0; }
+        let key = (t.x, t.y, t.z); if self.mine_key != Some(key) { self.mine_key = Some(key); self.mine_t = 0.0; self.felling = if tool == Some("axe") { find_tree(&self.world, t.x, t.y, t.z) } else { None }; }
+        // La hache sur un arbre : pas de bloc à bloc, on entaille jusqu'à ce que tout l'arbre tombe.
+        if self.felling.is_some() {
+            self.mine_t += dt; self.dig_t -= dt; if self.dig_t <= 0.0 { self.dig_t = 0.3; self.sound.dig(BLOCKS[t.id as usize].name, tool); }
+            if self.mine_t >= FELL_TIME { self.fell(t); self.mine_key = None; self.mine_t = 0.0; }
+            return;
+        }
         let b = BLOCKS[t.id as usize]; let kind = self.held().and_then(|i| i.tool);
         let rate = if kind.is_some() && kind == Some(b.cat) { 3.0 } else if b.cat == "terrain" { 1.6 } else { 1.0 };
         if self.creative { self.cool -= dt; if self.cool > 0.0 { return; } self.cool = 0.2; self.mine_t = 1e9; }
         self.mine_t += dt * rate; self.dig_t -= dt;
         if self.dig_t <= 0.0 && !self.creative { self.dig_t = 0.3; self.sound.dig(b.name, tool); }
         if self.mine_t >= b.hardness {
-            if self.world.edit(t.x, t.y, t.z, 0) { self.sound.break_block(b.name, tool); self.drop_attached(t.x, t.y, t.z); if !self.creative { if let Some(d) = b.drop { self.add_item(d, 1); } } self.dirty = true; }
+            if self.world.edit(t.x, t.y, t.z, 0) { self.flow.touch(t.x, t.y, t.z); self.sound.break_block(b.name, tool); self.drop_attached(t.x, t.y, t.z); if !self.creative { if let Some(d) = b.drop { self.add_item(d, 1); } } self.dirty = true; }
             self.mine_key = None; self.mine_t = 0.0;
         }
+    }
+    /// Le tronc au-dessus de l'entaille tombe, le feuillage disparaît, le pied de l'arbre reste en place.
+    fn fell(&mut self, t: Target) {
+        let Some(tree) = self.felling.take() else { return }; let at = |s: &Self, p: (i32, i32, i32)| s.world.get(p.0, p.1, p.2).unwrap_or(0);
+        let logs: Vec<((i32, i32, i32), u8)> = tree.logs.iter().filter(|p| p.1 >= t.y).map(|p| (*p, at(self, *p))).collect();
+        let leaf_id = tree.leaves.first().map_or(0, |p| at(self, *p)); let drop = BLOCKS[t.id as usize].drop.unwrap_or("oak_log");
+        let edits: Vec<_> = logs.iter().map(|(p, _)| (p.0, p.1, p.2, 0)).chain(tree.leaves.iter().map(|p| (p.0, p.1, p.2, 0))).collect(); self.world.edit_many(&edits);
+        self.falling = Some(Fall::new(&logs, &tree.leaves, leaf_id, (t.x, t.y, t.z), self.player.p, (t.x * 31 + t.z) as u32)); self.fall_serial += 1;
+        for p in logs.iter().map(|l| l.0).chain(tree.leaves.iter().copied()) { self.drop_attached(p.0, p.1, p.2); self.flow.touch(p.0, p.1, p.2); }
+        if !self.creative { self.add_item(drop, logs.len().min(99) as u32); }
+        self.sound.tree_crack(); self.dirty = true;
     }
     /// Une étape de jeu. Le reste (rendu, son) lit l'état.
     pub fn tick(&mut self, dt: f64, i: Input, a: Actions) {
@@ -116,6 +136,8 @@ impl Session {
         if !self.creative { let k = if i.sprint { 2.0 } else { 1.0 }; self.vit[1] = (self.vit[1] - dt * 0.012 * k).max(0.0); self.vit[2] = (self.vit[2] - dt * 0.018 * k).max(0.0); }
         if self.player.in_water { self.vit[2] = (self.vit[2] + dt * 8.0).min(100.0); }
         self.elapsed += dt; self.weather.update(dt);
+        let changes = self.flow.step(dt, &self.world); if !changes.is_empty() { self.world.edit_many(&changes); self.dirty = true; }
+        if let Some(mut f) = self.falling.take() { if f.step(dt, &self.world) { self.sound.tree_land(); } if !f.done() { self.falling = Some(f); } }
         if self.world.loaded() > 0 {
             self.fauna.update(dt, &self.world, self.player.p, (self.sun_height() * 3.0).max(0.0));
             for e in std::mem::take(&mut self.fauna.ev) { match e { Ev::Bird(p, v) => self.sound.bird(p, v), Ev::Wings(p) => self.sound.wings(p), Ev::Hoof(p, f) => self.sound.hoof(p, f), Ev::Alarm(p) => self.sound.deer_alarm(p), Ev::Call(p) => self.sound.deer_call(p) } }
@@ -156,7 +178,7 @@ impl Session {
         self.was_ground = pl.ground; let vy = pl.v[1]; self.fall_v = if vy < -1.0 { vy } else if pl.ground { self.fall_v * 0.5 } else { self.fall_v };
         self.env_t -= dt;
         if self.env_t <= 0.0 {
-            self.env_t = 0.2; let covered = self.covered(eye); let sub = at(self, eye) == Some(B::WATER); self.sound.env(w.cloud, w.rain, covered, sub, self.brook, self.fall);
+            self.env_t = 0.2; let covered = self.covered(eye); let sub = at(self, eye).is_some_and(is_water); let brook = if self.flow.quiet < 2.0 { self.flow.last.or(self.brook) } else { self.brook }; self.sound.env(w.cloud, w.rain, covered, sub, brook, self.fall);
             let now = self.elapsed; self.built.retain(|t| now - t < 25.0);
             self.sound.mood(pick_mood(Situation { hurt: now - self.hurt_at < 12.0, enemy: false, food: self.vit[1], water: self.vit[2], submerged: sub, underground: p[1] < self.gen.column(p[0], p[2]).h - 4.0 && covered, building: self.built.len() >= 3, night: self.sun_height() < 0.0, rain: w.rain > 0.5 }));
         }
@@ -174,7 +196,7 @@ impl Session {
     pub fn draws(&self, md: &Models, view: &crate::view::M4) -> Vec<Draw> {
         let held = self.inv[self.sel].and_then(|s| md.held(s.item)); let p = &self.player;
         let mut o = if self.third { self.anim.third(md, p.p, if p.speed > 0.2 { p.move_yaw } else { p.yaw }, p.pitch, held) } else { self.anim.first(md, view, held) };
-        o.extend(self.fauna.draws(md)); o
+        o.extend(self.fauna.draws(md)); if let Some(f) = &self.falling { o.extend(f.draws(md)); } o
     }
     /// Où irait le bloc tenu, et serait-il accepté ?
     pub fn ghost(&self) -> Option<([i32; 3], bool)> {
@@ -221,7 +243,7 @@ impl Session {
         if let Some(k) = range.clone().find(|k| self.inv[*k].is_none()) { self.inv[k] = Some(s); self.inv[i] = None; } else { self.inv[i] = Some(s); }
         self.dirty = true;
     }
-    pub fn progress(&self) -> f64 { match self.target { Some(t) if self.mine_key.is_some() => (self.mine_t / BLOCKS[t.id as usize].hardness.max(0.01)).min(1.0), _ => 0.0 } }
+    pub fn progress(&self) -> f64 { match self.target { Some(t) if self.mine_key.is_some() => (self.mine_t / if self.felling.is_some() { FELL_TIME } else { BLOCKS[t.id as usize].hardness.max(0.01) }).min(1.0), _ => 0.0 } }
     pub fn set_creative(&mut self, on: bool) { self.creative = on; if !on { self.player.fly = false; } }
     /// Sauvegarde lisible : l'état du joueur, puis seulement ce qui diffère du monde généré.
     pub fn save_text(&self) -> String {

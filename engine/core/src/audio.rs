@@ -11,6 +11,7 @@ const fn l(set: &'static str, rate: f32, vol: f32) -> L { L { set, rate, vol, lp
 #[derive(Clone, Copy, Debug)] pub struct Mat { pub m: &'static str, pub step: &'static [L], pub hit: &'static [L], pub brk: &'static [L], pub put: &'static [L] }
 pub fn sound_of(name: &str) -> &'static Mat {
     let n = name.strip_suffix("_x").or(name.strip_suffix("_y")).or(name.strip_suffix("_z")).unwrap_or(name);
+    let n = if n.starts_with("water") { "water" } else { n };
     SOUNDS.iter().find(|s| s.0 == n).map(|s| &s.1).unwrap_or_else(|| &SOUNDS.iter().find(|s| s.0 == "dirt").unwrap().1)
 }
 fn round_lp(set: &str) -> f32 { match set { "leaf" => 4200.0, "crumble" => 6000.0, "gravel" => 5200.0, "sand" => 7000.0, _ => 0.0 } }
@@ -262,6 +263,10 @@ impl SoundScape {
         let l = match tool { Some("sword") => l("blade", 1.0, 0.5), Some("pickaxe") => l("whoosh", 1.05, 0.36), Some("axe") => l("whoosh", 0.9, 0.36), _ => l("puff", 1.0, 0.3) };
         self.send(Cmd::Play { l, k, pan: 0.0, delay: 0.0 });
     }
+    /// L'arbre cède : craquements espacés, plus graves à mesure qu'il part.
+    pub fn tree_crack(&self) { for (i, r) in [1.0, 0.86, 0.74].iter().enumerate() { self.send(Cmd::Play { l: l("crack", *r, 0.6), k: 1.0, pan: 0.0, delay: i as f32 * 0.18 }); } self.send(Cmd::Play { l: l("chopdry", 0.8, 0.5), k: 1.0, pan: 0.0, delay: 0.0 }); }
+    /// Il touche le sol : choc sourd, puis branches.
+    pub fn tree_land(&self) { self.send(Cmd::Play { l: L { lp: 900.0, ..l("knock", 0.55, 0.8) }, k: 1.0, pan: 0.0, delay: 0.0 }); self.send(Cmd::Play { l: l("crack", 0.7, 0.35), k: 1.0, pan: 0.0, delay: 0.08 }); self.send(Cmd::Play { l: l("leaf", 0.8, 0.4), k: 1.0, pan: 0.0, delay: 0.05 }); }
     pub fn splash(&self, k: f32) { self.send(Cmd::Play { l: l("splash", 0.85, 0.5), k, pan: 0.0, delay: 0.0 }); }
     pub fn hurt(&self) { self.send(Cmd::Play { l: l("hurt", 1.0, 0.6), k: 1.0, pan: 0.0, delay: 0.0 }); }
     pub fn bird(&mut self, pos: [f64; 3], voice: usize) {

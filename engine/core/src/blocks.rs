@@ -21,6 +21,13 @@ pub struct Block {
 
 #[inline(always)] pub fn is_solid(b: u8) -> bool { BLOCKS[b as usize].solid }
 #[inline(always)] pub fn is_opaque(b: u8) -> bool { BLOCKS[b as usize].opaque }
+#[inline(always)] pub fn is_water(b: u8) -> bool { BLOCKS[b as usize].shape == Shape::Water }
+/// Niveau d'eau : 8 pour une source, 1 à 7 pour l'eau qui coule, 0 sinon.
+#[inline] pub fn water_level(b: u8) -> u8 { if b == B::WATER { 8 } else if is_water(b) { b - B::WATER_1 + 1 } else { 0 } }
+#[inline] pub fn flow_block(level: u8) -> u8 { B::WATER_1 + level - 1 }
+/// Vrai pour tous les troncs, quelle que soit leur orientation ; l'essence est le premier mot du nom.
+pub fn is_log(b: u8) -> bool { BLOCKS[b as usize].name.contains("_log") }
+pub fn species(b: u8) -> &'static str { BLOCKS[b as usize].name.split('_').next().unwrap_or("") }
 #[inline(always)] pub fn is_leaf(b: u8) -> bool { BLOCKS[b as usize].shape == Shape::Leaf }
 #[inline(always)] pub fn is_deco(b: u8) -> bool { BLOCKS[b as usize].shape == Shape::Deco }
 #[inline(always)] pub fn emit(b: u8) -> u8 { BLOCKS[b as usize].light }

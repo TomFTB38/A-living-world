@@ -330,7 +330,7 @@ impl Grower {
 
 fn grow_oak(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
     let mut g = Grower::default(); let (log, lf) = (B::OAK_LOG, B::OAK_LEAVES);
-    let rad = lerp(1.1, 3.1, age); let hh = lerp(10.0, 20.0, age);
+    let rad = lerp(0.75, 2.3, age); let hh = lerp(5.5, 14.0, age);
     let lean = [r.range(-0.1, 0.1), 1.0, r.range(-0.1, 0.1)];
     let trunk = g.limb(&[x, y - 1.0, z], lean, hh, rad, rad * 0.72, log, r, 0.05, 0.03);
     let roots = 3 + (age * 3.0).floor() as i32;
@@ -341,12 +341,12 @@ fn grow_oak(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
     let top = trunk[trunk.len() - 1]; let arms = 3 + (age * 3.0).floor() as i32;
     for i in 0..arms {
         let a = (i as f64 / arms as f64) * 6.283 + r.range(-0.4, 0.4); let t = r.range(0.68, 0.98); let at = trunk[at_frac(trunk.len(), t)];
-        let ll = lerp(5.0, 13.0, age) * r.range(0.8, 1.15);
+        let ll = lerp(2.5, 8.5, age) * r.range(0.8, 1.15);
         let d = [cos(a), r.range(0.3, 0.7), sin(a)];
         let pts = g.limb(&at, d, ll, rad * 0.55, 0.65, log, r, 0.14, 0.03);
         let tip = pts[pts.len() - 1];
-        let rx = lerp(3.2, 5.2, age) * r.range(0.85, 1.15);
-        g.blob(tip[0], tip[1] + 1.5, tip[2], rx, lerp(2.6, 3.9, age), lf, r);
+        let rx = lerp(2.3, 3.9, age) * r.range(0.85, 1.15);
+        g.blob(tip[0], tip[1] + 1.5, tip[2], rx, lerp(1.9, 3.0, age), lf, r);
         let mut b = 0.0;
         while b < 2.0 + age * 2.0 {
             let t = r.range(0.45, 0.95); let q = pts[at_frac(pts.len(), t)];
@@ -354,12 +354,12 @@ fn grow_oak(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
             let d2 = [cos(a2), r.range(0.0, 0.5), sin(a2)];
             let pts2 = g.limb(&q, d2, ll * 0.5, 0.75, 0.4, log, r, 0.2, 0.04);
             let t2 = pts2[pts2.len() - 1];
-            let rx2 = lerp(2.6, 4.0, age) * r.range(0.8, 1.1);
-            g.blob(t2[0], t2[1] + 1.0, t2[2], rx2, lerp(2.2, 3.2, age), lf, r);
+            let rx2 = lerp(1.9, 3.1, age) * r.range(0.8, 1.1);
+            g.blob(t2[0], t2[1] + 1.0, t2[2], rx2, lerp(1.7, 2.5, age), lf, r);
             b += 1.0;
         }
     }
-    g.blob(top[0], top[1] + 3.0, top[2], lerp(4.0, 6.5, age), lerp(3.0, 4.4, age), lf, r);
+    g.blob(top[0], top[1] + 3.0, top[2], lerp(2.8, 4.8, age), lerp(2.3, 3.4, age), lf, r);
     // Polypores : du cœur du tronc jusqu'à la première case libre, donc toujours collés à l'écorce.
     let fungi = (age * 5.0).floor() as i32 + if r.next() < 0.5 { 1 } else { 0 };
     const DIR: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
@@ -374,34 +374,34 @@ fn grow_oak(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
 }
 fn grow_birch(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
     let mut g = Grower::default(); let (log, lf) = (B::BIRCH_LOG, B::BIRCH_LEAVES);
-    let hh = lerp(11.0, 22.0, age); let rad = lerp(0.55, 1.15, age);
+    let hh = lerp(6.0, 15.0, age); let rad = lerp(0.45, 1.0, age);
     let d = [r.range(-0.06, 0.06), 1.0, r.range(-0.06, 0.06)];
     let trunk = g.limb(&[x, y - 1.0, z], d, hh, rad, 0.42, log, r, 0.05, 0.02);
     let n = 5 + (age * 5.0).floor() as i32;
     for _ in 0..n {
         let t = r.range(0.48, 0.98); let p = trunk[at_frac(trunk.len(), t)]; let a = r.range(0.0, 6.283);
-        let ll = lerp(2.0, 6.0, 1.0 - t * 0.7) * lerp(0.7, 1.1, age);
+        let ll = lerp(1.5, 4.5, 1.0 - t * 0.7) * lerp(0.7, 1.1, age);
         let pts = g.limb(&p, [cos(a), 0.55, sin(a)], ll, 0.45, 0.4, log, r, 0.15, 0.02);
         let tip = pts[pts.len() - 1];
-        let (rx, ry) = (r.range(2.0, 3.1), r.range(1.8, 2.8));
+        let (rx, ry) = (r.range(1.6, 2.6), r.range(1.5, 2.3));
         g.blob(tip[0], tip[1] + 0.5, tip[2], rx, ry, lf, r);
     }
     let top = trunk[trunk.len() - 1];
-    g.blob(top[0], top[1] + 1.0, top[2], 2.6, 3.2, lf, r);
+    g.blob(top[0], top[1] + 1.0, top[2], 2.2, 2.6, lf, r);
     g.finish()
 }
 fn grow_beech(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
     let mut g = Grower::default(); let (log, lf) = (B::BEECH_LOG, B::BEECH_LEAVES);
-    let hh = lerp(12.0, 24.0, age); let rad = lerp(0.8, 1.9, age);
+    let hh = lerp(6.5, 16.0, age); let rad = lerp(0.6, 1.5, age);
     let d = [r.range(-0.05, 0.05), 1.0, r.range(-0.05, 0.05)];
     let trunk = g.limb(&[x, y - 1.0, z], d, hh, rad, 0.7, log, r, 0.04, 0.02);
     let n = 5 + (age * 4.0).floor() as i32;
     for i in 0..n {
         let t = r.range(0.55, 1.0); let p = trunk[(trunk.len() - 1).min(at_frac(trunk.len(), t))]; let a = (i as f64 / n as f64) * 6.283 + r.range(-0.5, 0.5);
-        let ll = lerp(3.0, 9.0, age) * r.range(0.7, 1.1);
+        let ll = lerp(2.2, 6.5, age) * r.range(0.7, 1.1);
         let pts = g.limb(&p, [cos(a), 0.65, sin(a)], ll, rad * 0.45, 0.45, log, r, 0.1, 0.04);
         let tip = pts[pts.len() - 1];
-        g.blob(tip[0], tip[1] + 1.0, tip[2], lerp(3.2, 5.0, age), lerp(2.6, 4.0, age), lf, r);
+        g.blob(tip[0], tip[1] + 1.0, tip[2], lerp(2.4, 3.8, age), lerp(2.0, 3.0, age), lf, r);
     }
     g.finish()
 }

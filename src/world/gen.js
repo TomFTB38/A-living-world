@@ -332,7 +332,7 @@ class Grower {
 
 function growOak(x, y, z, r, age) {
   const g = new Grower(), log = B.oak_log, lf = B.oak_leaves;
-  const rad = lerp(1.1, 3.1, age), H = lerp(10, 20, age);
+  const rad = lerp(0.75, 2.3, age), H = lerp(5.5, 14, age);
   const lean = [r.range(-0.1, 0.1), 1, r.range(-0.1, 0.1)];
   const trunk = g.limb([x, y - 1, z], lean, H, rad, rad * 0.72, log, r, 0.05, 0.03);
   // contreforts et racines apparentes
@@ -344,19 +344,19 @@ function growOak(x, y, z, r, age) {
   const top = trunk[trunk.length - 1], arms = 3 + Math.floor(age * 3);
   for (let i = 0; i < arms; i++) {
     const a = (i / arms) * 6.283 + r.range(-0.4, 0.4), at = trunk[Math.floor(trunk.length * r.range(0.68, 0.98))];
-    const L = lerp(5, 13, age) * r.range(0.8, 1.15);
+    const L = lerp(2.5, 8.5, age) * r.range(0.8, 1.15);
     const pts = g.limb(at, [Math.cos(a), r.range(0.3, 0.7), Math.sin(a)], L, rad * 0.55, 0.65, log, r, 0.14, 0.03);
     const tip = pts[pts.length - 1];
-    g.blob(tip[0], tip[1] + 1.5, tip[2], lerp(3.2, 5.2, age) * r.range(0.85, 1.15), lerp(2.6, 3.9, age), lf, r);
+    g.blob(tip[0], tip[1] + 1.5, tip[2], lerp(2.3, 3.9, age) * r.range(0.85, 1.15), lerp(1.9, 3, age), lf, r);
     for (let b = 0; b < 2 + age * 2; b++) {
       const q = pts[Math.floor(pts.length * r.range(0.45, 0.95))];
       const a2 = a + r.range(-1.2, 1.2);
       const pts2 = g.limb(q, [Math.cos(a2), r.range(0, 0.5), Math.sin(a2)], L * 0.5, 0.75, 0.4, log, r, 0.2, 0.04);
       const t2 = pts2[pts2.length - 1];
-      g.blob(t2[0], t2[1] + 1, t2[2], lerp(2.6, 4, age) * r.range(0.8, 1.1), lerp(2.2, 3.2, age), lf, r);
+      g.blob(t2[0], t2[1] + 1, t2[2], lerp(1.9, 3.1, age) * r.range(0.8, 1.1), lerp(1.7, 2.5, age), lf, r);
     }
   }
-  g.blob(top[0], top[1] + 3, top[2], lerp(4, 6.5, age), lerp(3, 4.4, age), lf, r);
+  g.blob(top[0], top[1] + 3, top[2], lerp(2.8, 4.8, age), lerp(2.3, 3.4, age), lf, r);
   // Polypores : on part du cœur du tronc jusqu'à la première case libre, donc toujours collés à l'écorce.
   const fungi = Math.floor(age * 5) + (r.next() < 0.5 ? 1 : 0), DIR = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   for (let i = 0; i < fungi; i++) {
@@ -371,32 +371,32 @@ function growOak(x, y, z, r, age) {
 
 function growBirch(x, y, z, r, age) {
   const g = new Grower(), log = B.birch_log, lf = B.birch_leaves;
-  const H = lerp(11, 22, age), rad = lerp(0.55, 1.15, age);
+  const H = lerp(6, 15, age), rad = lerp(0.45, 1, age);
   const trunk = g.limb([x, y - 1, z], [r.range(-0.06, 0.06), 1, r.range(-0.06, 0.06)], H, rad, 0.42, log, r, 0.05, 0.02);
   const n = 5 + Math.floor(age * 5);
   for (let i = 0; i < n; i++) {
     const t = r.range(0.48, 0.98), p = trunk[Math.floor(trunk.length * t)], a = r.range(0, 6.283);
-    const L = lerp(2, 6, 1 - t * 0.7) * lerp(0.7, 1.1, age);
+    const L = lerp(1.5, 4.5, 1 - t * 0.7) * lerp(0.7, 1.1, age);
     const pts = g.limb(p, [Math.cos(a), 0.55, Math.sin(a)], L, 0.45, 0.4, log, r, 0.15, 0.02);
     const tip = pts[pts.length - 1];
-    g.blob(tip[0], tip[1] + 0.5, tip[2], r.range(2, 3.1), r.range(1.8, 2.8), lf, r);
+    g.blob(tip[0], tip[1] + 0.5, tip[2], r.range(1.6, 2.6), r.range(1.5, 2.3), lf, r);
   }
   const top = trunk[trunk.length - 1];
-  g.blob(top[0], top[1] + 1, top[2], 2.6, 3.2, lf, r);
+  g.blob(top[0], top[1] + 1, top[2], 2.2, 2.6, lf, r);
   return g.finish();
 }
 
 function growBeech(x, y, z, r, age) {
   const g = new Grower(), log = B.beech_log, lf = B.beech_leaves;
-  const H = lerp(12, 24, age), rad = lerp(0.8, 1.9, age);
+  const H = lerp(6.5, 16, age), rad = lerp(0.6, 1.5, age);
   const trunk = g.limb([x, y - 1, z], [r.range(-0.05, 0.05), 1, r.range(-0.05, 0.05)], H, rad, 0.7, log, r, 0.04, 0.02);
   const n = 5 + Math.floor(age * 4);
   for (let i = 0; i < n; i++) {
     const t = r.range(0.55, 1), p = trunk[Math.min(trunk.length - 1, Math.floor(trunk.length * t))], a = (i / n) * 6.283 + r.range(-0.5, 0.5);
-    const L = lerp(3, 9, age) * r.range(0.7, 1.1);
+    const L = lerp(2.2, 6.5, age) * r.range(0.7, 1.1);
     const pts = g.limb(p, [Math.cos(a), 0.65, Math.sin(a)], L, rad * 0.45, 0.45, log, r, 0.1, 0.04);
     const tip = pts[pts.length - 1];
-    g.blob(tip[0], tip[1] + 1, tip[2], lerp(3.2, 5, age), lerp(2.6, 4, age), lf, r);
+    g.blob(tip[0], tip[1] + 1, tip[2], lerp(2.4, 3.8, age), lerp(2, 3, age), lf, r);
   }
   return g.finish();
 }

@@ -25,7 +25,8 @@ fn spawn_point(seed: i32) -> [f64; 3] {
 }
 fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &hud::Menu) -> usize {
     let (proj, vm) = (view::perspective(1.05, w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
-    let ui = hud::Ui::build(s, w, h, msg, mouse, menu); let draws = s.draws(md, &vm); let mut sky = view::sky_at(s.hour); let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]);
+    let ui = hud::Ui::build(s, w, h, msg, mouse, menu); let draws = s.draws(md, &vm); let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
+    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]);
     gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], s.progress() as f32)), s.ghost(), &draws, &ui)
 }
 /// Réglages enregistrés ; un fichier plus ancien garde ses valeurs et prend les nouvelles par défaut.
@@ -191,6 +192,21 @@ fn capture(a: &[String]) {
     if scene == "inv" { s.inv_open = true; s.grab_slot(5); s.tick(0.0, none, Actions::default()); }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 0 }; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
+    if scene == "abattage" {
+        // Un vrai arbre près de la caméra : la hache pendant dix secondes, puis on regarde tomber le tronc.
+        let (bx, by, bz) = (eye[0].floor() as i32, eye[1].floor() as i32, eye[2].floor() as i32); let mut spot = None; let n = 34;
+        'c: for r in 4..n { for dz in -r..=r { for dx in -r..=r { if dx.abs().max(dz.abs()) != r { continue; } for y in (by - 12)..(by + 6) { let (x, z) = (bx + dx, bz + dz); if alw_core::player::Voxels::get(&s.world, x, y, z).is_some_and(alw_core::blocks::is_log) && alw_core::felling::find_tree(&s.world, x, y, z).is_some_and(|t| t.logs.len() > 30) { spot = Some((x, y + 1, z)); break 'c; } } } } }
+        let (x, y, z) = spot.expect("un arbre"); let e = [x as f64 + 6.5, y as f64 + 3.0, z as f64 + 0.5]; let mut clear = Vec::new(); for k in 1..8 { for h in 0..5 { for w in -1..=1 { if alw_core::player::Voxels::get(&s.world, x + k, y + h, z + w).is_some_and(|b| !alw_core::blocks::is_log(b)) { clear.push((x + k, y + h, z + w, 0)); } } } } s.world.edit_many(&clear); pump(&mut s, &mut g);
+        s.player.p = [e[0], e[1] - 1.62, e[2]]; let d = view::norm([x as f64 + 0.5 - e[0], y as f64 + 0.5 - e[1], z as f64 + 0.5 - e[2]]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin(); s.sel = 1; s.third = false;
+        for _ in 0..640 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false }); if s.falling.is_some() { break; } }
+        println!("abattage : chute {}, cible {:?}", s.falling.is_some(), s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name)); for _ in 0..55 { s.tick(1.0 / 60.0, none, Actions::default()); } pump(&mut s, &mut g); s.player.pitch += 0.35; s.tick(0.0, none, Actions::default());
+    }
+    if scene == "coule" {
+        // De l'eau posée sur le relief : elle s'étale, descend et se met à niveau.
+        let (x, z) = (eye[0].floor() as i32 + 6, eye[2].floor() as i32 - 4); let c = WorldGen::new(SEED).column(x as f64, z as f64); let y = c.h as i32 + 2; s.world.edit(x, y, z, alw_core::blocks::B::WATER); s.flow.touch(x, y, z); pump(&mut s, &mut g);
+        for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); pump(&mut s, &mut g); } s.sel = 8;
+        let e = [x as f64 - 5.0, y as f64 + 3.5, z as f64 - 5.0]; s.player.p = [e[0], e[1] - 1.62, e[2]]; let d = view::norm([x as f64 - e[0], y as f64 - 1.0 - e[1], z as f64 - e[2]]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     if scene == "faune" {
         // La faune vit quarante secondes, puis la caméra va voir le premier cerf (ou le premier oiseau posé).
         for _ in 0..2400 { s.tick(1.0 / 60.0, none, Actions::default()); }

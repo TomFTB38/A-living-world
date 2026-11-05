@@ -89,26 +89,35 @@ impl Streamer {
         (out, gone)
     }
     /// Pose un bloc. La modification survit au déchargement, et les chunks touchés sont remaillés aussitôt.
-    pub fn edit(&mut self, x: i32, y: i32, z: i32, id: u8) -> bool {
-        if !(0..CH as i32).contains(&y) { return false; }
-        let n = CX as i32; let k = (x.div_euclid(n), z.div_euclid(n)); let i = idx(x.rem_euclid(n) as usize, y as usize, z.rem_euclid(n) as usize);
-        if !self.vox.contains_key(&k) { return false; }
-        { let mut all = self.sh.voxels.lock().unwrap(); self.sh.edits.lock().unwrap().entry(k).or_default().insert(i as u32, id); if let Some(c) = all.get_mut(&k) { Arc::make_mut(c)[i] = id; } }
-        Arc::make_mut(self.vox.get_mut(&k).unwrap())[i] = id;
-        // La lumière porte à 8 blocs : les voisins proches du bord changent aussi.
-        let (lx, lz) = (x.rem_euclid(n), z.rem_euclid(n)); let mut keys = Vec::new();
-        for dz in -1..=1 { for dx in -1..=1 {
-            if (dx == -1 && lx >= 8) || (dx == 1 && lx < n - 8) || (dz == -1 && lz >= 8) || (dz == 1 && lz < n - 8) || (dx, dz) == (0, 0) { continue; }
-            keys.push((k.0 + dx, k.1 + dz));
-        } }
-        keys.push(k); // dernier de la file : il sort le premier
-        let c = self.last.unwrap_or(k); let mut q = self.sh.queue.lock().unwrap();
-        for key in keys {
-            if self.loaded.remove(&key).is_none() && key != k { continue; }
+    pub fn edit(&mut self, x: i32, y: i32, z: i32, id: u8) -> bool { self.edit_many(&[(x, y, z, id)]) == 1 }
+    /// Plusieurs blocs d'un coup, chaque chunk touché n'étant remaillé qu'une fois. Rend le nombre de blocs changés.
+    pub fn edit_many(&mut self, list: &[(i32, i32, i32, u8)]) -> usize {
+        let n = CX as i32; let mut done = 0; let mut near = HashSet::new(); let mut main = HashSet::new();
+        {
+            let mut all = self.sh.voxels.lock().unwrap(); let mut edits = self.sh.edits.lock().unwrap();
+            for &(x, y, z, id) in list {
+                if !(0..CH as i32).contains(&y) { continue; }
+                let k = (x.div_euclid(n), z.div_euclid(n)); let i = idx(x.rem_euclid(n) as usize, y as usize, z.rem_euclid(n) as usize);
+                let Some(v) = self.vox.get_mut(&k) else { continue };
+                edits.entry(k).or_default().insert(i as u32, id); if let Some(c) = all.get_mut(&k) { Arc::make_mut(c)[i] = id; }
+                Arc::make_mut(v)[i] = id; done += 1; main.insert(k);
+                // La lumière porte à 8 blocs : les voisins proches du bord changent aussi.
+                let (lx, lz) = (x.rem_euclid(n), z.rem_euclid(n));
+                for dz in -1..=1 { for dx in -1..=1 {
+                    if (dx == -1 && lx >= 8) || (dx == 1 && lx < n - 8) || (dz == -1 && lz >= 8) || (dz == 1 && lz < n - 8) || (dx, dz) == (0, 0) { continue; }
+                    near.insert((k.0 + dx, k.1 + dz));
+                } }
+            }
+        }
+        let c = main.iter().next().map(|k| self.last.unwrap_or(*k));
+        let Some(c) = c else { return 0 }; let mut q = self.sh.queue.lock().unwrap();
+        let mut todo: Vec<(Key, bool)> = near.into_iter().filter(|k| !main.contains(k)).map(|k| (k, false)).collect(); todo.extend(main.into_iter().map(|k| (k, true))); // les chunks modifiés sortent les premiers
+        for (key, must) in todo {
+            if self.loaded.remove(&key).is_none() && !must { continue; }
             let lod = self.lod_for((((key.0 - c.0).pow(2) + (key.1 - c.1).pow(2)) as f64).sqrt());
             q.push((key, lod)); self.pending.insert((key, lod));
         }
-        drop(q); self.sh.wake.notify_all(); true
+        drop(q); self.sh.wake.notify_all(); done
     }
     pub fn edits(&self) -> HashMap<Key, HashMap<u32, u8>> { self.sh.edits.lock().unwrap().clone() }
     pub fn set_edits(&mut self, e: HashMap<Key, HashMap<u32, u8>>) { *self.sh.edits.lock().unwrap() = e; }

@@ -73,7 +73,7 @@ impl Mesher {
                 if y > t { self.sky[k] = 15; y -= 1; continue; }
                 let b = self.vol[k];
                 if is_opaque(b) { if y < ylow { ylow = y; } break; }
-                if is_leaf(b) { s = if s > 1 { s - 1 } else { 0 }; } else if b == B::WATER { s = s.saturating_sub(1); }
+                if is_leaf(b) { s = if s > 1 { s - 1 } else { 0 }; } else if is_water(b) { s = s.saturating_sub(1); }
                 self.sky[k] = s;
                 let e = emit(b); if e != 0 { self.blk[k] = e; }
                 y -= 1;
@@ -190,20 +190,30 @@ impl Mesher {
             let k = at(x, y, z); let b = self.vol[k as usize];
             if b == 0 || is_opaque(b) { continue; }
             let (fx, fy, fz) = (x as f64, y as f64, z as f64);
-            if b == B::WATER {
-                let up = self.vk(k + WW); let top_y = if up == B::WATER { fy + 1.0 } else { fy + 0.875 };
+            if is_water(b) {
+                let up = self.vk(k + WW); let covered = is_water(up); let top_y = if covered { fy + 1.0 } else { fy + 0.875 * water_level(b) as f64 / 8.0 };
                 let s = (self.sky[(k + WW) as usize] as i32 * 17) as f64; let l = (self.blk[k as usize] as i32 * 17) as f64;
-                if up != B::WATER && !is_opaque(up) {
+                // Hauteur d'une colonne voisine, et de chaque coin : l'eau qui coule forme une pente continue, pas des marches.
+                let flowing = (-1..=1).any(|dz| (-1..=1).any(|dx| { let v = self.vk(k + dx + dz * W); is_water(v) && v != B::WATER }));
+                let height = |n: i32| -> Option<f64> { let v = self.vk(n); if is_water(v) { Some(if is_water(self.vk(n + WW)) { 1.0 } else { 0.875 * water_level(v) as f64 / 8.0 }) } else if is_opaque(v) { None } else { Some(0.0) } };
+                let corner = |cx: i32, cz: i32| -> f64 {
+                    if !flowing || covered { return top_y; }
+                    let (mut sum, mut n) = (top_y - fy, 1.0); for q in [k + cx, k + cz * W, k + cx + cz * W] { if let Some(h) = height(q) { sum += h; n += 1.0; } } fy + (sum / n).max(0.04)
+                };
+                let (c00, c10, c11, c01) = (corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1));
+                if !covered && !is_opaque(up) {
                     // écume au pied des chutes
                     let mut foam = 0.0;
-                    'f: for dz in -2..=2 { for dx in -2..=2 { if self.vk(k + dx + dz * W + WW * 2) == B::WATER { foam = 1.6; break 'f; } } }
-                    for (a, c) in [(fx, fz + 1.0), (fx + 1.0, fz + 1.0), (fx + 1.0, fz), (fx, fz)] { water.v(a, top_y, c, 0.0, 0.0, 1.0, 0.0, 0.0, 255.0, s, l, 0, foam, 1.0, 1.0); }
+                    'f: for dz in -2..=2 { for dx in -2..=2 { if is_water(self.vk(k + dx + dz * W + WW * 2)) { foam = 1.6; break 'f; } } }
+                    for (a, e, c) in [(fx, c01, fz + 1.0), (fx + 1.0, c11, fz + 1.0), (fx + 1.0, c10, fz), (fx, c00, fz)] { water.v(a, e, c, 0.0, 0.0, 1.0, 0.0, 0.0, 255.0, s, l, 0, foam, 1.0, 1.0); }
                 }
-                let sides = [(k + 1, 1.0, 0.0, fx + 1.0, fz + 1.0, fx + 1.0, fz), (k - 1, -1.0, 0.0, fx, fz, fx, fz + 1.0), (k + W, 0.0, 1.0, fx, fz + 1.0, fx + 1.0, fz + 1.0), (k - W, 0.0, -1.0, fx + 1.0, fz, fx, fz)];
-                for (n, nx, nz, ax, az, bx, bz) in sides {
-                    let v = self.vk(n); if v == B::WATER || is_opaque(v) { continue; }
+                let sides = [(k + 1, 1.0, 0.0, fx + 1.0, fz + 1.0, fx + 1.0, fz, c11, c10), (k - 1, -1.0, 0.0, fx, fz, fx, fz + 1.0, c00, c01), (k + W, 0.0, 1.0, fx, fz + 1.0, fx + 1.0, fz + 1.0, c01, c11), (k - W, 0.0, -1.0, fx + 1.0, fz, fx, fz, c10, c00)];
+                for (n, nx, nz, ax, az, bx, bz, ca, cb) in sides {
+                    let v = self.vk(n); if is_opaque(v) { continue; }
+                    let mut low = fy;
+                    if is_water(v) { if !flowing { continue; } low = fy + height(n).unwrap_or(0.0); if low >= ca.max(cb) - 0.01 { continue; } }
                     let ss = (self.sky[n as usize].max(self.sky[k as usize]) as i32 * 17) as f64;
-                    for (a, e, c) in [(ax, fy, az), (bx, fy, bz), (bx, top_y, bz), (ax, top_y, az)] { water.v(a, e, c, 0.0, nx, 0.0, nz, 0.0, 255.0, ss, l, 0, 1.0, 1.0, 1.0); }
+                    for (a, e, c) in [(ax, low, az), (bx, low, bz), (bx, cb.max(low), bz), (ax, ca.max(low), az)] { water.v(a, e, c, 0.0, nx, 0.0, nz, 0.0, 255.0, ss, l, 0, 1.0, 1.0, 1.0); }
                 }
             } else if is_leaf(b) && lod < 2 {
                 let exposed = [k + 1, k - 1, k + W, k - W, k + WW, k - WW].iter().any(|n| !is_solid(self.vk(*n)));

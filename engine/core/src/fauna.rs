@@ -45,7 +45,7 @@ pub struct Fauna { rng: Rng, pub deer: Vec<Deer>, pub birds: Vec<Bird>, t: f64, 
 fn ground(w: &impl Voxels, x: f64, z: f64, y0: f64) -> Option<f64> {
     let (fx, fz, base) = (x.floor() as i32, z.floor() as i32, y0.floor() as i32); let mut y = base + 2;
     while y > base - 22 && y > 1 {
-        let b = w.get(fx, y, fz)?; if b == B::WATER { return None; }
+        let b = w.get(fx, y, fz)?; if is_water(b) { return None; }
         if is_solid(b) && BLOCKS[b as usize].shape != Shape::Leaf { return if BLOCKS[b as usize].cat == "wood" { None } else { Some((y + 1) as f64) }; }
         y -= 1;
     }
@@ -56,7 +56,7 @@ fn fits(w: &impl Voxels, x: f64, y: f64, z: f64, yaw: f64, h: i32) -> bool {
     let (s, c, yy) = (sin(yaw), cos(yaw), (y + 0.05).floor() as i32);
     for (f, l) in [(0.75, 0.0), (0.5, 0.25), (0.5, -0.25), (0.0, 0.25), (0.0, -0.25), (-0.6, 0.25), (-0.6, -0.25)] {
         let (bx, bz) = ((x + s * f + c * l).floor() as i32, (z + c * f - s * l).floor() as i32);
-        for k in 0..h { match w.get(bx, yy + k, bz) { None => return false, Some(b) => if is_solid(b) || b == B::WATER { return false; } } }
+        for k in 0..h { match w.get(bx, yy + k, bz) { None => return false, Some(b) => if is_solid(b) || is_water(b) { return false; } } }
     }
     true
 }
@@ -66,7 +66,7 @@ fn top_at(w: &impl Voxels, x: f64, z: f64, y0: f64) -> Option<(f64, bool)> {
     let (fx, fz, base) = (x.floor() as i32, z.floor() as i32, y0.floor() as i32); let (mut deco, mut y) = (false, base + 26);
     while y > base - 26 && y > 1 {
         let b = w.get(fx, y, fz)?;
-        if b == B::WATER { return Some(((y + 1) as f64, false)); }
+        if is_water(b) { return Some(((y + 1) as f64, false)); }
         if is_solid(b) { return Some(((y + 1) as f64, !deco)); }
         if b > 0 { deco = true; }
         y -= 1;
@@ -167,7 +167,7 @@ impl Fauna {
     /// Ce que le rendu doit dessiner : une matrice par morceau.
     pub fn draws(&self, md: &Models) -> Vec<Draw> {
         let mut out = Vec::with_capacity(self.deer.len() * 6 + self.birds.len() * 3);
-        let mut put = |n: &str, m: M4| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false });
+        let mut put = |n: &str, m: M4| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false });
         for d in &self.deer {
             let base = trs(d.p[0], d.p[1], d.p[2], d.yaw, 0.0, 1.0); let s = if d.speed != 0.0 { sin(d.phase) * 0.75 } else { 0.0 }; const HIP: f64 = 0.72;
             put("deerBody", mul(&base, &trs(0.0, HIP, 0.0, 0.0, 0.0, 1.0))); put("deerHead", mul(&base, &trs(0.0, HIP + 0.28, 0.45, 0.0, 0.42 + 1.05 * d.head, 1.0)));

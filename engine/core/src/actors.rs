@@ -94,15 +94,16 @@ fn tool_mesh(name: &str) -> VBuf {
     }
     o
 }
-fn cube_mesh(id: u8) -> VBuf {
-    let mut o = VBuf::new(32); let bk = BLOCKS[id as usize];
-    if id == B::WATER { bx(&mut o, 0.0, 0.0, 0.0, 1.0, 0.9, 1.0, 0.3, 0.55, 0.75, 0.0, 255.0, 0.0, kind::FLAT, true, 0.0, 255.0); return o; }
+fn cube_mesh(id: u8) -> VBuf { let mut o = VBuf::new(32); cube_at(&mut o, id, [0.0; 3]); o }
+/// Un bloc complet, posé à `at` : le mode « tenu » lit la texture dans ces coordonnées, sans dépendre du monde.
+pub fn cube_at(o: &mut VBuf, id: u8, at: [f64; 3]) {
+    let bk = BLOCKS[id as usize];
+    if id == B::WATER { bx(o, 0.0, 0.0, 0.0, 1.0, 0.9, 1.0, 0.3, 0.55, 0.75, 0.0, 255.0, 0.0, kind::FLAT, true, 0.0, 255.0); return; }
     let kd = if bk.shape == Shape::Leaf { kind::LEAF } else { kind::TEX }; let t = bk.tint;
-    let mut q = |di: usize, pts: [[f64; 3]; 4], n: [f64; 3]| { o.rot = bk.grain[di]; for p in pts { o.v(p[0], p[1], p[2], bk.dir_faces[di] as f64, n[0], n[1], n[2], 0.0, 255.0, 255.0, 0.0, kd, t[0], t[1], t[2]); } o.rot = 0; };
+    let mut q = |di: usize, pts: [[f64; 3]; 4], n: [f64; 3]| { o.rot = bk.grain[di]; for p in pts { o.v(p[0] + at[0], p[1] + at[1], p[2] + at[2], bk.dir_faces[di] as f64, n[0], n[1], n[2], 0.0, 255.0, 255.0, 0.0, kd, t[0], t[1], t[2]); } o.rot = 0; };
     q(1, [[0., 1., 1.], [1., 1., 1.], [1., 1., 0.], [0., 1., 0.]], [0., 1., 0.]); q(2, [[0., 0., 0.], [1., 0., 0.], [1., 0., 1.], [0., 0., 1.]], [0., -1., 0.]);
     q(3, [[0., 0., 1.], [1., 0., 1.], [1., 1., 1.], [0., 1., 1.]], [0., 0., 1.]); q(3, [[1., 0., 0.], [0., 0., 0.], [0., 1., 0.], [1., 1., 0.]], [0., 0., -1.]);
     q(0, [[1., 0., 1.], [1., 0., 0.], [1., 1., 0.], [1., 1., 1.]], [1., 0., 0.]); q(0, [[0., 0., 0.], [0., 0., 1.], [0., 1., 1.], [0., 1., 0.]], [-1., 0., 0.]);
-    o
 }
 impl Models {
     pub fn build() -> Self {
@@ -142,7 +143,7 @@ impl Models {
     }
 }
 /// Un morceau à dessiner : matrice, plage d'indices, et la façon de le traiter.
-#[derive(Clone, Copy, Debug)] pub struct Draw { pub m: M4, pub r: Range, pub view: bool, pub local: bool, pub hero: bool }
+#[derive(Clone, Copy, Debug)] pub struct Draw { pub m: M4, pub r: Range, pub view: bool, pub local: bool, pub hero: bool, pub dynamic: bool }
 fn hold_m(h: Hold) -> M4 { match h { Hold::Tool => mul(&trs(0.0, -0.58, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.0), &roll_z(-std::f64::consts::FRAC_PI_4)), Hold::Block => trs(-0.14, -0.76, -0.14, 0.0, 0.0, 0.28), Hold::Deco => trs(-0.28, -0.72, -0.1, 0.0, 0.0, 0.55) } }
 #[derive(Default, Clone, Copy)] pub struct AnimIn { pub speed: f64, pub ground: bool, pub vy: f64, pub crouch: bool, pub fly: bool, pub mining: bool }
 #[derive(Default)] pub struct Anim { phase: f64, walk: f64, run: f64, low: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64 }
@@ -168,11 +169,11 @@ impl Anim {
         let swing_a = if self.swing > 0.0 { -1.5 + cos(self.swing * 6.283) * 0.95 } else { 0.0 }; let punch_a = -sin(self.punch * pi) * 1.05;
         let arm_r = (if self.swing > 0.0 { swing_a } else { -0.5 - armv * 0.35 - 0.7 * a }) + punch_a;
         let base = trs(p[0], p[1], p[2], yaw, 0.0, 1.0); let t = mul(&base, &trs(0.0, hip, 0.0, 0.0, lean, 1.0)); let mut out = Vec::with_capacity(8);
-        let part = |n: &str| md.parts[n]; let mut put = |n: &str, m: M4| out.push(Draw { m, r: part(n), view: false, local: false, hero: true });
+        let part = |n: &str| md.parts[n]; let mut put = |n: &str, m: M4| out.push(Draw { m, r: part(n), view: false, local: false, hero: true, dynamic: false });
         put("torso", t); put("head", mul(&t, &trs(0.0, 0.64, 0.0, 0.0, -lean * 0.75 - pitch * 0.5, 1.0)));
         put("legL", mul(&base, &trs(0.13, hip, 0.0, 0.0, leg_l, 1.0))); put("legR", mul(&base, &trs(-0.13, hip, 0.0, 0.0, leg_r, 1.0)));
         let ar = mul(&t, &trs(-0.34, 0.58, 0.02, 0.0, arm_r, 1.0)); put("armL", mul(&t, &trs(0.34, 0.58, 0.0, 0.0, arm_l, 1.0))); put("armR", ar);
-        if let Some(h) = held { out.push(Draw { m: mul(&ar, &hold_m(h.hold)), r: h.r, view: false, local: h.local, hero: true }); }
+        if let Some(h) = held { out.push(Draw { m: mul(&ar, &hold_m(h.hold)), r: h.r, view: false, local: h.local, hero: true, dynamic: false }); }
         out
     }
     /// Première personne : poing si la main est vide, bloc seul s'il y en a un, bras et outil sinon.
@@ -180,17 +181,17 @@ impl Anim {
         let s = sin(self.phase); let c = cos(self.phase * 0.5); let w = self.walk * (1.0 - self.air); let pi = std::f64::consts::PI; let v = mul(&invert(view), &trs(0.0, 0.0, 0.0, pi, 0.0, 1.0));
         let strike = if self.swing > 0.0 { sin(self.swing * pi) } else { 0.0 }; let push = sin(self.punch * pi); let r = md.parts["fist"]; let mut out = Vec::new();
         let bx_ = c * 0.022 * w - 0.05 * self.run; let by = -s.abs() * 0.022 * w - 0.05 * self.low + 0.07 * self.air * (self.rise - 0.5);
-        let hand = |m: M4| Draw { m, r, view: true, local: false, hero: true };
+        let hand = |m: M4| Draw { m, r, view: true, local: false, hero: true, dynamic: false };
         match held {
             None => { let hit = strike.max(push); out.push(hand(mul(&v, &trs(-0.27 + bx_ + 0.08 * hit, -0.33 + by + 0.05 * hit, 0.2 + 0.2 * hit, 0.34 - 0.16 * hit, -2.06 - 0.3 * hit, 0.46)))); }
             Some(h) if h.hold == Hold::Tool => {
                 let arm = mul(&v, &trs(-0.235 + bx_, -0.25 + by - 0.06 * strike, 0.1 + 0.2 * push + 0.12 * strike, 0.22 + 0.3 * strike, -1.72 + 0.22 * self.run + 0.85 * strike - 0.3 * push, 0.46));
-                out.push(hand(arm)); out.push(Draw { m: mul(&arm, &hold_m(Hold::Tool)), r: h.r, view: true, local: h.local, hero: true });
+                out.push(hand(arm)); out.push(Draw { m: mul(&arm, &hold_m(Hold::Tool)), r: h.r, view: true, local: h.local, hero: true, dynamic: false });
             }
             Some(h) => {
                 let sc = if h.hold == Hold::Block { 0.26 } else { 0.46 };
                 let base = mul(&v, &trs(-0.29 + bx_ + 0.05 * strike, -0.2 + by - 0.1 * strike + 0.03 * push, 0.52 + 0.12 * push + 0.08 * strike, 0.62 + 0.25 * strike, 0.26 + 0.6 * strike - 0.3 * push, sc));
-                out.push(Draw { m: mul(&base, &trs(-0.5, if h.hold == Hold::Block { -0.5 } else { -0.4 }, -0.5, 0.0, 0.0, 1.0)), r: h.r, view: true, local: h.local, hero: true });
+                out.push(Draw { m: mul(&base, &trs(-0.5, if h.hold == Hold::Block { -0.5 } else { -0.4 }, -0.5, 0.0, 0.0, 1.0)), r: h.r, view: true, local: h.local, hero: true, dynamic: false });
             }
         }
         out

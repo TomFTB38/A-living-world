@@ -55,6 +55,14 @@ const defs = [
   ['beech_log_z', 'cube', ['bark_beech', 'bark_beech', 'end_beech'], 1.0, { cat: 'wood', drop: 'beech_log', axis: 'z' }],
   ['planks_z', 'cube', ['planks', 'planks', 'planks'], 0.8, { cat: 'wood', drop: 'planks', axis: 'pz' }],
   ['planks_y', 'cube', ['planks', 'planks', 'planks'], 0.8, { cat: 'wood', drop: 'planks', axis: 'py' }],
+  // eau qui coule : le chiffre est son niveau, de 1 (filet) à 7 (presque plein)
+  ['water_1', 'water', null, 0, { cat: 'fluid', drop: null }],
+  ['water_2', 'water', null, 0, { cat: 'fluid', drop: null }],
+  ['water_3', 'water', null, 0, { cat: 'fluid', drop: null }],
+  ['water_4', 'water', null, 0, { cat: 'fluid', drop: null }],
+  ['water_5', 'water', null, 0, { cat: 'fluid', drop: null }],
+  ['water_6', 'water', null, 0, { cat: 'fluid', drop: null }],
+  ['water_7', 'water', null, 0, { cat: 'fluid', drop: null }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({

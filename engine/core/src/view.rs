@@ -36,6 +36,12 @@ pub fn trs(px: f64, py: f64, pz: f64, ry: f64, rx: f64, sc: f64) -> M4 {
     let (cy, sy, cx, sx) = (crate::det::cos(ry), crate::det::sin(ry), crate::det::cos(rx), crate::det::sin(rx)); let f = |v: f64| v as f32;
     [f(cy * sc), 0.0, f(-sy * sc), 0.0, f(sy * sx * sc), f(cx * sc), f(cy * sx * sc), 0.0, f(sy * cx * sc), f(-sx * sc), f(cy * cx * sc), 0.0, f(px), f(py), f(pz), 1.0]
 }
+/// Rotation d'angle `a` autour d'un axe unitaire passant par l'origine, puis échelle, puis déplacement.
+pub fn rot_axis(p: [f64; 3], axis: [f64; 3], a: f64, sc: f64) -> M4 {
+    let (c, n, t) = (crate::det::cos(a), crate::det::sin(a), 1.0 - crate::det::cos(a)); let [x, y, z] = axis;
+    let m = [t * x * x + c, t * x * y + n * z, t * x * z - n * y, t * x * y - n * z, t * y * y + c, t * y * z + n * x, t * x * z + n * y, t * y * z - n * x, t * z * z + c];
+    let f = |v: f64| (v * sc) as f32; [f(m[0]), f(m[1]), f(m[2]), 0.0, f(m[3]), f(m[4]), f(m[5]), 0.0, f(m[6]), f(m[7]), f(m[8]), 0.0, p[0] as f32, p[1] as f32, p[2] as f32, 1.0]
+}
 pub fn roll_z(a: f64) -> M4 { let (c, n) = (crate::det::cos(a) as f32, crate::det::sin(a) as f32); let mut m = identity(); m[0] = c; m[1] = n; m[4] = -n; m[5] = c; m }
 /// Vue depuis l'origine dans la direction f, avec un haut choisi.
 pub fn look_up(f: [f64; 3], up: [f64; 3]) -> M4 {

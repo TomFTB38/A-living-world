@@ -71,3 +71,35 @@ fn la_faune_vit_dans_le_monde_reel() {
     for id in ORDER { let m = md.icon_matrix(id); let h = md.held(id).unwrap(); let (a, b) = (h.r.first as usize / 6 * 4, (h.r.first + h.r.count) as usize / 6 * 4);
         for v in md.data[a * 20..b * 20].chunks_exact(20) { let p = [0, 2, 4].map(|k| i16::from_le_bytes([v[k], v[k + 1]]) as f32 / 128.0); let q = alw_core::view::mul(&m, &alw_core::view::trs(p[0] as f64, p[1] as f64, p[2] as f64, 0.0, 0.0, 1.0)); assert!(q[12].abs() <= 0.93 && q[13].abs() <= 0.93 && q[14] >= -0.001 && q[14] <= 1.001, "{id} sort de son icône : {:?}", &q[12..15]); } }
 }
+
+#[test]
+fn arbre_abattu_a_la_hache() {
+    use alw_core::felling::find_tree;
+    let mut s = session(); s.player.fly = true; let p0 = s.player.p; let (mut spot, mut sz) = (None, 0);
+    for dx in -28..=28 { for dz in -28..=28 { for y in (p0[1] as i32 - 8)..(p0[1] as i32 + 14) { let (x, z) = (p0[0] as i32 + dx, p0[2] as i32 + dz); if s.world.get(x, y, z).is_some_and(is_log) && s.world.get(x, y - 1, z).is_some_and(|b| !is_log(b)) { if let Some(t) = find_tree(&s.world, x, y, z) { if t.logs.len() > sz { sz = t.logs.len(); spot = Some((x, y, z, t)); } } } } } }
+    let real = spot.expect("un arbre près du départ"); println!("arbre du monde : {} bûches, {} feuilles", real.3.logs.len(), real.3.leaves.len()); assert!(real.3.leaves.len() >= 6);
+    // un arbre d'essai en plein ciel : la visée ne dépend pas du relief
+    let (x, y, z) = (p0[0] as i32 + 4, 120, p0[2] as i32); s.world.edit(x, y - 1, z, B::STONE);
+    for k in 0..8 { s.world.edit(x, y + k, z, B::OAK_LOG); } for dx in -2..=2 { for dz in -2..=2 { for k in 7..10 { if (dx, dz) != (0, 0) || k > 7 { s.world.edit(x + dx, y + k, z + dz, B::OAK_LEAVES); } } } }
+    let tree = find_tree(&s.world, x, y + 1, z).expect("arbre d'essai"); ready(&mut s);
+    s.player.p = [x as f64 + 4.5, y as f64, z as f64 + 0.5]; let cut = (x, y + 1, z); let e = s.player.eye(); let d = [cut.0 as f64 + 0.5 - e[0], cut.1 as f64 + 0.5 - e[1], cut.2 as f64 + 0.5 - e[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt(); s.third = false; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / l).asin();
+    s.inv = [None; INV_SIZE]; s.inv[1] = Some(Stack { item: "axe", n: None }); s.sel = 1; s.tick(0.0, Input::default(), Actions::default()); let t = s.target.expect("le tronc est visé"); assert!(is_log(t.id), "visé {}", BLOCKS[t.id as usize].name);
+    let a = Actions { mine: true, place: false }; for _ in 0..(9.5 * 60.0) as i32 { s.tick(1.0 / 60.0, Input::default(), a); } assert!(s.falling.is_none(), "encore debout après 9,5 s"); assert!(s.progress() > 0.9); assert_eq!(s.world.get(t.x, t.y, t.z), Some(t.id));
+    for _ in 0..60 { s.tick(1.0 / 60.0, Input::default(), a); } assert!(s.falling.is_some(), "tombe après 10 s"); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0));
+    for (px, py, pz) in tree.leaves.iter().copied() { assert!(s.world.get(px, py, pz).is_none_or(|b| !is_leaf(b)), "feuillage disparu"); }
+    assert!(tree.logs.iter().filter(|p| p.1 < t.y).all(|p| s.world.get(p.0, p.1, p.2).is_some_and(is_log)), "le pied reste"); let got = s.inv.iter().flatten().filter(|i| i.item.ends_with("_log")).map(|i| i.n.unwrap()).sum::<u32>(); assert!(got > 0); println!("récolté {got}");
+    let md = alw_core::actors::Models::build(); let v = alw_core::view::look_dir(s.eye, s.look); assert!(s.draws(&md, &v).iter().any(|d| d.dynamic)); let ended = (0..600).any(|_| { s.tick(1.0 / 60.0, Input::default(), Actions::default()); s.falling.is_none() }); assert!(ended, "la chute se termine");
+    // les bûches posées à la main ne sont pas un arbre
+    s.world.edit(x + 6, y + 30, z, B::OAK_LOG); assert!(find_tree(&s.world, x + 6, y + 30, z).is_none());
+}
+#[test]
+fn l_eau_posee_coule() {
+    use alw_core::flow::*; use std::collections::HashMap;
+    struct W(HashMap<(i32, i32, i32), u8>); impl Voxels for W { fn get(&self, x: i32, y: i32, z: i32) -> Option<u8> { if y < 10 { return Some(B::STONE); } Some(*self.0.get(&(x, y, z)).unwrap_or(&0)) } }
+    let mut w = W(HashMap::new()); w.0.insert((0, 14, 0), B::WATER); let mut f = Flow::default(); f.touch(0, 14, 0); let run = |w: &mut W, f: &mut Flow, n: usize| for _ in 0..n { for (x, y, z, b) in f.step(STEP, &*w) { if b == 0 { w.0.remove(&(x, y, z)); } else { w.0.insert((x, y, z), b); } } };
+    run(&mut w, &mut f, 80); assert!(!f.busy(), "l'eau se stabilise");
+    assert_eq!(w.0.get(&(0, 13, 0)).copied().map(water_level), Some(7), "elle tombe"); assert_eq!(w.0.get(&(0, 10, 0)).copied().map(water_level), Some(7));
+    assert_eq!(w.0.get(&(3, 10, 0)).copied().map(water_level), Some(5), "elle s'étale en perdant un niveau par case"); assert_eq!(w.0.get(&(7, 10, 0)).copied().map(water_level), Some(1)); assert!(!w.0.contains_key(&(8, 10, 0)), "et s'arrête");
+    assert_eq!(w.0.get(&(1, 14, 0)).copied().map(water_level), Some(7), "la source alimente ses côtés");
+    w.0.remove(&(0, 14, 0)); f.touch(0, 14, 0); run(&mut w, &mut f, 200); assert!(w.0.is_empty(), "sans source tout se vide : {:?}", w.0.len());
+}
