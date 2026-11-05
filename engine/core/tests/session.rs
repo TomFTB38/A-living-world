@@ -103,3 +103,11 @@ fn l_eau_posee_coule() {
     assert_eq!(w.0.get(&(1, 14, 0)).copied().map(water_level), Some(7), "la source alimente ses côtés");
     w.0.remove(&(0, 14, 0)); f.touch(0, 14, 0); run(&mut w, &mut f, 200); assert!(w.0.is_empty(), "sans source tout se vide : {:?}", w.0.len());
 }
+#[test]
+fn l_eau_coule_sur_le_vrai_relief() {
+    let mut s = Session::new(20261104, &Preset { radius: 4, lod1: 2.3, lod2: 4.6 }, 4, [-38.5, 52.0, 0.5]); s.player.fly = true; ready(&mut s);
+    let (x, z) = (-33, -4); let h = alw_core::gen::WorldGen::new(20261104).column(x as f64, z as f64).h as i32; let y = h + 2; assert!(s.world.edit(x, y, z, B::WATER)); s.flow.touch(x, y, z);
+    let pump = |s: &mut Session| { for _ in 0..4000 { let p = s.player.p; let (b, _) = s.world.update(p[0], p[2]); for c in &b { assert!(c.mesh.n_w % 4 == 0); } if s.world.waiting() == 0 { return; } std::thread::sleep(std::time::Duration::from_millis(1)); } panic!("remaillage bloqué"); };
+    let mut n = 0; for _ in 0..240 { s.tick(1.0 / 60.0, Input::default(), Actions::default()); pump(&mut s); n += 1; }
+    let mut cells = 0; for dx in -30..30 { for dz in -30..30 { for y in 30..80 { if s.world.get(x + dx, y, z + dz).is_some_and(|b| is_water(b) && b != B::WATER) { cells += 1; } } } } println!("{n} étapes, {cells} cases d'eau courante"); assert!(cells > 5);
+}

@@ -203,8 +203,8 @@ fn capture(a: &[String]) {
     }
     if scene == "coule" {
         // De l'eau posée sur le relief : elle s'étale, descend et se met à niveau.
-        let (x, z) = (eye[0].floor() as i32 + 6, eye[2].floor() as i32 - 4); let c = WorldGen::new(SEED).column(x as f64, z as f64); let y = c.h as i32 + 2; s.world.edit(x, y, z, alw_core::blocks::B::WATER); s.flow.touch(x, y, z); pump(&mut s, &mut g);
-        for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); pump(&mut s, &mut g); } s.sel = 8;
+        let (x, z) = (eye[0].floor() as i32 + 5, eye[2].floor() as i32 - 4); let c = WorldGen::new(SEED).column(x as f64, z as f64); let y = c.h as i32 + 2; s.world.edit(x, y, z, alw_core::blocks::B::WATER); s.flow.touch(x, y, z); pump(&mut s, &mut g);
+        for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); pump(&mut s, &mut g); g.settle(); } s.sel = 8;
         let e = [x as f64 - 5.0, y as f64 + 3.5, z as f64 - 5.0]; s.player.p = [e[0], e[1] - 1.62, e[2]]; let d = view::norm([x as f64 - e[0], y as f64 - 1.0 - e[1], z as f64 - e[2]]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
     if scene == "faune" {
