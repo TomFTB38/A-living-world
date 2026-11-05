@@ -96,11 +96,11 @@ export class CharacterAnim {
   viewActors(invView, held) {
     const m = this.m, s = Math.sin(this.phase), c = Math.cos(this.phase * 0.5), w = this.walk * (1 - this.air), V = M.mul(invView, M.trs(0, 0, 0, Math.PI));
     const strike = this.swing > 0 ? Math.sin(this.swing * Math.PI) : 0, push = Math.sin(this.punch * Math.PI);
-    const x = -0.27 + c * 0.022 * w - 0.05 * this.run, y = -0.215 - Math.abs(s) * 0.022 * w - 0.05 * this.low + 0.07 * this.air * (this.rise - 0.5) - 0.06 * strike;
+    const x = -0.25 + c * 0.022 * w - 0.05 * this.run, y = -0.2 - Math.abs(s) * 0.022 * w - 0.05 * this.low + 0.07 * this.air * (this.rise - 0.5) - 0.06 * strike;
     const z = -0.08 + 0.2 * push + 0.12 * strike, rx = -1.66 + 0.22 * this.run + 0.85 * strike - 0.3 * push;
-    const arm = M.mul(V, M.trs(x, y, z, 0.2 + 0.3 * strike, rx, 0.72)), r = m.rng.armR;
+    const arm = M.mul(V, M.trs(x, y, z, 0.2 + 0.3 * strike, rx, 0.58)), r = m.rng.armR;
     const out = [{ mesh: m.mesh, model: arm, count: r.count, offset: r.offset, hero: true, view: true }];
-    if (held) out.push({ mesh: held.mesh, model: M.mul(M.mul(arm, HOLD[held.kind]), held.kind === 'tool' ? M.trs(0, 0, 0, 0, 0, 0.54) : held.kind === 'block' ? M.trs(0.04, 0.04, 0.04, 0, 0, 0.72) : M.id()), count: held.count, offset: held.offset, hero: true, view: true, local: held.local });
+    if (held) out.push({ mesh: held.mesh, model: M.mul(M.mul(arm, HOLD[held.kind]), held.kind === 'tool' ? M.trs(0, 0, 0, 0, 0, 0.5) : held.kind === 'block' ? M.trs(0.04, 0.04, 0.04, 0, 0, 0.72) : M.id()), count: held.count, offset: held.offset, hero: true, view: true, local: held.local });
     return out;
   }
 }

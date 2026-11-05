@@ -13,7 +13,7 @@ with sync_playwright() as p:
     pg.wait_for_function('window.ALW&&ALW.loaded',timeout=120000)
     pg.wait_for_function('ALW.world.queued===0&&ALW.world.pending===0',timeout=120000)
     pg.wait_for_function('ALW.player.ground',timeout=60000)
-    st=lambda:pg.evaluate('({p:[...ALW.player.p],g:ALW.player.ground,yaw:ALW.player.yaw,pitch:ALW.player.pitch,inv:ALW.inv.map(i=>i.n),t:ALW.target&&[ALW.target.x,ALW.target.y,ALW.target.z,ALW.target.id],e:ALW.world.edits.size,fps:ALW.prof.fps})')
+    st=lambda:pg.evaluate('({p:[...ALW.player.p],g:ALW.player.ground,yaw:ALW.player.yaw,pitch:ALW.player.pitch,inv:ALW.inv.map(i=>i?i.n:0),t:ALW.target&&[ALW.target.x,ALW.target.y,ALW.target.z,ALW.target.id],e:ALW.world.edits.size,fps:ALW.prof.fps})')
     a=st(); print(a)
     # déplacement
     pg.keyboard.down('KeyW'); time.sleep(12); pg.keyboard.up('KeyW'); c=st()
