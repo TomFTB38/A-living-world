@@ -159,6 +159,8 @@ class Game {
     hold('tMenu', () => this.toggleMenu(true), () => {});
     hold('tAxis', () => this.cycleOrient(), () => {});
     hold('tInv', () => this.toggleInv(), () => {});
+    const latch = (id, code) => hold(id, () => { const on = !K.has(code); if (on) K.add(code); else K.delete(code); $(id).classList.toggle('on', on); }, () => {});
+    latch('tRun', 'ShiftLeft'); latch('tLow', 'ControlLeft');
     hold('tFly', () => this.setFly(!this.player.fly), () => {});
     hold('tDown', () => K.add('ControlLeft'), () => K.delete('ControlLeft'));
     hold('tFps', () => { this.prof.show = !this.prof.show; $('prof').classList.toggle('on', this.prof.show); $('tFps').classList.toggle('on', this.prof.show); this.report(); }, () => {});
