@@ -1,4 +1,5 @@
 // Rendering/shaders.js — GLSL ES 3.00. Portable vers WGSL pour le moteur Rust/wgpu.
+import { matLayer } from '../world/blocks.js';
 export const VS_FULL = `#version 300 es
 out vec2 uv; void main(){ vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2); uv=p; gl_Position=vec4(p*2.-1.,0.,1.); }`;
 
@@ -28,7 +29,7 @@ void main(){
 
 export const FS_GEOM = `#version 300 es
 ${COMMON}
-uniform sampler2DArray uAlbedo,uNormal; uniform float uTexOn;
+uniform sampler2DArray uAlbedo,uNormal; uniform sampler3D uNoise; uniform float uTexOn;
 in vec3 vPos; in vec3 vN; flat in int vLayer; flat in int vKind; in vec3 vLit; in vec3 vTint; in vec3 vLocal;
 layout(location=0) out vec4 gA; layout(location=1) out vec4 gN; layout(location=2) out vec4 gL;
 void main(){
@@ -51,6 +52,10 @@ void main(){
     alb*=.9+.2*h2;
     vec2 d=m.xy*2.-1.; nn=normalize(n+(T*d.x+B*d.y)*.9); rough=m.b;
     if(vKind==1){ trans=1.; rough=.5; alb*=1.05; }
+    // mousse en petits pixels sur les pierres et l'écorce, plus présente sur les faces hautes
+    bool mossable=(vLayer>=${matLayer('stone')}&&vLayer<${matLayer('gravel')})||vLayer==${matLayer('bark_oak')}||vLayer==${matLayer('bark_beech')};
+    if(mossable){ vec3 g=floor(vPos*9.)/9.; float mn=texture(uNoise,g*.031).r*.78+hash13(g)*.22+(n.y>.5?.14:0.);
+      float mm=step(.56,mn); alb=mix(alb,vec3(.13,.22,.045)*(.75+.7*hash13(g+3.)),mm); rough=mix(rough,.95,mm); }
   } else {
     float k=.92+.16*hash13(floor(vPos*7.)); alb*=alb*k*1.25;
     if(vKind==3){ trans=.45; alb=mix(vec3(dot(alb,vec3(.3,.6,.1))),alb,.72); }
@@ -183,15 +188,15 @@ float sh(vec3 p,float dist){ int c=dist<uCascade.x?0:dist<uCascade.y?1:dist<uCas
 void main(){
   float d=texture(uD,uv).r; vec4 c=uInvVP*vec4(uv*2.-1.,d*2.-1.,1.); vec3 wp=c.xyz/c.w; vec3 ray=wp-uCam; float len=length(ray); vec3 V=ray/len;
   float end=min(len,150.), st=end/float(uSteps), t=st*ign(gl_FragCoord.xy+uFrame*5.588), mu=dot(V,uSunDir);
-  float ph=G(mu,.78)*9.+G(mu,-.2)*.5+.35;
+  float ph=min(G(mu,.8)*9.,3.2)+G(mu,-.2)*.5+.3;
   vec3 acc=vec3(0.); float tr=1.;
   for(int i=0;i<uSteps;i++){ vec3 p=uCam+V*t;
     float hf=exp(-max(p.y-52.,0.)*.055)+.25;
     float n=texture(uNoise,p*.016+vec3(uTime*.012,0.,uTime*.007)).r;
-    float rho=uFog*hf*(.25+1.2*n*n);
+    float rho=uFog*hf*(.3+1.15*n*n);
     float s=sh(p,t);
     vec3 skyS=mix(uSkyHor,uSkyTop,.4)*.42;
-    acc+=tr*(uSunCol*s*ph*.085+skyS*.4)*rho*st;
+    acc+=tr*(uSunCol*s*ph*.13+skyS*.14)*rho*st;
     tr*=exp(-rho*st); t+=st; }
   o=vec4(acc,tr);
 }`;

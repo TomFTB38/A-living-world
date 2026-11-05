@@ -36,7 +36,9 @@ with sync_playwright() as p:
     pg.keyboard.press('Digit5'); before=st()['inv'][4]; time.sleep(1.5)
     pg.wait_for_function('!!ALW.target',timeout=30000)
     pg.mouse.click(160,90,button='right')
-    pg.wait_for_function(f'ALW.inv[4].n<{before}',timeout=30000)
+    try: pg.wait_for_function(f'ALW.inv[4].n<{before}',timeout=30000)
+    except Exception:
+        print(pg.evaluate('({t:ALW.target,sel:ALW.sel,inv:ALW.inv[4],p:ALW.player.p,pitch:ALW.player.pitch,paused:ALW.paused,third:ALW.view.third,el:document.elementFromPoint(160,90).id})')); raise
     check('poser un bloc au clic droit', True, 'stock %d → %d'%(before,st()['inv'][4]))
     # sauvegarde puis rechargement réel de la page
     edits=pg.evaluate('JSON.stringify([...ALW.world.edits].map(([k,m])=>[k,[...m]]))')

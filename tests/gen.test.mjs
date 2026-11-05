@@ -32,3 +32,10 @@ test('les arbres sont bien estampés loin de l\'origine, à z négatif', () => {
   for (let x = -7; x < -3; x++) for (let z = -6; z < -2; z++) { const v = g.genChunk(x, z); for (let i = 0; i < CA; i++) if (v[i] >= B.oak_leaves && v[i] <= B.beech_leaves) n++; }
   assert.ok(n > 20000, 'feuilles ' + n);
 });
+test('lianes, champignons, clôtures et lanternes sont générés et déterministes', () => {
+  const g = new WorldGen(20261104), c = {};
+  for (let x = -12; x < -6; x++) for (let z = -7; z < -1; z++) { const v = g.genChunk(x, z); for (let i = 0; i < CA; i++) c[v[i]] = (c[v[i]] || 0) + 1; }
+  console.log('vigne', c[B.vine], 'champignon', c[B.shelf_fungus], 'clôture', c[B.fence], 'lanterne', c[B.lantern]);
+  assert.ok(c[B.vine] > 100); assert.ok(c[B.shelf_fungus] > 3); assert.ok(c[B.fence] > 10);
+  assert.equal(hash(new WorldGen(20261104).genChunk(-9, -4)), hash(g.genChunk(-9, -4)));
+});

@@ -196,6 +196,42 @@ function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
     box(o, x + 0.32, y + 0.54, z + 0.32, x + 0.68, y + 0.62, z + 0.68, 0.16, 0.1, 0.06, 0, s, l);
     return;
   }
+  if (m === 'vine') {
+    const n = r.int(1, 2);
+    for (let i = 0; i < n; i++) {
+      const a = x + r.range(0.2, 0.8), c = z + r.range(0.2, 0.8), t = r.range(0.8, 1.1);
+      box(o, a - 0.02, y, c - 0.02, a + 0.02, y + 1, c + 0.02, 0.26 * t, 0.42 * t, 0.15 * t, 70, s, l, KIND.FOLIAGE, false, 90);
+      if (lod === 0) for (let k = 0; k < 3; k++) { const yy = y + 0.14 + k * 0.3, q = r.range(0.05, 0.09), dx = r.range(-0.06, 0.06), dz = r.range(-0.06, 0.06); box(o, a + dx - q, yy, c + dz - q, a + dx + q, yy + 0.07, c + dz + q, 0.3 * t, 0.5 * t, 0.17 * t, 80, s, l, KIND.FOLIAGE, true); }
+    }
+    return;
+  }
+  if (m === 'fungus') {
+    let dx = 0, dz = 0;
+    if (IS_OPAQUE[vol[at(x + 1, y, z)]]) dx = 1; else if (IS_OPAQUE[vol[at(x - 1, y, z)]]) dx = -1; else if (IS_OPAQUE[vol[at(x, y, z + 1)]]) dz = 1; else if (IS_OPAQUE[vol[at(x, y, z - 1)]]) dz = -1;
+    const n = r.int(2, 3);
+    for (let i = 0; i < n; i++) {
+      const w = r.range(0.2, 0.34), yy = y + 0.2 + i * 0.26, a = x + 0.5 + dx * (0.5 - w * 0.75) + (dz ? r.range(-0.25, 0.25) : 0), c = z + 0.5 + dz * (0.5 - w * 0.75) + (dx ? r.range(-0.25, 0.25) : 0), t = r.range(0.9, 1.1);
+      box(o, a - w, yy, c - w, a + w, yy + 0.07, c + w, 0.82 * t, 0.68 * t, 0.5 * t, 0, s, l, KIND.FLAT, true);
+      box(o, a - w * 0.72, yy + 0.07, c - w * 0.72, a + w * 0.72, yy + 0.12, c + w * 0.72, 0.9 * t, 0.77 * t, 0.6 * t, 0, s, l);
+    }
+    return;
+  }
+  if (m === 'fence') {
+    const wood = (a, e, c, a1, e1, c1, k = 1) => box(o, a, e, c, a1, e1, c1, 0.46 * k, 0.31 * k, 0.18 * k, 0, s, l, KIND.FLAT);
+    wood(x + 0.39, y, z + 0.39, x + 0.61, y + 1, z + 0.61);
+    wood(x + 0.35, y + 0.97, z + 0.35, x + 0.65, y + 1.04, z + 0.65, 1.12);
+    const con = (b2) => b2 === B.fence || BLOCKS[b2].opaque;
+    if (vol[at(x, y - 1, z)] === B.fence || vol[at(x, y + 1, z)] === B.fence && vol[at(x, y + 2, z)] === B.fence) return;
+    for (const yy of [0.34, 0.72]) {
+      if (con(vol[at(x + 1, y, z)])) wood(x + 0.66, y + yy, z + 0.42, x + 1.34, y + yy + 0.13, z + 0.58, 0.92);
+      if (con(vol[at(x, y, z + 1)])) wood(x + 0.42, y + yy, z + 0.66, x + 0.58, y + yy + 0.13, z + 1.34, 0.92);
+      for (const dz of [-1, 1]) if (vol[at(x + 1, y, z + dz)] === B.fence && !con(vol[at(x + 1, y, z)]) && !con(vol[at(x, y, z + dz)])) { // liaison en diagonale
+        wood(x + 0.61, y + yy, z + 0.42, x + 1.58, y + yy + 0.13, z + 0.58, 0.92);
+        wood(x + 1.42, y + yy, Math.min(z + 0.42, z + 0.5 + dz), x + 1.58, y + yy + 0.13, Math.max(z + 0.58, z + 0.5 + dz), 0.92);
+      }
+    }
+    return;
+  }
   if (m === 'flagstone') {
     const w = r.range(0.32, 0.46), d = r.range(0.28, 0.44), g = r.range(0.42, 0.56), a = x + 0.5 + r.range(-0.08, 0.08), c = z + 0.5 + r.range(-0.08, 0.08);
     box(o, a - w, y, c - d, a + w, y + 0.13, c + d, g * 1.02, g, g * 0.92, 0, s, l); return;
@@ -219,7 +255,7 @@ function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
   const cx = x + r.range(0.25, 0.75), cz = z + r.range(0.25, 0.75);
   switch (m) {
     case 'grass': {
-      const n = r.int(11, 15), base = r.range(0.82, 1.14), warm = r.next();
+      const n = r.int(15, 20), base = r.range(0.82, 1.14), warm = r.next();
       for (let i = 0; i < n; i++) {
         const t = base * r.range(0.86, 1.14);
         blade(o, x + r.next(), y, z + r.next(), r.range(0, 6.28), r.range(0.02, 0.036), r.range(0.22, 0.66), r.range(0.04, 0.2),
@@ -342,7 +378,7 @@ export function meshChunk(getChunk, cx, cz, lod) {
     } else if (IS_LEAF[b] && lod < 2) {
       const exposed = !IS_SOLID[vol[k + 1]] || !IS_SOLID[vol[k - 1]] || !IS_SOLID[vol[k + W]] || !IS_SOLID[vol[k - W]] || !IS_SOLID[vol[k + WW]] || !IS_SOLID[vol[k - WW]];
       if (exposed) leafCubes(opaque, b, x, y, z, cx * CX + x, cz * CX + z, sky[k] * 17, blk[k] * 17, lod);
-    } else if (IS_DECO[b] && (lod < 2 || EMIT[b])) {
+    } else if (IS_DECO[b] && (lod < 2 || EMIT[b] || b === B.fence)) {
       decoModel(deco, b, x, y, z, cx * CX + x, cz * CX + z, sky[k] * 17, Math.max(blk[k], EMIT[b]) * 17, lod);
     }
   }

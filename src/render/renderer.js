@@ -202,7 +202,7 @@ export class Renderer {
     /* --- G-buffer --- */
     gl.bindFramebuffer(gl.FRAMEBUFFER, r.gbuf); gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const G = this.P.geom;
-    this.use(G, { uVP: vp, uTime: view.time, uModel: M.id(), uPosScale: 1 / 128, uJitter: jit }, { uAlbedo: this.tAlbedo, uNormal: this.tNormal });
+    this.use(G, { uVP: vp, uTime: view.time, uModel: M.id(), uPosScale: 1 / 128, uJitter: jit }, { uAlbedo: this.tAlbedo, uNormal: this.tNormal, uNoise: this.tNoise });
     this.set(G, 'uOrigin', [0, 0, 0]);
     for (const c of view.visible) { this.set(G, 'uOrigin', c.org); gl.bindVertexArray(c.opaque.vao); gl.drawElements(gl.TRIANGLES, c.opaque.count, gl.UNSIGNED_INT, 0); st.draws++; st.tris += c.opaque.count / 3; }
     gl.disable(gl.CULL_FACE);

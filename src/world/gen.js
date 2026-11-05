@@ -128,6 +128,7 @@ export class WorldGen {
     }
     this.stampAll(v, cx, cz, heights);
     this.scatterDeco(v, ox, oz, heights, waters, info);
+    this.hangVines(v, ox, oz);
     return v;
   }
 
@@ -148,10 +149,15 @@ export class WorldGen {
       const r = hashFloat(wx, wz, s, 3), fr = info[(x + z * CX) * 2], path = info[(x + z * CX) * 2 + 1];
       if (ground === B.path) { if (r < 0.055) v[idx(x, y, z)] = B.flagstone; continue; }
       if (ground !== B.grass && ground !== B.forest_soil && ground !== B.mossy_stone) continue;
+      if (path > 0.02 && path < 0.4 && nd.n2(wx / 40 - 9, wz / 40 + 5) > 0.2) {
+        v[idx(x, y, z)] = B.fence;
+        if (hashFloat(wx, wz, s, 8) < 0.07) { v[idx(x, y + 1, z)] = B.fence; v[idx(x, y + 2, z)] = B.fence; v[idx(x, y + 3, z)] = B.lantern; }
+        continue;
+      }
       const patch = nd.n2(wx / 23, wz / 23), patch2 = nd.n2(wx / 17 + 60, wz / 17 - 30);
       const open = 1 - fr;
       let id = 0;
-      const flowerP = 0.1 + 0.5 * smooth(0.1, 0.65, patch) * (0.55 + open * 0.6);
+      const flowerP = 0.14 + 0.62 * smooth(0.05, 0.6, patch) * (0.65 + open * 0.5);
       if (r < flowerP) {
         const t = hashFloat(wx, wz, s, 4);
         if (patch2 > 0.3) id = t < 0.55 ? B.lupine : B.pink_flower;
@@ -164,6 +170,23 @@ export class WorldGen {
       if (ground === B.mossy_stone && r > 0.5) id = 0;
       if (path > 0.05) id = r < 0.5 ? B.tall_grass : 0;
       v[idx(x, y, z)] = id;
+    }
+  }
+
+  // Lianes sous les couronnes : dépendent seulement des voxels déjà déterminés de ce chunk.
+  hangVines(v, ox, oz) {
+    const s = this.seed;
+    for (let z = 0; z < CX; z++) for (let x = 0; x < CX; x++) {
+      const wx = ox + x, wz = oz + z;
+      if (hashFloat(wx, wz, s, 11) > 0.075) continue;
+      for (let y = CH - 2; y > 4; y--) {
+        const b = v[idx(x, y, z)];
+        if (b >= B.oak_leaves && b <= B.beech_leaves && v[idx(x, y - 1, z)] === 0) {
+          const n = 2 + Math.floor(hashFloat(wx, wz, s, 12) * 5);
+          for (let k = 1; k <= n && v[idx(x, y - k, z)] === 0; k++) v[idx(x, y - k, z)] = B.vine;
+          break;
+        }
+      }
     }
   }
 
@@ -253,7 +276,7 @@ export class WorldGen {
 
 /* ---- Croissance des arbres : troncs, branches primaires et secondaires, couronne, racines. ---- */
 class Grower {
-  constructor() { this.wood = new Map(); this.leaf = new Map(); }
+  constructor() { this.wood = new Map(); this.leaf = new Map(); this.extra = []; }
   put(m, x, y, z, id) { m.set(x + ',' + y + ',' + z, id); }
   sphere(m, cx, cy, cz, r, id, sq = 1) {
     const R = Math.ceil(r + 1);
@@ -290,6 +313,7 @@ class Grower {
     const out = [];
     for (const [k, id] of this.leaf) { if (!this.wood.has(k)) { const a = k.split(','); out.push(+a[0], +a[1], +a[2], id); } }
     for (const [k, id] of this.wood) { const a = k.split(','); out.push(+a[0], +a[1], +a[2], id); }
+    out.push(...this.extra);
     return { data: Int32Array.from(out), hard: false, force: false };
   }
 }
@@ -304,6 +328,11 @@ function growOak(x, y, z, r, age) {
   for (let i = 0; i < roots; i++) {
     const a = (i / roots) * 6.283 + r.range(-0.3, 0.3);
     g.limb([x + Math.cos(a) * rad * 0.6, y + rad * 0.9, z + Math.sin(a) * rad * 0.6], [Math.cos(a), -0.45, Math.sin(a)], rad * 2 + 2.5, rad * 0.42, 0.42, log, r, 0.14, -0.01);
+  }
+  const fungi = Math.floor(age * 5) + (r.next() < 0.5 ? 1 : 0);
+  for (let i = 0; i < fungi; i++) {
+    const q = trunk[Math.floor(trunk.length * r.range(0.08, 0.5))], a = r.range(0, 6.283), d = rad * 0.9 + 0.7;
+    g.extra.push(Math.round(q[0] + Math.cos(a) * d), Math.round(q[1]), Math.round(q[2] + Math.sin(a) * d), B.shelf_fungus);
   }
   const top = trunk[trunk.length - 1], arms = 3 + Math.floor(age * 3);
   for (let i = 0; i < arms; i++) {

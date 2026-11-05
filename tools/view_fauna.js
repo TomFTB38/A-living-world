@@ -1,0 +1,3 @@
+(()=>{const f=ALW.fauna,p=ALW.player.p,y=ALW.player.yaw;f.update=()=>{};const fx=Math.sin(y),fz=Math.cos(y),rx=-Math.cos(y),rz=Math.sin(y);
+const put=(d,side)=>{for(let k=0;k<30;k++){const x=p[0]+fx*(d+k*.7)+rx*(side+k*.3),z=p[2]+fz*(d+k*.7)+rz*(side+k*.3),g=f.ground(ALW.world,x,z,p[1]+3);if(g!==null)return[x,g,z]}return[p[0],p[1],p[2]]};
+f.deer=[{p:put(4.5,1.8),yaw:y+2.4,state:'graze',t:9,phase:0,head:1,speed:0},{p:put(7,-2.5),yaw:y-1.2,state:'walk',t:9,phase:1,head:0,speed:0}];f.birds=[{p:put(3,2.4),yaw:y+1,state:'perch',t:9,v:[0,0,0],flap:0}];console.log(JSON.stringify(f.deer.map(d=>d.p)));})()

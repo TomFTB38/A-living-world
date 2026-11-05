@@ -9,7 +9,7 @@ const svc=new WorldService((m,t)=>postMessage(m,t));onmessage=(e)=>svc.handle(e.
 const shaders = strip('render/shaders.js');
 const names = [...shaders.matchAll(/^const (\w+)\s*=/gm)].map((m) => m[1]).filter((n) => n !== 'COMMON' && n !== 'LIGHTING');
 const renderer = strip('render/renderer.js').replace(/\bS\.(\w+)/g, '$1');
-const game = [...world, 'core/math.js', 'render/textures.js'].map(strip).join('\n') + shaders + renderer + ['game/save.js', 'game/client.js', 'game/player.js', 'game/character.js', 'game/ui.js', 'game/main.js'].map(strip).join('\n');
+const game = [...world, 'core/math.js', 'render/textures.js'].map(strip).join('\n') + shaders + renderer + ['game/save.js', 'game/client.js', 'game/player.js', 'game/character.js', 'game/animals.js', 'game/ui.js', 'game/main.js'].map(strip).join('\n');
 const js = `(()=>{${game}})();`.replace("'__WORKER_SOURCE__'", () => JSON.stringify(workerSrc));
 void names;
 const html = readFileSync(new URL('../src/index.template.html', import.meta.url), 'utf8').replace('__GAME__', () => js.replace(/<\/script>/g, '<\\/script>'));

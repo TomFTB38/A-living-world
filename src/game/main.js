@@ -5,6 +5,7 @@ import { Renderer, PRESETS } from '../render/renderer.js';
 import { ClientWorld } from './client.js';
 import { Player, raycast } from './player.js';
 import { buildCharacter, CharacterAnim } from './character.js';
+import { buildFauna, Fauna } from './animals.js';
 import { HUD, ITEMS, $ } from './ui.js';
 import { BLOCKS, B, IS_SOLID, IS_DECO } from '../world/blocks.js';
 import { WorldGen, GEN_VERSION } from '../world/gen.js';
@@ -28,7 +29,7 @@ class Game {
     this.radiusParam = +params.get('r') || 0;
     this.input = { keys: new Set(), x: 0, z: 0, jump: false, sprint: false, crouch: false, lmb: false, rmb: false, touch: { x: 0, z: 0 } };
     this.view = { third: true, dist: 4.2, camDist: 4.2 };
-    this.charModel = buildCharacter(this.r); this.anim = new CharacterAnim(this.charModel);
+    this.charModel = buildCharacter(this.r); this.anim = new CharacterAnim(this.charModel); this.faunaModel = buildFauna(this.r);
     this.prof = { fps: 60, cpu: 0, show: CAPTURE ? false : false, frames: [] };
     this.hour = 16.4; this.dayLen = 1500; this.timeRun = !CAPTURE; this.elapsed = 0; this.mine = { key: '', t: 0 };
     this.vit = { hp: 100, food: 100, water: 100 };
@@ -52,6 +53,7 @@ class Game {
     this.inv = save?.inventory || DEFAULT_INV.map((a) => ({ ...a })); this.sel = 0;
     if (save) { this.hour = save.time; this.player = new Player(...save.player.p); this.player.yaw = save.player.yaw; this.player.pitch = save.player.pitch; this.player.moveYaw = save.player.yaw; this.vit = save.player.vit || this.vit; }
     else { const s = this.findSpawn(); this.player = new Player(s[0], s[1], s[2]); this.player.yaw = s[3]; this.player.moveYaw = s[3]; this.player.pitch = -0.13; this.hour = 16.4; }
+    this.fauna = new Fauna(this.faunaModel, seed);
     this.loaded = false; $('loading').classList.add('on'); this.r.reset = true;
     this.hud.inventory(this.inv, this.sel);
   }
@@ -203,7 +205,7 @@ class Game {
     if (this.paused || !this.target) return;
     const it = this.inv[this.sel], def = it && ITEMS[it.item];
     if (!def?.block || it.n <= 0) return;
-    const t = this.target, id = IS_DECO[t.id] && t.id !== B.lantern ? [t.x, t.y, t.z] : [t.px, t.py, t.pz];
+    const t = this.target, id = IS_DECO[t.id] && t.id !== B.lantern && !IS_SOLID[t.id] ? [t.x, t.y, t.z] : [t.px, t.py, t.pz];
     const cur = this.world.get(...id); if (cur === -1 || IS_SOLID[cur]) return;
     const p = this.player.p, bid = def.block;
     if (IS_SOLID[bid] && id[0] + 1 > p[0] - 0.3 && id[0] < p[0] + 0.3 && id[2] + 1 > p[2] - 0.3 && id[2] < p[2] + 0.3 && id[1] + 1 > p[1] && id[1] < p[1] + 1.8) return;
@@ -249,6 +251,7 @@ class Game {
       I.z = -I.z; I.x = -I.x;
       I.jump = K.has('Space'); I.sprint = K.has('ShiftLeft') || K.has('ShiftRight'); I.crouch = K.has('ControlLeft') || K.has('KeyX');
       if (this.world.nearReady(p.p[0], p.p[2])) p.update(this.world, dt, I);
+      if (this.loaded) this.fauna.update(dt, this.world, p);
       if (this.timeRun) this.hour = (this.hour + (dt / this.dayLen) * 24) % 24;
       this.elapsed += dt;
       const v = this.vit; v.food = Math.max(0, v.food - dt * 0.012 * (I.sprint ? 2 : 1)); v.water = Math.max(0, v.water - dt * 0.018 * (I.sprint ? 2 : 1));
@@ -282,7 +285,7 @@ class Game {
     const head = [p.p[0], p.p[1] + 1.5, p.p[2]], rt = raycast(this.world, eye, f, 9.5, this.view.third ? (x, y, z) => V.dot(V.sub([x + 0.5, y + 0.5, z + 0.5], head), f) < -0.5 : null);
     const reach = rt && Math.hypot(rt.x + 0.5 - head[0], rt.y + 0.5 - head[1], rt.z + 0.5 - head[2]) < 6.2 ? rt : null;
     this.target = reach; this.mineStep(dt);
-    const actors = this.view.third ? this.anim.actors(p.p[0], p.p[1], p.p[2], this.player.speed > 0.2 ? p.moveYaw : p.yaw, p.speed, dt, this.mining, p.crouch) : [];
+    const actors = (this.view.third ? this.anim.actors(p.p[0], p.p[1], p.p[2], this.player.speed > 0.2 ? p.moveYaw : p.yaw, p.speed, dt, this.mining, p.crouch) : []).concat(this.fauna.actors());
     const mc = reach ? Math.min(1, this.mine.t / Math.max(0.05, BLOCKS[reach.id].hardness)) : 0;
     r.render({ eye, vp, viewM, proj, chunks: all.map(remap), visible: visible.map(remap), far: this.world.far, actors, time: this.elapsed + (this.fixTime || 0), target: reach && !this.camOverride ? { pos: [reach.x, reach.y, reach.z], color: [mc, 1 - mc * 0.6, 1 - mc, 1] } : null, farHole: (this.world.radius - 0.6) * 32, cloud: 0.42, lightDirty: r.lightDirty, taa: this.taaOff ? false : undefined });
     r.lightDirty = false;

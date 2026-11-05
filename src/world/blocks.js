@@ -42,12 +42,15 @@ const defs = [
   ['lily_pad', 'deco', null, 0.02, { model: 'lily', drop: null }],
   ['flagstone', 'deco', null, 0.3, { model: 'flagstone', drop: 'stone' }],
   ['lantern', 'deco', null, 0.3, { model: 'lantern', light: 14, cat: 'light' }],
+  ['vine', 'deco', null, 0.02, { model: 'vine', drop: null }],
+  ['shelf_fungus', 'deco', null, 0.02, { model: 'fungus', drop: null }],
+  ['fence', 'deco', null, 0.6, { model: 'fence', solid: true, drop: 'planks', cat: 'wood' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,
-  solid: shape === 'cube' || shape === 'leaf',
+  solid: shape === 'cube' || shape === 'leaf' || !!p.solid,
   opaque: shape === 'cube',
   light: p.light || 0,
   tint: p.tint || [1, 1, 1],
