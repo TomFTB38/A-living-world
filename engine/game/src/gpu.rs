@@ -334,6 +334,8 @@ impl Gpu {
         self.prev_vp = *vp; self.reset = false;
         tris
     }
+    /// Laisse la carte finir l'image en cours : la carte logicielle du banc d'essai décroche si on l'empile.
+    pub fn settle(&self) { let _ = self.device.poll(wgpu::Maintain::Wait); }
     /// Lit l'image hors écran en BGR, ligne du bas d'abord, pour un fichier BMP.
     pub fn read_bgr(&self) -> (u32, u32, Vec<u8>) {
         let (w, h) = (self.config.width, self.config.height); let row = ((w * 4 + 255) / 256) * 256;

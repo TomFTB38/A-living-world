@@ -19,7 +19,7 @@ const r = new Rng(12345); out.push(`rng ${bits(r.next())} ${bits(r.next())}`);
 const n = new Noise(77); out.push(`noise ${bits(n.n2(12.5, -3.25))} ${bits(n.n3(1.2, 2.3, -3.4))} ${bits(n.fbm2(0.7, 0.2, 3))}`);
 const stub = { mesh: (ab, n) => ({ ab, n }) };
 const ch = buildCharacter(stub); out.push(`character ${ch.mesh.n} ${fnv(new Uint8Array(ch.mesh.ab))}`);
-const it = buildItems(stub); for (const k in it) { const q = it[k], a = new Uint8Array(it.pickaxe.mesh.ab), st = q.offset / 24 * 4 * 20, n = q.count / 6 * 4; out.push(`item ${k} ${n} ${fnv(a.subarray(st, st + n * 20))}`); }
+const it = buildItems(stub); for (const k in it) { if (k === 'shelf_fungus') continue; /* modèle propre au moteur final : le prototype n'en avait pas hors de son arbre */ const q = it[k], a = new Uint8Array(it.pickaxe.mesh.ab), st = q.offset / 24 * 4 * 20, n = q.count / 6 * 4; out.push(`item ${k} ${n} ${fnv(a.subarray(st, st + n * 20))}`); }
 const fa = buildFauna(stub); for (const k in fa.rng) { const q = fa.rng[k], a = new Uint8Array(fa.mesh.ab), st = q.offset / 24 * 4 * 20, n = q.count / 6 * 4; out.push(`fauna ${k} ${n} ${fnv(a.subarray(st, st + n * 20))}`); }
 for (const t of [0, 100, 300, 700, 1500, 4000, 9999, 20000]) out.push(`weather ${t} ${kindAt(20261104, t)}`);
 { // Parcours de la faune sur un petit monde fixe : même hasard, mêmes trajectoires.

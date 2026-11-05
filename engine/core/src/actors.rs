@@ -113,6 +113,8 @@ impl Models {
         for name in ORDER {
             let it = item(name).unwrap(); let (o, hold) = match it.block {
                 None => (tool_mesh(name), Hold::Tool),
+                // Dans le monde, le polypore se dessine contre son arbre : tenu ou en icône, il n'a pas de support.
+                Some(id) if id == B::SHELF_FUNGUS => { let mut o = VBuf::new(60); for (y, w, t) in [(0.12, 0.42, 1.0), (0.38, 0.33, 1.08), (0.62, 0.24, 0.94)] { b(&mut o, [0.5 - w, y, 0.5 - w, 0.5 + w, y + 0.09, 0.5 + w], [0.82 * t, 0.68 * t, 0.5 * t]); } (o, Hold::Deco) }
                 Some(id) if BLOCKS[id as usize].shape == Shape::Deco => { let mut o = VBuf::new(800); mv.deco_model(&mut o, id, 0, 0, 0, 7, 11, 255.0, if id == B::LANTERN { 255.0 } else { 0.0 }, 0); (o, Hold::Deco) }
                 Some(id) => (cube_mesh(id), Hold::Block),
             };

@@ -47,7 +47,6 @@ item lupine 552 2619996843
 item pink_flower 208 2625864740
 item yellow_flower 208 3442258068
 item mushroom 180 1579267361
-item shelf_fungus 0 2166136261
 item lily_pad 40 3778658753
 item vine 184 1182877229
 item flagstone 20 1564309709
