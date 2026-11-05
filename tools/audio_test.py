@@ -13,6 +13,7 @@ JS = r'''async()=>{
   for(const t of ['pickaxe','axe','sword',null])for(const b of ['stone','dirt','grass','oak_log','sand'])R.outils[(t||'main')+' sur '+b]=await one(.5,s=>s.dig(b,t));
   for(const t of ['pickaxe','axe','sword',null])R.outils['vide '+(t||'main')]=await one(.5,s=>s.swing(t));
   for(const n of ['grass','dirt','stone','sand','gravel','planks','oak_log'])R.outils['pas '+n]=await one(.5,s=>s.step(n));
+  for(const b of ['stone','granite','oak_log','birch_log','planks'])R.outils['pose '+b]=await one(.5,s=>s.place(b));
   R.faune.oiseau_pres=await one(1,s=>s.bird([3,0,0],0));R.faune.oiseau_loin=await one(1,s=>s.bird([30,0,0],0));R.faune.alarme_cerf=await one(.8,s=>s.deerAlarm([6,0,0]));R.faune.appel_cerf=await one(.6,s=>s.deerCall([6,0,0]));R.faune.sabot=await one(.3,s=>s.hoof([6,0,0],true));
   const env=(a)=>async()=>one(6,s=>s.env({cloud:.42,rain:0,...a}));
   R.temps.clair=await env({})();R.temps.nuageux=await env({cloud:.8})();R.temps.pluie=await env({cloud:1,rain:1})();

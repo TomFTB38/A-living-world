@@ -4,7 +4,7 @@ Prises de son réelles, retravaillées (calage, niveau, fondus) par `tools/make_
 
 | Fichiers | Source | Licence |
 | --- | --- | --- |
-| wood, soft, woodl, plank, metal, glass, rockhi, knock, stepstone, stepgrass | Kenney, Impact Sounds (certains filtrés) | CC0 1.0 |
+| wood, soft, woodl, plank, metal, glass, rockhi, knock, plankdry, stepstone, stepgrass | Kenney, Impact Sounds (certains filtrés) | CC0 1.0 |
 | sand | worthahep88, freesound.org/people/worthahep88/sounds/319224 | CC0 1.0 |
 | gravel, crumble | lolamadeus, freesound.org/people/lolamadeus/sounds/179341 | CC0 1.0 |
 | chopdry | Sheyvan, freesound.org/people/Sheyvan/sounds/476113 | CC0 1.0 |

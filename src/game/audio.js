@@ -9,16 +9,18 @@ const L = (set, rate = 1, vol = 1, lp = 0, at = 0) => ({ set, rate, vol, lp, at 
 // Aucune de ces prises ne garde de grave de tambour : la terre grène, la pierre claque, le tronc cogne sec.
 const mat = (m, step, hit, brk, put) => ({ m, step, hit, brk, put: put || [{ ...hit[0], vol: hit[0].vol * 0.9 }] });
 const plant = (rate) => mat('plant', [L('leaf', rate, 0.2)], [L('leaf', rate, 0.3)], [L('leaf', rate * 0.9, 0.45)]);
-const log = (r) => mat('wood', [L('knock', 0.95 * r, 0.34), L('wood', 0.95 * r, 0.2)], [L('chopdry', 0.95 * r, 0.62), L('knock', r, 0.3)], [L('chopdry', 0.85 * r, 0.74), L('knock', 0.85 * r, 0.42), L('crack', 0.55 * r, 0.22, 0, 0.03)]);
+const log = (r) => mat('wood', [L('plankdry', 0.9 * r, 0.3), L('wood', 0.95 * r, 0.2)], [L('plankdry', 0.95 * r, 0.56), L('chopdry', r, 0.36)], [L('plankdry', 0.84 * r, 0.66), L('chopdry', 0.85 * r, 0.56), L('crumble', 0.5, 0.14, 2600, 0.025)], [L('chopdry', 0.95 * r, 0.56)]);
+// La pierre se pose comme un tronc, en plus grave : un choc plein, pas un claquement.
+const stonePut = (r) => [L('chopdry', r, 0.58)];
 export const SOUNDS = {
   grass: mat('earth', [L('stepgrass', 1, 0.5), L('sand', 1.1, 0.12)], [L('sand', 0.95, 0.42), L('leaf', 0.85, 0.3), L('stepgrass', 1.1, 0.24)], [L('sand', 0.8, 0.6), L('crumble', 0.6, 0.3, 3500), L('leaf', 0.8, 0.4)]),
   dirt: mat('earth', [L('sand', 0.88, 0.38)], [L('sand', 0.84, 0.5), L('crumble', 0.6, 0.26, 3500)], [L('sand', 0.72, 0.66), L('crumble', 0.55, 0.42, 3500)]),
   path: mat('earth', [L('gravel', 0.8, 0.24, 3000), L('sand', 0.9, 0.2)], [L('sand', 1, 0.42), L('crumble', 0.8, 0.3)], [L('sand', 0.86, 0.56), L('crumble', 0.75, 0.46)]),
   forest_soil: mat('earth', [L('sand', 0.7, 0.4, 2200)], [L('sand', 0.66, 0.55, 2000)], [L('sand', 0.6, 0.72, 2200), L('crumble', 0.5, 0.2, 2200)]),
-  stone: mat('hard', [L('stepstone', 1, 0.5), L('crack', 1.1, 0.08)], [L('crack', 1, 0.5), L('rockhi', 1, 0.42), L('crumble', 1, 0.1, 0, 0.02)], [L('rockhi', 0.9, 0.6), L('crack', 0.85, 0.55), L('crumble', 0.85, 0.5, 0, 0.03)]),
-  mossy_stone: mat('hard', [L('stepstone', 0.9, 0.42, 3000)], [L('rockhi', 0.85, 0.38, 3000), L('crack', 0.9, 0.3, 2800)], [L('rockhi', 0.8, 0.5, 3000), L('crack', 0.8, 0.36, 2800), L('sand', 0.9, 0.26, 0, 0.03)]),
-  limestone: mat('hard', [L('stepstone', 1.12, 0.46)], [L('crack', 1.2, 0.44), L('rockhi', 1.2, 0.3), L('crumble', 1.1, 0.24)], [L('crack', 1.15, 0.5), L('crumble', 1, 0.5), L('rockhi', 1.1, 0.36)]),
-  granite: mat('hard', [L('stepstone', 0.94, 0.54)], [L('rockhi', 0.82, 0.5), L('crack', 0.85, 0.5)], [L('rockhi', 0.74, 0.66), L('crack', 0.78, 0.55), L('crumble', 0.75, 0.4, 0, 0.03)]),
+  stone: mat('hard', [L('stepstone', 1, 0.5), L('crack', 1.1, 0.08)], [L('crack', 1, 0.5), L('rockhi', 1, 0.42), L('crumble', 1, 0.1, 0, 0.02)], [L('rockhi', 0.9, 0.6), L('crack', 0.85, 0.55), L('crumble', 0.85, 0.5, 0, 0.03)], stonePut(0.78)),
+  mossy_stone: mat('hard', [L('stepstone', 0.9, 0.42, 3000)], [L('rockhi', 0.85, 0.38, 3000), L('crack', 0.9, 0.3, 2800)], [L('rockhi', 0.8, 0.5, 3000), L('crack', 0.8, 0.36, 2800), L('sand', 0.9, 0.26, 0, 0.03)], stonePut(0.74)),
+  limestone: mat('hard', [L('stepstone', 1.12, 0.46)], [L('crack', 1.2, 0.44), L('rockhi', 1.2, 0.3), L('crumble', 1.1, 0.24)], [L('crack', 1.15, 0.5), L('crumble', 1, 0.5), L('rockhi', 1.1, 0.36)], stonePut(0.84)),
+  granite: mat('hard', [L('stepstone', 0.94, 0.54)], [L('rockhi', 0.82, 0.5), L('crack', 0.85, 0.5)], [L('rockhi', 0.74, 0.66), L('crack', 0.78, 0.55), L('crumble', 0.75, 0.4, 0, 0.03)], stonePut(0.7)),
   gravel: mat('earth', [L('gravel', 1, 0.42)], [L('crumble', 1, 0.5)], [L('crumble', 0.95, 0.66), L('gravel', 1.05, 0.36)]),
   sand: mat('sand', [L('sand', 1, 0.42)], [L('sand', 1.06, 0.5)], [L('sand', 0.94, 0.66), L('crumble', 1.3, 0.18)]),
   oak_log: log(1), birch_log: log(1.12), beech_log: log(1.05),
@@ -30,17 +32,17 @@ export const SOUNDS = {
   tall_grass: plant(1.25), fern: plant(1), daisy: plant(1.5), lupine: plant(1.38), pink_flower: plant(1.6), yellow_flower: plant(1.45), vine: plant(0.85),
   mushroom: mat('plant', [L('leaf', 0.6, 0.16)], [L('leaf', 0.55, 0.3)], [L('leaf', 0.5, 0.4)]),
   lily_pad: mat('plant', [L('splash', 1.5, 0.2)], [L('leaf', 0.7, 0.26)], [L('splash', 1.4, 0.28)]),
-  flagstone: mat('hard', [L('stepstone', 1.05, 0.5)], [L('rockhi', 1.1, 0.42), L('crack', 1.1, 0.3)], [L('crack', 1.1, 0.52), L('crumble', 1, 0.34)]),
+  flagstone: mat('hard', [L('stepstone', 1.05, 0.5)], [L('rockhi', 1.1, 0.42), L('crack', 1.1, 0.3)], [L('crack', 1.1, 0.52), L('crumble', 1, 0.34)], stonePut(0.8)),
   lantern: mat('metal', [L('metal', 1.2, 0.2)], [L('glass', 1, 0.3), L('metal', 1.2, 0.22)], [L('glass', 0.92, 0.46), L('metal', 1, 0.3)]),
   shelf_fungus: mat('plant', [L('leaf', 0.66, 0.16)], [L('leaf', 0.62, 0.3)], [L('leaf', 0.56, 0.4)]),
   fence: mat('wood', [L('wood', 1.1, 0.4)], [L('plank', 1.14, 0.44)], [L('plank', 1.04, 0.56), L('woodl', 1.2, 0.3)]),
 };
 // L'outil se devine sous la matière : le métal tinte sur la roche, s'étouffe dans la terre, mord le bois.
 const TOOL = {
-  pickaxe: { hard: L('metal', 1, 0.2), earth: L('sand', 1.3, 0.1), sand: L('sand', 1.4, 0.08), wood: L('knock', 1.2, 0.2), plant: L('leaf', 1.3, 0.1), metal: L('metal', 0.9, 0.3) },
+  pickaxe: { hard: L('metal', 1, 0.2), earth: L('sand', 1.3, 0.1), sand: L('sand', 1.4, 0.08), wood: L('plankdry', 1.2, 0.2), plant: L('leaf', 1.3, 0.1), metal: L('metal', 0.9, 0.3) },
   axe: { hard: L('metal', 0.8, 0.2), earth: L('sand', 1.15, 0.12), sand: L('sand', 1.25, 0.08), wood: L('chopdry', 1.05, 0.36), plant: L('leaf', 1, 0.18), metal: L('metal', 0.76, 0.3) },
-  sword: { hard: L('metal', 1.36, 0.16), earth: L('sand', 1.5, 0.08), sand: L('sand', 1.6, 0.06), wood: L('knock', 1.5, 0.14), plant: L('leaf', 1.25, 0.2), metal: L('metal', 1.3, 0.26) },
-  hand: { hard: L('knock', 1.4, 0.12), earth: L('sand', 1.1, 0.12), sand: L('sand', 1.2, 0.1), wood: L('knock', 1, 0.16), plant: null, metal: L('knock', 1.5, 0.14) },
+  sword: { hard: L('metal', 1.36, 0.16), earth: L('sand', 1.5, 0.08), sand: L('sand', 1.6, 0.06), wood: L('plankdry', 1.5, 0.14), plant: L('leaf', 1.25, 0.2), metal: L('metal', 1.3, 0.26) },
+  hand: { hard: L('knock', 1.4, 0.12), earth: L('sand', 1.1, 0.12), sand: L('sand', 1.2, 0.1), wood: L('plankdry', 1, 0.16), plant: null, metal: L('knock', 1.5, 0.14) },
 };
 // Les variantes orientées sonnent comme le bloc d'origine.
 export const soundOf = (name) => SOUNDS[(name || '').replace(/_(x|y|z)$/, '')] || SOUNDS.dirt;
@@ -50,14 +52,14 @@ const ROUND = { leaf: 4200, crumble: 6000, gravel: 5200, sand: 7000 };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 export class SoundScape {
-  constructor() { this.ctx = null; this.volume = 0.7; this.musicVolume = 0.5; this.L = { p: [0, 0, 0], yaw: 0 }; this.bank = {}; this.last = {}; }
+  constructor() { this.ctx = null; this.volume = 0.7; this.musicVolume = 0.5; this.sfxVolume = 0.7; this.L = { p: [0, 0, 0], yaw: 0 }; this.bank = {}; this.last = {}; }
   start(ctx) {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC && !ctx) return;
     const c = this.ctx = ctx || new AC();
     const lim = c.createDynamicsCompressor(); lim.threshold.value = -6; lim.ratio.value = 6; lim.attack.value = 0.012; lim.release.value = 0.3; lim.connect(c.destination);
     this.master = c.createGain(); this.master.gain.value = this.volume; this.master.connect(lim);
-    this.sfx = c.createGain(); this.sfx.connect(this.master);
+    this.sfx = c.createGain(); this.sfx.gain.value = this.sfxVolume; this.sfx.connect(this.master);
     this.wind = this.bed(); this.rain = this.bed(); this.brook = this.bed(); this.fall = this.bed();
     this.ready = this.load();
     this.music = new Music(c, this.master); this.music.setVolume(this.musicVolume);
@@ -77,6 +79,7 @@ export class SoundScape {
   startLoop(n, buf) { const s = this.ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.loopStart = LOOP_PAD; s.loopEnd = LOOP_PAD + LOOPS[n]; s.connect(this[n].g); s.start(0, LOOP_PAD + Math.random() * 3); }
   panner() { const c = this.ctx; if (c.createStereoPanner) return c.createStereoPanner(); const g = c.createGain(); g.pan = { value: 0, setTargetAtTime() {} }; return g; }
   setVolume(v) { this.volume = v; if (this.master) this.master.gain.value = v; }
+  setSfxVolume(v) { this.sfxVolume = v; if (this.sfx) this.sfx.gain.value = v; }
   setMusicVolume(v) { this.musicVolume = v; this.music?.setVolume(v); }
   get live() { const c = this.ctx; return !!c && (c.state === 'running' || c.oncomplete !== undefined); }
   listener(p, yaw) { this.L.p = p; this.L.yaw = yaw; }
@@ -115,8 +118,8 @@ export class SoundScape {
     o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.02);
   }
   // Pas : le bloc sous le pied, plus le froissement de ce qu'on traverse.
-  step(name, through) { if (!this.live) return; this.layers(soundOf(name).step, 1); if (through) this.layers(soundOf(through).step, 0.5); }
-  land(name) { if (this.live) this.layers(soundOf(name).step, 1.15); }
+  step(name, through) { if (!this.live) return; this.layers(soundOf(name).step, 0.6); if (through) this.layers(soundOf(through).step, 0.3); }
+  land(name) { if (this.live) this.layers(soundOf(name).step, 0.8); }
   // Frappe : la matière d'abord, l'outil en léger, tel qu'il sonne sur cette matière.
   strike(name, tool) { const b = soundOf(name), t = (TOOL[tool] || TOOL.hand)[b.m]; if (t) this.play(t); if (tool === 'sword') this.swing(tool, 0.45); return b; }
   dig(name, tool) { if (this.live) this.layers(this.strike(name, tool).hit, 0.85); }
@@ -134,7 +137,7 @@ export class SoundScape {
     const dest = this.out(at.pan), base = [3100, 2300, 3900][voice] * rnd(0.94, 1.08), n = [6, 3, 4][voice] + Math.floor(Math.random() * 3), gap = [0.07, 0.2, 0.12][voice];
     for (let i = 0; i < n; i++) {
       const f = voice === 1 ? base * (1 + 0.19 * (i % 3)) : base * (1 + 0.1 * (i % 2)), to = voice === 2 ? f * 0.74 : f * 1.2;
-      this.tone(f, gap * 0.85, 0.09 * at.v, i * gap, dest, to);
+      this.tone(f, gap * 0.85, 0.125 * at.v, i * gap, dest, to);
     }
   }
   wings(pos) { const at = this.live && this.place3d(pos, 16); if (!at) return; const d = this.out(at.pan); for (let i = 0; i < 4; i++) this.play(L('puff', 1.7, 0.22 * at.v), 1, d, i * 0.07); }

@@ -43,7 +43,7 @@ class Game {
     this.hour = 16.4; this.dayLen = 1500; this.timeRun = !CAPTURE; this.elapsed = 0; this.mine = { key: '', t: 0 };
     this.vit = { hp: 100, food: 100, water: 100 };
     this.built = [];
-    this.sound = new SoundScape(); this.sound.setVolume(this.settings.volume ?? 0.7); this.sound.setMusicVolume(this.settings.music ?? 0.5);
+    this.sound = new SoundScape(); this.sound.setVolume(this.settings.volume ?? 0.7); this.sound.setMusicVolume(this.settings.music ?? 0.5); this.sound.setSfxVolume(this.settings.sfx ?? 0.7);
     for (const n of ['pointerdown', 'keydown', 'touchend']) addEventListener(n, () => this.sound.start(), { passive: true });
     this.bindInput(); this.bindMenu();
     this.applySettings();
@@ -187,6 +187,7 @@ class Game {
     met.value = this.settings.weather || 'auto'; vol.value = this.settings.volume ?? 0.7;
     met.onchange = () => { this.settings.weather = met.value; this.weather.forced = met.value; this.applySettings(); };
     vol.oninput = () => { this.settings.volume = +vol.value; this.sound.setVolume(+vol.value); this.applySettings(); };
+    const fx = $('inSfx'); fx.value = this.settings.sfx ?? 0.7; fx.oninput = () => { this.settings.sfx = +fx.value; this.sound.setSfxVolume(+fx.value); this.applySettings(); };
     const mv = $('inMusic'), mf = $('selMusic');
     mv.value = this.settings.music ?? 0.5; mf.value = this.settings.mood || 'auto';
     mv.oninput = () => { this.settings.music = +mv.value; this.sound.setMusicVolume(+mv.value); this.applySettings(); };

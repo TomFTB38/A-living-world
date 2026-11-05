@@ -41,6 +41,8 @@ for i in range(4): write(f'rockhi_{i}', clean(band(read(ken('impact_mining', i))
 for i in range(3):
     x = band(read(mt(f'default_dig_choppy.{i + 1}')), 190, 5000, (1100, 650, 2.2)); write(f'chopdry_{i}', clean(x, .7))
     y = band(read(ken('impact_wood_light', i)), 230, 4000, (900, 500, 2.5)); write(f'knock_{i}', clean(y, .7))
+for i in range(3):  # la frappe des planches, resserrée : plus dure et plus sèche, sans résonance de caisse
+    x = clean(read(ken('impact_plank_medium', i))); y = band(x, 280, 7000, (1500, 900, 2.5)) * np.exp(-np.arange(len(x)) / SR / .04); write(f'plankdry_{i}', clean(y, .7, .01))
 for i in range(4): write(f'stepstone_{i}', clean(band(read(ken('footstep_concrete', i)), 240, 7000, (1800, 900, 3)), .7))
 for i in range(4): write(f'stepgrass_{i}', clean(band(read(ken('footstep_grass', i)), 260), .7, .35))
 
