@@ -54,6 +54,7 @@ const defs = [
   ['beech_log_x', 'cube', ['bark_beech', 'end_beech', 'bark_beech'], 1.0, { cat: 'wood', drop: 'beech_log', axis: 'x' }],
   ['beech_log_z', 'cube', ['bark_beech', 'bark_beech', 'end_beech'], 1.0, { cat: 'wood', drop: 'beech_log', axis: 'z' }],
   ['planks_z', 'cube', ['planks', 'planks', 'planks'], 0.8, { cat: 'wood', drop: 'planks', axis: 'pz' }],
+  ['planks_y', 'cube', ['planks', 'planks', 'planks'], 0.8, { cat: 'wood', drop: 'planks', axis: 'py' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
@@ -61,7 +62,7 @@ export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   faces: mats ? mats.map(matLayer) : null,
   // Matériau par direction [X, Y+, Y-, Z], et sens du fil : 0 libre, 1 tourné d'un quart, 2 fixe.
   dirFaces: !mats ? null : p.axis === 'x' || p.axis === 'z' ? [mats[1], mats[0], mats[0], mats[2]].map(matLayer) : [mats[1], mats[0], mats[2], mats[1]].map(matLayer),
-  grain: p.axis === 'x' ? [0, 1, 1, 1] : p.axis === 'z' ? [1, 2, 2, 0] : p.axis === 'pz' ? [0, 1, 1, 0] : name === 'planks' ? [0, 2, 2, 0] : [0, 0, 0, 0],
+  grain: p.axis === 'x' ? [0, 1, 1, 1] : p.axis === 'z' ? [1, 2, 2, 0] : p.axis === 'pz' ? [0, 1, 1, 0] : p.axis === 'py' ? [1, 0, 0, 1] : name === 'planks' ? [0, 2, 2, 0] : [0, 0, 0, 0],
   solid: shape === 'cube' || shape === 'leaf' || !!p.solid,
   opaque: shape === 'cube',
   light: p.light || 0,
@@ -80,11 +81,19 @@ export const IS_DECO = Uint8Array.from(BLOCKS.map((b) => (b.shape === 'deco' ? 1
 export const EMIT = Uint8Array.from(BLOCKS.map((b) => b.light));
 
 // Orientation : les bois suivent la direction donnée, verticale dès qu'elle s'écarte assez de l'horizon.
-const ORIENT = { oak_log: ['oak_log_x', 'oak_log_z'], birch_log: ['birch_log_x', 'birch_log_z'], beech_log: ['beech_log_x', 'beech_log_z'] };
-export function orientedBlock(id, dx, dy, dz) {
-  const name = BLOCKS[id].name, ax = Math.abs(dx), az = Math.abs(dz);
-  if (name === 'planks') return az > ax ? B.planks_z : id;
-  const v = ORIENT[name];
-  if (!v || Math.abs(dy) > Math.hypot(dx, dz)) return id;
-  return B[ax >= az ? v[0] : v[1]];
+// Blocs orientables, par axe x, y, z.
+const ORIENT = { oak_log: ['oak_log_x', 'oak_log', 'oak_log_z'], birch_log: ['birch_log_x', 'birch_log', 'birch_log_z'], beech_log: ['beech_log_x', 'beech_log', 'beech_log_z'], planks: ['planks', 'planks_y', 'planks_z'] };
+export const canOrient = (id) => !!ORIENT[BLOCKS[id].name];
+export const axisOf = (id) => { const n = BLOCKS[id].name; for (const k in ORIENT) { const i = ORIENT[k].indexOf(n); if (i >= 0) return 'xyz'[i]; } return null; };
+export const MODES = ['selon le regard', 'debout', 'dans le sens du regard', 'en travers du regard'];
+// Axe du bloc selon le regard (vecteur unitaire). `prev` évite de basculer sans arrêt quand on vise juste entre deux directions.
+export function gazeAxis(dx, dy, dz, mode = 0, prev = null) {
+  const ax = Math.abs(dx), az = Math.abs(dz);
+  let h = ax >= az ? 'x' : 'z';
+  if (prev === 'x' && ax * 1.25 > az) h = 'x'; else if (prev === 'z' && az * 1.25 > ax) h = 'z';
+  if (mode === 1) return 'y';
+  if (mode === 2) return h;
+  if (mode === 3) return h === 'x' ? 'z' : 'x';
+  return Math.abs(dy) > (prev === 'y' ? 0.74 : 0.84) ? 'y' : h; // au-delà d'environ 57° vers le haut ou le bas, le bloc se dresse
 }
+export function orientedBlock(id, axis) { const v = ORIENT[BLOCKS[id].name]; return v ? B[v['xyz'.indexOf(axis)]] : id; }

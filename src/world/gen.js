@@ -304,7 +304,7 @@ class Grower {
     let [x, y, z] = p, [dx, dy, dz] = dir;
     for (let i = 0; i <= n; i++) {
       const t = i / n;
-      this.sphere(this.wood, x, y, z, lerp(r0, r1, t), orientedBlock(id, dx, dy, dz));
+      this.sphere(this.wood, x, y, z, lerp(r0, r1, t), orientedBlock(id, Math.abs(dy) > Math.hypot(dx, dz) ? 'y' : Math.abs(dx) >= Math.abs(dz) ? 'x' : 'z'));
       pts.push([x, y, z, dx, dy, dz]);
       dx += rng.range(-curl, curl); dz += rng.range(-curl, curl); dy += rng.range(-curl * 0.5, curl * 0.5) + up;
       const l = Math.hypot(dx, dy, dz); dx /= l; dy /= l; dz /= l;

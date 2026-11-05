@@ -5,12 +5,14 @@ from playwright.sync_api import sync_playwright
 JS = r'''async()=>{
   const S=ALW.sound; S.start(); const Sc=S.constructor, Mu=S.music.constructor;
   const off=(d)=>new OfflineAudioContext(2,44100*d,44100);
-  const stat=(b)=>{const d=b.getChannelData(0),e=b.getChannelData(1);let s=0,p=0,z=0,l=0,lp=0;for(let i=0;i<d.length;i++){const v=d[i];s+=v*v;p=Math.max(p,Math.abs(v),Math.abs(e[i]));if(i&&(v>=0)!==(d[i-1]>=0))z++;lp+=(v-lp)*.03;l+=lp*lp;}
-    return {rms:+Math.sqrt(s/d.length).toFixed(4),crete:+p.toFixed(3),hz:Math.round(z/2/(d.length/44100)),grave:+(l/Math.max(s,1e-9)).toFixed(2)}};
-  const one=async(d,f)=>{const c=off(d),s=new Sc();s.start(c);s.listener([0,0,0],0);f(s);return stat(await c.startRendering())};
+  const stat=(b)=>{const d=b.getChannelData(0),e=b.getChannelData(1);let s=0,p=0,z=0,l=0,lp=0,saut=0;for(let i=0;i<d.length;i++){const v=d[i];if(i)saut=Math.max(saut,Math.abs(v-d[i-1]));s+=v*v;p=Math.max(p,Math.abs(v),Math.abs(e[i]));if(i&&(v>=0)!==(d[i-1]>=0))z++;lp+=(v-lp)*.03;l+=lp*lp;}
+    return {rms:+Math.sqrt(s/d.length).toFixed(4),crete:+p.toFixed(3),hz:Math.round(z/2/(d.length/44100)),grave:+(l/Math.max(s,1e-9)).toFixed(2),saut:+saut.toFixed(3)}};
+  const one=async(d,f)=>{const c=off(d),s=new Sc();s.start(c);await s.ready;s.listener([0,0,0],0);f(s);return stat(await c.startRendering())};
   const R={blocs:{},outils:{},faune:{},eau:{},temps:{},musique:{}};
   for(const n of Object.keys(ALW.soundNames()))R.blocs[n]=await one(.5,s=>s.breakBlock(n,null));
-  for(const t of ['pickaxe','axe','sword',null])R.outils[t||'main']=await one(.4,s=>s.toolHit(t));
+  for(const t of ['pickaxe','axe','sword',null])for(const b of ['stone','dirt','oak_log','sand'])R.outils[(t||'main')+' sur '+b]=await one(.5,s=>s.dig(b,t));
+  for(const t of ['pickaxe','axe','sword',null])R.outils['vide '+(t||'main')]=await one(.5,s=>s.swing(t));
+  for(const n of ['grass','dirt','stone','sand','gravel','planks'])R.outils['pas '+n]=await one(.5,s=>s.step(n));
   R.faune.oiseau_pres=await one(1,s=>s.bird([3,0,0],0));R.faune.oiseau_loin=await one(1,s=>s.bird([30,0,0],0));R.faune.alarme_cerf=await one(.8,s=>s.deerAlarm([6,0,0]));R.faune.appel_cerf=await one(.6,s=>s.deerCall([6,0,0]));R.faune.sabot=await one(.3,s=>s.hoof([6,0,0],true));
   const env=(a)=>async()=>one(6,s=>s.env({cloud:.42,rain:0,...a}));
   R.temps.clair=await env({})();R.temps.nuageux=await env({cloud:.8})();R.temps.pluie=await env({cloud:1,rain:1})();

@@ -11,7 +11,7 @@ import { SoundScape, SOUNDS } from './audio.js';
 import { pickMood } from './music.js';
 import { HUD, InventoryUI, $ } from './ui.js';
 import { ITEMS, STACK, buildItems } from './items.js';
-import { BLOCKS, B, IS_SOLID, IS_DECO, orientedBlock } from '../world/blocks.js';
+import { BLOCKS, B, IS_SOLID, IS_DECO, orientedBlock, gazeAxis, axisOf, MODES } from '../world/blocks.js';
 import { WorldGen, GEN_VERSION } from '../world/gen.js';
 import { serialize, safeRead, atomicWrite, deserialize } from './save.js';
 
@@ -65,7 +65,7 @@ class Game {
     this.inv = fullInv(save?.inventory || DEFAULT_INV); this.sel = 0; this.creative = save?.creative || params.get('mode') === 'creatif'; document.getElementById('touch').classList.toggle('crea', this.creative);
     if (save) { this.hour = save.time; this.player = new Player(...save.player.p); this.player.yaw = save.player.yaw; this.player.pitch = save.player.pitch; this.player.moveYaw = save.player.yaw; this.player.fly = !!save.player.fly; this.vit = save.player.vit || this.vit; }
     else { const s = this.findSpawn(); this.player = new Player(s[0], s[1], s[2]); this.player.yaw = s[3]; this.player.moveYaw = s[3]; this.player.pitch = -0.13; this.hour = 16.4; }
-    this.fauna = new Fauna(this.faunaModel, seed); this.fauna.emit = (k, pos, o) => this.sound[k](pos, o);
+    this.fauna = new Fauna(this.faunaModel, seed); this.fauna.emit = (k, pos, o) => this.sound[k](pos, o); this.enemyNear = false;
     this.weather = new Weather(seed); this.weather.forced = this.settings.weather || 'auto';
     this.loaded = false; $('loading').classList.add('on'); this.r.reset = true;
     this.refreshInv();
@@ -266,17 +266,17 @@ class Game {
 
   // 0 suit le regard, 1 force la verticale, 2 force l'axe horizontal du regard.
   orientFor(block) {
-    const pl = this.player, cp = Math.cos(pl.pitch), m = this.orientMode || 0, dx = Math.sin(pl.yaw) * cp, dz = Math.cos(pl.yaw) * cp;
-    return orientedBlock(block, dx, m === 1 ? 1 : m === 2 ? 0 : Math.sin(pl.pitch), dz);
+    const pl = this.player, cp = Math.cos(pl.pitch);
+    return orientedBlock(block, this.lastAxis = gazeAxis(Math.sin(pl.yaw) * cp, Math.sin(pl.pitch), Math.cos(pl.yaw) * cp, this.orientMode || 0, this.lastAxis));
   }
-  cycleOrient() { this.orientMode = ((this.orientMode || 0) + 1) % 3; const t = ['Orientation : selon le regard', 'Orientation : verticale', 'Orientation : couchée']; this.hud.toast(t[this.orientMode]); $('tAxis').textContent = ['Auto', 'Vert.', 'Couché'][this.orientMode]; }
+  cycleOrient() { this.orientMode = ((this.orientMode || 0) + 1) % MODES.length; this.hud.toast('Orientation : ' + MODES[this.orientMode]); $('tAxis').textContent = ['Auto', 'Vert.', 'Couché'][this.orientMode]; }
   // Où irait le bloc sélectionné, et serait-il accepté ?
   ghost() {
     const it = this.inv[this.sel], def = it && ITEMS[it.item], t = this.target;
     if (def?.block === undefined || !t || this.camOverride) return null;
     const pos = IS_DECO[t.id] && t.id !== B.lantern && !IS_SOLID[t.id] ? [t.x, t.y, t.z] : [t.px, t.py, t.pz], cur = this.world.get(pos[0], pos[1], pos[2]), id = this.orientFor(def.block), p = this.player.p;
     const hit = IS_SOLID[id] && pos[0] + 1 > p[0] - 0.3 && pos[0] < p[0] + 0.3 && pos[2] + 1 > p[2] - 0.3 && pos[2] < p[2] + 0.3 && pos[1] + 1 > p[1] && pos[1] < p[1] + 1.8;
-    const name = BLOCKS[id].name, axis = /log_x$/.test(name) ? 1 : /log_z$/.test(name) ? 3 : /_log$/.test(name) ? 2 : 0;
+    const axis = 'xyz'.indexOf(axisOf(id)) + 1;
     return { pos, ok: (this.creative || it.n > 0) && cur !== -1 && !IS_SOLID[cur] && !hit, axis };
   }
 
@@ -303,9 +303,13 @@ class Game {
   mineStep(dt) {
     const go = this.input.lmb || this.autoMine > 0; if (this.autoMine > 0) this.autoMine -= dt;
     this.mining = false;
-    const heldTool = this.inv[this.sel]?.item, tool = ITEMS[heldTool]?.block === undefined ? heldTool : null;
+    const held = this.inv[this.sel]?.item, tool = ITEMS[held] && ITEMS[held].block === undefined ? held : null;
     this.swingT = (this.swingT || 0) - dt;
-    if (go && !this.target && !this.paused && this.swingT <= 0) { this.swingT = 0.42; this.sound.swing(tool); }
+    // Dans le vide, on frappe quand même, avec n'importe quoi.
+    if (go && !this.paused && !this.target) {
+      this.mining = true; if (this.autoMine > 0.3) this.autoMine = 0.3;
+      if (this.swingT <= 0) { this.swingT = 0.3; this.sound.swing(tool); }
+    }
     if (!go || !this.target || this.paused) { this.mine.key = ''; this.mine.t = 0; return; }
     const t = this.target, key = t.x + ',' + t.y + ',' + t.z, b = BLOCKS[t.id], it = this.inv[this.sel], def = it && ITEMS[it.item];
     if (key !== this.mine.key) { this.mine.key = key; this.mine.t = 0; }
@@ -313,7 +317,7 @@ class Game {
     const rate = def?.tool && def.tool === b.cat ? 3 : b.cat === 'terrain' ? 1.6 : 1;
     if (this.creative) { this.mineCool = (this.mineCool || 0) - dt; if (this.mineCool > 0) return; this.mineCool = 0.2; this.mine.t = 1e9; }
     this.mine.t += dt * rate;
-    this.digT = (this.digT || 0) - dt; if (this.digT <= 0 && !this.creative) { this.digT = 0.34; this.sound.dig(b.name, tool); }
+    this.digT = (this.digT || 0) - dt; if (this.digT <= 0 && !this.creative) { this.digT = 0.3; this.sound.dig(b.name, tool); }
     if (this.mine.t >= b.hardness) {
       if (this.world.set(t.x, t.y, t.z, 0)) {
         this.sound.breakBlock(b.name, tool);
@@ -363,6 +367,8 @@ class Game {
     if (this.dirtySave) { this.saveT = (this.saveT || 0) + dt; if (this.saveT > 20) { this.save(false); this.saveT = 0; this.dirtySave = false; } }
   }
 
+  // Tout ce qui blesse passe par ici : la musique de danger en dépend. Aucun danger n'existe encore dans le monde.
+  hurt(n) { this.vit.hp = Math.max(0, this.vit.hp - n); this.hurtAt = this.elapsed; this.sound.hurt(); }
   soundNames() { return SOUNDS; } // pour tools/audio_test.py
   // Eau qui coule autour du joueur : les étangs sont silencieux, seuls ruisseaux et chutes s'entendent.
   scanWater() {
@@ -391,7 +397,7 @@ class Game {
     if (pl.ground && !this.wasGround && this.fallV < -7 && !pl.fly) s.land(nameOf(below));
     this.wasGround = pl.ground; this.fallV = pl.v[1] < -1 ? pl.v[1] : (pl.ground ? this.fallV * 0.5 : this.fallV);
     this.built = this.built.filter((t) => this.elapsed - t < 25);
-    this.mood = pickMood({ ...this.vit, falling: !pl.fly && pl.v[1] < -17, submerged: this.world.get(Math.floor(eye[0]), Math.floor(eye[1]), Math.floor(eye[2])) === B.water, underground: p[1] < this.gen.column(p[0], p[2]).h - 4 && covered, building: this.built.length >= 3, night: sunY < 0, rain: w.rain > 0.5 });
+    this.mood = pickMood({ ...this.vit, hurt: this.elapsed - (this.hurtAt ?? -99) < 12, enemy: this.enemyNear, submerged: this.world.get(Math.floor(eye[0]), Math.floor(eye[1]), Math.floor(eye[2])) === B.water, underground: p[1] < this.gen.column(p[0], p[2]).h - 4 && covered, building: this.built.length >= 3, night: sunY < 0, rain: w.rain > 0.5 });
     if (s.music) { s.music.forced = this.settings.mood || 'auto'; s.music.update(dt, this.mood); }
   }
 

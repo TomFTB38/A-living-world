@@ -2,9 +2,9 @@
 const hz = (m) => 440 * 2 ** ((m - 69) / 12);
 const mrand = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)];
 
-// La situation du joueur décide de l'humeur : le danger prime, puis ce qui inquiète, puis ce qu'il fait.
+// La situation du joueur décide de l'humeur. Le danger est réservé aux vraies menaces.
 export function pickMood(s) {
-  if (s.hp < 35 || s.food < 10 || s.water < 10 || s.falling) return 'danger';
+  if (s.hurt || s.enemy || s.food < 15 || s.water < 15) return 'danger';
   if (s.underground || s.submerged) return 'suspense';
   if (s.building) return 'construction';
   if (s.night || s.rain) return 'nuit';
