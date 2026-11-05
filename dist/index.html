@@ -2177,7 +2177,7 @@ const ITEMS = { pickaxe: { tool: 'rock', name: 'Pioche' }, axe: { tool: 'wood', 
 for (const k in LABELS) ITEMS[k] = { block: B[k], name: LABELS[k] };
 const STACK = 99;
 
-// Outils : image 32 × 32 décrite par des formes, puis extrudée en petits voxels.
+// Outils : image 56 × 56 décrite par des formes, puis extrudée en petits voxels.
 const WOOD = [[0.3, 0.17, 0.08], [0.48, 0.29, 0.14], [0.66, 0.43, 0.22]], LEATHER = [[0.2, 0.11, 0.06], [0.36, 0.2, 0.1]];
 const STEEL = [[0.4, 0.39, 0.38], [0.62, 0.61, 0.6], [0.84, 0.83, 0.82], [1, 0.99, 0.97]], GOLD = [[0.62, 0.42, 0.1], [0.92, 0.7, 0.2]];
 const R2 = Math.SQRT1_2;
@@ -2215,7 +2215,7 @@ const SHAPES = {
 
 // Taille d'un outil : 1 unité de forme = 0,86 bloc. L'origine du maillage est le point de prise en main.
 function buildToolMesh(name) {
-  const o = new VBuf(4000), N = 32, S = 0.86, px = S / N, grip = 0.17 * R2 * S, f = SHAPES[name];
+  const o = new VBuf(8000), N = 56, S = 0.86, px = S / N, grip = 0.17 * R2 * S, f = SHAPES[name];
   for (let j = 0; j < N; j++) {
     let run = null;
     for (let i = 0; i <= N; i++) {
