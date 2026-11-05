@@ -36,14 +36,10 @@ export function buildCharacter(r) {
       Bx(o, [-0.09, -0.26, -0.1, 0.09, 0, 0.1], C.shirt); Bx(o, [-0.1, -0.32, -0.11, 0.1, -0.26, 0.11], C.shirt2); Bx(o, [-0.085, -0.56, -0.09, 0.085, -0.32, 0.09], C.skin); Bx(o, [-0.1, -0.66, -0.11, 0.1, -0.54, 0.11], C.glove);
     }),
   };
-  // Avant-bras vu en première personne : poing lisible, doigts repliés, protège-poignet de cuir.
+  // Bras vu en première personne : volumes simples, sans doigts.
   parts.fist = part((o) => {
-    const K = [0.86, 0.62, 0.46], LT = [0.62, 0.38, 0.2];
-    Bx(o, [-0.08, -0.3, -0.085, 0.08, 0, 0.085], C.shirt); Bx(o, [-0.095, -0.34, -0.1, 0.095, -0.28, 0.1], C.shirt2);
-    Bx(o, [-0.08, -0.5, -0.08, 0.08, -0.34, 0.08], C.skin); Bx(o, [-0.095, -0.56, -0.095, 0.095, -0.48, 0.095], LT); Bx(o, [-0.098, -0.535, -0.098, 0.098, -0.515, 0.098], C.strap);
-    Bx(o, [-0.11, -0.72, -0.1, 0.11, -0.56, 0.1], C.skin);
-    for (let i = 0; i < 4; i++) { const x0 = -0.11 + i * 0.056; Bx(o, [x0 + 0.003, -0.74, 0.085, x0 + 0.05, -0.655, 0.125], i & 1 ? C.skin : K); Bx(o, [x0 + 0.003, -0.755, -0.03, x0 + 0.05, -0.72, 0.09], i & 1 ? K : C.skin); }
-    Bx(o, [0.085, -0.685, 0.02, 0.135, -0.59, 0.12], K);
+    Bx(o, [-0.085, -0.34, -0.085, 0.085, 0, 0.085], C.shirt); Bx(o, [-0.09, -0.38, -0.09, 0.09, -0.33, 0.09], C.shirt2);
+    Bx(o, [-0.08, -0.66, -0.08, 0.08, -0.38, 0.08], C.skin);
   });
   parts.legR = parts.legL;
   const all = new VBuf(5000), rng = {};
@@ -60,7 +56,7 @@ export function buildCharacter(r) {
 const rollZ = (a) => { const c = Math.cos(a), n = Math.sin(a), m = M.id(); m[0] = c; m[1] = n; m[4] = -n; m[5] = c; return m; };
 // Façon de tenir l'objet, dans le repère du bras (la main est en bas, l'avant du personnage en +Z).
 const HOLD = {
-  tool: M.mul(M.trs(0, -0.6, 0.02, -Math.PI / 2), rollZ(-Math.PI / 4)),
+  tool: M.mul(M.trs(0, -0.58, 0.02, -Math.PI / 2), rollZ(-Math.PI / 4)),
   block: M.trs(-0.14, -0.76, -0.14, 0, 0, 0.28),
   deco: M.trs(-0.28, -0.72, -0.1, 0, 0, 0.55),
 };
@@ -110,10 +106,10 @@ export class CharacterAnim {
     const item = (mat) => out.push({ mesh: held.mesh, model: mat, count: held.count, offset: held.offset, hero: true, view: true, local: held.local });
     if (!held) {
       const hit = Math.max(strike, push); // coup de poing vers l'avant
-      hand(M.mul(V, M.trs(-0.3 + bobX + 0.1 * hit, -0.37 + bobY + 0.05 * hit, 0.1 + 0.2 * hit, 0.42 - 0.2 * hit, -2.02 - 0.3 * hit, 0.62)));
+      hand(M.mul(V, M.trs(-0.27 + bobX + 0.08 * hit, -0.33 + bobY + 0.05 * hit, 0.2 + 0.2 * hit, 0.34 - 0.16 * hit, -2.06 - 0.3 * hit, 0.46)));
     } else if (held.kind === 'tool') {
-      const arm = M.mul(V, M.trs(-0.25 + bobX, -0.2 + bobY - 0.06 * strike, -0.08 + 0.2 * push + 0.12 * strike, 0.2 + 0.3 * strike, -1.66 + 0.22 * this.run + 0.85 * strike - 0.3 * push, 0.58));
-      hand(arm); item(M.mul(M.mul(arm, HOLD.tool), M.trs(0, 0, 0, 0, 0, 0.5)));
+      const arm = M.mul(V, M.trs(-0.235 + bobX, -0.25 + bobY - 0.06 * strike, 0.1 + 0.2 * push + 0.12 * strike, 0.22 + 0.3 * strike, -1.72 + 0.22 * this.run + 0.85 * strike - 0.3 * push, 0.46));
+      hand(arm); item(M.mul(arm, HOLD.tool));
     } else {
       const sc = held.kind === 'block' ? 0.26 : 0.46, base = M.mul(V, M.trs(-0.29 + bobX + 0.05 * strike, -0.2 + bobY - 0.1 * strike + 0.03 * push, 0.52 + 0.12 * push + 0.08 * strike, 0.62 + 0.25 * strike, 0.26 + 0.6 * strike - 0.3 * push, sc));
       item(M.mul(base, M.trs(-0.5, held.kind === 'block' ? -0.5 : -0.4, -0.5, 0)));

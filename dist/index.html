@@ -2194,28 +2194,28 @@ const SHAPES = {
       if (Math.abs(d) < w) return d > w * 0.45 ? (Math.abs(t) > 0.6 ? STEEL[3] : STEEL[2]) : d < -w * 0.45 ? STEEL[0] : STEEL[1];
     }
     const s = (x + y) * R2, p = (y - x) * R2;
-    if (s > 0.8 && s < 0.97 && Math.abs(p) < 0.06) return STEEL[0];
-    return handle(s, p, 0.1, 0.93);
+    if (s > 0.86 && s < 1.08 && Math.abs(p) < 0.062) return STEEL[0];
+    return handle(s, p, 0.08, 0.9);
   },
   axe(x, y) {
-    const s = (x + y) * R2, p = (y - x) * R2;
+    const s = (x + y) * R2, p = (x - y) * R2; // p > 0 : côté de frappe, vers l'avant une fois en main
     if (p > 0 && p < 0.36) { const half = 0.075 + 0.2 * Math.pow(p / 0.36, 1.5), c = 0.88; if (Math.abs(s - c) < half) { const edge = 0.36 - p; return edge < 0.035 ? STEEL[3] : edge < 0.075 ? STEEL[2] : (s - c) > 0.02 ? STEEL[1] : STEEL[0]; } }
     if (p <= 0 && p > -0.11 && Math.abs(s - 0.88) < 0.065) return p < -0.08 ? STEEL[2] : STEEL[1];
-    return handle(s, p, 0.1, 1.03);
+    return handle(s, p, 0.08, 1.03);
   },
   sword(x, y) {
     const s = (x + y) * R2, p = (y - x) * R2;
-    if (s > 0.34 && s < 1.28) { const w = s > 1.1 ? 0.058 * (1.28 - s) / 0.18 : 0.058; if (Math.abs(p) < w) return Math.abs(p) < 0.01 ? STEEL[0] : p > 0 ? STEEL[3] : STEEL[1]; }
-    if (Math.abs(s - 0.32) < 0.032 && Math.abs(p) < 0.17) return Math.abs(p) > 0.13 ? GOLD[1] : GOLD[0];
-    if (s > 0.1 && s < 0.3 && Math.abs(p) < 0.034) return (Math.floor(s * 44) & 1) ? LEATHER[0] : LEATHER[1];
-    if (Math.hypot(s - 0.07, p) < 0.05) return GOLD[1];
+    if (s > 0.47 && s < 1.32) { const w = s > 1.14 ? 0.058 * (1.32 - s) / 0.18 : 0.058; if (Math.abs(p) < w) return Math.abs(p) < 0.01 ? STEEL[0] : p > 0 ? STEEL[3] : STEEL[1]; }
+    if (Math.abs(s - 0.44) < 0.034 && Math.abs(p) < 0.18) return Math.abs(p) > 0.14 ? GOLD[1] : GOLD[0];
+    if (s > 0.08 && s < 0.41 && Math.abs(p) < 0.034) return (Math.floor(s * 44) & 1) ? LEATHER[0] : LEATHER[1];
+    if (Math.hypot(s - 0.05, p) < 0.05) return GOLD[1];
     return null;
   },
 };
 
 // Taille d'un outil : 1 unité de forme = 0,86 bloc. L'origine du maillage est le point de prise en main.
 function buildToolMesh(name) {
-  const o = new VBuf(8000), N = 56, S = 0.86, px = S / N, grip = 0.17 * R2 * S, f = SHAPES[name];
+  const o = new VBuf(8000), N = 56, S = 0.86, px = S / N, grip = 0.2 * R2 * S, f = SHAPES[name];
   for (let j = 0; j < N; j++) {
     let run = null;
     for (let i = 0; i <= N; i++) {
@@ -2299,14 +2299,10 @@ function buildCharacter(r) {
       Bx(o, [-0.09, -0.26, -0.1, 0.09, 0, 0.1], C.shirt); Bx(o, [-0.1, -0.32, -0.11, 0.1, -0.26, 0.11], C.shirt2); Bx(o, [-0.085, -0.56, -0.09, 0.085, -0.32, 0.09], C.skin); Bx(o, [-0.1, -0.66, -0.11, 0.1, -0.54, 0.11], C.glove);
     }),
   };
-  // Avant-bras vu en première personne : poing lisible, doigts repliés, protège-poignet de cuir.
+  // Bras vu en première personne : volumes simples, sans doigts.
   parts.fist = part((o) => {
-    const K = [0.86, 0.62, 0.46], LT = [0.62, 0.38, 0.2];
-    Bx(o, [-0.08, -0.3, -0.085, 0.08, 0, 0.085], C.shirt); Bx(o, [-0.095, -0.34, -0.1, 0.095, -0.28, 0.1], C.shirt2);
-    Bx(o, [-0.08, -0.5, -0.08, 0.08, -0.34, 0.08], C.skin); Bx(o, [-0.095, -0.56, -0.095, 0.095, -0.48, 0.095], LT); Bx(o, [-0.098, -0.535, -0.098, 0.098, -0.515, 0.098], C.strap);
-    Bx(o, [-0.11, -0.72, -0.1, 0.11, -0.56, 0.1], C.skin);
-    for (let i = 0; i < 4; i++) { const x0 = -0.11 + i * 0.056; Bx(o, [x0 + 0.003, -0.74, 0.085, x0 + 0.05, -0.655, 0.125], i & 1 ? C.skin : K); Bx(o, [x0 + 0.003, -0.755, -0.03, x0 + 0.05, -0.72, 0.09], i & 1 ? K : C.skin); }
-    Bx(o, [0.085, -0.685, 0.02, 0.135, -0.59, 0.12], K);
+    Bx(o, [-0.085, -0.34, -0.085, 0.085, 0, 0.085], C.shirt); Bx(o, [-0.09, -0.38, -0.09, 0.09, -0.33, 0.09], C.shirt2);
+    Bx(o, [-0.08, -0.66, -0.08, 0.08, -0.38, 0.08], C.skin);
   });
   parts.legR = parts.legL;
   const all = new VBuf(5000), rng = {};
@@ -2323,7 +2319,7 @@ function buildCharacter(r) {
 const rollZ = (a) => { const c = Math.cos(a), n = Math.sin(a), m = M.id(); m[0] = c; m[1] = n; m[4] = -n; m[5] = c; return m; };
 // Façon de tenir l'objet, dans le repère du bras (la main est en bas, l'avant du personnage en +Z).
 const HOLD = {
-  tool: M.mul(M.trs(0, -0.6, 0.02, -Math.PI / 2), rollZ(-Math.PI / 4)),
+  tool: M.mul(M.trs(0, -0.58, 0.02, -Math.PI / 2), rollZ(-Math.PI / 4)),
   block: M.trs(-0.14, -0.76, -0.14, 0, 0, 0.28),
   deco: M.trs(-0.28, -0.72, -0.1, 0, 0, 0.55),
 };
@@ -2373,10 +2369,10 @@ class CharacterAnim {
     const item = (mat) => out.push({ mesh: held.mesh, model: mat, count: held.count, offset: held.offset, hero: true, view: true, local: held.local });
     if (!held) {
       const hit = Math.max(strike, push); // coup de poing vers l'avant
-      hand(M.mul(V, M.trs(-0.3 + bobX + 0.1 * hit, -0.37 + bobY + 0.05 * hit, 0.1 + 0.2 * hit, 0.42 - 0.2 * hit, -2.02 - 0.3 * hit, 0.62)));
+      hand(M.mul(V, M.trs(-0.27 + bobX + 0.08 * hit, -0.33 + bobY + 0.05 * hit, 0.2 + 0.2 * hit, 0.34 - 0.16 * hit, -2.06 - 0.3 * hit, 0.46)));
     } else if (held.kind === 'tool') {
-      const arm = M.mul(V, M.trs(-0.25 + bobX, -0.2 + bobY - 0.06 * strike, -0.08 + 0.2 * push + 0.12 * strike, 0.2 + 0.3 * strike, -1.66 + 0.22 * this.run + 0.85 * strike - 0.3 * push, 0.58));
-      hand(arm); item(M.mul(M.mul(arm, HOLD.tool), M.trs(0, 0, 0, 0, 0, 0.5)));
+      const arm = M.mul(V, M.trs(-0.235 + bobX, -0.25 + bobY - 0.06 * strike, 0.1 + 0.2 * push + 0.12 * strike, 0.22 + 0.3 * strike, -1.72 + 0.22 * this.run + 0.85 * strike - 0.3 * push, 0.46));
+      hand(arm); item(M.mul(arm, HOLD.tool));
     } else {
       const sc = held.kind === 'block' ? 0.26 : 0.46, base = M.mul(V, M.trs(-0.29 + bobX + 0.05 * strike, -0.2 + bobY - 0.1 * strike + 0.03 * push, 0.52 + 0.12 * push + 0.08 * strike, 0.62 + 0.25 * strike, 0.26 + 0.6 * strike - 0.3 * push, sc));
       item(M.mul(base, M.trs(-0.5, held.kind === 'block' ? -0.5 : -0.4, -0.5, 0)));

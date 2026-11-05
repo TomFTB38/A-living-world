@@ -35,28 +35,28 @@ const SHAPES = {
       if (Math.abs(d) < w) return d > w * 0.45 ? (Math.abs(t) > 0.6 ? STEEL[3] : STEEL[2]) : d < -w * 0.45 ? STEEL[0] : STEEL[1];
     }
     const s = (x + y) * R2, p = (y - x) * R2;
-    if (s > 0.8 && s < 0.97 && Math.abs(p) < 0.06) return STEEL[0];
-    return handle(s, p, 0.1, 0.93);
+    if (s > 0.86 && s < 1.08 && Math.abs(p) < 0.062) return STEEL[0];
+    return handle(s, p, 0.08, 0.9);
   },
   axe(x, y) {
-    const s = (x + y) * R2, p = (y - x) * R2;
+    const s = (x + y) * R2, p = (x - y) * R2; // p > 0 : côté de frappe, vers l'avant une fois en main
     if (p > 0 && p < 0.36) { const half = 0.075 + 0.2 * Math.pow(p / 0.36, 1.5), c = 0.88; if (Math.abs(s - c) < half) { const edge = 0.36 - p; return edge < 0.035 ? STEEL[3] : edge < 0.075 ? STEEL[2] : (s - c) > 0.02 ? STEEL[1] : STEEL[0]; } }
     if (p <= 0 && p > -0.11 && Math.abs(s - 0.88) < 0.065) return p < -0.08 ? STEEL[2] : STEEL[1];
-    return handle(s, p, 0.1, 1.03);
+    return handle(s, p, 0.08, 1.03);
   },
   sword(x, y) {
     const s = (x + y) * R2, p = (y - x) * R2;
-    if (s > 0.34 && s < 1.28) { const w = s > 1.1 ? 0.058 * (1.28 - s) / 0.18 : 0.058; if (Math.abs(p) < w) return Math.abs(p) < 0.01 ? STEEL[0] : p > 0 ? STEEL[3] : STEEL[1]; }
-    if (Math.abs(s - 0.32) < 0.032 && Math.abs(p) < 0.17) return Math.abs(p) > 0.13 ? GOLD[1] : GOLD[0];
-    if (s > 0.1 && s < 0.3 && Math.abs(p) < 0.034) return (Math.floor(s * 44) & 1) ? LEATHER[0] : LEATHER[1];
-    if (Math.hypot(s - 0.07, p) < 0.05) return GOLD[1];
+    if (s > 0.47 && s < 1.32) { const w = s > 1.14 ? 0.058 * (1.32 - s) / 0.18 : 0.058; if (Math.abs(p) < w) return Math.abs(p) < 0.01 ? STEEL[0] : p > 0 ? STEEL[3] : STEEL[1]; }
+    if (Math.abs(s - 0.44) < 0.034 && Math.abs(p) < 0.18) return Math.abs(p) > 0.14 ? GOLD[1] : GOLD[0];
+    if (s > 0.08 && s < 0.41 && Math.abs(p) < 0.034) return (Math.floor(s * 44) & 1) ? LEATHER[0] : LEATHER[1];
+    if (Math.hypot(s - 0.05, p) < 0.05) return GOLD[1];
     return null;
   },
 };
 
 // Taille d'un outil : 1 unité de forme = 0,86 bloc. L'origine du maillage est le point de prise en main.
 export function buildToolMesh(name) {
-  const o = new VBuf(8000), N = 56, S = 0.86, px = S / N, grip = 0.17 * R2 * S, f = SHAPES[name];
+  const o = new VBuf(8000), N = 56, S = 0.86, px = S / N, grip = 0.2 * R2 * S, f = SHAPES[name];
   for (let j = 0; j < N; j++) {
     let run = null;
     for (let i = 0; i <= N; i++) {
