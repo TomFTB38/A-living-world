@@ -4,7 +4,7 @@ export const VS_FULL = `#version 300 es
 out vec2 uv; void main(){ vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2); uv=p; gl_Position=vec4(p*2.-1.,0.,1.); }`;
 
 const COMMON = `
-precision highp float; precision highp int; precision highp sampler2DArray; precision highp sampler2DArrayShadow; precision highp sampler3D;
+precision highp float; precision highp int; precision highp sampler2DArray; precision highp sampler2DArrayShadow; precision highp sampler3D; precision highp sampler2DShadow;
 #define sat(x) clamp(x,0.,1.)
 float ign(vec2 p){ return fract(52.9829189*fract(dot(p,vec2(.06711056,.00583715)))); }
 float hash13(vec3 p){ p=fract(p*.1031); p+=dot(p,p.zyx+31.32); return fract((p.x+p.y)*p.z); }
@@ -29,7 +29,7 @@ void main(){
 
 export const FS_GEOM = `#version 300 es
 ${COMMON}
-uniform sampler2DArray uAlbedo,uNormal; uniform sampler3D uNoise; uniform float uTexOn;
+uniform sampler2DArray uAlbedo,uNormal; uniform sampler3D uNoise; uniform float uTexOn,uHero;
 in vec3 vPos; in vec3 vN; flat in int vLayer; flat in int vKind; flat in int vRot; in vec3 vLit; in vec3 vTint; in vec3 vLocal;
 layout(location=0) out vec4 gA; layout(location=1) out vec4 gN; layout(location=2) out vec4 gL;
 void main(){
@@ -63,7 +63,7 @@ void main(){
     if(vKind==3){ trans=.45; alb=mix(vec3(dot(alb,vec3(.3,.6,.1))),alb,.72); }
     if(vKind==4) emis=1.;
   }
-  gA=vec4(alb,vLit.x); gN=vec4(nn*.5+.5,rough); gL=vec4(vLit.y,vLit.z,trans,emis);
+  gA=vec4(alb,vLit.x); gN=vec4(nn*.5+.5,rough); gL=vec4(vLit.y,vLit.z,trans,emis>0.?emis:uHero*.4);
 }`;
 
 export const VS_SHADOW = `#version 300 es
@@ -79,9 +79,9 @@ precision mediump float; void main(){}`;
 const LIGHTING = `
 uniform sampler2DArrayShadow uShadow; uniform mat4 uShadowVP[3]; uniform vec3 uCascade; uniform float uShadowTexel;
 uniform vec3 uSunDir,uSunCol,uSkyTop,uSkyHor,uGround; uniform vec3 uCam; uniform float uTime,uCloudShadow;
-uniform sampler3D uNoise;
+uniform sampler3D uNoise; uniform sampler2DShadow uActorShadow; uniform mat4 uActorVP;
 const vec2 VOGEL[8]=vec2[](vec2(.177,.0),vec2(-.25,.228),vec2(.04,-.446),vec2(.336,.391),vec2(-.578,-.137),vec2(.569,-.285),vec2(-.232,.649),vec2(-.301,-.667));
-float shadowAt(vec3 wp,vec3 n,float dist,vec2 fc,int samples){
+float shadowBase(vec3 wp,vec3 n,float dist,vec2 fc,int samples){
   int c=dist<uCascade.x?0:dist<uCascade.y?1:dist<uCascade.z?2:3; if(c>2) return 1.;
   float bias=(c==0?.035:c==1?.09:.26);
   vec3 p=wp+n*bias*1.5+uSunDir*bias;
@@ -91,6 +91,11 @@ float shadowAt(vec3 wp,vec3 n,float dist,vec2 fc,int samples){
   for(int i=0;i<samples;i++){ vec2 o=VOGEL[i]; o=vec2(o.x*ca-o.y*sa,o.x*sa+o.y*ca)*rad; sum+=texture(uShadow,vec4(s.xy+o,float(c),s.z)); }
   float sh=sum/float(samples);
   float fade=sat((uCascade.z-dist)/(uCascade.z*.15)); return c==2?mix(1.,sh,fade):sh; }
+// Ombres des personnages et animaux proches : carte dédiée, recalculée à chaque image.
+float actorShade(vec3 wp,vec3 n){ vec3 s=(uActorVP*vec4(wp+n*.05+uSunDir*.05,1.)).xyz*.5+.5;
+  if(s.x<.01||s.y<.01||s.x>.99||s.y>.99) return 1.; float t=1./1024., r=0.;
+  for(int i=0;i<4;i++) r+=texture(uActorShadow,vec3(s.xy+VOGEL[i]*t*2.,s.z)); return r*.25; }
+float shadowAt(vec3 wp,vec3 n,float dist,vec2 fc,int samples){ return shadowBase(wp,n,dist,fc,samples)*actorShade(wp,n); }
 float cloudShade(vec3 wp){ if(uCloudShadow<=0.) return 1.; vec3 q=vec3(wp.xz*.0011+vec2(uTime*.004,uTime*.0017),.31);
   float n=texture(uNoise,q.xzy).r; return mix(1.,smoothstep(.56,.3,n)*.7+.3,uCloudShadow); }
 vec3 skyColor(vec3 d){
@@ -270,7 +275,7 @@ void main(){
 
 export const FS_TAA = `#version 300 es
 ${COMMON}
-in vec2 uv; layout(location=0) out vec4 o; uniform sampler2D uCur,uHist,uD; uniform mat4 uInvVP,uPrevVP; uniform vec2 uTexel; uniform float uReset;
+in vec2 uv; layout(location=0) out vec4 o; uniform sampler2D uCur,uHist,uD,uL; uniform mat4 uInvVP,uPrevVP; uniform vec2 uTexel; uniform float uReset;
 vec3 ycc(vec3 c){ return vec3(.25*c.r+.5*c.g+.25*c.b,.5*c.r-.5*c.b,-.25*c.r+.5*c.g-.25*c.b); }
 vec3 rgb(vec3 c){ return vec3(c.x+c.y-c.z,c.x+c.z,c.x-c.y-c.z); }
 vec3 ton(vec3 c){ return c/(1.+dot(c,vec3(.299,.587,.114))); } vec3 inv(vec3 c){ return c/max(1.-dot(c,vec3(.299,.587,.114)),.002); }
@@ -280,6 +285,7 @@ void main(){
   for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){ vec3 q=ycc(ton(texture(uCur,uv+vec2(i,j)*uTexel).rgb)); m+=q; s+=q*q; mn=min(mn,q); mx=max(mx,q); }
   m/=9.; s=sqrt(max(s/9.-m*m,0.)); vec3 lo=max(mn,m-s*1.25), hi=min(mx,m+s*1.25);
   float d=texture(uD,uv).r; vec4 w=uInvVP*vec4(uv*2.-1.,d*2.-1.,1.); w/=w.w; vec4 p=uPrevVP*w; vec2 q=p.xy/p.w*.5+.5;
+  float hero=texture(uL,uv).a; if(hero>.2&&hero<.6) q=uv; // le héros suit la caméra : son historique est au même point de l'écran
   if(q.x<0.||q.y<0.||q.x>1.||q.y>1.){ o=vec4(inv(c),1.); return; }
   vec3 h=ycc(ton(texture(uHist,q).rgb)); h=clamp(h,lo,hi);
   float mv=length((q-uv)/uTexel), a=mix(.09,.28,sat(mv*.08));

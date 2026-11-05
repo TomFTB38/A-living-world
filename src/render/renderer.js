@@ -129,6 +129,12 @@ export class Renderer {
     this.tShadow = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.tShadow);
     gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.DEPTH_COMPONENT24, p.shadow, p.shadow, 3);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE], [gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D_ARRAY, k, v);
+    if (!this.tActor) {
+      this.tActor = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, this.tActor);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, 1024, 1024);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE], [gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      this.actorF = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, this.actorF); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.tActor, 0); gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
     this.shadowF = this.shadowF || gl.createFramebuffer(); this.shadowVP = [M.id(), M.id(), M.id()]; this.shadowCenters = [null, null, null];
   }
 
@@ -176,8 +182,8 @@ export class Renderer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowF); gl.viewport(0, 0, p.shadow, p.shadow); gl.colorMask(false, false, false, false); gl.drawBuffers([gl.NONE]);
     gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
     this.use(this.P.shadow, { uTime: view.time, uPosScale: 1 / 128, uModel: M.id() });
-    const snap = (i) => {
-      const R = CASC[i], up = Math.abs(sun.dir[1]) > 0.95 ? [1, 0, 0] : [0, 1, 0], texel = (2 * R) / p.shadow;
+    const snap = (R, size) => {
+      const up = Math.abs(sun.dir[1]) > 0.95 ? [1, 0, 0] : [0, 1, 0], texel = (2 * R) / size;
       const lv = M.look([0, 0, 0], V.mul(sun.dir, -1), up), c = eye;
       let lx = lv[0] * c[0] + lv[4] * c[1] + lv[8] * c[2], ly = lv[1] * c[0] + lv[5] * c[1] + lv[9] * c[2]; const lz = lv[2] * c[0] + lv[6] * c[1] + lv[10] * c[2];
       lx = Math.floor(lx / texel) * texel; ly = Math.floor(ly / texel) * texel;
@@ -187,7 +193,7 @@ export class Renderer {
     const force = this.reset;
     for (let i = 0; i < 3; i++) {
       if (!((fr + p.shadowOff[i]) % p.shadowStep[i] === 0 || force || fr < 6)) continue;
-      const sv = snap(i); this.shadowVP[i] = sv;
+      const sv = snap(CASC[i], p.shadow); this.shadowVP[i] = sv;
       gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.tShadow, 0, i); gl.clear(gl.DEPTH_BUFFER_BIT);
       this.set(this.P.shadow, 'uVP', sv);
       const R = CASC[i] + 40;
@@ -197,8 +203,12 @@ export class Renderer {
         gl.bindVertexArray(c.opaque.vao); gl.drawElements(gl.TRIANGLES, c.opaque.count, gl.UNSIGNED_INT, 0); st.draws++; st.tris += c.opaque.count / 3;
         if (i === 0 && c.deco && c.deco.count && dx * dx + dz * dz < p.decoShadow * p.decoShadow) { gl.disable(gl.CULL_FACE); gl.bindVertexArray(c.deco.vao); gl.drawElements(gl.TRIANGLES, c.deco.count, gl.UNSIGNED_INT, 0); gl.enable(gl.CULL_FACE); st.draws++; st.tris += c.deco.count / 3; }
       }
-      if (i === 0) for (const a of actors) { this.set(this.P.shadow, 'uOrigin', [0, 0, 0]); this.set(this.P.shadow, 'uModel', a.model); gl.bindVertexArray(a.mesh.vao); gl.drawElements(gl.TRIANGLES, a.count, gl.UNSIGNED_INT, a.offset); st.draws++; }
     }
+    // Personnages : carte à part, à jour à chaque image. Sinon l'ombre de l'image précédente retombe sur le corps.
+    this.actorVP = snap(18, 1024);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.actorF); gl.viewport(0, 0, 1024, 1024); gl.clear(gl.DEPTH_BUFFER_BIT);
+    this.set(this.P.shadow, 'uVP', this.actorVP); this.set(this.P.shadow, 'uOrigin', [0, 0, 0]);
+    for (const a of actors) { this.set(this.P.shadow, 'uModel', a.model); gl.bindVertexArray(a.mesh.vao); gl.drawElements(gl.TRIANGLES, a.count, gl.UNSIGNED_INT, a.offset); st.draws++; }
     gl.colorMask(true, true, true, true);
 
     /* --- G-buffer --- */
@@ -211,8 +221,8 @@ export class Renderer {
     for (const c of view.visible) if (c.deco && c.deco.count) { this.set(G, 'uOrigin', c.org); gl.bindVertexArray(c.deco.vao); gl.drawElements(gl.TRIANGLES, c.deco.count, gl.UNSIGNED_INT, 0); st.draws++; st.tris += c.deco.count / 3; }
     gl.enable(gl.CULL_FACE);
     this.set(G, 'uOrigin', [0, 0, 0]);
-    for (const a of actors) { this.set(G, 'uModel', a.model); gl.bindVertexArray(a.mesh.vao); gl.drawElements(gl.TRIANGLES, a.count, gl.UNSIGNED_INT, a.offset); st.draws++; st.tris += a.count / 3; }
-    this.set(G, 'uModel', M.id());
+    for (const a of actors) { this.set(G, 'uHero', a.hero ? 1 : 0); this.set(G, 'uModel', a.model); gl.bindVertexArray(a.mesh.vao); gl.drawElements(gl.TRIANGLES, a.count, gl.UNSIGNED_INT, a.offset); st.draws++; st.tris += a.count / 3; }
+    this.set(G, 'uHero', 0); this.set(G, 'uModel', M.id());
     if (far) { this.set(G, 'uPosScale', 1 / 8); this.set(G, 'uFarHole', view.farHole); this.set(G, 'uCamPos', eye); this.set(G, 'uOrigin', far.org); gl.bindVertexArray(far.mesh.vao); gl.drawElements(gl.TRIANGLES, far.mesh.count, gl.UNSIGNED_INT, 0); st.draws++; st.tris += far.mesh.count / 3; this.set(G, 'uFarHole', 0); }
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
 
@@ -225,11 +235,11 @@ export class Renderer {
     } else { gl.bindFramebuffer(gl.FRAMEBUFFER, r.aoF); gl.clearColor(1, 1, 1, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
 
     /* --- éclairage --- */
-    const shared = { uShadowVP: new Float32Array([...this.shadowVP[0], ...this.shadowVP[1], ...this.shadowVP[2]]), uCascade: CASC, uShadowTexel: 1 / p.shadow, uSunDir: sun.dir, uSunCol: sun.col, uSkyTop: sun.top, uSkyHor: sun.hor, uGround: sun.ground, uCam: eye, uTime: view.time, uCloudShadow: view.cloud ?? 0.65 };
+    const shared = { uActorVP: this.actorVP, uShadowVP: new Float32Array([...this.shadowVP[0], ...this.shadowVP[1], ...this.shadowVP[2]]), uCascade: CASC, uShadowTexel: 1 / p.shadow, uSunDir: sun.dir, uSunCol: sun.col, uSkyTop: sun.top, uSkyHor: sun.hor, uGround: sun.ground, uCam: eye, uTime: view.time, uCloudShadow: view.cloud ?? 0.65 };
     gl.bindFramebuffer(gl.FRAMEBUFFER, r.hdrF); gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
     // attachement de profondeur détaché pendant la lecture, évite la boucle de rétroaction
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, null, 0);
-    this.full(this.P.light, r.hdrF, W, H, { ...shared, uInvVP: invVP, uShadowSamples: p.samples }, { uA: r.A, uN: r.N, uL: r.L, uD: r.D, uSSAO: r.ao, uShadow: this.tShadow, uNoise: this.tNoise });
+    this.full(this.P.light, r.hdrF, W, H, { ...shared, uInvVP: invVP, uShadowSamples: p.samples }, { uA: r.A, uN: r.N, uL: r.L, uD: r.D, uSSAO: r.ao, uShadow: this.tShadow, uNoise: this.tNoise, uActorShadow: this.tActor });
 
     /* --- nuages et volume --- */
     if (p.clouds && fr % p.cloudStep !== 0 && p.cloudStep > 1) { /* image précédente conservée */ }
@@ -246,7 +256,7 @@ export class Renderer {
     gl.viewport(0, 0, W, H); gl.enable(gl.DEPTH_TEST); gl.depthMask(false);
     const wat = view.visible.filter((c) => c.water && c.water.count);
     if (wat.length) {
-      this.use(this.P.water, { ...shared, uVP: vp, uInvVP: invVP, uRes: [W, H], uPosScale: 1 / 128, uJitter: jit }, { uScene: r.scene, uD: r.D2, uShadow: this.tShadow, uNoise: this.tNoise });
+      this.use(this.P.water, { ...shared, uVP: vp, uInvVP: invVP, uRes: [W, H], uPosScale: 1 / 128, uJitter: jit }, { uScene: r.scene, uD: r.D2, uShadow: this.tShadow, uNoise: this.tNoise, uActorShadow: this.tActor });
       gl.disable(gl.CULL_FACE);
       for (const c of wat) { this.set(this.P.water, 'uOrigin', c.org); gl.bindVertexArray(c.water.vao); gl.drawElements(gl.TRIANGLES, c.water.count, gl.UNSIGNED_INT, 0); st.draws++; st.tris += c.water.count / 3; }
     }
@@ -260,7 +270,7 @@ export class Renderer {
     /* --- composition, TAA, bloom, sortie --- */
     this.full(this.P.compose, r.compF, W, H, { ...shared, uInvVP: invVP, uFog: this.fog, uTexel: [1 / W, 1 / H] }, { uHdr: r.hdr, uVol: r.vol, uClouds: r.cl, uD: r.D });
     const cur = fr & 1;
-    this.full(this.P.taa, r.histF[cur], W, H, { uInvVP: invVP, uPrevVP: this.prevVP, uTexel: [1 / W, 1 / H], uReset: this.reset || view.taa === false ? 1 : 0 }, { uCur: r.comp, uHist: r.hist[1 - cur], uD: r.D });
+    this.full(this.P.taa, r.histF[cur], W, H, { uInvVP: invVP, uPrevVP: this.prevVP, uTexel: [1 / W, 1 / H], uReset: this.reset || view.taa === false ? 1 : 0 }, { uCur: r.comp, uHist: r.hist[1 - cur], uD: r.D, uL: r.L });
     this.prevVP = vp; this.reset = false;
     let bw = hw, bh = hh;
     this.full(this.P.bright, r.bloomF[0], bw, bh, { uTexel: [1 / W, 1 / H], uFirst: 1 }, { uT: r.hist[cur] });

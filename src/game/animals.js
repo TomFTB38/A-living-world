@@ -98,8 +98,11 @@ export class Fauna {
     d.speed = sp; d.head += ((d.state === 'graze' ? 1 : 0) - d.head) * Math.min(1, dt * 3);
     if (sp) {
       d.phase += dt * (3 + sp * 2);
-      const nx = d.p[0] + Math.sin(d.yaw) * sp * dt, nz = d.p[2] + Math.cos(d.yaw) * sp * dt, y = this.ground(w, nx, nz, d.gy ?? d.p[1]);
-      if (y !== null && Math.abs(y - (d.gy ?? d.p[1])) <= 1 && this.fits(w, nx, y, nz, d.yaw, 2) && this.fits(w, nx, Math.max(y, d.gy ?? y), nz, d.yaw, 2)) { d.p[0] = nx; d.p[2] = nz; d.gy = y; }
+      const sy = Math.sin(d.yaw), cy = Math.cos(d.yaw), nx = d.p[0] + sy * sp * dt, nz = d.p[2] + cy * sp * dt, base = d.gy ?? d.p[1];
+      // Le corps se pose sur le sol le plus haut sous ses pattes : il monte et descend un bloc sans entrer dedans.
+      const gc = this.ground(w, nx, nz, base), gf = this.ground(w, nx + sy * 0.8, nz + cy * 0.8, base), gr = this.ground(w, nx - sy * 0.65, nz - cy * 0.65, base);
+      const y = gc === null || gf === null || gr === null ? null : Math.max(gc, gf, gr);
+      if (y !== null && Math.abs(y - base) <= 1 && this.fits(w, nx, y, nz, d.yaw, 2)) { d.p[0] = nx; d.p[2] = nz; d.gy = y; d.blocked = 0; }
       else { d.blocked = (d.blocked || 0) + 1; for (let i = 0; i < 6; i++) if (this.turn(d, w, d.yaw + r.range(0.6, 3.2))) break; if (d.blocked > 40) { d.state = 'graze'; d.t = r.range(1, 3); d.blocked = 0; } }
       d.p[1] += ((d.gy ?? d.p[1]) - d.p[1]) * Math.min(1, dt * 9);
     }

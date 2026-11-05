@@ -59,7 +59,7 @@ export class CharacterAnim {
     const m = this.m, a = this.blend, s = Math.sin(this.phase) * 0.85 * a, bob = Math.abs(Math.cos(this.phase)) * 0.04 * a;
     const hip = 0.8 + bob - (crouch ? 0.18 : 0), pitch = crouch ? 0.25 : 0.05 * a;
     const base = M.trs(px, py, pz, yaw), out = [];
-    const put = (name, x, y, z, rx, ry = 0) => { const r = m.rng[name], t = M.mul(base, M.mul(M.trs(x, y, z, ry, rx), M.id())); out.push({ mesh: m.mesh, model: t, count: r.count, offset: r.offset }); };
+    const put = (name, x, y, z, rx, ry = 0) => { const r = m.rng[name], t = M.mul(base, M.mul(M.trs(x, y, z, ry, rx), M.id())); out.push({ mesh: m.mesh, model: t, count: r.count, offset: r.offset, hero: true }); };
     put('torso', 0, hip, 0, pitch);
     put('legL', -0.13, hip, 0, -s); put('legR', 0.13, hip, 0, s);
     put('head', 0, hip + 0.64, pitch * 0.5, 0);
