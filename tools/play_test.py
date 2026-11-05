@@ -37,11 +37,12 @@ with sync_playwright() as p:
     # poser
     pg.keyboard.press('Digit5'); before=st()['inv'][4]; time.sleep(1.5)
     pg.wait_for_function('!!ALW.target',timeout=90000)
-    pg.evaluate('ALW.player.pitch=-.75'); time.sleep(2); pg.wait_for_function('!!ALW.target',timeout=90000)
+    pg.evaluate('ALW.player.pitch=-.95'); time.sleep(2)
     for _ in range(4):  # un bloc qui recouperait le joueur est refusé : on réessaie en tournant légèrement
-        pg.mouse.click(160,90,button='right'); time.sleep(1.5)
-        if pg.evaluate(f'ALW.inv[4].n<{before}'): break
-        pg.evaluate('ALW.player.yaw+=.9'); time.sleep(2)
+        if pg.evaluate('!!ALW.target'):
+            pg.mouse.click(160,90,button='right'); time.sleep(1.5)
+            if pg.evaluate(f'ALW.inv[4].n<{before}'): break
+        pg.evaluate('ALW.player.yaw+=.9'); time.sleep(3)
     try: pg.wait_for_function(f'ALW.inv[4].n<{before}',timeout=90000)
     except Exception:
         print(pg.evaluate('({t:ALW.target,sel:ALW.sel,inv:ALW.inv[4],p:ALW.player.p,pitch:ALW.player.pitch,paused:ALW.paused,third:ALW.view.third,el:document.elementFromPoint(160,90).id})')); raise
