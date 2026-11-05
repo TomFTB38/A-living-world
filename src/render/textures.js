@@ -33,7 +33,7 @@ const pal = (arr, t) => { t = clamp(t, 0, 0.9999) * (arr.length - 1); const i = 
 const GRASS = ['#556b2a', '#6f8834', '#8ba042', '#a9b658'].map(hex);
 const DIRT = ['#4d3019', '#6e4725', '#8a5f35', '#a57c4d'].map(hex);
 const STONE = ['#5c564c', '#7f786b', '#a0998b', '#bfb8aa'].map(hex);
-const LEAF = ['#37591b', '#55802a', '#7ca03b', '#b0c75a'].map(hex);
+const LEAF = ['#2f5518', '#4f7f25', '#86ac38', '#c6d862'].map(hex);
 
 function grassTop(t, x, y) {
   const n = t.fbm(x, y, 4, 3), s = t.val(x, y, 32), b = t.val(x + 7, y * 0.45, 24);
@@ -61,21 +61,27 @@ function mossy(t, x, y) {
   const g = grassTop(t, x * 2, y * 2);
   return { c: mix3(st.c, g.c.map((c) => c * 0.82), k), h: lerp(st.h, 0.6 + 0.3 * t.val(x, y, 24), k), r: lerp(st.r, 0.9, k) };
 }
-function bark(t, x, y, dark, mid, light) {
-  const w = x + 5 * t.val(x, y, 4), ridges = Math.abs(Math.sin((w / 64) * Math.PI * 4)), brk = t.val(x, y * 0.4, 8);
-  const v = ridges * 0.72 + 0.28 * brk, deep = smooth(0.1, 0.4, v);
-  const a = pal([dark, mid, light], v * 0.85 + 0.15 * t.val(x, y, 32));
-  return { c: a.map((c) => c * (0.55 + 0.45 * deep)), h: v, r: 0.82 };
+// Plaques d'écorce allongées : Voronoï étiré, périodique car x est multiplié par un entier.
+function bark(t, x, y, colors, relief = 1) {
+  const [d1, d2, id] = t.vor(x * 3, y, 6), crack = smooth(0, 0.2, d2 - d1), n = t.fbm(x, y, 7, 3), s = t.val(x, y, 32), tone = t.p[id];
+  const c = pal(colors, 0.2 + 0.46 * tone + 0.42 * (n - 0.5) + 0.2 * (s - 0.5) + 0.22 * crack);
+  const k = 1 - relief * 0.5 * (1 - crack);
+  return { c: c.map((v) => v * k), h: crack * (0.55 + 0.45 * tone) + 0.15 * n, r: 0.84 };
 }
+const OAK = ['#3a2210', '#6b4424', '#9a6a3a', '#c39258'].map(hex), BEECH = ['#6a655b', '#8a8478', '#a8a295', '#c4beb0'].map(hex);
+const BIRCH = ['#d3cdbc', '#eae5d8', '#faf7ef'].map(hex), BIRCH_DARK = ['#17140f', '#3e3428'].map(hex);
 function birch(t, x, y) {
-  const base = pal(['#c9c4b4', '#e6e2d6', '#f5f2ea'].map(hex), 0.2 + 0.8 * t.fbm(x, y, 4, 2));
-  const by = Math.floor(y / 11) * 11, jit = t.val(by * 1.7, 1, 16), mark = (y - by) < 4 + 3 * jit && t.val(x, by * 2 + 3, 5) > 0.55;
-  return mark ? { c: pal(['#17140f', '#3a3127'].map(hex), t.val(x, y, 16)), h: 0.15, r: 0.7 } : { c: base, h: 0.6 + 0.2 * t.val(x, y, 24), r: 0.5 };
+  const [d1, , id] = t.vor(x, y * 3, 7), lens = t.p[id] > 0.6 && d1 < 0.3, scar = t.fbm(x, y, 3, 2) > 0.67;
+  if (lens || scar) return { c: pal(BIRCH_DARK, t.val(x, y, 32)), h: 0.12, r: 0.72 };
+  const band = 0.5 + 0.5 * Math.sin((y / 64) * Math.PI * 12 + 4 * t.val(x, y, 4)), n = t.fbm(x, y, 6, 3), warm = t.val(x, y, 5);
+  const c = pal(BIRCH, 0.25 + 0.55 * n + 0.18 * band);
+  return { c: [c[0], c[1] * (0.985 - 0.03 * warm), c[2] * (0.97 - 0.09 * warm)], h: 0.55 + 0.25 * band * n, r: 0.5 };
 }
 function leaf(t, x, y, shift) {
-  const px = Math.floor(x / 4) * 4, py = Math.floor(y / 4) * 4, n = t.val(px, py, 24), m = t.fbm(x, y, 5, 2);
-  const c = pal(LEAF, 0.1 + 0.62 * m + 0.32 * n);
-  return { c: [c[0] * shift[0], c[1] * shift[1], c[2] * shift[2]], h: 0.4 + 0.6 * n, r: 0.55 };
+  const [d1, d2, id] = t.vor(x, y, 11), rim = smooth(0, 0.14, d2 - d1), vein = smooth(0.26, 0.05, d1), m = t.fbm(x, y, 5, 2), g = t.val(x, y, 32);
+  const c = pal(LEAF, 0.12 + 0.56 * t.p[id] + 0.3 * (m - 0.2) + 0.12 * vein + 0.1 * (g - 0.5));
+  const k = 0.55 + 0.45 * rim;
+  return { c: [c[0] * shift[0] * k, c[1] * shift[1] * k, c[2] * shift[2] * k], h: rim * (0.5 + 0.5 * t.p[id]), r: 0.5 };
 }
 function planks(t, x, y) {
   const row = Math.floor(y / 16), f = (y % 16) / 16, seam = smooth(0, 0.07, f) * smooth(1, 0.93, f), g = t.val(x + row * 19, y * 2.2, 12), tone = t.p[row * 13 & 1023];
@@ -91,33 +97,37 @@ const GEN = {
   granite: (t, x, y) => stone(t, x, y, ['#403d3c', '#5c5855', '#7a7470', '#938c86'].map(hex), 7),
   gravel: (t, x, y) => stone(t, x, y, ['#6c6761', '#8e8679', '#a89f91', '#c0b7a9'].map(hex), 11),
   sand: (t, x, y) => dirt(t, x, y, ['#a89268', '#c2ac7e', '#d2bf92', '#e0cfa6'].map(hex)),
-  bark_oak: (t, x, y) => bark(t, x, y, hex('#2f1c0d'), hex('#5f3d1f'), hex('#946738')),
+  bark_oak: (t, x, y) => bark(t, x, y, OAK),
   bark_birch: birch,
-  bark_beech: (t, x, y) => bark(t, x * 0.5, y, hex('#555048'), hex('#7c766c'), hex('#a09a8e')),
+  bark_beech: (t, x, y) => bark(t, x, y, BEECH, 0.45),
   leaf_oak: (t, x, y) => leaf(t, x, y, [1, 1, 1]), leaf_birch: (t, x, y) => leaf(t, x, y, [1.2, 1.12, 0.9]), leaf_beech: (t, x, y) => leaf(t, x, y, [0.86, 1, 0.82]),
   planks, water_foam: (t, x, y) => { const f = t.fbm(x, y, 8, 3); return { c: [f, f, f], h: f, r: 0.3 }; },
 };
 
-// Rend deux piles RGBA : albédo+hauteur, normale XY + rugosité.
-export function buildTextures() {
-  const layers = MATERIALS.length * VARIANTS, albedo = new Uint8Array(TEX * TEX * 4 * layers), nrm = new Uint8Array(TEX * TEX * 4 * layers);
-  const H = new Float32Array(TEX * TEX);
-  const wrap = (v) => (v + TEX) % TEX;
+const DETAIL = { bark_oak: 0.3, bark_birch: 0.08, bark_beech: 0.18, leaf_oak: 0.16, leaf_birch: 0.16, leaf_beech: 0.16, stone: 0.2, mossy_stone: 0.2, limestone: 0.2, granite: 0.2, gravel: 0.22, dirt: 0.22, path: 0.2, forest_soil: 0.24, grass_top: 0.22, grass_side: 0.2, planks: 0.14, sand: 0.14 };
+
+// Rend deux piles RGBA : albédo, normale XY + rugosité. Les motifs vivent dans un repère logique
+// de 64 unités ; à 128 pixels, une octave fine ajoute un vrai détail au lieu d'agrandir le motif.
+export function buildTextures(size = 128) {
+  const layers = MATERIALS.length * VARIANTS, albedo = new Uint8Array(size * size * 4 * layers), nrm = new Uint8Array(size * size * 4 * layers);
+  const H = new Float32Array(size * size), k = TEX / size, gain = (1.6 * size) / TEX;
+  const wrap = (v) => (v + size) % size;
   MATERIALS.forEach((name, m) => {
+    const gen = GEN[name], amp = size > TEX ? DETAIL[name] || 0 : 0;
     for (let v = 0; v < VARIANTS; v++) {
-      const t = new Tile(1000 + m * 17 + v * 3), layer = m * VARIANTS + v, base = layer * TEX * TEX * 4, gen = GEN[name];
-      for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
-        const s = gen(t, x, y), p = base + (x + y * TEX) * 4;
-        albedo[p] = clamp(s.c[0], 0, 1) * 255; albedo[p + 1] = clamp(s.c[1], 0, 1) * 255; albedo[p + 2] = clamp(s.c[2], 0, 1) * 255; albedo[p + 3] = 255;
-        H[x + y * TEX] = s.h; nrm[p + 2] = s.r * 255; nrm[p + 3] = 255;
+      const t = new Tile(1000 + m * 17 + v * 3), layer = m * VARIANTS + v, base = layer * size * size * 4;
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+        const lx = x * k, ly = y * k, s = gen(t, lx, ly), p = base + (x + y * size) * 4, d = amp ? t.val(lx, ly, size) - 0.5 : 0, g = 1 + d * amp * 2;
+        albedo[p] = clamp(s.c[0] * g, 0, 1) * 255; albedo[p + 1] = clamp(s.c[1] * g, 0, 1) * 255; albedo[p + 2] = clamp(s.c[2] * g, 0, 1) * 255; albedo[p + 3] = 255;
+        H[x + y * size] = s.h + d * amp; nrm[p + 2] = s.r * 255; nrm[p + 3] = 255;
       }
-      for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
-        const p = base + (x + y * TEX) * 4, dx = H[wrap(x + 1) + y * TEX] - H[wrap(x - 1) + y * TEX], dy = H[x + wrap(y + 1) * TEX] - H[x + wrap(y - 1) * TEX];
-        nrm[p] = clamp(0.5 - dx * 1.6, 0, 1) * 255; nrm[p + 1] = clamp(0.5 - dy * 1.6, 0, 1) * 255;
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+        const p = base + (x + y * size) * 4, dx = H[wrap(x + 1) + y * size] - H[wrap(x - 1) + y * size], dy = H[x + wrap(y + 1) * size] - H[x + wrap(y - 1) * size];
+        nrm[p] = clamp(0.5 - dx * gain, 0, 1) * 255; nrm[p + 1] = clamp(0.5 - dy * gain, 0, 1) * 255;
       }
     }
   });
-  return { albedo, nrm, layers };
+  return { albedo, nrm, layers, size };
 }
 
 // Bruit 3D périodique pour les nuages et la brume.

@@ -21,12 +21,13 @@ const DEFAULT_INV = [{ item: 'pickaxe' }, { item: 'axe' }, { item: 'sword' }, { 
 class Game {
   constructor() {
     this.canvas = $('gl');
-    this.r = new Renderer(this.canvas);
-    this.hud = new HUD(this.r.texSource);
     this.settings = { preset: params.get('q') || 'moyen', scale: 0, fov: 60, sens: 1 };
     try { Object.assign(this.settings, JSON.parse(storage?.getItem('alw.settings') || '{}')); } catch (e) { /* réglages par défaut */ }
     if (params.get('q')) this.settings.preset = params.get('q');
     this.radiusParam = +params.get('r') || 0;
+    this.r = new Renderer(this.canvas, { texSize: this.settings.preset === 'bas' ? 64 : 128 });
+    this.hud = new HUD(this.r.texSource);
+    this.r.texSource = null; // les piles sont sur le GPU : la copie JS peut être libérée
     this.input = { keys: new Set(), x: 0, z: 0, jump: false, sprint: false, crouch: false, lmb: false, rmb: false, touch: { x: 0, z: 0 } };
     this.view = { third: true, dist: 4.2, camDist: 4.2 };
     this.charModel = buildCharacter(this.r); this.anim = new CharacterAnim(this.charModel); this.faunaModel = buildFauna(this.r);

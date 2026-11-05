@@ -1,18 +1,17 @@
 // UI/ui.js — HUD et menus en DOM. Rendu des icônes à partir des vraies textures du jeu.
 import { BLOCKS, B, MATERIALS, VARIANTS } from '../world/blocks.js';
-import { TEX } from '../render/textures.js';
 
 export const $ = (id) => document.getElementById(id);
 
 function faceCanvas(src, mat, shade) {
-  const c = document.createElement('canvas'); c.width = c.height = TEX;
-  const im = c.getContext('2d').createImageData(TEX, TEX), o = MATERIALS.indexOf(mat) * VARIANTS * TEX * TEX * 4;
-  for (let i = 0; i < TEX * TEX * 4; i += 4) { im.data[i] = src.albedo[o + i] * shade; im.data[i + 1] = src.albedo[o + i + 1] * shade; im.data[i + 2] = src.albedo[o + i + 2] * shade; im.data[i + 3] = 255; }
+  const Z = src.size, c = document.createElement('canvas'); c.width = c.height = Z;
+  const im = c.getContext('2d').createImageData(Z, Z), o = MATERIALS.indexOf(mat) * VARIANTS * Z * Z * 4;
+  for (let i = 0; i < Z * Z * 4; i += 4) { im.data[i] = src.albedo[o + i] * shade; im.data[i + 1] = src.albedo[o + i + 1] * shade; im.data[i + 2] = src.albedo[o + i + 2] * shade; im.data[i + 3] = 255; }
   c.getContext('2d').putImageData(im, 0, 0); return c;
 }
 export function blockIcon(src, top, side) {
   const c = document.createElement('canvas'); c.width = c.height = 56; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
-  const t = faceCanvas(src, top, 1), l = faceCanvas(src, side, 0.78), r = faceCanvas(src, side, 0.58), S = 22 / TEX;
+  const t = faceCanvas(src, top, 1), l = faceCanvas(src, side, 0.78), r = faceCanvas(src, side, 0.58), S = 22 / src.size;
   g.setTransform(S * 1.07, S * 0.55, -S * 1.07, S * 0.55, 28, 5); g.drawImage(t, 0, 0);
   g.setTransform(S * 1.07, S * 0.55, 0, S * 1.2, 4.5, 17); g.drawImage(l, 0, 0);
   g.setTransform(S * 1.07, -S * 0.55, 0, S * 1.2, 28, 29); g.drawImage(r, 0, 0);
@@ -33,7 +32,7 @@ export const ITEMS = {
 
 export class HUD {
   constructor(tex) {
-    this.tex = tex; this.slots = [];
+    this.slots = [];
     const icon = { pickaxe: toolIcon('pickaxe'), axe: toolIcon('axe'), sword: toolIcon('sword'), dirt: blockIcon(tex, 'dirt', 'dirt'), stone: blockIcon(tex, 'stone', 'stone'), planks: blockIcon(tex, 'planks', 'planks'), oak_log: blockIcon(tex, 'bark_oak', 'bark_oak'), birch_log: blockIcon(tex, 'bark_birch', 'bark_birch'), beech_log: blockIcon(tex, 'bark_beech', 'bark_beech'),
       lantern: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><rect x="19" y="16" width="18" height="26" rx="2" fill="#ffc35a"/><path d="M16 14h24v5H16zM16 40h24v5H16zM25 7h6v8h-6z" fill="#4a2c15"/></svg>') };
     this.icon = icon; const bar = $('hotbar');

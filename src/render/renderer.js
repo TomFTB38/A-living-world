@@ -1,20 +1,21 @@
 // Rendering/renderer.js — pipeline différé WebGL2 : ombres en cascades, G-buffer, SSAO, éclairage,
 // nuages, brume volumétrique, eau, perspective aérienne, TAA, bloom, tonemapping.
 import { M, V } from '../core/math.js';
-import { buildTextures, buildNoise3D, TEX } from './textures.js';
+import { buildTextures, buildNoise3D } from './textures.js';
 import * as S from './shaders.js';
 import { VSIZE } from '../world/mesher.js';
 
 export const PRESETS = {
-  bas: { shadow: 1024, samples: 4, vol: 6, clouds: false, ssao: true, scale: 0.7, radius: 6, lod: [1.3, 3.2] },
-  moyen: { shadow: 2048, samples: 6, vol: 10, clouds: true, ssao: true, scale: 0.85, radius: 8, lod: [1.8, 4] },
-  haut: { shadow: 3072, samples: 8, vol: 14, clouds: true, ssao: true, scale: 1, radius: 10, lod: [2.3, 4.6] },
+  bas: { shadow: 1024, samples: 4, vol: 6, clouds: false, ssao: true, scale: 0.7, radius: 6, lod: [1.3, 3.2], shadowStep: [3, 6, 12], decoShadow: 0, cloudStep: 1 },
+  moyen: { shadow: 2048, samples: 6, vol: 10, clouds: true, ssao: true, scale: 0.85, radius: 8, lod: [1.8, 4], shadowStep: [2, 4, 8], decoShadow: 34, cloudStep: 2 },
+  haut: { shadow: 3072, samples: 8, vol: 14, clouds: true, ssao: true, scale: 1, radius: 10, lod: [2.3, 4.6], shadowStep: [1, 2, 4], decoShadow: 52, cloudStep: 1 },
 };
 const MAX_QUADS = 500000;
 const CASC = [26, 90, 300];
 
 export class Renderer {
-  constructor(canvas) {
+  constructor(canvas, opts = {}) {
+    this.texSize = opts.texSize || 128;
     const gl = canvas.getContext('webgl2', { antialias: false, depth: false, stencil: false, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
     if (!gl) throw new Error('WebGL2 indisponible sur ce navigateur.');
     if (!gl.getExtension('EXT_color_buffer_float') && !gl.getExtension('EXT_color_buffer_half_float')) throw new Error('Rendu HDR flottant indisponible sur cette carte graphique.');
@@ -64,9 +65,9 @@ export class Renderer {
     for (let i = 0; i < MAX_QUADS; i++) { const a = i * 6, v = i * 4; idx[a] = v; idx[a + 1] = v + 1; idx[a + 2] = v + 2; idx[a + 3] = v; idx[a + 4] = v + 2; idx[a + 5] = v + 3; }
     this.ebo = gl.createBuffer();
     gl.bindVertexArray(this.emptyVAO); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ebo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW); gl.bindVertexArray(null);
-    const T = buildTextures(), mk = (data) => {
+    const T = buildTextures(this.texSize), S2 = T.size, mk = (data) => {
       const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
-      gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, TEX, TEX, T.layers, 0, gl.RGBA, gl.UNSIGNED_BYTE, data); gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+      gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, S2, S2, T.layers, 0, gl.RGBA, gl.UNSIGNED_BYTE, data); gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       if (this.aniso) gl.texParameterf(gl.TEXTURE_2D_ARRAY, this.aniso.TEXTURE_MAX_ANISOTROPY_EXT, 8);
       return t;
@@ -182,9 +183,10 @@ export class Renderer {
       lx = Math.floor(lx / texel) * texel; ly = Math.floor(ly / texel) * texel;
       return M.mul(M.ortho(lx - R, lx + R, ly - R, ly + R, -lz - 420, -lz + 420), lv);
     };
-    const force = this.reset || view.lightDirty;
+    // Cascades échelonnées : jamais deux grandes cascades sur la même image.
+    const force = this.reset;
     for (let i = 0; i < 3; i++) {
-      if (!(i === 0 || (i === 1 && fr % 2 === 0) || (i === 2 && fr % 4 === 1) || force || fr < 6)) continue;
+      if (!((fr + i) % p.shadowStep[i] === 0 || force || fr < 6)) continue;
       const sv = snap(i); this.shadowVP[i] = sv;
       gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.tShadow, 0, i); gl.clear(gl.DEPTH_BUFFER_BIT);
       this.set(this.P.shadow, 'uVP', sv);
@@ -193,9 +195,9 @@ export class Renderer {
         const dx = c.cx - eye[0], dz = c.cz - eye[2]; if (dx * dx + dz * dz > R * R) continue;
         this.set(this.P.shadow, 'uOrigin', c.org); this.set(this.P.shadow, 'uModel', M.id());
         gl.bindVertexArray(c.opaque.vao); gl.drawElements(gl.TRIANGLES, c.opaque.count, gl.UNSIGNED_INT, 0); st.draws++; st.tris += c.opaque.count / 3;
-        if (i === 0 && c.deco && c.deco.count) { gl.disable(gl.CULL_FACE); gl.bindVertexArray(c.deco.vao); gl.drawElements(gl.TRIANGLES, c.deco.count, gl.UNSIGNED_INT, 0); gl.enable(gl.CULL_FACE); st.draws++; st.tris += c.deco.count / 3; }
+        if (i === 0 && c.deco && c.deco.count && dx * dx + dz * dz < p.decoShadow * p.decoShadow) { gl.disable(gl.CULL_FACE); gl.bindVertexArray(c.deco.vao); gl.drawElements(gl.TRIANGLES, c.deco.count, gl.UNSIGNED_INT, 0); gl.enable(gl.CULL_FACE); st.draws++; st.tris += c.deco.count / 3; }
       }
-      for (const a of actors) { this.set(this.P.shadow, 'uOrigin', [0, 0, 0]); this.set(this.P.shadow, 'uModel', a.model); gl.bindVertexArray(a.mesh.vao); gl.drawElements(gl.TRIANGLES, a.count, gl.UNSIGNED_INT, a.offset); st.draws++; }
+      if (i === 0) for (const a of actors) { this.set(this.P.shadow, 'uOrigin', [0, 0, 0]); this.set(this.P.shadow, 'uModel', a.model); gl.bindVertexArray(a.mesh.vao); gl.drawElements(gl.TRIANGLES, a.count, gl.UNSIGNED_INT, a.offset); st.draws++; }
     }
     gl.colorMask(true, true, true, true);
 
@@ -230,7 +232,8 @@ export class Renderer {
     this.full(this.P.light, r.hdrF, W, H, { ...shared, uInvVP: invVP, uShadowSamples: p.samples }, { uA: r.A, uN: r.N, uL: r.L, uD: r.D, uSSAO: r.ao, uShadow: this.tShadow, uNoise: this.tNoise });
 
     /* --- nuages et volume --- */
-    if (p.clouds) this.full(this.P.clouds, r.clF, W >> 2, H >> 2, { ...shared, uInvVP: invVP, uFrame: fr % 64 }, { uD: r.D, uNoise: this.tNoise });
+    if (p.clouds && fr % p.cloudStep !== 0 && p.cloudStep > 1) { /* image précédente conservée */ }
+    else if (p.clouds) this.full(this.P.clouds, r.clF, W >> 2, H >> 2, { ...shared, uInvVP: invVP, uFrame: fr % 64 }, { uD: r.D, uNoise: this.tNoise });
     else { gl.bindFramebuffer(gl.FRAMEBUFFER, r.clF); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
     this.full(this.P.vol, r.volF, hw, hh, { ...shared, uInvVP: invVP, uFrame: fr % 64, uFog: this.fog, uSteps: p.vol }, { uD: r.D, uShadow: this.tShadow, uNoise: this.tNoise });
 

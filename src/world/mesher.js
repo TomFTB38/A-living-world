@@ -255,7 +255,7 @@ function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
   const cx = x + r.range(0.25, 0.75), cz = z + r.range(0.25, 0.75);
   switch (m) {
     case 'grass': {
-      const n = r.int(15, 20), base = r.range(0.82, 1.14), warm = r.next();
+      const n = r.int(12, 16), base = r.range(0.82, 1.14), warm = r.next();
       for (let i = 0; i < n; i++) {
         const t = base * r.range(0.86, 1.14);
         blade(o, x + r.next(), y, z + r.next(), r.range(0, 6.28), r.range(0.02, 0.036), r.range(0.22, 0.66), r.range(0.04, 0.2),
@@ -333,12 +333,12 @@ function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
 
 function leafCubes(o, b, x, y, z, wx, wz, s, l, lod) {
   const layer = BLOCKS[b].faces[0], t = BLOCKS[b].tint;
-  const r = new Rng(hashInt(wx, y, wz, 77));
+  const r = new Rng(hashInt(wx, y, wz, 77)), zone = hashInt(wx >> 3, y >> 2, wz >> 3, 7) / 4294967296, lit = 0.74 + 0.4 * (s / 255);
   const n = lod === 0 ? 3 : 1;
   for (let i = 0; i < n; i++) {
     const size = lod === 0 ? r.range(0.5, 0.86) : r.range(1, 1.14);
     const a = x + (lod === 0 ? r.range(0, 1 - size * 0.55) : r.range(-0.1, 0.02)), e = y + (lod === 0 ? r.range(0, 1 - size * 0.55) : r.range(-0.1, 0.02)), c = z + (lod === 0 ? r.range(0, 1 - size * 0.55) : r.range(-0.1, 0.02));
-    const k = r.range(0.76, 1.2), warm = r.range(0.9, 1.15);
+    const k = r.range(0.8, 1.22) * lit, warm = r.range(0.92, 1.1) * (0.92 + 0.34 * zone);
     const R = t[0] * k * warm, G = t[1] * k, B2 = t[2] * k * 0.92;
     const a1 = a + size, e1 = e + size, c1 = c + size;
     const quad = (p, nx, ny, nz, ao) => { for (let j = 0; j < 12; j += 3) o.v(p[j], p[j + 1], p[j + 2], layer, nx, ny, nz, 110, ao, s, l, KIND.LEAF, R, G, B2); };

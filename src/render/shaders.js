@@ -49,13 +49,15 @@ void main(){
     vec4 a=textureGrad(uAlbedo,tc,dx,dy); vec4 m=textureGrad(uNormal,tc,dx,dy);
     alb=a.rgb*a.rgb*vTint; // texture sRGB approchée vers linéaire
     alb=mix(vec3(dot(alb,vec3(.3,.6,.1))),alb,.86);
-    alb*=.9+.2*h2;
+    bool isBark=vLayer>=${matLayer('bark_oak')}&&vLayer<${matLayer('leaf_oak')};
+    alb*=isBark?.76+.5*h2:.9+.2*h2;
+    if(isBark||(vLayer>=${matLayer('stone')}&&vLayer<${matLayer('gravel')})){ vec2 e=min(f,1.-f); alb*=.74+.26*smoothstep(0.,.045,min(e.x,e.y)); }
     vec2 d=m.xy*2.-1.; nn=normalize(n+(T*d.x+B*d.y)*.9); rough=m.b;
     if(vKind==1){ trans=1.; rough=.5; alb*=1.05; }
     // mousse en petits pixels sur les pierres et l'écorce, plus présente sur les faces hautes
     bool mossable=(vLayer>=${matLayer('stone')}&&vLayer<${matLayer('gravel')})||vLayer==${matLayer('bark_oak')}||vLayer==${matLayer('bark_beech')};
-    if(mossable){ vec3 g=floor(vPos*9.)/9.; float mn=texture(uNoise,g*.031).r*.78+hash13(g)*.22+(n.y>.5?.14:0.);
-      float mm=step(.56,mn); alb=mix(alb,vec3(.13,.22,.045)*(.75+.7*hash13(g+3.)),mm); rough=mix(rough,.95,mm); }
+    if(mossable&&length(dFdx(vPos))<.07){ vec3 g=floor(vPos*9.)/9.; float mn=texture(uNoise,g*.031).r*.78+hash13(g)*.22+(n.y>.5?.14:0.);
+      float mm=step(isBark?.7:.62,mn); alb=mix(alb,vec3(.13,.22,.045)*(.75+.7*hash13(g+3.)),mm); rough=mix(rough,.95,mm); }
   } else {
     float k=.92+.16*hash13(floor(vPos*7.)); alb*=alb*k*1.25;
     if(vKind==3){ trans=.45; alb=mix(vec3(dot(alb,vec3(.3,.6,.1))),alb,.72); }
