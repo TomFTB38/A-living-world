@@ -44,7 +44,7 @@ export class WorldGen {
     const rs = this.nRiver.fbm2(wx / 400, wz / 400, 2, 2.1, 0.32), rn = Math.abs(rs);
     const dR = rn * 300, wid = 2.6 + 1.8 * (0.5 + 0.5 * this.nRiver.n2(x / 60, z / 60));
     const L = Math.floor((low - 4) / 4) * 4 + 1; // paliers de 4 blocs : de vraies cascades
-    let water = 0, bank = 0;
+    let water = 0, bank = 0, still = 0;
     if (dR < wid + 13) {
       bank = 1 - smooth(wid, wid + 13, dR);
       const target = L + 1 + 3 * smooth(wid, wid + 8, dR);
@@ -60,7 +60,7 @@ export class WorldGen {
       if (d > p.r * 2) continue;
       const bowl = lerp(p.level - 3, h, smooth(p.r * 0.7, p.r * 1.8, d));
       if (bowl < h) h = bowl;
-      if (d < p.r * 1.05 && h < p.level && p.level > water) water = p.level;
+      if (d < p.r * 1.05 && h < p.level && p.level > water) { water = p.level; still = 1; }
     }
     // chemin
     const pn = Math.abs(this.nPath.n2(wx / 210 + 9, wz / 210 + 3)) * 165;
@@ -79,7 +79,7 @@ export class WorldGen {
       if (walk > 0) h = lerp(h, low - 1, walk); // niveau continu : le sentier reste praticable au passage des chutes
     }
     const f = this.nForest.fbm2(x / 170, z / 170, 3) * 1.5 + 0.78 + 0.12 * this.nForest.n2(x / 31, z / 31);
-    c.h = h; c.water = water; c.forest = clamp(f, 0, 1); c.path = path; c.bank = bank;
+    c.h = h; c.water = water; c.still = still; c.forest = clamp(f, 0, 1); c.path = path; c.bank = bank;
     c.cliff = smooth(0.1, 0.55, this.nCliff.n2(x / 120, z / 120));
     return c;
   }

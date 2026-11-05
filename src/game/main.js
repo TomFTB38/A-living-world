@@ -7,7 +7,8 @@ import { Player, raycast } from './player.js';
 import { buildCharacter, CharacterAnim } from './character.js';
 import { buildFauna, Fauna } from './animals.js';
 import { Weather } from './weather.js';
-import { SoundScape } from './audio.js';
+import { SoundScape, SOUNDS } from './audio.js';
+import { pickMood } from './music.js';
 import { HUD, InventoryUI, $ } from './ui.js';
 import { ITEMS, STACK, buildItems } from './items.js';
 import { BLOCKS, B, IS_SOLID, IS_DECO, orientedBlock } from '../world/blocks.js';
@@ -41,7 +42,8 @@ class Game {
     this.prof = { fps: 60, cpu: 0, show: CAPTURE ? false : false, frames: [] };
     this.hour = 16.4; this.dayLen = 1500; this.timeRun = !CAPTURE; this.elapsed = 0; this.mine = { key: '', t: 0 };
     this.vit = { hp: 100, food: 100, water: 100 };
-    this.sound = new SoundScape(); this.sound.setVolume(this.settings.volume ?? 0.7);
+    this.built = [];
+    this.sound = new SoundScape(); this.sound.setVolume(this.settings.volume ?? 0.7); this.sound.setMusicVolume(this.settings.music ?? 0.5);
     for (const n of ['pointerdown', 'keydown', 'touchend']) addEventListener(n, () => this.sound.start(), { passive: true });
     this.bindInput(); this.bindMenu();
     this.applySettings();
@@ -63,7 +65,7 @@ class Game {
     this.inv = fullInv(save?.inventory || DEFAULT_INV); this.sel = 0; this.creative = save?.creative || params.get('mode') === 'creatif'; document.getElementById('touch').classList.toggle('crea', this.creative);
     if (save) { this.hour = save.time; this.player = new Player(...save.player.p); this.player.yaw = save.player.yaw; this.player.pitch = save.player.pitch; this.player.moveYaw = save.player.yaw; this.player.fly = !!save.player.fly; this.vit = save.player.vit || this.vit; }
     else { const s = this.findSpawn(); this.player = new Player(s[0], s[1], s[2]); this.player.yaw = s[3]; this.player.moveYaw = s[3]; this.player.pitch = -0.13; this.hour = 16.4; }
-    this.fauna = new Fauna(this.faunaModel, seed);
+    this.fauna = new Fauna(this.faunaModel, seed); this.fauna.emit = (k, pos, o) => this.sound[k](pos, o);
     this.weather = new Weather(seed); this.weather.forced = this.settings.weather || 'auto';
     this.loaded = false; $('loading').classList.add('on'); this.r.reset = true;
     this.refreshInv();
@@ -185,6 +187,10 @@ class Game {
     met.value = this.settings.weather || 'auto'; vol.value = this.settings.volume ?? 0.7;
     met.onchange = () => { this.settings.weather = met.value; this.weather.forced = met.value; this.applySettings(); };
     vol.oninput = () => { this.settings.volume = +vol.value; this.sound.setVolume(+vol.value); this.applySettings(); };
+    const mv = $('inMusic'), mf = $('selMusic');
+    mv.value = this.settings.music ?? 0.5; mf.value = this.settings.mood || 'auto';
+    mv.oninput = () => { this.settings.music = +mv.value; this.sound.setMusicVolume(+mv.value); this.applySettings(); };
+    mf.onchange = () => { this.settings.mood = mf.value; this.applySettings(); };
     const sel = $('selPreset'), fov = $('inFov'), sens = $('inSens');
     sel.value = this.settings.preset; fov.value = this.settings.fov; sens.value = this.settings.sens;
     sel.onchange = () => { this.settings.preset = sel.value; this.dynScale = 1; this.applySettings(); this.world.radius = this.radius(); };
@@ -282,7 +288,7 @@ class Game {
     const cur = this.world.get(...id); if (cur === -1 || IS_SOLID[cur]) return;
     const pl = this.player, p = pl.p, bid = this.orientFor(def.block);
     if (IS_SOLID[bid] && id[0] + 1 > p[0] - 0.3 && id[0] < p[0] + 0.3 && id[2] + 1 > p[2] - 0.3 && id[2] < p[2] + 0.3 && id[1] + 1 > p[1] && id[1] < p[1] + 1.8) return;
-    if (this.world.set(id[0], id[1], id[2], bid)) { if (!this.creative) { it.n--; if (it.n <= 0) this.inv[this.sel] = null; } this.refreshInv(); this.anim.trigger(); this.sound.place(); this.dirtySave = true; }
+    if (this.world.set(id[0], id[1], id[2], bid)) { if (!this.creative) { it.n--; if (it.n <= 0) this.inv[this.sel] = null; } this.refreshInv(); this.anim.trigger(); this.sound.place(BLOCKS[bid].name); this.built.push(this.elapsed); this.dirtySave = true; }
   }
   // Ce qui tenait sur le bloc retiré tombe avec lui : plantes au-dessus, lianes en dessous, champignons sur les côtés.
   dropAttached(x, y, z) {
@@ -297,6 +303,9 @@ class Game {
   mineStep(dt) {
     const go = this.input.lmb || this.autoMine > 0; if (this.autoMine > 0) this.autoMine -= dt;
     this.mining = false;
+    const heldTool = this.inv[this.sel]?.item, tool = ITEMS[heldTool]?.block === undefined ? heldTool : null;
+    this.swingT = (this.swingT || 0) - dt;
+    if (go && !this.target && !this.paused && this.swingT <= 0) { this.swingT = 0.42; this.sound.swing(tool); }
     if (!go || !this.target || this.paused) { this.mine.key = ''; this.mine.t = 0; return; }
     const t = this.target, key = t.x + ',' + t.y + ',' + t.z, b = BLOCKS[t.id], it = this.inv[this.sel], def = it && ITEMS[it.item];
     if (key !== this.mine.key) { this.mine.key = key; this.mine.t = 0; }
@@ -304,10 +313,10 @@ class Game {
     const rate = def?.tool && def.tool === b.cat ? 3 : b.cat === 'terrain' ? 1.6 : 1;
     if (this.creative) { this.mineCool = (this.mineCool || 0) - dt; if (this.mineCool > 0) return; this.mineCool = 0.2; this.mine.t = 1e9; }
     this.mine.t += dt * rate;
-    this.digT = (this.digT || 0) - dt; if (this.digT <= 0 && !this.creative) { this.digT = 0.28; this.sound.dig(b.cat); }
+    this.digT = (this.digT || 0) - dt; if (this.digT <= 0 && !this.creative) { this.digT = 0.34; this.sound.dig(b.name, tool); }
     if (this.mine.t >= b.hardness) {
       if (this.world.set(t.x, t.y, t.z, 0)) {
-        this.sound.breakBlock(b.cat);
+        this.sound.breakBlock(b.name, tool);
         this.dropAttached(t.x, t.y, t.z);
         if (b.drop && !this.creative) this.addItem(b.drop);
         this.dirtySave = true; this.autoMine = 0;
@@ -338,7 +347,7 @@ class Game {
       I.jump = K.has('Space'); I.sprint = K.has('ShiftLeft') || K.has('ShiftRight'); I.crouch = K.has('ControlLeft') || K.has('KeyX');
       if (this.world.nearReady(p.p[0], p.p[2])) p.update(this.world, dt, I);
       this.anim.update(dt, { speed: p.speed, ground: p.ground, vy: p.v[1], crouch: p.crouch, fly: p.fly, mining: this.mining });
-      if (this.loaded) this.fauna.update(dt, this.world, p);
+      if (this.loaded) this.fauna.update(dt, this.world, p, Math.max(0, this.r.sun.dir[1] * 3));
       this.weather.update(dt); this.audioStep(dt);
       if (this.timeRun) this.hour = (this.hour + (dt / this.dayLen) * 24) % 24;
       this.elapsed += dt;
@@ -354,20 +363,36 @@ class Game {
     if (this.dirtySave) { this.saveT = (this.saveT || 0) + dt; if (this.saveT > 20) { this.save(false); this.saveT = 0; this.dirtySave = false; } }
   }
 
-  // Sons : pas selon le sol, eau proche, oiseaux le jour, pluie.
+  soundNames() { return SOUNDS; } // pour tools/audio_test.py
+  // Eau qui coule autour du joueur : les étangs sont silencieux, seuls ruisseaux et chutes s'entendent.
+  scanWater() {
+    const p = this.player.p, g = this.gen, X = Math.floor(p[0]), Z = Math.floor(p[2]); let bd = 1e9, fd = 1e9; this.brook = null; this.fall = null;
+    for (let dz = -24; dz <= 24; dz += 2) for (let dx = -24; dx <= 24; dx += 2) {
+      const x = X + dx, z = Z + dz, c = g.column(x, z), lvl = c.water, still = c.still; if (!lvl || still) continue;
+      const d = dx * dx + dz * dz + (lvl - p[1]) ** 2;
+      if (d < bd) { bd = d; this.brook = [x, lvl, z]; }
+      if (d < fd) for (const [a, b] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) { const w = g.column(x + a, z + b).water; if (w && lvl - w >= 3) { fd = d; this.fall = [x, lvl - 2, z]; break; } }
+    }
+  }
+  // Sons : ambiance, pas selon le bloc, musique selon la situation.
   audioStep(dt) {
-    const p = this.player, s = this.sound, w = this.weather.state;
+    const pl = this.player, p = pl.p, s = this.sound, w = this.weather.state, eye = [p[0], p[1] + 1.6, p[2]], sunY = this.r.sun.dir[1];
+    s.listener(eye, pl.yaw);
     this.waterT = (this.waterT || 0) - dt;
-    if (this.waterT <= 0) {
-      this.waterT = 0.6; let near = 0;
-      for (const r of [5, 11, 20]) for (let a = 0; a < 6.28; a += 0.8) if (this.gen.column(p.p[0] + Math.cos(a) * r, p.p[2] + Math.sin(a) * r).water) near = Math.max(near, 1 - r / 26);
-      this.nearWater = near;
-    }
-    s.env(dt, { cloud: w.cloud, rain: w.rain, water: this.nearWater || 0, day: Math.max(0, this.r.sun.dir[1] * 3) });
-    if (p.ground && p.speed > 1) {
-      this.stepT = (this.stepT || 0) - dt * p.speed;
-      if (this.stepT <= 0) { this.stepT = 2.1; const b = this.world.get(Math.floor(p.p[0]), Math.floor(p.p[1] - 0.1), Math.floor(p.p[2])); s.step(b > 0 ? BLOCKS[b].cat : 'terrain'); }
-    }
+    if (this.waterT <= 0) { this.waterT = 0.5; this.scanWater(); }
+    const covered = this.underRoof(eye);
+    s.env({ cloud: w.cloud, rain: w.rain, covered, brook: this.brook, fall: this.fall });
+    const below = this.world.get(Math.floor(p[0]), Math.floor(p[1] - 0.1), Math.floor(p[2])), feet = this.world.get(Math.floor(p[0]), Math.floor(p[1] + 0.1), Math.floor(p[2]));
+    const nameOf = (b) => (b > 0 ? BLOCKS[b].name : null);
+    if (pl.ground && pl.speed > 1) {
+      this.stepT = (this.stepT || 0) - dt * pl.speed;
+      if (this.stepT <= 0) { this.stepT = 2.1; s.step(nameOf(below), feet !== below ? nameOf(feet) : null); }
+    } else if (pl.inWater && pl.speed > 1) { this.stepT = (this.stepT || 0) - dt * pl.speed; if (this.stepT <= 0) { this.stepT = 2.6; s.step('water'); } }
+    if (pl.ground && !this.wasGround && this.fallV < -7 && !pl.fly) s.land(nameOf(below));
+    this.wasGround = pl.ground; this.fallV = pl.v[1] < -1 ? pl.v[1] : (pl.ground ? this.fallV * 0.5 : this.fallV);
+    this.built = this.built.filter((t) => this.elapsed - t < 25);
+    this.mood = pickMood({ ...this.vit, falling: !pl.fly && pl.v[1] < -17, submerged: this.world.get(Math.floor(eye[0]), Math.floor(eye[1]), Math.floor(eye[2])) === B.water, underground: p[1] < this.gen.column(p[0], p[2]).h - 4 && covered, building: this.built.length >= 3, night: sunY < 0, rain: w.rain > 0.5 });
+    if (s.music) { s.music.forced = this.settings.mood || 'auto'; s.music.update(dt, this.mood); }
   }
 
   // Sous un toit ou dans une grotte, il ne pleut pas (le feuillage laisse passer).

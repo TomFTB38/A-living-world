@@ -1,7 +1,7 @@
 # A Living World
 
 Prototype jouable de la forêt tempérée, en JavaScript et WebGL2, sans dépendance.
-Il valide la direction artistique et l'architecture. La météo (clair, nuageux, pluie, brouillard) suit la seed et se règle dans le menu ; le son est synthétisé à la volée, sans fichier. Le moteur final est prévu en Rust avec wgpu
+Il valide la direction artistique et l'architecture. La météo (clair, nuageux, pluie, brouillard) suit la seed et se règle dans le menu ; les sons et la musique sont synthétisés à la volée, sans fichier. Le moteur final est prévu en Rust avec wgpu
 (voir le dossier fondateur).
 
 ## Lancer
@@ -33,6 +33,7 @@ node tools/build.mjs            # assemble dist/index.html
 npm test                        # tests de génération, maillage, sauvegarde
 python3 tools/play_test.py      # bout en bout avec de vraies entrées (Playwright + Chrome)
 python3 tools/creative_test.py  # inventaire et mode créatif
+python3 tools/audio_test.py      # rend chaque son et mesure le signal
 python3 tools/poses.py out.png  # planche des poses et des vues
 python3 tools/capture.py out.png -q haut -r 8 -w 1672 -H 941   # capture réelle du moteur
 python3 tools/imgstats.py out.png refs/ref6.png                # mesures objectives
