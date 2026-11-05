@@ -4,7 +4,7 @@ mod font_data;
 mod gpu;
 mod hud;
 mod sound;
-use alw_core::{actors::Models, audio::{Mood, SoundScape}, blocks::MODES, gen::WorldGen, player::Input, session::{Actions, Session}, stream::{Preset, HIGH}, view, weather::{self, Kind, KINDS}};
+use alw_core::{actors::Models, audio::{Mood, SoundScape}, blocks::MODES, gen::WorldGen, player::Input, session::{Actions, Session}, stream::{Preset, HIGH, ULTRA}, view, weather::{self, Kind, KINDS}};
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
@@ -28,6 +28,13 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
     let ui = hud::Ui::build(s, w, h, msg, mouse, menu); let draws = s.draws(md, &vm); let mut sky = view::sky_at(s.hour); let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]);
     gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], s.progress() as f32)), s.ghost(), &draws, &ui)
 }
+/// Réglages enregistrés ; un fichier plus ancien garde ses valeurs et prend les nouvelles par défaut.
+fn read_settings() -> hud::Menu {
+    let mut m = hud::Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 1 };
+    let Ok(t) = std::fs::read_to_string(beside_exe("reglages.alw")) else { return m }; let v: Vec<f32> = t.split_whitespace().filter_map(|x| x.parse().ok()).collect();
+    if v.len() >= 5 { m.vol = [v[0].clamp(0.0, 1.0), v[1].clamp(0.0, 1.0), v[2].clamp(0.0, 1.0), v.get(5).copied().unwrap_or(0.5).clamp(0.0, 1.0)]; m.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); m.mood = (v[4] as usize).min(hud::MOODS.len() - 1); m.quality = v.get(6).map_or(1, |q| (*q as usize).min(1)); }
+    m
+}
 struct Game { menu: hud::Menu, drag: Option<usize>, half: Option<usize>, window: Arc<Window>, gpu: gpu::Gpu, md: Models, mouse: [f32; 2], s: Session, keys: HashSet<KeyCode>, grabbed: bool, time: f64, run_time: bool, lmb: bool, rmb: bool, place_t: f64, msg: Option<(String, f64)>, save_t: f64, last: Instant, frames: u32, fps_t: f64, tris: usize }
 #[derive(Default)]
 struct App { game: Option<Game> }
@@ -44,11 +51,7 @@ impl Game {
         self.s.weather.forced = if m.weather == 0 { None } else { Some(KINDS[m.weather - 1]) };
         self.s.sound.force(if m.mood == 0 { None } else { Some([Mood::Calme, Mood::Nuit, Mood::Construction, Mood::Suspense, Mood::Danger][m.mood - 1]) });
     }
-    fn write_settings(&self) { let m = &self.menu; let _ = std::fs::write(beside_exe("reglages.alw"), format!("{} {} {} {} {} {}\n", m.vol[0], m.vol[1], m.vol[2], m.weather, m.mood, m.vol[3])); }
-    fn read_settings(&mut self) {
-        let Ok(t) = std::fs::read_to_string(beside_exe("reglages.alw")) else { return }; let v: Vec<f32> = t.split_whitespace().filter_map(|x| x.parse().ok()).collect();
-        if v.len() >= 5 { self.menu.vol = [v[0].clamp(0.0, 1.0), v[1].clamp(0.0, 1.0), v[2].clamp(0.0, 1.0), v.get(5).copied().unwrap_or(0.5).clamp(0.0, 1.0)]; self.menu.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); self.menu.mood = (v[4] as usize).min(hud::MOODS.len() - 1); }
-    }
+    fn write_settings(&self) { let m = &self.menu; let _ = std::fs::write(beside_exe("reglages.alw"), format!("{} {} {} {} {} {} {}\n", m.vol[0], m.vol[1], m.vol[2], m.weather, m.mood, m.vol[3], m.quality)); }
     fn slide(&mut self, i: usize) {
         let sz = self.window.inner_size(); let r = hud::menu_layout(sz.width as f32, sz.height as f32, &self.menu).into_iter().find(|x| x.0 == hud::M::Vol(i)).map(|x| x.1);
         if let Some(r) = r { self.menu.vol[i] = ((self.mouse[0] - r[0]) / r[2]).clamp(0.0, 1.0); self.apply(); }
@@ -82,14 +85,14 @@ impl ApplicationHandler for App {
     fn resumed(&mut self, el: &ActiveEventLoop) {
         if self.game.is_some() { return; }
         let window = Arc::new(el.create_window(Window::default_attributes().with_title("A Living World").with_inner_size(winit::dpi::LogicalSize::new(1600.0, 900.0))).expect("création de la fenêtre"));
-        let size = window.inner_size(); let md = Models::build();
-        let gpu = pollster::block_on(gpu::Gpu::new(Some(window.clone()), size.width, size.height, gpu::Options { shadow: 4096, fallback: false, hole: (HIGH.radius as f32 - 0.6) * 32.0 }, &md));
+        let size = window.inner_size(); let md = Models::build(); let menu = read_settings(); let ultra = menu.quality == 1; let preset = if ultra { ULTRA } else { HIGH };
+        let gpu = pollster::block_on(gpu::Gpu::new(Some(window.clone()), size.width, size.height, gpu::Options { shadow: if ultra { 6144 } else { 4096 }, fallback: false, hole: (preset.radius as f32 - 0.6) * 32.0, cascades: if ultra { gpu::CASCADES_ULTRA } else { gpu::CASCADES } }, &md));
         let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).saturating_sub(2).clamp(2, 12);
-        let mut s = Session::new(SEED, &HIGH, threads, spawn_point(SEED));
+        let mut s = Session::new(SEED, &preset, threads, spawn_point(SEED));
         if let Ok(t) = std::fs::read_to_string(beside_exe("monde.alw")) { if let Err(e) = s.load_text(&t) { report(&format!("Sauvegarde illisible : {e}")); } }
         s.sound = SoundScape::new(sound::start());
-        let mut g = Game { menu: hud::Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5] }, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
-        g.read_settings(); g.apply(); g.grab(true); self.game = Some(g);
+        let mut g = Game { menu, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
+        g.apply(); g.grab(true); self.game = Some(g);
     }
     fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, e: WindowEvent) {
         let Some(g) = self.game.as_mut() else { return };
@@ -107,6 +110,7 @@ impl ApplicationHandler for App {
                         Some(hud::M::Resume) => g.close_menu(),
                         Some(hud::M::Weather(i)) => { g.menu.weather = i; g.apply(); }
                         Some(hud::M::Mood(i)) => { g.menu.mood = i; g.apply(); }
+                        Some(hud::M::Quality(i)) => { g.menu.quality = i; g.say("Qualité appliquée au prochain lancement".into()); }
                         Some(hud::M::Vol(i)) => { g.drag = Some(i); g.slide(i); }
                         Some(hud::M::Credits) => g.menu.credits = true,
                         Some(hud::M::Back) => g.menu.credits = false,
@@ -176,8 +180,8 @@ fn capture(a: &[String]) {
     let (eye, look) = ([n(1, -38.5), n(2, 51.4), n(3, 0.5)], [n(4, -20.0), n(5, 52.0), n(6, -30.0)]);
     let (radius, w, h, shadow) = (n(8, 6.0) as i32, n(9, 1280.0) as u32, n(10, 720.0) as u32, n(11, 2048.0) as u32);
     let md = Models::build(); let scene = a.get(12).cloned().unwrap_or_default();
-    let mut g = pollster::block_on(gpu::Gpu::new(None, w, h, gpu::Options { shadow, fallback: true, hole: (radius as f32 - 0.6) * 32.0 }, &md));
-    let mut s = Session::new(SEED, &Preset { radius, lod1: 2.3, lod2: 4.6 }, 4, [eye[0], eye[1] - 1.62, eye[2]]); s.hour = n(7, 16.4); s.player.fly = true;
+    let mut g = pollster::block_on(gpu::Gpu::new(None, w, h, gpu::Options { shadow, fallback: true, hole: (radius as f32 - 0.6) * 32.0, cascades: if scene == "ultra" { gpu::CASCADES_ULTRA } else { gpu::CASCADES } }, &md));
+    let mut s = Session::new(SEED, &(if scene == "ultra" { Preset { radius, ..ULTRA } } else { Preset { radius, lod1: 2.3, lod2: 4.6 } }), 4, [eye[0], eye[1] - 1.62, eye[2]]); s.hour = n(7, 16.4); s.player.fly = true;
     let pump = |s: &mut Session, g: &mut gpu::Gpu| loop { let p = s.player.p; let (b, f) = s.world.update(p[0], p[2]); for c in b { g.upload(c); } for k in f { g.forget(k); } if s.world.waiting() == 0 { break; } std::thread::sleep(std::time::Duration::from_millis(5)); };
     let t0 = Instant::now(); pump(&mut s, &mut g); println!("{} chunks chargés en {:.1} s", s.world.loaded(), t0.elapsed().as_secs_f64());
     let f = view::norm([look[0] - eye[0], look[1] - eye[1], look[2] - eye[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
@@ -201,7 +205,7 @@ fn capture(a: &[String]) {
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
     }
-    let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5, 0.5] };
+    let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 1 };
     let t1 = Instant::now(); let mut tris = 0;
     for k in 0..10 { tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu); }
     println!("10 images, {:.1} M triangles, {:.0} ms par image sur cette carte", tris as f64 / 1e6, t1.elapsed().as_secs_f64() * 100.0);

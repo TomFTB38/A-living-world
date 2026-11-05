@@ -29,6 +29,7 @@ jobs:
           shot eau -62 47 -55 -54 42 -51 16.4 5 1280 720 2048
           shot jeu -38.5 52.5 0.5 -36 50 3 16.4 4 1280 720 2048 jeu
           for sc in tiers bras inv creatif roches menu brume faune; do shot $sc -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 $sc; done
+          shot ultra -38.5 53 0.5 -20 52 -30 16.4 12 1280 720 4096 ultra
           shot pluie -62 47 -55 -54 42 -51 16.4 4 1280 720 2048 pluie
       - name: Dépose la capture sur la branche captures
         shell: bash

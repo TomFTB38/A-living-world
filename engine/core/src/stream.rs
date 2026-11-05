@@ -17,6 +17,8 @@ struct Shared { queue: Mutex<Vec<(Key, u8)>>, wake: Condvar, voxels: Mutex<HashM
 pub struct Preset { pub radius: i32, pub lod1: f64, pub lod2: f64 }
 /// Réglages du PC : plus loin que le Haut du prototype, puisque la marge est là.
 pub const HIGH: Preset = Preset { radius: 10, lod1: 2.3, lod2: 4.6 };
+/// Pour les cartes puissantes : 512 blocs de terrain détaillé autour du joueur.
+pub const ULTRA: Preset = Preset { radius: 16, lod1: 3.5, lod2: 8.0 };
 
 pub struct Streamer { sh: Arc<Shared>, rx: Receiver<Built>, threads: Vec<JoinHandle<()>>, pub radius: i32, lods: (f64, f64), loaded: HashMap<Key, u8>, pending: HashSet<(Key, u8)>, vox: HashMap<Key, Arc<Vec<u8>>>, last: Option<Key>, far_at: Option<Key> }
 

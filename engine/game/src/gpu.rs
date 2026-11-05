@@ -7,10 +7,10 @@ use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 use crate::{font_data as fd, hud};
 
-const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; const FLOATS: usize = 192; const MAX_ACTORS: u64 = 96; const UI_VERTS: u64 = 60_000; const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; const DECO_SHADOW: f32 = 52.0;
+const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; const FLOATS: usize = 192; const MAX_ACTORS: u64 = 96; const UI_VERTS: u64 = 60_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 52.0;
 pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 6;
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
-pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32 }
+pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32, pub cascades: [f64; 3] }
 struct Part { buf: wgpu::Buffer, indices: u32 }
 struct ChunkGpu { opaque: Option<Part>, deco: Option<Part>, water: Option<Part>, slot: u64, min: [f32; 3], max: [f32; 3], c: [f32; 2] }
 struct Far { part: Part, slot: u64 }
@@ -25,7 +25,7 @@ struct Targets {
 pub struct Gpu {
     surface: Option<wgpu::Surface<'static>>, device: wgpu::Device, queue: wgpu::Queue, config: wgpu::SurfaceConfiguration, format: wgpu::TextureFormat,
     p: Pipes, t: Targets, actor_vb: wgpu::Buffer, actor_inst: wgpu::Buffer, ui_buf: wgpu::Buffer, ui_u: wgpu::Buffer, ui_bind: wgpu::BindGroup, frame0: wgpu::BindGroup, geom1: wgpu::BindGroup, ubuf: wgpu::Buffer, ibuf: wgpu::Buffer, inst: wgpu::Buffer,
-    shadow_views: Vec<wgpu::TextureView>, shadow_bind: Vec<wgpu::BindGroup>, shadow_buf: Vec<wgpu::Buffer>, shadow_vp: [M4; 3], shadow_size: u32, hole: f32,
+    shadow_views: Vec<wgpu::TextureView>, shadow_bind: Vec<wgpu::BindGroup>, shadow_buf: Vec<wgpu::Buffer>, shadow_vp: [M4; 3], shadow_size: u32, hole: f32, cascades: [f64; 3],
     chunks: HashMap<(i32, i32), ChunkGpu>, far: Option<Far>, free: Vec<u64>, frame: u64, prev_vp: M4, reset: bool, capture: Option<Rt>,
 }
 fn bytes_f32(v: &[f32]) -> Vec<u8> { v.iter().flat_map(|f| f.to_le_bytes()).collect() }
@@ -222,7 +222,7 @@ impl Gpu {
         }
         let capture = if surface.is_none() { Some(rt(d, config.width, config.height, LDR, true)) } else { None };
         let free = (1..MAX_SLOTS).rev().collect();
-        Gpu { surface, p, t, actor_vb, actor_inst, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
+        Gpu { surface, p, t, actor_vb, actor_inst, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, cascades: o.cascades, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
     }
     pub fn resize(&mut self, w: u32, h: u32) {
         if w == 0 || h == 0 { return; }
@@ -258,11 +258,11 @@ impl Gpu {
         for i in 0..3usize {
             let step = [1u64, 2, 4][i];
             if !((fr + i as u64) % step == 0 || self.reset || fr < 6) { continue; }
-            let sv = view::shadow_cascade(s.dir, eye, CASCADES[i], self.shadow_size as f64); self.shadow_vp[i] = sv;
+            let sv = view::shadow_cascade(s.dir, eye, self.cascades[i], self.shadow_size as f64); self.shadow_vp[i] = sv;
             let mut data = sv.to_vec(); data.extend_from_slice(&[time as f32, 0.0, 0.0, 0.0]); self.queue.write_buffer(&self.shadow_buf[i], 0, &bytes_f32(&data));
             let mut p = enc.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("ombres"), color_attachments: &[], depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment { view: &self.shadow_views[i], depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(1.0), store: wgpu::StoreOp::Store }), stencil_ops: None }), timestamp_writes: None, occlusion_query_set: None });
             p.set_bind_group(0, &self.shadow_bind[i], &[]); p.set_index_buffer(self.ibuf.slice(..), wgpu::IndexFormat::Uint32);
-            let r = CASCADES[i] as f32 + 40.0; let (ex, ez) = (eye[0] as f32, eye[2] as f32);
+            let r = self.cascades[i] as f32 + 40.0; let (ex, ez) = (eye[0] as f32, eye[2] as f32);
             p.set_pipeline(&self.p.shadow_o);
             for c in &list_all { let (dx, dz) = (c.c[0] - ex, c.c[1] - ez); if dx * dx + dz * dz > r * r { continue; } if let Some(q) = &c.opaque { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }
             if i == 0 {
@@ -275,7 +275,7 @@ impl Gpu {
         // Constantes de l'image
         let ivp = view::invert(vp); let ip = view::invert(proj); let mut u: Vec<f32> = Vec::with_capacity(FLOATS);
         for m in [vp, &ivp, &self.prev_vp, view_m, proj, &ip, &self.shadow_vp[0], &self.shadow_vp[1], &self.shadow_vp[2]] { u.extend_from_slice(m); }
-        u.extend_from_slice(&[CASCADES[0] as f32, CASCADES[1] as f32, CASCADES[2] as f32, 0.0, eye[0] as f32, eye[1] as f32, eye[2] as f32, time as f32, s.dir[0], s.dir[1], s.dir[2], s.exposure, s.col[0], s.col[1], s.col[2], env.cloud, s.top[0], s.top[1], s.top[2], 1.0 / self.shadow_size as f32, s.hor[0], s.hor[1], s.hor[2], s.night, s.ground[0], s.ground[1], s.ground[2], 0.0048, jit[0], jit[1], w, h, (fr % 64) as f32, env.mist, self.hole, if self.reset { 1.0 } else { 0.0 }, aim.map_or(0.0, |a| a.0[0] as f32), aim.map_or(0.0, |a| a.0[1] as f32), aim.map_or(0.0, |a| a.0[2] as f32), aim.map_or(0.0, |a| a.1), ghost.map_or(0.0, |g| g.0[0] as f32), ghost.map_or(0.0, |g| g.0[1] as f32), ghost.map_or(0.0, |g| g.0[2] as f32), ghost.map_or(0.0, |g| g.1 as u8 as f32), env.fog_k, env.rain, env.bright, 0.0]);
+        u.extend_from_slice(&[self.cascades[0] as f32, self.cascades[1] as f32, self.cascades[2] as f32, 0.0, eye[0] as f32, eye[1] as f32, eye[2] as f32, time as f32, s.dir[0], s.dir[1], s.dir[2], s.exposure, s.col[0], s.col[1], s.col[2], env.cloud, s.top[0], s.top[1], s.top[2], 1.0 / self.shadow_size as f32, s.hor[0], s.hor[1], s.hor[2], s.night, s.ground[0], s.ground[1], s.ground[2], 0.0048, jit[0], jit[1], w, h, (fr % 64) as f32, env.mist, self.hole, if self.reset { 1.0 } else { 0.0 }, aim.map_or(0.0, |a| a.0[0] as f32), aim.map_or(0.0, |a| a.0[1] as f32), aim.map_or(0.0, |a| a.0[2] as f32), aim.map_or(0.0, |a| a.1), ghost.map_or(0.0, |g| g.0[0] as f32), ghost.map_or(0.0, |g| g.0[1] as f32), ghost.map_or(0.0, |g| g.0[2] as f32), ghost.map_or(0.0, |g| g.1 as u8 as f32), env.fog_k, env.rain, env.bright, 0.0]);
         self.queue.write_buffer(&self.ubuf, 0, &bytes_f32(&u));
         let list: Vec<&ChunkGpu> = list_all.iter().copied().filter(|c| view::visible(vp, c.min, c.max)).collect();
         let t = &self.t; let g0 = &self.frame0;

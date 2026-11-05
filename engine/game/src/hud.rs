@@ -29,21 +29,23 @@ pub fn layout(creative: bool, tab: usize, w: f32, h: f32) -> Vec<(Hit, [f32; 4])
 fn inside(m: [f32; 2], r: [f32; 4]) -> bool { m[0] >= r[0] && m[1] >= r[1] && m[0] < r[0] + r[2] && m[1] < r[1] + r[3] }
 pub fn hit_at(creative: bool, tab: usize, w: f32, h: f32, m: [f32; 2]) -> Option<Hit> { layout(creative, tab, w, h).into_iter().find(|x| inside(m, x.1)).map(|x| x.0) }
 pub const WEATHERS: [&str; 5] = ["Auto", "Clair", "Nuageux", "Pluie", "Brouillard"];
+pub const QUALITIES: [&str; 2] = ["Haut", "Ultra"];
 pub const MOODS: [&str; 6] = ["Auto", "Calme", "Nuit", "Construction", "Suspense", "Danger"];
 const VOLS: [&str; 4] = ["Volume général", "Effets", "Musique", "Luminosité"];
 /// Curseur de luminosité vers exposition : au milieu, l'image validée, plus sobre que la première version.
 pub fn bright(v: f32) -> f32 { 0.6 + 0.5 * v }
 const CREDITS: [&str; 13] = ["Musique générée par le jeu. Sons retravaillés pour le jeu.", "", "Licence CC BY 3.0", "crack : Benboncan, freesound.org/people/Benboncan/sounds/71823", "splash : AGFX, freesound.org/people/AGFX/packs/1253", "hurt : sonictechtonic, freesound.org/people/sonictechtonic/sounds/241872", "", "Licence CC0", "Kenney (Impact Sounds), worthahep88, lolamadeus, Sheyvan, blukotek, Yuval", "", "Police de l'interface", "Inter, SIL Open Font License 1.1", ""];
-pub struct Menu { pub open: bool, pub credits: bool, pub weather: usize, pub mood: usize, pub vol: [f32; 4] }
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum M { Resume, Weather(usize), Mood(usize), Vol(usize), Credits, Back, Quit }
-fn menu_panel(w: f32, h: f32) -> ([f32; 4], f32) { let k = scale(h); let (pw, ph) = (640.0 * k, 552.0 * k); ([(w - pw) * 0.5, (h - ph) * 0.5, pw, ph], k) }
+pub struct Menu { pub open: bool, pub credits: bool, pub weather: usize, pub mood: usize, pub vol: [f32; 4], pub quality: usize }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum M { Resume, Weather(usize), Mood(usize), Quality(usize), Vol(usize), Credits, Back, Quit }
+fn menu_panel(w: f32, h: f32) -> ([f32; 4], f32) { let k = scale(h); let (pw, ph) = (640.0 * k, 618.0 * k); ([(w - pw) * 0.5, (h - ph) * 0.5, pw, ph], k) }
 pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
     let (p, k) = menu_panel(w, h); let (x0, tw) = (p[0] + 34.0 * k, p[2] - 68.0 * k); let bh = 40.0 * k; let g = 8.0 * k; let mut o = Vec::new();
     if m.credits { o.push((M::Back, [x0, p[1] + p[3] - 66.0 * k, tw, bh])); return o; }
     let mut y = p[1] + 74.0 * k; o.push((M::Resume, [x0, y, tw, bh])); y += bh + 34.0 * k;
     let row = |n: usize, y: f32, f: &dyn Fn(usize) -> M, o: &mut Vec<(M, [f32; 4])>| { let b = (tw - (n as f32 - 1.0) * g) / n as f32; for i in 0..n { o.push((f(i), [x0 + i as f32 * (b + g), y, b, 34.0 * k])); } };
     row(WEATHERS.len(), y, &M::Weather, &mut o); y += 34.0 * k + 34.0 * k;
-    row(MOODS.len(), y, &M::Mood, &mut o); y += 34.0 * k + 22.0 * k;
+    row(MOODS.len(), y, &M::Mood, &mut o); y += 34.0 * k + 34.0 * k;
+    row(QUALITIES.len(), y, &M::Quality, &mut o); y += 34.0 * k + 22.0 * k;
     for i in 0..4 { o.push((M::Vol(i), [x0 + 190.0 * k, y + i as f32 * 32.0 * k, tw - 190.0 * k, 24.0 * k])); }
     y += 4.0 * 32.0 * k + 14.0 * k;
     let b = (tw - g) * 0.5; o.push((M::Credits, [x0, y, b, bh])); o.push((M::Quit, [x0 + b + g, y, b, bh])); o
@@ -84,6 +86,7 @@ impl Ui {
                 M::Resume | M::Credits | M::Back | M::Quit => { self.panel(r, k, plain); self.centered(match a { M::Resume => "Reprendre", M::Credits => "Crédits", M::Back => "Retour", _ => "Sauvegarder et quitter" }, r, z, INK); }
                 M::Weather(i) => { if i == 0 { self.text("Météo", x0, r[1] - 26.0 * k, 17.0 * k, DIM); } self.panel(r, k, if m.weather == i { sel } else { plain }); self.centered(WEATHERS[i], r, 15.0 * k, INK); }
                 M::Mood(i) => { if i == 0 { self.text("Ambiance musicale", x0, r[1] - 26.0 * k, 17.0 * k, DIM); } self.panel(r, k, if m.mood == i { sel } else { plain }); self.centered(MOODS[i], r, 14.0 * k, INK); }
+                M::Quality(i) => { if i == 0 { self.text("Qualité graphique (au prochain lancement)", x0, r[1] - 26.0 * k, 17.0 * k, DIM); } self.panel(r, k, if m.quality == i { sel } else { plain }); self.centered(QUALITIES[i], r, 15.0 * k, INK); }
                 M::Vol(i) => { self.text(VOLS[i], x0, r[1], 17.0 * k, DIM); let t = 6.0 * k; let y = r[1] + (r[3] - t) * 0.5; self.rect(r[0], y, r[2], t, [0.0, 0.0, 0.0, 0.5]); self.rect(r[0], y, r[2] * m.vol[i], t, ACCENT); let hx = r[0] + r[2] * m.vol[i]; self.panel([hx - 7.0 * k, r[1] + 1.0 * k, 14.0 * k, r[3] - 2.0 * k], k, INK); }
             }
         }
