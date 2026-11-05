@@ -1,0 +1,31 @@
+# Fabrique le programme Windows du moteur final et le publie dans la version « moteur-dev ».
+name: Moteur Windows
+on:
+  push:
+    branches: [main]
+    paths: ['engine/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tests du cœur
+        run: cargo test --release
+        working-directory: engine/core
+      - name: Compilation
+        run: cargo build --release
+        working-directory: engine/game
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a-living-world-windows
+          path: engine/game/target/release/a-living-world.exe
+      - name: Publication
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete moteur-dev --yes --cleanup-tag || true
+          gh release create moteur-dev engine/game/target/release/a-living-world.exe --title "Moteur final, version de développement" --notes "Commit ${GITHUB_SHA::7}. Téléchargez a-living-world.exe et lancez-le." --prerelease

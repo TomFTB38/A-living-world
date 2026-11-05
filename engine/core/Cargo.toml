@@ -1,0 +1,9 @@
+[package]
+name = "alw-core"
+version = "0.1.0"
+edition = "2021"
+description = "A Living World : monde, génération et maillage, sans aucune dépendance."
+publish = false
+
+[profile.release]
+opt-level = 3

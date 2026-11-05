@@ -3,3 +3,5 @@ node_modules
 captures/*
 !captures/comparaison.png
 !captures/mesures.json
+engine/core/target/
+engine/game/target/

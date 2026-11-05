@@ -1,0 +1,407 @@
+//! Génération procédurale : le monde est une fonction pure de (seed, x, y, z).
+use crate::blocks::*;
+use crate::det::{cos, hypot2, hypot3, round, sin};
+use crate::noise::*;
+use std::cell::RefCell;
+use std::collections::{BTreeMap, HashMap};
+use std::rc::Rc;
+
+const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38;
+
+#[derive(Clone, Copy, Default, Debug)]
+pub struct Column { pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
+#[derive(Clone, Copy)] struct Pond { x: f64, z: f64, r: f64, level: f64 }
+struct Raw { wx: f64, wz: f64, low: f64, hs: f64 }
+/// Empreinte : voxels (x, y, z, id) d'un arbre ou d'un rocher, posés dans chaque chunk touché.
+pub struct Stamp { data: Vec<[i32; 4]>, force: bool }
+
+fn fdiv(a: i32, b: i32) -> i32 { a.div_euclid(b) }
+#[inline] fn ri(x: f64) -> i32 { round(x) as i32 }
+
+pub struct WorldGen {
+    pub seed: i32,
+    n_base: Noise, n_hill: Noise, n_warp: Noise, n_river: Noise, n_path: Noise, n_forest: Noise, n_cliff: Noise, n_cave: Noise, pub n_deco: Noise,
+    ponds: RefCell<HashMap<(i32, i32), Option<Pond>>>,
+    stamps: RefCell<HashMap<(u8, i32, i32), Option<Rc<Stamp>>>>,
+}
+
+impl WorldGen {
+    pub fn new(seed: i32) -> Self {
+        let s = seed; let n = |k: i32| Noise::new(s.wrapping_add(k));
+        WorldGen { seed: s, n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()) }
+    }
+    fn raw_height(&self, x: f64, z: f64) -> Raw {
+        let wx = x + 34.0 * self.n_warp.n2(x / 170.0, z / 170.0); let wz = z + 34.0 * self.n_warp.n2(x / 170.0 + 40.0, z / 170.0 + 40.0);
+        let low = 52.0 + 15.0 * self.n_base.fbm(wx / 340.0, wz / 340.0, 3);
+        let hs = low + 5.5 * self.n_hill.fbm(wx / 96.0, wz / 96.0, 3);
+        Raw { wx, wz, low, hs }
+    }
+    fn pond_at(&self, gx: i32, gz: i32) -> Option<Pond> {
+        if let Some(p) = self.ponds.borrow().get(&(gx, gz)) { return *p; }
+        let s = self.seed;
+        let p = if hash_float(gx, gz, s, 71) > 0.42 { None } else {
+            let x = (gx as f64 + 0.2 + 0.6 * hash_float(gx, gz, s, 72)) * POND_CELL as f64; let z = (gz as f64 + 0.2 + 0.6 * hash_float(gx, gz, s, 73)) * POND_CELL as f64;
+            Some(Pond { x, z, r: 7.0 + 8.0 * hash_float(gx, gz, s, 74), level: self.raw_height(x, z).hs.floor() - 1.0 })
+        };
+        self.ponds.borrow_mut().insert((gx, gz), p);
+        p
+    }
+    /// Altitude, eau, chemin et densité forestière d'une colonne.
+    pub fn column(&self, x: f64, z: f64) -> Column {
+        let Raw { wx, wz, low, hs } = self.raw_height(x, z);
+        let step_n = self.n_hill.n2(x / 52.0 + 11.0, z / 52.0 - 7.0); let s = 4.0;
+        let q = hs / s; let fl = q.floor(); let fr = q - fl;
+        let terr = (fl + smooth(0.32, 0.68, fr)) * s;
+        let mut h = lerp(hs, terr, smooth(-0.35, 0.25, step_n));
+        h += 1.6 * self.n_hill.n2(x / 19.0, z / 19.0);
+        // rivière : niveaux quantifiés = cascades
+        let rs = self.n_river.fbm2(wx / 400.0, wz / 400.0, 2, 2.1, 0.32); let rn = rs.abs();
+        let d_r = rn * 300.0; let wid = 2.6 + 1.8 * (0.5 + 0.5 * self.n_river.n2(x / 60.0, z / 60.0));
+        let l = ((low - 4.0) / 4.0).floor() * 4.0 + 1.0;
+        let (mut water, mut bank, mut still) = (0.0, 0.0, false);
+        if d_r < wid + 13.0 {
+            bank = 1.0 - smooth(wid, wid + 13.0, d_r);
+            let target = l + 1.0 + 3.0 * smooth(wid, wid + 8.0, d_r);
+            if h > target { h = lerp(h, target, smooth(0.0, 1.0, bank * 1.25)); }
+            if d_r < wid { h = l - 2.0 - (1.0 - d_r / wid) * 1.6; water = l; } else if h < l + 1.0 { h = l + 1.0; }
+        }
+        // étangs
+        let (gx, gz) = ((x / POND_CELL as f64).floor() as i32, (z / POND_CELL as f64).floor() as i32);
+        for i in -1..=1 { for j in -1..=1 {
+            let Some(p) = self.pond_at(gx + i, gz + j) else { continue };
+            let d = hypot2(x - p.x, z - p.z) + 3.0 * self.n_deco.n2(x / 9.0, z / 9.0);
+            if d > p.r * 2.0 { continue; }
+            let bowl = lerp(p.level - 3.0, h, smooth(p.r * 0.7, p.r * 1.8, d));
+            if bowl < h { h = bowl; }
+            if d < p.r * 1.05 && h < p.level && p.level > water { water = p.level; still = true; }
+        } }
+        // chemins : réseau de traverse, et un sentier le long de chaque ruisseau
+        let pn = self.n_path.n2(wx / 210.0 + 9.0, wz / 210.0 + 3.0).abs() * 165.0;
+        let mut path = 0.0;
+        let bank_d = (rs * 300.0 - (wid + 6.0)).abs(); let wob = self.n_deco.n2(x / 5.0, z / 5.0) * 0.6;
+        if water == 0.0 {
+            let edge = 1.0 - smooth(0.9, 2.3, bank_d + wob);
+            if bank < 0.45 {
+                path = 1.0 - smooth(0.9, 2.3, pn + wob);
+                let near = 1.0 - smooth(1.5, 8.0, pn);
+                if near > 0.0 { h = lerp(h, hs, near * 0.82); }
+            }
+            if edge > path { path = edge; }
+            let walk = 1.0 - smooth(1.5, 5.0, bank_d);
+            if walk > 0.0 { h = lerp(h, low - 1.0, walk); }
+        }
+        let f = self.n_forest.fbm(x / 170.0, z / 170.0, 3) * 1.5 + 0.78 + 0.12 * self.n_forest.n2(x / 31.0, z / 31.0);
+        Column { h, water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
+    }
+    fn stone_at(&self, x: f64, y: f64, z: f64) -> u8 {
+        let b = (y + 5.0 * self.n_cliff.n2(x / 70.0, z / 70.0)) / 7.0;
+        match (b.floor() as i64).rem_euclid(3) { 2 => B::LIMESTONE, 1 => B::GRANITE, _ => B::STONE }
+    }
+    fn is_cave(&self, x: f64, y: f64, z: f64) -> bool {
+        let a = self.n_cave.n3(x / 30.0, y / 18.0, z / 30.0); let b = self.n_cave.n3(x / 30.0 + 50.0, y / 18.0 - 20.0, z / 30.0 + 90.0);
+        a * a + b * b < 0.0065
+    }
+    /// Terrain, décor et empreintes, sans aucune dépendance à l'ordre de chargement.
+    pub fn gen_chunk(&self, cx: i32, cz: i32) -> Vec<u8> {
+        let mut v = vec![0u8; CA]; let (ox, oz) = (cx * CX as i32, cz * CX as i32);
+        let mut heights = vec![0i32; CX * CX]; let mut waters = vec![0i32; CX * CX]; let mut info = vec![(0.0f64, 0.0f64); CX * CX];
+        for z in 0..CX { for x in 0..CX {
+            let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
+            let c = self.column(wx, wz); let (hf, cliff, fr, path, water) = (c.h, c.cliff, c.forest, c.path, c.water);
+            let mut top: i32 = 0;
+            let ymax = (CH as f64 - 2.0).min((hf + 7.0).ceil()) as i32;
+            for y in 0..=ymax {
+                let yf = y as f64; let mut d = hf - yf;
+                if cliff > 0.01 && yf > hf - 12.0 { d += cliff * 6.0 * (1.0 - clamp((yf - hf) / 8.0, 0.0, 1.0)) * self.n_cave.n3(wx / 25.0, yf / 15.0, wz / 25.0); }
+                if d > 0.0 {
+                    if y > 2 && yf < hf - 3.0 && self.is_cave(wx, yf, wz) { continue; }
+                    v[idx(x, y as usize, z)] = B::STONE; top = y;
+                }
+            }
+            // habillage : strates, sous-couche, surface
+            let mut depth = 0;
+            for y in (0..=top).rev() {
+                let i = idx(x, y as usize, z);
+                if v[i] == 0 { depth = 0; continue; }
+                let steep = depth > if path > 0.3 { 4 } else { 2 + ((wxi ^ wzi) & 1) };
+                if depth == 0 {
+                    let yf = y as f64;
+                    v[i] = if path > 0.45 { B::PATH }
+                    else if water != 0.0 && yf < water + 1.0 { if self.n_deco.n2(wx / 7.0, wz / 7.0) > 0.0 { B::GRAVEL } else { B::SAND } }
+                    else if c.bank > 0.72 && yf <= water + 2.0 { B::GRAVEL }
+                    else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 { B::FOREST_SOIL }
+                    else if cliff > 0.45 && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
+                    else { B::GRASS };
+                } else if steep { v[i] = self.stone_at(wx, y as f64, wz); }
+                else { v[i] = B::DIRT; }
+                depth += 1;
+            }
+            let wi = water as i32;
+            if wi != 0 {
+                for y in (top + 1)..=wi { v[idx(x, y as usize, z)] = B::WATER; }
+                // rochers qui affleurent dans le lit
+                if self.n_deco.n2(wx / 4.3 + 31.0, wz / 4.3 - 12.0) > 0.56 {
+                    let crown = wi + if hash_float(wxi, wzi, self.seed, 9) > 0.55 { 1 } else { 0 };
+                    let mut y = top + 1;
+                    while y <= crown && y < CH as i32 - 1 { v[idx(x, y as usize, z)] = if y == crown { B::MOSSY_STONE } else { B::STONE }; y += 1; }
+                    top = crown;
+                }
+            }
+            heights[x + z * CX] = top; waters[x + z * CX] = wi; info[x + z * CX] = (fr, path);
+        } }
+        self.stamp_all(&mut v, cx, cz, &mut heights);
+        self.scatter_deco(&mut v, ox, oz, &heights, &waters, &info);
+        self.hang_vines(&mut v, ox, oz);
+        v
+    }
+    fn scatter_deco(&self, v: &mut [u8], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64)]) {
+        let s = self.seed; let nd = &self.n_deco;
+        for z in 0..CX { for x in 0..CX {
+            let y = (heights[x + z * CX] + 1) as usize;
+            if y >= CH - 1 { continue; }
+            let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
+            let ground = v[idx(x, y - 1, z)]; let here = v[idx(x, y, z)];
+            let wy = waters[x + z * CX];
+            if wy != 0 {
+                if here == B::WATER && nd.n2(wx / 8.0, wz / 8.0) > 0.42 && hash_float(wxi, wzi, s, 5) < 0.45 && v[idx(x, wy as usize + 1, z)] == 0 { v[idx(x, wy as usize + 1, z)] = B::LILY_PAD; }
+                continue;
+            }
+            if here != 0 { continue; }
+            let r = hash_float(wxi, wzi, s, 3); let (fr, path) = info[x + z * CX];
+            if ground == B::PATH { if r < 0.055 { v[idx(x, y, z)] = B::FLAGSTONE; } continue; }
+            if ground != B::GRASS && ground != B::FOREST_SOIL && ground != B::MOSSY_STONE { continue; }
+            if path > 0.02 && path < 0.4 && nd.n2(wx / 40.0 - 9.0, wz / 40.0 + 5.0) > 0.2 {
+                v[idx(x, y, z)] = B::FENCE;
+                if hash_float(wxi, wzi, s, 8) < 0.07 { v[idx(x, y + 1, z)] = B::FENCE; v[idx(x, y + 2, z)] = B::FENCE; v[idx(x, y + 3, z)] = B::LANTERN; }
+                continue;
+            }
+            let patch = nd.n2(wx / 23.0, wz / 23.0); let patch2 = nd.n2(wx / 17.0 + 60.0, wz / 17.0 - 30.0);
+            let open = 1.0 - fr; let mut id = 0u8;
+            let flower_p = 0.14 + 0.62 * smooth(0.05, 0.6, patch) * (0.65 + open * 0.5);
+            if r < flower_p {
+                let t = hash_float(wxi, wzi, s, 4);
+                id = if patch2 > 0.3 { if t < 0.55 { B::LUPINE } else { B::PINK_FLOWER } }
+                    else if patch2 > -0.15 { if t < 0.75 { B::DAISY } else { B::YELLOW_FLOWER } }
+                    else if t < 0.5 { B::YELLOW_FLOWER } else { B::DAISY };
+                if hash_float(wxi, wzi, s, 6) > 0.55 { id = B::TALL_GRASS; }
+            } else if r < flower_p + 0.1 + 0.24 * fr * smooth(-0.2, 0.3, patch2) { id = B::FERN; }
+            else if r < 0.985 { id = B::TALL_GRASS; }
+            if fr > 0.6 && hash_float(wxi, wzi, s, 7) < 0.012 { id = B::MUSHROOM; }
+            if ground == B::MOSSY_STONE && r > 0.5 { id = 0; }
+            if path > 0.05 { id = if r < 0.5 { B::TALL_GRASS } else { 0 }; }
+            v[idx(x, y, z)] = id;
+        } }
+    }
+    fn hang_vines(&self, v: &mut [u8], ox: i32, oz: i32) {
+        let s = self.seed;
+        for z in 0..CX { for x in 0..CX {
+            let (wx, wz) = (ox + x as i32, oz + z as i32);
+            if hash_float(wx, wz, s, 11) > 0.075 { continue; }
+            let mut y = CH - 2;
+            while y > 4 {
+                let b = v[idx(x, y, z)];
+                if (B::OAK_LEAVES..=B::BEECH_LEAVES).contains(&b) && v[idx(x, y - 1, z)] == 0 {
+                    let n = 2 + (hash_float(wx, wz, s, 12) * 5.0).floor() as usize;
+                    let mut k = 1;
+                    while k <= n && v[idx(x, y - k, z)] == 0 { v[idx(x, y - k, z)] = B::VINE; k += 1; }
+                    break;
+                }
+                y -= 1;
+            }
+        } }
+    }
+    fn apply(st: &Stamp, v: &mut [u8], ox: i32, oz: i32, heights: &mut [i32]) {
+        for d in &st.data {
+            let (x, y, z, id) = (d[0] - ox, d[1], d[2] - oz, d[3] as u8);
+            if x < 0 || z < 0 || x >= CX as i32 || z >= CX as i32 || y < 0 || y >= CH as i32 { continue; }
+            let k = idx(x as usize, y as usize, z as usize); let cur = v[k];
+            if cur == 0 { v[k] = id; } else if id != 0 && (st.force || is_deco(cur)) { v[k] = id; }
+            if st.force && is_solid(id) && y > heights[x as usize + z as usize * CX] { heights[x as usize + z as usize * CX] = y; }
+        }
+    }
+    fn stamp_all(&self, v: &mut [u8], cx: i32, cz: i32, heights: &mut [i32]) {
+        let (ox, oz) = (cx * CX as i32, cz * CX as i32);
+        let (x0, z0, x1, z1) = (ox - STAMP_REACH, oz - STAMP_REACH, ox + CX as i32 + STAMP_REACH, oz + CX as i32 + STAMP_REACH);
+        for gz in fdiv(z0, ROCK_CELL)..=fdiv(z1, ROCK_CELL) { for gx in fdiv(x0, ROCK_CELL)..=fdiv(x1, ROCK_CELL) {
+            if let Some(st) = self.cached(0, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
+        } }
+        for gz in fdiv(z0, TREE_CELL)..=fdiv(z1, TREE_CELL) { for gx in fdiv(x0, TREE_CELL)..=fdiv(x1, TREE_CELL) {
+            if let Some(st) = self.cached(1, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
+        } }
+    }
+    fn cached(&self, kind: u8, gx: i32, gz: i32) -> Option<Rc<Stamp>> {
+        if let Some(s) = self.stamps.borrow().get(&(kind, gx, gz)) { return s.clone(); }
+        let st = if kind == 0 { self.rock_stamp(gx, gz) } else { self.tree_stamp(gx, gz) }.map(Rc::new);
+        let mut m = self.stamps.borrow_mut();
+        if m.len() > 6000 { m.clear(); }
+        m.insert((kind, gx, gz), st.clone());
+        st
+    }
+    fn rock_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
+        let s = self.seed;
+        if hash_float(gx, gz, s, 21) > 0.62 { return None; }
+        let x = ((gx as f64 + hash_float(gx, gz, s, 22)) * ROCK_CELL as f64).floor(); let z = ((gz as f64 + hash_float(gx, gz, s, 23)) * ROCK_CELL as f64).floor();
+        let c = self.column(x, z);
+        if c.water != 0.0 || c.path > 0.1 { return None; }
+        let mut r = Rng::new(hash_int(gx, gz, s, 24)); let mut data = Vec::new();
+        let n = r.int(1, 3); let base = c.h.floor();
+        for k in 0..n {
+            let rx = r.range(1.6, 4.2); let ry = r.range(1.3, 3.0); let rz = r.range(1.6, 4.2);
+            let ax = x + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 }; let az = z + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 };
+            let mut dy = -2.0;
+            while dy <= ry + 1.0 {
+                for dzi in -6..=6 { for dxi in -6..=6 {
+                    let (dx, dz) = (dxi as f64, dzi as f64);
+                    let nn = self.n_deco.n2((ax + dx) / 3.1, (az + dz + dy * 3.0) / 3.1) * 0.28;
+                    let e = dx * dx / (rx * rx) + dy * dy / (ry * ry) + dz * dz / (rz * rz);
+                    if e + nn < 1.0 {
+                        let e2 = dx * dx / (rx * rx) + (dy + 1.0) * (dy + 1.0) / (ry * ry) + dz * dz / (rz * rz) + nn;
+                        let id = if e2 >= 1.0 && r.next() < 0.75 { B::MOSSY_STONE } else { self.stone_at(ax, base + dy, az) };
+                        data.push([ri(ax + dx), (base + dy) as i32, ri(az + dz), id as i32]);
+                    }
+                } }
+                dy += 1.0;
+            }
+        }
+        Some(Stamp { data, force: true })
+    }
+    fn tree_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
+        let s = self.seed; let tc = TREE_CELL as f64;
+        let x = ((gx as f64 + 0.15 + 0.7 * hash_float(gx, gz, s, 31)) * tc).floor(); let z = ((gz as f64 + 0.15 + 0.7 * hash_float(gx, gz, s, 32)) * tc).floor();
+        let c = self.column(x, z);
+        if c.water != 0.0 || c.path > 0.0 || c.bank > 0.4 { return None; }
+        let pick = hash_float(gx, gz, s, 33);
+        let glade = smooth(-0.1, 0.45, self.n_forest.n2(x / 46.0 + 70.0, z / 46.0 - 40.0));
+        if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) { return None; }
+        let mut r = Rng::new(hash_int(gx, gz, s, 34));
+        let sp = self.n_forest.n2(gx as f64 / 5.1 + 3.0, gz as f64 / 5.1 - 8.0); let roll = r.next();
+        let y = c.h.floor(); let age = r.next();
+        Some(if roll < 0.34 + sp * 0.3 { grow_birch(x, y, z, &mut r, age) } else if roll < 0.52 { grow_beech(x, y, z, &mut r, age) } else { grow_oak(x, y, z, &mut r, age * age * age) })
+    }
+}
+
+/* ---- Croissance des arbres : troncs, branches, couronne, racines. ---- */
+type Key = (i32, i32, i32);
+#[derive(Default)]
+struct Grower { wood: BTreeMap<Key, u8>, leaf: BTreeMap<Key, u8>, extra: Vec<[i32; 4]> }
+impl Grower {
+    fn sphere_wood(&mut self, cx: f64, cy: f64, cz: f64, r: f64, id: u8) {
+        let rr = (r + 1.0).ceil() as i32; let (rx, ry, rz) = (round(cx), round(cy), round(cz));
+        for dy in -rr..=rr { for dz in -rr..=rr { for dx in -rr..=rr {
+            let (xx, zz, y2) = (rx + dx as f64 - cx, rz + dz as f64 - cz, ry + dy as f64 - cy);
+            if xx * xx + y2 * y2 / 1.0 + zz * zz <= r * r { self.wood.insert((rx as i32 + dx, ry as i32 + dy, rz as i32 + dz), id); }
+        } } }
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn limb(&mut self, p: &[f64], dir: [f64; 3], len: f64, r0: f64, r1: f64, id: u8, rng: &mut Rng, curl: f64, up: f64) -> Vec<[f64; 6]> {
+        let n = len.ceil() as i32; let mut pts = Vec::with_capacity(n as usize + 1);
+        let (mut x, mut y, mut z) = (p[0], p[1], p[2]); let [mut dx, mut dy, mut dz] = dir;
+        for i in 0..=n {
+            let t = i as f64 / n as f64;
+            let axis = if dy.abs() > hypot2(dx, dz) { 'y' } else if dx.abs() >= dz.abs() { 'x' } else { 'z' };
+            self.sphere_wood(x, y, z, lerp(r0, r1, t), oriented_block(id, axis));
+            pts.push([x, y, z, dx, dy, dz]);
+            dx += rng.range(-curl, curl); dz += rng.range(-curl, curl); dy += rng.range(-curl * 0.5, curl * 0.5) + up;
+            let l = hypot3(dx, dy, dz); dx /= l; dy /= l; dz /= l;
+            x += dx; y += dy; z += dz;
+        }
+        pts
+    }
+    fn blob(&mut self, cx: f64, cy: f64, cz: f64, rx: f64, ry: f64, id: u8, rng: &mut Rng) {
+        let xr = (rx + 1.0).ceil() as i32; let yr = (ry + 1.0).ceil() as i32; let seed = rng.next() * 100.0;
+        let (qx, qy, qz) = (round(cx) as i32, round(cy) as i32, round(cz) as i32);
+        for dyi in -yr..=yr { for dzi in -xr..=xr { for dxi in -xr..=xr {
+            let (dx, dy, dz) = (dxi as f64, dyi as f64, dzi as f64);
+            let e = (dx * dx + dz * dz) / (rx * rx) + dy * dy / (ry * ry);
+            if e > 1.15 { continue; }
+            let wob = sin(dx * 1.3 + seed) * sin(dy * 1.7 + seed * 2.0) * cos(dz * 1.1 - seed) * 0.5;
+            if e + wob < 0.95 { self.leaf.insert((qx + dxi, qy + dyi, qz + dzi), id); }
+        } } }
+    }
+    fn finish(self) -> Stamp {
+        let mut data = Vec::with_capacity(self.leaf.len() + self.wood.len() + self.extra.len());
+        for (k, id) in &self.leaf { if !self.wood.contains_key(k) { data.push([k.0, k.1, k.2, *id as i32]); } }
+        for (k, id) in &self.wood { data.push([k.0, k.1, k.2, *id as i32]); }
+        data.extend_from_slice(&self.extra);
+        Stamp { data, force: false }
+    }
+}
+#[inline] fn at_frac(n: usize, t: f64) -> usize { (n as f64 * t).floor() as usize }
+
+fn grow_oak(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
+    let mut g = Grower::default(); let (log, lf) = (B::OAK_LOG, B::OAK_LEAVES);
+    let rad = lerp(1.1, 3.1, age); let hh = lerp(10.0, 20.0, age);
+    let lean = [r.range(-0.1, 0.1), 1.0, r.range(-0.1, 0.1)];
+    let trunk = g.limb(&[x, y - 1.0, z], lean, hh, rad, rad * 0.72, log, r, 0.05, 0.03);
+    let roots = 3 + (age * 3.0).floor() as i32;
+    for i in 0..roots {
+        let a = (i as f64 / roots as f64) * 6.283 + r.range(-0.3, 0.3);
+        g.limb(&[x + cos(a) * rad * 0.6, y + rad * 0.9, z + sin(a) * rad * 0.6], [cos(a), -0.45, sin(a)], rad * 2.0 + 2.5, rad * 0.42, 0.42, log, r, 0.14, -0.01);
+    }
+    let top = trunk[trunk.len() - 1]; let arms = 3 + (age * 3.0).floor() as i32;
+    for i in 0..arms {
+        let a = (i as f64 / arms as f64) * 6.283 + r.range(-0.4, 0.4); let t = r.range(0.68, 0.98); let at = trunk[at_frac(trunk.len(), t)];
+        let ll = lerp(5.0, 13.0, age) * r.range(0.8, 1.15);
+        let d = [cos(a), r.range(0.3, 0.7), sin(a)];
+        let pts = g.limb(&at, d, ll, rad * 0.55, 0.65, log, r, 0.14, 0.03);
+        let tip = pts[pts.len() - 1];
+        let rx = lerp(3.2, 5.2, age) * r.range(0.85, 1.15);
+        g.blob(tip[0], tip[1] + 1.5, tip[2], rx, lerp(2.6, 3.9, age), lf, r);
+        let mut b = 0.0;
+        while b < 2.0 + age * 2.0 {
+            let t = r.range(0.45, 0.95); let q = pts[at_frac(pts.len(), t)];
+            let a2 = a + r.range(-1.2, 1.2);
+            let d2 = [cos(a2), r.range(0.0, 0.5), sin(a2)];
+            let pts2 = g.limb(&q, d2, ll * 0.5, 0.75, 0.4, log, r, 0.2, 0.04);
+            let t2 = pts2[pts2.len() - 1];
+            let rx2 = lerp(2.6, 4.0, age) * r.range(0.8, 1.1);
+            g.blob(t2[0], t2[1] + 1.0, t2[2], rx2, lerp(2.2, 3.2, age), lf, r);
+            b += 1.0;
+        }
+    }
+    g.blob(top[0], top[1] + 3.0, top[2], lerp(4.0, 6.5, age), lerp(3.0, 4.4, age), lf, r);
+    // Polypores : du cœur du tronc jusqu'à la première case libre, donc toujours collés à l'écorce.
+    let fungi = (age * 5.0).floor() as i32 + if r.next() < 0.5 { 1 } else { 0 };
+    const DIR: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+    for _ in 0..fungi {
+        let t = r.range(0.08, 0.5); let q = trunk[at_frac(trunk.len(), t)]; let (dx, dz) = DIR[r.int(0, 3) as usize]; let yy = ri(q[1]);
+        let (mut cx, mut cz, mut steps) = (ri(q[0]), ri(q[2]), 0);
+        if !g.wood.contains_key(&(cx, yy, cz)) { continue; }
+        while g.wood.contains_key(&(cx, yy, cz)) && steps < 12 { steps += 1; cx += dx; cz += dz; }
+        g.extra.push([cx, yy, cz, B::SHELF_FUNGUS as i32]);
+    }
+    g.finish()
+}
+fn grow_birch(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
+    let mut g = Grower::default(); let (log, lf) = (B::BIRCH_LOG, B::BIRCH_LEAVES);
+    let hh = lerp(11.0, 22.0, age); let rad = lerp(0.55, 1.15, age);
+    let d = [r.range(-0.06, 0.06), 1.0, r.range(-0.06, 0.06)];
+    let trunk = g.limb(&[x, y - 1.0, z], d, hh, rad, 0.42, log, r, 0.05, 0.02);
+    let n = 5 + (age * 5.0).floor() as i32;
+    for _ in 0..n {
+        let t = r.range(0.48, 0.98); let p = trunk[at_frac(trunk.len(), t)]; let a = r.range(0.0, 6.283);
+        let ll = lerp(2.0, 6.0, 1.0 - t * 0.7) * lerp(0.7, 1.1, age);
+        let pts = g.limb(&p, [cos(a), 0.55, sin(a)], ll, 0.45, 0.4, log, r, 0.15, 0.02);
+        let tip = pts[pts.len() - 1];
+        let (rx, ry) = (r.range(2.0, 3.1), r.range(1.8, 2.8));
+        g.blob(tip[0], tip[1] + 0.5, tip[2], rx, ry, lf, r);
+    }
+    let top = trunk[trunk.len() - 1];
+    g.blob(top[0], top[1] + 1.0, top[2], 2.6, 3.2, lf, r);
+    g.finish()
+}
+fn grow_beech(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
+    let mut g = Grower::default(); let (log, lf) = (B::BEECH_LOG, B::BEECH_LEAVES);
+    let hh = lerp(12.0, 24.0, age); let rad = lerp(0.8, 1.9, age);
+    let d = [r.range(-0.05, 0.05), 1.0, r.range(-0.05, 0.05)];
+    let trunk = g.limb(&[x, y - 1.0, z], d, hh, rad, 0.7, log, r, 0.04, 0.02);
+    let n = 5 + (age * 4.0).floor() as i32;
+    for i in 0..n {
+        let t = r.range(0.55, 1.0); let p = trunk[(trunk.len() - 1).min(at_frac(trunk.len(), t))]; let a = (i as f64 / n as f64) * 6.283 + r.range(-0.5, 0.5);
+        let ll = lerp(3.0, 9.0, age) * r.range(0.7, 1.1);
+        let pts = g.limb(&p, [cos(a), 0.65, sin(a)], ll, rad * 0.45, 0.45, log, r, 0.1, 0.04);
+        let tip = pts[pts.len() - 1];
+        g.blob(tip[0], tip[1] + 1.0, tip[2], lerp(3.2, 5.0, age), lerp(2.6, 4.0, age), lf, r);
+    }
+    g.finish()
+}

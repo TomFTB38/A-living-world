@@ -1,8 +1,7 @@
 # A Living World
 
 Prototype jouable de la forêt tempérée, en JavaScript et WebGL2, sans dépendance.
-Il valide la direction artistique et l'architecture. La météo (clair, nuageux, pluie, brouillard) suit la seed et se règle dans le menu ; les bruitages sont de vraies prises de son libres (`assets/sounds/CREDITS.md`), la musique est composée à la volée. Le moteur final est prévu en Rust avec wgpu
-(voir le dossier fondateur).
+Il valide la direction artistique et l'architecture. La météo (clair, nuageux, pluie, brouillard) suit la seed et se règle dans le menu ; les bruitages sont de vraies prises de son libres (`assets/sounds/CREDITS.md`), la musique est composée à la volée. Le moteur final se construit en Rust avec wgpu dans `engine/` : `engine/core` reprend exactement le monde du prototype, sans dépendance ; `engine/game` ajoute la fenêtre et le rendu.
 
 ## Lancer
 
@@ -38,6 +37,16 @@ python3 tools/poses.py out.png  # planche des poses et des vues
 python3 tools/capture.py out.png -q haut -r 8 -w 1672 -H 941   # capture réelle du moteur
 python3 tools/imgstats.py out.png refs/ref6.png                # mesures objectives
 ```
+
+## Moteur final
+
+```sh
+cd engine/core && cargo test --release        # parité exacte avec le prototype, chargement, physique
+node engine/tools/parity.mjs                  # régénère les empreintes depuis le prototype
+python3 engine/tools/wgsl_test.py out.png "[x,y,z]" "[x,y,z]"   # rend la vraie scène avec WebGPU dans Chrome
+```
+
+GitHub compile `engine/game` sous Windows à chaque envoi et publie le programme dans la version `moteur-dev`.
 
 ## Organisation
 
