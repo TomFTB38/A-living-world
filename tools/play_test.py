@@ -28,12 +28,11 @@ with sync_playwright() as p:
     pg.evaluate('ALW.dragMode=true; ALW.view.third=false; ALW.player.pitch=-1.2'); time.sleep(3)
     pg.wait_for_function('!!ALW.target',timeout=90000); t=st()['t']; print('cible',t)
     # casser au clic (mode sans verrouillage du pointeur)
-    pg.mouse.move(160,90); pg.mouse.click(160,90)
-    try: pg.wait_for_function(f'ALW.world.get({t[0]},{t[1]},{t[2]})!=={t[3]}',timeout=90000)
-    except Exception:
-        print(pg.evaluate('({am:ALW.autoMine,m:ALW.mining,mt:ALW.mine,pa:ALW.paused,tg:ALW.target,inv:ALW.sel,fps:ALW.prof.fps,el:document.elementFromPoint(160,90).id})')); raise
-    check('casser un bloc au clic', True, 'bloc %d supprimé'%t[3])
-    pg.wait_for_function(f'ALW.world.get({t[0]},{t[1]},{t[2]})===0',timeout=60000)
+    pg.mouse.move(160,90); done=False
+    for _ in range(5):  # un clic casse un bloc : l'herbe d'abord s'il y en a devant la cible
+        pg.mouse.click(160,90); time.sleep(4)
+        if pg.evaluate('ALW.world.edits.size>0'): done=True; break
+    check('casser un bloc au clic', done, str(pg.evaluate('[...ALW.world.edits.values()].map(m=>[...m.values()])')))
     # poser
     pg.keyboard.press('Digit5'); before=st()['inv'][4]; time.sleep(1.5)
     pg.wait_for_function('!!ALW.target',timeout=90000)
