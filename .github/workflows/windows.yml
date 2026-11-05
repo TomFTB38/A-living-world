@@ -23,9 +23,9 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p capture
-          engine/game/target/release/a-living-world.exe --capture capture/spawn.bmp -38.5 53 0.5 -20 52 -30 10 6 1280 720 2048 2>&1 | tee capture/journal.txt
+          engine/game/target/release/a-living-world.exe --capture capture/spawn.bmp -38.5 53 0.5 -20 52 -30 16.4 6 1280 720 2048 2>&1 | tee capture/journal.txt
           cp engine/game/target/release/alw-erreur.txt capture/ 2>/dev/null || true
-          engine/game/target/release/a-living-world.exe --capture capture/eau.bmp -62 47 -55 -54 42 -51 10 5 1280 720 2048 2>&1 | tee -a capture/journal.txt
+          engine/game/target/release/a-living-world.exe --capture capture/eau.bmp -62 47 -55 -54 42 -51 16.4 5 1280 720 2048 2>&1 | tee -a capture/journal.txt
       - name: Dépose la capture sur la branche captures
         shell: bash
         continue-on-error: true

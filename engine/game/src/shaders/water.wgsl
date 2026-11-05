@@ -36,8 +36,8 @@ fn pos(p: vec2f, d: f32) -> vec3f { return world_from(p, max(d, 1e-6)); }
     if (hit.x >= 0.0) { let ed = smoothstep(0.0, 0.08, min(min(hit.x, hit.y), min(1.0 - hit.x, 1.0 - hit.y))); refl = mix(refl, textureSampleLevel(t_scene, s_clamp, hit, 0.0).rgb, ed * 0.9); }
   }
   var c = mix(water, refl, fr);
-  let hv = normalize(u.sun.xyz - v); c += u.sun_col.rgb * pow(sat(dot(n, hv)), 420.0) * sh * 5.0;
-  let glint = pow(sat(dot(reflect(v, normalize(n + vec3f(0.0, 0.2, 0.0))), u.sun.xyz)), 1400.0) * 40.0 * sh; c += u.sun_col.rgb * min(glint, 6.0);
+  let hv = normalize(u.sun.xyz - v); c += u.sun_col.rgb * pow(sat(dot(n, hv)), 900.0) * sh * 1.6;
+  let glint = pow(sat(dot(reflect(v, normalize(n + vec3f(0.0, 0.2, 0.0))), u.sun.xyz)), 1400.0) * 40.0 * sh; c += u.sun_col.rgb * min(glint, 1.5);
   let fnz = noise(vec3f(i.w.xz * 0.42, time * 0.09)); let boil = 0.6 * noise(vec3f(i.w.xz * 0.37 + vec2f(0.13), time * 0.3)) + 0.4 * noise(vec3f(i.w.zx * 0.91, 0.4 - time * 0.45));
   var foam = max((1.0 - smoothstep(0.05, 0.7, depth)) * smoothstep(0.42, 0.7, fnz + 0.25), smoothstep(0.2, 1.5, i.foam) * smoothstep(0.42, 0.56, boil)) * select(0.0, 1.0, fall < 0.5);
   let lit_s = mix(u.hor.rgb, u.top.rgb, 0.5);

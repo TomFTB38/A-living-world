@@ -23,7 +23,7 @@ fn spawn_point(seed: i32) -> (f64, f64, f64) {
     } }
     best
 }
-struct Game { window: Arc<Window>, gpu: gpu::Gpu, world: Streamer, player: Player, keys: HashSet<KeyCode>, grabbed: bool, hour: f64, time: f64, last: Instant, frames: u32, fps_t: f64, tris: usize }
+struct Game { window: Arc<Window>, gpu: gpu::Gpu, world: Streamer, player: Player, keys: HashSet<KeyCode>, grabbed: bool, hour: f64, time: f64, run_time: bool, last: Instant, frames: u32, fps_t: f64, tris: usize }
 #[derive(Default)]
 struct App { game: Option<Game> }
 impl Game {
@@ -33,7 +33,7 @@ impl Game {
         self.window.set_cursor_visible(!on);
     }
     fn frame(&mut self) {
-        let now = Instant::now(); let dt = (now - self.last).as_secs_f64().min(0.05); let real = (now - self.last).as_secs_f64(); self.last = now; self.time += dt;
+        let now = Instant::now(); let dt = (now - self.last).as_secs_f64().min(0.05); let real = (now - self.last).as_secs_f64(); self.last = now; self.time += dt; if self.run_time { self.hour = (self.hour + dt * 24.0 / 1500.0) % 24.0; }
         let k = |c: KeyCode| self.keys.contains(&c);
         // Regarder vers +z place +x à gauche de l'écran : la droite vaut -x.
         let ax = |a: bool, b: bool| (a as i32 - b as i32) as f64;
@@ -60,7 +60,7 @@ impl ApplicationHandler for App {
         let gpu = pollster::block_on(gpu::Gpu::new(Some(window.clone()), size.width, size.height, gpu::Options { shadow: 4096, fallback: false, hole: (HIGH.radius as f32 - 0.6) * 32.0 }));
         let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).saturating_sub(2).clamp(2, 12);
         let (x, z, y) = spawn_point(SEED);
-        let mut g = Game { window, gpu, world: Streamer::new(SEED, &HIGH, threads), player: Player::new(x, y, z), keys: HashSet::new(), grabbed: false, hour: 10.0, time: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
+        let mut g = Game { window, gpu, world: Streamer::new(SEED, &HIGH, threads), player: Player::new(x, y, z), keys: HashSet::new(), grabbed: false, hour: 16.4, time: 0.0, run_time: true, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
         g.grab(true); self.game = Some(g);
     }
     fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, e: WindowEvent) {
@@ -77,6 +77,7 @@ impl ApplicationHandler for App {
                             KeyCode::Escape => g.grab(false),
                             KeyCode::KeyF => g.player.fly = !g.player.fly,
                             KeyCode::KeyT => g.hour = (g.hour + 1.0) % 24.0,
+                            KeyCode::KeyY => g.run_time = !g.run_time,
                             _ => {}
                         } }
                         g.keys.insert(c);
@@ -99,7 +100,7 @@ impl ApplicationHandler for App {
 /// a-living-world --capture sortie.bmp x y z vx vy vz [heure] [rayon] [largeur] [hauteur] [ombre]
 fn capture(a: &[String]) {
     let n = |i: usize, d: f64| a.get(i).and_then(|v| v.parse().ok()).unwrap_or(d);
-    let (eye, look) = ([n(1, -38.5), n(2, 53.0), n(3, 0.5)], [n(4, -20.0), n(5, 52.0), n(6, -30.0)]); let hour = n(7, 10.0);
+    let (eye, look) = ([n(1, -38.5), n(2, 53.0), n(3, 0.5)], [n(4, -20.0), n(5, 52.0), n(6, -30.0)]); let hour = n(7, 16.4);
     let (radius, w, h, shadow) = (n(8, 6.0) as i32, n(9, 1280.0) as u32, n(10, 720.0) as u32, n(11, 2048.0) as u32);
     let mut g = pollster::block_on(gpu::Gpu::new(None, w, h, gpu::Options { shadow, fallback: true, hole: (radius as f32 - 0.6) * 32.0 }));
     let mut world = Streamer::new(SEED, &Preset { radius, lod1: 2.3, lod2: 4.6 }, 4);
