@@ -12,24 +12,37 @@ def read(path):
 def write(name, x, br='96k'):
     x = np.clip(x, -1, 1); ch = 2 if x.ndim == 2 else 1
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'f32le', '-ar', str(SR), '-ac', str(ch), '-i', '-', '-c:a', 'libmp3lame', '-b:a', br, os.path.join(OUT, name + '.mp3')], input=x.astype(np.float32).tobytes(), check=True)
-def clean(x, peak=0.7, maxd=0.85):
-    th = np.abs(x).max() * 0.02; on = np.nonzero(np.abs(x) > th)[0]; a, b = max(on[0] - 40, 0), on[-1] + 1
+def clean(x, peak=0.7, maxd=0.85, keep=0.02):
+    th = np.abs(x).max() * keep; on = np.nonzero(np.abs(x) > th)[0]; a, b = max(on[0] - 40, 0), on[-1] + 1
     x = x[a:min(b, a + int(maxd * SR))].copy(); n = len(x); f = min(int(.012 * SR), n // 3)
     x[:32] *= np.linspace(0, 1, 32); x[-f:] *= np.cos(np.linspace(0, np.pi / 2, f)) ** 2
     return x / np.abs(x).max() * peak
 ken = lambda s, i: sorted(glob.glob(f'{KEN}/**/{s}_00{i}.ogg', recursive=True))[0]
 mt = lambda n: f'{MTG}/mods/default/sounds/{n}.ogg'
 SETS = {
- 'grass': [ken('footstep_grass', i) for i in range(4)], 'wood': [ken('footstep_wood', i) for i in range(4)], 'stone': [ken('footstep_concrete', i) for i in range(4)],
+ 'wood': [ken('footstep_wood', i) for i in range(4)], 
  'sand': [mt(f'default_sand_footstep.{i}') for i in (1, 2, 3)], 'gravel': [mt(f'default_gravel_dig.{i}') for i in (1, 2)] + [mt('default_gravel_dug.1')],
- 'crumble': [mt(f'default_gravel_dug.{i}') for i in (1, 2, 3)], 'rock': [ken('impact_mining', i) for i in range(4)], 'crack': [mt(f'default_dig_cracky.{i}') for i in (1, 2, 3)],
- 'soft': [ken('impact_soft_medium', i) for i in range(3)], 'softh': [ken('impact_soft_heavy', i) for i in range(3)], 'woodl': [ken('impact_wood_light', i) for i in range(3)],
- 'woodh': [ken('impact_wood_heavy', i) for i in range(3)], 'plank': [ken('impact_plank_medium', i) for i in range(3)], 'chop': [mt(f'default_dig_choppy.{i}') for i in (1, 2, 3)],
+ 'crumble': [mt(f'default_gravel_dug.{i}') for i in (1, 2, 3)], 'crack': [mt(f'default_dig_cracky.{i}') for i in (1, 2, 3)],
+ 'soft': [ken('impact_soft_medium', i) for i in range(3)], 'woodl': [ken('impact_wood_light', i) for i in range(3)],
+  'plank': [ken('impact_plank_medium', i) for i in range(3)], 
  'leaf': [mt('default_dig_snappy')], 'metal': [ken('impact_metal_light', i) for i in range(3)], 'glass': [ken('impact_glass_light', i) for i in range(2)],
- 'punch': [ken('impact_punch_medium', i) for i in range(3)], 'splash': [mt(f'default_water_footstep.{i}') for i in (1, 2)], 'hurt': [mt('player_damage')],
+  'splash': [mt(f'default_water_footstep.{i}') for i in (1, 2)], 'hurt': [mt('player_damage')],
 }
+def band(x, lo, hi=None, boost=None):
+    """Filtre en fréquence, sans déphasage : retire le grave qui fait tambour. boost = (f0, largeur, gain)."""
+    X = np.fft.rfft(x); f = np.fft.rfftfreq(len(x), 1 / SR); g = (1 - np.exp(-(f / lo) ** 2.5))
+    if hi: g *= np.exp(-(f / hi) ** 4)
+    if boost: g *= 1 + boost[2] * np.exp(-((f - boost[0]) / boost[1]) ** 2)
+    return np.fft.irfft(X * g, len(x))
 for n, files in SETS.items():
-    for i, f in enumerate(files): write(f'{n}_{i}', clean(read(f)))
+    for i, f in enumerate(files): write(f'{n}_{i}', clean(read(f), keep=0.004 if n == 'crack' else 0.02))
+# Matières retravaillées : on garde l'attaque sèche, le corps grave est retiré.
+for i in range(4): write(f'rockhi_{i}', clean(band(read(ken('impact_mining', i)), 420), .7, .4))
+for i in range(3):
+    x = band(read(mt(f'default_dig_choppy.{i + 1}')), 190, 5000, (1100, 650, 2.2)); write(f'chopdry_{i}', clean(x, .7))
+    y = band(read(ken('impact_wood_light', i)), 230, 4000, (900, 500, 2.5)); write(f'knock_{i}', clean(y, .7))
+for i in range(4): write(f'stepstone_{i}', clean(band(read(ken('footstep_concrete', i)), 240, 7000, (1800, 900, 3)), .7))
+for i in range(4): write(f'stepgrass_{i}', clean(band(read(ken('footstep_grass', i)), 260), .7, .35))
 
 def sweep(dur, f0, f1, f2, q, seed):
     """Souffle filtré dont la fréquence suit le geste : monte puis retombe."""
