@@ -217,7 +217,7 @@ impl Mesher {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn deco_model(&self, o: &mut VBuf, b: u8, xi: i32, yi: i32, zi: i32, wx: i32, wz: i32, s: f64, l: f64, lod: u8) {
+    pub fn deco_model(&self, o: &mut VBuf, b: u8, xi: i32, yi: i32, zi: i32, wx: i32, wz: i32, s: f64, l: f64, lod: u8) {
         let (x, y, z) = (xi as f64, yi as f64, zi as f64);
         let mut r = Rng::new(hash_int(wx, yi, wz, 91)); let m = BLOCKS[b as usize].model.unwrap_or("");
         let r_ = &mut r;

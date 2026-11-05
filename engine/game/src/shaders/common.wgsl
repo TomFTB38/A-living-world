@@ -1,7 +1,7 @@
 // Constantes de l'image, partagées par toutes les passes. Profondeur inversée : proche = 1, ciel = 0.
 struct F {
   vp: mat4x4f, ivp: mat4x4f, prev_vp: mat4x4f, view: mat4x4f, proj: mat4x4f, iproj: mat4x4f, shadow_vp: array<mat4x4f, 3>,
-  cascade: vec4f, cam: vec4f, sun: vec4f, sun_col: vec4f, top: vec4f, hor: vec4f, ground: vec4f, jit: vec4f, misc: vec4f, aim: vec4f,
+  cascade: vec4f, cam: vec4f, sun: vec4f, sun_col: vec4f, top: vec4f, hor: vec4f, ground: vec4f, jit: vec4f, misc: vec4f, aim: vec4f, ghost: vec4f,
 };
 // cam.w temps · sun.w exposition · sun_col.w couverture nuageuse · top.w texel d'ombre · hor.w nuit · ground.w brume
 // jit.xy gigue · jit.zw taille · misc : image, voile, trou de l'horizon lointain, remise à zéro du TAA

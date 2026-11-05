@@ -6,9 +6,9 @@ const HALF: f64 = 0.3; const GRAV: f64 = 26.0; const JUMP: f64 = 9.2;
 pub trait Voxels { fn get(&self, x: i32, y: i32, z: i32) -> Option<u8>; }
 #[derive(Default, Clone, Copy)]
 pub struct Input { pub x: f64, pub z: f64, pub jump: bool, pub sprint: bool, pub crouch: bool }
-pub struct Player { pub p: [f64; 3], pub v: [f64; 3], pub yaw: f64, pub pitch: f64, pub ground: bool, pub crouch: bool, pub in_water: bool, pub speed: f64, pub fly: bool }
+pub struct Player { pub p: [f64; 3], pub v: [f64; 3], pub yaw: f64, pub pitch: f64, pub ground: bool, pub crouch: bool, pub in_water: bool, pub speed: f64, pub fly: bool, pub move_yaw: f64 }
 impl Player {
-    pub fn new(x: f64, y: f64, z: f64) -> Self { Player { p: [x, y, z], v: [0.0; 3], yaw: 0.0, pitch: 0.0, ground: false, crouch: false, in_water: false, speed: 0.0, fly: false } }
+    pub fn new(x: f64, y: f64, z: f64) -> Self { Player { p: [x, y, z], v: [0.0; 3], yaw: 0.0, pitch: 0.0, ground: false, crouch: false, in_water: false, speed: 0.0, fly: false, move_yaw: 0.0 } }
     fn hits(&self, w: &impl Voxels, x: f64, y: f64, z: f64) -> bool {
         let h = if self.crouch { 1.45 } else { 1.8 }; let fl = |v: f64| v.floor() as i32;
         for by in fl(y)..=fl(y + h - 0.001) { for bz in fl(z - HALF)..=fl(z + HALF) { for bx in fl(x - HALF)..=fl(x + HALF) {
@@ -43,6 +43,7 @@ impl Player {
             self.v[1] = 0.0;
         }
         self.speed = (self.v[0] * self.v[0] + self.v[2] * self.v[2]).sqrt();
+        if l > 0.05 { let d = mx.atan2(mz) - self.move_yaw; let d = d.sin().atan2(d.cos()); self.move_yaw += d * (dt * 11.0).min(1.0); }
     }
     pub fn eye(&self) -> [f64; 3] { [self.p[0], self.p[1] + if self.crouch { 1.32 } else { 1.62 }, self.p[2]] }
     pub fn forward(&self) -> [f64; 3] { let cp = self.pitch.cos(); [self.yaw.sin() * cp, self.pitch.sin(), self.yaw.cos() * cp] }

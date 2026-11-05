@@ -25,3 +25,18 @@ fn inventaire() {
     for b in BLOCKS.iter() { if let Some(d) = b.drop { if b.name != "air" { assert!(item(d).is_some(), "objet pour {d}"); } } }
     assert_eq!(gaze_axis(0.1, -0.9, 0.2, 0, None), 'y'); assert_eq!(gaze_axis(0.9, -0.2, 0.1, 0, None), 'x'); assert_eq!(gaze_axis(0.9, 0.0, 0.1, 3, None), 'z');
 }
+
+#[test]
+fn personnage_et_inventaire_ecran() {
+    let mut s = session(); let md = alw_core::actors::Models::build(); assert!(md.n > 1000);
+    for n in ORDER { assert!(md.held(n).is_some(), "{n}"); }
+    let v = alw_core::view::identity();
+    s.third = true; let d = s.draws(&md, &v); assert_eq!(d.len(), 7, "corps et outil"); for k in &d { assert!(k.m[12].is_finite() && k.r.count > 0); }
+    s.third = false; assert_eq!(s.draws(&md, &v).len(), 2, "bras et outil"); s.sel = 8; assert_eq!(s.draws(&md, &v).len(), 1, "poing"); s.sel = 5; assert_eq!(s.draws(&md, &v).len(), 1, "bloc seul");
+    for _ in 0..30 { s.anim.update(1.0 / 60.0, alw_core::actors::AnimIn { speed: 6.0, ground: true, mining: true, ..Default::default() }); } assert!(s.anim.swing > 0.0);
+    // glisser-déposer : échange, réunion, retour à la case d'origine
+    s.inv = [None; INV_SIZE]; s.add_item("dirt", 10); s.add_item("stone", 5); s.grab_slot(0); s.drop_slot(Some(1)); assert_eq!(s.inv[1].unwrap().item, "dirt"); assert_eq!(s.inv[0].unwrap().item, "stone");
+    s.add_item("stone", 3); s.grab_slot(1); s.drop_slot(None); assert_eq!(s.inv[1].unwrap().item, "dirt");
+    s.inv[2] = Some(Stack { item: "dirt", n: Some(95) }); s.grab_slot(1); s.drop_slot(Some(2)); assert_eq!(s.inv[2].unwrap().n, Some(99)); assert_eq!(s.inv[1].unwrap().n, Some(6));
+    s.grab_catalog("lantern"); s.drop_slot(Some(9)); assert_eq!(s.inv[9].unwrap().n, Some(99));
+}

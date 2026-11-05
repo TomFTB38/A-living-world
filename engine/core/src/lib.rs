@@ -11,3 +11,4 @@ pub mod player;
 pub mod stream;
 pub mod view;
 pub mod session;
+pub mod actors;

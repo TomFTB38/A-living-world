@@ -4,6 +4,8 @@ import { hashInt, Noise, Rng } from '../../src/core/noise.js';
 import { WorldGen } from '../../src/world/gen.js';
 import { ChunkStore } from '../../src/world/store.js';
 import { meshChunk, farMesh } from '../../src/world/mesher.js';
+import { buildCharacter } from '../../src/game/character.js';
+import { buildItems } from '../../src/game/items.js';
 import { buildTextures, buildNoise3D } from '../../src/render/textures.js';
 const fnv = (u8) => { let h = 0x811c9dc5; for (let i = 0; i < u8.length; i++) { h ^= u8[i]; h = Math.imul(h, 0x01000193); } return h >>> 0; };
 const out = [], bits = (v) => { const d = new DataView(new ArrayBuffer(8)); d.setFloat64(0, v); return d.getBigUint64(0).toString(16); };
@@ -12,6 +14,9 @@ for (const [a, b, c] of [[1, 2, 3], [0.1, 0.2, 0.9], [3.3, -7.7, 12.1]]) out.pus
 out.push(`hash ${hashInt(-5, 7, 20261104, 21)}`);
 const r = new Rng(12345); out.push(`rng ${bits(r.next())} ${bits(r.next())}`);
 const n = new Noise(77); out.push(`noise ${bits(n.n2(12.5, -3.25))} ${bits(n.n3(1.2, 2.3, -3.4))} ${bits(n.fbm2(0.7, 0.2, 3))}`);
+const stub = { mesh: (ab, n) => ({ ab, n }) };
+const ch = buildCharacter(stub); out.push(`character ${ch.mesh.n} ${fnv(new Uint8Array(ch.mesh.ab))}`);
+const it = buildItems(stub); for (const k in it) { const q = it[k], a = new Uint8Array(it.pickaxe.mesh.ab), st = q.offset / 24 * 4 * 20, n = q.count / 6 * 4; out.push(`item ${k} ${n} ${fnv(a.subarray(st, st + n * 20))}`); }
 for (const seed of [20261104, 7, -1234]) {
   const g = new WorldGen(seed);
   for (const [cx, cz] of [[0, 0], [-2, 1], [3, -4], [-1, 0], [5, 5], [-8, -9]]) out.push(`chunk ${seed} ${cx} ${cz} ${fnv(g.genChunk(cx, cz))}`);

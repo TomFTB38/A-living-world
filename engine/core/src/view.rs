@@ -30,6 +30,13 @@ pub fn invert(m: &M4) -> M4 {
     o[15] = a[0]*a[5]*a[10]-a[0]*a[6]*a[9]-a[4]*a[1]*a[10]+a[4]*a[2]*a[9]+a[8]*a[1]*a[6]-a[8]*a[2]*a[5];
     let d = a[0]*o[0]+a[1]*o[4]+a[2]*o[8]+a[3]*o[12]; let mut r = [0.0f32; 16]; for i in 0..16 { r[i] = (o[i] / d) as f32; } r
 }
+pub fn identity() -> M4 { let mut m = [0.0; 16]; m[0] = 1.0; m[5] = 1.0; m[10] = 1.0; m[15] = 1.0; m }
+/// Position, lacet, tangage et échelle.
+pub fn trs(px: f64, py: f64, pz: f64, ry: f64, rx: f64, sc: f64) -> M4 {
+    let (cy, sy, cx, sx) = (crate::det::cos(ry), crate::det::sin(ry), crate::det::cos(rx), crate::det::sin(rx)); let f = |v: f64| v as f32;
+    [f(cy * sc), 0.0, f(-sy * sc), 0.0, f(sy * sx * sc), f(cx * sc), f(cy * sx * sc), 0.0, f(sy * cx * sc), f(-sx * sc), f(cy * cx * sc), 0.0, f(px), f(py), f(pz), 1.0]
+}
+pub fn roll_z(a: f64) -> M4 { let (c, n) = (crate::det::cos(a) as f32, crate::det::sin(a) as f32); let mut m = identity(); m[0] = c; m[1] = n; m[4] = -n; m[5] = c; m }
 /// Vue depuis l'origine dans la direction f, avec un haut choisi.
 pub fn look_up(f: [f64; 3], up: [f64; 3]) -> M4 {
     let s = norm(cross(f, up)); let u = cross(s, f); let c = |v: f64| v as f32;
