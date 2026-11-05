@@ -36,9 +36,18 @@ export function buildCharacter(r) {
       Bx(o, [-0.09, -0.26, -0.1, 0.09, 0, 0.1], C.shirt); Bx(o, [-0.1, -0.32, -0.11, 0.1, -0.26, 0.11], C.shirt2); Bx(o, [-0.085, -0.56, -0.09, 0.085, -0.32, 0.09], C.skin); Bx(o, [-0.1, -0.66, -0.11, 0.1, -0.54, 0.11], C.glove);
     }),
   };
+  // Avant-bras vu en première personne : poing lisible, doigts repliés, protège-poignet de cuir.
+  parts.fist = part((o) => {
+    const K = [0.86, 0.62, 0.46], LT = [0.62, 0.38, 0.2];
+    Bx(o, [-0.08, -0.3, -0.085, 0.08, 0, 0.085], C.shirt); Bx(o, [-0.095, -0.34, -0.1, 0.095, -0.28, 0.1], C.shirt2);
+    Bx(o, [-0.08, -0.5, -0.08, 0.08, -0.34, 0.08], C.skin); Bx(o, [-0.095, -0.56, -0.095, 0.095, -0.48, 0.095], LT); Bx(o, [-0.098, -0.535, -0.098, 0.098, -0.515, 0.098], C.strap);
+    Bx(o, [-0.11, -0.72, -0.1, 0.11, -0.56, 0.1], C.skin);
+    for (let i = 0; i < 4; i++) { const x0 = -0.11 + i * 0.056; Bx(o, [x0 + 0.003, -0.74, 0.085, x0 + 0.05, -0.655, 0.125], i & 1 ? C.skin : K); Bx(o, [x0 + 0.003, -0.755, -0.03, x0 + 0.05, -0.72, 0.09], i & 1 ? K : C.skin); }
+    Bx(o, [0.085, -0.685, 0.02, 0.135, -0.59, 0.12], K);
+  });
   parts.legR = parts.legL;
   const all = new VBuf(5000), rng = {};
-  for (const n of ['torso', 'head', 'legL', 'armL', 'armR']) {
+  for (const n of ['torso', 'head', 'legL', 'armL', 'armR', 'fist']) {
     const p = parts[n], st = all.n; all.u8.length; for (let i = 0; i < p.n; i++) { /* copie */ }
     if (all.n + p.n > all.cap) { const o = all.u8; all.alloc((all.n + p.n) * 2); all.u8.set(o); }
     all.u8.set(p.u8.subarray(0, p.n * 20), all.n * 20); all.n += p.n;
@@ -92,15 +101,23 @@ export class CharacterAnim {
     if (held) out.push({ mesh: held.mesh, model: M.mul(armR, HOLD[held.kind]), count: held.count, offset: held.offset, hero: true, local: held.local });
     return out;
   }
-  // Bras vu à la première personne : mêmes objets, attachés à la caméra.
+  // Première personne : poing si la main est vide, bloc seul s'il y en a un, bras et outil sinon.
   viewActors(invView, held) {
     const m = this.m, s = Math.sin(this.phase), c = Math.cos(this.phase * 0.5), w = this.walk * (1 - this.air), V = M.mul(invView, M.trs(0, 0, 0, Math.PI));
-    const strike = this.swing > 0 ? Math.sin(this.swing * Math.PI) : 0, push = Math.sin(this.punch * Math.PI);
-    const x = -0.25 + c * 0.022 * w - 0.05 * this.run, y = -0.2 - Math.abs(s) * 0.022 * w - 0.05 * this.low + 0.07 * this.air * (this.rise - 0.5) - 0.06 * strike;
-    const z = -0.08 + 0.2 * push + 0.12 * strike, rx = -1.66 + 0.22 * this.run + 0.85 * strike - 0.3 * push;
-    const arm = M.mul(V, M.trs(x, y, z, 0.2 + 0.3 * strike, rx, 0.58)), r = m.rng.armR;
-    const out = [{ mesh: m.mesh, model: arm, count: r.count, offset: r.offset, hero: true, view: true }];
-    if (held) out.push({ mesh: held.mesh, model: M.mul(M.mul(arm, HOLD[held.kind]), held.kind === 'tool' ? M.trs(0, 0, 0, 0, 0, 0.5) : held.kind === 'block' ? M.trs(0.04, 0.04, 0.04, 0, 0, 0.72) : M.id()), count: held.count, offset: held.offset, hero: true, view: true, local: held.local });
+    const strike = this.swing > 0 ? Math.sin(this.swing * Math.PI) : 0, push = Math.sin(this.punch * Math.PI), r = m.rng.fist, out = [];
+    const bobX = c * 0.022 * w - 0.05 * this.run, bobY = -Math.abs(s) * 0.022 * w - 0.05 * this.low + 0.07 * this.air * (this.rise - 0.5);
+    const hand = (mat) => out.push({ mesh: m.mesh, model: mat, count: r.count, offset: r.offset, hero: true, view: true });
+    const item = (mat) => out.push({ mesh: held.mesh, model: mat, count: held.count, offset: held.offset, hero: true, view: true, local: held.local });
+    if (!held) {
+      const hit = Math.max(strike, push); // coup de poing vers l'avant
+      hand(M.mul(V, M.trs(-0.3 + bobX + 0.1 * hit, -0.37 + bobY + 0.05 * hit, 0.1 + 0.2 * hit, 0.42 - 0.2 * hit, -2.02 - 0.3 * hit, 0.62)));
+    } else if (held.kind === 'tool') {
+      const arm = M.mul(V, M.trs(-0.25 + bobX, -0.2 + bobY - 0.06 * strike, -0.08 + 0.2 * push + 0.12 * strike, 0.2 + 0.3 * strike, -1.66 + 0.22 * this.run + 0.85 * strike - 0.3 * push, 0.58));
+      hand(arm); item(M.mul(M.mul(arm, HOLD.tool), M.trs(0, 0, 0, 0, 0, 0.5)));
+    } else {
+      const sc = held.kind === 'block' ? 0.26 : 0.46, base = M.mul(V, M.trs(-0.29 + bobX + 0.05 * strike, -0.2 + bobY - 0.1 * strike + 0.03 * push, 0.52 + 0.12 * push + 0.08 * strike, 0.62 + 0.25 * strike, 0.26 + 0.6 * strike - 0.3 * push, sc));
+      item(M.mul(base, M.trs(-0.5, held.kind === 'block' ? -0.5 : -0.4, -0.5, 0)));
+    }
     return out;
   }
 }

@@ -31,7 +31,7 @@ input,select{width:100%;background:#0005;border:1px solid var(--line);color:var(
 #loading{background:#10140d;flex-direction:column;gap:16px}#loading h1{font-size:clamp(26px,5vw,44px);margin:0;letter-spacing:.03em}#loadTrack{width:min(340px,70vw);height:8px;border-radius:4px;background:#ffffff1c;overflow:hidden}#loadbar{height:100%;width:0;background:var(--accent);transition:width .2s}
 #inv .card{width:min(620px,100%)}#inv h2{display:flex;justify-content:space-between;align-items:center;gap:12px}#inv h2 button{font-size:13px;padding:6px 10px}
 .grid9{display:grid;grid-template-columns:repeat(9,1fr);gap:4px}#invBar{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
-.cell{padding:0;border:2px solid transparent;cursor:pointer;min-width:0;color:var(--ink)}.cell.on{border-color:var(--accent);background:#9ed44a33}.cell.sel{box-shadow:inset 0 0 0 1px #fff8}.cell span{position:absolute;left:0;right:0;bottom:1px;font:600 9.5px/1.1 system-ui;text-align:center;text-shadow:0 1px 2px #000;pointer-events:none}.cell img{inset:6%;width:88%;height:88%}
+.cell{padding:0;border:2px solid transparent;cursor:grab;min-width:0;color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}.cell.over{border-color:var(--accent);background:#9ed44a33}.cell.lifted img,.cell.lifted b{opacity:.25}.cell.sel{box-shadow:inset 0 0 0 1px #fff8}#dragGhost{position:fixed;width:60px;height:60px;transform:translate(-50%,-50%);pointer-events:none;z-index:8;filter:drop-shadow(0 4px 6px #0009)}.cell span{position:absolute;left:0;right:0;bottom:1px;font:600 9.5px/1.1 system-ui;text-align:center;text-shadow:0 1px 2px #000;pointer-events:none}.cell img{inset:6%;width:88%;height:88%}
 #catTabs{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 8px}.tab{padding:6px 10px;font-size:13px}.tab.on{background:#6b9a2b;border-color:#8cbe41}#catItems{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:4px}#invTip{min-height:18px;font-size:12px;opacity:.85;margin-top:6px}#inv p{margin:6px 0 0;font-size:12.5px;opacity:.75}
 #tInv{top:calc(62px + env(safe-area-inset-top,0px));bottom:auto!important;right:162px!important;width:64px!important;height:36px!important;border-radius:8px!important}#tView{top:calc(62px + env(safe-area-inset-top,0px));bottom:auto!important;right:234px!important;width:64px!important;height:36px!important;border-radius:8px!important}#tRun,#tLow{left:18px;right:auto!important;bottom:210px;width:64px!important;height:48px!important;border-radius:8px!important}#tLow{left:90px}#tRun.on,#tLow.on{background:#6b9a2b}#tFly,#tDown{display:none;left:18px;right:auto!important;bottom:150px;width:64px!important;height:48px!important;border-radius:8px!important}#tDown{left:90px}.crea #tFly,.crea.flying #tDown{display:block}
 #fatal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#10140d;padding:24px;text-align:center;z-index:9}#fatal.on{display:flex}
@@ -60,8 +60,8 @@ input,select{width:100%;background:#0005;border:1px solid var(--line);color:var(
 <div class="row"><label for="inFov">Champ de vision</label><input id="inFov" type="range" min="55" max="100"></div><div class="row"><label for="inSens">Sensibilité</label><input id="inSens" type="range" min=".3" max="2.5" step=".1"></div>
 <h3>Commandes</h3><div class="keys"><b>ZQSD / WASD</b><span>se déplacer</span><b>Espace</b><span>sauter, remonter dans l'eau</span><b>Maj / Ctrl</b><span>sprint / s'accroupir</span><b>1 à 9, molette</b><span>objet sélectionné</span><b>E</b><span>inventaire</span><b>G</b><span>survie ou créatif</span><b>F, Espace 2 fois</b><span>voler en créatif</span><b>Ctrl</b><span>descendre en vol</span><b>C</b><span>changer de caméra</span><b>R</b><span>orientation du bloc</span><b>T / Y</b><span>avancer l'heure / figer le temps</span><b>F3</b><span>profilage</span><b>F5</b><span>sauvegarde rapide</span></div></div></div>
 <div class="layer" id="inv"><div class="card"><h2><span id="invTitle">Inventaire</span><button id="invClose">Fermer</button></h2>
-<div id="invCreative" hidden><div id="catTabs"></div><div id="catItems"></div><div id="invTip">Touchez un objet pour le mettre dans la case sélectionnée.</div></div>
-<div class="grid9" id="invBag" style="margin-top:12px"></div><div class="grid9" id="invBar"></div><p>Touchez une case, puis une autre, pour échanger leur contenu.</p></div></div>
+<div id="invCreative" hidden><div id="catTabs"></div><div id="catItems"></div><div id="invTip">Glissez un objet vers une case, ou touchez-le pour remplir la case sélectionnée. Glissez une case hors de la grille pour la vider.</div></div>
+<div class="grid9" id="invBag" style="margin-top:12px"></div><div class="grid9" id="invBar"></div><p>Glissez un objet vers une case. Touchez une case de la barre pour la sélectionner.</p></div></div><img id="dragGhost" alt="" hidden>
 <div class="layer on" id="loading"><h1>A LIVING WORLD</h1><div id="loadTrack"><div id="loadbar"></div></div></div>
 <div id="fatal"></div>
 <script>(()=>{// Core/noise.js — hachage et bruits déterministes. Aucun appel à Math.random dans la génération :
@@ -2299,9 +2299,18 @@ function buildCharacter(r) {
       Bx(o, [-0.09, -0.26, -0.1, 0.09, 0, 0.1], C.shirt); Bx(o, [-0.1, -0.32, -0.11, 0.1, -0.26, 0.11], C.shirt2); Bx(o, [-0.085, -0.56, -0.09, 0.085, -0.32, 0.09], C.skin); Bx(o, [-0.1, -0.66, -0.11, 0.1, -0.54, 0.11], C.glove);
     }),
   };
+  // Avant-bras vu en première personne : poing lisible, doigts repliés, protège-poignet de cuir.
+  parts.fist = part((o) => {
+    const K = [0.86, 0.62, 0.46], LT = [0.62, 0.38, 0.2];
+    Bx(o, [-0.08, -0.3, -0.085, 0.08, 0, 0.085], C.shirt); Bx(o, [-0.095, -0.34, -0.1, 0.095, -0.28, 0.1], C.shirt2);
+    Bx(o, [-0.08, -0.5, -0.08, 0.08, -0.34, 0.08], C.skin); Bx(o, [-0.095, -0.56, -0.095, 0.095, -0.48, 0.095], LT); Bx(o, [-0.098, -0.535, -0.098, 0.098, -0.515, 0.098], C.strap);
+    Bx(o, [-0.11, -0.72, -0.1, 0.11, -0.56, 0.1], C.skin);
+    for (let i = 0; i < 4; i++) { const x0 = -0.11 + i * 0.056; Bx(o, [x0 + 0.003, -0.74, 0.085, x0 + 0.05, -0.655, 0.125], i & 1 ? C.skin : K); Bx(o, [x0 + 0.003, -0.755, -0.03, x0 + 0.05, -0.72, 0.09], i & 1 ? K : C.skin); }
+    Bx(o, [0.085, -0.685, 0.02, 0.135, -0.59, 0.12], K);
+  });
   parts.legR = parts.legL;
   const all = new VBuf(5000), rng = {};
-  for (const n of ['torso', 'head', 'legL', 'armL', 'armR']) {
+  for (const n of ['torso', 'head', 'legL', 'armL', 'armR', 'fist']) {
     const p = parts[n], st = all.n; all.u8.length; for (let i = 0; i < p.n; i++) { /* copie */ }
     if (all.n + p.n > all.cap) { const o = all.u8; all.alloc((all.n + p.n) * 2); all.u8.set(o); }
     all.u8.set(p.u8.subarray(0, p.n * 20), all.n * 20); all.n += p.n;
@@ -2355,15 +2364,23 @@ class CharacterAnim {
     if (held) out.push({ mesh: held.mesh, model: M.mul(armR, HOLD[held.kind]), count: held.count, offset: held.offset, hero: true, local: held.local });
     return out;
   }
-  // Bras vu à la première personne : mêmes objets, attachés à la caméra.
+  // Première personne : poing si la main est vide, bloc seul s'il y en a un, bras et outil sinon.
   viewActors(invView, held) {
     const m = this.m, s = Math.sin(this.phase), c = Math.cos(this.phase * 0.5), w = this.walk * (1 - this.air), V = M.mul(invView, M.trs(0, 0, 0, Math.PI));
-    const strike = this.swing > 0 ? Math.sin(this.swing * Math.PI) : 0, push = Math.sin(this.punch * Math.PI);
-    const x = -0.25 + c * 0.022 * w - 0.05 * this.run, y = -0.2 - Math.abs(s) * 0.022 * w - 0.05 * this.low + 0.07 * this.air * (this.rise - 0.5) - 0.06 * strike;
-    const z = -0.08 + 0.2 * push + 0.12 * strike, rx = -1.66 + 0.22 * this.run + 0.85 * strike - 0.3 * push;
-    const arm = M.mul(V, M.trs(x, y, z, 0.2 + 0.3 * strike, rx, 0.58)), r = m.rng.armR;
-    const out = [{ mesh: m.mesh, model: arm, count: r.count, offset: r.offset, hero: true, view: true }];
-    if (held) out.push({ mesh: held.mesh, model: M.mul(M.mul(arm, HOLD[held.kind]), held.kind === 'tool' ? M.trs(0, 0, 0, 0, 0, 0.5) : held.kind === 'block' ? M.trs(0.04, 0.04, 0.04, 0, 0, 0.72) : M.id()), count: held.count, offset: held.offset, hero: true, view: true, local: held.local });
+    const strike = this.swing > 0 ? Math.sin(this.swing * Math.PI) : 0, push = Math.sin(this.punch * Math.PI), r = m.rng.fist, out = [];
+    const bobX = c * 0.022 * w - 0.05 * this.run, bobY = -Math.abs(s) * 0.022 * w - 0.05 * this.low + 0.07 * this.air * (this.rise - 0.5);
+    const hand = (mat) => out.push({ mesh: m.mesh, model: mat, count: r.count, offset: r.offset, hero: true, view: true });
+    const item = (mat) => out.push({ mesh: held.mesh, model: mat, count: held.count, offset: held.offset, hero: true, view: true, local: held.local });
+    if (!held) {
+      const hit = Math.max(strike, push); // coup de poing vers l'avant
+      hand(M.mul(V, M.trs(-0.3 + bobX + 0.1 * hit, -0.37 + bobY + 0.05 * hit, 0.1 + 0.2 * hit, 0.42 - 0.2 * hit, -2.02 - 0.3 * hit, 0.62)));
+    } else if (held.kind === 'tool') {
+      const arm = M.mul(V, M.trs(-0.25 + bobX, -0.2 + bobY - 0.06 * strike, -0.08 + 0.2 * push + 0.12 * strike, 0.2 + 0.3 * strike, -1.66 + 0.22 * this.run + 0.85 * strike - 0.3 * push, 0.58));
+      hand(arm); item(M.mul(M.mul(arm, HOLD.tool), M.trs(0, 0, 0, 0, 0, 0.5)));
+    } else {
+      const sc = held.kind === 'block' ? 0.26 : 0.46, base = M.mul(V, M.trs(-0.29 + bobX + 0.05 * strike, -0.2 + bobY - 0.1 * strike + 0.03 * push, 0.52 + 0.12 * push + 0.08 * strike, 0.62 + 0.25 * strike, 0.26 + 0.6 * strike - 0.3 * push, sc));
+      item(M.mul(base, M.trs(-0.5, held.kind === 'block' ? -0.5 : -0.4, -0.5, 0)));
+    }
     return out;
   }
 }
@@ -2542,36 +2559,61 @@ class HUD {
   toast(t) { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(this.tt); this.tt = setTimeout(() => e.classList.remove('on'), 2200); }
 }
 
-// Inventaire : toucher une case puis une autre échange leur contenu, à la souris comme au doigt.
+// Inventaire au glisser-déposer : mêmes événements pour la souris et le doigt.
 class InventoryUI {
   constructor(game) {
-    this.g = game; this.pick = null; this.cat = 0; this.cells = [];
-    const mk = (root, i) => { const d = document.createElement('button'); d.className = 'slot cell'; d.innerHTML = '<img alt=""><b></b>'; d.onclick = () => this.tap(i); root.appendChild(d); this.cells[i] = d; };
+    this.g = game; this.cat = 0; this.cells = []; this.drag = null;
+    const mk = (root, i) => { const d = document.createElement('div'); d.className = 'slot cell'; d.dataset.i = i; d.innerHTML = '<img alt="" draggable="false"><b></b>'; d.addEventListener('pointerdown', (e) => this.start(e, { slot: i })); root.appendChild(d); this.cells[i] = d; };
     for (let i = 9; i < 36; i++) mk($('invBag'), i);
     for (let i = 0; i < 9; i++) mk($('invBar'), i);
     CATEGORIES.forEach(([n], i) => { const b = document.createElement('button'); b.textContent = n; b.className = 'tab'; b.onclick = () => { this.cat = i; this.render(); }; $('catTabs').appendChild(b); });
+    window.addEventListener('pointermove', (e) => this.move(e)); window.addEventListener('pointerup', (e) => this.end(e)); window.addEventListener('pointercancel', () => this.cancel());
   }
-  open(on) { $('inv').classList.toggle('on', on); this.pick = null; if (on) this.render(); }
-  tap(i) {
-    const g = this.g, inv = g.inv;
-    if (this.pick === null) { if (inv[i]) this.pick = i; this.render(); return; }
-    const a = this.pick, A = inv[a], Z = inv[i]; this.pick = null;
-    if (a !== i) {
-      if (A && Z && A.item === Z.item && A.n !== undefined && !g.creative) { const m = Math.min(STACK - Z.n, A.n); Z.n += m; A.n -= m; if (A.n <= 0) inv[a] = null; }
-      else { inv[a] = Z; inv[i] = A; }
+  open(on) { $('inv').classList.toggle('on', on); this.cancel(); if (on) this.render(); }
+  start(e, src) {
+    const it = src.slot !== undefined ? this.g.inv[src.slot] : src; if (!it || e.button > 0) return;
+    e.preventDefault(); this.drag = { src, id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, item: it.item || src.catalog };
+  }
+  move(e) {
+    const d = this.drag; if (!d || e.pointerId !== d.id) return;
+    if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) {
+      d.moved = true; const g = $('dragGhost'); g.src = this.g.hud.icons[d.item]; g.hidden = false;
+      if (d.src.slot !== undefined) this.cells[d.src.slot].classList.add('lifted');
     }
-    g.refreshInv(); this.render();
+    if (!d.moved) return;
+    const g = $('dragGhost'); g.style.left = e.clientX + 'px'; g.style.top = e.clientY + 'px';
+    this.cells.forEach((c) => c.classList.remove('over')); const t = this.cellAt(e); if (t) t.classList.add('over');
   }
-  grant(name) { const g = this.g, t = this.pick !== null ? this.pick : g.sel; g.inv[t] = ITEMS[name].block !== undefined ? { item: name, n: STACK } : { item: name }; this.pick = null; g.refreshInv(); this.render(); $('invTip').textContent = ITEMS[name].name + ' ajouté à la case ' + (t < 9 ? t + 1 : 'du sac'); }
+  cellAt(e) { const el = document.elementFromPoint(e.clientX, e.clientY); return el && el.closest ? el.closest('.cell[data-i]') : null; }
+  end(e) {
+    const d = this.drag; if (!d || e.pointerId !== d.id) return;
+    const t = this.cellAt(e), to = t ? +t.dataset.i : null;
+    if (!d.moved) { // simple toucher : choisit la case active, ou remplit celle-ci depuis le catalogue
+      if (d.src.catalog) this.put(d.src.catalog, this.g.sel); else if (d.src.slot < 9) this.g.select(d.src.slot);
+    } else if (to !== null) {
+      if (d.src.catalog) this.put(d.src.catalog, to); else this.moveStack(d.src.slot, to);
+    } else if (this.g.creative && d.src.slot !== undefined && !(document.elementFromPoint(e.clientX, e.clientY) || document.body).closest('#invBag,#invBar')) {
+      this.g.inv[d.src.slot] = null; $('invTip').textContent = 'Objet retiré de la case.'; this.g.refreshInv(); // en créatif, le stock est illimité : jeter vide simplement la case
+    }
+    this.cancel(); this.render();
+  }
+  cancel() { this.drag = null; const g = $('dragGhost'); if (g) g.hidden = true; this.cells.forEach((c) => c.classList.remove('over', 'lifted')); }
+  moveStack(a, i) {
+    const g = this.g, inv = g.inv, A = inv[a], Z = inv[i];
+    if (a === i || !A) return;
+    if (Z && A.item === Z.item && A.n !== undefined && !g.creative) { const m = Math.min(STACK - Z.n, A.n); Z.n += m; A.n -= m; if (A.n <= 0) inv[a] = null; } else { inv[a] = Z; inv[i] = A; }
+    g.refreshInv();
+  }
+  put(name, t) { const g = this.g; g.inv[t] = ITEMS[name].block !== undefined ? { item: name, n: STACK } : { item: name }; g.refreshInv(); $('invTip').textContent = ITEMS[name].name + (t < 9 ? ' dans la case ' + (t + 1) : ' dans le sac'); }
   render() {
     const g = this.g;
-    this.cells.forEach((c, i) => { g.hud.paint(c, g.creative && g.inv[i] && g.inv[i].n !== undefined ? { item: g.inv[i].item } : g.inv[i]); c.classList.toggle('on', i === this.pick); c.classList.toggle('sel', i === g.sel); });
+    this.cells.forEach((c, i) => { g.hud.paint(c, g.creative && g.inv[i] && g.inv[i].n !== undefined ? { item: g.inv[i].item } : g.inv[i]); c.classList.toggle('sel', i === g.sel); c.title = g.inv[i] ? ITEMS[g.inv[i].item].name : ''; });
     $('invCreative').hidden = !g.creative;
     $('invTitle').textContent = g.creative ? 'Inventaire, mode créatif' : 'Inventaire';
     if (!g.creative) return;
     [...$('catTabs').children].forEach((b, i) => b.classList.toggle('on', i === this.cat));
     const list = $('catItems'); list.textContent = '';
-    for (const name of CATEGORIES[this.cat][1]) { const b = document.createElement('button'); b.className = 'slot cell'; b.title = ITEMS[name].name; b.innerHTML = `<img alt="${ITEMS[name].name}" src="${g.hud.icons[name]}"><span>${ITEMS[name].name}</span>`; b.onclick = () => this.grant(name); list.appendChild(b); }
+    for (const name of CATEGORIES[this.cat][1]) { const b = document.createElement('div'); b.className = 'slot cell cat'; b.title = ITEMS[name].name; b.dataset.item = name; b.innerHTML = `<img alt="${ITEMS[name].name}" draggable="false" src="${g.hud.icons[name]}"><span>${ITEMS[name].name}</span>`; b.addEventListener('pointerdown', (e) => this.start(e, { catalog: name })); list.appendChild(b); }
   }
 }
 
