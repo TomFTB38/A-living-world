@@ -9,18 +9,21 @@ const L = (set, rate = 1, vol = 1, lp = 0, at = 0) => ({ set, rate, vol, lp, at 
 // Aucune de ces prises ne garde de grave de tambour : la terre grène, la pierre claque, le tronc cogne sec.
 const mat = (m, step, hit, brk, put) => ({ m, step, hit, brk, put: put || [{ ...hit[0], vol: hit[0].vol * 0.9 }] });
 const plant = (rate) => mat('plant', [L('leaf', rate, 0.2)], [L('leaf', rate, 0.3)], [L('leaf', rate * 0.9, 0.45)]);
-const log = (r) => mat('wood', [L('plankdry', 0.9 * r, 0.3), L('wood', 0.95 * r, 0.2)], [L('plankdry', 0.95 * r, 0.56), L('chopdry', r, 0.36)], [L('plankdry', 0.84 * r, 0.66), L('chopdry', 0.85 * r, 0.56), L('crumble', 0.5, 0.14, 2600, 0.025)], [L('chopdry', 0.95 * r, 0.56)]);
+// Tronc : un coup un peu creux, et l'écorce qui se fend à la casse.
+const log = (r) => mat('wood', [L('plankdry', 0.9 * r, 0.3), L('wood', 0.95 * r, 0.2)], [L('chopdry', 0.95 * r, 0.42), L('knock', r, 0.42), L('leaf', 0.58, 0.16, 0, 0.008)], [L('chopdry', 0.85 * r, 0.5), L('knock', 0.82 * r, 0.52), L('crack', 0.6 * r, 0.2, 0, 0.02), L('leaf', 0.55, 0.34, 0, 0.02), L('crumble', 0.45, 0.16, 2400, 0.05)], [L('chopdry', 0.95 * r, 0.56)]);
 // La pierre se pose comme un tronc, en plus grave : un choc plein, pas un claquement.
 const stonePut = (r) => [L('chopdry', r, 0.58)];
+// Casser, c'est le même choc, plus la roche qui se fissure puis s'effrite.
+const stoneBreak = (r) => [L('chopdry', r, 0.62), L('crack', 1.05 * r, 0.42, 0, 0.015), L('crack', 0.85 * r, 0.26, 0, 0.06), L('crumble', 1.05 * r, 0.3, 0, 0.04)];
 export const SOUNDS = {
   grass: mat('earth', [L('stepgrass', 1, 0.5), L('sand', 1.1, 0.12)], [L('sand', 0.95, 0.42), L('leaf', 0.85, 0.3), L('stepgrass', 1.1, 0.24)], [L('sand', 0.8, 0.6), L('crumble', 0.6, 0.3, 3500), L('leaf', 0.8, 0.4)]),
   dirt: mat('earth', [L('sand', 0.88, 0.38)], [L('sand', 0.84, 0.5), L('crumble', 0.6, 0.26, 3500)], [L('sand', 0.72, 0.66), L('crumble', 0.55, 0.42, 3500)]),
   path: mat('earth', [L('gravel', 0.8, 0.24, 3000), L('sand', 0.9, 0.2)], [L('sand', 1, 0.42), L('crumble', 0.8, 0.3)], [L('sand', 0.86, 0.56), L('crumble', 0.75, 0.46)]),
   forest_soil: mat('earth', [L('sand', 0.7, 0.4, 2200)], [L('sand', 0.66, 0.55, 2000)], [L('sand', 0.6, 0.72, 2200), L('crumble', 0.5, 0.2, 2200)]),
-  stone: mat('hard', [L('stepstone', 1, 0.5), L('crack', 1.1, 0.08)], [L('crack', 1, 0.5), L('rockhi', 1, 0.42), L('crumble', 1, 0.1, 0, 0.02)], [L('rockhi', 0.9, 0.6), L('crack', 0.85, 0.55), L('crumble', 0.85, 0.5, 0, 0.03)], stonePut(0.78)),
-  mossy_stone: mat('hard', [L('stepstone', 0.9, 0.42, 3000)], [L('rockhi', 0.85, 0.38, 3000), L('crack', 0.9, 0.3, 2800)], [L('rockhi', 0.8, 0.5, 3000), L('crack', 0.8, 0.36, 2800), L('sand', 0.9, 0.26, 0, 0.03)], stonePut(0.74)),
-  limestone: mat('hard', [L('stepstone', 1.12, 0.46)], [L('crack', 1.2, 0.44), L('rockhi', 1.2, 0.3), L('crumble', 1.1, 0.24)], [L('crack', 1.15, 0.5), L('crumble', 1, 0.5), L('rockhi', 1.1, 0.36)], stonePut(0.84)),
-  granite: mat('hard', [L('stepstone', 0.94, 0.54)], [L('rockhi', 0.82, 0.5), L('crack', 0.85, 0.5)], [L('rockhi', 0.74, 0.66), L('crack', 0.78, 0.55), L('crumble', 0.75, 0.4, 0, 0.03)], stonePut(0.7)),
+  stone: mat('hard', [L('stepstone', 1, 0.5), L('crack', 1.1, 0.08)], [L('crack', 1, 0.5), L('rockhi', 1, 0.42), L('crumble', 1, 0.1, 0, 0.02)], stoneBreak(0.78), stonePut(0.78)),
+  mossy_stone: mat('hard', [L('stepstone', 0.9, 0.42, 3000)], [L('rockhi', 0.85, 0.38, 3000), L('crack', 0.9, 0.3, 2800)], stoneBreak(0.74), stonePut(0.74)),
+  limestone: mat('hard', [L('stepstone', 1.12, 0.46)], [L('crack', 1.2, 0.44), L('rockhi', 1.2, 0.3), L('crumble', 1.1, 0.24)], stoneBreak(0.84), stonePut(0.84)),
+  granite: mat('hard', [L('stepstone', 0.94, 0.54)], [L('rockhi', 0.82, 0.5), L('crack', 0.85, 0.5)], stoneBreak(0.7), stonePut(0.7)),
   gravel: mat('earth', [L('gravel', 1, 0.42)], [L('crumble', 1, 0.5)], [L('crumble', 0.95, 0.66), L('gravel', 1.05, 0.36)]),
   sand: mat('sand', [L('sand', 1, 0.42)], [L('sand', 1.06, 0.5)], [L('sand', 0.94, 0.66), L('crumble', 1.3, 0.18)]),
   oak_log: log(1), birch_log: log(1.12), beech_log: log(1.05),
@@ -32,7 +35,7 @@ export const SOUNDS = {
   tall_grass: plant(1.25), fern: plant(1), daisy: plant(1.5), lupine: plant(1.38), pink_flower: plant(1.6), yellow_flower: plant(1.45), vine: plant(0.85),
   mushroom: mat('plant', [L('leaf', 0.6, 0.16)], [L('leaf', 0.55, 0.3)], [L('leaf', 0.5, 0.4)]),
   lily_pad: mat('plant', [L('splash', 1.5, 0.2)], [L('leaf', 0.7, 0.26)], [L('splash', 1.4, 0.28)]),
-  flagstone: mat('hard', [L('stepstone', 1.05, 0.5)], [L('rockhi', 1.1, 0.42), L('crack', 1.1, 0.3)], [L('crack', 1.1, 0.52), L('crumble', 1, 0.34)], stonePut(0.8)),
+  flagstone: mat('hard', [L('stepstone', 1.05, 0.5)], [L('rockhi', 1.1, 0.42), L('crack', 1.1, 0.3)], stoneBreak(0.8), stonePut(0.8)),
   lantern: mat('metal', [L('metal', 1.2, 0.2)], [L('glass', 1, 0.3), L('metal', 1.2, 0.22)], [L('glass', 0.92, 0.46), L('metal', 1, 0.3)]),
   shelf_fungus: mat('plant', [L('leaf', 0.66, 0.16)], [L('leaf', 0.62, 0.3)], [L('leaf', 0.56, 0.4)]),
   fence: mat('wood', [L('wood', 1.1, 0.4)], [L('plank', 1.14, 0.44)], [L('plank', 1.04, 0.56), L('woodl', 1.2, 0.3)]),

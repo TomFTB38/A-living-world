@@ -53,10 +53,9 @@ def sweep(dur, f0, f1, f2, q, seed):
     for i in range(n):
         g = 2 * np.sin(np.pi * f[i] / SR); h = w[i] - a - b / q; b += g * h; a += g * b; y[i] = b  # filtre d'état
     return y * e / np.abs(y * e).max()
-for i in range(3):  # sifflement de lame : souffle étroit, plus la note fine de l'acier qui fend l'air
-    n = int(.34 * SR); t = np.arange(n) / SR; u = t / t[-1]; f = 2100 + 1500 * np.sin(np.pi * u) + 90 * i; ph = 2 * np.pi * np.cumsum(f) / SR
-    x = sweep(.34, 900 + 120 * i, 3200 + 200 * i, 1300, 3.2, 10 + i) + .22 * np.sin(ph) * np.sin(np.pi * u) ** 4
-    write(f'blade_{i}', clean(x, .6))
+for i in range(3):  # lame : un objet rapide et assez lourd fend l'air, sans sifflement aigu
+    x = sweep(.27, 240 + 25 * i, 980 + 90 * i, 330, 1.3, 10 + i) + .4 * sweep(.27, 120, 420 + 30 * i, 160, 1.1, 60 + i)
+    write(f'blade_{i}', clean(band(x, 90, 1050), .6))
 for i in range(2):
     write(f'whoosh_{i}', clean(sweep(.38, 240, 820 + 90 * i, 300, 1.4, 20 + i), .55)); write(f'puff_{i}', clean(sweep(.2, 300, 700 + 80 * i, 320, 1.1, 30 + i), .45))
 for i in range(2):  # souffle de cerf : deux formants, attaque brève

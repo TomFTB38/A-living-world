@@ -55,6 +55,22 @@ function stone(t, x, y, a = STONE, cells = 5) {
   const tone = 0.34 + 0.32 * t.p[id] + 0.55 * (n - 0.5) + 0.3 * (s - 0.5) + 0.12 * crack;
   return { c: pal(a, tone * (0.72 + 0.28 * crack)), h: 0.2 + 0.6 * crack + 0.2 * n, r: 0.8 };
 }
+// Granit : pas de dalles, une masse cristalline en grains francs : feldspath rose, quartz clair, mica noir.
+const FELD = ['#7a5a52', '#9a7468', '#b98f7f', '#d3ab98'].map(hex), QUARTZ = ['#a9a5a0', '#c9c6c0', '#e6e3dc'].map(hex), MICA = ['#17151a', '#2d2a30', '#45414a'].map(hex);
+function granite(t, x, y) {
+  const [d1, d2, id] = t.vor(x, y, 17), [e1, , id2] = t.vor(x + 9, y + 5, 27), r = t.p[id], m = t.p[id2], n = t.fbm(x, y, 6, 3), fine = t.val(x, y, 32);
+  const dark = m > 0.8 && e1 < 0.42, clear = r > 0.68, c = dark ? pal(MICA, n) : clear ? pal(QUARTZ, 0.2 + 0.7 * n) : pal(FELD, 0.15 + 0.6 * r + 0.35 * (n - 0.5) + 0.2 * (fine - 0.5));
+  const edge = smooth(0, 0.08, d2 - d1);
+  return { c: c.map((v) => v * (0.86 + 0.14 * edge)), h: 0.35 + 0.35 * edge + (clear ? 0.2 : 0) + 0.1 * n, r: clear ? 0.42 : 0.62 };
+}
+// Calcaire : roche claire et crème, en couches horizontales ondulées, piquée de petites cavités.
+const LIME = ['#9d9278', '#c4b99c', '#dcd3b8', '#f0e9d2'].map(hex);
+function limestone(t, x, y) {
+  const q = (((y + 3 * t.fbm(x, y, 3, 2) - 1.5) % 64 + 64) % 64) * 4 / 64, bed = Math.floor(q), u = q - bed, tb = t.p[(bed * 37 + 11) & 1023];
+  const seam = smooth(0, 0.06, u) * smooth(1, 0.93, u), [d1, , id] = t.vor(x, y, 8), pit = t.p[id] > 0.72 ? smooth(0.04, 0.17, d1) : 1, n = t.fbm(x, y * 0.5, 8, 3), fine = t.val(x * 0.5, y, 32);
+  const c = pal(LIME, 0.34 + 0.34 * tb + 0.4 * (n - 0.5) + 0.14 * (fine - 0.5));
+  return { c: c.map((v) => v * (0.62 + 0.38 * seam) * (0.68 + 0.32 * pit)), h: 0.25 + 0.5 * seam * pit + 0.2 * n, r: 0.88 };
+}
 // Pierre moussue : couverture franche par le haut, débordant en coulures, bien distincte de la pierre nue.
 function mossy(t, x, y) {
   const st = stone(t, x, y), drip = 15 + 22 * t.fbm(x, 0, 5, 3), m = t.fbm(x, y, 7, 3), k = y < drip || m > 0.61 ? 1 : 0, g = t.val(x, y, 32);
@@ -109,8 +125,7 @@ const GEN = {
   path: (t, x, y) => dirt(t, x, y, ['#7c5b35', '#a07a4c', '#bc9663', '#d2b080'].map(hex)),
   forest_soil: (t, x, y) => { const d = dirt(t, x, y, ['#2f2413', '#4a3a1f', '#5e5127', '#6f6a2f'].map(hex)); return d; },
   stone: (t, x, y) => stone(t, x, y), mossy_stone: mossy,
-  limestone: (t, x, y) => stone(t, x, y, ['#6f685b', '#92897a', '#ada697', '#c8c1b1'].map(hex), 4),
-  granite: (t, x, y) => stone(t, x, y, ['#403d3c', '#5c5855', '#7a7470', '#938c86'].map(hex), 7),
+  limestone, granite,
   gravel: (t, x, y) => stone(t, x, y, ['#6c6761', '#8e8679', '#a89f91', '#c0b7a9'].map(hex), 11),
   sand: (t, x, y) => dirt(t, x, y, ['#a89268', '#c2ac7e', '#d2bf92', '#e0cfa6'].map(hex)),
   bark_oak: (t, x, y) => bark(t, x, y, OAK),
