@@ -54,7 +54,7 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
     alb *= select(0.9 + 0.2 * h2, 0.84 + 0.32 * h2, bark);
     if (bark || (layer0 >= STONE0 && layer0 < GRAVEL0)) { let e = min(f, vec2f(1.0) - f); alb *= 0.8 + 0.2 * smoothstep(0.0, 0.04, min(e.x, e.y)); }
     let d = m.xy * 2.0 - 1.0; if (!held) { nn = normalize(n + (tt * d.x + bb * d.y) * 0.9); } rough = m.b;
-    if (kind == 1) { trans = 1.0; rough = 0.5; alb *= 1.05; }
+    if (kind == 1) { trans = 1.0; rough = 0.5; alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.8) * vec3f(0.74, 0.8, 0.74); } // feuillage au soleil : vert profond, pas jaune fluo
     // mousse en petits pixels sur les pierres et l'écorce
     let mossy_rock = layer0 >= MOSSY0 && layer0 < MOSSY0 + 4;
     let mossable = mossy_rock || (layer0 >= BARK0 && layer0 < BARK0 + 4) || (layer0 >= BEECH0 && layer0 < BEECH0 + 4);

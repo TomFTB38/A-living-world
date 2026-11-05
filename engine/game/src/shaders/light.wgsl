@@ -19,7 +19,7 @@
   let nol = dot(n, u.sun.xyz); let wrp = select(sat(nol), sat((nol + 0.45) / 1.45), trans > 0.0);
   let direct = u.sun_col.rgb * wrp * sh;
   let back = pow(sat(dot(vv, u.sun.xyz)), 5.0) * trans;
-  let bl = u.sun_col.rgb * alb * vec3f(1.2, 1.4, 0.6) * back * sh * 0.9;
+  let bl = u.sun_col.rgb * alb * vec3f(1.1, 1.3, 0.7) * back * sh * 0.55;
   let sky2 = sky_l * sky_l * (3.0 - 2.0 * sky_l); let vis = vao * mix(1.0, ss, 0.9);
   let sky_amb = mix(u.ground.rgb * 0.9, mix(u.hor.rgb, u.top.rgb, 0.4) * vec3f(1.0, 0.95, 0.82) * 0.78, n.y * 0.5 + 0.5);
   let canopy = vec3f(0.27, 0.36, 0.13) * mix(1.0, 0.5, n.y * 0.5 + 0.5);

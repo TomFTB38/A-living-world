@@ -27,7 +27,7 @@ fn hash13(q: vec3f) -> f32 { var p = fract(q * 0.1031); p += dot(p, p.zyx + 31.3
       let g = floor(pp * 9.0) / 9.0; let mn = hash13(g * 13.0 + vec3f(1.5)) * 0.8 + select(0.0, 0.12, ln.y > 0.5);
       if (mn > 0.72) { alb = vec3f(0.13, 0.22, 0.045) * (0.75 + 0.7 * hash13(g * 7.0 + vec3f(3.0))); }
     }
-    if (kind == 1) { alb *= 1.05; }
+    if (kind == 1) { alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.8) * vec3f(0.74, 0.8, 0.74); }
   } else {
     alb *= alb * 1.25;
     if (kind == 3) { alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.72); }
