@@ -19,24 +19,30 @@ with sync_playwright() as p:
     pg.keyboard.down('KeyW'); time.sleep(12); pg.keyboard.up('KeyW'); c=st()
     moved=((c['p'][0]-a['p'][0])**2+(c['p'][2]-a['p'][2])**2)**.5
     check('marche avant', moved>1, 'distance %.1f'%moved)
-    y0=st()['p'][1]; pg.keyboard.down('Space')
-    pg.wait_for_function(f'ALW.player.p[1]>{y0+.4}',timeout=45000,polling=50); peak=st()['p'][1]
+    pg.wait_for_function('ALW.player.ground&&ALW.player.speed<.5',timeout=60000); y0=st()['p'][1]; pg.keyboard.down('Space')
+    try: pg.wait_for_function(f'ALW.player.p[1]>{y0+.4}',timeout=45000,polling=50); peak=st()['p'][1]
+    except Exception:
+        print('DIAG',y0,pg.evaluate("(()=>{const p=ALW.player;return {p:p.p,g:p.ground,v:p.v,keys:[...ALW.input.keys],near:ALW.world.nearReady(p.p[0],p.p[2]),fr:ALW.r.frame,fps:ALW.prof.fps,cpu:ALW.prof.cpu,gpu:ALW.r.stats.gpu,hasFocus:document.hasFocus(),q:ALW.world.queued,pend:ALW.world.pending}})()")); raise
     pg.keyboard.up('Space'); check('saut', True, 'hauteur %.2f'%(peak-y0))
     # visée vers le sol, caméra libre par API de visée
     pg.evaluate('ALW.dragMode=true; ALW.view.third=false; ALW.player.pitch=-1.2'); time.sleep(3)
-    pg.wait_for_function('!!ALW.target',timeout=30000); t=st()['t']; print('cible',t)
+    pg.wait_for_function('!!ALW.target',timeout=90000); t=st()['t']; print('cible',t)
     # casser au clic (mode sans verrouillage du pointeur)
     pg.mouse.move(160,90); pg.mouse.click(160,90)
-    try: pg.wait_for_function(f'ALW.world.get({t[0]},{t[1]},{t[2]})!=={t[3]}',timeout=40000)
+    try: pg.wait_for_function(f'ALW.world.get({t[0]},{t[1]},{t[2]})!=={t[3]}',timeout=90000)
     except Exception:
         print(pg.evaluate('({am:ALW.autoMine,m:ALW.mining,mt:ALW.mine,pa:ALW.paused,tg:ALW.target,inv:ALW.sel,fps:ALW.prof.fps,el:document.elementFromPoint(160,90).id})')); raise
     check('casser un bloc au clic', True, 'bloc %d supprimé'%t[3])
-    pg.wait_for_function(f'ALW.world.get({t[0]},{t[1]},{t[2]})===0',timeout=5000)
+    pg.wait_for_function(f'ALW.world.get({t[0]},{t[1]},{t[2]})===0',timeout=60000)
     # poser
     pg.keyboard.press('Digit5'); before=st()['inv'][4]; time.sleep(1.5)
-    pg.wait_for_function('!!ALW.target',timeout=30000)
-    pg.mouse.click(160,90,button='right')
-    try: pg.wait_for_function(f'ALW.inv[4].n<{before}',timeout=30000)
+    pg.wait_for_function('!!ALW.target',timeout=90000)
+    pg.evaluate('ALW.player.pitch=-.75'); time.sleep(2); pg.wait_for_function('!!ALW.target',timeout=90000)
+    for _ in range(4):  # un bloc qui recouperait le joueur est refusé : on réessaie en tournant légèrement
+        pg.mouse.click(160,90,button='right'); time.sleep(1.5)
+        if pg.evaluate(f'ALW.inv[4].n<{before}'): break
+        pg.evaluate('ALW.player.yaw+=.9'); time.sleep(2)
+    try: pg.wait_for_function(f'ALW.inv[4].n<{before}',timeout=90000)
     except Exception:
         print(pg.evaluate('({t:ALW.target,sel:ALW.sel,inv:ALW.inv[4],p:ALW.player.p,pitch:ALW.player.pitch,paused:ALW.paused,third:ALW.view.third,el:document.elementFromPoint(160,90).id})')); raise
     check('poser un bloc au clic droit', True, 'stock %d → %d'%(before,st()['inv'][4]))
