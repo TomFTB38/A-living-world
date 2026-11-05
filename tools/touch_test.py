@@ -23,6 +23,7 @@ with sync_playwright() as p:
     pg.wait_for_function('ALW.orientMode===1',timeout=30000); check('bouton orientation',True)
     pg.tap('#tRun',timeout=60000,force=True); pg.wait_for_function("ALW.input.keys.has('ShiftLeft')",timeout=30000); check('bouton sprint',True); pg.tap('#tRun',timeout=60000,force=True)
     pg.tap('#tLow',timeout=60000,force=True); pg.wait_for_function('ALW.input.keys.has("ControlLeft")',timeout=30000); check('bouton accroupi',True); pg.tap('#tLow',timeout=60000,force=True)
+    pg.tap('#tView',timeout=60000,force=True); pg.wait_for_function('ALW.view.third===false',timeout=30000); check('bouton première personne',True); pg.tap('#tView',timeout=60000,force=True)
     pg.tap('#tInv',timeout=60000,force=True); pg.wait_for_function('ALW.invOpen===true',timeout=30000); check('bouton inventaire',True); pg.tap('#invClose',timeout=60000); pg.wait_for_function('!ALW.paused',timeout=30000)
     pg.tap('#tMenu',timeout=60000,force=True)
     pg.wait_for_function('ALW.paused===true',timeout=30000); check('menu ouvert',True)

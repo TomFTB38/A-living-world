@@ -115,7 +115,7 @@ class Game {
       if (e.code === 'Space' && this.creative) { const t = performance.now(); if (t - (this.lastSpace || 0) < 320) this.setFly(!this.player.fly); this.lastSpace = t; }
       if (e.code.startsWith('Digit')) { const n = +e.code.slice(5); if (n >= 1) this.select(n - 1); }
       if (e.code === 'KeyR') this.cycleOrient();
-      if (e.code === 'KeyC') { this.view.third = !this.view.third; this.hud.toast(this.view.third ? 'Troisième personne' : 'Première personne'); }
+      if (e.code === 'KeyC') this.toggleView();
       if (e.code === 'F3') { e.preventDefault(); this.prof.show = !this.prof.show; $('prof').classList.toggle('on', this.prof.show); }
       if (e.code === 'KeyT') this.hour = (this.hour + 1) % 24;
       if (e.code === 'KeyY') this.timeRun = !this.timeRun;
@@ -159,6 +159,7 @@ class Game {
     hold('tMenu', () => this.toggleMenu(true), () => {});
     hold('tAxis', () => this.cycleOrient(), () => {});
     hold('tInv', () => this.toggleInv(), () => {});
+    hold('tView', () => this.toggleView(), () => {});
     const latch = (id, code) => hold(id, () => { const on = !K.has(code); if (on) K.add(code); else K.delete(code); $(id).classList.toggle('on', on); }, () => {});
     latch('tRun', 'ShiftLeft'); latch('tLow', 'ControlLeft');
     hold('tFly', () => this.setFly(!this.player.fly), () => {});
@@ -185,6 +186,7 @@ class Game {
     this.paused = v === undefined ? !this.paused : v; $('menu').classList.toggle('on', this.paused);
     if (this.paused) { if (document.pointerLockElement) document.exitPointerLock(); $('inSeed').value = this.seed; }
   }
+  toggleView() { this.view.third = !this.view.third; this.hud.toast(this.view.third ? 'Troisième personne' : 'Première personne'); }
   select(i) { this.sel = i; this.refreshInv(); }
   refreshInv() { this.hud.inventory(this.inv, this.sel, this.creative); this.dirtySave = true; }
   toggleInv(v) {
