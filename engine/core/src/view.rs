@@ -30,6 +30,23 @@ pub fn invert(m: &M4) -> M4 {
     o[15] = a[0]*a[5]*a[10]-a[0]*a[6]*a[9]-a[4]*a[1]*a[10]+a[4]*a[2]*a[9]+a[8]*a[1]*a[6]-a[8]*a[2]*a[5];
     let d = a[0]*o[0]+a[1]*o[4]+a[2]*o[8]+a[3]*o[12]; let mut r = [0.0f32; 16]; for i in 0..16 { r[i] = (o[i] / d) as f32; } r
 }
+/// Vue depuis l'origine dans la direction f, avec un haut choisi.
+pub fn look_up(f: [f64; 3], up: [f64; 3]) -> M4 {
+    let s = norm(cross(f, up)); let u = cross(s, f); let c = |v: f64| v as f32;
+    [c(s[0]), c(u[0]), c(-f[0]), 0.0, c(s[1]), c(u[1]), c(-f[1]), 0.0, c(s[2]), c(u[2]), c(-f[2]), 0.0, 0.0, 0.0, 0.0, 1.0]
+}
+/// Projection orthographique, profondeur 0 à 1.
+pub fn ortho(l: f64, r: f64, b: f64, t: f64, n: f64, f: f64) -> M4 {
+    let mut m = [0.0f32; 16]; m[0] = (2.0 / (r - l)) as f32; m[5] = (2.0 / (t - b)) as f32; m[10] = (-1.0 / (f - n)) as f32;
+    m[12] = (-(r + l) / (r - l)) as f32; m[13] = (-(t + b) / (t - b)) as f32; m[14] = (-n / (f - n)) as f32; m[15] = 1.0; m
+}
+/// Cascade d'ombre : calée sur la grille de texels pour que les bords ne scintillent pas quand la caméra bouge.
+pub fn shadow_cascade(sun: [f32; 3], eye: [f64; 3], radius: f64, size: f64) -> M4 {
+    let d = [sun[0] as f64, sun[1] as f64, sun[2] as f64]; let up = if d[1].abs() > 0.95 { [1.0, 0.0, 0.0] } else { [0.0, 1.0, 0.0] };
+    let lv = look_up([-d[0], -d[1], -d[2]], up); let texel = 2.0 * radius / size; let l = |i: usize| lv[i] as f64;
+    let lx = ((l(0) * eye[0] + l(4) * eye[1] + l(8) * eye[2]) / texel).floor() * texel; let ly = ((l(1) * eye[0] + l(5) * eye[1] + l(9) * eye[2]) / texel).floor() * texel; let lz = l(2) * eye[0] + l(6) * eye[1] + l(10) * eye[2];
+    mul(&ortho(lx - radius, lx + radius, ly - radius, ly + radius, -lz - 420.0, -lz + 420.0), &lv)
+}
 /// Un pavé est-il au moins en partie dans le champ de la caméra ? Plans gauche, droit, bas, haut extraits de vp.
 pub fn visible(vp: &M4, min: [f32; 3], max: [f32; 3]) -> bool {
     let r = |i: usize| [vp[i], vp[4 + i], vp[8 + i], vp[12 + i]]; let (x, y, w) = (r(0), r(1), r(3));

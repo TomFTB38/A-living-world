@@ -4,7 +4,7 @@ import { hashInt, Noise, Rng } from '../../src/core/noise.js';
 import { WorldGen } from '../../src/world/gen.js';
 import { ChunkStore } from '../../src/world/store.js';
 import { meshChunk, farMesh } from '../../src/world/mesher.js';
-import { buildTextures } from '../../src/render/textures.js';
+import { buildTextures, buildNoise3D } from '../../src/render/textures.js';
 const fnv = (u8) => { let h = 0x811c9dc5; for (let i = 0; i < u8.length; i++) { h ^= u8[i]; h = Math.imul(h, 0x01000193); } return h >>> 0; };
 const out = [], bits = (v) => { const d = new DataView(new ArrayBuffer(8)); d.setFloat64(0, v); return d.getBigUint64(0).toString(16); };
 for (const v of [0.3, 0.9, 1.7, 2.5, 3.1415926, 4.71, 6.283, -0.7, -2.2, -5.5, 37.3, 141.7, -96.2, 1000.5]) out.push(`trig ${v} ${bits(Math.sin(v))} ${bits(Math.cos(v))}`);
@@ -25,5 +25,6 @@ for (const seed of [20261104, -1234]) {
   const f = farMesh(st.gen, 1, -2); out.push(`far ${seed} ${f.nF} ${fnv(new Uint8Array(f.far))}`);
 }
 const tx = buildTextures(128); out.push(`tex ${fnv(tx.albedo)} ${fnv(tx.nrm)}`);
+out.push(`noise3 ${fnv(buildNoise3D(40).data)}`);
 writeFileSync(new URL('../core/tests/parity.txt', import.meta.url), out.join('\n') + '\n');
 console.log(out.length, 'empreintes');

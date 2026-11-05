@@ -22,6 +22,7 @@ fn parite_avec_le_prototype() {
                 assert_eq!(got, a[5..].join(" "), "{l}"); meshes += 1;
             }
             "far" => { let g = WorldGen::new(a[1].parse().unwrap()); let (d, n) = far_mesh(&g, 1, -2); assert_eq!(format!("{} {}", n, fnv(&d)), a[2..].join(" ")); }
+            "noise3" => assert_eq!(fnv(&alw_core::textures::build_noise_3d(40)).to_string(), a[1]),
             "tex" => { let t = alw_core::textures::build_textures(128); assert_eq!(format!("{} {}", fnv(&t.albedo), fnv(&t.nrm)), a[1..].join(" ")); }
             _ => panic!("ligne inconnue"),
         }

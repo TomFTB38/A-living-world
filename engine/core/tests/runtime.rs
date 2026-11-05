@@ -3,7 +3,7 @@ use alw_core::{player::*, stream::*, textures::*, view::*};
 fn le_monde_se_charge_et_le_joueur_pose_le_pied() {
     let mut s = Streamer::new(20261104, &Preset { radius: 3, lod1: 1.5, lod2: 2.5 }, 4); let (x, z) = (-38.5, 0.5);
     let t = std::time::Instant::now(); let (mut n, mut ms, mut tris) = (0, 0.0, 0);
-    loop { let (b, _) = s.update(x, z); for c in b { n += 1; ms += c.ms; tris += (c.mesh.n_o + c.mesh.n_d) / 2; } if s.waiting() == 0 { break; } std::thread::sleep(std::time::Duration::from_millis(2)); assert!(t.elapsed().as_secs() < 60); }
+    loop { let (b, _) = s.update(x, z); for c in b { if c.lod == FAR { continue; } n += 1; ms += c.ms; tris += (c.mesh.n_o + c.mesh.n_d) / 2; } if s.waiting() == 0 { break; } std::thread::sleep(std::time::Duration::from_millis(2)); assert!(t.elapsed().as_secs() < 60); }
     println!("{n} chunks en {:.2} s, {:.1} ms par chunk sur un fil, {tris} triangles", t.elapsed().as_secs_f64(), ms / n as f64);
     assert_eq!(n, s.loaded()); assert!(n >= 29);
     let mut p = Player::new(x, 90.0, z);

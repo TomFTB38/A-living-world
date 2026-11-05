@@ -174,3 +174,20 @@ pub fn mip_chain(base: &[u8], size: usize, layers: usize) -> Vec<Vec<u8>> {
     }
     out
 }
+
+/// Bruit 3D périodique, pour les nuages, la brume et l'eau.
+pub fn build_noise_3d(n: usize) -> Vec<u8> {
+    let total = n * n * n; let mut r = Rng::new(9001); let g: Vec<f32> = (0..total).map(|_| r.next() as f32).collect(); let nf = n as f64;
+    let samp = |x: usize, y: usize, z: usize, f: usize| {
+        let s = nf / f as f64; let (fx, fy, fz) = (x as f64 / s, y as f64 / s, z as f64 / s); let (xx, yy, zz) = (fx.floor(), fy.floor(), fz.floor());
+        let (u, v, w) = (fx - xx, fy - yy, fz - zz); let sm = |t: f64| t * t * (3.0 - 2.0 * t); let (su, sv, sw) = (sm(u), sm(v), sm(w));
+        let h = |i: usize, j: usize, k: usize| g[((i % f) * 3 + (j % f) * n * 5 + (k % f) * n * n * 7) % total] as f64; let (xi, yi, zi) = (xx as usize, yy as usize, zz as usize);
+        lerp(lerp(lerp(h(xi, yi, zi), h(xi + 1, yi, zi), su), lerp(h(xi, yi + 1, zi), h(xi + 1, yi + 1, zi), su), sv), lerp(lerp(h(xi, yi, zi + 1), h(xi + 1, yi, zi + 1), su), lerp(h(xi, yi + 1, zi + 1), h(xi + 1, yi + 1, zi + 1), su), sv), sw)
+    };
+    let mut d = vec![0u8; total];
+    for z in 0..n { for y in 0..n { for x in 0..n {
+        let a = samp(x, y, z, 4) * 0.55 + samp(x, y, z, 8) * 0.28 + samp(x, y, z, 16) * 0.17;
+        d[x + y * n + z * n * n] = (clamp((a - 0.2) / 0.6, 0.0, 1.0) * 255.0) as u8;
+    } } }
+    d
+}
