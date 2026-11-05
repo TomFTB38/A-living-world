@@ -6,6 +6,8 @@ import { ClientWorld } from './client.js';
 import { Player, raycast } from './player.js';
 import { buildCharacter, CharacterAnim } from './character.js';
 import { buildFauna, Fauna } from './animals.js';
+import { Weather } from './weather.js';
+import { SoundScape } from './audio.js';
 import { HUD, InventoryUI, $ } from './ui.js';
 import { ITEMS, STACK, buildItems } from './items.js';
 import { BLOCKS, B, IS_SOLID, IS_DECO, orientedBlock } from '../world/blocks.js';
@@ -39,6 +41,8 @@ class Game {
     this.prof = { fps: 60, cpu: 0, show: CAPTURE ? false : false, frames: [] };
     this.hour = 16.4; this.dayLen = 1500; this.timeRun = !CAPTURE; this.elapsed = 0; this.mine = { key: '', t: 0 };
     this.vit = { hp: 100, food: 100, water: 100 };
+    this.sound = new SoundScape(); this.sound.setVolume(this.settings.volume ?? 0.7);
+    for (const n of ['pointerdown', 'keydown', 'touchend']) addEventListener(n, () => this.sound.start(), { passive: true });
     this.bindInput(); this.bindMenu();
     this.applySettings();
     const seed = Number(params.get('seed') || 20261104);
@@ -60,6 +64,7 @@ class Game {
     if (save) { this.hour = save.time; this.player = new Player(...save.player.p); this.player.yaw = save.player.yaw; this.player.pitch = save.player.pitch; this.player.moveYaw = save.player.yaw; this.player.fly = !!save.player.fly; this.vit = save.player.vit || this.vit; }
     else { const s = this.findSpawn(); this.player = new Player(s[0], s[1], s[2]); this.player.yaw = s[3]; this.player.moveYaw = s[3]; this.player.pitch = -0.13; this.hour = 16.4; }
     this.fauna = new Fauna(this.faunaModel, seed);
+    this.weather = new Weather(seed); this.weather.forced = this.settings.weather || 'auto';
     this.loaded = false; $('loading').classList.add('on'); this.r.reset = true;
     this.refreshInv();
   }
@@ -176,6 +181,10 @@ class Game {
     $('btnImport').onclick = () => $('fileImport').click();
     $('fileImport').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { const s = deserialize(await f.text()); this.startWorld(s.seed, s); this.toggleMenu(false); this.hud.toast('Monde importé'); } catch (x) { this.hud.toast(x.message); } };
     $('btnNew').onclick = () => { const v = Number($('inSeed').value) || Math.floor(Math.random() * 1e9); this.startWorld(v, null); $('inSeed').value = v; this.toggleMenu(false); };
+    const met = $('selWeather'), vol = $('inVol');
+    met.value = this.settings.weather || 'auto'; vol.value = this.settings.volume ?? 0.7;
+    met.onchange = () => { this.settings.weather = met.value; this.weather.forced = met.value; this.applySettings(); };
+    vol.oninput = () => { this.settings.volume = +vol.value; this.sound.setVolume(+vol.value); this.applySettings(); };
     const sel = $('selPreset'), fov = $('inFov'), sens = $('inSens');
     sel.value = this.settings.preset; fov.value = this.settings.fov; sens.value = this.settings.sens;
     sel.onchange = () => { this.settings.preset = sel.value; this.dynScale = 1; this.applySettings(); this.world.radius = this.radius(); };
@@ -273,7 +282,7 @@ class Game {
     const cur = this.world.get(...id); if (cur === -1 || IS_SOLID[cur]) return;
     const pl = this.player, p = pl.p, bid = this.orientFor(def.block);
     if (IS_SOLID[bid] && id[0] + 1 > p[0] - 0.3 && id[0] < p[0] + 0.3 && id[2] + 1 > p[2] - 0.3 && id[2] < p[2] + 0.3 && id[1] + 1 > p[1] && id[1] < p[1] + 1.8) return;
-    if (this.world.set(id[0], id[1], id[2], bid)) { if (!this.creative) { it.n--; if (it.n <= 0) this.inv[this.sel] = null; } this.refreshInv(); this.anim.trigger(); this.dirtySave = true; }
+    if (this.world.set(id[0], id[1], id[2], bid)) { if (!this.creative) { it.n--; if (it.n <= 0) this.inv[this.sel] = null; } this.refreshInv(); this.anim.trigger(); this.sound.place(); this.dirtySave = true; }
   }
   // Ce qui tenait sur le bloc retiré tombe avec lui : plantes au-dessus, lianes en dessous, champignons sur les côtés.
   dropAttached(x, y, z) {
@@ -295,8 +304,10 @@ class Game {
     const rate = def?.tool && def.tool === b.cat ? 3 : b.cat === 'terrain' ? 1.6 : 1;
     if (this.creative) { this.mineCool = (this.mineCool || 0) - dt; if (this.mineCool > 0) return; this.mineCool = 0.2; this.mine.t = 1e9; }
     this.mine.t += dt * rate;
+    this.digT = (this.digT || 0) - dt; if (this.digT <= 0 && !this.creative) { this.digT = 0.28; this.sound.dig(b.cat); }
     if (this.mine.t >= b.hardness) {
       if (this.world.set(t.x, t.y, t.z, 0)) {
+        this.sound.breakBlock(b.cat);
         this.dropAttached(t.x, t.y, t.z);
         if (b.drop && !this.creative) this.addItem(b.drop);
         this.dirtySave = true; this.autoMine = 0;
@@ -328,6 +339,7 @@ class Game {
       if (this.world.nearReady(p.p[0], p.p[2])) p.update(this.world, dt, I);
       this.anim.update(dt, { speed: p.speed, ground: p.ground, vy: p.v[1], crouch: p.crouch, fly: p.fly, mining: this.mining });
       if (this.loaded) this.fauna.update(dt, this.world, p);
+      this.weather.update(dt); this.audioStep(dt);
       if (this.timeRun) this.hour = (this.hour + (dt / this.dayLen) * 24) % 24;
       this.elapsed += dt;
       const v = this.vit; if (!this.creative) v.food = Math.max(0, v.food - dt * 0.012 * (I.sprint ? 2 : 1)); if (!this.creative) v.water = Math.max(0, v.water - dt * 0.018 * (I.sprint ? 2 : 1));
@@ -342,10 +354,33 @@ class Game {
     if (this.dirtySave) { this.saveT = (this.saveT || 0) + dt; if (this.saveT > 20) { this.save(false); this.saveT = 0; this.dirtySave = false; } }
   }
 
+  // Sons : pas selon le sol, eau proche, oiseaux le jour, pluie.
+  audioStep(dt) {
+    const p = this.player, s = this.sound, w = this.weather.state;
+    this.waterT = (this.waterT || 0) - dt;
+    if (this.waterT <= 0) {
+      this.waterT = 0.6; let near = 0;
+      for (const r of [5, 11, 20]) for (let a = 0; a < 6.28; a += 0.8) if (this.gen.column(p.p[0] + Math.cos(a) * r, p.p[2] + Math.sin(a) * r).water) near = Math.max(near, 1 - r / 26);
+      this.nearWater = near;
+    }
+    s.env(dt, { cloud: w.cloud, rain: w.rain, water: this.nearWater || 0, day: Math.max(0, this.r.sun.dir[1] * 3) });
+    if (p.ground && p.speed > 1) {
+      this.stepT = (this.stepT || 0) - dt * p.speed;
+      if (this.stepT <= 0) { this.stepT = 2.1; const b = this.world.get(Math.floor(p.p[0]), Math.floor(p.p[1] - 0.1), Math.floor(p.p[2])); s.step(b > 0 ? BLOCKS[b].cat : 'terrain'); }
+    }
+  }
+
+  // Sous un toit ou dans une grotte, il ne pleut pas (le feuillage laisse passer).
+  underRoof(e) {
+    const x = Math.floor(e[0]), z = Math.floor(e[2]), y0 = Math.floor(e[1]) + 1;
+    for (let y = y0; y < y0 + 24; y++) { const b = this.world.get(x, y, z); if (b > 0 && BLOCKS[b].cat !== 'foliage' && BLOCKS[b].cat !== 'fluid') return true; }
+    return false;
+  }
+
   draw(dt) {
     const r = this.r, p = this.player, { eye, f } = this.camera(), fov = (this.settings.fov * Math.PI) / 180;
     this.dtSmooth = dt;
-    r.setSun(this.hour);
+    r.setSun(this.hour); r.applyWeather(this.weather.state);
     const proj = M.persp(fov, r.W / r.H, 0.08, 4200), viewM = M.look(eye, V.add(eye, f), [0, 1, 0]), vp = M.mul(proj, viewM);
     const planes = M.frustum(vp), all = [], visible = [];
     for (const c of this.world.chunks.values()) {
@@ -364,7 +399,7 @@ class Game {
     const heldIt = this.inv[this.sel], held = heldIt ? this.items[heldIt.item] : null;
     const actors = (this.view.third ? this.anim.actors(p.p[0], p.p[1], p.p[2], p.speed > 0.2 ? p.moveYaw : p.yaw, p.pitch, held) : this.anim.viewActors(M.inv(viewM), held)).concat(this.fauna.actors());
     const mc = reach ? Math.min(1, this.mine.t / Math.max(0.05, BLOCKS[reach.id].hardness)) : 0;
-    r.render({ eye, vp, viewM, proj, chunks: all.map(remap), visible: visible.map(remap), far: this.world.far, actors, time: this.elapsed + (this.fixTime || 0), target: reach && !this.camOverride ? { pos: [reach.x, reach.y, reach.z], color: [mc, 1 - mc * 0.6, 1 - mc, 1] } : null, farHole: (this.world.radius - 0.6) * 32, ghost: this.ghost(), cloud: 0.42, lightDirty: r.lightDirty, taa: this.taaOff ? false : undefined });
+    r.render({ eye, vp, viewM, proj, chunks: all.map(remap), visible: visible.map(remap), far: this.world.far, actors, time: this.elapsed + (this.fixTime || 0), target: reach && !this.camOverride ? { pos: [reach.x, reach.y, reach.z], color: [mc, 1 - mc * 0.6, 1 - mc, 1] } : null, farHole: (this.world.radius - 0.6) * 32, covered: this.underRoof(eye), ghost: this.ghost(), cloud: this.weather.state.cloud, lightDirty: r.lightDirty, taa: this.taaOff ? false : undefined });
     r.lightDirty = false;
     $('reticle').classList.toggle('hit', !!reach);
     this.hud.compass(p.yaw);

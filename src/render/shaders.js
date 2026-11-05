@@ -131,7 +131,7 @@ void main(){
   vec3 skyAmb=mix(uGround*.9,mix(uSkyHor,uSkyTop,.4)*vec3(1.,.95,.82)*.78,n.y*.5+.5);
   // lumière rebondie du couvert : sous les arbres, l'ambiance se teinte de vert et reste lisible
   vec3 canopy=vec3(.27,.36,.13)*mix(1.,.5,n.y*.5+.5);
-  vec3 amb=mix(canopy*1.25,skyAmb,sky2*.8+.2)*(.5+.5*skyL)*vis;
+  vec3 amb=mix(canopy*1.75,skyAmb,sky2*.8+.2)*(.6+.4*skyL)*vis;
   vec3 blkc=vec3(1.,.62,.28)*pow(blk,2.1)*2.2*vao;
   vec3 c=alb*(direct+amb+blkc)+bl;
   // spéculaire de ciel et de soleil discret
@@ -214,7 +214,7 @@ void main(){
 
 export const FS_WATER = `#version 300 es
 ${COMMON}${LIGHTING}
-in vec3 vPos; in vec3 vN; in vec3 vLit; layout(location=0) out vec4 o;
+in vec3 vPos; in vec3 vN; in vec3 vLit; in float vFoam; layout(location=0) out vec4 o;
 uniform sampler2D uScene,uD; uniform vec2 uRes; uniform mat4 uVP; uniform mat4 uInvVP;
 float wave(vec2 p,float t){ return texture(uNoise,vec3(p*.09+t*vec2(.022,.015),t*.016)).r+.5*texture(uNoise,vec3(p*.27-t*vec2(.03,.05),.4+t*.02)).r; }
 vec3 pos(vec2 p,float d){ vec4 c=uInvVP*vec4(p*2.-1.,d*2.-1.,1.); return c.xyz/c.w; }
@@ -228,7 +228,7 @@ void main(){
   vec3 scene=texture(uScene,ruv).rgb; float rd=texture(uD,ruv).r; if(length(pos(ruv,rd)-uCam)<dist-.05) scene=texture(uScene,suv).rgb;
   vec3 deep=vec3(.015,.075,.085), shallow=vec3(.19,.42,.36);
   float absorb=exp(-depth*.42); vec3 tint=mix(deep,shallow,exp(-depth*.28));
-  float sh=shadowAt(vPos,vec3(0,1,0),dist,gl_FragCoord.xy,4);
+  float sh=shadowAt(vPos,vec3(0,1,0),dist,gl_FragCoord.xy,4); if(fall>.5) sh=.5+.2*sh; // une nappe en mouvement ne reçoit pas d'ombre nette
   vec3 water=mix(tint*(uSunCol*.35*sh+mix(uSkyHor,uSkyTop,.5)*.7*vLit.y),scene,absorb*.82);
   vec3 R=reflect(V,n); R.y=abs(R.y);
   float F=.03+.97*pow(1.-sat(dot(-V,n)),5.);
@@ -243,31 +243,34 @@ void main(){
   float glint=pow(sat(dot(reflect(V,normalize(n+vec3(0,.2,0))),uSunDir)),1400.)*40.*sh; c+=uSunCol*min(glint,6.);
   // écume : contact avec les rives et chutes
   float fn=texture(uNoise,vec3(vPos.xz*.42,uTime*.09)).r;
-  float foam=smoothstep(.7,.05,depth)*smoothstep(.42,.7,fn+.25)*(fall<.5?1.:0.);
-  if(fall>.5){ float streak=texture(uNoise,vec3(vPos.x*.8+vPos.z*.8,vPos.y*.14+uTime*.7,.2)).r; foam=smoothstep(.34,.6,streak)*.85; c=mix(c,vec3(.75,.84,.86)*(uSunCol*.3*sh+mix(uSkyHor,uSkyTop,.5)*.9*max(vLit.y,.4)),.55); }
+  float boil=.6*texture(uNoise,vec3(vPos.xz*.37+.13,uTime*.3)).r+.4*texture(uNoise,vec3(vPos.zx*.91,.4-uTime*.45)).r;
+  float foam=max(smoothstep(.7,.05,depth)*smoothstep(.42,.7,fn+.25),smoothstep(.2,1.5,vFoam)*smoothstep(.42,.56,boil))*(fall<.5?1.:0.);
+  if(fall>.5){ float streak=texture(uNoise,vec3((vPos.x+vPos.z)*1.7,vPos.y*.09+uTime*.9,.2)).r; foam=smoothstep(.56,.76,streak)*.42; c=mix(c,vec3(.34,.5,.52)*(uSunCol*.3*sh+mix(uSkyHor,uSkyTop,.5)*.9*max(vLit.y,.4)),.3); }
   c=mix(c,vec3(1.)*(uSunCol*.55*sh+mix(uSkyHor,uSkyTop,.5)*.8*vLit.y),foam*.8);
   o=vec4(c,1.);
 }`;
 export const VS_WATER = `#version 300 es
 ${COMMON}
-layout(location=0) in vec4 aPos; layout(location=1) in vec4 aNrm; layout(location=2) in vec4 aLit;
+layout(location=0) in vec4 aPos; layout(location=1) in vec4 aNrm; layout(location=2) in vec4 aLit; layout(location=3) in vec4 aTint;
 uniform mat4 uVP; uniform vec3 uOrigin; uniform float uPosScale; uniform vec2 uJitter;
-out vec3 vPos; out vec3 vN; out vec3 vLit;
-void main(){ vPos=aPos.xyz*uPosScale+uOrigin; vN=aNrm.xyz; vLit=aLit.xyz; gl_Position=uVP*vec4(vPos,1.); gl_Position.xy+=uJitter*gl_Position.w; }`;
+out vec3 vPos; out vec3 vN; out vec3 vLit; out float vFoam;
+void main(){ vPos=aPos.xyz*uPosScale+uOrigin; vN=aNrm.xyz; vLit=aLit.xyz; vFoam=aTint.r*2.; gl_Position=uVP*vec4(vPos,1.); gl_Position.xy+=uJitter*gl_Position.w; }`;
 
 export const FS_COMPOSE = `#version 300 es
 ${COMMON}${LIGHTING}
-in vec2 uv; out vec4 o; uniform sampler2D uHdr,uVol,uClouds,uD; uniform mat4 uInvVP; uniform float uFog; uniform vec2 uTexel;
+in vec2 uv; out vec4 o; uniform sampler2D uHdr,uVol,uClouds,uD; uniform mat4 uInvVP; uniform float uFog,uMist; uniform vec2 uTexel;
 void main(){
   vec3 c=texture(uHdr,uv).rgb; float d=texture(uD,uv).r;
   vec4 h=uInvVP*vec4(uv*2.-1.,d*2.-1.,1.); vec3 wp=h.xyz/h.w, ray=wp-uCam; float len=length(ray); vec3 V=ray/len;
-  if(d>=1.){ vec4 cl=texture(uClouds,uv); c=c*cl.a+cl.rgb; }
+  vec3 mist=skyColor(normalize(vec3(V.x,max(V.y,.03)*.25+.03,V.z)));
+  if(d>=1.){ vec4 cl=texture(uClouds,uv); c=c*cl.a+cl.rgb; c=mix(c,mist,min(1.,uMist*160.)); }
   else {
     // perspective aérienne : au-delà de la brume marchée, l'horizon se dissout dans le ciel
     float far=max(len-70.,0.);
     float a=1.-exp(-far*.00125*(1.+exp(-max(wp.y-50.,0.)*.02)));
     vec3 air=skyColor(normalize(vec3(V.x,max(V.y,.03),V.z)));
     c=mix(c,air,a);
+    c=mix(c,mist,1.-exp(-len*uMist)); // pluie, brouillard : la distance se perd dans un voile uniforme
   }
   // suréchantillonnage bilatéral du volume
   vec4 v=vec4(0.); float w=0., d0=1./max(1.-d,1e-5);
@@ -328,3 +331,10 @@ export const VS_LINE = `#version 300 es
 layout(location=0) in vec3 aPos; uniform mat4 uVP; uniform vec3 uOffset; uniform vec3 uScale; void main(){ gl_Position=uVP*vec4(aPos*uScale+uOffset,1.); }`;
 export const FS_LINE = `#version 300 es
 precision mediump float; out vec4 o; uniform vec4 uColor; void main(){ o=uColor; }`;
+
+export const VS_RAIN = `#version 300 es
+precision highp float; uniform mat4 uVP; uniform vec3 uCam; uniform float uTime;
+float h(float n){ return fract(sin(n*12.9898)*43758.5453); }
+void main(){ float i=float(gl_VertexID/2), e=float(gl_VertexID&1); const vec3 B=vec3(28.,18.,28.);
+  vec3 p=vec3(h(i),h(i+7.3),h(i+13.1))*B; p.y-=uTime*(20.+6.*h(i+3.)); p.xz+=uTime*vec2(1.8,.9);
+  p=mod(p-uCam,B)-B*.5+uCam; p+=vec3(.1,-1.25,.05)*e; gl_Position=uVP*vec4(p,1.); }`;

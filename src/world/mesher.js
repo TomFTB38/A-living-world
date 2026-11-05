@@ -371,7 +371,12 @@ export function meshChunk(getChunk, cx, cz, lod) {
     if (b === B.water) {
       const up = vol[k + WW], topY = up === B.water ? y + 1 : y + 0.875;
       const s = sky[k + WW] * 17, l = blk[k] * 17;
-      if (up !== B.water && !IS_OPAQUE[up]) { water.v(x, topY, z + 1, 0, 0, 1, 0, 0, 255, s, l, 0, 1, 1, 1); water.v(x + 1, topY, z + 1, 0, 0, 1, 0, 0, 255, s, l, 0, 1, 1, 1); water.v(x + 1, topY, z, 0, 0, 1, 0, 0, 255, s, l, 0, 1, 1, 1); water.v(x, topY, z, 0, 0, 1, 0, 0, 255, s, l, 0, 1, 1, 1); }
+      if (up !== B.water && !IS_OPAQUE[up]) {
+        // Écume au pied des chutes : de l'eau plus haute tout près, un cran au-dessus de cette surface.
+        let foam = 0;
+        for (let dz = -2; dz <= 2 && !foam; dz++) for (let dx = -2; dx <= 2; dx++) if (vol[k + dx + dz * W + WW * 2] === B.water) { foam = 1.6; break; }
+        water.v(x, topY, z + 1, 0, 0, 1, 0, 0, 255, s, l, 0, foam, 1, 1); water.v(x + 1, topY, z + 1, 0, 0, 1, 0, 0, 255, s, l, 0, foam, 1, 1); water.v(x + 1, topY, z, 0, 0, 1, 0, 0, 255, s, l, 0, foam, 1, 1); water.v(x, topY, z, 0, 0, 1, 0, 0, 255, s, l, 0, foam, 1, 1);
+      }
       const side = (n, nx, nz, ax, az, bx, bz) => {
         const v = vol[n]; if (v === B.water || IS_OPAQUE[v]) return;
         const ss = Math.max(sky[n], sky[k]) * 17;

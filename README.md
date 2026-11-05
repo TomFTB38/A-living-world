@@ -1,7 +1,7 @@
 # A Living World
 
 Prototype jouable de la forêt tempérée, en JavaScript et WebGL2, sans dépendance.
-Il valide la direction artistique et l'architecture. Le moteur final est prévu en Rust avec wgpu
+Il valide la direction artistique et l'architecture. La météo (clair, nuageux, pluie, brouillard) suit la seed et se règle dans le menu ; le son est synthétisé à la volée, sans fichier. Le moteur final est prévu en Rust avec wgpu
 (voir le dossier fondateur).
 
 ## Lancer

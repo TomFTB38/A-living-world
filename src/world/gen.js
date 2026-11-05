@@ -43,7 +43,7 @@ export class WorldGen {
     // rivière : ligne de niveau du bruit déformé, niveaux quantifiés = cascades
     const rs = this.nRiver.fbm2(wx / 400, wz / 400, 2, 2.1, 0.32), rn = Math.abs(rs);
     const dR = rn * 300, wid = 2.6 + 1.8 * (0.5 + 0.5 * this.nRiver.n2(x / 60, z / 60));
-    const L = Math.floor((low - 4) / 3) * 3 + 1;
+    const L = Math.floor((low - 4) / 4) * 4 + 1; // paliers de 4 blocs : de vraies cascades
     let water = 0, bank = 0;
     if (dR < wid + 13) {
       bank = 1 - smooth(wid, wid + 13, dR);
@@ -76,7 +76,7 @@ export class WorldGen {
       }
       if (edge > path) path = edge;
       const walk = 1 - smooth(1.5, 5, bankD);
-      if (walk > 0) h = lerp(h, L + 2.6, walk);
+      if (walk > 0) h = lerp(h, low - 1, walk); // niveau continu : le sentier reste praticable au passage des chutes
     }
     const f = this.nForest.fbm2(x / 170, z / 170, 3) * 1.5 + 0.78 + 0.12 * this.nForest.n2(x / 31, z / 31);
     c.h = h; c.water = water; c.forest = clamp(f, 0, 1); c.path = path; c.bank = bank;
@@ -130,7 +130,11 @@ export class WorldGen {
         else v[i] = B.dirt;
         depth++;
       }
-      if (water) { for (let y = top + 1; y <= water; y++) v[idx(x, y, z)] = B.water; }
+      if (water) {
+        for (let y = top + 1; y <= water; y++) v[idx(x, y, z)] = B.water;
+        // Rochers qui affleurent dans le lit, posés en groupes
+        if (this.nDeco.n2(wx / 4.3 + 31, wz / 4.3 - 12) > 0.56) { const crown = water + (hashFloat(wx, wz, this.seed, 9) > 0.55 ? 1 : 0); for (let y = top + 1; y <= crown && y < CH - 1; y++) v[idx(x, y, z)] = y === crown ? B.mossy_stone : B.stone; top = crown; }
+      }
       heights[x + z * CX] = top; waters[x + z * CX] = water;
       info[(x + z * CX) * 2] = fr; info[(x + z * CX) * 2 + 1] = path;
     }

@@ -54,7 +54,7 @@ export class Renderer {
     this.P = {
       geom: this.prog(S.VS_GEOM, S.FS_GEOM), shadow: this.prog(S.VS_SHADOW, S.FS_SHADOW), light: this.prog(F, S.FS_LIGHT), ssao: this.prog(F, S.FS_SSAO), blur: this.prog(F, S.FS_BLUR),
       clouds: this.prog(F, S.FS_SKYCLOUD), vol: this.prog(F, S.FS_VOLUME), water: this.prog(S.VS_WATER, S.FS_WATER), compose: this.prog(F, S.FS_COMPOSE), taa: this.prog(F, S.FS_TAA),
-      bright: this.prog(F, S.FS_BRIGHT), final: this.prog(F, S.FS_FINAL), line: this.prog(S.VS_LINE, S.FS_LINE),
+      rain: this.prog(S.VS_RAIN, S.FS_LINE), bright: this.prog(F, S.FS_BRIGHT), final: this.prog(F, S.FS_FINAL), line: this.prog(S.VS_LINE, S.FS_LINE),
     };
   }
 
@@ -171,7 +171,7 @@ export class Renderer {
     s.top = mix(mix([0.012, 0.02, 0.05], [0.19, 0.3, 0.62], day), [0.22, 0.46, 1.05], st);
     s.hor = mix(mix([0.03, 0.045, 0.09], [1.05, 0.62, 0.42], day), [0.82, 1.0, 1.25], st);
     s.ground = mix([0.02, 0.022, 0.03], [0.3, 0.3, 0.15], day);
-    this.night = night; this.exposure = 0.52 + 0.4 * night;
+    this.night = night; this.exposure = 0.6 + 0.32 * night;
   }
 
   // Icône d'inventaire rendue depuis le vrai modèle de l'objet.
@@ -201,6 +201,13 @@ export class Renderer {
     }
     ctx.putImageData(im, 0, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindVertexArray(null); gl.enable(gl.CULL_FACE); gl.disable(gl.DEPTH_TEST);
     return cv.toDataURL();
+  }
+
+  // La météo agit sur l'astre, le ciel et la densité de la brume.
+  applyWeather(w) {
+    const s = this.sun, dim = 1 - 0.72 * Math.max(w.rain, w.fog * 0.75, (w.cloud - 0.42) * 0.7), grey = (c, g) => c.map((v, i) => v + (g[i] * (0.25 + 0.75 * Math.min(1, (s.dir[1] + 0.1) * 3)) - v) * Math.min(1, w.rain * 0.85 + w.fog * 0.6 + Math.max(0, w.cloud - 0.42) * 0.8));
+    s.col = s.col.map((c) => c * dim); s.top = grey(s.top, [0.42, 0.47, 0.54]); s.hor = grey(s.hor, [0.72, 0.76, 0.8]);
+    this.fogK = 1 + 1.6 * w.rain + 5.5 * w.fog; this.rainK = w.rain; this.mist = 0.0045 * w.rain + 0.024 * w.fog;
   }
 
   render(view) {
@@ -282,7 +289,7 @@ export class Renderer {
     if (p.clouds && fr % p.cloudStep !== 0 && p.cloudStep > 1) { /* image précédente conservée */ }
     else if (p.clouds) this.full(this.P.clouds, r.clF, W >> 2, H >> 2, { ...shared, uInvVP: invVP, uFrame: fr % 64 }, { uD: r.D, uNoise: this.tNoise });
     else { gl.bindFramebuffer(gl.FRAMEBUFFER, r.clF); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
-    this.full(this.P.vol, r.volF, hw, hh, { ...shared, uInvVP: invVP, uFrame: fr % 64, uFog: this.fog, uSteps: p.vol }, { uD: r.D, uShadow: this.tShadow, uNoise: this.tNoise });
+    this.full(this.P.vol, r.volF, hw, hh, { ...shared, uInvVP: invVP, uFrame: fr % 64, uFog: this.fog * (this.fogK || 1), uSteps: p.vol }, { uD: r.D, uShadow: this.tShadow, uNoise: this.tNoise });
 
     /* --- eau --- */
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, r.gbuf); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, r.sceneF);
@@ -316,7 +323,7 @@ export class Renderer {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, null, 0);
 
     /* --- composition, TAA, bloom, sortie --- */
-    this.full(this.P.compose, r.compF, W, H, { ...shared, uInvVP: invVP, uFog: this.fog, uTexel: [1 / W, 1 / H] }, { uHdr: r.hdr, uVol: r.vol, uClouds: r.cl, uD: r.D });
+    this.full(this.P.compose, r.compF, W, H, { ...shared, uInvVP: invVP, uFog: this.fog, uMist: this.mist || 0, uTexel: [1 / W, 1 / H] }, { uHdr: r.hdr, uVol: r.vol, uClouds: r.cl, uD: r.D });
     const cur = fr & 1;
     this.full(this.P.taa, r.histF[cur], W, H, { uInvVP: invVP, uPrevVP: this.prevVP, uTexel: [1 / W, 1 / H], uReset: this.reset || view.taa === false ? 1 : 0 }, { uCur: r.comp, uHist: r.hist[1 - cur], uD: r.D, uL: r.L });
     this.prevVP = vp; this.reset = false;
@@ -327,6 +334,11 @@ export class Renderer {
     for (let i = 4; i > 0; i--) { const w = Math.max(2, hw >> (i - 1)), h = Math.max(2, hh >> (i - 1)); this.full(this.P.bright, r.bloomF[i - 1], w, h, { uTexel: [0.5 / w, 0.5 / h], uFirst: 0 }, { uT: r.bloom[i] }); }
     gl.disable(gl.BLEND);
     this.full(this.P.final, null, W, H, { uTexel: [1 / W, 1 / H], uExposure: this.exposure, uBloom: 0.05, uSharp: 0.32 }, { uT: r.hist[cur], uB: r.bloom[0] });
+    // Pluie après le TAA, qui effacerait ces traits fins et rapides ; toute proche de la caméra, elle n'a pas besoin de la profondeur.
+    if (this.rainK > 0.02 && !view.covered) {
+      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE); this.use(this.P.rain, { uVP: vp, uCam: eye, uTime: view.time, uColor: [0.72, 0.8, 0.92, 0.17 * this.rainK] });
+      gl.bindVertexArray(this.emptyVAO); gl.drawArrays(gl.LINES, 0, Math.floor(this.rainK * 1100) * 2); st.draws++; gl.disable(gl.BLEND);
+    }
     if (this.q && this.qOn) { gl.endQuery(this.timer.TIME_ELAPSED_EXT); this.qOn = false; }
     gl.bindVertexArray(null);
   }
