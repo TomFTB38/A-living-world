@@ -39,3 +39,13 @@ test('lianes, champignons, clôtures et lanternes sont générés et déterminis
   assert.ok(c[B.vine] > 100); assert.ok(c[B.shelf_fungus] > 3); assert.ok(c[B.fence] > 10);
   assert.equal(hash(new WorldGen(20261104).genChunk(-9, -4)), hash(g.genChunk(-9, -4)));
 });
+test('un sentier longe bien les ruisseaux', () => {
+  const g = new WorldGen(20261104); let bank = 0, withPath = 0;
+  for (let z = -900; z < 900; z += 3) for (let x = -900; x < 900; x += 3) { const c = g.column(x, z); if (c.water) { bank++; for (const [dx, dz] of [[6, 0], [-6, 0], [0, 6], [0, -6], [8, 0], [-8, 0], [0, 8], [0, -8]]) if (g.column(x + dx, z + dz).path > 0.45) { withPath++; break; } } }
+  console.log('eau', bank, 'avec sentier', (withPath / bank * 100).toFixed(0) + ' %'); assert.ok(withPath / bank > 0.2);
+});
+test('la pierre normale ne contient plus la pierre moussue dans son matériau', () => {
+  assert.notEqual(BLOCKS_STONE(), BLOCKS_MOSS());
+});
+import { BLOCKS } from '../src/world/blocks.js';
+const BLOCKS_STONE = () => BLOCKS[B.stone].dirFaces[0], BLOCKS_MOSS = () => BLOCKS[B.mossy_stone].dirFaces[0];

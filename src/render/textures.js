@@ -55,11 +55,11 @@ function stone(t, x, y, a = STONE, cells = 5) {
   const tone = 0.34 + 0.32 * t.p[id] + 0.55 * (n - 0.5) + 0.3 * (s - 0.5) + 0.12 * crack;
   return { c: pal(a, tone * (0.72 + 0.28 * crack)), h: 0.2 + 0.6 * crack + 0.2 * n, r: 0.8 };
 }
+// Pierre moussue : couverture franche par le haut, débordant en coulures, bien distincte de la pierre nue.
 function mossy(t, x, y) {
-  const st = stone(t, x, y), m = t.fbm(x, y, 6, 3) + (32 - y) / 90;
-  const k = smooth(0.46, 0.56, m);
-  const g = grassTop(t, x * 2, y * 2);
-  return { c: mix3(st.c, g.c.map((c) => c * 0.82), k), h: lerp(st.h, 0.6 + 0.3 * t.val(x, y, 24), k), r: lerp(st.r, 0.9, k) };
+  const st = stone(t, x, y), drip = 15 + 22 * t.fbm(x, 0, 5, 3), m = t.fbm(x, y, 7, 3), k = y < drip || m > 0.61 ? 1 : 0, g = t.val(x, y, 32);
+  const c = pal(['#37561d', '#55792a', '#7a9c37', '#a6bd4f'].map(hex), 0.14 + 0.72 * m + 0.26 * (g - 0.5));
+  return { c: k ? c : st.c.map((v) => v * (y < drip + 5 ? 0.72 : 0.92)), h: k ? 0.72 + 0.28 * g : st.h, r: k ? 0.92 : st.r };
 }
 // Écorce en côtes verticales : colonnes de largeur régulière, ondulées et coupées par endroits.
 function bark(t, x, y, colors, relief = 1) {

@@ -73,7 +73,16 @@ class Game {
       const s = -Math.abs(g2 - 0.1) * 0.5 + Math.min(f / 10, 0.8) - flat * 0.006 - r / 9000 + wet * 0.35;
       if (s > score) { score = s; best = [x + 0.5, Math.ceil(c.h) + 2, z + 0.5, Math.atan2(-0.75, 0.42)]; }
     }
-    return best || [0.5, Math.ceil(g.column(0, 0).h) + 3, 0.5, 0];
+    if (best) { // Cadrage de départ : le sentier devant soi, l'eau sur la droite et le soleil en face si possible.
+      let top = -1; const [bx, , bz] = best;
+      for (let yaw = 0; yaw < 6.283; yaw += 0.26) {
+        const fx = Math.sin(yaw), fz = Math.cos(yaw), rx = -fz, rz = fx; let sc = 0.5 * (-0.87 * fx + 0.49 * fz);
+        for (const d of [7, 12, 18]) { if (g.column(bx + fx * d, bz + fz * d).path > 0.3) sc += 0.5; for (const r of [4, 8, 12]) if (g.column(bx + fx * d + rx * r, bz + fz * d + rz * r).water) sc += 0.3; }
+        if (sc > top) { top = sc; best[3] = yaw; }
+      }
+      return best;
+    }
+    return [0.5, Math.ceil(g.column(0, 0).h) + 3, 0.5, 0];
   }
 
   applySettings() {
@@ -96,6 +105,7 @@ class Game {
       if (this.paused) return;
       K.add(e.code);
       if (e.code.startsWith('Digit')) { const n = +e.code.slice(5); if (n >= 1) this.select(n - 1); }
+      if (e.code === 'KeyR') this.cycleOrient();
       if (e.code === 'KeyC') { this.view.third = !this.view.third; this.hud.toast(this.view.third ? 'Troisième personne' : 'Première personne'); }
       if (e.code === 'F3') { e.preventDefault(); this.prof.show = !this.prof.show; $('prof').classList.toggle('on', this.prof.show); }
       if (e.code === 'KeyT') this.hour = (this.hour + 1) % 24;
@@ -138,6 +148,7 @@ class Game {
     hold('tBreak', () => { this.input.lmb = true; }, () => { this.input.lmb = false; });
     hold('tPlace', () => this.place(), () => {});
     hold('tMenu', () => this.toggleMenu(true), () => {});
+    hold('tAxis', () => this.cycleOrient(), () => {});
     hold('tFps', () => { this.prof.show = !this.prof.show; $('prof').classList.toggle('on', this.prof.show); $('tFps').classList.toggle('on', this.prof.show); this.report(); }, () => {});
   }
 
@@ -202,13 +213,29 @@ class Game {
     return { eye: V.add(anchor, V.mul(back, this.view.camDist)), f };
   }
 
+  // 0 suit le regard, 1 force la verticale, 2 force l'axe horizontal du regard.
+  orientFor(block) {
+    const pl = this.player, cp = Math.cos(pl.pitch), m = this.orientMode || 0, dx = Math.sin(pl.yaw) * cp, dz = Math.cos(pl.yaw) * cp;
+    return orientedBlock(block, dx, m === 1 ? 1 : m === 2 ? 0 : Math.sin(pl.pitch), dz);
+  }
+  cycleOrient() { this.orientMode = ((this.orientMode || 0) + 1) % 3; const t = ['Orientation : selon le regard', 'Orientation : verticale', 'Orientation : couchée']; this.hud.toast(t[this.orientMode]); $('tAxis').textContent = ['Auto', 'Vert.', 'Couché'][this.orientMode]; }
+  // Où irait le bloc sélectionné, et serait-il accepté ?
+  ghost() {
+    const it = this.inv[this.sel], def = it && ITEMS[it.item], t = this.target;
+    if (!def?.block || !t || this.camOverride) return null;
+    const pos = IS_DECO[t.id] && t.id !== B.lantern && !IS_SOLID[t.id] ? [t.x, t.y, t.z] : [t.px, t.py, t.pz], cur = this.world.get(pos[0], pos[1], pos[2]), id = this.orientFor(def.block), p = this.player.p;
+    const hit = IS_SOLID[id] && pos[0] + 1 > p[0] - 0.3 && pos[0] < p[0] + 0.3 && pos[2] + 1 > p[2] - 0.3 && pos[2] < p[2] + 0.3 && pos[1] + 1 > p[1] && pos[1] < p[1] + 1.8;
+    const name = BLOCKS[id].name, axis = /log_x$/.test(name) ? 1 : /log_z$/.test(name) ? 3 : /_log$/.test(name) ? 2 : 0;
+    return { pos, ok: it.n > 0 && cur !== -1 && !IS_SOLID[cur] && !hit, axis };
+  }
+
   place() {
     if (this.paused || !this.target) return;
     const it = this.inv[this.sel], def = it && ITEMS[it.item];
     if (!def?.block || it.n <= 0) return;
     const t = this.target, id = IS_DECO[t.id] && t.id !== B.lantern && !IS_SOLID[t.id] ? [t.x, t.y, t.z] : [t.px, t.py, t.pz];
     const cur = this.world.get(...id); if (cur === -1 || IS_SOLID[cur]) return;
-    const pl = this.player, cp = Math.cos(pl.pitch), p = pl.p, bid = orientedBlock(def.block, Math.sin(pl.yaw) * cp, Math.sin(pl.pitch), Math.cos(pl.yaw) * cp);
+    const pl = this.player, p = pl.p, bid = this.orientFor(def.block);
     if (IS_SOLID[bid] && id[0] + 1 > p[0] - 0.3 && id[0] < p[0] + 0.3 && id[2] + 1 > p[2] - 0.3 && id[2] < p[2] + 0.3 && id[1] + 1 > p[1] && id[1] < p[1] + 1.8) return;
     if (this.world.set(id[0], id[1], id[2], bid)) { it.n--; this.hud.inventory(this.inv, this.sel); this.dirtySave = true; }
   }
@@ -288,7 +315,7 @@ class Game {
     this.target = reach; this.mineStep(dt);
     const actors = (this.view.third ? this.anim.actors(p.p[0], p.p[1], p.p[2], this.player.speed > 0.2 ? p.moveYaw : p.yaw, p.speed, dt, this.mining, p.crouch) : []).concat(this.fauna.actors());
     const mc = reach ? Math.min(1, this.mine.t / Math.max(0.05, BLOCKS[reach.id].hardness)) : 0;
-    r.render({ eye, vp, viewM, proj, chunks: all.map(remap), visible: visible.map(remap), far: this.world.far, actors, time: this.elapsed + (this.fixTime || 0), target: reach && !this.camOverride ? { pos: [reach.x, reach.y, reach.z], color: [mc, 1 - mc * 0.6, 1 - mc, 1] } : null, farHole: (this.world.radius - 0.6) * 32, cloud: 0.42, lightDirty: r.lightDirty, taa: this.taaOff ? false : undefined });
+    r.render({ eye, vp, viewM, proj, chunks: all.map(remap), visible: visible.map(remap), far: this.world.far, actors, time: this.elapsed + (this.fixTime || 0), target: reach && !this.camOverride ? { pos: [reach.x, reach.y, reach.z], color: [mc, 1 - mc * 0.6, 1 - mc, 1] } : null, farHole: (this.world.radius - 0.6) * 32, ghost: this.ghost(), cloud: 0.42, lightDirty: r.lightDirty, taa: this.taaOff ? false : undefined });
     r.lightDirty = false;
     $('reticle').classList.toggle('hit', !!reach);
     this.hud.compass(p.yaw);

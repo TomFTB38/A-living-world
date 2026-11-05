@@ -30,7 +30,7 @@ input,select{width:100%;background:#0005;border:1px solid var(--line);color:var(
 .keys{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px;opacity:.9}
 #loading{background:#10140d;flex-direction:column;gap:16px}#loading h1{font-size:clamp(26px,5vw,44px);margin:0;letter-spacing:.03em}#loadTrack{width:min(340px,70vw);height:8px;border-radius:4px;background:#ffffff1c;overflow:hidden}#loadbar{height:100%;width:0;background:var(--accent);transition:width .2s}
 #fatal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#10140d;padding:24px;text-align:center;z-index:9}#fatal.on{display:flex}
-#touch{display:none}#touch.on{display:block}#touch button{position:fixed;width:68px;height:68px;border-radius:50%;background:#0005;right:18px}#touch #tFps,#touch #tMenu{width:64px;height:36px;border-radius:8px;bottom:auto;top:calc(62px + env(safe-area-inset-top,0px))}#touch #tMenu{right:90px}#touch #tFps.on{background:#6b9a2b}#tJump{bottom:110px}#tBreak{bottom:190px}#tPlace{bottom:270px}
+#touch{display:none}#touch.on{display:block}#touch button{position:fixed;width:68px;height:68px;border-radius:50%;background:#0005;right:18px}#touch #tAxis{right:18px;bottom:350px;width:68px;height:44px;border-radius:8px;font-size:13px}#touch #tFps,#touch #tMenu{width:64px;height:36px;border-radius:8px;bottom:auto;top:calc(62px + env(safe-area-inset-top,0px))}#touch #tMenu{right:90px}#touch #tFps.on{background:#6b9a2b}#tJump{bottom:110px}#tBreak{bottom:190px}#tPlace{bottom:270px}
 @media (max-width:760px){#bottom{min-width:0;width:calc(100vw - 32px);left:16px;transform:none;bottom:12px}#vitals{bottom:auto;top:58px;width:150px}#hints{display:none}#compassWrap{display:none}#biome{top:14px}}
 </style>
 <canvas id="gl"></canvas>
@@ -46,13 +46,13 @@ input,select{width:100%;background:#0005;border:1px solid var(--line);color:var(
 <div id="bottom"><div id="item"></div><div id="hotbar"></div></div>
 <div id="hints"><div>Casser <kbd>clic gauche</kbd></div><div>Poser <kbd>clic droit</kbd></div><div>Menu <kbd>Échap</kbd></div></div>
 <div id="toast"></div><pre id="prof"></pre>
-<div id="touch"><button id="tJump">Saut</button><button id="tBreak">Casser</button><button id="tPlace">Poser</button><button id="tMenu">Menu</button><button id="tFps">FPS</button></div>
+<div id="touch"><button id="tJump">Saut</button><button id="tBreak">Casser</button><button id="tPlace">Poser</button><button id="tAxis">Auto</button><button id="tMenu">Menu</button><button id="tFps">FPS</button></div>
 <div class="layer" id="menu"><div class="card"><h2>A Living World</h2>
 <div class="btns"><button class="main" id="btnResume">Reprendre</button><button id="btnSave">Sauvegarder</button><button id="btnExport">Exporter le monde</button></div>
 <h3>Nouveau monde</h3><div class="row"><label for="inSeed">Seed</label><input id="inSeed" inputmode="numeric"></div><div class="btns"><button id="btnNew">Créer</button><button id="btnImport">Importer</button></div><input type="file" id="fileImport" accept=".alw" hidden>
 <h3>Graphismes</h3><div class="row"><label for="selPreset">Qualité</label><select id="selPreset"><option value="bas">Bas</option><option value="moyen">Moyen</option><option value="haut">Haut</option></select></div>
 <div class="row"><label for="inFov">Champ de vision</label><input id="inFov" type="range" min="55" max="100"></div><div class="row"><label for="inSens">Sensibilité</label><input id="inSens" type="range" min=".3" max="2.5" step=".1"></div>
-<h3>Commandes</h3><div class="keys"><b>ZQSD / WASD</b><span>se déplacer</span><b>Espace</b><span>sauter, remonter dans l'eau</span><b>Maj / Ctrl</b><span>sprint / s'accroupir</span><b>1 à 9, molette</b><span>objet sélectionné</span><b>C</b><span>changer de caméra</span><b>T / Y</b><span>avancer l'heure / figer le temps</span><b>F3</b><span>profilage</span><b>F5</b><span>sauvegarde rapide</span></div></div></div>
+<h3>Commandes</h3><div class="keys"><b>ZQSD / WASD</b><span>se déplacer</span><b>Espace</b><span>sauter, remonter dans l'eau</span><b>Maj / Ctrl</b><span>sprint / s'accroupir</span><b>1 à 9, molette</b><span>objet sélectionné</span><b>C</b><span>changer de caméra</span><b>R</b><span>orientation du bloc</span><b>T / Y</b><span>avancer l'heure / figer le temps</span><b>F3</b><span>profilage</span><b>F5</b><span>sauvegarde rapide</span></div></div></div>
 <div class="layer on" id="loading"><h1>A LIVING WORLD</h1><div id="loadTrack"><div id="loadbar"></div></div></div>
 <div id="fatal"></div>
 <script>__GAME__</script>

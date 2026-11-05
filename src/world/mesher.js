@@ -203,7 +203,7 @@ function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
     for (let i = 0; i < n; i++) {
       const a = x + r.range(0.2, 0.8), c = z + r.range(0.2, 0.8), t = r.range(0.8, 1.1);
       box(o, a - 0.02, y, c - 0.02, a + 0.02, y + 1, c + 0.02, 0.26 * t, 0.42 * t, 0.15 * t, 70, s, l, KIND.FOLIAGE, false, 90);
-      if (lod === 0) for (let k = 0; k < 3; k++) { const yy = y + 0.14 + k * 0.3, q = r.range(0.05, 0.09), dx = r.range(-0.06, 0.06), dz = r.range(-0.06, 0.06); box(o, a + dx - q, yy, c + dz - q, a + dx + q, yy + 0.07, c + dz + q, 0.3 * t, 0.5 * t, 0.17 * t, 80, s, l, KIND.FOLIAGE, true); }
+      if (lod === 0) for (let k = 0; k < 3; k++) { const yy = y + 0.14 + k * 0.3, q = r.range(0.03, 0.055), dx = r.range(-0.09, 0.09), dz = r.range(-0.09, 0.09); box(o, a + dx - q, yy, c + dz - q, a + dx + q, yy + 0.07, c + dz + q, 0.3 * t, 0.5 * t, 0.17 * t, 80, s, l, KIND.FOLIAGE, true); }
     }
     return;
   }
@@ -263,6 +263,7 @@ function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
         blade(o, x + r.next(), y, z + r.next(), r.range(0, 6.28), r.range(0.02, 0.036), r.range(0.22, 0.66), r.range(0.04, 0.2),
           (0.43 + 0.13 * warm) * t, (0.54 + 0.05 * warm) * t, (0.2 + 0.03 * warm) * t, s, l, Math.max(0, s - 25));
       }
+      for (let i = 0; i < 4; i++) blade(o, x + r.next(), y, z + r.next(), r.range(0, 6.28), r.range(0.06, 0.1), r.range(0.1, 0.2), 0.1, 0.4 * base, 0.5 * base, 0.2 * base, s, l, Math.max(0, s - 40)); // tapis bas
       return;
     }
     case 'fern': {

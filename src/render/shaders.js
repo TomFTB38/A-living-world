@@ -55,9 +55,10 @@ void main(){
     vec2 d=m.xy*2.-1.; nn=normalize(n+(T*d.x+B*d.y)*.9); rough=m.b;
     if(vKind==1){ trans=1.; rough=.5; alb*=1.05; }
     // mousse en petits pixels sur les pierres et l'écorce, plus présente sur les faces hautes
-    bool mossable=(vLayer>=${matLayer('stone')}&&vLayer<${matLayer('gravel')})||vLayer==${matLayer('bark_oak')}||vLayer==${matLayer('bark_beech')};
+    bool mossyRock=vLayer>=${matLayer('mossy_stone')}&&vLayer<${matLayer('mossy_stone') + 4};
+    bool mossable=mossyRock||(vLayer>=${matLayer('bark_oak')}&&vLayer<${matLayer('bark_oak') + 4})||(vLayer>=${matLayer('bark_beech')}&&vLayer<${matLayer('bark_beech') + 4});
     if(mossable&&length(dFdx(vPos))<.07){ vec3 g=floor(vPos*9.)/9.; float mn=texture(uNoise,g*.031).r*.78+hash13(g)*.22+(n.y>.5?.14:0.);
-      float mm=step(isBark?.7:.62,mn); alb=mix(alb,vec3(.13,.22,.045)*(.75+.7*hash13(g+3.)),mm); rough=mix(rough,.95,mm); }
+      float mm=step(isBark?.7:.5,mn); alb=mix(alb,vec3(.13,.22,.045)*(.75+.7*hash13(g+3.)),mm); rough=mix(rough,.95,mm); }
   } else {
     float k=.92+.16*hash13(floor(vPos*7.)); alb*=alb*k*1.25;
     if(vKind==3){ trans=.45; alb=mix(vec3(dot(alb,vec3(.3,.6,.1))),alb,.72); }
@@ -109,11 +110,13 @@ vec3 skyColor(vec3 d){
 export const FS_LIGHT = `#version 300 es
 ${COMMON}${LIGHTING}
 in vec2 uv; out vec4 o;
-uniform sampler2D uA,uN,uL,uD,uSSAO,uClouds; uniform mat4 uInvVP; uniform int uShadowSamples;
+uniform sampler2D uA,uN,uL,uD,uSSAO,uClouds; uniform mat4 uInvVP; uniform int uShadowSamples; uniform float uNight;
 vec3 pos(vec2 p,float d){ vec4 c=uInvVP*vec4(p*2.-1.,d*2.-1.,1.); return c.xyz/c.w; }
 void main(){
   float d=texture(uD,uv).r; vec3 wp=pos(uv,d); vec3 V=normalize(wp-uCam);
-  if(d>=1.){ vec3 s=skyColor(V); float mu=dot(V,uSunDir); s+=uSunCol*22.*smoothstep(.99955,.99985,mu); o=vec4(s,1.); return; }
+  if(d>=1.){ vec3 s=skyColor(V); float mu=dot(V,uSunDir); s+=uSunCol*22.*smoothstep(.99955,.99985,mu);
+    if(uNight>0.&&V.y>0.){ vec3 g=floor(V*520.); float st=hash13(g); s+=vec3(.8,.87,1.)*step(.9985,st)*(.25+.75*hash13(g+2.))*.8*uNight*smoothstep(0.,.15,V.y); }
+    o=vec4(s,1.); return; }
   vec4 A=texture(uA,uv), N=texture(uN,uv), L=texture(uL,uv);
   vec3 n=normalize(N.xyz*2.-1.), alb=A.rgb; float rough=N.a, skyL=L.x, blk=L.y, trans=L.z, emis=L.w, vao=A.a;
   if(emis>.5){ o=vec4(alb*5.,1.); return; }

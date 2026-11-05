@@ -81,6 +81,8 @@ export class Renderer {
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     // cube de sélection
     const L = [0,0,0,1,0,0,1,0,0,1,1,0,1,1,0,0,1,0,0,1,0,0,0,0,0,0,1,1,0,1,1,0,1,1,1,1,1,1,1,0,1,1,0,1,1,0,0,1,0,0,0,0,0,1,1,0,0,1,0,1,1,1,0,1,1,1,0,1,0,0,1,1];
+    const Q = [[0,0,1,1,0,1,1,1,1,0,0,1,1,1,1,0,1,1],[1,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1,1,0],[0,1,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,0],[0,0,0,1,0,0,1,0,1,0,0,0,1,0,1,0,0,1],[1,0,1,1,0,0,1,1,0,1,0,1,1,1,0,1,1,1],[0,0,0,0,0,1,0,1,1,0,0,0,0,1,1,0,1,0]].flat();
+    this.cubeVAO = gl.createVertexArray(); gl.bindVertexArray(this.cubeVAO); const cb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, cb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(Q), gl.STATIC_DRAW); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0); gl.bindVertexArray(null);
     this.lineVAO = gl.createVertexArray(); gl.bindVertexArray(this.lineVAO); const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(L), gl.STATIC_DRAW); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0); gl.bindVertexArray(null);
   }
 
@@ -158,13 +160,18 @@ export class Renderer {
 
   setSun(hour) {
     const a = ((hour - 6) / 12) * Math.PI, el = Math.sin(a), s = this.sun;
-    const d = V.norm([Math.cos(a) * 0.82, el * 0.9 + 0.02, 0.38 + 0.2 * (1 - el)]); s.dir = d;
-    const k = Math.min(1, Math.max(0, (d[1] + 0.06) / 0.5)), st = k * k * (3 - 2 * k), day = Math.min(1, Math.max(0, (d[1] + 0.1) / 0.25));
     const mix = (x, y, t) => [x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t];
-    s.col = mix([4.2, 1.9, 0.75], [6.2, 5.3, 3.7], st).map((c) => c * day + 0.02);
+    const clampT = (v) => Math.min(1, Math.max(0, v));
+    const d = V.norm([Math.cos(a) * 0.82, el * 0.9 + 0.02, 0.38 + 0.2 * (1 - el)]);
+    const k = clampT((d[1] + 0.06) / 0.5), st = k * k * (3 - 2 * k), day = clampT((d[1] + 0.1) / 0.25), night = 1 - clampT((d[1] + 0.12) / 0.18);
+    // La lune prend le relais du soleil : un seul astre porte les ombres, donc jamais de lumière par-dessous.
+    const moonUp = clampT((-d[1] - 0.04) / 0.12);
+    s.dir = d[1] < -0.04 ? V.norm([-d[0], -d[1] + 0.05, d[2]]) : d;
+    s.col = d[1] < -0.04 ? [0.13 * moonUp, 0.18 * moonUp, 0.3 * moonUp] : mix([4.2, 1.9, 0.75], [6.2, 5.3, 3.7], st).map((c) => c * clampT((d[1] + 0.04) / 0.14));
     s.top = mix(mix([0.012, 0.02, 0.05], [0.19, 0.3, 0.62], day), [0.22, 0.46, 1.05], st);
-    s.hor = mix(mix([0.03, 0.04, 0.08], [1.05, 0.62, 0.42], day), [0.82, 1.0, 1.25], st);
-    s.ground = mix([0.02, 0.02, 0.025], [0.3, 0.3, 0.15], day);
+    s.hor = mix(mix([0.03, 0.045, 0.09], [1.05, 0.62, 0.42], day), [0.82, 1.0, 1.25], st);
+    s.ground = mix([0.02, 0.022, 0.03], [0.3, 0.3, 0.15], day);
+    this.night = night; this.exposure = 0.52 + 0.4 * night;
   }
 
   render(view) {
@@ -239,7 +246,7 @@ export class Renderer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, r.hdrF); gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
     // attachement de profondeur détaché pendant la lecture, évite la boucle de rétroaction
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, null, 0);
-    this.full(this.P.light, r.hdrF, W, H, { ...shared, uInvVP: invVP, uShadowSamples: p.samples }, { uA: r.A, uN: r.N, uL: r.L, uD: r.D, uSSAO: r.ao, uShadow: this.tShadow, uNoise: this.tNoise, uActorShadow: this.tActor });
+    this.full(this.P.light, r.hdrF, W, H, { ...shared, uInvVP: invVP, uShadowSamples: p.samples, uNight: this.night || 0 }, { uA: r.A, uN: r.N, uL: r.L, uD: r.D, uSSAO: r.ao, uShadow: this.tShadow, uNoise: this.tNoise, uActorShadow: this.tActor });
 
     /* --- nuages et volume --- */
     if (p.clouds && fr % p.cloudStep !== 0 && p.cloudStep > 1) { /* image précédente conservée */ }
@@ -263,6 +270,17 @@ export class Renderer {
     if (view.target) {
       this.use(this.P.line, { uVP: vp, uOffset: view.target.pos.map((v) => v - 0.004), uScale: [1.008, 1.008, 1.008], uColor: view.target.color });
       gl.bindVertexArray(this.lineVAO); gl.drawArrays(gl.LINES, 0, 24); st.draws++;
+    }
+    if (view.ghost) {
+      // Aperçu de pose : volume translucide, faces de cernes marquées pour lire l'orientation.
+      const g = view.ghost, L = this.P.line; gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.bindVertexArray(this.cubeVAO); gl.disable(gl.CULL_FACE);
+      this.use(L, { uVP: vp, uOffset: g.pos.map((v) => v + 0.02), uScale: [0.96, 0.96, 0.96], uColor: g.ok ? [0.75, 0.85, 0.65, 0.16] : [1.4, 0.2, 0.14, 0.26] });
+      gl.drawArrays(gl.TRIANGLES, 0, 36); st.draws++;
+      if (g.axis) for (const e of [0, 1]) {
+        const o = g.pos.map((v, i) => v + 0.04 + (i === g.axis - 1 ? e * 0.97 - 0.015 : 0)), sc = [0.92, 0.92, 0.92]; sc[g.axis - 1] = 0.02;
+        this.use(L, { uVP: vp, uOffset: o, uScale: sc, uColor: [1.6, 0.9, 0.25, 0.6] }); gl.drawArrays(gl.TRIANGLES, 0, 36); st.draws++;
+      }
+      gl.disable(gl.BLEND);
     }
     gl.depthMask(true); gl.disable(gl.DEPTH_TEST);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, null, 0);

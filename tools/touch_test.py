@@ -19,6 +19,8 @@ with sync_playwright() as p:
     check('FPS affiché',pg.evaluate("document.getElementById('prof').classList.contains('on')"),pg.evaluate("document.getElementById('prof').textContent.split('\\n')[0]"))
     pg.tap('#tFps',timeout=60000,force=True)
     pg.wait_for_function("!document.getElementById('prof').classList.contains('on')",timeout=30000); check('FPS masqué',True)
+    pg.tap('#tAxis',timeout=60000,force=True)
+    pg.wait_for_function('ALW.orientMode===1',timeout=30000); check('bouton orientation',True)
     pg.tap('#tMenu',timeout=60000,force=True)
     pg.wait_for_function('ALW.paused===true',timeout=30000); check('menu ouvert',True)
     pg.tap('#btnResume',timeout=60000)

@@ -41,7 +41,7 @@ export class WorldGen {
     h += 1.6 * this.nHill.n2(x / 19, z / 19);
 
     // rivière : ligne de niveau du bruit déformé, niveaux quantifiés = cascades
-    const rn = Math.abs(this.nRiver.fbm2(wx / 400, wz / 400, 2, 2.1, 0.32));
+    const rs = this.nRiver.fbm2(wx / 400, wz / 400, 2, 2.1, 0.32), rn = Math.abs(rs);
     const dR = rn * 300, wid = 2.6 + 1.8 * (0.5 + 0.5 * this.nRiver.n2(x / 60, z / 60));
     const L = Math.floor((low - 4) / 3) * 3 + 1;
     let water = 0, bank = 0;
@@ -65,10 +65,18 @@ export class WorldGen {
     // chemin
     const pn = Math.abs(this.nPath.n2(wx / 210 + 9, wz / 210 + 3)) * 165;
     let path = 0;
-    if (!water && bank < 0.45) {
-      path = 1 - smooth(0.9, 2.3, pn + this.nDeco.n2(x / 5, z / 5) * 0.6);
-      const near = 1 - smooth(1.5, 8, pn);
-      if (near > 0) h = lerp(h, hs, near * 0.82);
+    // Deux réseaux : les chemins de traverse, et un sentier qui longe chaque ruisseau sur une rive.
+    const bankD = Math.abs(rs * 300 - (wid + 6)), wob = this.nDeco.n2(x / 5, z / 5) * 0.6;
+    if (!water) {
+      const edge = 1 - smooth(0.9, 2.3, bankD + wob);
+      if (bank < 0.45) {
+        path = 1 - smooth(0.9, 2.3, pn + wob);
+        const near = 1 - smooth(1.5, 8, pn);
+        if (near > 0) h = lerp(h, hs, near * 0.82);
+      }
+      if (edge > path) path = edge;
+      const walk = 1 - smooth(1.5, 5, bankD);
+      if (walk > 0) h = lerp(h, L + 2.6, walk);
     }
     const f = this.nForest.fbm2(x / 170, z / 170, 3) * 1.5 + 0.78 + 0.12 * this.nForest.n2(x / 31, z / 31);
     c.h = h; c.water = water; c.forest = clamp(f, 0, 1); c.path = path; c.bank = bank;
