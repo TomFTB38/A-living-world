@@ -387,8 +387,11 @@ class Game {
     s.listener(eye, pl.yaw);
     this.waterT = (this.waterT || 0) - dt;
     if (this.waterT <= 0) { this.waterT = 0.5; this.scanWater(); }
-    const covered = this.underRoof(eye);
-    s.env({ cloud: w.cloud, rain: w.rain, covered, brook: this.brook, fall: this.fall });
+    const covered = this.underRoof(eye), submerged = this.world.get(Math.floor(eye[0]), Math.floor(eye[1]), Math.floor(eye[2])) === B.water;
+    this.envT = (this.envT || 0) - dt;
+    if (this.envT <= 0) { this.envT = 0.2; s.env({ cloud: w.cloud, rain: w.rain, covered, submerged, brook: this.brook, fall: this.fall }); }
+    if (pl.inWater && !this.wasWet && pl.v[1] < -2) s.splash(Math.min(1.2, -pl.v[1] / 7));
+    this.wasWet = pl.inWater;
     const below = this.world.get(Math.floor(p[0]), Math.floor(p[1] - 0.1), Math.floor(p[2])), feet = this.world.get(Math.floor(p[0]), Math.floor(p[1] + 0.1), Math.floor(p[2]));
     const nameOf = (b) => (b > 0 ? BLOCKS[b].name : null);
     if (pl.ground && pl.speed > 1) {
@@ -398,7 +401,7 @@ class Game {
     if (pl.ground && !this.wasGround && this.fallV < -7 && !pl.fly) s.land(nameOf(below));
     this.wasGround = pl.ground; this.fallV = pl.v[1] < -1 ? pl.v[1] : (pl.ground ? this.fallV * 0.5 : this.fallV);
     this.built = this.built.filter((t) => this.elapsed - t < 25);
-    this.mood = pickMood({ ...this.vit, hurt: this.elapsed - (this.hurtAt ?? -99) < 12, enemy: this.enemyNear, submerged: this.world.get(Math.floor(eye[0]), Math.floor(eye[1]), Math.floor(eye[2])) === B.water, underground: p[1] < this.gen.column(p[0], p[2]).h - 4 && covered, building: this.built.length >= 3, night: sunY < 0, rain: w.rain > 0.5 });
+    this.mood = pickMood({ ...this.vit, hurt: this.elapsed - (this.hurtAt ?? -99) < 12, enemy: this.enemyNear, submerged, underground: p[1] < this.gen.column(p[0], p[2]).h - 4 && covered, building: this.built.length >= 3, night: sunY < 0, rain: w.rain > 0.5 });
     if (s.music) { s.music.forced = this.settings.mood || 'auto'; s.music.update(dt, this.mood); }
   }
 

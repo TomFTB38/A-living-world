@@ -61,8 +61,14 @@ export class SoundScape {
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC && !ctx) return;
     const c = this.ctx = ctx || new AC();
     const lim = c.createDynamicsCompressor(); lim.threshold.value = -6; lim.ratio.value = 6; lim.attack.value = 0.012; lim.release.value = 0.3; lim.connect(c.destination);
-    this.master = c.createGain(); this.master.gain.value = this.volume; this.master.connect(lim);
+    this.master = c.createGain(); this.master.gain.value = this.volume;
+    // Sous l'eau, tout s'étouffe.
+    this.muffle = c.createBiquadFilter(); this.muffle.type = 'lowpass'; this.muffle.frequency.value = 20000; this.muffle.Q.value = 0.4; this.master.connect(this.muffle); this.muffle.connect(lim);
     this.sfx = c.createGain(); this.sfx.gain.value = this.sfxVolume; this.sfx.connect(this.master);
+    // Un peu d'espace autour des bruitages : sans lui, ils sonnent plaqués.
+    const n = Math.floor(c.sampleRate * 0.42), ir = c.createBuffer(2, n, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let lp = 0; for (let i = 0; i < n; i++) { lp += ((Math.random() * 2 - 1) - lp) * 0.22; d[i] = lp * (1 - i / n) ** 3.2; } }
+    const room = c.createConvolver(), wet = c.createGain(); room.buffer = ir; wet.gain.value = 0.42; this.sfx.connect(room); room.connect(wet); wet.connect(this.master);
     this.wind = this.bed(); this.rain = this.bed(); this.brook = this.bed(); this.fall = this.bed();
     this.ready = this.load();
     this.music = new Music(c, this.master); this.music.setVolume(this.musicVolume);
@@ -79,7 +85,10 @@ export class SoundScape {
     });
     await Promise.all(jobs); this.loaded = true;
   }
-  startLoop(n, buf) { const s = this.ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.loopStart = LOOP_PAD; s.loopEnd = LOOP_PAD + LOOPS[n]; s.connect(this[n].g); s.start(0, LOOP_PAD + Math.random() * 3); }
+  startLoop(n, buf) { const s = this.ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.loopStart = LOOP_PAD; s.loopEnd = LOOP_PAD + LOOPS[n]; let tail = s;
+    // Prise d'eau : on retire le souffle très aigu, qui donnait un effet de friture.
+    if (n === 'brook') { const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 5200; f.Q.value = 0.5; s.connect(f); tail = f; }
+    tail.connect(this[n].g); s.start(0, LOOP_PAD + Math.random() * 3); }
   panner() { const c = this.ctx; if (c.createStereoPanner) return c.createStereoPanner(); const g = c.createGain(); g.pan = { value: 0, setTargetAtTime() {} }; return g; }
   setVolume(v) { this.volume = v; if (this.master) this.master.gain.value = v; }
   setSfxVolume(v) { this.sfxVolume = v; if (this.sfx) this.sfx.gain.value = v; }
@@ -100,9 +109,11 @@ export class SoundScape {
     const storm = Math.max(s.rain, Math.max(0, s.cloud - 0.72) / 0.28 * 0.4), q = s.covered ? 0.3 : 1;
     set(this.wind, storm > 0.02 ? 0.3 * storm * q : 0, 1.2);
     set(this.rain, 0.24 * s.rain * q, 1);
-    const flow = s.brook && this.place3d(s.brook, 15), drop = s.fall && this.place3d(s.fall, 30);
-    set(this.brook, flow ? 0.3 * flow.v : 0, 0.5); this.brook.pan.pan.setTargetAtTime(flow ? flow.pan : 0, t, 0.3);
-    set(this.fall, drop ? 0.42 * drop.v : 0, 0.5); this.fall.pan.pan.setTargetAtTime(drop ? drop.pan : 0, t, 0.3);
+    // L'eau s'entend de plus loin et décroît doucement ; sous la surface, on l'entend de partout, assourdie.
+    const flow = s.brook && this.place3d(s.brook, 22), drop = s.fall && this.place3d(s.fall, 38), soft = (a) => Math.sqrt(a.v);
+    set(this.brook, s.submerged ? 0.16 : flow ? 0.22 * soft(flow) * soft(flow) ** 0.5 : 0, 0.5); this.brook.pan.pan.setTargetAtTime(flow ? flow.pan : 0, t, 0.3);
+    set(this.fall, drop ? 0.36 * soft(drop) * soft(drop) ** 0.5 : 0, 0.5); this.fall.pan.pan.setTargetAtTime(drop ? drop.pan : 0, t, 0.3);
+    this.muffle.frequency.setTargetAtTime(s.submerged ? 620 : 20000, t, 0.12);
   }
   out(pan) { if (!pan) return this.sfx; const p = this.panner(); p.pan.value = pan; p.connect(this.sfx); return p; }
   // Lit une prise de son. Jamais deux fois de suite la même, et légère variation de hauteur pour rester naturel.
@@ -133,6 +144,7 @@ export class SoundScape {
     if (!this.live) return;
     if (tool === 'sword') this.play(L('blade', 1, 0.5), k); else if (tool === 'pickaxe' || tool === 'axe') this.play(L('whoosh', tool === 'axe' ? 0.9 : 1.05, 0.36), k); else this.play(L('puff', 1, 0.3), k);
   }
+  splash(k = 1) { if (this.live) this.play(L('splash', 0.85, 0.5), k); }
   hurt() { if (this.live) this.play(L('hurt', 1, 0.6)); }
   // Faune : uniquement à proximité.
   bird(pos, voice) {

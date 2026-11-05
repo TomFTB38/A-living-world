@@ -1212,13 +1212,13 @@ function stone(t, x, y, a = STONE, cells = 5) {
   const tone = 0.34 + 0.32 * t.p[id] + 0.55 * (n - 0.5) + 0.3 * (s - 0.5) + 0.12 * crack;
   return { c: pal(a, tone * (0.72 + 0.28 * crack)), h: 0.2 + 0.6 * crack + 0.2 * n, r: 0.8 };
 }
-// Granit : pas de dalles, une masse cristalline en grains francs : feldspath rose, quartz clair, mica noir.
-const FELD = ['#7a5a52', '#9a7468', '#b98f7f', '#d3ab98'].map(hex), QUARTZ = ['#a9a5a0', '#c9c6c0', '#e6e3dc'].map(hex), MICA = ['#17151a', '#2d2a30', '#45414a'].map(hex);
+// Granit : roche brute, massive et sombre. Grands pans fracturés, fissures fines, cristaux à peine visibles.
+const GRANITE = ['#2c2728', '#4b4243', '#6a5d5b', '#8a7b74', '#a5968b'].map(hex);
 function granite(t, x, y) {
-  const [d1, d2, id] = t.vor(x, y, 17), [e1, , id2] = t.vor(x + 9, y + 5, 27), r = t.p[id], m = t.p[id2], n = t.fbm(x, y, 6, 3), fine = t.val(x, y, 32);
-  const dark = m > 0.8 && e1 < 0.42, clear = r > 0.68, c = dark ? pal(MICA, n) : clear ? pal(QUARTZ, 0.2 + 0.7 * n) : pal(FELD, 0.15 + 0.6 * r + 0.35 * (n - 0.5) + 0.2 * (fine - 0.5));
-  const edge = smooth(0, 0.08, d2 - d1);
-  return { c: c.map((v) => v * (0.86 + 0.14 * edge)), h: 0.35 + 0.35 * edge + (clear ? 0.2 : 0) + 0.1 * n, r: clear ? 0.42 : 0.62 };
+  const wx = x + 6 * t.fbm(x, y, 4, 2) - 3, wy = y + 6 * t.fbm(x + 19, y + 7, 4, 2) - 3, [d1, d2, id] = t.vor(wx, wy, 3), [e1, e2, id2] = t.vor(wx + 11, wy + 3, 5);
+  const crack = smooth(0, 0.05, d2 - d1), broken = smooth(0.46, 0.6, t.fbm(x + 5, y + 31, 5, 3)), hair = 1 - broken * (1 - smooth(0, 0.03, e2 - e1)), n = t.fbm(x, y, 9, 4), f = t.val(x, y, 32), f2 = t.val(x + 7, y + 3, 32);
+  const tone = 0.26 + 0.32 * t.p[id] + 0.14 * t.p[id2] + 0.62 * (n - 0.5) + 0.12 * (f - 0.5), fleck = f2 > 0.84 ? 1.16 : f2 < 0.15 ? 0.82 : 1;
+  return { c: pal(GRANITE, tone).map((v) => v * fleck * (0.5 + 0.5 * crack) * (0.78 + 0.22 * hair)), h: 0.12 + 0.5 * crack * (0.7 + 0.3 * hair) + 0.38 * n, r: 0.76 };
 }
 // Calcaire : roche claire et crème, en couches horizontales ondulées, piquée de petites cavités.
 const LIME = ['#9d9278', '#c4b99c', '#dcd3b8', '#f0e9d2'].map(hex);
@@ -2824,8 +2824,14 @@ class SoundScape {
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC && !ctx) return;
     const c = this.ctx = ctx || new AC();
     const lim = c.createDynamicsCompressor(); lim.threshold.value = -6; lim.ratio.value = 6; lim.attack.value = 0.012; lim.release.value = 0.3; lim.connect(c.destination);
-    this.master = c.createGain(); this.master.gain.value = this.volume; this.master.connect(lim);
+    this.master = c.createGain(); this.master.gain.value = this.volume;
+    // Sous l'eau, tout s'étouffe.
+    this.muffle = c.createBiquadFilter(); this.muffle.type = 'lowpass'; this.muffle.frequency.value = 20000; this.muffle.Q.value = 0.4; this.master.connect(this.muffle); this.muffle.connect(lim);
     this.sfx = c.createGain(); this.sfx.gain.value = this.sfxVolume; this.sfx.connect(this.master);
+    // Un peu d'espace autour des bruitages : sans lui, ils sonnent plaqués.
+    const n = Math.floor(c.sampleRate * 0.42), ir = c.createBuffer(2, n, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let lp = 0; for (let i = 0; i < n; i++) { lp += ((Math.random() * 2 - 1) - lp) * 0.22; d[i] = lp * (1 - i / n) ** 3.2; } }
+    const room = c.createConvolver(), wet = c.createGain(); room.buffer = ir; wet.gain.value = 0.42; this.sfx.connect(room); room.connect(wet); wet.connect(this.master);
     this.wind = this.bed(); this.rain = this.bed(); this.brook = this.bed(); this.fall = this.bed();
     this.ready = this.load();
     this.music = new Music(c, this.master); this.music.setVolume(this.musicVolume);
@@ -2842,7 +2848,10 @@ class SoundScape {
     });
     await Promise.all(jobs); this.loaded = true;
   }
-  startLoop(n, buf) { const s = this.ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.loopStart = LOOP_PAD; s.loopEnd = LOOP_PAD + LOOPS[n]; s.connect(this[n].g); s.start(0, LOOP_PAD + Math.random() * 3); }
+  startLoop(n, buf) { const s = this.ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.loopStart = LOOP_PAD; s.loopEnd = LOOP_PAD + LOOPS[n]; let tail = s;
+    // Prise d'eau : on retire le souffle très aigu, qui donnait un effet de friture.
+    if (n === 'brook') { const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 5200; f.Q.value = 0.5; s.connect(f); tail = f; }
+    tail.connect(this[n].g); s.start(0, LOOP_PAD + Math.random() * 3); }
   panner() { const c = this.ctx; if (c.createStereoPanner) return c.createStereoPanner(); const g = c.createGain(); g.pan = { value: 0, setTargetAtTime() {} }; return g; }
   setVolume(v) { this.volume = v; if (this.master) this.master.gain.value = v; }
   setSfxVolume(v) { this.sfxVolume = v; if (this.sfx) this.sfx.gain.value = v; }
@@ -2863,9 +2872,11 @@ class SoundScape {
     const storm = Math.max(s.rain, Math.max(0, s.cloud - 0.72) / 0.28 * 0.4), q = s.covered ? 0.3 : 1;
     set(this.wind, storm > 0.02 ? 0.3 * storm * q : 0, 1.2);
     set(this.rain, 0.24 * s.rain * q, 1);
-    const flow = s.brook && this.place3d(s.brook, 15), drop = s.fall && this.place3d(s.fall, 30);
-    set(this.brook, flow ? 0.3 * flow.v : 0, 0.5); this.brook.pan.pan.setTargetAtTime(flow ? flow.pan : 0, t, 0.3);
-    set(this.fall, drop ? 0.42 * drop.v : 0, 0.5); this.fall.pan.pan.setTargetAtTime(drop ? drop.pan : 0, t, 0.3);
+    // L'eau s'entend de plus loin et décroît doucement ; sous la surface, on l'entend de partout, assourdie.
+    const flow = s.brook && this.place3d(s.brook, 22), drop = s.fall && this.place3d(s.fall, 38), soft = (a) => Math.sqrt(a.v);
+    set(this.brook, s.submerged ? 0.16 : flow ? 0.22 * soft(flow) * soft(flow) ** 0.5 : 0, 0.5); this.brook.pan.pan.setTargetAtTime(flow ? flow.pan : 0, t, 0.3);
+    set(this.fall, drop ? 0.36 * soft(drop) * soft(drop) ** 0.5 : 0, 0.5); this.fall.pan.pan.setTargetAtTime(drop ? drop.pan : 0, t, 0.3);
+    this.muffle.frequency.setTargetAtTime(s.submerged ? 620 : 20000, t, 0.12);
   }
   out(pan) { if (!pan) return this.sfx; const p = this.panner(); p.pan.value = pan; p.connect(this.sfx); return p; }
   // Lit une prise de son. Jamais deux fois de suite la même, et légère variation de hauteur pour rester naturel.
@@ -2896,6 +2907,7 @@ class SoundScape {
     if (!this.live) return;
     if (tool === 'sword') this.play(L('blade', 1, 0.5), k); else if (tool === 'pickaxe' || tool === 'axe') this.play(L('whoosh', tool === 'axe' ? 0.9 : 1.05, 0.36), k); else this.play(L('puff', 1, 0.3), k);
   }
+  splash(k = 1) { if (this.live) this.play(L('splash', 0.85, 0.5), k); }
   hurt() { if (this.live) this.play(L('hurt', 1, 0.6)); }
   // Faune : uniquement à proximité.
   bird(pos, voice) {
@@ -3390,8 +3402,11 @@ class Game {
     s.listener(eye, pl.yaw);
     this.waterT = (this.waterT || 0) - dt;
     if (this.waterT <= 0) { this.waterT = 0.5; this.scanWater(); }
-    const covered = this.underRoof(eye);
-    s.env({ cloud: w.cloud, rain: w.rain, covered, brook: this.brook, fall: this.fall });
+    const covered = this.underRoof(eye), submerged = this.world.get(Math.floor(eye[0]), Math.floor(eye[1]), Math.floor(eye[2])) === B.water;
+    this.envT = (this.envT || 0) - dt;
+    if (this.envT <= 0) { this.envT = 0.2; s.env({ cloud: w.cloud, rain: w.rain, covered, submerged, brook: this.brook, fall: this.fall }); }
+    if (pl.inWater && !this.wasWet && pl.v[1] < -2) s.splash(Math.min(1.2, -pl.v[1] / 7));
+    this.wasWet = pl.inWater;
     const below = this.world.get(Math.floor(p[0]), Math.floor(p[1] - 0.1), Math.floor(p[2])), feet = this.world.get(Math.floor(p[0]), Math.floor(p[1] + 0.1), Math.floor(p[2]));
     const nameOf = (b) => (b > 0 ? BLOCKS[b].name : null);
     if (pl.ground && pl.speed > 1) {
@@ -3401,7 +3416,7 @@ class Game {
     if (pl.ground && !this.wasGround && this.fallV < -7 && !pl.fly) s.land(nameOf(below));
     this.wasGround = pl.ground; this.fallV = pl.v[1] < -1 ? pl.v[1] : (pl.ground ? this.fallV * 0.5 : this.fallV);
     this.built = this.built.filter((t) => this.elapsed - t < 25);
-    this.mood = pickMood({ ...this.vit, hurt: this.elapsed - (this.hurtAt ?? -99) < 12, enemy: this.enemyNear, submerged: this.world.get(Math.floor(eye[0]), Math.floor(eye[1]), Math.floor(eye[2])) === B.water, underground: p[1] < this.gen.column(p[0], p[2]).h - 4 && covered, building: this.built.length >= 3, night: sunY < 0, rain: w.rain > 0.5 });
+    this.mood = pickMood({ ...this.vit, hurt: this.elapsed - (this.hurtAt ?? -99) < 12, enemy: this.enemyNear, submerged, underground: p[1] < this.gen.column(p[0], p[2]).h - 4 && covered, building: this.built.length >= 3, night: sunY < 0, rain: w.rain > 0.5 });
     if (s.music) { s.music.forced = this.settings.mood || 'auto'; s.music.update(dt, this.mood); }
   }
 
