@@ -8,7 +8,7 @@ const PAD = 8, W = CX + PAD * 2, WW = W * W;
 const POSK = 128;
 
 export class VBuf {
-  constructor(cap = 4096) { this.alloc(cap); this.n = 0; this.scale = POSK; }
+  constructor(cap = 4096) { this.alloc(cap); this.n = 0; this.scale = POSK; this.rot = 0; }
   alloc(cap) { this.cap = cap; this.ab = new ArrayBuffer(cap * VSIZE); this.i16 = new Int16Array(this.ab); this.u8 = new Uint8Array(this.ab); this.i8 = new Int8Array(this.ab); }
   v(x, y, z, layer, nx, ny, nz, wind, ao, sky, blk, kind, r, g, b) {
     if (this.n === this.cap) { const o = this.u8; this.alloc(this.cap * 2); this.u8.set(o); }
@@ -16,7 +16,7 @@ export class VBuf {
     h[p] = Math.round(x * S); h[p + 1] = Math.round(y * S); h[p + 2] = Math.round(z * S); h[p + 3] = layer;
     s[q + 8] = nx * 127; s[q + 9] = ny * 127; s[q + 10] = nz * 127; u[q + 11] = wind >> 1;
     u[q + 12] = ao; u[q + 13] = sky; u[q + 14] = blk; u[q + 15] = kind;
-    u[q + 16] = r < 2 ? r * 127.5 : 255; u[q + 17] = g < 2 ? g * 127.5 : 255; u[q + 18] = b < 2 ? b * 127.5 : 255; u[q + 19] = 0;
+    u[q + 16] = r < 2 ? r * 127.5 : 255; u[q + 17] = g < 2 ? g * 127.5 : 255; u[q + 18] = b < 2 ? b * 127.5 : 255; u[q + 19] = this.rot;
     this.n++;
   }
   take() { return this.ab.slice(0, this.n * VSIZE); }
@@ -108,7 +108,7 @@ function greedy(out, ymin, ymax, lod) {
           if (q[1] + nrm[1] >= CH || q[1] + nrm[1] < 0) { if (q[1] + nrm[1] < 0) continue; }
           const nb = q[1] + nrm[1] >= CH ? 0 : vol[f];
           if (IS_OPAQUE[nb] || (solidLeaf && IS_LEAF[nb])) continue;
-          const face = BLOCKS[b].faces[d === 1 ? (sign > 0 ? 0 : 2) : 1];
+          const di = d === 0 ? 0 : d === 2 ? 3 : sign > 0 ? 1 : 2, face = BLOCKS[b].dirFaces[di], grain = BLOCKS[b].grain[di];
           let ao = 0, skyn = 0, blkn = 0;
           for (let c = 0; c < 4; c++) {
             const su = c === 1 || c === 2 ? 1 : -1, sv = c >= 2 ? 1 : -1;
@@ -122,7 +122,7 @@ function greedy(out, ymin, ymax, lod) {
             skyn |= Math.round(ss / n) << (c * 4); blkn |= Math.round(bb / n) << (c * 4);
           }
           const pos = i + j * nu;
-          m1[pos] = (face << 8) | ao | (IS_LEAF[b] ? 1 << 24 : 0); m2[pos] = skyn | (blkn << 16); any = true;
+          m1[pos] = (face << 8) | ao | (IS_LEAF[b] ? 1 << 24 : 0) | (grain << 25); m2[pos] = skyn | (blkn << 16); any = true;
         }
         if (!any) continue;
         for (let j = 0; j < nv; j++) for (let i = 0; i < nu;) {
@@ -140,12 +140,14 @@ function greedy(out, ymin, ymax, lod) {
           px[1] = q[0] + du[0]; py[1] = q[1] + du[1]; pz[1] = q[2] + du[2];
           px[2] = px[1] + dv[0]; py[2] = py[1] + dv[1]; pz[2] = pz[1] + dv[2];
           px[3] = q[0] + dv[0]; py[3] = q[1] + dv[1]; pz[3] = q[2] + dv[2];
+          out.rot = (c1 >> 25) & 3;
           const a0 = c1 & 3, a1 = (c1 >> 2) & 3, a2 = (c1 >> 4) & 3, a3 = (c1 >> 6) & 3;
           const flip = a0 + a2 < a1 + a3 ? 1 : 0, layer = (c1 >> 8) & 0xffff, kind = c1 & (1 << 24) ? KIND.LEAF : KIND.TEX;
           for (let c = 0; c < 4; c++) {
             const o = sign > 0 ? (c + flip) & 3 : (4 - c + flip) & 3;
             out.v(px[o], py[o], pz[o], layer, nrm[0], nrm[1], nrm[2], 0, AO[(c1 >> (o * 2)) & 3] * 255, ((c2 >> (o * 4)) & 15) * 17, ((c2 >> (16 + o * 4)) & 15) * 17, kind, 1, 1, 1);
           }
+          out.rot = 0;
           i += w;
         }
       }

@@ -1,6 +1,6 @@
 // ProceduralGeneration/gen.js — monde déterministe, fonction pure de (seed, x, y, z).
 import { Noise, Rng, hashInt, hashFloat, clamp, lerp, smooth } from '../core/noise.js';
-import { CX, CH, CA, idx, B, IS_SOLID, IS_DECO } from './blocks.js';
+import { CX, CH, CA, idx, B, IS_SOLID, IS_DECO, orientedBlock } from './blocks.js';
 
 export const GEN_VERSION = 1;
 const TREE_CELL = 13, ROCK_CELL = 19, POND_CELL = 96, STAMP_REACH = 38;
@@ -292,7 +292,7 @@ class Grower {
     let [x, y, z] = p, [dx, dy, dz] = dir;
     for (let i = 0; i <= n; i++) {
       const t = i / n;
-      this.sphere(this.wood, x, y, z, lerp(r0, r1, t), id);
+      this.sphere(this.wood, x, y, z, lerp(r0, r1, t), orientedBlock(id, dx, dy, dz));
       pts.push([x, y, z, dx, dy, dz]);
       dx += rng.range(-curl, curl); dz += rng.range(-curl, curl); dy += rng.range(-curl * 0.5, curl * 0.5) + up;
       const l = Math.hypot(dx, dy, dz); dx /= l; dy /= l; dz /= l;

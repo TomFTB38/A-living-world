@@ -14,7 +14,7 @@ export const VS_GEOM = `#version 300 es
 ${COMMON}
 layout(location=0) in vec4 aPos; layout(location=1) in vec4 aNrm; layout(location=2) in vec4 aLit; layout(location=3) in vec4 aTint;
 uniform mat4 uVP; uniform vec3 uOrigin,uCamPos; uniform float uPosScale,uTime,uFarHole; uniform mat4 uModel; uniform vec2 uJitter;
-out vec3 vPos; out vec3 vN; flat out int vLayer; flat out int vKind; out vec3 vLit; out vec3 vTint; out vec3 vLocal;
+out vec3 vPos; out vec3 vN; flat out int vLayer; flat out int vKind; flat out int vRot; out vec3 vLit; out vec3 vTint; out vec3 vLocal;
 vec3 wind(vec3 p,float w){ if(w<=0.)return vec3(0.);
   float g=sin(uTime*.7+p.x*.05+p.z*.07)*.5+.5, t=uTime*1.8;
   vec3 d=vec3(sin(t+p.x*.45+p.z*.2+p.y*.3),sin(t*1.3+p.x*.3)*.3,cos(t*.9+p.z*.4+p.y*.2));
@@ -23,14 +23,14 @@ void main(){
   vec3 lp=aPos.xyz*uPosScale; vec4 wp=uModel*vec4(lp,1.); vec3 world=wp.xyz+uOrigin;
   world+=wind(world,aNrm.w*2.);
   if(uFarHole>0. && length(world.xz-uCamPos.xz)<uFarHole) world.y-=90.;
-  vPos=world; vLocal=lp; vN=mat3(uModel)*aNrm.xyz; vLayer=int(aPos.w+.5); vKind=int(aLit.w*255.+.5); vLit=aLit.xyz; vTint=aTint.rgb*2.;
+  vPos=world; vLocal=lp; vN=mat3(uModel)*aNrm.xyz; vLayer=int(aPos.w+.5); vKind=int(aLit.w*255.+.5); vRot=int(aTint.a*255.+.5); vLit=aLit.xyz; vTint=aTint.rgb*2.;
   gl_Position=uVP*vec4(world,1.); gl_Position.xy+=uJitter*gl_Position.w;
 }`;
 
 export const FS_GEOM = `#version 300 es
 ${COMMON}
 uniform sampler2DArray uAlbedo,uNormal; uniform sampler3D uNoise; uniform float uTexOn;
-in vec3 vPos; in vec3 vN; flat in int vLayer; flat in int vKind; in vec3 vLit; in vec3 vTint; in vec3 vLocal;
+in vec3 vPos; in vec3 vN; flat in int vLayer; flat in int vKind; flat in int vRot; in vec3 vLit; in vec3 vTint; in vec3 vLocal;
 layout(location=0) out vec4 gA; layout(location=1) out vec4 gN; layout(location=2) out vec4 gL;
 void main(){
   vec3 n=normalize(vN); if(!gl_FrontFacing && vKind>=2) n=vec3(n.x,abs(n.y),n.z);
@@ -42,10 +42,10 @@ void main(){
     float h=hash13(cell+vec3(.5)), h2=hash13(cell.zxy+vec3(7.5));
     int v=int(h*4.)&3;
     vec2 f=fract(uv);
-    if(an.y>.5 && h2>.5){ f=f.yx; T=T.zyx; B=B.zyx; }
-    vec3 tc=vec3(uv-floor(uv)+(f-fract(uv)),float(vLayer+v));
-    tc.xy=f;
     vec2 dx=dFdx(uv),dy=dFdy(uv);
+    bool swp=vRot==1||(vRot==0&&an.y>.5&&h2>.5); // le fil du bois suit l'axe du bloc
+    if(swp){ f=f.yx; dx=dx.yx; dy=dy.yx; vec3 q=T; T=B; B=q; }
+    vec3 tc=vec3(f,float(vLayer+v));
     vec4 a=textureGrad(uAlbedo,tc,dx,dy); vec4 m=textureGrad(uNormal,tc,dx,dy);
     alb=a.rgb*a.rgb*vTint; // texture sRGB approchée vers linéaire
     alb=mix(vec3(dot(alb,vec3(.3,.6,.1))),alb,.86);

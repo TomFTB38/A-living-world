@@ -7,7 +7,7 @@ import { Player, raycast } from './player.js';
 import { buildCharacter, CharacterAnim } from './character.js';
 import { buildFauna, Fauna } from './animals.js';
 import { HUD, ITEMS, $ } from './ui.js';
-import { BLOCKS, B, IS_SOLID, IS_DECO } from '../world/blocks.js';
+import { BLOCKS, B, IS_SOLID, IS_DECO, orientedBlock } from '../world/blocks.js';
 import { WorldGen, GEN_VERSION } from '../world/gen.js';
 import { serialize, safeRead, atomicWrite, deserialize } from './save.js';
 
@@ -208,7 +208,7 @@ class Game {
     if (!def?.block || it.n <= 0) return;
     const t = this.target, id = IS_DECO[t.id] && t.id !== B.lantern && !IS_SOLID[t.id] ? [t.x, t.y, t.z] : [t.px, t.py, t.pz];
     const cur = this.world.get(...id); if (cur === -1 || IS_SOLID[cur]) return;
-    const p = this.player.p, bid = def.block;
+    const pl = this.player, cp = Math.cos(pl.pitch), p = pl.p, bid = orientedBlock(def.block, Math.sin(pl.yaw) * cp, Math.sin(pl.pitch), Math.cos(pl.yaw) * cp);
     if (IS_SOLID[bid] && id[0] + 1 > p[0] - 0.3 && id[0] < p[0] + 0.3 && id[2] + 1 > p[2] - 0.3 && id[2] < p[2] + 0.3 && id[1] + 1 > p[1] && id[1] < p[1] + 1.8) return;
     if (this.world.set(id[0], id[1], id[2], bid)) { it.n--; this.hud.inventory(this.inv, this.sel); this.dirtySave = true; }
   }

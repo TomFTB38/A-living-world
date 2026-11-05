@@ -47,6 +47,15 @@ with sync_playwright() as p:
     except Exception:
         print(pg.evaluate('({t:ALW.target,sel:ALW.sel,inv:ALW.inv[4],p:ALW.player.p,pitch:ALW.player.pitch,paused:ALW.paused,third:ALW.view.third,el:document.elementFromPoint(160,90).id})')); raise
     check('poser un bloc au clic droit', True, 'stock %d → %d'%(before,st()['inv'][4]))
+    # orientation réelle au clic droit : regard presque horizontal, la bûche se couche
+    pg.evaluate('ALW.inv[7].n=3; ALW.player.pitch=-.42; ALW.player.yaw=Math.round(ALW.player.yaw/1.5708)*1.5708'); pg.keyboard.press('Digit8'); time.sleep(3)
+    for _ in range(6):
+        if pg.evaluate('!!ALW.target'):
+            pg.mouse.click(160,90,button='right'); time.sleep(1.5)
+            if pg.evaluate('ALW.inv[7].n<3'): break
+        pg.evaluate('ALW.player.yaw+=1.5708'); time.sleep(3)
+    last=pg.evaluate("(()=>{const o=[];for(const m of ALW.world.edits.values())for(const v of m.values())o.push(v);return o})()")
+    check('bûche couchée selon le regard', any(v in (32,33) for v in last), str(last[-3:]))
     # sauvegarde puis rechargement réel de la page
     edits=pg.evaluate('JSON.stringify([...ALW.world.edits].map(([k,m])=>[k,[...m]]))')
     pg.evaluate('ALW.save(false)'); time.sleep(1)

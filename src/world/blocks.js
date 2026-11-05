@@ -45,11 +45,23 @@ const defs = [
   ['vine', 'deco', null, 0.02, { model: 'vine', drop: null }],
   ['shelf_fungus', 'deco', null, 0.02, { model: 'fungus', drop: null }],
   ['fence', 'deco', null, 0.6, { model: 'fence', solid: true, drop: 'planks', cat: 'wood' }],
+  // Variantes orientées, toujours en fin de liste : les identifiants des sauvegardes restent stables.
+  // Matériaux donnés dans l'ordre [faces Y, faces X, faces Z].
+  ['oak_log_x', 'cube', ['bark_oak', 'end_oak', 'bark_oak'], 1.0, { cat: 'wood', drop: 'oak_log', axis: 'x' }],
+  ['oak_log_z', 'cube', ['bark_oak', 'bark_oak', 'end_oak'], 1.0, { cat: 'wood', drop: 'oak_log', axis: 'z' }],
+  ['birch_log_x', 'cube', ['bark_birch', 'end_birch', 'bark_birch'], 0.9, { cat: 'wood', drop: 'birch_log', axis: 'x' }],
+  ['birch_log_z', 'cube', ['bark_birch', 'bark_birch', 'end_birch'], 0.9, { cat: 'wood', drop: 'birch_log', axis: 'z' }],
+  ['beech_log_x', 'cube', ['bark_beech', 'end_beech', 'bark_beech'], 1.0, { cat: 'wood', drop: 'beech_log', axis: 'x' }],
+  ['beech_log_z', 'cube', ['bark_beech', 'bark_beech', 'end_beech'], 1.0, { cat: 'wood', drop: 'beech_log', axis: 'z' }],
+  ['planks_z', 'cube', ['planks', 'planks', 'planks'], 0.8, { cat: 'wood', drop: 'planks', axis: 'pz' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,
+  // Matériau par direction [X, Y+, Y-, Z], et sens du fil : 0 libre, 1 tourné d'un quart, 2 fixe.
+  dirFaces: !mats ? null : p.axis === 'x' || p.axis === 'z' ? [mats[1], mats[0], mats[0], mats[2]].map(matLayer) : [mats[1], mats[0], mats[2], mats[1]].map(matLayer),
+  grain: p.axis === 'x' ? [0, 1, 1, 1] : p.axis === 'z' ? [1, 2, 2, 0] : p.axis === 'pz' ? [0, 1, 1, 0] : name === 'planks' ? [0, 2, 2, 0] : [0, 0, 0, 0],
   solid: shape === 'cube' || shape === 'leaf' || !!p.solid,
   opaque: shape === 'cube',
   light: p.light || 0,
@@ -66,3 +78,13 @@ export const IS_OPAQUE = Uint8Array.from(BLOCKS.map((b) => (b.opaque ? 1 : 0)));
 export const IS_LEAF = Uint8Array.from(BLOCKS.map((b) => (b.shape === 'leaf' ? 1 : 0)));
 export const IS_DECO = Uint8Array.from(BLOCKS.map((b) => (b.shape === 'deco' ? 1 : 0)));
 export const EMIT = Uint8Array.from(BLOCKS.map((b) => b.light));
+
+// Orientation : les bois suivent la direction donnée, verticale dès qu'elle s'écarte assez de l'horizon.
+const ORIENT = { oak_log: ['oak_log_x', 'oak_log_z'], birch_log: ['birch_log_x', 'birch_log_z'], beech_log: ['beech_log_x', 'beech_log_z'] };
+export function orientedBlock(id, dx, dy, dz) {
+  const name = BLOCKS[id].name, ax = Math.abs(dx), az = Math.abs(dz);
+  if (name === 'planks') return az > ax ? B.planks_z : id;
+  const v = ORIENT[name];
+  if (!v || Math.abs(dy) > Math.hypot(dx, dz)) return id;
+  return B[ax >= az ? v[0] : v[1]];
+}
