@@ -6,7 +6,8 @@ import { ClientWorld } from './client.js';
 import { Player, raycast } from './player.js';
 import { buildCharacter, CharacterAnim } from './character.js';
 import { buildFauna, Fauna } from './animals.js';
-import { HUD, ITEMS, $ } from './ui.js';
+import { HUD, InventoryUI, $ } from './ui.js';
+import { ITEMS, STACK, buildItems } from './items.js';
 import { BLOCKS, B, IS_SOLID, IS_DECO, orientedBlock } from '../world/blocks.js';
 import { WorldGen, GEN_VERSION } from '../world/gen.js';
 import { serialize, safeRead, atomicWrite, deserialize } from './save.js';
@@ -16,7 +17,9 @@ const CAPTURE = params.has('capture');
 const SLOT_KEY = 'alw.world.';
 const storage = (() => { try { const s = window.localStorage; s.setItem('alw.t', '1'); s.removeItem('alw.t'); return s; } catch (e) { return null; } })();
 
-const DEFAULT_INV = [{ item: 'pickaxe' }, { item: 'axe' }, { item: 'sword' }, { item: 'lantern', n: 32 }, { item: 'dirt', n: 64 }, { item: 'stone', n: 32 }, { item: 'planks', n: 16 }, { item: 'oak_log', n: 0 }, { item: 'birch_log', n: 0 }];
+const INV_SIZE = 36;
+const DEFAULT_INV = [{ item: 'pickaxe' }, { item: 'axe' }, { item: 'sword' }, { item: 'lantern', n: 32 }, { item: 'dirt', n: 64 }, { item: 'stone', n: 32 }, { item: 'planks', n: 16 }];
+const fullInv = (list) => { const a = list.map((i) => (i && i.n === 0 ? null : i ? { ...i } : null)); while (a.length < INV_SIZE) a.push(null); return a; };
 
 class Game {
   constructor() {
@@ -26,8 +29,10 @@ class Game {
     if (params.get('q')) this.settings.preset = params.get('q');
     this.radiusParam = +params.get('r') || 0;
     this.r = new Renderer(this.canvas, { texSize: this.settings.preset === 'bas' ? 64 : 128 });
-    this.hud = new HUD(this.r.texSource);
     this.r.texSource = null; // les piles sont sur le GPU : la copie JS peut être libérée
+    this.items = buildItems(this.r);
+    this.hud = new HUD(this.r, this.items);
+    this.invUI = new InventoryUI(this);
     this.input = { keys: new Set(), x: 0, z: 0, jump: false, sprint: false, crouch: false, lmb: false, rmb: false, touch: { x: 0, z: 0 } };
     this.view = { third: true, dist: 4.2, camDist: 4.2 };
     this.charModel = buildCharacter(this.r); this.anim = new CharacterAnim(this.charModel); this.faunaModel = buildFauna(this.r);
@@ -51,12 +56,12 @@ class Game {
     this.seed = seed; this.worldId = save?.id || 'w' + seed; this.gen = new WorldGen(seed);
     const workers = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.world = new ClientWorld(this.r, seed, edits, { radius: this.radius(), workers });
-    this.inv = save?.inventory || DEFAULT_INV.map((a) => ({ ...a })); this.sel = 0;
-    if (save) { this.hour = save.time; this.player = new Player(...save.player.p); this.player.yaw = save.player.yaw; this.player.pitch = save.player.pitch; this.player.moveYaw = save.player.yaw; this.vit = save.player.vit || this.vit; }
+    this.inv = fullInv(save?.inventory || DEFAULT_INV); this.sel = 0; this.creative = save?.creative || params.get('mode') === 'creatif'; document.getElementById('touch').classList.toggle('crea', this.creative);
+    if (save) { this.hour = save.time; this.player = new Player(...save.player.p); this.player.yaw = save.player.yaw; this.player.pitch = save.player.pitch; this.player.moveYaw = save.player.yaw; this.player.fly = !!save.player.fly; this.vit = save.player.vit || this.vit; }
     else { const s = this.findSpawn(); this.player = new Player(s[0], s[1], s[2]); this.player.yaw = s[3]; this.player.moveYaw = s[3]; this.player.pitch = -0.13; this.hour = 16.4; }
     this.fauna = new Fauna(this.faunaModel, seed);
     this.loaded = false; $('loading').classList.add('on'); this.r.reset = true;
-    this.hud.inventory(this.inv, this.sel);
+    this.refreshInv();
   }
 
   // Cherche un chemin en forêt : c'est le point de vue le plus proche de la référence.
@@ -101,9 +106,13 @@ class Game {
     addEventListener('resize', () => this.resize());
     addEventListener('keydown', (e) => {
       if (e.repeat) return;
-      if (e.code === 'Escape' && !document.pointerLockElement) { this.toggleMenu(); return; }
+      if (e.code === 'KeyE') { this.toggleInv(); return; }
+      if (e.code === 'Escape' && !document.pointerLockElement) { if (this.invOpen) this.toggleInv(false); else this.toggleMenu(); return; }
       if (this.paused) return;
       K.add(e.code);
+      if (e.code === 'KeyG') this.setMode(!this.creative);
+      if (e.code === 'KeyF' && this.creative) this.setFly(!this.player.fly);
+      if (e.code === 'Space' && this.creative) { const t = performance.now(); if (t - (this.lastSpace || 0) < 320) this.setFly(!this.player.fly); this.lastSpace = t; }
       if (e.code.startsWith('Digit')) { const n = +e.code.slice(5); if (n >= 1) this.select(n - 1); }
       if (e.code === 'KeyR') this.cycleOrient();
       if (e.code === 'KeyC') { this.view.third = !this.view.third; this.hud.toast(this.view.third ? 'Troisième personne' : 'Première personne'); }
@@ -116,7 +125,7 @@ class Game {
     addEventListener('keyup', (e) => K.delete(e.code));
     addEventListener('blur', () => { K.clear(); this.input.lmb = this.input.rmb = false; });
     const look = (dx, dy) => { const s = 0.0023 * this.settings.sens, p = this.player; p.yaw -= dx * s; p.pitch = clamp(p.pitch - dy * s, -1.5, 1.5); };
-    document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && !this.paused && this.lockedOnce && !this.dragMode) this.toggleMenu(true); });
+    document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && !this.paused && !this.invOpen && this.lockedOnce && !this.dragMode) this.toggleMenu(true); });
     document.addEventListener('pointerlockerror', () => { this.dragMode = true; });
     let drag = null;
     c.addEventListener('mousedown', (e) => {
@@ -149,11 +158,16 @@ class Game {
     hold('tPlace', () => this.place(), () => {});
     hold('tMenu', () => this.toggleMenu(true), () => {});
     hold('tAxis', () => this.cycleOrient(), () => {});
+    hold('tInv', () => this.toggleInv(), () => {});
+    hold('tFly', () => this.setFly(!this.player.fly), () => {});
+    hold('tDown', () => K.add('ControlLeft'), () => K.delete('ControlLeft'));
     hold('tFps', () => { this.prof.show = !this.prof.show; $('prof').classList.toggle('on', this.prof.show); $('tFps').classList.toggle('on', this.prof.show); this.report(); }, () => {});
   }
 
   bindMenu() {
     $('btnResume').onclick = () => this.toggleMenu(false);
+    $('invClose').onclick = () => this.toggleInv(false);
+    $('selMode').onchange = (e) => this.setMode(e.target.value === 'creatif');
     $('btnSave').onclick = () => this.save(true);
     $('btnExport').onclick = () => this.exportSave();
     $('btnImport').onclick = () => $('fileImport').click();
@@ -169,10 +183,28 @@ class Game {
     this.paused = v === undefined ? !this.paused : v; $('menu').classList.toggle('on', this.paused);
     if (this.paused) { if (document.pointerLockElement) document.exitPointerLock(); $('inSeed').value = this.seed; }
   }
-  select(i) { this.sel = i; this.hud.inventory(this.inv, i); }
+  select(i) { this.sel = i; this.refreshInv(); }
+  refreshInv() { this.hud.inventory(this.inv, this.sel, this.creative); this.dirtySave = true; }
+  toggleInv(v) {
+    this.invOpen = v === undefined ? !this.invOpen : v; this.paused = this.invOpen; this.invUI.open(this.invOpen);
+    if (this.invOpen && document.pointerLockElement) document.exitPointerLock();
+  }
+  setMode(on) {
+    this.creative = on; if (!on) this.setFly(false);
+    document.getElementById('touch').classList.toggle('crea', on); $('selMode').value = on ? 'creatif' : 'survie';
+    this.refreshInv(); this.hud.toast(on ? 'Mode créatif : blocs illimités, casse instantanée, vol avec F' : 'Mode survie');
+  }
+  setFly(on) { this.player.fly = on; this.player.v[1] = 0; document.getElementById('touch').classList.toggle('flying', on); this.hud.toast(on ? 'Vol activé' : 'Vol désactivé'); }
+  addItem(name, n = 1) {
+    if (!ITEMS[name]) return;
+    let left = n;
+    for (const s of this.inv) if (left && s && s.item === name && s.n !== undefined && s.n < STACK) { const m = Math.min(left, STACK - s.n); s.n += m; left -= m; }
+    for (let i = 0; i < INV_SIZE && left; i++) if (!this.inv[i]) { this.inv[i] = { item: name, n: Math.min(left, STACK) }; left -= this.inv[i].n; }
+    this.refreshInv();
+  }
 
   saveState() {
-    return { id: this.worldId, seed: this.seed, genVersion: GEN_VERSION, time: this.hour, day: 1, player: { p: this.player.p, yaw: this.player.yaw, pitch: this.player.pitch, vit: this.vit }, inventory: this.inv, edits: [...this.world.edits].map(([k, m]) => [k, [...m]]) };
+    return { id: this.worldId, seed: this.seed, genVersion: GEN_VERSION, time: this.hour, day: 1, player: { p: this.player.p, yaw: this.player.yaw, pitch: this.player.pitch, vit: this.vit, fly: !!this.player.fly }, inventory: this.inv, creative: !!this.creative, edits: [...this.world.edits].map(([k, m]) => [k, [...m]]) };
   }
   async save(toast) {
     const text = serialize(this.saveState());
@@ -222,22 +254,22 @@ class Game {
   // Où irait le bloc sélectionné, et serait-il accepté ?
   ghost() {
     const it = this.inv[this.sel], def = it && ITEMS[it.item], t = this.target;
-    if (!def?.block || !t || this.camOverride) return null;
+    if (def?.block === undefined || !t || this.camOverride) return null;
     const pos = IS_DECO[t.id] && t.id !== B.lantern && !IS_SOLID[t.id] ? [t.x, t.y, t.z] : [t.px, t.py, t.pz], cur = this.world.get(pos[0], pos[1], pos[2]), id = this.orientFor(def.block), p = this.player.p;
     const hit = IS_SOLID[id] && pos[0] + 1 > p[0] - 0.3 && pos[0] < p[0] + 0.3 && pos[2] + 1 > p[2] - 0.3 && pos[2] < p[2] + 0.3 && pos[1] + 1 > p[1] && pos[1] < p[1] + 1.8;
     const name = BLOCKS[id].name, axis = /log_x$/.test(name) ? 1 : /log_z$/.test(name) ? 3 : /_log$/.test(name) ? 2 : 0;
-    return { pos, ok: it.n > 0 && cur !== -1 && !IS_SOLID[cur] && !hit, axis };
+    return { pos, ok: (this.creative || it.n > 0) && cur !== -1 && !IS_SOLID[cur] && !hit, axis };
   }
 
   place() {
     if (this.paused || !this.target) return;
     const it = this.inv[this.sel], def = it && ITEMS[it.item];
-    if (!def?.block || it.n <= 0) return;
+    if (def?.block === undefined || (!this.creative && !(it.n > 0))) return;
     const t = this.target, id = IS_DECO[t.id] && t.id !== B.lantern && !IS_SOLID[t.id] ? [t.x, t.y, t.z] : [t.px, t.py, t.pz];
     const cur = this.world.get(...id); if (cur === -1 || IS_SOLID[cur]) return;
     const pl = this.player, p = pl.p, bid = this.orientFor(def.block);
     if (IS_SOLID[bid] && id[0] + 1 > p[0] - 0.3 && id[0] < p[0] + 0.3 && id[2] + 1 > p[2] - 0.3 && id[2] < p[2] + 0.3 && id[1] + 1 > p[1] && id[1] < p[1] + 1.8) return;
-    if (this.world.set(id[0], id[1], id[2], bid)) { it.n--; this.hud.inventory(this.inv, this.sel); this.dirtySave = true; }
+    if (this.world.set(id[0], id[1], id[2], bid)) { if (!this.creative) { it.n--; if (it.n <= 0) this.inv[this.sel] = null; } this.refreshInv(); this.anim.trigger(); this.dirtySave = true; }
   }
   mineStep(dt) {
     const go = this.input.lmb || this.autoMine > 0; if (this.autoMine > 0) this.autoMine -= dt;
@@ -247,11 +279,12 @@ class Game {
     if (key !== this.mine.key) { this.mine.key = key; this.mine.t = 0; }
     this.mining = true;
     const rate = def?.tool && def.tool === b.cat ? 3 : b.cat === 'terrain' ? 1.6 : 1;
+    if (this.creative) { this.mineCool = (this.mineCool || 0) - dt; if (this.mineCool > 0) return; this.mineCool = 0.2; this.mine.t = 1e9; }
     this.mine.t += dt * rate;
     if (this.mine.t >= b.hardness) {
       if (this.world.set(t.x, t.y, t.z, 0)) {
         const up = this.world.get(t.x, t.y + 1, t.z); if (up > 0 && IS_DECO[up]) this.world.set(t.x, t.y + 1, t.z, 0);
-        if (b.drop) { const s = this.inv.find((i) => i && i.item === b.drop); if (s) { s.n++; this.hud.inventory(this.inv, this.sel); } }
+        if (b.drop && !this.creative) this.addItem(b.drop);
         this.dirtySave = true; this.autoMine = 0;
       }
       this.mine.key = ''; this.mine.t = 0;
@@ -279,10 +312,11 @@ class Game {
       I.z = -I.z; I.x = -I.x;
       I.jump = K.has('Space'); I.sprint = K.has('ShiftLeft') || K.has('ShiftRight'); I.crouch = K.has('ControlLeft') || K.has('KeyX');
       if (this.world.nearReady(p.p[0], p.p[2])) p.update(this.world, dt, I);
+      this.anim.update(dt, { speed: p.speed, ground: p.ground, vy: p.v[1], crouch: p.crouch, fly: p.fly, mining: this.mining });
       if (this.loaded) this.fauna.update(dt, this.world, p);
       if (this.timeRun) this.hour = (this.hour + (dt / this.dayLen) * 24) % 24;
       this.elapsed += dt;
-      const v = this.vit; v.food = Math.max(0, v.food - dt * 0.012 * (I.sprint ? 2 : 1)); v.water = Math.max(0, v.water - dt * 0.018 * (I.sprint ? 2 : 1));
+      const v = this.vit; if (!this.creative) v.food = Math.max(0, v.food - dt * 0.012 * (I.sprint ? 2 : 1)); if (!this.creative) v.water = Math.max(0, v.water - dt * 0.018 * (I.sprint ? 2 : 1));
       if (p.inWater) v.water = Math.min(100, v.water + dt * 8);
       if ((this.tick || 0) % 30 === 0) this.hud.vitals(v);
     }
@@ -310,10 +344,11 @@ class Game {
     visible.sort((a, b) => a.dist - b.dist);
     for (const c of all) { c.cx_ = c.cx; }
     // rayon de visée : passe au-dessus de l'épaule, ignore ce qui est derrière le héros
-    const head = [p.p[0], p.p[1] + 1.5, p.p[2]], rt = raycast(this.world, eye, f, 9.5, this.view.third ? (x, y, z) => V.dot(V.sub([x + 0.5, y + 0.5, z + 0.5], head), f) < -0.5 : null);
-    const reach = rt && Math.hypot(rt.x + 0.5 - head[0], rt.y + 0.5 - head[1], rt.z + 0.5 - head[2]) < 6.2 ? rt : null;
+    const head = [p.p[0], p.p[1] + 1.5, p.p[2]], rt = raycast(this.world, eye, f, this.creative ? 13 : 9.5, this.view.third ? (x, y, z) => V.dot(V.sub([x + 0.5, y + 0.5, z + 0.5], head), f) < -0.5 : null);
+    const reach = rt && Math.hypot(rt.x + 0.5 - head[0], rt.y + 0.5 - head[1], rt.z + 0.5 - head[2]) < (this.creative ? 10 : 6.2) ? rt : null;
     this.target = reach; this.mineStep(dt);
-    const actors = (this.view.third ? this.anim.actors(p.p[0], p.p[1], p.p[2], this.player.speed > 0.2 ? p.moveYaw : p.yaw, p.speed, dt, this.mining, p.crouch) : []).concat(this.fauna.actors());
+    const heldIt = this.inv[this.sel], held = heldIt ? this.items[heldIt.item] : null;
+    const actors = (this.view.third ? this.anim.actors(p.p[0], p.p[1], p.p[2], p.speed > 0.2 ? p.moveYaw : p.yaw, p.pitch, held) : this.anim.viewActors(M.inv(viewM), held)).concat(this.fauna.actors());
     const mc = reach ? Math.min(1, this.mine.t / Math.max(0.05, BLOCKS[reach.id].hardness)) : 0;
     r.render({ eye, vp, viewM, proj, chunks: all.map(remap), visible: visible.map(remap), far: this.world.far, actors, time: this.elapsed + (this.fixTime || 0), target: reach && !this.camOverride ? { pos: [reach.x, reach.y, reach.z], color: [mc, 1 - mc * 0.6, 1 - mc, 1] } : null, farHole: (this.world.radius - 0.6) * 32, ghost: this.ghost(), cloud: 0.42, lightDirty: r.lightDirty, taa: this.taaOff ? false : undefined });
     r.lightDirty = false;

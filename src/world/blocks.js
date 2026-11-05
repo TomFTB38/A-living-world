@@ -18,7 +18,7 @@ const defs = [
   ['path', 'cube', ['path', 'dirt', 'dirt'], 0.45, { drop: 'dirt', cat: 'terrain' }],
   ['forest_soil', 'cube', ['forest_soil', 'dirt', 'dirt'], 0.5, { drop: 'dirt', cat: 'terrain' }],
   ['stone', 'cube', ['stone', 'stone', 'stone'], 1.3, { cat: 'rock' }],
-  ['mossy_stone', 'cube', ['mossy_stone', 'mossy_stone', 'stone'], 1.3, { drop: 'stone', cat: 'rock' }],
+  ['mossy_stone', 'cube', ['mossy_stone', 'mossy_stone', 'stone'], 1.3, { cat: 'rock' }],
   ['limestone', 'cube', ['limestone', 'limestone', 'limestone'], 1.2, { cat: 'rock' }],
   ['granite', 'cube', ['granite', 'granite', 'granite'], 1.6, { cat: 'rock' }],
   ['gravel', 'cube', ['gravel', 'gravel', 'gravel'], 0.5, { cat: 'terrain' }],

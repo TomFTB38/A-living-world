@@ -13,8 +13,8 @@ float hash13(vec3 p){ p=fract(p*.1031); p+=dot(p,p.zyx+31.32); return fract((p.x
 export const VS_GEOM = `#version 300 es
 ${COMMON}
 layout(location=0) in vec4 aPos; layout(location=1) in vec4 aNrm; layout(location=2) in vec4 aLit; layout(location=3) in vec4 aTint;
-uniform mat4 uVP; uniform vec3 uOrigin,uCamPos; uniform float uPosScale,uTime,uFarHole; uniform mat4 uModel; uniform vec2 uJitter;
-out vec3 vPos; out vec3 vN; flat out int vLayer; flat out int vKind; flat out int vRot; out vec3 vLit; out vec3 vTint; out vec3 vLocal;
+uniform mat4 uVP; uniform vec3 uOrigin,uCamPos; uniform float uPosScale,uTime,uFarHole,uDepthK; uniform mat4 uModel; uniform vec2 uJitter;
+out vec3 vPos; out vec3 vN; flat out int vLayer; flat out int vKind; flat out int vRot; out vec3 vLit; out vec3 vTint; out vec3 vLocal; out vec3 vNl;
 vec3 wind(vec3 p,float w){ if(w<=0.)return vec3(0.);
   float g=sin(uTime*.7+p.x*.05+p.z*.07)*.5+.5, t=uTime*1.8;
   vec3 d=vec3(sin(t+p.x*.45+p.z*.2+p.y*.3),sin(t*1.3+p.x*.3)*.3,cos(t*.9+p.z*.4+p.y*.2));
@@ -24,21 +24,22 @@ void main(){
   world+=wind(world,aNrm.w*2.);
   if(uFarHole>0. && length(world.xz-uCamPos.xz)<uFarHole) world.y-=90.;
   vPos=world; vLocal=lp; vN=mat3(uModel)*aNrm.xyz; vLayer=int(aPos.w+.5); vKind=int(aLit.w*255.+.5); vRot=int(aTint.a*255.+.5); vLit=aLit.xyz; vTint=aTint.rgb*2.;
-  gl_Position=uVP*vec4(world,1.); gl_Position.xy+=uJitter*gl_Position.w;
+  vNl=aNrm.xyz; gl_Position=uVP*vec4(world,1.); gl_Position.xy+=uJitter*gl_Position.w; gl_Position.z*=uDepthK;
 }`;
 
 export const FS_GEOM = `#version 300 es
 ${COMMON}
-uniform sampler2DArray uAlbedo,uNormal; uniform sampler3D uNoise; uniform float uTexOn,uHero;
-in vec3 vPos; in vec3 vN; flat in int vLayer; flat in int vKind; flat in int vRot; in vec3 vLit; in vec3 vTint; in vec3 vLocal;
+uniform sampler2DArray uAlbedo,uNormal; uniform sampler3D uNoise; uniform float uTexOn,uHero,uLocal;
+in vec3 vPos; in vec3 vN; flat in int vLayer; flat in int vKind; flat in int vRot; in vec3 vLit; in vec3 vTint; in vec3 vLocal; in vec3 vNl;
 layout(location=0) out vec4 gA; layout(location=1) out vec4 gN; layout(location=2) out vec4 gL;
 void main(){
   vec3 n=normalize(vN); if(!gl_FrontFacing && vKind>=2) n=vec3(n.x,abs(n.y),n.z);
   vec3 alb=vTint; float rough=.9, trans=0., emis=0.; vec3 nn=n;
   if(vKind<=1){
-    vec3 cell=floor(vPos-n*.02); vec3 an=abs(n);
+    bool held=uLocal>.5; vec3 P=held?vLocal:vPos, ln=held?normalize(vNl):n; // objet en main : texture liée à l'objet, pas au monde
+    vec3 cell=floor(P-ln*.02); vec3 an=abs(ln);
     vec2 uv; vec3 T,B;
-    if(an.y>.5){ uv=vPos.xz; T=vec3(1,0,0); B=vec3(0,0,1);} else if(an.x>.5){ uv=vec2(vPos.z,-vPos.y); T=vec3(0,0,1); B=vec3(0,-1,0);} else { uv=vec2(vPos.x,-vPos.y); T=vec3(1,0,0); B=vec3(0,-1,0);}
+    if(an.y>.5){ uv=P.xz; T=vec3(1,0,0); B=vec3(0,0,1);} else if(an.x>.5){ uv=vec2(P.z,-P.y); T=vec3(0,0,1); B=vec3(0,-1,0);} else { uv=vec2(P.x,-P.y); T=vec3(1,0,0); B=vec3(0,-1,0);}
     float h=hash13(cell+vec3(.5)), h2=hash13(cell.zxy+vec3(7.5));
     int v=int(h*4.)&3;
     vec2 f=fract(uv);
@@ -52,12 +53,12 @@ void main(){
     bool isBark=vLayer>=${matLayer('bark_oak')}&&vLayer<${matLayer('leaf_oak')};
     alb*=isBark?.84+.32*h2:.9+.2*h2;
     if(isBark||(vLayer>=${matLayer('stone')}&&vLayer<${matLayer('gravel')})){ vec2 e=min(f,1.-f); alb*=.8+.2*smoothstep(0.,.04,min(e.x,e.y)); }
-    vec2 d=m.xy*2.-1.; nn=normalize(n+(T*d.x+B*d.y)*.9); rough=m.b;
+    vec2 d=m.xy*2.-1.; if(!held) nn=normalize(n+(T*d.x+B*d.y)*.9); rough=m.b;
     if(vKind==1){ trans=1.; rough=.5; alb*=1.05; }
     // mousse en petits pixels sur les pierres et l'écorce, plus présente sur les faces hautes
     bool mossyRock=vLayer>=${matLayer('mossy_stone')}&&vLayer<${matLayer('mossy_stone') + 4};
     bool mossable=mossyRock||(vLayer>=${matLayer('bark_oak')}&&vLayer<${matLayer('bark_oak') + 4})||(vLayer>=${matLayer('bark_beech')}&&vLayer<${matLayer('bark_beech') + 4});
-    if(mossable&&length(dFdx(vPos))<.07){ vec3 g=floor(vPos*9.)/9.; float mn=texture(uNoise,g*.031).r*.78+hash13(g)*.22+(n.y>.5?.14:0.);
+    if(mossable&&!held&&length(dFdx(vPos))<.07){ vec3 g=floor(vPos*9.)/9.; float mn=texture(uNoise,g*.031).r*.78+hash13(g)*.22+(n.y>.5?.14:0.);
       float mm=step(isBark?.7:.5,mn); alb=mix(alb,vec3(.13,.22,.045)*(.75+.7*hash13(g+3.)),mm); rough=mix(rough,.95,mm); }
   } else {
     float k=.92+.16*hash13(floor(vPos*7.)); alb*=alb*k*1.25;

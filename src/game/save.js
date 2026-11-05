@@ -3,7 +3,7 @@ export const SAVE_VERSION = 1;
 export function fnv(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return (h >>> 0).toString(16); }
 
 export function serialize(st) {
-  const body = JSON.stringify({ version: SAVE_VERSION, id: st.id, seed: st.seed, genVersion: st.genVersion, time: st.time, day: st.day, player: st.player, inventory: st.inventory, edits: st.edits });
+  const body = JSON.stringify({ version: SAVE_VERSION, id: st.id, seed: st.seed, genVersion: st.genVersion, time: st.time, day: st.day, player: st.player, inventory: st.inventory, creative: st.creative, edits: st.edits });
   return JSON.stringify({ sum: fnv(body), body });
 }
 export function deserialize(text) {

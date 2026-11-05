@@ -174,6 +174,35 @@ export class Renderer {
     this.night = night; this.exposure = 0.52 + 0.4 * night;
   }
 
+  // Icône d'inventaire rendue depuis le vrai modèle de l'objet.
+  icon(item, S = 96) {
+    const gl = this.gl;
+    if (!this.iconF) {
+      const mk = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, S, S, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return t; };
+      this.iconT = [mk(), mk(), mk()]; const d = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, d); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, S, S);
+      this.iconF = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, this.iconF); this.iconT.forEach((t, i) => gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, t, 0));
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, d); gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
+    }
+    const tool = item.kind === 'tool', e = item.kind === 'block' ? [2.2, 1.9, 2.2] : tool ? [0, 0, 3] : [1.6, 1.5, 2.2], c = item.kind === 'block' ? [0, 0, 0] : tool ? [0, 0, 0] : [0, 0.05, 0];
+    const k = item.kind === 'block' ? 0.95 : tool ? 0.62 : 0.74, off = item.kind === 'block' ? [-0.5, -0.5, -0.5] : item.kind === 'deco' ? [-0.5, -0.45, -0.5] : [-0.18, -0.18, 0];
+    const vp = M.mul(M.ortho(-k, k, -k, k, -6, 6), M.look(e, c, [0, 1, 0])), G = this.P.geom;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.iconF); gl.viewport(0, 0, S, S); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
+    this.use(G, { uVP: vp, uTime: 0, uModel: M.trs(off[0], off[1], off[2], 0), uPosScale: 1 / 128, uJitter: [0, 0], uDepthK: 1, uLocal: item.local ? 1 : 0, uHero: 0, uOrigin: [0, 0, 0], uFarHole: 0 }, { uAlbedo: this.tAlbedo, uNormal: this.tNormal, uNoise: this.tNoise });
+    gl.bindVertexArray(item.mesh.vao); gl.drawElements(gl.TRIANGLES, item.count, gl.UNSIGNED_INT, item.offset);
+    const a = new Uint8Array(S * S * 4), n = new Uint8Array(S * S * 4);
+    gl.readBuffer(gl.COLOR_ATTACHMENT0); gl.readPixels(0, 0, S, S, gl.RGBA, gl.UNSIGNED_BYTE, a);
+    gl.readBuffer(gl.COLOR_ATTACHMENT1); gl.readPixels(0, 0, S, S, gl.RGBA, gl.UNSIGNED_BYTE, n);
+    const cv = document.createElement('canvas'); cv.width = cv.height = S; const ctx = cv.getContext('2d'), im = ctx.createImageData(S, S);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const i = (x + (S - 1 - y) * S) * 4, o = (x + y * S) * 4; if (!a[i + 3]) continue;
+      const lit = 0.72 + 0.5 * Math.max(0, (n[i] / 127.5 - 1) * 0.3 + (n[i + 1] / 127.5 - 1) * 0.8 + (n[i + 2] / 127.5 - 1) * 0.5);
+      for (let c2 = 0; c2 < 3; c2++) im.data[o + c2] = Math.min(255, 255 * Math.pow((a[i + c2] / 255) * lit * 1.2, 1 / 2.2));
+      im.data[o + 3] = 255;
+    }
+    ctx.putImageData(im, 0, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindVertexArray(null); gl.enable(gl.CULL_FACE); gl.disable(gl.DEPTH_TEST);
+    return cv.toDataURL();
+  }
+
   render(view) {
     const gl = this.gl, r = this.r, st = this.stats, p = this.preset, W = this.W, H = this.H;
     st.draws = 0; st.tris = 0; this.frame++; const fr = this.frame;
@@ -215,21 +244,22 @@ export class Renderer {
     this.actorVP = snap(18, 1024);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.actorF); gl.viewport(0, 0, 1024, 1024); gl.clear(gl.DEPTH_BUFFER_BIT);
     this.set(this.P.shadow, 'uVP', this.actorVP); this.set(this.P.shadow, 'uOrigin', [0, 0, 0]);
-    for (const a of actors) { this.set(this.P.shadow, 'uModel', a.model); gl.bindVertexArray(a.mesh.vao); gl.drawElements(gl.TRIANGLES, a.count, gl.UNSIGNED_INT, a.offset); st.draws++; }
+    for (const a of actors) { if (a.view) continue; this.set(this.P.shadow, 'uModel', a.model); gl.bindVertexArray(a.mesh.vao); gl.drawElements(gl.TRIANGLES, a.count, gl.UNSIGNED_INT, a.offset); st.draws++; }
     gl.colorMask(true, true, true, true);
 
     /* --- G-buffer --- */
     gl.bindFramebuffer(gl.FRAMEBUFFER, r.gbuf); gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const G = this.P.geom;
-    this.use(G, { uVP: vp, uTime: view.time, uModel: M.id(), uPosScale: 1 / 128, uJitter: jit }, { uAlbedo: this.tAlbedo, uNormal: this.tNormal, uNoise: this.tNoise });
+    this.use(G, { uVP: vp, uTime: view.time, uModel: M.id(), uPosScale: 1 / 128, uJitter: jit, uDepthK: 1, uLocal: 0, uHero: 0 }, { uAlbedo: this.tAlbedo, uNormal: this.tNormal, uNoise: this.tNoise });
     this.set(G, 'uOrigin', [0, 0, 0]);
     for (const c of view.visible) { this.set(G, 'uOrigin', c.org); gl.bindVertexArray(c.opaque.vao); gl.drawElements(gl.TRIANGLES, c.opaque.count, gl.UNSIGNED_INT, 0); st.draws++; st.tris += c.opaque.count / 3; }
     gl.disable(gl.CULL_FACE);
     for (const c of view.visible) if (c.deco && c.deco.count) { this.set(G, 'uOrigin', c.org); gl.bindVertexArray(c.deco.vao); gl.drawElements(gl.TRIANGLES, c.deco.count, gl.UNSIGNED_INT, 0); st.draws++; st.tris += c.deco.count / 3; }
     gl.enable(gl.CULL_FACE);
     this.set(G, 'uOrigin', [0, 0, 0]);
-    for (const a of actors) { this.set(G, 'uHero', a.hero ? 1 : 0); this.set(G, 'uModel', a.model); gl.bindVertexArray(a.mesh.vao); gl.drawElements(gl.TRIANGLES, a.count, gl.UNSIGNED_INT, a.offset); st.draws++; st.tris += a.count / 3; }
-    this.set(G, 'uHero', 0); this.set(G, 'uModel', M.id());
+    gl.disable(gl.CULL_FACE);
+    for (const a of actors) { this.set(G, 'uHero', a.hero ? 1 : 0); this.set(G, 'uLocal', a.local ? 1 : 0); this.set(G, 'uDepthK', a.view ? 0.05 : 1); this.set(G, 'uModel', a.model); gl.bindVertexArray(a.mesh.vao); gl.drawElements(gl.TRIANGLES, a.count, gl.UNSIGNED_INT, a.offset); st.draws++; st.tris += a.count / 3; }
+    gl.enable(gl.CULL_FACE); this.set(G, 'uHero', 0); this.set(G, 'uLocal', 0); this.set(G, 'uDepthK', 1); this.set(G, 'uModel', M.id());
     if (far) { this.set(G, 'uPosScale', 1 / 8); this.set(G, 'uFarHole', view.farHole); this.set(G, 'uCamPos', eye); this.set(G, 'uOrigin', far.org); gl.bindVertexArray(far.mesh.vao); gl.drawElements(gl.TRIANGLES, far.mesh.count, gl.UNSIGNED_INT, 0); st.draws++; st.tris += far.mesh.count / 3; this.set(G, 'uFarHole', 0); }
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
 

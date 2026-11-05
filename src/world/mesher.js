@@ -190,7 +190,7 @@ function blade(o, x, y, z, a, w, h, lean, r, g, b, s, l, sky2) {
 
 function stem(o, x, y, z, h, s, l) { box(o, x - 0.016, y, z - 0.016, x + 0.016, y + h, z + 0.016, 0.25, 0.42, 0.13, 0, s, l, KIND.FOLIAGE, false, 90); }
 
-function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
+export function decoModel(o, b, x, y, z, wx, wz, s, l, lod) {
   const r = new Rng(hashInt(wx, y, wz, 91)), m = BLOCKS[b].model;
   if (m === 'lantern') {
     box(o, x + 0.32, y, z + 0.32, x + 0.68, y + 0.08, z + 0.68, 0.16, 0.1, 0.06, 0, s, l);

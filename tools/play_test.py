@@ -47,7 +47,7 @@ with sync_playwright() as p:
         print(pg.evaluate('({t:ALW.target,sel:ALW.sel,inv:ALW.inv[4],p:ALW.player.p,pitch:ALW.player.pitch,paused:ALW.paused,third:ALW.view.third,el:document.elementFromPoint(160,90).id})')); raise
     check('poser un bloc au clic droit', True, 'stock %d → %d'%(before,st()['inv'][4]))
     # orientation réelle au clic droit : regard presque horizontal, la bûche se couche
-    pg.evaluate('ALW.inv[7].n=3; ALW.player.pitch=-.42; ALW.player.yaw=Math.round(ALW.player.yaw/1.5708)*1.5708'); pg.keyboard.press('Digit8'); time.sleep(3)
+    pg.evaluate("ALW.inv[7]={item:'oak_log',n:3}"); pg.evaluate('ALW.refreshInv(); ALW.player.pitch=-.42; ALW.player.yaw=Math.round(ALW.player.yaw/1.5708)*1.5708'); pg.keyboard.press('Digit8'); time.sleep(3)
     for _ in range(6):
         if pg.evaluate('!!ALW.target'):
             pg.mouse.click(160,90,button='right'); time.sleep(1.5)

@@ -11,23 +11,24 @@ export class Player {
     return false;
   }
   update(w, dt, input) {
-    const { p, v } = this, sp = input.sprint ? 7.2 : input.crouch ? 2 : 4.5;
-    this.crouch = input.crouch;
+    const { p, v } = this, fly = this.fly, sp = fly ? (input.sprint ? 22 : 11) : input.sprint ? 7.2 : input.crouch ? 2 : 4.5;
+    this.crouch = input.crouch && !fly;
     const wy = w.get(Math.floor(p[0]), Math.floor(p[1] + 0.9), Math.floor(p[2]));
     this.inWater = wy === B.water;
     const s = Math.sin(this.yaw), c = Math.cos(this.yaw);
     let mx = input.x * c + input.z * s, mz = -input.x * s + input.z * c; const l = Math.hypot(mx, mz);
     if (l > 1) { mx /= l; mz /= l; }
-    const accel = this.ground ? 14 : this.inWater ? 5 : 3.5, sw = this.inWater ? 0.55 : 1;
+    const accel = fly ? 9 : this.ground ? 14 : this.inWater ? 5 : 3.5, sw = this.inWater && !fly ? 0.55 : 1;
     v[0] += (mx * sp * sw - v[0]) * Math.min(1, accel * dt); v[2] += (mz * sp * sw - v[2]) * Math.min(1, accel * dt);
-    if (this.inWater) { v[1] += (input.jump ? 3.5 : -1.2 - v[1]) * Math.min(1, 6 * dt); }
+    if (fly) v[1] += ((input.jump ? sp : 0) - (input.crouch ? sp : 0) - v[1]) * Math.min(1, 9 * dt);
+    else if (this.inWater) { v[1] += (input.jump ? 3.5 : -1.2 - v[1]) * Math.min(1, 6 * dt); }
     else { v[1] -= GRAV * dt; if (input.jump && this.ground) { v[1] = JUMP; this.ground = false; } }
     if (v[1] < -40) v[1] = -40;
     // X et Z, avec montée automatique d'une marche quand on avance au sol
     for (const a of [0, 2]) {
       const n = p.slice(); n[a] += v[a] * dt;
       if (!this.box(w, n[0], n[1], n[2])) p[a] = n[a];
-      else if (this.ground && !this.box(w, n[0], n[1] + 1.05, n[2]) && !this.box(w, p[0], p[1] + 1.05, p[2])) { p[a] = n[a]; p[1] += 1.02; this.stepped = 0.12; }
+      else if (this.ground && !fly && !this.box(w, n[0], n[1] + 1.05, n[2]) && !this.box(w, p[0], p[1] + 1.05, p[2])) { p[a] = n[a]; p[1] += 1.02; this.stepped = 0.12; }
       else v[a] = 0;
     }
     const ny = p[1] + v[1] * dt;
