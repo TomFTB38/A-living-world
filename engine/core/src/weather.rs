@@ -25,7 +25,7 @@ impl Weather {
     pub fn snap(&mut self, k: Kind) { self.forced = Some(k); self.kind = k; self.state = target(k); }
 }
 /// Ce que le rendu reçoit en plus du ciel.
-#[derive(Clone, Copy, Debug)] pub struct Env { pub cloud: f32, pub fog_k: f32, pub rain: f32, pub mist: f32, pub covered: bool }
+#[derive(Clone, Copy, Debug)] pub struct Env { pub cloud: f32, pub fog_k: f32, pub rain: f32, pub mist: f32, pub covered: bool, pub bright: f32 }
 /// La météo agit sur l'astre, le ciel et la densité de la brume.
 pub fn apply(s: &mut Sky, w: State, covered: bool) -> Env {
     let (r, f, c) = (w.rain as f32, w.fog as f32, w.cloud as f32);
@@ -33,5 +33,5 @@ pub fn apply(s: &mut Sky, w: State, covered: bool) -> Env {
     for i in 0..3 { s.col[i] *= dim; }
     let grey = |c: [f32; 3], g: [f32; 3]| [c[0] + (g[0] * day - c[0]) * k, c[1] + (g[1] * day - c[1]) * k, c[2] + (g[2] * day - c[2]) * k];
     s.top = grey(s.top, [0.42, 0.47, 0.54]); s.hor = grey(s.hor, [0.72, 0.76, 0.8]);
-    Env { cloud: c, fog_k: 1.0 + 1.6 * r + 5.5 * f, rain: r, mist: 0.0045 * r + 0.024 * f, covered }
+    Env { cloud: c, fog_k: 1.0 + 1.6 * r + 5.5 * f, rain: r, mist: 0.0045 * r + 0.024 * f, covered, bright: 1.0 }
 }

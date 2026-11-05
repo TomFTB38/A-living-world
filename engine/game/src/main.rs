@@ -25,7 +25,7 @@ fn spawn_point(seed: i32) -> [f64; 3] {
 }
 fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &hud::Menu) -> usize {
     let (proj, vm) = (view::perspective(1.05, w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
-    let ui = hud::Ui::build(s, w, h, msg, mouse, menu); let draws = s.draws(md, &vm); let mut sky = view::sky_at(s.hour); let env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye));
+    let ui = hud::Ui::build(s, w, h, msg, mouse, menu); let draws = s.draws(md, &vm); let mut sky = view::sky_at(s.hour); let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]);
     gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], s.progress() as f32)), s.ghost(), &draws, &ui)
 }
 struct Game { menu: hud::Menu, drag: Option<usize>, half: Option<usize>, window: Arc<Window>, gpu: gpu::Gpu, md: Models, mouse: [f32; 2], s: Session, keys: HashSet<KeyCode>, grabbed: bool, time: f64, run_time: bool, lmb: bool, rmb: bool, place_t: f64, msg: Option<(String, f64)>, save_t: f64, last: Instant, frames: u32, fps_t: f64, tris: usize }
@@ -44,10 +44,10 @@ impl Game {
         self.s.weather.forced = if m.weather == 0 { None } else { Some(KINDS[m.weather - 1]) };
         self.s.sound.force(if m.mood == 0 { None } else { Some([Mood::Calme, Mood::Nuit, Mood::Construction, Mood::Suspense, Mood::Danger][m.mood - 1]) });
     }
-    fn write_settings(&self) { let m = &self.menu; let _ = std::fs::write(beside_exe("reglages.alw"), format!("{} {} {} {} {}\n", m.vol[0], m.vol[1], m.vol[2], m.weather, m.mood)); }
+    fn write_settings(&self) { let m = &self.menu; let _ = std::fs::write(beside_exe("reglages.alw"), format!("{} {} {} {} {} {}\n", m.vol[0], m.vol[1], m.vol[2], m.weather, m.mood, m.vol[3])); }
     fn read_settings(&mut self) {
         let Ok(t) = std::fs::read_to_string(beside_exe("reglages.alw")) else { return }; let v: Vec<f32> = t.split_whitespace().filter_map(|x| x.parse().ok()).collect();
-        if v.len() == 5 { self.menu.vol = [v[0].clamp(0.0, 1.0), v[1].clamp(0.0, 1.0), v[2].clamp(0.0, 1.0)]; self.menu.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); self.menu.mood = (v[4] as usize).min(hud::MOODS.len() - 1); }
+        if v.len() >= 5 { self.menu.vol = [v[0].clamp(0.0, 1.0), v[1].clamp(0.0, 1.0), v[2].clamp(0.0, 1.0), v.get(5).copied().unwrap_or(0.5).clamp(0.0, 1.0)]; self.menu.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); self.menu.mood = (v[4] as usize).min(hud::MOODS.len() - 1); }
     }
     fn slide(&mut self, i: usize) {
         let sz = self.window.inner_size(); let r = hud::menu_layout(sz.width as f32, sz.height as f32, &self.menu).into_iter().find(|x| x.0 == hud::M::Vol(i)).map(|x| x.1);
@@ -88,7 +88,7 @@ impl ApplicationHandler for App {
         let mut s = Session::new(SEED, &HIGH, threads, spawn_point(SEED));
         if let Ok(t) = std::fs::read_to_string(beside_exe("monde.alw")) { if let Err(e) = s.load_text(&t) { report(&format!("Sauvegarde illisible : {e}")); } }
         s.sound = SoundScape::new(sound::start());
-        let mut g = Game { menu: hud::Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5] }, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
+        let mut g = Game { menu: hud::Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5] }, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
         g.read_settings(); g.apply(); g.grab(true); self.game = Some(g);
     }
     fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, e: WindowEvent) {
@@ -201,7 +201,7 @@ fn capture(a: &[String]) {
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
     }
-    let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5] };
+    let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5, 0.5] };
     let t1 = Instant::now(); let mut tris = 0;
     for k in 0..10 { tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu); }
     println!("10 images, {:.1} M triangles, {:.0} ms par image sur cette carte", tris as f64 / 1e6, t1.elapsed().as_secs_f64() * 100.0);
