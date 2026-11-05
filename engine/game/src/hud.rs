@@ -34,7 +34,7 @@ const VOLS: [&str; 3] = ["Volume général", "Effets", "Musique"];
 const CREDITS: [&str; 13] = ["Musique générée par le jeu. Sons retravaillés pour le jeu.", "", "Licence CC BY 3.0", "crack : Benboncan, freesound.org/people/Benboncan/sounds/71823", "splash : AGFX, freesound.org/people/AGFX/packs/1253", "hurt : sonictechtonic, freesound.org/people/sonictechtonic/sounds/241872", "", "Licence CC0", "Kenney (Impact Sounds), worthahep88, lolamadeus, Sheyvan, blukotek, Yuval", "", "Police de l'interface", "Inter, SIL Open Font License 1.1", ""];
 pub struct Menu { pub open: bool, pub credits: bool, pub weather: usize, pub mood: usize, pub vol: [f32; 3] }
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum M { Resume, Weather(usize), Mood(usize), Vol(usize), Credits, Back, Quit }
-fn menu_panel(w: f32, h: f32) -> ([f32; 4], f32) { let k = scale(h); let (pw, ph) = (640.0 * k, 600.0 * k); ([(w - pw) * 0.5, (h - ph) * 0.5, pw, ph], k) }
+fn menu_panel(w: f32, h: f32) -> ([f32; 4], f32) { let k = scale(h); let (pw, ph) = (640.0 * k, 520.0 * k); ([(w - pw) * 0.5, (h - ph) * 0.5, pw, ph], k) }
 pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
     let (p, k) = menu_panel(w, h); let (x0, tw) = (p[0] + 34.0 * k, p[2] - 68.0 * k); let bh = 40.0 * k; let g = 8.0 * k; let mut o = Vec::new();
     if m.credits { o.push((M::Back, [x0, p[1] + p[3] - 66.0 * k, tw, bh])); return o; }

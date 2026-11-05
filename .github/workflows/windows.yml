@@ -24,11 +24,12 @@ jobs:
         run: |
           set +e
           mkdir -p capture
-          shot() { n=$1; shift; rm -f engine/game/target/release/alw-erreur.txt; timeout 240 engine/game/target/release/a-living-world.exe --capture capture/$n.bmp "$@" 2>&1 | tee -a capture/journal.txt; echo "== $n : code ${PIPESTATUS[0]}" | tee -a capture/journal.txt; cat engine/game/target/release/alw-erreur.txt 2>/dev/null | tee -a capture/journal.txt; }
+          shot() { n=$1; shift; rm -f capture/$n.bmp; rm -f engine/game/target/release/alw-erreur.txt; timeout 240 engine/game/target/release/a-living-world.exe --capture capture/$n.bmp "$@" 2>&1 | tee -a capture/journal.txt; echo "== $n : code ${PIPESTATUS[0]}" | tee -a capture/journal.txt; cat engine/game/target/release/alw-erreur.txt 2>/dev/null | tee -a capture/journal.txt; }
           shot spawn -38.5 53 0.5 -20 52 -30 16.4 6 1280 720 2048
           shot eau -62 47 -55 -54 42 -51 16.4 5 1280 720 2048
           shot jeu -38.5 52.5 0.5 -36 50 3 16.4 4 1280 720 2048 jeu
-          for sc in tiers bras inv creatif roches menu pluie brume faune; do shot $sc -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 $sc; done
+          for sc in tiers bras inv creatif roches menu brume faune; do shot $sc -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 $sc; done
+          shot pluie -62 47 -55 -54 42 -51 16.4 4 1280 720 2048 pluie
       - name: Dépose la capture sur la branche captures
         shell: bash
         continue-on-error: true

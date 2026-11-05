@@ -91,10 +91,10 @@ impl ApplicationHandler for App {
         let mut g = Game { menu: hud::Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5] }, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
         g.read_settings(); g.apply(); g.grab(true); self.game = Some(g);
     }
-    fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, e: WindowEvent) {
+    fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, e: WindowEvent) {
         let Some(g) = self.game.as_mut() else { return };
         match e {
-            WindowEvent::CloseRequested => { g.save(); g.write_settings(); el.exit(); }
+            WindowEvent::CloseRequested => { g.save(); g.write_settings(); std::process::exit(0); }
             WindowEvent::Resized(s) => g.gpu.resize(s.width, s.height),
             WindowEvent::Focused(false) => { g.keys.clear(); g.grab(false); }
             WindowEvent::MouseInput { state, button, .. } => {
@@ -110,7 +110,7 @@ impl ApplicationHandler for App {
                         Some(hud::M::Vol(i)) => { g.drag = Some(i); g.slide(i); }
                         Some(hud::M::Credits) => g.menu.credits = true,
                         Some(hud::M::Back) => g.menu.credits = false,
-                        Some(hud::M::Quit) => { g.save(); g.write_settings(); el.exit(); }
+                        Some(hud::M::Quit) => { g.save(); g.write_settings(); std::process::exit(0); }
                         None => {}
                     }
                     return;
@@ -186,13 +186,13 @@ fn capture(a: &[String]) {
     if scene == "bras" { s.sel = 0; for _ in 0..6 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false }); } }
     if scene == "inv" { s.inv_open = true; s.grab_slot(5); s.tick(0.0, none, Actions::default()); }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 0 }; s.tick(0.0, none, Actions::default()); }
-    if scene == "pluie" { s.weather.snap(Kind::Pluie); } if scene == "brume" { s.weather.snap(Kind::Brouillard); }
+    if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
     if scene == "faune" {
         // La faune vit quarante secondes, puis la caméra va voir le premier cerf (ou le premier oiseau posé).
         for _ in 0..2400 { s.tick(1.0 / 60.0, none, Actions::default()); }
         println!("faune : {} cerfs, {} oiseaux", s.fauna.deer.len(), s.fauna.birds.len());
         let spot = s.fauna.deer.first().map(|d| d.p).or(s.fauna.birds.first().map(|b| b.p));
-        if let Some(q) = spot { let (a, r) = ((q[2] - s.player.p[2]).atan2(q[0] - s.player.p[0]), 9.0); let e = [q[0] - a.cos() * r, q[1] + 3.2, q[2] - a.sin() * r]; s.player.p = [e[0], e[1] - 1.62, e[2]]; let f = view::norm([q[0] - e[0], q[1] + 0.8 - e[1], q[2] - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
+        if let Some(q) = spot { let (a, r) = ((q[2] - s.player.p[2]).atan2(q[0] - s.player.p[0]), 8.2); let e = [q[0] - a.cos() * r, q[1] + 2.6, q[2] - a.sin() * r]; s.sel = 8; s.player.p = [e[0], e[1] - 1.62, e[2]]; let f = view::norm([q[0] - e[0], q[1] + 0.8 - e[1], q[2] - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
     }
     if scene == "jeu" {
         // Scénario : casser le bloc visé, puis poser de la pierre, avec les vrais chemins du jeu.
@@ -210,6 +210,7 @@ fn capture(a: &[String]) {
     b.extend_from_slice(b"BM"); b.extend_from_slice(&size.to_le_bytes()); b.extend_from_slice(&[0; 4]); b.extend_from_slice(&54u32.to_le_bytes()); b.extend_from_slice(&40u32.to_le_bytes());
     b.extend_from_slice(&w.to_le_bytes()); b.extend_from_slice(&h.to_le_bytes()); b.extend_from_slice(&1u16.to_le_bytes()); b.extend_from_slice(&24u16.to_le_bytes()); b.extend_from_slice(&[0; 24]); b.extend_from_slice(&px);
     std::fs::write(&a[0], b).expect("écriture de la capture");
+    std::process::exit(0); // la carte logicielle peut caler en se fermant : rien à attendre, l'image est écrite
 }
 fn main() {
     std::panic::set_hook(Box::new(|i| report(&format!("Erreur : {i}"))));

@@ -24,15 +24,15 @@ fn hash13(q: vec3f) -> f32 { var p = fract(q * 0.1031); p += dot(p, p.zyx + 31.3
     if ((layer0 >= BARK0 && layer0 < LEAF0) || (layer0 >= STONE0 && layer0 < GRAVEL0)) { let e = min(f, vec2f(1.0) - f); alb *= 0.8 + 0.2 * smoothstep(0.0, 0.04, min(e.x, e.y)); }
     // même mousse en petits pixels que dans le monde : c'est elle qui distingue la pierre moussue
     if (layer0 >= MOSSY0 && layer0 < MOSSY0 + 4) {
-      let g = floor(pp * 9.0) / 9.0; let mn = hash13(g * 13.0 + vec3f(1.5)) * 0.8 + select(0.0, 0.2, ln.y > 0.5);
-      if (mn > 0.5) { alb = vec3f(0.13, 0.22, 0.045) * (0.75 + 0.7 * hash13(g * 7.0 + vec3f(3.0))); }
+      let g = floor(pp * 9.0) / 9.0; let mn = hash13(g * 13.0 + vec3f(1.5)) * 0.8 + select(0.0, 0.12, ln.y > 0.5);
+      if (mn > 0.72) { alb = vec3f(0.13, 0.22, 0.045) * (0.75 + 0.7 * hash13(g * 7.0 + vec3f(3.0))); }
     }
     if (kind == 1) { alb *= 1.05; }
   } else {
     alb *= alb * 1.25;
     if (kind == 3) { alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.72); }
-    if (kind == 4) { alb *= 1.8; }
+    if (kind == 4) { alb *= 1.3; }
   }
   let l = normalize(vec3f(-0.3, 0.72, 0.62)); let n = normalize(i.nv); let shade = 0.38 + 0.62 * max(dot(n, l), abs(n.z) * 0.35);
-  let c = sqrt(clamp(alb * i.ao * shade * 1.9, vec3f(0.0), vec3f(1.0))); return vec4f(c, 1.0);
+  let c = sqrt(clamp(alb * i.ao * shade * 1.45, vec3f(0.0), vec3f(1.0))); return vec4f(c, 1.0);
 }
