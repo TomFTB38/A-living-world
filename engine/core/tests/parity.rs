@@ -23,15 +23,17 @@ fn parite_avec_le_prototype() {
             "hash" => assert_eq!(hash_int(-5, 7, 20261104, 21).to_string(), a[1]),
             "rng" => { let mut r = Rng::new(12345); assert_eq!(bits(r.next()), a[1]); assert_eq!(bits(r.next()), a[2]); }
             "noise" => { let n = Noise::new(77); assert_eq!(bits(n.n2(12.5, -3.25)), a[1]); assert_eq!(bits(n.n3(1.2, 2.3, -3.4)), a[2]); assert_eq!(bits(n.fbm(0.7, 0.2, 3)), a[3]); }
-            "chunk" => { let g = WorldGen::new(a[1].parse().unwrap()); let v = g.gen_chunk(a[2].parse().unwrap(), a[3].parse().unwrap()); assert_eq!(fnv(&v).to_string(), a[4], "chunk {} {} {}", a[1], a[2], a[3]); chunks += 1; }
-            "mesh" => {
+            // Monde : depuis M4, le moteur Rust est seul à jour ; le prototype reste figé et le test de déterminisme prend le relais.
+            "chunk" | "mesh" | "far" => continue,
+            "chunk-ancien" => { let g = WorldGen::new(a[1].parse().unwrap()); let v = g.gen_chunk(a[2].parse().unwrap(), a[3].parse().unwrap()); assert_eq!(fnv(&v).to_string(), a[4], "chunk {} {} {}", a[1], a[2], a[3]); chunks += 1; }
+            "mesh-ancien" => {
                 let mut st = ChunkStore::new(a[1].parse().unwrap(), 200); let mut m = Mesher::new();
                 let (cx, cz, lod): (i32, i32, u8) = (a[2].parse().unwrap(), a[3].parse().unwrap(), a[4].parse().unwrap());
                 let r = m.mesh_chunk(&mut |x, z| st.get(x, z), cx, cz, lod);
                 let got = format!("{} {} {} {} {} {} {} {}", r.n_o, r.n_d, r.n_w, fnv(&r.opaque), fnv(&r.deco), fnv(&r.water), r.ymin, r.ymax);
                 assert_eq!(got, a[5..].join(" "), "{l}"); meshes += 1;
             }
-            "far" => { let g = WorldGen::new(a[1].parse().unwrap()); let (d, n) = far_mesh(&g, 1, -2); assert_eq!(format!("{} {}", n, fnv(&d)), a[2..].join(" ")); }
+            "far-ancien" => { let g = WorldGen::new(a[1].parse().unwrap()); let (d, n) = far_mesh(&g, 1, -2); assert_eq!(format!("{} {}", n, fnv(&d)), a[2..].join(" ")); }
             "character" => { let m = alw_core::actors::Models::build(); let n = m.char_verts; assert_eq!(format!("{} {}", n, fnv(&m.data[..n * 20])), a[1..].join(" "), "personnage"); }
             "item" => { let m = alw_core::actors::Models::build(); let h = m.held(a[1]).unwrap(); let (st, n) = (h.r.first as usize / 6 * 4, h.r.count as usize / 6 * 4); assert_eq!(format!("{} {}", n, fnv(&m.data[st * 20..(st + n) * 20])), a[2..].join(" "), "{}", a[1]); }
             "fauna" => { let m = alw_core::actors::Models::build(); let h = m.part(a[1]); let (st, n) = (h.first as usize / 6 * 4, h.count as usize / 6 * 4); assert_eq!(format!("{} {}", n, fnv(&m.data[st * 20..(st + n) * 20])), a[2..].join(" "), "{}", a[1]); }

@@ -1,4 +1,5 @@
 //! Génération procédurale : le monde est une fonction pure de (seed, x, y, z).
+use crate::biome::{Biome, Climate, Mix};
 use crate::blocks::*;
 use crate::det::{cos, hypot2, hypot3, round, sin};
 use crate::noise::*;
@@ -9,7 +10,7 @@ use std::rc::Rc;
 const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38;
 
 #[derive(Clone, Copy, Default, Debug)]
-pub struct Column { pub wet: bool, pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
+pub struct Column { pub mix: Mix, pub wet: bool, pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
 #[derive(Clone, Copy)] struct Pond { x: f64, z: f64, r: f64, level: f64 }
 struct Raw { wx: f64, wz: f64, low: f64, hs: f64, massif: f64 }
 /// Empreinte : voxels (x, y, z, id) d'un arbre ou d'un rocher, posés dans chaque chunk touché.
@@ -23,6 +24,7 @@ fn fdiv(a: i32, b: i32) -> i32 { a.div_euclid(b) }
 pub struct WorldGen {
     pub seed: i32,
     n_base: Noise, n_hill: Noise, n_warp: Noise, n_river: Noise, n_path: Noise, n_forest: Noise, n_cliff: Noise, n_cave: Noise, pub n_deco: Noise,
+    pub climate: Climate,
     ponds: RefCell<HashMap<(i32, i32), Option<Pond>>>,
     stamps: RefCell<HashMap<(u8, i32, i32), Option<Rc<Stamp>>>>,
 }
@@ -30,7 +32,7 @@ pub struct WorldGen {
 impl WorldGen {
     pub fn new(seed: i32) -> Self {
         let s = seed; let n = |k: i32| Noise::new(s.wrapping_add(k));
-        WorldGen { seed: s, n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()) }
+        WorldGen { seed: s, n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()) }
     }
     fn raw_height(&self, x: f64, z: f64) -> Raw {
         let wx = x + 34.0 * self.n_warp.n2(x / 170.0, z / 170.0); let wz = z + 34.0 * self.n_warp.n2(x / 170.0 + 40.0, z / 170.0 + 40.0);
@@ -121,7 +123,9 @@ impl WorldGen {
             if walk > 0.0 { h = lerp(h, low - 1.0, walk); }
         }
         let f = self.n_forest.fbm(x / 170.0, z / 170.0, 3) * 1.5 + 0.78 + 0.12 * self.n_forest.n2(x / 31.0, z / 31.0);
-        Column { wet, h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
+        // La prairie éclaircit la forêt ; le relief et l'eau restent communs, pour que rien ne se voie à la frontière.
+        let mix = self.climate.at(x, z); let f = f - 1.1 * mix.of(Biome::Meadow);
+        Column { mix, wet, h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
     }
     fn stone_at(&self, x: f64, y: f64, z: f64) -> u8 {
         let b = (y + 5.0 * self.n_cliff.n2(x / 70.0, z / 70.0)) / 7.0;
@@ -134,7 +138,7 @@ impl WorldGen {
     /// Terrain, décor et empreintes, sans aucune dépendance à l'ordre de chargement.
     pub fn gen_chunk(&self, cx: i32, cz: i32) -> Vec<u8> {
         let mut v = vec![0u8; CA]; let (ox, oz) = (cx * CX as i32, cz * CX as i32);
-        let mut heights = vec![0i32; CX * CX]; let mut waters = vec![0i32; CX * CX]; let mut info = vec![(0.0f64, 0.0f64); CX * CX];
+        let mut heights = vec![0i32; CX * CX]; let mut waters = vec![0i32; CX * CX]; let mut info = vec![(0.0f64, 0.0f64, 0.0f64); CX * CX];
         for z in 0..CX { for x in 0..CX {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let c = self.column(wx, wz); let (hf, cliff, fr, path, water) = (c.h, c.cliff, c.forest, c.path, c.water);
@@ -182,14 +186,14 @@ impl WorldGen {
                     top = crown;
                 }
             }
-            heights[x + z * CX] = top; waters[x + z * CX] = wi; info[x + z * CX] = (fr, path);
+            heights[x + z * CX] = top; waters[x + z * CX] = wi; info[x + z * CX] = (fr, path, c.mix.of(Biome::Meadow));
         } }
         self.stamp_all(&mut v, cx, cz, &mut heights);
         self.scatter_deco(&mut v, ox, oz, &heights, &waters, &info);
         self.hang_vines(&mut v, ox, oz);
         v
     }
-    fn scatter_deco(&self, v: &mut [u8], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64)]) {
+    fn scatter_deco(&self, v: &mut [u8], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64, f64)]) {
         let s = self.seed; let nd = &self.n_deco;
         for z in 0..CX { for x in 0..CX {
             let y = (heights[x + z * CX] + 1) as usize;
@@ -202,7 +206,7 @@ impl WorldGen {
                 continue;
             }
             if here != 0 { continue; }
-            let r = hash_float(wxi, wzi, s, 3); let (fr, path) = info[x + z * CX];
+            let r = hash_float(wxi, wzi, s, 3); let (fr, path, meadow) = info[x + z * CX];
             if ground == B::PATH { if r < 0.055 { v[idx(x, y, z)] = B::FLAGSTONE; } continue; }
             if ground != B::GRASS && ground != B::FOREST_SOIL && ground != B::MOSSY_STONE { continue; }
             if path > 0.02 && path < 0.4 && nd.n2(wx / 40.0 - 9.0, wz / 40.0 + 5.0) > 0.2 {
@@ -212,7 +216,7 @@ impl WorldGen {
             }
             let patch = nd.n2(wx / 23.0, wz / 23.0); let patch2 = nd.n2(wx / 17.0 + 60.0, wz / 17.0 - 30.0);
             let open = 1.0 - fr; let mut id = 0u8;
-            let flower_p = 0.14 + 0.62 * smooth(0.05, 0.6, patch) * (0.65 + open * 0.5);
+            let flower_p = 0.14 + 0.62 * smooth(0.05 - 0.5 * meadow, 0.6, patch) * (0.65 + open * 0.5) + 0.1 * meadow; // la prairie fleurit partout, pas seulement en taches
             if r < flower_p {
                 let t = hash_float(wxi, wzi, s, 4);
                 id = if patch2 > 0.3 { if t < 0.55 { B::LUPINE } else { B::PINK_FLOWER } }
@@ -307,7 +311,7 @@ impl WorldGen {
         if c.water != 0.0 || c.path > 0.0 || c.bank > 0.4 || c.h > 86.0 { return None; }
         let pick = hash_float(gx, gz, s, 33);
         let glade = smooth(-0.1, 0.45, self.n_forest.n2(x / 46.0 + 70.0, z / 46.0 - 40.0));
-        if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) { return None; }
+        if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) * (1.0 - 0.72 * c.mix.of(Biome::Meadow)) { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 34));
         let sp = self.n_forest.n2(gx as f64 / 5.1 + 3.0, gz as f64 / 5.1 - 8.0); let roll = r.next();
         let y = c.h.floor(); let age = r.next();

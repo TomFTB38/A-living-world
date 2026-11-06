@@ -25,3 +25,13 @@ fn matrices_et_champ() {
 }
 #[test]
 fn niveaux_de_detail() { let t = build_textures(128); let m = mip_chain(&t.albedo, 128, 1.max(2)); assert_eq!(m.len(), 8); assert_eq!(m[7].len(), 4 * 2); }
+
+#[test]
+fn le_monde_ne_depend_que_de_la_seed() {
+    use alw_core::{gen::WorldGen, biome::*};
+    let (a, b) = (WorldGen::new(20261104), WorldGen::new(20261104)); let keys = [(0, 0), (-40, 12), (70, -55), (-120, -90), (150, 140)];
+    let first: Vec<_> = keys.iter().map(|k| a.gen_chunk(k.0, k.1)).collect(); for (i, k) in keys.iter().enumerate().rev() { assert_eq!(first[i], b.gen_chunk(k.0, k.1), "chunk {k:?} différent selon l'ordre"); }
+    assert_ne!(first[1], WorldGen::new(7).gen_chunk(-40, 12), "une autre seed donne un autre monde");
+    let c = Climate::new(20261104); for (x, z) in [(0.0, 0.0), (120.0, -200.0), (-300.0, 150.0)] { assert!(c.at(x, z).of(Biome::Temperate) > 0.6, "le départ reste tempéré en {x},{z}"); }
+    for x in (-6000..6000).step_by(97) { for z in (-6000..6000).step_by(89) { let m = c.at(x as f64, z as f64); assert!((m.w.iter().sum::<f64>() - 1.0).abs() < 1e-9); let n = c.at(x as f64 + 8.0, z as f64); for i in 0..COUNT { assert!((m.w[i] - n.w[i]).abs() < 0.15, "transition brutale en {x},{z}"); } } }
+}
