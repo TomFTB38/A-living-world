@@ -35,7 +35,7 @@ jobs:
           shot sous_eau -62 47 -55 -54 42 -51 16.4 4 1280 720 2048 sous_eau
           shot horizon -38.5 53 0.5 -20 52 -30 16.4 6 1280 720 2048 horizon
           shot montagne -38.5 53 0.5 -20 52 -30 16.4 6 1280 720 2048 montagne
-          shot foret -38.5 53 0.5 -20 52 -30 11 6 1280 720 2048 foret
+          shot foret -38.5 53 0.5 -20 52 -30 11 3 1280 720 1024 foret
           shot f3 -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 f3
           shot prairie -38.5 53 0.5 -20 52 -30 16.4 5 1280 720 2048 prairie
           shot chute -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 chute
