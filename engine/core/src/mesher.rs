@@ -142,7 +142,7 @@ impl Mesher {
                             skyn |= (round(ss as f64 / n as f64) as i32) << (c * 4); blkn |= (round(bb as f64 / n as f64) as i32) << (c * 4);
                         }
                         let pos = (i + j * nu) as usize;
-                        self.m1[pos] = (face << 8) | ao | (if is_leaf(b) { 1 << 24 } else { 0 }) | (grain << 25);
+                        self.m1[pos] = (face << 8) | ao | (if is_leaf(b) { 1 << 24 } else { 0 }) | (grain << 25) | (tone(b) << 28);
                         self.m2[pos] = skyn | (blkn << 16); any = true;
                     } }
                     if !any { continue; }
@@ -162,12 +162,12 @@ impl Mesher {
                             let px = [q[0], q[0] + du[0], q[0] + du[0] + dv[0], q[0] + dv[0]];
                             let py = [q[1], q[1] + du[1], q[1] + du[1] + dv[1], q[1] + dv[1]];
                             let pz = [q[2], q[2] + du[2], q[2] + du[2] + dv[2], q[2] + dv[2]];
-                            out.rot = ((c1 >> 25) & 3) as u8;
+                            out.rot = ((c1 >> 25) & 7) as u8; let tn = TONES[((c1 >> 28) & 7) as usize];
                             let (a0, a1, a2, a3) = (c1 & 3, (c1 >> 2) & 3, (c1 >> 4) & 3, (c1 >> 6) & 3);
                             let flip = if a0 + a2 < a1 + a3 { 1 } else { 0 }; let layer = ((c1 >> 8) & 0xffff) as f64; let kd = if c1 & (1 << 24) != 0 { LEAF } else { TEX };
                             for c in 0..4 {
                                 let o = (if sign > 0 { (c + flip) & 3 } else { (4 - c + flip) & 3 }) as usize; let os = o as i32;
-                                out.v(px[o] as f64, py[o] as f64, pz[o] as f64, layer, nrm[0] as f64, nrm[1] as f64, nrm[2] as f64, 0.0, AO[((c1 >> (os * 2)) & 3) as usize] * 255.0, (((c2 >> (os * 4)) & 15) * 17) as f64, (((c2 >> (16 + os * 4)) & 15) * 17) as f64, kd, 1.0, 1.0, 1.0);
+                                out.v(px[o] as f64, py[o] as f64, pz[o] as f64, layer, nrm[0] as f64, nrm[1] as f64, nrm[2] as f64, 0.0, AO[((c1 >> (os * 2)) & 3) as usize] * 255.0, (((c2 >> (os * 4)) & 15) * 17) as f64, (((c2 >> (16 + os * 4)) & 15) * 17) as f64, kd, tn[0], tn[1], tn[2]);
                             }
                             out.rot = 0;
                             i += w;
@@ -310,7 +310,7 @@ impl Mesher {
                 let a = r_.range(3.0, 6.0); blade(o, cx, y, cz, a, 0.5, 0.6, 0.3, 0.26, 0.5, 0.14, s, l, s);
                 return;
             }
-            let col = match m { "lupine" => [0.44, 0.26, 0.72], "pink" => [0.9, 0.42, 0.6], "yellow" => [0.95, 0.74, 0.16], "mushroom" => [0.75, 0.6, 0.45], _ => [0.95, 0.93, 0.85] };
+            let col = match m { "lupine" => [0.44, 0.26, 0.72], "pink" => [0.9, 0.42, 0.6], "yellow" => [0.95, 0.74, 0.16], "mushroom" => [0.75, 0.6, 0.45], "glowcap" => [0.3, 0.7, 0.8], _ => [0.95, 0.93, 0.85] };
             let hh = if m == "lupine" { 0.8 } else { 0.4 };
             bx(o, x + 0.34, y + hh * 0.4, z + 0.34, x + 0.66, y + hh, z + 0.66, col[0], col[1], col[2], 40.0, s, l, FOLIAGE, false, 70.0, 255.0);
             return;
@@ -383,6 +383,15 @@ impl Mesher {
                     bx(o, a - w, y + h, c - w, a + w, y + h + 0.07, c + w, col[0], col[1], col[2], 80.0, s, l, FOLIAGE, false, 80.0, 255.0);
                 }
                 let t = r_.range(0.0, 6.3); blade(o, x + 0.5, y, z + 0.5, t, 0.04, 0.34, 0.15, 0.36, 0.5, 0.18, s, l, s);
+            }
+            "glowcap" => {
+                // Champignon lumineux : un pied pâle, un chapeau qui éclaire le sous-bois.
+                let n = r_.int(2, 4);
+                for _ in 0..n {
+                    let a = x + r_.range(0.25, 0.75); let c = z + r_.range(0.25, 0.75); let h = r_.range(0.2, 0.5); let w = r_.range(0.08, 0.17);
+                    bx3(o, a - 0.03, y, c - 0.03, a + 0.03, y + h, c + 0.03, 0.82, 0.86, 0.9, 0.0, s, l);
+                    bx(o, a - w, y + h, c - w, a + w, y + h + 0.09, c + w, 0.2, 0.62, 0.72, 0.0, s, 255.0, EMIT, true, 0.0, 255.0);
+                }
             }
             "mushroom" => {
                 let n = r_.int(1, 3);

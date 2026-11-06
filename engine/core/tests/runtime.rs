@@ -43,3 +43,11 @@ fn chaque_biome_a_un_vrai_coeur() {
     println!("{top:?}"); for b in [Biome::Temperate, Biome::Meadow, Biome::DeepForest, Biome::Taiga, Biome::Steppe, Biome::Desert] { assert!(c_strong(&top, b) > 0.95, "{} jamais franc : {:?}", NAMES[b as usize], top); }
 }
 fn c_strong(t: &[f64; alw_core::biome::COUNT], b: alw_core::biome::Biome) -> f64 { alw_core::noise::smooth(0.3, 0.55, t[b as usize]) }
+
+#[test]
+fn la_foret_profonde_se_distingue() {
+    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::DeepForest) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
+    let (cx, cz) = spot.expect("une forêt profonde"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    println!("feuilles sombres {}, claires {}, lianes {}, champignons lumineux {}", c(B::OAK_LEAVES_DEEP) + c(B::BEECH_LEAVES_DEEP), c(B::OAK_LEAVES) + c(B::BEECH_LEAVES), c(B::VINE), c(B::GLOWCAP));
+    assert!(c(B::OAK_LEAVES_DEEP) + c(B::BEECH_LEAVES_DEEP) > 4 * (c(B::OAK_LEAVES) + c(B::BEECH_LEAVES) + 1)); assert!(c(B::GLOWCAP) > 3 && c(B::VINE) > 50);
+}

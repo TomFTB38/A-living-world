@@ -108,7 +108,7 @@ impl Ui {
         let Some(i) = ORDER.iter().position(|o| *o == id) else { return }; let n = ICON_COLS as usize; let c = 1.0 / n as f32; let (u, v) = ((i % n) as f32 * c, (i / n) as f32 * c);
         self.quad([[cx - r, cy - r], [cx + r, cy - r], [cx + r, cy + r], [cx - r, cy + r]], [[u, v], [u + c, v], [u + c, v + c], [u, v + c]], [1.0; 4], LAYER_ICON);
     }
-    pub fn build(s: &Session, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &Menu) -> Ui {
+    pub fn build(s: &Session, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &Menu, info: &[String]) -> Ui {
         let mut u = Ui { data: Vec::with_capacity(9000), w, h }; let k = scale(h); let w1 = [1.0, 1.0, 1.0, 0.9];
         u.rect(w * 0.5 - 1.0, h * 0.5 - 8.0, 2.0, 16.0, w1); u.rect(w * 0.5 - 8.0, h * 0.5 - 1.0, 16.0, 2.0, w1);
         let cell = 62.0 * k; let gap = 5.0 * k; let total = 9.0 * cell + 8.0 * gap; let (x0, y0) = ((w - total) * 0.5, h - cell - 16.0 * k);
@@ -127,6 +127,7 @@ impl Ui {
                 let (bw, bh, y) = (190.0 * k, 12.0 * k, h - 26.0 * k - (2 - i) as f32 * 18.0 * k); u.rect(18.0 * k, y, bw, bh, [0.0, 0.0, 0.0, 0.45]); u.rect(18.0 * k, y, bw * (v as f32 / 100.0), bh, c);
             }
         } else { let z = 18.0 * k; u.text("Mode créatif", 18.0 * k, h - 34.0 * k, z, w1); }
+        if !info.is_empty() { let z = 16.0 * k; let bw = info.iter().fold(0.0f32, |a, l| a.max(Ui::text_width(l, z))); u.rect(10.0 * k, 10.0 * k, bw + 24.0 * k, info.len() as f32 * 22.0 * k + 14.0 * k, [0.0, 0.0, 0.0, 0.5]); for (i, l) in info.iter().enumerate() { u.text(l, 22.0 * k, 16.0 * k + i as f32 * 22.0 * k, z, INK); } }
         if s.inv_open { u.inventory(s, w, h, k, mouse); }
         if menu.open { u.menu(menu, w, h, mouse); }
         if let Some(m) = msg { let z = 20.0 * k; u.text(m, (w - Ui::text_width(m, z)) * 0.5, h * 0.16, z, w1); }

@@ -63,6 +63,11 @@ const defs = [
   ['water_5', 'water', null, 0, { cat: 'fluid', drop: null }],
   ['water_6', 'water', null, 0, { cat: 'fluid', drop: null }],
   ['water_7', 'water', null, 0, { cat: 'fluid', drop: null }],
+  // variantes de biome : mêmes matériaux, teinte différente
+  ['grass_deep', 'cube', ['grass_top', 'grass_side', 'dirt'], 0.5, { drop: 'dirt', cat: 'terrain' }],
+  ['oak_leaves_deep', 'leaf', ['leaf_oak', 'leaf_oak', 'leaf_oak'], 0.12, { cat: 'foliage', drop: null, tint: [0.56, 0.68, 0.56] }],
+  ['beech_leaves_deep', 'leaf', ['leaf_beech', 'leaf_beech', 'leaf_beech'], 0.12, { cat: 'foliage', drop: null, tint: [0.5, 0.66, 0.54] }],
+  ['glowcap', 'deco', null, 0.02, { model: 'glowcap', drop: 'glowcap', light: 9 }],
   // troncs posés par le joueur : mêmes matériaux, jamais de mousse (bit 4 du sens du fil)
   ['oak_log_c', 'cube', ['end_oak', 'bark_oak', 'end_oak'], 1.0, { cat: 'wood', drop: 'oak_log', clean: true }],
   ['oak_log_x_c', 'cube', ['bark_oak', 'end_oak', 'bark_oak'], 1.0, { cat: 'wood', drop: 'oak_log', axis: 'x', clean: true }],

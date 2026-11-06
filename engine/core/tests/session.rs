@@ -147,3 +147,16 @@ fn la_lanterne_eclaire_sous_un_toit() {
     let (mut best, mut n) = (0u8, 0); for _ in 0..4000 { let p = s.player.p; let (b, _) = s.world.update(p[0], p[2]); for c in b { if c.lod == 255 { continue; } for v in c.mesh.opaque.chunks_exact(20) { let vy = i16::from_le_bytes([v[2], v[3]]) as f64 / 128.0; if vy > 99.5 && vy < 109.5 { best = best.max(v[14]); n += 1; } } } if s.world.waiting() == 0 && n > 0 { break; } std::thread::sleep(std::time::Duration::from_millis(1)); }
     println!("{n} sommets, lumière {best}"); assert!(best > 100, "lumière sous le toit : {best}");
 }
+
+#[test]
+fn le_tronc_pose_garde_sa_marque_dans_le_maillage() {
+    // Le maillage doit transporter la marque jusqu'au rendu : c'est elle qui retire la mousse.
+    let mut s = session(); let (x, y, z) = (s.player.p[0] as i32 + 3, 110, s.player.p[2] as i32 + 3); s.world.edit(x, y, z, by_name("oak_log_c").unwrap());
+    let mut seen = false; for _ in 0..4000 { let p = s.player.p; let (b, _) = s.world.update(p[0], p[2]); for c in b { if c.lod == 255 { continue; } for v in c.mesh.opaque.chunks_exact(20) { let vy = i16::from_le_bytes([v[2], v[3]]) as f64 / 128.0; if (110.0..=111.0).contains(&vy) && v[19] >= 4 { seen = true; } } } if seen || (s.world.waiting() == 0 && s.world.loaded() > 0 && !seen && false) { break; } std::thread::sleep(std::time::Duration::from_millis(1)); }
+    assert!(seen, "marque perdue dans le maillage");
+}
+#[test]
+fn l_eau_generee_coule_au_chargement() {
+    let mut s = Session::new(20261104, &Preset { radius: 3, lod1: 2.5, lod2: 3.0 }, 4, [37.0, 60.0, 18.0]); s.player.fly = true; let mut woke = false; for _ in 0..3000 { s.sync(); if s.flow.busy() { woke = true; } if s.world.waiting() == 0 && s.world.loaded() > 0 { break; } std::thread::sleep(std::time::Duration::from_millis(2)); }
+    assert!(woke, "aucune eau réveillée au chargement"); let (mut flowing, c) = (0, s.player.p); for _ in 0..200 { s.tick(1.0 / 60.0, Input::default(), Actions::default()); s.sync(); } for dx in -40..40 { for dz in -40..40 { for y in 30..70 { if s.world.get(c[0] as i32 + dx, y, c[2] as i32 + dz).is_some_and(|b| is_water(b) && b != B::WATER) { flowing += 1; } } } } println!("{flowing} cases d'eau courante"); assert!(flowing > 0);
+}

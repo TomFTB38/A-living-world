@@ -23,10 +23,10 @@ fn spawn_point(seed: i32) -> [f64; 3] {
     } }
     best
 }
-fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &hud::Menu) -> usize {
+fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &hud::Menu, info: &[String]) -> usize {
     let (proj, vm) = (view::perspective(1.05, w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
-    let ui = hud::Ui::build(s, w, h, msg, mouse, menu); let draws = s.draws(md, &vm); let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
-    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under();
+    let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let draws = s.draws(md, &vm); let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
+    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); env.fog_k += 2.6 * s.deep as f32; env.mist += 0.0035 * s.deep as f32; for v in &mut sky.top { *v *= 1.0 - 0.3 * s.deep as f32; }
     gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], s.progress() as f32)), s.ghost(), &draws, &ui)
 }
 /// Réglages enregistrés ; un fichier plus ancien garde ses valeurs et prend les nouvelles par défaut.
@@ -35,6 +35,14 @@ fn read_settings() -> hud::Menu {
     let Ok(t) = std::fs::read_to_string(beside_exe("reglages.alw")) else { return m }; let v: Vec<f32> = t.split_whitespace().filter_map(|x| x.parse().ok()).collect();
     if v.len() >= 5 { m.vol = [v[0].clamp(0.0, 1.0), v[1].clamp(0.0, 1.0), v[2].clamp(0.0, 1.0), v.get(5).copied().unwrap_or(0.5).clamp(0.0, 1.0)]; m.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); m.mood = (v[4] as usize).min(hud::MOODS.len() - 1); m.quality = v.get(6).map_or(0, |q| (*q as usize).min(1)); }
     m
+}
+/// Panneau F3 : ce qu'il faut pour comprendre où l'on est et comment tourne le jeu.
+fn debug_lines(s: &Session, fps: f64, tris: usize, quality: &str) -> Vec<String> {
+    let (p, m) = (s.player.p, s.mix()); let mut order: Vec<usize> = (0..alw_core::biome::COUNT).collect(); order.sort_by(|a, b| m.w[*b].total_cmp(&m.w[*a]));
+    let t = s.target.map_or("rien".to_string(), |t| format!("{} ({}, {}, {})", alw_core::blocks::BLOCKS[t.id as usize].name, t.x, t.y, t.z));
+    vec![format!("{fps:.0} FPS  ·  {:.1} M triangles  ·  qualité {quality}", tris as f64 / 1e6), format!("Graine {}", s.seed), format!("Position {:.1}  {:.1}  {:.1}", p[0], p[1], p[2]), format!("Chunk {} {}  ·  {} chargés  ·  {} en attente", (p[0] / 32.0).floor(), (p[2] / 32.0).floor(), s.world.loaded(), s.world.waiting()),
+        format!("Biome {}", alw_core::biome::NAMES[order[0]]), format!("Mélange {} {:.0} %, {} {:.0} %", alw_core::biome::NAMES[order[0]], m.w[order[0]] * 100.0, alw_core::biome::NAMES[order[1]], m.w[order[1]] * 100.0), format!("Climat : température {:.2}, humidité {:.2}", m.temp, m.wet),
+        format!("Heure {:02}:{:02}  ·  météo {}", s.hour as u32, (s.hour.fract() * 60.0) as u32, s.weather.kind.name()), format!("Visé : {t}"), format!("Animaux : {} cerfs, {} oiseaux", s.fauna.deer.len(), s.fauna.birds.len())]
 }
 /// Graine de la partie : celle de la sauvegarde, sinon celle choisie par « Nouveau monde », sinon celle du monde de départ.
 fn world_seed() -> i32 {
@@ -48,7 +56,7 @@ fn new_world() {
     if std::fs::write(beside_exe("graine.alw"), seed.to_string()).is_ok() { if let Ok(e) = std::env::current_exe() { let _ = std::process::Command::new(e).spawn(); } }
     std::process::exit(0);
 }
-struct Game { menu: hud::Menu, drag: Option<usize>, half: Option<usize>, window: Arc<Window>, gpu: gpu::Gpu, md: Models, mouse: [f32; 2], s: Session, keys: HashSet<KeyCode>, grabbed: bool, time: f64, run_time: bool, lmb: bool, rmb: bool, place_t: f64, msg: Option<(String, f64)>, save_t: f64, last: Instant, frames: u32, fps_t: f64, tris: usize }
+struct Game { debug: bool, fps: f64, menu: hud::Menu, drag: Option<usize>, half: Option<usize>, window: Arc<Window>, gpu: gpu::Gpu, md: Models, mouse: [f32; 2], s: Session, keys: HashSet<KeyCode>, grabbed: bool, time: f64, run_time: bool, lmb: bool, rmb: bool, place_t: f64, msg: Option<(String, f64)>, save_t: f64, last: Instant, frames: u32, fps_t: f64, tris: usize }
 #[derive(Default)]
 struct App { game: Option<Game> }
 impl Game {
@@ -80,16 +88,16 @@ impl Game {
         let open = self.s.inv_open || self.menu.open; let input = if open { Input::default() } else { Input { x: ax(k(KeyCode::KeyA) || k(KeyCode::KeyQ), k(KeyCode::KeyD)), z: ax(k(KeyCode::KeyW) || k(KeyCode::KeyZ), k(KeyCode::KeyS)), jump: k(KeyCode::Space), sprint: k(KeyCode::ShiftLeft), crouch: k(KeyCode::ControlLeft), roll: k(KeyCode::KeyV) } };
         self.place_t -= dt; let place = self.rmb && self.place_t <= 0.0; if place { self.place_t = 0.22; }
         self.s.tick(dt, input, Actions { mine: self.lmb, place });
-        let p = self.s.player.p; let (built, gone) = self.s.world.update(p[0], p[2]);
+        let (built, gone) = self.s.sync();
         for b in built { self.gpu.upload(b); }
         for g in gone { self.gpu.forget(g); }
         self.save_t += real; if self.save_t > 30.0 { self.save_t = 0.0; self.save(); }
         if let Some(m) = &mut self.msg { m.1 -= real; if m.1 <= 0.0 { self.msg = None; } }
-        let size = self.window.inner_size();
-        self.tris = draw(&mut self.gpu, &self.md, &self.s, self.time, size.width.max(1) as f32, size.height.max(1) as f32, self.msg.as_ref().map(|m| m.0.as_str()), self.mouse, &self.menu);
+        let size = self.window.inner_size(); let info = if self.debug { debug_lines(&self.s, self.fps, self.tris, if self.menu.quality == 1 { "Ultra" } else { "Haut" }) } else { Vec::new() };
+        self.tris = draw(&mut self.gpu, &self.md, &self.s, self.time, size.width.max(1) as f32, size.height.max(1) as f32, self.msg.as_ref().map(|m| m.0.as_str()), self.mouse, &self.menu, &info);
         self.frames += 1; self.fps_t += real;
         if self.fps_t >= 0.5 {
-            let fps = self.frames as f64 / self.fps_t; self.frames = 0; self.fps_t = 0.0;
+            let fps = self.frames as f64 / self.fps_t; self.fps = fps; self.frames = 0; self.fps_t = 0.0;
             self.window.set_title(&format!("A Living World  |  {fps:.0} FPS  |  {:.1} M triangles  |  {} chunks  |  {} en attente", self.tris as f64 / 1e6, self.s.world.loaded(), self.s.world.waiting()));
         }
     }
@@ -104,7 +112,7 @@ impl ApplicationHandler for App {
         let seed = world_seed(); let mut s = Session::new(seed, &preset, threads, spawn_point(seed));
         if let Ok(t) = std::fs::read_to_string(beside_exe("monde.alw")) { if let Err(e) = s.load_text(&t) { report(&format!("Sauvegarde illisible : {e}")); } }
         s.sound = SoundScape::new(sound::start());
-        let mut g = Game { menu, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
+        let mut g = Game { debug: false, fps: 0.0, menu, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
         g.apply(); g.grab(true); self.game = Some(g);
     }
     fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, e: WindowEvent) {
@@ -172,6 +180,7 @@ impl ApplicationHandler for App {
                     KeyCode::KeyR => { g.s.orient = (g.s.orient + 1) % MODES.len() as u8; g.say(format!("Orientation : {}", MODES[g.s.orient as usize])); }
                     KeyCode::KeyT => g.s.hour = (g.s.hour + 1.0) % 24.0,
                     KeyCode::KeyY => g.run_time = !g.run_time,
+                    KeyCode::F3 => g.debug = !g.debug,
                     KeyCode::F5 => { g.save(); g.say("Monde sauvegardé".into()); }
                     KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::Digit7 | KeyCode::Digit8 | KeyCode::Digit9 => g.s.sel = c as usize - KeyCode::Digit1 as usize,
                     _ => {}
@@ -236,6 +245,10 @@ fn capture(a: &[String]) {
         if scene == "horizon" { s.player.p[1] = 96.0; let f = view::norm([x - s.player.p[0], -8.0, z - s.player.p[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
         else { let l = (x * x + z * z).sqrt(); let (ex, ez) = (x - x / l * 170.0, z - z / l * 170.0); let h = w.column(ex, ez).h.max(w.column(ex, ez).water); s.player.p = [ex, h + 12.0, ez]; let f = view::norm([x - ex, 20.0, z - ez]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
     }
+    if scene == "foret" {
+        let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::DeepForest) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
+        println!("forêt : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.hour = 11.0; s.player.fly = true; s.player.p = [x, h + 1.0, z]; let f = view::norm([a.cos(), 0.1, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); for _ in 0..200 { s.tick(0.05, none, Actions::default()); } s.player.p = [x, h + 1.0, z]; s.tick(0.0, none, Actions::default()); }
+    }
     if scene == "prairie" {
         // Le point le plus proche franchement en prairie, vu à hauteur d'homme vers le centre du biome.
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Meadow) > 0.95 && c.water == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
@@ -267,8 +280,9 @@ fn capture(a: &[String]) {
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
     }
     let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 1, confirm: false };
+    let info = if scene == "f3" || scene == "foret" { debug_lines(&s, 240.0, 5_200_000, "Ultra") } else { Vec::new() };
     let t1 = Instant::now(); let mut tris = 0;
-    for k in 0..10 { tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu); g.settle(); }
+    for k in 0..10 { tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu, &info); g.settle(); }
     println!("10 images, {:.1} M triangles, {:.0} ms par image sur cette carte", tris as f64 / 1e6, t1.elapsed().as_secs_f64() * 100.0);
     let (w, h, px) = g.read_bgr();
     if px.iter().all(|v| *v == 0) { eprintln!("image noire"); std::process::exit(3); }

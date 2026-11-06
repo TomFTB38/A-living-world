@@ -124,7 +124,7 @@ impl WorldGen {
         }
         let f = self.n_forest.fbm(x / 170.0, z / 170.0, 3) * 1.5 + 0.78 + 0.12 * self.n_forest.n2(x / 31.0, z / 31.0);
         // La prairie éclaircit la forêt ; le relief et l'eau restent communs, pour que rien ne se voie à la frontière.
-        let mix = self.climate.at(x, z); let f = f - 1.1 * mix.strong(Biome::Meadow);
+        let mix = self.climate.at(x, z); let f = f - 1.1 * mix.strong(Biome::Meadow) + 0.7 * mix.strong(Biome::DeepForest);
         Column { mix, wet, h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
     }
     fn stone_at(&self, x: f64, y: f64, z: f64) -> u8 {
@@ -138,11 +138,11 @@ impl WorldGen {
     /// Terrain, décor et empreintes, sans aucune dépendance à l'ordre de chargement.
     pub fn gen_chunk(&self, cx: i32, cz: i32) -> Vec<u8> {
         let mut v = vec![0u8; CA]; let (ox, oz) = (cx * CX as i32, cz * CX as i32);
-        let mut heights = vec![0i32; CX * CX]; let mut waters = vec![0i32; CX * CX]; let mut info = vec![(0.0f64, 0.0f64, 0.0f64); CX * CX];
+        let mut heights = vec![0i32; CX * CX]; let mut waters = vec![0i32; CX * CX]; let mut info = vec![(0.0f64, 0.0f64, 0.0f64, 0.0f64); CX * CX];
         for z in 0..CX { for x in 0..CX {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let c = self.column(wx, wz); let (hf, cliff, fr, path, water) = (c.h, c.cliff, c.forest, c.path, c.water);
-            let mut top: i32 = 0;
+            let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest);
             // Par endroits, le toit des galeries s'efface : la grotte s'ouvre en surface, jamais sous l'eau ni sous un chemin.
             let entry = if water == 0.0 && path < 0.1 { smooth(0.3, 0.5, self.n_cave.n2(wx / 70.0, wz / 70.0)) } else { 0.0 };
             let ymax = (CH as f64 - 2.0).min((hf + 7.0).ceil()) as i32;
@@ -166,9 +166,9 @@ impl WorldGen {
                     else if water != 0.0 && yf < water + 1.0 { if self.n_deco.n2(wx / 7.0, wz / 7.0) > 0.0 { B::GRAVEL } else { B::SAND } }
                     else if c.bank > 0.72 && yf <= water + 2.0 { B::GRAVEL }
                     else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) } // haute montagne : la roche à nu
-                    else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 { B::FOREST_SOIL }
+                    else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 - 0.9 * deep { B::FOREST_SOIL }
                     else if cliff > 0.45 && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
-                    else { B::GRASS };
+                    else if hash_float(wxi, wzi, self.seed, 41) < deep { B::GRASS_DEEP } else { B::GRASS };
                 } else if steep { v[i] = self.stone_at(wx, y as f64, wz); }
                 else { v[i] = B::DIRT; }
                 depth += 1;
@@ -186,14 +186,14 @@ impl WorldGen {
                     top = crown;
                 }
             }
-            heights[x + z * CX] = top; waters[x + z * CX] = wi; info[x + z * CX] = (fr, path, c.mix.strong(Biome::Meadow));
+            heights[x + z * CX] = top; waters[x + z * CX] = wi; info[x + z * CX] = (fr, path, c.mix.strong(Biome::Meadow), deep);
         } }
         self.stamp_all(&mut v, cx, cz, &mut heights);
         self.scatter_deco(&mut v, ox, oz, &heights, &waters, &info);
         self.hang_vines(&mut v, ox, oz);
         v
     }
-    fn scatter_deco(&self, v: &mut [u8], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64, f64)]) {
+    fn scatter_deco(&self, v: &mut [u8], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64, f64, f64)]) {
         let s = self.seed; let nd = &self.n_deco;
         for z in 0..CX { for x in 0..CX {
             let y = (heights[x + z * CX] + 1) as usize;
@@ -206,9 +206,9 @@ impl WorldGen {
                 continue;
             }
             if here != 0 { continue; }
-            let r = hash_float(wxi, wzi, s, 3); let (fr, path, meadow) = info[x + z * CX];
+            let r = hash_float(wxi, wzi, s, 3); let (fr, path, meadow, deep) = info[x + z * CX];
             if ground == B::PATH { if r < 0.055 { v[idx(x, y, z)] = B::FLAGSTONE; } continue; }
-            if ground != B::GRASS && ground != B::FOREST_SOIL && ground != B::MOSSY_STONE { continue; }
+            if !is_grass(ground) && ground != B::FOREST_SOIL && ground != B::MOSSY_STONE { continue; }
             if path > 0.02 && path < 0.4 && nd.n2(wx / 40.0 - 9.0, wz / 40.0 + 5.0) > 0.2 {
                 v[idx(x, y, z)] = B::FENCE;
                 if hash_float(wxi, wzi, s, 8) < 0.07 { v[idx(x, y + 1, z)] = B::FENCE; v[idx(x, y + 2, z)] = B::FENCE; v[idx(x, y + 3, z)] = B::LANTERN; }
@@ -216,16 +216,17 @@ impl WorldGen {
             }
             let patch = nd.n2(wx / 23.0, wz / 23.0); let patch2 = nd.n2(wx / 17.0 + 60.0, wz / 17.0 - 30.0);
             let open = 1.0 - fr; let mut id = 0u8;
-            let flower_p = 0.14 + 0.62 * smooth(0.05 - 0.5 * meadow, 0.6, patch) * (0.65 + open * 0.5) + 0.1 * meadow; // la prairie fleurit partout, pas seulement en taches
+            let flower_p = 0.14 + 0.62 * smooth(0.05 - 0.5 * meadow, 0.6, patch) * (0.65 + open * 0.5) * (1.0 - 0.85 * deep) + 0.1 * meadow; // la prairie fleurit partout, pas seulement en taches
             if r < flower_p {
                 let t = hash_float(wxi, wzi, s, 4);
                 id = if patch2 > 0.3 { if t < 0.55 { B::LUPINE } else { B::PINK_FLOWER } }
                     else if patch2 > -0.15 { if t < 0.75 { B::DAISY } else { B::YELLOW_FLOWER } }
                     else if t < 0.5 { B::YELLOW_FLOWER } else { B::DAISY };
                 if hash_float(wxi, wzi, s, 6) > 0.55 { id = B::TALL_GRASS; }
-            } else if r < flower_p + 0.1 + 0.24 * fr * smooth(-0.2, 0.3, patch2) { id = B::FERN; }
+            } else if r < flower_p + 0.1 + 0.24 * fr * smooth(-0.2, 0.3, patch2) + 0.4 * deep { id = B::FERN; }
             else if r < 0.985 { id = B::TALL_GRASS; }
-            if fr > 0.6 && hash_float(wxi, wzi, s, 7) < 0.012 { id = B::MUSHROOM; }
+            if fr > 0.6 && hash_float(wxi, wzi, s, 7) < 0.012 + 0.02 * deep { id = B::MUSHROOM; }
+            if deep > 0.3 && hash_float(wxi, wzi, s, 13) < 0.014 * deep { id = B::GLOWCAP; }
             if ground == B::MOSSY_STONE && r > 0.5 { id = 0; }
             if path > 0.05 { id = if r < 0.5 { B::TALL_GRASS } else { 0 }; }
             v[idx(x, y, z)] = id;
@@ -235,12 +236,12 @@ impl WorldGen {
         let s = self.seed;
         for z in 0..CX { for x in 0..CX {
             let (wx, wz) = (ox + x as i32, oz + z as i32);
-            if hash_float(wx, wz, s, 11) > 0.075 { continue; }
+            let deep = self.climate.at(wx as f64, wz as f64).strong(Biome::DeepForest); if hash_float(wx, wz, s, 11) > 0.075 + 0.2 * deep { continue; }
             let mut y = CH - 2;
             while y > 4 {
                 let b = v[idx(x, y, z)];
-                if (B::OAK_LEAVES..=B::BEECH_LEAVES).contains(&b) && v[idx(x, y - 1, z)] == 0 {
-                    let n = 2 + (hash_float(wx, wz, s, 12) * 5.0).floor() as usize;
+                if is_leaf(b) && v[idx(x, y - 1, z)] == 0 {
+                    let n = 2 + (hash_float(wx, wz, s, 12) * (5.0 + 5.0 * deep)).floor() as usize;
                     let mut k = 1;
                     while k <= n && v[idx(x, y - k, z)] == 0 { v[idx(x, y - k, z)] = B::VINE; k += 1; }
                     break;
@@ -311,10 +312,12 @@ impl WorldGen {
         if c.water != 0.0 || c.path > 0.0 || c.bank > 0.4 || c.h > 86.0 { return None; }
         let pick = hash_float(gx, gz, s, 33);
         let glade = smooth(-0.1, 0.45, self.n_forest.n2(x / 46.0 + 70.0, z / 46.0 - 40.0));
-        if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) * (1.0 - 0.8 * c.mix.strong(Biome::Meadow)) { return None; }
+        if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) * (1.0 - 0.8 * c.mix.strong(Biome::Meadow)) * (1.0 + 0.8 * c.mix.strong(Biome::DeepForest)) { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 34));
         let sp = self.n_forest.n2(gx as f64 / 5.1 + 3.0, gz as f64 / 5.1 - 8.0); let roll = r.next();
-        let y = c.h.floor(); let age = r.next();
+        let y = c.h.floor(); let age = r.next(); let deep = c.mix.strong(Biome::DeepForest);
+        // Forêt profonde : presque plus de bouleaux, des géants aux racines énormes, un feuillage sombre.
+        if deep > 0.5 { let mut st = if roll < 0.28 { grow_beech(x, y, z, &mut r, (0.6 + 0.6 * age).min(1.2)) } else { grow_oak(x, y, z, &mut r, 0.62 + 0.75 * age) }; for d in &mut st.data { if d[3] == B::OAK_LEAVES as i32 { d[3] = B::OAK_LEAVES_DEEP as i32; } else if d[3] == B::BEECH_LEAVES as i32 { d[3] = B::BEECH_LEAVES_DEEP as i32; } } return Some(st); }
         Some(if roll < 0.34 + sp * 0.3 { grow_birch(x, y, z, &mut r, age) } else if roll < 0.52 { grow_beech(x, y, z, &mut r, age) } else { grow_oak(x, y, z, &mut r, age * age * age) })
     }
 }

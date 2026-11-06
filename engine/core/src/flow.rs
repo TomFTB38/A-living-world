@@ -4,7 +4,7 @@ use crate::blocks::*;
 use crate::player::Voxels;
 use std::collections::HashSet;
 pub const STEP: f64 = 0.16; // secondes entre deux avancées
-const PER_STEP: usize = 700; const MAX_CELLS: usize = 9000;
+const PER_STEP: usize = 700; const MAX_CELLS: usize = 400000;
 type P = (i32, i32, i32);
 const SIDES: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 #[derive(Default)] pub struct Flow { dirty: HashSet<P>, t: f64, cells: usize, pub last: Option<[f64; 3]>, pub quiet: f64 }

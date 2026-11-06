@@ -27,6 +27,10 @@ pub struct Block {
 #[inline] pub fn flow_block(level: u8) -> u8 { B::WATER_1 + level - 1 }
 /// Vrai pour tous les troncs, quelle que soit leur orientation ; l'essence est le premier mot du nom.
 pub fn is_log(b: u8) -> bool { BLOCKS[b as usize].name.contains("_log") }
+/// Teinte de biome des faces pleines : numéro dans TONES, gardé dans le masque du maillage.
+pub const TONES: [[f64; 3]; 2] = [[1.0, 1.0, 1.0], [0.6, 0.74, 0.62]];
+#[inline] pub fn tone(b: u8) -> i32 { if b == B::GRASS_DEEP { 1 } else { 0 } }
+#[inline] pub fn is_grass(b: u8) -> bool { b == B::GRASS || b == B::GRASS_DEEP }
 /// Variante sans mousse d'un bloc posé par le joueur, quand elle existe.
 pub fn placed_variant(b: u8) -> u8 { let n = BLOCKS[b as usize].name; if is_log(b) { by_name(&format!("{n}_c")).unwrap_or(b) } else { b } }
 pub fn species(b: u8) -> &'static str { BLOCKS[b as usize].name.split('_').next().unwrap_or("") }
