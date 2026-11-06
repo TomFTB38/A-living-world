@@ -121,10 +121,27 @@ fn roulades_et_troncs_poses() {
         s.tick(1.0 / 60.0, Input { x, z, roll: true, ..none }, Actions::default()); assert!(s.player.rolling()); let mut mid = 0.0; let mut dip = 0.0f64;
         for k in 0..40 { s.tick(1.0 / 60.0, none, Actions::default()); if k == 15 { mid = s.player.roll_t; dip = s.player.p[1] + 1.62 - s.player.eye()[1]; s.third = true; assert_eq!(s.draws(&md, &v).iter().filter(|d| d.hero).count(), 11); for d in s.draws(&md, &v) { assert!(d.m.iter().all(|a| a.is_finite())); } } if !s.player.rolling() { break; } }
         assert!(!s.player.rolling(), "la roulade finit"); assert!(mid > 0.0 && dip > 0.3); let (dx, dz) = (s.player.p[0] - p0[0], s.player.p[2] - p0[2]); println!("roulade ({x},{z}) : {dx:.2} {dz:.2}");
-        let want = if (x, z) == (0.0, 0.0) { (0.0, 1.0) } else { (x, z) }; assert!(dx * want.0 + dz * want.1 > 1.0 || dx.hypot(dz) < 0.5, "sens de la roulade"); // un obstacle peut l'arrêter
+        assert!(dx.hypot(dz) <= 3.05, "trois blocs au plus"); let want = if (x, z) == (0.0, 0.0) { (0.0, 1.0) } else { (x, z) }; assert!(dx * want.0 + dz * want.1 > 1.0 || dx.hypot(dz) < 0.5, "sens de la roulade"); // un obstacle peut l'arrêter
     }
     let h0 = s.vit[0]; s.tick(1.0 / 60.0, Input { roll: true, ..none }, Actions::default()); for _ in 0..4 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.player.rolling() { s.hurt(10.0); assert_eq!(s.vit[0], h0, "esquive"); }
     assert_eq!(placed_variant(B::OAK_LOG), by_name("oak_log_c").unwrap()); assert_eq!(placed_variant(B::BEECH_LOG_X), by_name("beech_log_x_c").unwrap()); assert_eq!(placed_variant(B::STONE), B::STONE);
     let c = BLOCKS[by_name("oak_log_x_c").unwrap() as usize]; assert_eq!(c.drop, Some("oak_log")); assert!(c.grain.iter().all(|g| *g >= 4)); assert_eq!(alw_core::audio::sound_of("oak_log_x_c").m, "wood"); assert_eq!(is_log(by_name("oak_log_c").unwrap()), true);
     s.inv[5] = Some(Stack { item: "oak_log", n: Some(5) }); s.sel = 5; s.third = false; let mut ok = false; for k in 0..40 { for y in 0..8 { s.player.yaw = y as f64 * 0.8; s.player.pitch = -1.4 + k as f64 * 0.05; s.tick(0.0, none, Actions::default()); if let Some(g) = s.ghost() { if g.1 && s.place() { let q = g.0; let b = s.world.get(q[0], q[1], q[2]).unwrap(); assert!(BLOCKS[b as usize].name.ends_with("_c"), "posé {}", BLOCKS[b as usize].name); ok = true; break; } } } if ok { break; } } assert!(ok, "pose d'un tronc");
+}
+
+#[test]
+fn son_a_droite_et_pas_de_coup_en_roulade() {
+    use alw_core::audio::*; use std::sync::mpsc::channel;
+    let (tx, rx) = channel(); let mut sc = SoundScape::new(Some(tx)); sc.ear = [0.0; 3]; sc.yaw = 0.0; sc.deer_alarm([-10.0, 0.0, 0.0]); // regard +z : -x est à droite
+    match rx.try_recv().unwrap() { Cmd::Play { pan, .. } => assert!(pan > 0.2, "à droite : {pan}"), _ => panic!() }
+    sc.yaw = std::f64::consts::PI; sc.deer_alarm([10.0, 0.0, 0.0]); let _ = rx.try_recv(); match rx.try_recv() { Ok(Cmd::Play { pan, .. }) => assert!(pan > 0.2, "demi-tour : {pan}"), _ => panic!() }
+    let mut s = session(); let none = Input::default(); for _ in 0..30 { s.tick(1.0 / 60.0, none, Actions::default()); } let t = aim_down(&mut s); for _ in 0..5 { s.tick(1.0 / 60.0, none, Actions::default()); } s.tick(1.0 / 60.0, Input { roll: true, ..none }, Actions::default()); assert!(s.player.rolling());
+    s.creative = true; for _ in 0..30 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: true }); if !s.player.rolling() { break; } } assert_eq!(s.world.get(t.x, t.y, t.z), Some(t.id), "aucun coup pendant la roulade");
+}
+#[test]
+fn la_lanterne_eclaire_sous_un_toit() {
+    let mut s = session(); let (x, y, z) = (s.player.p[0] as i32 + 2, 100, s.player.p[2] as i32 + 2); let mut e = Vec::new();
+    for dx in -7..=7 { for dz in -7..=7 { e.push((x + dx, y, z + dz, B::STONE)); e.push((x + dx, y + 8, z + dz, B::STONE)); } } e.push((x, y + 1, z, B::LANTERN)); s.world.edit_many(&e);
+    let (mut best, mut n) = (0u8, 0); for _ in 0..4000 { let p = s.player.p; let (b, _) = s.world.update(p[0], p[2]); for c in b { if c.lod == 255 { continue; } for v in c.mesh.opaque.chunks_exact(20) { let vy = i16::from_le_bytes([v[2], v[3]]) as f64 / 128.0; if vy > 99.5 && vy < 109.5 { best = best.max(v[14]); n += 1; } } } if s.world.waiting() == 0 && n > 0 { break; } std::thread::sleep(std::time::Duration::from_millis(1)); }
+    println!("{n} sommets, lumière {best}"); assert!(best > 100, "lumière sous le toit : {best}");
 }

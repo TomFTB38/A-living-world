@@ -131,7 +131,7 @@ impl Session {
         let reach = if self.creative { 13.0 } else { 9.5 };
         let (eye, f) = self.camera(dt); self.eye = eye; self.look = f; let (third, head) = (self.third, [self.player.p[0], self.player.p[1] + 1.5, self.player.p[2]]);
         self.target = raycast(&self.world, eye, f, reach, &|x, y, z, _| third && (x as f64 + 0.5 - head[0]) * f[0] + (y as f64 + 0.5 - head[1]) * f[1] + (z as f64 + 0.5 - head[2]) * f[2] < -0.5).map(|t| t.0);
-        let open = self.inv_open; self.mine_step(dt, a.mine && !open); if a.place && !open && self.place() { self.anim.trigger(); }
+        let open = self.inv_open || self.player.rolling(); self.mine_step(dt, a.mine && !open); if a.place && !open && self.place() { self.anim.trigger(); } // ni coup ni pose en pleine roulade
         let mining = a.mine && !open; self.anim.update(dt, AnimIn { speed: self.player.speed, ground: self.player.ground, vy: self.player.v[1], crouch: self.player.crouch, fly: self.player.fly, mining });
         if !self.creative { let k = if i.sprint { 2.0 } else { 1.0 }; self.vit[1] = (self.vit[1] - dt * 0.012 * k).max(0.0); self.vit[2] = (self.vit[2] - dt * 0.018 * k).max(0.0); }
         if self.player.in_water { self.vit[2] = (self.vit[2] + dt * 8.0).min(100.0); }

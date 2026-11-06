@@ -246,7 +246,7 @@ impl SoundScape {
     fn send(&self, c: Cmd) { if let Some(t) = &self.tx { let _ = t.send(c); } }
     fn at(&self, pos: [f64; 3], r: f64) -> Option<(f32, f32)> {
         let (dx, dy, dz) = (pos[0] - self.ear[0], pos[1] - self.ear[1], pos[2] - self.ear[2]); let d = (dx * dx + dy * dy + dz * dz).sqrt(); if d >= r { return None; }
-        let a = 1.0 - d / r; let side = (dx * self.yaw.cos() - dz * self.yaw.sin()) / d.max(1.0); Some(((a * a) as f32, (0.7 * side.clamp(-1.0, 1.0)) as f32))
+        let a = 1.0 - d / r; let side = (dz * self.yaw.sin() - dx * self.yaw.cos()) / d.max(1.0); /* regarder +z place +x à gauche : la droite vaut -x */ Some(((a * a) as f32, (0.7 * side.clamp(-1.0, 1.0)) as f32))
     }
     fn lay(&self, ls: &[L], k: f32) { for l in ls { self.send(Cmd::Play { l: *l, k, pan: 0.0, delay: 0.0 }); } }
     pub fn step(&self, name: &str, through: Option<&str>) { self.lay(sound_of(name).step, 0.6); if let Some(t) = through { self.lay(sound_of(t).step, 0.3); } }

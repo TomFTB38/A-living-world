@@ -62,9 +62,10 @@ function computeLight(top, ymax) {
       if (IS_LEAF[b]) s = s > 1 ? s - 1 : 0;
       else if (b === B.water) s = s > 0 ? s - 1 : 0;
       sky[k] = s;
-      const e = EMIT[b]; if (e) blk[k] = e;
     }
   }
+  // Une lanterne éclaire où qu'elle soit, même sous un toit : la lumière du ciel s'arrête au premier bloc, pas la sienne.
+  for (let y = 0; y <= Math.min(ymax, CH - 1); y++) for (let i = 0; i < W * W; i++) { const k = i + y * W * W, e = EMIT[vol[k]]; if (e) { blk[k] = e; if (y - 15 < ylow) ylow = y - 15; } }
   ylow = Math.max(1, ylow - 2);
   const yhi = Math.min(CH - 2, ymax + 1);
   const relax = (L) => {

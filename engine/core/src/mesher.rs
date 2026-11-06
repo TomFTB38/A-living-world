@@ -75,10 +75,11 @@ impl Mesher {
                 if is_opaque(b) { if y < ylow { ylow = y; } break; }
                 if is_leaf(b) { s = if s > 1 { s - 1 } else { 0 }; } else if is_water(b) { s = s.saturating_sub(1); }
                 self.sky[k] = s;
-                let e = emit(b); if e != 0 { self.blk[k] = e; }
                 y -= 1;
             }
         }
+        // Une lanterne éclaire où qu'elle soit, même sous un toit ou dans une grotte : la lumière du ciel s'arrête au premier bloc, pas la sienne.
+        for y in 0..=ymax.min(CHI - 1) { for i in 0..WW { let k = (i + y * WW) as usize; let e = emit(self.vol[k]); if e != 0 { self.blk[k] = e; if y - 15 < ylow { ylow = y - 15; } } } }
         let ylow = 1.max(ylow - 2); let yhi = (CHI - 2).min(ymax + 1);
         let vol = &self.vol;
         let relax = |l: &mut Vec<u8>| {

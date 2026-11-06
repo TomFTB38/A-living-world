@@ -6,7 +6,7 @@ const HALF: f64 = 0.3; const GRAV: f64 = 26.0; const JUMP: f64 = 9.2;
 pub trait Voxels { fn get(&self, x: i32, y: i32, z: i32) -> Option<u8>; }
 #[derive(Default, Clone, Copy)]
 pub struct Input { pub x: f64, pub z: f64, pub jump: bool, pub sprint: bool, pub crouch: bool, pub roll: bool }
-pub const ROLL_TIME: f64 = 0.62; const ROLL_SPEED: f64 = 8.4; const ROLL_WAIT: f64 = 0.3;
+pub const ROLL_TIME: f64 = 0.62; const ROLL_SPEED: f64 = 5.5; /* trois blocs au plus */ const ROLL_WAIT: f64 = 0.3;
 pub struct Player { pub p: [f64; 3], pub v: [f64; 3], pub yaw: f64, pub pitch: f64, pub ground: bool, pub crouch: bool, pub in_water: bool, pub speed: f64, pub fly: bool, pub move_yaw: f64, pub roll_t: f64, roll_dir: [f64; 2], pub roll_local: [f64; 2], roll_wait: f64 }
 impl Player {
     pub fn new(x: f64, y: f64, z: f64) -> Self { Player { p: [x, y, z], v: [0.0; 3], yaw: 0.0, pitch: 0.0, ground: false, crouch: false, in_water: false, speed: 0.0, fly: false, move_yaw: 0.0, roll_t: 0.0, roll_dir: [0.0; 2], roll_local: [0.0, 1.0], roll_wait: 0.0 } }
