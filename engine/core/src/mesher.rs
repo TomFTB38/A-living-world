@@ -390,7 +390,9 @@ impl Mesher {
                 for _ in 0..n {
                     let a = x + r_.range(0.25, 0.75); let c = z + r_.range(0.25, 0.75); let h = r_.range(0.2, 0.5); let w = r_.range(0.08, 0.17);
                     bx3(o, a - 0.03, y, c - 0.03, a + 0.03, y + h, c + 0.03, 0.82, 0.86, 0.9, 0.0, s, l);
-                    bx(o, a - w, y + h, c - w, a + w, y + h + 0.09, c + w, 0.2, 0.62, 0.72, 0.0, s, 255.0, EMIT, true, 0.0, 255.0);
+                    // couleurs mystiques : vert, bleu, rose, violet, turquoise
+                    const PAL: [[f64; 3]; 5] = [[0.3, 0.85, 0.3], [0.18, 0.42, 0.95], [0.95, 0.32, 0.7], [0.62, 0.3, 0.95], [0.15, 0.75, 0.78]]; let col = PAL[r_.int(0, 4) as usize];
+                    bx(o, a - w, y + h, c - w, a + w, y + h + 0.09, c + w, col[0], col[1], col[2], 0.0, s, 255.0, EMIT, true, 0.0, 255.0);
                 }
             }
             "mushroom" => {

@@ -226,7 +226,7 @@ impl WorldGen {
             } else if r < flower_p + 0.1 + 0.24 * fr * smooth(-0.2, 0.3, patch2) + 0.4 * deep { id = B::FERN; }
             else if r < 0.985 { id = B::TALL_GRASS; }
             if fr > 0.6 && hash_float(wxi, wzi, s, 7) < 0.012 + 0.02 * deep { id = B::MUSHROOM; }
-            if deep > 0.3 && hash_float(wxi, wzi, s, 13) < 0.014 * deep { id = B::GLOWCAP; }
+            if deep > 0.3 && hash_float(wxi, wzi, s, 13) < (0.025 + 0.06 * smooth(0.2, 0.6, nd.n2(wx / 11.0 - 40.0, wz / 11.0 + 7.0))) * deep { id = B::GLOWCAP; } // en ronds de sorcière plus denses
             if ground == B::MOSSY_STONE && r > 0.5 { id = 0; }
             if path > 0.05 { id = if r < 0.5 { B::TALL_GRASS } else { 0 }; }
             v[idx(x, y, z)] = id;
