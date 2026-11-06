@@ -33,6 +33,9 @@ jobs:
           shot coule -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 coule
           for sc in visage course accroupi saut roulade; do shot $sc -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 $sc; done
           shot sous_eau -62 47 -55 -54 42 -51 16.4 4 1280 720 2048 sous_eau
+          shot horizon -38.5 53 0.5 -20 52 -30 16.4 6 1280 720 2048 horizon
+          shot montagne -38.5 53 0.5 -20 52 -30 16.4 6 1280 720 2048 montagne
+          shot grotte -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 grotte
           shot ultra -38.5 53 0.5 -20 52 -30 16.4 8 1280 720 2048 ultra
           shot pluie -62 47 -55 -54 42 -51 16.4 4 1280 720 2048 pluie
       - name: Dépose la capture sur la branche captures

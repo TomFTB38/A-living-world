@@ -215,6 +215,18 @@ fn capture(a: &[String]) {
             "roulade" => { s.tick(1.0 / 60.0, Input { roll: true, ..none }, Actions::default()); for _ in 0..15 { s.tick(1.0 / 60.0, none, Actions::default()); } } _ => {} }
         let (p, y) = (s.player.p, s.player.yaw); let (a, r, h) = if scene == "visage" { (0.22, 1.25, 1.55) } else { (1.57, 3.3, 1.0) }; let e = [p[0] + (y + a).sin() * r, p[1] + h, p[2] + (y + a).cos() * r]; s.eye = e; s.look = view::norm([p[0] - e[0], p[1] + h - 0.08 - e[1], p[2] - e[2]]);
     }
+    if scene == "horizon" || scene == "montagne" {
+        // La montagne la plus proche, cherchée en spirale ; on la regarde depuis une crête ou d'assez loin pour lire le relief.
+        let w = WorldGen::new(SEED); let mut best = None; 'm: for r in 1..120 { for k in 0..64 { let a = k as f64 / 64.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 40.0, a.sin() * r as f64 * 40.0); if w.column(x, z).h > 100.0 { best = Some((x, z, r as f64 * 40.0)); break 'm; } } }
+        println!("{scene} : montagne {:?}", best); let (x, z, _) = best.unwrap_or((2000.0, 0.0, 2000.0)); s.sel = 8; s.third = false;
+        if scene == "horizon" { s.player.p[1] = 96.0; let f = view::norm([x - s.player.p[0], -8.0, z - s.player.p[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
+        else { let l = (x * x + z * z).sqrt(); let (ex, ez) = (x - x / l * 170.0, z - z / l * 170.0); let h = w.column(ex, ez).h.max(w.column(ex, ez).water); s.player.p = [ex, h + 12.0, ez]; let f = view::norm([x - ex, 20.0, z - ez]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
+    }
+    if scene == "grotte" {
+        // Une vraie entrée : la colonne creusée la plus proche, on descend dedans.
+        let w = WorldGen::new(SEED); let mut found = None; 'g: for r in 2..100i32 { for dz in -r..=r { for dx in -r..=r { if i32::abs(dx).max(i32::abs(dz)) != r { continue; } let (cx, cz) = (dx, dz); let v = w.gen_chunk(cx, cz); for x in (0..32).step_by(4) { for z in (0..32).step_by(4) { let (wx, wz) = (cx * 32 + x as i32, cz * 32 + z as i32); let h = w.column(wx as f64, wz as f64).h as i32; if h > 40 && h < 100 && (0..7).all(|k| v[alw_core::blocks::idx(x, (h - 1 - k) as usize, z)] == 0) { found = Some((wx, h, wz)); break 'g; } } } } } }
+        println!("grotte : entrée {found:?}"); if let Some((x, h, z)) = found { s.sel = 3; s.third = false; s.player.p = [x as f64 + 0.5, h as f64 - 3.0, z as f64 + 0.5]; pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); s.player.pitch = 0.9; s.tick(0.0, none, Actions::default()); }
+    }
     if scene == "sous_eau" { let (x, z) = (look[0].floor() + 0.5, look[2].floor() + 0.5); let w = WorldGen::new(SEED).column(x, z).water; println!("niveau d'eau {w}"); s.third = false; s.sel = 8; s.player.p = [x, w - 2.6, z]; s.tick(0.0, none, Actions::default()); println!("sous l'eau : {}", s.under()); }
     if scene == "faune" {
         // La faune vit quarante secondes, puis la caméra va voir le premier cerf (ou le premier oiseau posé).

@@ -25,7 +25,8 @@ export class WorldGen {
 
   rawHeight(x, z) {
     const wx = x + 34 * this.nWarp.n2(x / 170, z / 170), wz = z + 34 * this.nWarp.n2(x / 170 + 40, z / 170 + 40);
-    const low = 52 + 15 * this.nBase.fbm2(wx / 340, wz / 340, 3);
+    const massif = smooth(0.14, 0.5, this.nBase.fbm2(wx / 1500 + 210, wz / 1500 - 130, 3)), ridge = 1 - Math.abs(this.nHill.fbm2(wx / 330 + 80, wz / 330 + 25, 3)) * 1.6, rm = Math.max(ridge, 0);
+    const low = 52 + 15 * this.nBase.fbm2(wx / 340, wz / 340, 3) + massif * (14 + 34 * rm * rm);
     const hs = low + 5.5 * this.nHill.fbm2(wx / 96, wz / 96, 3);
     return { wx, wz, low, hs };
   }
@@ -40,9 +41,10 @@ export class WorldGen {
     let h = lerp(hs, terr, smooth(-0.35, 0.25, stepN));
     h += 1.6 * this.nHill.n2(x / 19, z / 19);
 
-    // rivière : ligne de niveau du bruit déformé, niveaux quantifiés = cascades
+    // rivière : ligne de niveau du bruit déformé, niveaux quantifiés = cascades. La distance est la valeur du bruit divisée par sa pente.
     const rs = this.nRiver.fbm2(wx / 400, wz / 400, 2, 2.1, 0.32), rn = Math.abs(rs);
-    const dR = rn * 300, wid = 2.6 + 1.8 * (0.5 + 0.5 * this.nRiver.n2(x / 60, z / 60));
+    const grad = Math.max(Math.hypot(this.nRiver.fbm2((wx + 1) / 400, wz / 400, 2, 2.1, 0.32) - rs, this.nRiver.fbm2(wx / 400, (wz + 1) / 400, 2, 2.1, 0.32) - rs), 1e-5);
+    const dR = rn / grad, wid = 1.7 + 1.2 * (0.5 + 0.5 * this.nRiver.n2(x / 60, z / 60));
     const L = Math.floor((low - 4) / 4) * 4 + 1; // paliers de 4 blocs : de vraies cascades
     let water = 0, bank = 0, still = 0;
     if (dR < wid + 13) {
@@ -66,7 +68,7 @@ export class WorldGen {
     const pn = Math.abs(this.nPath.n2(wx / 210 + 9, wz / 210 + 3)) * 165;
     let path = 0;
     // Deux réseaux : les chemins de traverse, et un sentier qui longe chaque ruisseau sur une rive.
-    const bankD = Math.abs(rs * 300 - (wid + 6)), wob = this.nDeco.n2(x / 5, z / 5) * 0.6;
+    const bankD = Math.abs(rs / grad - (wid + 6)), wob = this.nDeco.n2(x / 5, z / 5) * 0.6;
     if (!water) {
       const edge = 1 - smooth(0.9, 2.3, bankD + wob);
       if (bank < 0.45) {
@@ -79,7 +81,7 @@ export class WorldGen {
       if (walk > 0) h = lerp(h, low - 1, walk); // niveau continu : le sentier reste praticable au passage des chutes
     }
     const f = this.nForest.fbm2(x / 170, z / 170, 3) * 1.5 + 0.78 + 0.12 * this.nForest.n2(x / 31, z / 31);
-    c.h = h; c.water = water; c.still = still; c.forest = clamp(f, 0, 1); c.path = path; c.bank = bank;
+    c.h = Math.min(h, 120); c.water = water; c.still = still; c.forest = clamp(f, 0, 1); c.path = path; c.bank = bank;
     c.cliff = smooth(0.1, 0.55, this.nCliff.n2(x / 120, z / 120));
     return c;
   }
@@ -104,12 +106,13 @@ export class WorldGen {
       const wx = ox + x, wz = oz + z, c = this.column(wx, wz);
       const hf = c.h, cliff = c.cliff, fr = c.forest, path = c.path, water = c.water;
       let top = 0;
+      const entry = c.water === 0 && c.path < 0.1 ? smooth(0.3, 0.5, this.nCave.n2(wx / 70, wz / 70)) : 0;
       const ymax = Math.min(CH - 2, Math.ceil(hf + 7));
       for (let y = 0; y <= ymax; y++) {
         let d = hf - y;
         if (cliff > 0.01 && y > hf - 12) d += cliff * 6 * (1 - clamp((y - hf) / 8, 0, 1)) * this.nCave.n3(wx / 25, y / 15, wz / 25);
         if (d > 0) {
-          if (y > 2 && y < hf - 3 && this.isCave(wx, y, wz)) continue;
+          if (y > 2 && y < hf - 3 + entry * 5 && this.isCave(wx, y, wz)) continue;
           v[idx(x, y, z)] = B.stone; top = y;
         }
       }
@@ -123,6 +126,7 @@ export class WorldGen {
           if (path > 0.45) v[i] = B.path;
           else if (water && y < water + 1) v[i] = this.nDeco.n2(wx / 7, wz / 7) > 0 ? B.gravel : B.sand;
           else if (c.bank > 0.72 && y <= water + 2) v[i] = B.gravel;
+          else if (y > 88 + 5 * this.nDeco.n2(wx / 17, wz / 17)) v[i] = this.stoneAt(wx, y, wz);
           else if (fr > 0.72 && this.nDeco.n2(wx / 13, wz / 13) > 0.25) v[i] = B.forest_soil;
           else if (cliff > 0.45 && this.nDeco.n2(wx / 11, wz / 11) > 0.35) v[i] = B.mossy_stone;
           else v[i] = B.grass;
@@ -265,7 +269,7 @@ export class WorldGen {
       const s = this.seed;
       const x = Math.floor((gx + 0.15 + 0.7 * hashFloat(gx, gz, s, 31)) * TREE_CELL), z = Math.floor((gz + 0.15 + 0.7 * hashFloat(gx, gz, s, 32)) * TREE_CELL);
       const c = this.column(x, z), forest = c.forest;
-      if (c.water || c.path > 0 || c.bank > 0.4) return null;
+      if (c.water || c.path > 0 || c.bank > 0.4 || c.h > 86) return null;
       const pick = hashFloat(gx, gz, s, 33);
       const glade = smooth(-0.1, 0.45, this.nForest.n2(x / 46 + 70, z / 46 - 40));
       if (pick > (0.08 + 0.56 * smooth(0.25, 0.55, forest)) * (1 - 0.85 * glade)) return null;

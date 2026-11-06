@@ -1,6 +1,8 @@
 use alw_core::{blocks::*, player::*, session::*, stream::*};
 fn ready(s: &mut Session) { for _ in 0..4000 { let p = s.player.p; s.world.update(p[0], p[2]); if s.world.waiting() == 0 && s.world.loaded() > 0 { return; } std::thread::sleep(std::time::Duration::from_millis(3)); } panic!("trop long"); }
-fn session() -> Session { let mut s = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 90.0, 0.5]); ready(&mut s); for _ in 0..500 { s.tick(1.0 / 60.0, Input::default(), Actions::default()); } assert!(s.player.ground); s }
+/// Un départ au sec et sur du plat : le terrain évolue, les tests n'ont pas à dépendre d'un point précis.
+fn dry() -> [f64; 3] { let g = alw_core::gen::WorldGen::new(20261104); for k in 0..400 { let x = -38.5 + k as f64 * 3.0; let z = 0.5 + k as f64; let c = g.column(x, z); let flat = (0..8).all(|a| { let t = a as f64 * 0.785; let o = g.column(x + t.cos() * 8.0, z + t.sin() * 8.0); o.water == 0.0 && (o.h - c.h).abs() < 2.0 }); if c.water == 0.0 && c.bank == 0.0 && flat { return [x, c.h + 8.0, z]; } } panic!("aucun terrain plat") }
+fn session() -> Session { let mut s = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, dry()); ready(&mut s); for _ in 0..500 { s.tick(1.0 / 60.0, Input::default(), Actions::default()); } assert!(s.player.ground); s }
 fn aim_down(s: &mut Session) -> Target { s.player.pitch = -1.5; s.tick(0.0, Input::default(), Actions::default()); s.target.expect("visée du sol") }
 #[test]
 fn casser_poser_sauver() {
@@ -57,7 +59,7 @@ fn sons_et_ambiance_du_jeu() {
     use alw_core::audio::*; use alw_core::weather::*; use std::sync::mpsc::channel;
     let (tx, rx) = channel(); let mut s = session(); s.sound = SoundScape::new(Some(tx)); s.sel = 0; let drain = |r: &std::sync::mpsc::Receiver<Cmd>| { let (mut p, mut e, mut sets) = (0, 0, Vec::new()); while let Ok(c) = r.try_recv() { match c { Cmd::Play { l, .. } => { p += 1; sets.push(l.set); } Cmd::Env { .. } => e += 1, _ => {} } } (p, e, sets) };
     for _ in 0..60 { s.tick(1.0 / 60.0, Input { z: 1.0, ..Default::default() }, Actions::default()); } let (p, e, sets) = drain(&rx); println!("marche {p} sons {sets:?}, {e} ambiances"); assert!(p >= 2, "des pas"); assert!(e >= 4);
-    s.player.pitch = 1.5; s.tick(0.0, Input::default(), Actions::default()); assert!(s.target.is_none(), "rien en face"); for _ in 0..30 { s.tick(1.0 / 60.0, Input::default(), Actions { mine: true, place: false }); } let (p, _, sets) = drain(&rx); println!("vide {sets:?}"); assert!(p >= 1 && sets.contains(&"whoosh"), "frapper le vide avec la pioche");
+    let back = s.player.p; s.player.fly = true; s.player.p[1] = 115.0; s.player.pitch = 1.5; s.tick(0.0, Input::default(), Actions::default()); assert!(s.target.is_none(), "rien en face"); for _ in 0..30 { s.tick(1.0 / 60.0, Input::default(), Actions { mine: true, place: false }); } let (p, _, sets) = drain(&rx); println!("vide {sets:?}"); assert!(p >= 1 && sets.contains(&"whoosh"), "frapper le vide avec la pioche"); s.player.fly = false; s.player.p = back;
     aim_down(&mut s); for _ in 0..240 { s.tick(1.0 / 60.0, Input::default(), Actions { mine: true, place: false }); } let (p, _, sets) = drain(&rx); println!("casse {p} {sets:?}"); assert!(p >= 3, "coups puis casse");
     assert!(!s.covered([0.5, 200.0, 0.5])); s.weather.snap(Kind::Pluie); let mut k = view_sky(); let e = apply(&mut k, s.weather.state, false); assert!(e.rain == 1.0 && e.fog_k > 2.0 && e.mist > 0.0); let c = alw_core::view::sky_at(16.4); assert!(k.col[0] < c.col[0] * 0.4, "la pluie atténue le soleil");
 }

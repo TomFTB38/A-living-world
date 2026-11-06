@@ -32,7 +32,10 @@ impl WorldGen {
     }
     fn raw_height(&self, x: f64, z: f64) -> Raw {
         let wx = x + 34.0 * self.n_warp.n2(x / 170.0, z / 170.0); let wz = z + 34.0 * self.n_warp.n2(x / 170.0 + 40.0, z / 170.0 + 40.0);
-        let low = 52.0 + 15.0 * self.n_base.fbm(wx / 340.0, wz / 340.0, 3);
+        // Grand relief : des massifs rares et lointains, posés sur les collines, jamais au-dessus du plafond du monde.
+        let massif = smooth(0.14, 0.5, self.n_base.fbm(wx / 1500.0 + 210.0, wz / 1500.0 - 130.0, 3));
+        let ridge = 1.0 - self.n_hill.fbm(wx / 330.0 + 80.0, wz / 330.0 + 25.0, 3).abs() * 1.6;
+        let low = 52.0 + 15.0 * self.n_base.fbm(wx / 340.0, wz / 340.0, 3) + massif * (14.0 + 34.0 * ridge.max(0.0) * ridge.max(0.0));
         let hs = low + 5.5 * self.n_hill.fbm(wx / 96.0, wz / 96.0, 3);
         Raw { wx, wz, low, hs }
     }
@@ -56,7 +59,9 @@ impl WorldGen {
         h += 1.6 * self.n_hill.n2(x / 19.0, z / 19.0);
         // rivière : niveaux quantifiés = cascades
         let rs = self.n_river.fbm2(wx / 400.0, wz / 400.0, 2, 2.1, 0.32); let rn = rs.abs();
-        let d_r = rn * 300.0; let wid = 2.6 + 1.8 * (0.5 + 0.5 * self.n_river.n2(x / 60.0, z / 60.0));
+        // Vraie distance au lit : valeur du bruit divisée par sa pente. La largeur ne dépend plus de la forme du bruit.
+        let (gx0, gz0) = (self.n_river.fbm2((wx + 1.0) / 400.0, wz / 400.0, 2, 2.1, 0.32) - rs, self.n_river.fbm2(wx / 400.0, (wz + 1.0) / 400.0, 2, 2.1, 0.32) - rs); let grad = hypot2(gx0, gz0).max(1e-5);
+        let d_r = rn / grad; let wid = 1.7 + 1.2 * (0.5 + 0.5 * self.n_river.n2(x / 60.0, z / 60.0));
         let l = ((low - 4.0) / 4.0).floor() * 4.0 + 1.0;
         let (mut water, mut bank, mut still) = (0.0, 0.0, false);
         if d_r < wid + 13.0 {
@@ -78,7 +83,7 @@ impl WorldGen {
         // chemins : réseau de traverse, et un sentier le long de chaque ruisseau
         let pn = self.n_path.n2(wx / 210.0 + 9.0, wz / 210.0 + 3.0).abs() * 165.0;
         let mut path = 0.0;
-        let bank_d = (rs * 300.0 - (wid + 6.0)).abs(); let wob = self.n_deco.n2(x / 5.0, z / 5.0) * 0.6;
+        let bank_d = (rs / grad - (wid + 6.0)).abs(); let wob = self.n_deco.n2(x / 5.0, z / 5.0) * 0.6;
         if water == 0.0 {
             let edge = 1.0 - smooth(0.9, 2.3, bank_d + wob);
             if bank < 0.45 {
@@ -91,7 +96,7 @@ impl WorldGen {
             if walk > 0.0 { h = lerp(h, low - 1.0, walk); }
         }
         let f = self.n_forest.fbm(x / 170.0, z / 170.0, 3) * 1.5 + 0.78 + 0.12 * self.n_forest.n2(x / 31.0, z / 31.0);
-        Column { h, water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
+        Column { h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
     }
     fn stone_at(&self, x: f64, y: f64, z: f64) -> u8 {
         let b = (y + 5.0 * self.n_cliff.n2(x / 70.0, z / 70.0)) / 7.0;
@@ -109,12 +114,14 @@ impl WorldGen {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let c = self.column(wx, wz); let (hf, cliff, fr, path, water) = (c.h, c.cliff, c.forest, c.path, c.water);
             let mut top: i32 = 0;
+            // Par endroits, le toit des galeries s'efface : la grotte s'ouvre en surface, jamais sous l'eau ni sous un chemin.
+            let entry = if water == 0.0 && path < 0.1 { smooth(0.3, 0.5, self.n_cave.n2(wx / 70.0, wz / 70.0)) } else { 0.0 };
             let ymax = (CH as f64 - 2.0).min((hf + 7.0).ceil()) as i32;
             for y in 0..=ymax {
                 let yf = y as f64; let mut d = hf - yf;
                 if cliff > 0.01 && yf > hf - 12.0 { d += cliff * 6.0 * (1.0 - clamp((yf - hf) / 8.0, 0.0, 1.0)) * self.n_cave.n3(wx / 25.0, yf / 15.0, wz / 25.0); }
                 if d > 0.0 {
-                    if y > 2 && yf < hf - 3.0 && self.is_cave(wx, yf, wz) { continue; }
+                    if y > 2 && yf < hf - 3.0 + entry * 5.0 && self.is_cave(wx, yf, wz) { continue; }
                     v[idx(x, y as usize, z)] = B::STONE; top = y;
                 }
             }
@@ -129,6 +136,7 @@ impl WorldGen {
                     v[i] = if path > 0.45 { B::PATH }
                     else if water != 0.0 && yf < water + 1.0 { if self.n_deco.n2(wx / 7.0, wz / 7.0) > 0.0 { B::GRAVEL } else { B::SAND } }
                     else if c.bank > 0.72 && yf <= water + 2.0 { B::GRAVEL }
+                    else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) } // haute montagne : la roche à nu
                     else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 { B::FOREST_SOIL }
                     else if cliff > 0.45 && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
                     else { B::GRASS };
@@ -269,7 +277,7 @@ impl WorldGen {
         let s = self.seed; let tc = TREE_CELL as f64;
         let x = ((gx as f64 + 0.15 + 0.7 * hash_float(gx, gz, s, 31)) * tc).floor(); let z = ((gz as f64 + 0.15 + 0.7 * hash_float(gx, gz, s, 32)) * tc).floor();
         let c = self.column(x, z);
-        if c.water != 0.0 || c.path > 0.0 || c.bank > 0.4 { return None; }
+        if c.water != 0.0 || c.path > 0.0 || c.bank > 0.4 || c.h > 86.0 { return None; }
         let pick = hash_float(gx, gz, s, 33);
         let glade = smooth(-0.1, 0.45, self.n_forest.n2(x / 46.0 + 70.0, z / 46.0 - 40.0));
         if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) { return None; }

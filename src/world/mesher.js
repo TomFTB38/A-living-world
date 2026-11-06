@@ -396,26 +396,31 @@ export function meshChunk(getChunk, cx, cz, lod) {
 }
 
 // Anneau de relief lointain : colonnes grossières pour donner un horizon au-delà des chunks.
-export function farMesh(gen, ccx, ccz, cells = 110, step = 16) {
-  const o = new VBuf(cells * cells * 4); o.scale = 8;
-  const N = cells + 1, hs = new Float32Array(N * N), cols = new Float32Array(N * N * 3), ox = ccx * CX - (cells / 2) * step, oz = ccz * CX - (cells / 2) * step;
-  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-    const wx = ox + i * step, wz = oz + j * step, c = gen.farSample(wx, wz), k = i + j * N;
-    const canopy = c.water ? 0 : c.forest > 0.35 ? 13 * Math.min(1, (c.forest - 0.35) * 3) : 0;
-    hs[k] = (c.water ? c.water : c.h) + canopy;
-    const t = (gen.nDeco.n2(wx / 40, wz / 40) + 1) * 0.5;
-    if (c.water) { cols[k * 3] = 0.22; cols[k * 3 + 1] = 0.36; cols[k * 3 + 2] = 0.42; }
-    else if (canopy > 3) { cols[k * 3] = 0.2 + 0.1 * t; cols[k * 3 + 1] = 0.34 + 0.1 * t; cols[k * 3 + 2] = 0.09; }
-    else { cols[k * 3] = 0.42 + 0.1 * t; cols[k * 3 + 1] = 0.5 + 0.05 * t; cols[k * 3 + 2] = 0.2; }
-  }
-  for (let j = 0; j < cells; j++) for (let i = 0; i < cells; i++) {
-    const k = i + j * N, a = hs[k], b = hs[k + 1], c = hs[k + N + 1], d = hs[k + N];
-    let nx = a - b + d - c, nz = a - d + b - c, ny = 2 * step;
-    const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
-    const x0 = (i - cells / 2) * step, z0 = (j - cells / 2) * step, x1 = x0 + step, z1 = z0 + step;
-    const r = cols[k * 3], g = cols[k * 3 + 1], bl = cols[k * 3 + 2];
-    o.v(x0, d, z1, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl); o.v(x1, c, z1, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl);
-    o.v(x1, b, z0, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl); o.v(x0, a, z0, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl);
+export function farMesh(gen, ccx, ccz) {
+  const o = new VBuf(50000); o.scale = 8; const cells = 110;
+  // Deux anneaux : 880 m en mailles de 16, puis jusqu'à 3,5 km en mailles de 64, un peu plus bas pour ne jamais percer le premier.
+  for (const [step, sink, hole] of [[16, 0, 0], [64, 1.6, 880 - 64]]) {
+    const N = cells + 1, hs = new Float32Array(N * N), cols = new Float32Array(N * N * 3), ox = ccx * CX - (cells / 2) * step, oz = ccz * CX - (cells / 2) * step;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const wx = ox + i * step, wz = oz + j * step, c = gen.farSample(wx, wz), k = i + j * N;
+      const canopy = c.water || c.h > 86 ? 0 : c.forest > 0.35 ? 13 * Math.min(1, (c.forest - 0.35) * 3) : 0;
+      hs[k] = (c.water ? c.water : c.h) + canopy - sink;
+      const t = (gen.nDeco.n2(wx / 40, wz / 40) + 1) * 0.5;
+      if (c.water) { cols[k * 3] = 0.22; cols[k * 3 + 1] = 0.36; cols[k * 3 + 2] = 0.42; }
+      else if (c.h > 90) { cols[k * 3] = 0.42 + 0.1 * t; cols[k * 3 + 1] = 0.4 + 0.1 * t; cols[k * 3 + 2] = 0.37 + 0.09 * t; }
+      else if (canopy > 3) { cols[k * 3] = 0.2 + 0.1 * t; cols[k * 3 + 1] = 0.34 + 0.1 * t; cols[k * 3 + 2] = 0.09; }
+      else { cols[k * 3] = 0.42 + 0.1 * t; cols[k * 3 + 1] = 0.5 + 0.05 * t; cols[k * 3 + 2] = 0.2; }
+    }
+    for (let j = 0; j < cells; j++) for (let i = 0; i < cells; i++) {
+      const x0 = (i - cells / 2) * step, z0 = (j - cells / 2) * step, x1 = x0 + step, z1 = z0 + step;
+      if (hole && Math.max(Math.abs(x0 + step / 2), Math.abs(z0 + step / 2)) < hole) continue;
+      const k = i + j * N, a = hs[k], b = hs[k + 1], c = hs[k + N + 1], d = hs[k + N];
+      let nx = a - b + d - c, nz = a - d + b - c, ny = 2 * step;
+      const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+      const r = cols[k * 3], g = cols[k * 3 + 1], bl = cols[k * 3 + 2];
+      o.v(x0, d, z1, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl); o.v(x1, c, z1, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl);
+      o.v(x1, b, z0, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl); o.v(x0, a, z0, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl);
+    }
   }
   return { far: o.take(), nF: o.n };
 }

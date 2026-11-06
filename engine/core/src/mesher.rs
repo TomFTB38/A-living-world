@@ -461,24 +461,28 @@ fn leaf_cubes(o: &mut VBuf, b: u8, x: f64, y: f64, z: f64, wx: i32, yi: i32, wz:
 
 /// Anneau de relief lointain : colonnes grossières qui donnent un horizon au-delà des chunks.
 pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32) -> (Vec<u8>, usize) {
-    const CELLS: usize = 110; const STEP: f64 = 16.0; let n1 = CELLS + 1;
-    let mut o = VBuf::new(CELLS * CELLS * 4); o.scale = 8.0;
-    let mut hs = vec![0f32; n1 * n1]; let mut cols = vec![[0f32; 3]; n1 * n1];
-    let half = CELLS as f64 / 2.0; let (ox, oz) = (ccx as f64 * CX as f64 - half * STEP, ccz as f64 * CX as f64 - half * STEP);
-    for j in 0..n1 { for i in 0..n1 {
-        let (wx, wz) = (ox + i as f64 * STEP, oz + j as f64 * STEP); let c = gen.column(wx, wz); let k = i + j * n1;
-        let canopy = if c.water != 0.0 { 0.0 } else if c.forest > 0.35 { 13.0 * (1f64).min((c.forest - 0.35) * 3.0) } else { 0.0 };
-        hs[k] = ((if c.water != 0.0 { c.water } else { c.h }) + canopy) as f32;
-        let t = (gen.n_deco.n2(wx / 40.0, wz / 40.0) + 1.0) * 0.5;
-        cols[k] = if c.water != 0.0 { [0.22, 0.36, 0.42] } else if canopy > 3.0 { [(0.2 + 0.1 * t) as f32, (0.34 + 0.1 * t) as f32, 0.09] } else { [(0.42 + 0.1 * t) as f32, (0.5 + 0.05 * t) as f32, 0.2] };
-    } }
-    for j in 0..CELLS { for i in 0..CELLS {
-        let k = i + j * n1; let (a, b, c, d) = (hs[k] as f64, hs[k + 1] as f64, hs[k + n1 + 1] as f64, hs[k + n1] as f64);
-        let (mut nx, mut nz, mut ny) = (a - b + d - c, a - d + b - c, 2.0 * STEP);
-        let l = hypot3(nx, ny, nz); nx /= l; ny /= l; nz /= l;
-        let (x0, z0) = ((i as f64 - half) * STEP, (j as f64 - half) * STEP); let (x1, z1) = (x0 + STEP, z0 + STEP);
-        let (r, g, bl) = (cols[k][0] as f64, cols[k][1] as f64, cols[k][2] as f64);
-        for (x, y, z) in [(x0, d, z1), (x1, c, z1), (x1, b, z0), (x0, a, z0)] { o.v(x, y, z, 0.0, nx, ny, nz, 0.0, 255.0, 255.0, 0.0, FLAT, r, g, bl); }
-    } }
+    const CELLS: usize = 110; let n1 = CELLS + 1; let half = CELLS as f64 / 2.0;
+    let mut o = VBuf::new(50000); o.scale = 8.0;
+    // Deux anneaux : 880 m en mailles de 16, puis jusqu'à 3,5 km en mailles de 64, un peu plus bas pour ne jamais percer le premier.
+    for (step, sink, hole) in [(16.0f64, 0.0f64, 0.0f64), (64.0, 1.6, 880.0 - 64.0)] {
+        let mut hs = vec![0f32; n1 * n1]; let mut cols = vec![[0f32; 3]; n1 * n1];
+        let (ox, oz) = (ccx as f64 * CX as f64 - half * step, ccz as f64 * CX as f64 - half * step);
+        for j in 0..n1 { for i in 0..n1 {
+            let (wx, wz) = (ox + i as f64 * step, oz + j as f64 * step); let c = gen.column(wx, wz); let k = i + j * n1;
+            let canopy = if c.water != 0.0 || c.h > 86.0 { 0.0 } else if c.forest > 0.35 { 13.0 * (1f64).min((c.forest - 0.35) * 3.0) } else { 0.0 };
+            hs[k] = ((if c.water != 0.0 { c.water } else { c.h }) + canopy - sink) as f32;
+            let t = (gen.n_deco.n2(wx / 40.0, wz / 40.0) + 1.0) * 0.5;
+            cols[k] = if c.water != 0.0 { [0.22, 0.36, 0.42] } else if c.h > 90.0 { [(0.42 + 0.1 * t) as f32, (0.4 + 0.1 * t) as f32, (0.37 + 0.09 * t) as f32] } else if canopy > 3.0 { [(0.2 + 0.1 * t) as f32, (0.34 + 0.1 * t) as f32, 0.09] } else { [(0.42 + 0.1 * t) as f32, (0.5 + 0.05 * t) as f32, 0.2] };
+        } }
+        for j in 0..CELLS { for i in 0..CELLS {
+            let (x0, z0) = ((i as f64 - half) * step, (j as f64 - half) * step); let (x1, z1) = (x0 + step, z0 + step);
+            if hole > 0.0 && (x0 + step / 2.0).abs().max((z0 + step / 2.0).abs()) < hole { continue; }
+            let k = i + j * n1; let (a, b, c, d) = (hs[k] as f64, hs[k + 1] as f64, hs[k + n1 + 1] as f64, hs[k + n1] as f64);
+            let (mut nx, mut nz, mut ny) = (a - b + d - c, a - d + b - c, 2.0 * step);
+            let l = hypot3(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+            let (r, g, bl) = (cols[k][0] as f64, cols[k][1] as f64, cols[k][2] as f64);
+            for (x, y, z) in [(x0, d, z1), (x1, c, z1), (x1, b, z0), (x0, a, z0)] { o.v(x, y, z, 0.0, nx, ny, nz, 0.0, 255.0, 255.0, 0.0, FLAT, r, g, bl); }
+        } }
+    }
     let n = o.n; (o.data, n)
 }
