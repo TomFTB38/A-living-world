@@ -237,7 +237,7 @@ fn capture(a: &[String]) {
     }
     if scene == "jeu" {
         // Scénario : casser le bloc visé, puis poser de la pierre, avec les vrais chemins du jeu.
-        s.sel = 0; let t = s.target.expect("un bloc visé"); let before = s.inv.iter().flatten().count();
+        s.sel = 0; if s.target.is_none() { s.player.pitch = -0.9; s.tick(0.0, none, Actions::default()); } let t = s.target.expect("un bloc visé"); let before = s.inv.iter().flatten().count();
         for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false }); if alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z) == Some(0) { break; } }
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));

@@ -477,11 +477,13 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32) -> (Vec<u8>, usize) {
         for j in 0..CELLS { for i in 0..CELLS {
             let (x0, z0) = ((i as f64 - half) * step, (j as f64 - half) * step); let (x1, z1) = (x0 + step, z0 + step);
             if hole > 0.0 && (x0 + step / 2.0).abs().max((z0 + step / 2.0).abs()) < hole { continue; }
-            let k = i + j * n1; let (a, b, c, d) = (hs[k] as f64, hs[k + 1] as f64, hs[k + n1 + 1] as f64, hs[k + n1] as f64);
-            let (mut nx, mut nz, mut ny) = (a - b + d - c, a - d + b - c, 2.0 * step);
-            let l = hypot3(nx, ny, nz); nx /= l; ny /= l; nz /= l;
-            let (r, g, bl) = (cols[k][0] as f64, cols[k][1] as f64, cols[k][2] as f64);
-            for (x, y, z) in [(x0, d, z1), (x1, c, z1), (x1, b, z0), (x0, a, z0)] { o.v(x, y, z, 0.0, nx, ny, nz, 0.0, 255.0, 255.0, 0.0, FLAT, r, g, bl); }
+            // Normales et couleurs par sommet : le relief lointain reste doux, sans grandes facettes.
+            let at = |ii: isize, jj: isize| hs[ii.clamp(0, CELLS as isize) as usize + jj.clamp(0, CELLS as isize) as usize * n1] as f64;
+            for (ci, cj, x, z) in [(i, j + 1, x0, z1), (i + 1, j + 1, x1, z1), (i + 1, j, x1, z0), (i, j, x0, z0)] {
+                let (p, q) = (ci as isize, cj as isize); let (mut nx, mut nz, mut ny) = (at(p - 1, q) - at(p + 1, q), at(p, q - 1) - at(p, q + 1), 2.0 * step);
+                let l = hypot3(nx, ny, nz); nx /= l; ny /= l; nz /= l; let k = ci + cj * n1; let c = cols[k];
+                o.v(x, hs[k] as f64, z, 0.0, nx, ny, nz, 0.0, 255.0, 255.0, 0.0, FLAT, c[0] as f64, c[1] as f64, c[2] as f64);
+            }
         } }
     }
     let n = o.n; (o.data, n)

@@ -11,7 +11,7 @@ const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const POND_CELL: i32 = 96;
 #[derive(Clone, Copy, Default, Debug)]
 pub struct Column { pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
 #[derive(Clone, Copy)] struct Pond { x: f64, z: f64, r: f64, level: f64 }
-struct Raw { wx: f64, wz: f64, low: f64, hs: f64 }
+struct Raw { wx: f64, wz: f64, low: f64, hs: f64, massif: f64 }
 /// Empreinte : voxels (x, y, z, id) d'un arbre ou d'un rocher, posés dans chaque chunk touché.
 pub struct Stamp { data: Vec<[i32; 4]>, force: bool }
 
@@ -37,7 +37,7 @@ impl WorldGen {
         let ridge = 1.0 - self.n_hill.fbm(wx / 330.0 + 80.0, wz / 330.0 + 25.0, 3).abs() * 1.6;
         let low = 52.0 + 15.0 * self.n_base.fbm(wx / 340.0, wz / 340.0, 3) + massif * (14.0 + 34.0 * ridge.max(0.0) * ridge.max(0.0));
         let hs = low + 5.5 * self.n_hill.fbm(wx / 96.0, wz / 96.0, 3);
-        Raw { wx, wz, low, hs }
+        Raw { wx, wz, low, hs, massif }
     }
     fn pond_at(&self, gx: i32, gz: i32) -> Option<Pond> {
         if let Some(p) = self.ponds.borrow().get(&(gx, gz)) { return *p; }
@@ -51,11 +51,11 @@ impl WorldGen {
     }
     /// Altitude, eau, chemin et densité forestière d'une colonne.
     pub fn column(&self, x: f64, z: f64) -> Column {
-        let Raw { wx, wz, low, hs } = self.raw_height(x, z);
+        let Raw { wx, wz, low, hs, massif } = self.raw_height(x, z);
         let step_n = self.n_hill.n2(x / 52.0 + 11.0, z / 52.0 - 7.0); let s = 4.0;
         let q = hs / s; let fl = q.floor(); let fr = q - fl;
         let terr = (fl + smooth(0.32, 0.68, fr)) * s;
-        let mut h = lerp(hs, terr, smooth(-0.35, 0.25, step_n));
+        let mut h = lerp(hs, terr, smooth(-0.35, 0.25, step_n) * (1.0 - massif)); // les terrasses sont pour les collines : une montagne en escalier ferait une pyramide
         h += 1.6 * self.n_hill.n2(x / 19.0, z / 19.0);
         // rivière : niveaux quantifiés = cascades
         let rs = self.n_river.fbm2(wx / 400.0, wz / 400.0, 2, 2.1, 0.32); let rn = rs.abs();

@@ -28,17 +28,17 @@ export class WorldGen {
     const massif = smooth(0.14, 0.5, this.nBase.fbm2(wx / 1500 + 210, wz / 1500 - 130, 3)), ridge = 1 - Math.abs(this.nHill.fbm2(wx / 330 + 80, wz / 330 + 25, 3)) * 1.6, rm = Math.max(ridge, 0);
     const low = 52 + 15 * this.nBase.fbm2(wx / 340, wz / 340, 3) + massif * (14 + 34 * rm * rm);
     const hs = low + 5.5 * this.nHill.fbm2(wx / 96, wz / 96, 3);
-    return { wx, wz, low, hs };
+    return { wx, wz, low, hs, massif };
   }
 
   // Remplit this.c pour la colonne (x,z) : altitude, eau, chemin, densité forestière.
   column(x, z) {
-    const c = this.c, { wx, wz, low, hs } = this.rawHeight(x, z);
+    const c = this.c, { wx, wz, low, hs, massif } = this.rawHeight(x, z);
     // terrasses : les ressauts de 3-5 blocs qui structurent la référence
     const stepN = this.nHill.n2(x / 52 + 11, z / 52 - 7), S = 4;
     const q = hs / S, fl = Math.floor(q), fr = q - fl;
     const terr = (fl + smooth(0.32, 0.68, fr)) * S;
-    let h = lerp(hs, terr, smooth(-0.35, 0.25, stepN));
+    let h = lerp(hs, terr, smooth(-0.35, 0.25, stepN) * (1 - massif));
     h += 1.6 * this.nHill.n2(x / 19, z / 19);
 
     // rivière : ligne de niveau du bruit déformé, niveaux quantifiés = cascades. La distance est la valeur du bruit divisée par sa pente.

@@ -414,12 +414,11 @@ export function farMesh(gen, ccx, ccz) {
     for (let j = 0; j < cells; j++) for (let i = 0; i < cells; i++) {
       const x0 = (i - cells / 2) * step, z0 = (j - cells / 2) * step, x1 = x0 + step, z1 = z0 + step;
       if (hole && Math.max(Math.abs(x0 + step / 2), Math.abs(z0 + step / 2)) < hole) continue;
-      const k = i + j * N, a = hs[k], b = hs[k + 1], c = hs[k + N + 1], d = hs[k + N];
-      let nx = a - b + d - c, nz = a - d + b - c, ny = 2 * step;
-      const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
-      const r = cols[k * 3], g = cols[k * 3 + 1], bl = cols[k * 3 + 2];
-      o.v(x0, d, z1, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl); o.v(x1, c, z1, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl);
-      o.v(x1, b, z0, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl); o.v(x0, a, z0, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, r, g, bl);
+      const at = (ii, jj) => hs[Math.max(0, Math.min(cells, ii)) + Math.max(0, Math.min(cells, jj)) * N];
+      for (const [ci, cj, x, z] of [[i, j + 1, x0, z1], [i + 1, j + 1, x1, z1], [i + 1, j, x1, z0], [i, j, x0, z0]]) {
+        let nx = at(ci - 1, cj) - at(ci + 1, cj), nz = at(ci, cj - 1) - at(ci, cj + 1), ny = 2 * step; const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+        const k = ci + cj * N; o.v(x, hs[k], z, 0, nx, ny, nz, 0, 255, 255, 0, KIND.FLAT, cols[k * 3], cols[k * 3 + 1], cols[k * 3 + 2]);
+      }
     }
   }
   return { far: o.take(), nF: o.n };

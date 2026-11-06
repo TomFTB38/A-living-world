@@ -22,4 +22,17 @@ fn main() {
         println!("  grottes: {:.2} % de vide sous la surface, {open} colonnes ouvertes en surface sur {} ; chunk {:.1} ms", air as f64 / (air + solid) as f64 * 100.0, chunks * CX * CX, t.elapsed().as_secs_f64() * 1000.0 / chunks as f64);
         let t = Instant::now(); let (_, n) = far_mesh(&g, 0, 0); println!("  horizon {n} sommets, {:.0} ms", t.elapsed().as_secs_f64() * 1000.0);
     }
+    // Une grotte : on part d'une entrée et on suit le vide sous terre.
+    let g = WorldGen::new(20261104); let mut cache = std::collections::HashMap::new(); let mut get = |x: i32, y: i32, z: i32, g: &WorldGen| -> u8 { if !(0..CH as i32).contains(&y) { return 1; } let k = (x.div_euclid(32), z.div_euclid(32)); let c = cache.entry(k).or_insert_with(|| g.gen_chunk(k.0, k.1)); c[idx(x.rem_euclid(32) as usize, y as usize, z.rem_euclid(32) as usize)] };
+    let mut reports = 0; 'e: for z in (-600..600).step_by(9) { for x in (-600..600).step_by(9) { let h = g.column(x as f64, z as f64).h as i32; if !(40..100).contains(&h) || !(1..7).all(|k| get(x, h - k, z, &g) == 0) { continue; }
+        let (mut seen, mut q, mut deep, mut low) = (std::collections::HashSet::from([(x, h - 6, z)]), VecDeque::from([(x, h - 6, z)]), 0, h); 
+        while let Some(p) = q.pop_front() { if seen.len() > 40000 { break; } let s = g.column(p.0 as f64, p.2 as f64).h as i32; if s - p.1 > 5 { deep += 1; low = low.min(p.1); } for d in [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)] { let n = (p.0 + d.0, p.1 + d.1, p.2 + d.2); if seen.contains(&n) || get(n.0, n.1, n.2, &g) != 0 || n.1 >= g.column(n.0 as f64, n.2 as f64).h as i32 { continue; } seen.insert(n); q.push_back(n); } }
+        println!("entrée ({x}, {z}) surface {h} : {} cases reliées, {deep} sous 5 blocs de roche, fond à {low}", seen.len()); reports += 1; if reports == 4 { break 'e; } } }
+    // Sprint : le joueur avance tout droit, combien de chunks proches manquent ?
+    for (name, speed) in [("course 7,2 m/s", 7.2), ("vol 22 m/s", 22.0)] {
+        let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).saturating_sub(2).clamp(2, 12); let mut st = alw_core::stream::Streamer::new(20261104, &alw_core::stream::ULTRA, threads); let t0 = Instant::now(); let (mut x, mut wait, mut missing, mut frames, mut gaps) = (0.0f64, 0usize, 0usize, 0, 0);
+        loop { let (b, _) = st.update(x, 0.5); drop(b); if st.waiting() == 0 && st.loaded() > 0 { break; } std::thread::sleep(std::time::Duration::from_millis(5)); if t0.elapsed().as_secs() > 60 { break; } } let load = t0.elapsed().as_secs_f64(); let t1 = Instant::now();
+        while t1.elapsed().as_secs_f64() < 12.0 { x = t1.elapsed().as_secs_f64() * speed; let (b, _) = st.update(x, 0.5); drop(b); wait = wait.max(st.waiting()); frames += 1; let near = (0..4).filter(|k| { let px = x + *k as f64 * 32.0; st.voxel_ready(px, 0.5) }).count(); if near < 4 { missing += 1; gaps = gaps.max(4 - near); } std::thread::sleep(std::time::Duration::from_millis(16)); }
+        println!("{name} : {threads} fils, chargement {load:.1} s, file max {wait}, {missing}/{frames} images avec un chunk manquant devant, jusqu'à {gaps}");
+    }
 }

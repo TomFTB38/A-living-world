@@ -121,6 +121,8 @@ impl Streamer {
     }
     pub fn edits(&self) -> HashMap<Key, HashMap<u32, u8>> { self.sh.edits.lock().unwrap().clone() }
     pub fn set_edits(&mut self, e: HashMap<Key, HashMap<u32, u8>>) { *self.sh.edits.lock().unwrap() = e; }
+    /// Le chunk de ce point est-il prêt ?
+    pub fn voxel_ready(&self, x: f64, z: f64) -> bool { let n = CX as f64; self.vox.contains_key(&((x / n).floor() as i32, (z / n).floor() as i32)) }
     pub fn waiting(&self) -> usize { self.pending.len() }
     pub fn loaded(&self) -> usize { self.loaded.len() }
 }
