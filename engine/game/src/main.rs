@@ -31,10 +31,22 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
 }
 /// Réglages enregistrés ; un fichier plus ancien garde ses valeurs et prend les nouvelles par défaut.
 fn read_settings() -> hud::Menu {
-    let mut m = hud::Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 0 };
+    let mut m = hud::Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 0, confirm: false };
     let Ok(t) = std::fs::read_to_string(beside_exe("reglages.alw")) else { return m }; let v: Vec<f32> = t.split_whitespace().filter_map(|x| x.parse().ok()).collect();
     if v.len() >= 5 { m.vol = [v[0].clamp(0.0, 1.0), v[1].clamp(0.0, 1.0), v[2].clamp(0.0, 1.0), v.get(5).copied().unwrap_or(0.5).clamp(0.0, 1.0)]; m.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); m.mood = (v[4] as usize).min(hud::MOODS.len() - 1); m.quality = v.get(6).map_or(0, |q| (*q as usize).min(1)); }
     m
+}
+/// Graine de la partie : celle de la sauvegarde, sinon celle choisie par « Nouveau monde », sinon celle du monde de départ.
+fn world_seed() -> i32 {
+    let save = std::fs::read_to_string(beside_exe("monde.alw")).ok().and_then(|t| t.lines().find_map(|l| l.strip_prefix("seed ").and_then(|v| v.trim().parse().ok())));
+    save.or_else(|| std::fs::read_to_string(beside_exe("graine.alw")).ok().and_then(|t| t.trim().parse().ok())).unwrap_or(SEED)
+}
+/// Nouveau monde : l'ancien est mis de côté, jamais effacé, puis le jeu repart sur une graine neuve.
+fn new_world() {
+    let _ = std::fs::rename(beside_exe("monde.alw"), beside_exe("monde-ancien.alw"));
+    let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.subsec_nanos() as i32 ^ d.as_secs() as i32);
+    if std::fs::write(beside_exe("graine.alw"), seed.to_string()).is_ok() { if let Ok(e) = std::env::current_exe() { let _ = std::process::Command::new(e).spawn(); } }
+    std::process::exit(0);
 }
 struct Game { menu: hud::Menu, drag: Option<usize>, half: Option<usize>, window: Arc<Window>, gpu: gpu::Gpu, md: Models, mouse: [f32; 2], s: Session, keys: HashSet<KeyCode>, grabbed: bool, time: f64, run_time: bool, lmb: bool, rmb: bool, place_t: f64, msg: Option<(String, f64)>, save_t: f64, last: Instant, frames: u32, fps_t: f64, tris: usize }
 #[derive(Default)]
@@ -89,7 +101,7 @@ impl ApplicationHandler for App {
         let size = window.inner_size(); let md = Models::build(); let menu = read_settings(); let ultra = menu.quality == 1; let preset = if ultra { ULTRA } else { HIGH };
         let gpu = pollster::block_on(gpu::Gpu::new(Some(window.clone()), size.width, size.height, gpu::Options { shadow: if ultra { 6144 } else { 4096 }, fallback: false, hole: (preset.radius as f32 - 0.6) * 32.0, cascades: if ultra { gpu::CASCADES_ULTRA } else { gpu::CASCADES } }, &md));
         let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).saturating_sub(2).clamp(2, 12);
-        let mut s = Session::new(SEED, &preset, threads, spawn_point(SEED));
+        let seed = world_seed(); let mut s = Session::new(seed, &preset, threads, spawn_point(seed));
         if let Ok(t) = std::fs::read_to_string(beside_exe("monde.alw")) { if let Err(e) = s.load_text(&t) { report(&format!("Sauvegarde illisible : {e}")); } }
         s.sound = SoundScape::new(sound::start());
         let mut g = Game { menu, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
@@ -107,7 +119,9 @@ impl ApplicationHandler for App {
                 if g.menu.open {
                     if button != MouseButton::Left { return; }
                     if !down { g.drag = None; g.write_settings(); return; }
-                    match hud::menu_at(w, h, &g.menu, g.mouse) {
+                    let hit = hud::menu_at(w, h, &g.menu, g.mouse); if hit != Some(hud::M::NewWorld) { g.menu.confirm = false; }
+                    match hit {
+                        Some(hud::M::NewWorld) => { if g.menu.confirm { g.save(); g.write_settings(); new_world(); } g.menu.confirm = true; g.say("Votre monde actuel sera gardé dans monde-ancien.alw : cliquez à nouveau pour confirmer".into()); }
                         Some(hud::M::Resume) => g.close_menu(),
                         Some(hud::M::Weather(i)) => { g.menu.weather = i; g.apply(); }
                         Some(hud::M::Mood(i)) => { g.menu.mood = i; g.apply(); }
@@ -252,7 +266,7 @@ fn capture(a: &[String]) {
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
     }
-    let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 1 };
+    let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 1, confirm: false };
     let t1 = Instant::now(); let mut tris = 0;
     for k in 0..10 { tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu); g.settle(); }
     println!("10 images, {:.1} M triangles, {:.0} ms par image sur cette carte", tris as f64 / 1e6, t1.elapsed().as_secs_f64() * 100.0);

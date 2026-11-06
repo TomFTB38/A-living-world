@@ -35,8 +35,8 @@ const VOLS: [&str; 4] = ["Volume général", "Effets", "Musique", "Luminosité"]
 /// Curseur de luminosité vers exposition : au milieu, l'image validée, plus sobre que la première version.
 pub fn bright(v: f32) -> f32 { 0.6 + 0.5 * v }
 const CREDITS: [&str; 13] = ["Musique générée par le jeu. Sons retravaillés pour le jeu.", "", "Licence CC BY 3.0", "crack : Benboncan, freesound.org/people/Benboncan/sounds/71823", "splash : AGFX, freesound.org/people/AGFX/packs/1253", "hurt : sonictechtonic, freesound.org/people/sonictechtonic/sounds/241872", "", "Licence CC0", "Kenney (Impact Sounds), worthahep88, lolamadeus, Sheyvan, blukotek, Yuval", "", "Police de l'interface", "Inter, SIL Open Font License 1.1", ""];
-pub struct Menu { pub open: bool, pub credits: bool, pub weather: usize, pub mood: usize, pub vol: [f32; 4], pub quality: usize }
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum M { Resume, Weather(usize), Mood(usize), Quality(usize), Vol(usize), Credits, Back, Quit }
+pub struct Menu { pub open: bool, pub credits: bool, pub weather: usize, pub mood: usize, pub vol: [f32; 4], pub quality: usize, pub confirm: bool }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum M { Resume, Weather(usize), Mood(usize), Quality(usize), Vol(usize), Credits, Back, Quit, NewWorld }
 fn menu_panel(w: f32, h: f32) -> ([f32; 4], f32) { let k = scale(h); let (pw, ph) = (640.0 * k, 618.0 * k); ([(w - pw) * 0.5, (h - ph) * 0.5, pw, ph], k) }
 pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
     let (p, k) = menu_panel(w, h); let (x0, tw) = (p[0] + 34.0 * k, p[2] - 68.0 * k); let bh = 40.0 * k; let g = 8.0 * k; let mut o = Vec::new();
@@ -48,7 +48,7 @@ pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
     row(QUALITIES.len(), y, &M::Quality, &mut o); y += 34.0 * k + 22.0 * k;
     for i in 0..4 { o.push((M::Vol(i), [x0 + 190.0 * k, y + i as f32 * 32.0 * k, tw - 190.0 * k, 24.0 * k])); }
     y += 4.0 * 32.0 * k + 14.0 * k;
-    let b = (tw - g) * 0.5; o.push((M::Credits, [x0, y, b, bh])); o.push((M::Quit, [x0 + b + g, y, b, bh])); o
+    let b = (tw - 2.0 * g) / 3.0; o.push((M::Credits, [x0, y, b, bh])); o.push((M::NewWorld, [x0 + b + g, y, b, bh])); o.push((M::Quit, [x0 + 2.0 * (b + g), y, b, bh])); o
 }
 pub fn menu_at(w: f32, h: f32, m: &Menu, p: [f32; 2]) -> Option<M> { menu_layout(w, h, m).into_iter().find(|x| inside(p, x.1)).map(|x| x.0) }
 impl Ui {
@@ -83,7 +83,7 @@ impl Ui {
         for (a, r) in menu_layout(w, h, m) {
             let on = hover == Some(a); let plain: C = if on { [0.25, 0.3, 0.24, 1.0] } else { [0.0, 0.0, 0.0, 0.34] }; let sel: C = [0.28, 0.4, 0.22, 1.0];
             match a {
-                M::Resume | M::Credits | M::Back | M::Quit => { self.panel(r, k, plain); self.centered(match a { M::Resume => "Reprendre", M::Credits => "Crédits", M::Back => "Retour", _ => "Sauvegarder et quitter" }, r, z, INK); }
+                M::Resume | M::Credits | M::Back | M::Quit | M::NewWorld => { let warn = a == M::NewWorld && m.confirm; self.panel(r, k, if warn { [0.5, 0.2, 0.14, 1.0] } else { plain }); self.centered(match a { M::Resume => "Reprendre", M::Credits => "Crédits", M::Back => "Retour", M::NewWorld => if m.confirm { "Confirmer ?" } else { "Nouveau monde" }, _ => "Quitter" }, r, 16.0 * k, INK); }
                 M::Weather(i) => { if i == 0 { self.text("Météo", x0, r[1] - 26.0 * k, 17.0 * k, DIM); } self.panel(r, k, if m.weather == i { sel } else { plain }); self.centered(WEATHERS[i], r, 15.0 * k, INK); }
                 M::Mood(i) => { if i == 0 { self.text("Ambiance musicale", x0, r[1] - 26.0 * k, 17.0 * k, DIM); } self.panel(r, k, if m.mood == i { sel } else { plain }); self.centered(MOODS[i], r, 14.0 * k, INK); }
                 M::Quality(i) => { if i == 0 { self.text("Qualité graphique (au prochain lancement)", x0, r[1] - 26.0 * k, 17.0 * k, DIM); } self.panel(r, k, if m.quality == i { sel } else { plain }); self.centered(QUALITIES[i], r, 15.0 * k, INK); }
