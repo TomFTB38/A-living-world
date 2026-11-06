@@ -12,6 +12,8 @@ const HOME: f64 = 420.0; const HOME_FADE: f64 = 900.0; const SOFT: f64 = 0.2;
 #[derive(Clone, Copy, Debug, Default)] pub struct Mix { pub w: [f64; COUNT], pub temp: f64, pub wet: f64 }
 impl Mix {
     pub fn of(&self, b: Biome) -> f64 { self.w[b as usize] }
+    /// Force du biome : 0 hors de sa zone, 1 dans son cœur. Le mélange reste doux, sans diluer le centre du biome.
+    pub fn strong(&self, b: Biome) -> f64 { crate::noise::smooth(0.3, 0.55, self.of(b)) }
     pub fn main(&self) -> usize { let mut m = 0; for i in 1..COUNT { if self.w[i] > self.w[m] { m = i; } } m }
 }
 pub struct Climate { a: Noise, b: Noise }

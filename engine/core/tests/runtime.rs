@@ -35,3 +35,11 @@ fn le_monde_ne_depend_que_de_la_seed() {
     let c = Climate::new(20261104); for (x, z) in [(0.0, 0.0), (120.0, -200.0), (-300.0, 150.0)] { assert!(c.at(x, z).of(Biome::Temperate) > 0.6, "le départ reste tempéré en {x},{z}"); }
     for x in (-6000..6000).step_by(97) { for z in (-6000..6000).step_by(89) { let m = c.at(x as f64, z as f64); assert!((m.w.iter().sum::<f64>() - 1.0).abs() < 1e-9); let n = c.at(x as f64 + 8.0, z as f64); for i in 0..COUNT { assert!((m.w[i] - n.w[i]).abs() < 0.16, "transition brutale en {x},{z}"); } } }
 }
+
+#[test]
+fn chaque_biome_a_un_vrai_coeur() {
+    use alw_core::biome::*; let c = Climate::new(20261104); let mut top = [0.0f64; COUNT];
+    for x in (-9000..9000).step_by(40) { for z in (-9000..9000).step_by(40) { let m = c.at(x as f64, z as f64); for i in 0..COUNT { top[i] = top[i].max(m.w[i]); } } }
+    println!("{top:?}"); for b in [Biome::Temperate, Biome::Meadow, Biome::DeepForest, Biome::Taiga, Biome::Steppe, Biome::Desert] { assert!(c_strong(&top, b) > 0.95, "{} jamais franc : {:?}", NAMES[b as usize], top); }
+}
+fn c_strong(t: &[f64; alw_core::biome::COUNT], b: alw_core::biome::Biome) -> f64 { alw_core::noise::smooth(0.3, 0.55, t[b as usize]) }
