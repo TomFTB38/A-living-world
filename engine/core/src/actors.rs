@@ -36,7 +36,9 @@ fn head() -> VBuf {
     b(o2, [-0.175, 0.03, -0.185, 0.175, 0.38, 0.185], SKIN); b(o2, [-0.14, -0.01, -0.13, 0.14, 0.05, 0.16], SKIN2); // crâne, mâchoire plus étroite
     for sx in [-1.0f64, 1.0] {
         let box_ = |o: &mut VBuf, a: f64, y0: f64, z0: f64, c: f64, y1: f64, z1: f64, col: C| b(o, [f64::min(sx * a, sx * c), y0, z0, f64::max(sx * a, sx * c), y1, z1], col);
-        box_(o2, 0.04, 0.198, 0.185, 0.125, 0.244, 0.187, WHITE); box_(o2, 0.062, 0.198, 0.185, 0.104, 0.244, 0.189, IRIS); box_(o2, 0.074, 0.208, 0.185, 0.092, 0.234, 0.191, PUPIL); // œil, à plat : le relief le faisait loucher de trois quarts
+        // Les sommets sont arrondis au 1/128 : chaque couche de l'œil tient exactement sur un cran, sinon elles se confondent.
+        let g = |n: f64| n / 128.0;
+        box_(o2, g(5.0), g(25.0), g(24.0), g(16.0), g(32.0), g(25.0), WHITE); box_(o2, g(8.0), g(25.0), g(24.0), g(14.0), g(32.0), g(26.0), IRIS); box_(o2, g(10.0), g(27.0), g(24.0), g(13.0), g(31.0), g(27.0), PUPIL); // œil
         box_(o2, 0.032, 0.262, 0.185, 0.135, 0.288, 0.2, HAIR); box_(o2, 0.04, 0.175, 0.185, 0.125, 0.19, 0.19, SKIN2); // sourcil, paupière basse
         box_(o2, 0.175, 0.14, -0.03, 0.195, 0.245, 0.05, SKIN2); // oreille
     }
