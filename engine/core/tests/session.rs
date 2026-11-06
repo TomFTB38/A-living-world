@@ -160,3 +160,11 @@ fn l_eau_generee_coule_au_chargement() {
     let mut s = Session::new(20261104, &Preset { radius: 3, lod1: 2.5, lod2: 3.0 }, 4, [37.0, 60.0, 18.0]); s.player.fly = true; let mut woke = false; for _ in 0..3000 { s.sync(); if s.flow.busy() { woke = true; } if s.world.waiting() == 0 && s.world.loaded() > 0 { break; } std::thread::sleep(std::time::Duration::from_millis(2)); }
     assert!(woke, "aucune eau réveillée au chargement"); let (mut flowing, c) = (0, s.player.p); for _ in 0..200 { s.tick(1.0 / 60.0, Input::default(), Actions::default()); s.sync(); } for dx in -40..40 { for dz in -40..40 { for y in 30..70 { if s.world.get(c[0] as i32 + dx, y, c[2] as i32 + dz).is_some_and(|b| is_water(b) && b != B::WATER) { flowing += 1; } } } } println!("{flowing} cases d'eau courante"); assert!(flowing > 0);
 }
+
+#[test]
+fn les_champignons_lumineux_eclairent() {
+    let mut s = session(); let (x, y, z) = (s.player.p[0] as i32 + 2, 100, s.player.p[2] as i32 + 2); s.world.edit_many(&[(x, y - 1, z, B::STONE), (x, y, z, B::GLOWCAP)]);
+    for _ in 0..3000 { s.sync(); if s.world.waiting() == 0 && !s.lights(s.player.p, 48).is_empty() { break; } std::thread::sleep(std::time::Duration::from_millis(2)); }
+    let e = [x as f64, y as f64, z as f64]; let l = s.lights(e, 48); assert!(!l.is_empty(), "lumière colorée trouvée"); assert_eq!(l[0].0, [x as f32 + 0.5, y as f32 + 0.35, z as f32 + 0.5]);
+    s.world.edit(x, y, z, 0); for _ in 0..3000 { s.sync(); if s.world.waiting() == 0 && s.lights(e, 48).iter().all(|q| q.0 != l[0].0) { break; } std::thread::sleep(std::time::Duration::from_millis(2)); } assert!(s.lights(e, 48).iter().all(|q| q.0 != l[0].0), "éteinte une fois cueilli");
+}

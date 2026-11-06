@@ -7,7 +7,7 @@ use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 use crate::{font_data as fd, hud};
 
-const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; const FLOATS: usize = 196; const MAX_ACTORS: u64 = 128; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 60_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 52.0;
+const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; pub const LIGHTS: usize = 48; const FLOATS: usize = 196 + LIGHTS * 8; const MAX_ACTORS: u64 = 128; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 60_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 52.0;
 pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 6;
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32, pub cascades: [f64; 3] }
@@ -23,6 +23,7 @@ struct Targets {
     b_ssao: wgpu::BindGroup, b_blur_h: wgpu::BindGroup, b_blur_v: wgpu::BindGroup, b_light: wgpu::BindGroup, b_vol: wgpu::BindGroup, b_water: wgpu::BindGroup, b_comp: wgpu::BindGroup, b_taa: [wgpu::BindGroup; 2], b_first: [wgpu::BindGroup; 2], b_down: Vec<wgpu::BindGroup>, b_up: Vec<wgpu::BindGroup>, b_last: [wgpu::BindGroup; 2],
 }
 pub struct Gpu {
+    pub lights: Vec<([f32; 3], [f32; 3])>,
     surface: Option<wgpu::Surface<'static>>, device: wgpu::Device, queue: wgpu::Queue, config: wgpu::SurfaceConfiguration, format: wgpu::TextureFormat,
     p: Pipes, t: Targets, fall_vb: wgpu::Buffer, fall_serial: u64, actor_vb: wgpu::Buffer, actor_inst: wgpu::Buffer, ui_buf: wgpu::Buffer, ui_u: wgpu::Buffer, ui_bind: wgpu::BindGroup, frame0: wgpu::BindGroup, geom1: wgpu::BindGroup, ubuf: wgpu::Buffer, ibuf: wgpu::Buffer, inst: wgpu::Buffer,
     shadow_views: Vec<wgpu::TextureView>, shadow_bind: Vec<wgpu::BindGroup>, shadow_buf: Vec<wgpu::Buffer>, shadow_vp: [M4; 3], shadow_size: u32, hole: f32, cascades: [f64; 3],
@@ -223,7 +224,7 @@ impl Gpu {
         let fall_vb = d.create_buffer(&wgpu::BufferDescriptor { label: Some("arbre qui tombe"), size: FALL_BYTES, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let capture = if surface.is_none() { Some(rt(d, config.width, config.height, LDR, true)) } else { None };
         let free = (1..MAX_SLOTS).rev().collect();
-        Gpu { surface, p, t, fall_vb, fall_serial: 0, actor_vb, actor_inst, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, cascades: o.cascades, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
+        Gpu { lights: Vec::new(), surface, p, t, fall_vb, fall_serial: 0, actor_vb, actor_inst, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, cascades: o.cascades, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
     }
     pub fn resize(&mut self, w: u32, h: u32) {
         if w == 0 || h == 0 { return; }
@@ -279,7 +280,8 @@ impl Gpu {
         // Constantes de l'image
         let ivp = view::invert(vp); let ip = view::invert(proj); let mut u: Vec<f32> = Vec::with_capacity(FLOATS);
         for m in [vp, &ivp, &self.prev_vp, view_m, proj, &ip, &self.shadow_vp[0], &self.shadow_vp[1], &self.shadow_vp[2]] { u.extend_from_slice(m); }
-        u.extend_from_slice(&[self.cascades[0] as f32, self.cascades[1] as f32, self.cascades[2] as f32, 0.0, eye[0] as f32, eye[1] as f32, eye[2] as f32, time as f32, s.dir[0], s.dir[1], s.dir[2], s.exposure, s.col[0], s.col[1], s.col[2], env.cloud, s.top[0], s.top[1], s.top[2], 1.0 / self.shadow_size as f32, s.hor[0], s.hor[1], s.hor[2], s.night, s.ground[0], s.ground[1], s.ground[2], 0.0048, jit[0], jit[1], w, h, (fr % 64) as f32, env.mist, self.hole, if self.reset { 1.0 } else { 0.0 }, aim.map_or(0.0, |a| a.0[0] as f32), aim.map_or(0.0, |a| a.0[1] as f32), aim.map_or(0.0, |a| a.0[2] as f32), aim.map_or(0.0, |a| a.1), ghost.map_or(0.0, |g| g.0[0] as f32), ghost.map_or(0.0, |g| g.0[1] as f32), ghost.map_or(0.0, |g| g.0[2] as f32), ghost.map_or(0.0, |g| g.1 as u8 as f32), env.fog_k, env.rain, env.bright, env.under as u8 as f32, env.flies, 0.0, 0.0, 0.0]);
+        u.extend_from_slice(&[self.cascades[0] as f32, self.cascades[1] as f32, self.cascades[2] as f32, 0.0, eye[0] as f32, eye[1] as f32, eye[2] as f32, time as f32, s.dir[0], s.dir[1], s.dir[2], s.exposure, s.col[0], s.col[1], s.col[2], env.cloud, s.top[0], s.top[1], s.top[2], 1.0 / self.shadow_size as f32, s.hor[0], s.hor[1], s.hor[2], s.night, s.ground[0], s.ground[1], s.ground[2], 0.0048, jit[0], jit[1], w, h, (fr % 64) as f32, env.mist, self.hole, if self.reset { 1.0 } else { 0.0 }, aim.map_or(0.0, |a| a.0[0] as f32), aim.map_or(0.0, |a| a.0[1] as f32), aim.map_or(0.0, |a| a.0[2] as f32), aim.map_or(0.0, |a| a.1), ghost.map_or(0.0, |g| g.0[0] as f32), ghost.map_or(0.0, |g| g.0[1] as f32), ghost.map_or(0.0, |g| g.0[2] as f32), ghost.map_or(0.0, |g| g.1 as u8 as f32), env.fog_k, env.rain, env.bright, env.under as u8 as f32, env.flies, self.lights.len().min(LIGHTS) as f32, 0.0, 0.0]);
+        for k in 0..LIGHTS { let (p, c) = self.lights.get(k).copied().unwrap_or(([0.0; 3], [0.0; 3])); u.extend_from_slice(&[p[0], p[1], p[2], 0.0, c[0], c[1], c[2], 0.0]); }
         self.queue.write_buffer(&self.ubuf, 0, &bytes_f32(&u));
         let list: Vec<&ChunkGpu> = list_all.iter().copied().filter(|c| view::visible(vp, c.min, c.max)).collect();
         let t = &self.t; let g0 = &self.frame0;

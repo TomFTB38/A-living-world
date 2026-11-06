@@ -25,7 +25,14 @@
   let canopy = vec3f(0.27, 0.36, 0.13) * mix(1.0, 0.5, n.y * 0.5 + 0.5);
   let amb = mix(canopy * 1.75, sky_amb, sky2 * 0.8 + 0.2) * (0.6 + 0.4 * sky_l) * vis;
   let blkc = vec3f(1.0, 0.62, 0.28) * pow(blk, 2.1) * 2.2 * vao;
-  var c = alb * (direct + amb + blkc) + bl;
+  // Champignons lumineux : une lueur fluorescente de leur couleur, sans ombre, qui meurt en quelques blocs.
+  var glow = vec3f(0.0);
+  for (var k = 0; k < i32(u.extra.y); k++) {
+    let dv = u.lights[k * 2].xyz - wp; let d2 = dot(dv, dv); if (d2 > 30.0) { continue; }
+    let fade = 1.0 - d2 / 30.0; let face = 0.35 + 0.65 * sat(dot(n, dv * inverseSqrt(max(d2, 0.01))));
+    glow += u.lights[k * 2 + 1].rgb * face * fade * fade / (1.0 + d2 * 0.9);
+  }
+  var c = alb * (direct + amb + blkc + glow * 3.2 * vao) + bl;
   let hv = normalize(u.sun.xyz - vv); let nh = sat(dot(n, hv));
   c += u.sun_col.rgb * pow(nh, mix(90.0, 10.0, rough)) * (1.0 - rough) * 0.9 * sh * sat(nol) * 0.5;
   return vec4f(c, 1.0);

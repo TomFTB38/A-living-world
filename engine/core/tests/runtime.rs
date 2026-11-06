@@ -51,3 +51,8 @@ fn la_foret_profonde_se_distingue() {
     println!("feuilles sombres {}, claires {}, lianes {}, champignons lumineux {}", c(B::OAK_LEAVES_DEEP) + c(B::BEECH_LEAVES_DEEP), c(B::OAK_LEAVES) + c(B::BEECH_LEAVES), c(B::VINE), c(B::GLOWCAP));
     assert!(c(B::OAK_LEAVES_DEEP) + c(B::BEECH_LEAVES_DEEP) > 4 * (c(B::OAK_LEAVES) + c(B::BEECH_LEAVES) + 1)); assert!(c(B::GLOWCAP) > 3 && c(B::VINE) > 50);
 }
+
+#[test]
+fn chaque_champignon_lumineux_a_sa_couleur() {
+    use alw_core::mesher::*; let mut seen = std::collections::HashSet::new(); for x in 0..60 { let c = glow_color(x, 50, -x); seen.insert(format!("{c:?}")); assert_eq!(c, glow_color(x, 50, -x)); } assert_eq!(seen.len(), 5);
+}

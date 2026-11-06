@@ -51,13 +51,13 @@ pub struct Actions { pub mine: bool, pub place: bool }
 pub struct Session {
     pub world: Streamer, pub player: Player, pub inv: [Option<Stack>; INV_SIZE], pub sel: usize, pub creative: bool, pub target: Option<Target>, pub orient: u8, pub hour: f64, pub vit: [f64; 3], pub seed: i32, pub third: bool, pub cam_dist: f64, pub eye: [f64; 3], pub look: [f64; 3], pub anim: Anim, pub inv_open: bool, pub cursor: Option<Stack>, pub from: Option<usize>,
     mine_key: Option<(i32, i32, i32)>, pub mine_t: f64, cool: f64, axis: Option<char>, pub dirty: bool, pub tab: usize,
-    pub deep: f64, scanned: std::collections::HashSet<(i32, i32)>, pub fauna: Fauna, pub weather: Weather, pub sound: SoundScape, gen: WorldGen, pub elapsed: f64, hurt_at: f64, built: Vec<f64>, swing_t: f64, dig_t: f64, step_t: f64, water_t: f64, env_t: f64, was_wet: bool, was_ground: bool, fall_v: f64, brook: Option<[f64; 3]>, fall: Option<[f64; 3]>, felling: Option<Tree>, pub falling: Option<Fall>, pub fall_serial: u64, pub flow: Flow,
+    pub deep: f64, glows: HashMap<(i32, i32), Vec<[i32; 3]>>, scanned: std::collections::HashSet<(i32, i32)>, pub fauna: Fauna, pub weather: Weather, pub sound: SoundScape, gen: WorldGen, pub elapsed: f64, hurt_at: f64, built: Vec<f64>, swing_t: f64, dig_t: f64, step_t: f64, water_t: f64, env_t: f64, was_wet: bool, was_ground: bool, fall_v: f64, brook: Option<[f64; 3]>, fall: Option<[f64; 3]>, felling: Option<Tree>, pub falling: Option<Fall>, pub fall_serial: u64, pub flow: Flow,
 }
 impl Session {
     pub fn new(seed: i32, p: &Preset, threads: usize, at: [f64; 3]) -> Self {
         let mut inv = [None; INV_SIZE];
         for (i, (it, n)) in [("pickaxe", None), ("axe", None), ("sword", None), ("lantern", Some(32)), ("dirt", Some(64)), ("stone", Some(32)), ("planks", Some(16))].into_iter().enumerate() { inv[i] = Some(Stack { item: it, n }); }
-        Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, deep: 0.0, scanned: Default::default(), fauna: Fauna::new(seed), weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None, felling: None, falling: None, fall_serial: 0, flow: Flow::default() }
+        Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, deep: 0.0, glows: HashMap::new(), scanned: Default::default(), fauna: Fauna::new(seed), weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None, felling: None, falling: None, fall_serial: 0, flow: Flow::default() }
     }
     pub fn held(&self) -> Option<Item> { self.inv[self.sel].and_then(|s| item(s.item)) }
     pub fn add_item(&mut self, id: &str, n: u32) {
@@ -149,7 +149,9 @@ impl Session {
     /// Reçoit les chunks prêts. L'eau d'un chunk neuf peut couler aussitôt : celle qui touche le vide se réveille.
     pub fn sync(&mut self) -> (Vec<crate::stream::Built>, Vec<(i32, i32)>) {
         let p = self.player.p; let (built, gone) = self.world.update(p[0], p[2]);
-        for g in &gone { self.scanned.remove(g); }
+        for g in &gone { self.scanned.remove(g); self.glows.remove(g); }
+        // Champignons lumineux de chaque chunk reçu : leur lumière colorée en dépend.
+        for c in &built { if c.lod == crate::stream::FAR { continue; } let n = CX as i32; let mut l = Vec::new(); for (i, b) in c.voxels.iter().enumerate() { if *b == B::GLOWCAP { let i = i as i32; l.push([c.key.0 * n + i % n, i / (n * n), c.key.1 * n + (i / n) % n]); } } if l.is_empty() { self.glows.remove(&c.key); } else { self.glows.insert(c.key, l); } }
         for c in &built { if c.lod != 0 || !self.scanned.insert(c.key) { continue; } let n = CX as i32; let (ox, oz) = (c.key.0 * n, c.key.1 * n); let v = c.voxels.clone();
             for y in 2..CH as i32 - 1 { for z in 0..n { for x in 0..n { if v[idx(x as usize, y as usize, z as usize)] != B::WATER { continue; } let (wx, wz) = (ox + x, oz + z);
                 let open = [(1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1), (0, -1, 0)].iter().any(|d| self.world.get(wx + d.0, y + d.1, wz + d.2) == Some(0));
@@ -157,6 +159,12 @@ impl Session {
             } } }
         }
         (built, gone)
+    }
+    /// Lumières colorées proches : position et couleur des champignons lumineux, les plus près d'abord.
+    pub fn lights(&self, e: [f64; 3], max: usize) -> Vec<([f32; 3], [f32; 3])> {
+        let mut v: Vec<(f64, [i32; 3])> = self.glows.values().flatten().map(|p| ((p[0] as f64 + 0.5 - e[0]).powi(2) + (p[1] as f64 + 0.3 - e[1]).powi(2) + (p[2] as f64 + 0.5 - e[2]).powi(2), *p)).filter(|q| q.0 < 32.0 * 32.0).collect();
+        v.sort_by(|a, b| a.0.total_cmp(&b.0)); v.truncate(max);
+        v.into_iter().map(|(_, p)| { let c = crate::mesher::glow_color(p[0], p[1], p[2]); ([p[0] as f32 + 0.5, p[1] as f32 + 0.35, p[2] as f32 + 0.5], [c[0] as f32, c[1] as f32, c[2] as f32]) }).collect()
     }
     /// Hauteur du soleil, négative la nuit.
     fn sun_height(&self) -> f64 { crate::det::sin((self.hour - 6.0) / 12.0 * std::f64::consts::PI) }
