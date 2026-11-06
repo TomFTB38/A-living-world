@@ -10,7 +10,7 @@ pub use crate::sounds_data::{SOUNDS, TOOLS};
 const fn l(set: &'static str, rate: f32, vol: f32) -> L { L { set, rate, vol, lp: 0.0, at: 0.0 } }
 #[derive(Clone, Copy, Debug)] pub struct Mat { pub m: &'static str, pub step: &'static [L], pub hit: &'static [L], pub brk: &'static [L], pub put: &'static [L] }
 pub fn sound_of(name: &str) -> &'static Mat {
-    let n = name.strip_suffix("_x").or(name.strip_suffix("_y")).or(name.strip_suffix("_z")).unwrap_or(name);
+    let name = name.strip_suffix("_c").unwrap_or(name); let n = name.strip_suffix("_x").or(name.strip_suffix("_y")).or(name.strip_suffix("_z")).unwrap_or(name);
     let n = if n.starts_with("water") { "water" } else { n };
     SOUNDS.iter().find(|s| s.0 == n).map(|s| &s.1).unwrap_or_else(|| &SOUNDS.iter().find(|s| s.0 == "dirt").unwrap().1)
 }
@@ -267,6 +267,8 @@ impl SoundScape {
     pub fn tree_crack(&self) { for (i, r) in [1.0, 0.86, 0.74].iter().enumerate() { self.send(Cmd::Play { l: l("crack", *r, 0.6), k: 1.0, pan: 0.0, delay: i as f32 * 0.18 }); } self.send(Cmd::Play { l: l("chopdry", 0.8, 0.5), k: 1.0, pan: 0.0, delay: 0.0 }); }
     /// Il touche le sol : choc sourd, puis branches.
     pub fn tree_land(&self) { self.send(Cmd::Play { l: L { lp: 900.0, ..l("knock", 0.55, 0.8) }, k: 1.0, pan: 0.0, delay: 0.0 }); self.send(Cmd::Play { l: l("crack", 0.7, 0.35), k: 1.0, pan: 0.0, delay: 0.08 }); self.send(Cmd::Play { l: l("leaf", 0.8, 0.4), k: 1.0, pan: 0.0, delay: 0.05 }); }
+    /// Roulade : frottement du corps et du sac au sol.
+    pub fn roll(&self) { self.send(Cmd::Play { l: l("puff", 0.75, 0.35), k: 1.0, pan: 0.0, delay: 0.0 }); self.send(Cmd::Play { l: l("leaf", 0.8, 0.28), k: 1.0, pan: 0.0, delay: 0.14 }); self.send(Cmd::Play { l: l("sand", 0.9, 0.3), k: 1.0, pan: 0.0, delay: 0.3 }); }
     pub fn splash(&self, k: f32) { self.send(Cmd::Play { l: l("splash", 0.85, 0.5), k, pan: 0.0, delay: 0.0 }); }
     pub fn hurt(&self) { self.send(Cmd::Play { l: l("hurt", 1.0, 0.6), k: 1.0, pan: 0.0, delay: 0.0 }); }
     pub fn bird(&mut self, pos: [f64; 3], voice: usize) {

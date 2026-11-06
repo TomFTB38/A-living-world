@@ -83,7 +83,7 @@ impl Session {
         let Some(block) = item(st.item).and_then(|i| i.block) else { return false };
         if !self.creative && st.n.unwrap_or(0) == 0 { return false; }
         let [x, y, z] = Self::place_spot(&t); let Some(cur) = self.world.get(x, y, z) else { return false }; if is_solid(cur) { return false; }
-        let id = self.oriented(block); let p = self.player.p;
+        let id = placed_variant(self.oriented(block)); let p = self.player.p;
         if is_solid(id) && x as f64 + 1.0 > p[0] - 0.3 && (x as f64) < p[0] + 0.3 && z as f64 + 1.0 > p[2] - 0.3 && (z as f64) < p[2] + 0.3 && y as f64 + 1.0 > p[1] && (y as f64) < p[1] + 1.8 { return false; }
         if !self.world.edit(x, y, z, id) { return false; }
         self.flow.touch(x, y, z);
@@ -127,7 +127,7 @@ impl Session {
     }
     /// Une étape de jeu. Le reste (rendu, son) lit l'état.
     pub fn tick(&mut self, dt: f64, i: Input, a: Actions) {
-        self.player.update(&self.world, dt, i);
+        let rolled = self.player.rolling(); self.player.update(&self.world, dt, i); if self.player.rolling() && !rolled { self.sound.roll(); }
         let reach = if self.creative { 13.0 } else { 9.5 };
         let (eye, f) = self.camera(dt); self.eye = eye; self.look = f; let (third, head) = (self.third, [self.player.p[0], self.player.p[1] + 1.5, self.player.p[2]]);
         self.target = raycast(&self.world, eye, f, reach, &|x, y, z, _| third && (x as f64 + 0.5 - head[0]) * f[0] + (y as f64 + 0.5 - head[1]) * f[1] + (z as f64 + 0.5 - head[2]) * f[2] < -0.5).map(|t| t.0);
@@ -147,7 +147,10 @@ impl Session {
     /// Hauteur du soleil, négative la nuit.
     fn sun_height(&self) -> f64 { crate::det::sin((self.hour - 6.0) / 12.0 * std::f64::consts::PI) }
     /// Tout ce qui blesse passe par ici : la musique de danger en dépend.
-    pub fn hurt(&mut self, n: f64) { self.vit[0] = (self.vit[0] - n).max(0.0); self.hurt_at = self.elapsed; self.sound.hurt(); }
+    pub fn hurt(&mut self, n: f64) { if self.player.rolling() { return; } // la roulade esquive
+        self.vit[0] = (self.vit[0] - n).max(0.0); self.hurt_at = self.elapsed; self.sound.hurt(); }
+    /// La caméra est-elle sous l'eau ?
+    pub fn under(&self) -> bool { self.world.get(self.eye[0].floor() as i32, self.eye[1].floor() as i32, self.eye[2].floor() as i32).is_some_and(is_water) }
     /// Sous un toit ou dans une grotte, il ne pleut pas ; le feuillage laisse passer.
     pub fn covered(&self, e: [f64; 3]) -> bool {
         let (x, z, y0) = (e[0].floor() as i32, e[2].floor() as i32, e[1].floor() as i32 + 1);
@@ -195,7 +198,8 @@ impl Session {
     /// Ce que le rendu doit dessiner du personnage.
     pub fn draws(&self, md: &Models, view: &crate::view::M4) -> Vec<Draw> {
         let held = self.inv[self.sel].and_then(|s| md.held(s.item)); let p = &self.player;
-        let mut o = if self.third { self.anim.third(md, p.p, if p.speed > 0.2 { p.move_yaw } else { p.yaw }, p.pitch, held) } else { self.anim.first(md, view, held) };
+        let roll = p.rolling().then_some((p.roll_t / crate::player::ROLL_TIME, p.roll_local));
+        let mut o = if self.third { self.anim.third(md, p.p, if p.speed > 0.2 && roll.is_none() { p.move_yaw } else { p.yaw }, p.pitch, held, roll) } else { self.anim.first(md, view, held) };
         o.extend(self.fauna.draws(md)); if let Some(f) = &self.falling { o.extend(f.draws(md)); } o
     }
     /// Où irait le bloc tenu, et serait-il accepté ?

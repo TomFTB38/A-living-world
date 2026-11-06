@@ -81,9 +81,10 @@ function mossy(t, x, y) {
 }
 // Écorce en côtes verticales : colonnes de largeur régulière, ondulées et coupées par endroits.
 function bark(t, x, y, colors, relief = 1) {
-  const COLS = 12, w = x + 2.6 * t.fbm(x, y, 4, 2) - 1.3, q = ((w + 64) % 64) * COLS / 64, col = Math.floor(q) % COLS, u = q - Math.floor(q);
-  const tc = t.p[(col * 61 + 7) & 1023], seg = ((y + tc * 64) % 64) / 64 * 5, sid = Math.floor(seg), sf = seg - sid, ts = t.p[(col * 17 + sid * 131) & 1023];
-  const ridge = Math.pow(Math.sin(u * Math.PI), 0.7), gap = smooth(0, 0.07, sf) * smooth(1, 0.93, sf), n = t.fbm(x, y, 8, 3), fine = t.val(x, y * 0.5, 32);
+  // Plaques de largeurs et de longueurs inégales, sillons qui serpentent : rien ne doit se lire comme une grille.
+  const COLS = 9, w = x + 6 * t.fbm(x, y, 3, 2) + 2.6 * t.fbm(x, y, 7, 2) - 4.3, q = ((w + 128) % 64) * COLS / 64, col = Math.floor(q) % COLS, u0 = q - Math.floor(q);
+  const tc = t.p[(col * 61 + 7) & 1023], segs = 3 + Math.floor(tc * 4), seg = ((y + tc * 64) % 64) / 64 * segs, sid = Math.floor(seg), sf = seg - sid, ts = t.p[(col * 17 + sid * 131) & 1023];
+  const u = Math.pow(u0, 0.65 + 0.9 * ts), ridge = Math.pow(Math.sin(u * Math.PI), 0.7), gap = smooth(0, 0.07, sf) * smooth(1, 0.93, sf), n = t.fbm(x, y, 8, 3), fine = t.val(x, y * 0.5, 32);
   const c = pal(colors, 0.16 + 0.34 * tc + 0.26 * ts + 0.3 * (n - 0.5) + 0.22 * ridge + 0.16 * (fine - 0.5));
   const k = 1 - relief * (0.58 * (1 - ridge) + 0.3 * (1 - gap));
   return { c: c.map((v) => v * k), h: ridge * (0.5 + 0.5 * ts) * (0.4 + 0.6 * gap), r: 0.84 };

@@ -26,7 +26,7 @@ fn spawn_point(seed: i32) -> [f64; 3] {
 fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &hud::Menu) -> usize {
     let (proj, vm) = (view::perspective(1.05, w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
     let ui = hud::Ui::build(s, w, h, msg, mouse, menu); let draws = s.draws(md, &vm); let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
-    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]);
+    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under();
     gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], s.progress() as f32)), s.ghost(), &draws, &ui)
 }
 /// Réglages enregistrés ; un fichier plus ancien garde ses valeurs et prend les nouvelles par défaut.
@@ -65,7 +65,7 @@ impl Game {
         let k = |c: KeyCode| self.keys.contains(&c);
         // Regarder vers +z place +x à gauche de l'écran : la droite vaut -x.
         let ax = |a: bool, b: bool| (a as i32 - b as i32) as f64;
-        let open = self.s.inv_open || self.menu.open; let input = if open { Input::default() } else { Input { x: ax(k(KeyCode::KeyA) || k(KeyCode::KeyQ), k(KeyCode::KeyD)), z: ax(k(KeyCode::KeyW) || k(KeyCode::KeyZ), k(KeyCode::KeyS)), jump: k(KeyCode::Space), sprint: k(KeyCode::ShiftLeft), crouch: k(KeyCode::ControlLeft) } };
+        let open = self.s.inv_open || self.menu.open; let input = if open { Input::default() } else { Input { x: ax(k(KeyCode::KeyA) || k(KeyCode::KeyQ), k(KeyCode::KeyD)), z: ax(k(KeyCode::KeyW) || k(KeyCode::KeyZ), k(KeyCode::KeyS)), jump: k(KeyCode::Space), sprint: k(KeyCode::ShiftLeft), crouch: k(KeyCode::ControlLeft), roll: k(KeyCode::KeyV) } };
         self.place_t -= dt; let place = self.rmb && self.place_t <= 0.0; if place { self.place_t = 0.22; }
         self.s.tick(dt, input, Actions { mine: self.lmb, place });
         let p = self.s.player.p; let (built, gone) = self.s.world.update(p[0], p[2]);
@@ -207,6 +207,15 @@ fn capture(a: &[String]) {
         for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); } pump(&mut s, &mut g); g.settle(); s.sel = 8;
         let e = [x as f64 - 5.0, y as f64 + 3.5, z as f64 - 5.0]; s.player.p = [e[0], e[1] - 1.62, e[2]]; let d = view::norm([x as f64 - e[0], y as f64 - 1.0 - e[1], z as f64 - e[2]]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    if ["visage", "course", "accroupi", "saut", "roulade"].contains(&scene.as_str()) {
+        // Le personnage vu de près : les vrais modèles et la vraie animation, caméra posée à côté de lui.
+        s.player.fly = false; s.third = true; s.sel = 8; for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); }
+        let an = |s: &mut Session, i: alw_core::actors::AnimIn, n: usize| for _ in 0..n { s.anim.update(1.0 / 60.0, i); };
+        match scene.as_str() { "course" => an(&mut s, alw_core::actors::AnimIn { speed: 7.2, ground: true, ..Default::default() }, 26), "accroupi" => { s.player.crouch = true; an(&mut s, alw_core::actors::AnimIn { speed: 0.0, ground: true, crouch: true, ..Default::default() }, 40); } "saut" => an(&mut s, alw_core::actors::AnimIn { speed: 4.0, ground: false, vy: 4.0, ..Default::default() }, 30),
+            "roulade" => { s.tick(1.0 / 60.0, Input { roll: true, ..none }, Actions::default()); for _ in 0..15 { s.tick(1.0 / 60.0, none, Actions::default()); } } _ => {} }
+        let (p, y) = (s.player.p, s.player.yaw); let (a, r, h) = if scene == "visage" { (0.22, 1.25, 1.55) } else { (1.57, 3.3, 1.0) }; let e = [p[0] + (y + a).sin() * r, p[1] + h, p[2] + (y + a).cos() * r]; s.eye = e; s.look = view::norm([p[0] - e[0], p[1] + h - 0.08 - e[1], p[2] - e[2]]);
+    }
+    if scene == "sous_eau" { let (x, z) = (look[0].floor() + 0.5, look[2].floor() + 0.5); let w = WorldGen::new(SEED).column(x, z).water; println!("niveau d'eau {w}"); s.third = false; s.sel = 8; s.player.p = [x, w - 2.6, z]; s.tick(0.0, none, Actions::default()); println!("sous l'eau : {}", s.under()); }
     if scene == "faune" {
         // La faune vit quarante secondes, puis la caméra va voir le premier cerf (ou le premier oiseau posé).
         for _ in 0..2400 { s.tick(1.0 / 60.0, none, Actions::default()); }

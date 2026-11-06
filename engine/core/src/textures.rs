@@ -87,9 +87,10 @@ fn mossy(t: &Tile, x: f64, y: f64) -> S {
     S { c: if k { c } else { mul(st.c, if y < drip + 5.0 { 0.72 } else { 0.92 }) }, h: if k { 0.72 + 0.28 * g } else { st.h }, r: if k { 0.92 } else { st.r } }
 }
 fn bark(t: &Tile, x: f64, y: f64, colors: &[C], relief: f64) -> S {
-    const COLS: f64 = 12.0; let w = x + 2.6 * t.fbm(x, y, 4, 2) - 1.3; let q = ((w + 64.0) % 64.0) * COLS / 64.0; let col = q.floor() % COLS; let u = q - q.floor();
-    let tc = t.pi(col as i64 * 61 + 7); let seg = ((y + tc * 64.0) % 64.0) / 64.0 * 5.0; let sid = seg.floor(); let sf = seg - sid; let ts = t.pi(col as i64 * 17 + sid as i64 * 131);
-    let ridge = sin(u * std::f64::consts::PI).powf(0.7); let gap = smooth(0.0, 0.07, sf) * smooth(1.0, 0.93, sf); let (n, fine) = (t.fbm(x, y, 8, 3), t.val(x, y * 0.5, 32));
+    // Plaques de largeurs et de longueurs inégales, sillons qui serpentent : rien ne doit se lire comme une grille.
+    const COLS: f64 = 9.0; let w = x + 6.0 * t.fbm(x, y, 3, 2) + 2.6 * t.fbm(x, y, 7, 2) - 4.3; let q = ((w + 128.0) % 64.0) * COLS / 64.0; let col = q.floor() % COLS; let u0 = q - q.floor();
+    let tc = t.pi(col as i64 * 61 + 7); let segs = 3.0 + (tc * 4.0).floor(); let seg = ((y + tc * 64.0) % 64.0) / 64.0 * segs; let sid = seg.floor(); let sf = seg - sid; let ts = t.pi(col as i64 * 17 + sid as i64 * 131);
+    let u = u0.powf(0.65 + 0.9 * ts); let ridge = sin(u * std::f64::consts::PI).powf(0.7); let gap = smooth(0.0, 0.07, sf) * smooth(1.0, 0.93, sf); let (n, fine) = (t.fbm(x, y, 8, 3), t.val(x, y * 0.5, 32));
     let c = pal(colors, 0.16 + 0.34 * tc + 0.26 * ts + 0.3 * (n - 0.5) + 0.22 * ridge + 0.16 * (fine - 0.5));
     let k = 1.0 - relief * (0.58 * (1.0 - ridge) + 0.3 * (1.0 - gap));
     S { c: mul(c, k), h: ridge * (0.5 + 0.5 * ts) * (0.4 + 0.6 * gap), r: 0.84 }

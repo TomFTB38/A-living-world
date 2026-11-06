@@ -22,7 +22,7 @@ fn hash13(q: vec3f) -> f32 { var p = fract(q * 0.1031); p += dot(p, p.zyx + 31.3
     let a = textureSampleLevel(t_alb, smp, f, layer0, 1.0);
     alb = a.rgb * a.rgb * i.tint; alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.86);
     if (layer0 >= 4 && layer0 < 16) { alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.74) * vec3f(0.84, 0.82, 0.86); } // terre : brune, pas orange
-    if ((layer0 >= BARK0 && layer0 < LEAF0) || (layer0 >= STONE0 && layer0 < GRAVEL0)) { let e = min(f, vec2f(1.0) - f); alb *= 0.8 + 0.2 * smoothstep(0.0, 0.04, min(e.x, e.y)); }
+    if (layer0 >= STONE0 && layer0 < GRAVEL0) { let e = min(f, vec2f(1.0) - f); alb *= 0.8 + 0.2 * smoothstep(0.0, 0.04, min(e.x, e.y)); }
     // même mousse en petits pixels que dans le monde : c'est elle qui distingue la pierre moussue
     if (layer0 >= MOSSY0 && layer0 < MOSSY0 + 4) {
       let g = floor(pp * 9.0) / 9.0; let mn = hash13(g * 13.0 + vec3f(1.5)) * 0.8 + select(0.0, 0.12, ln.y > 0.5);

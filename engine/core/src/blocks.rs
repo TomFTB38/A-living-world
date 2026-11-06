@@ -27,6 +27,8 @@ pub struct Block {
 #[inline] pub fn flow_block(level: u8) -> u8 { B::WATER_1 + level - 1 }
 /// Vrai pour tous les troncs, quelle que soit leur orientation ; l'essence est le premier mot du nom.
 pub fn is_log(b: u8) -> bool { BLOCKS[b as usize].name.contains("_log") }
+/// Variante sans mousse d'un bloc posé par le joueur, quand elle existe.
+pub fn placed_variant(b: u8) -> u8 { let n = BLOCKS[b as usize].name; if is_log(b) { by_name(&format!("{n}_c")).unwrap_or(b) } else { b } }
 pub fn species(b: u8) -> &'static str { BLOCKS[b as usize].name.split('_').next().unwrap_or("") }
 #[inline(always)] pub fn is_leaf(b: u8) -> bool { BLOCKS[b as usize].shape == Shape::Leaf }
 #[inline(always)] pub fn is_deco(b: u8) -> bool { BLOCKS[b as usize].shape == Shape::Deco }

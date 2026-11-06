@@ -63,6 +63,13 @@ const defs = [
   ['water_5', 'water', null, 0, { cat: 'fluid', drop: null }],
   ['water_6', 'water', null, 0, { cat: 'fluid', drop: null }],
   ['water_7', 'water', null, 0, { cat: 'fluid', drop: null }],
+  // troncs posés par le joueur : mêmes matériaux, jamais de mousse (bit 4 du sens du fil)
+  ['oak_log_c', 'cube', ['end_oak', 'bark_oak', 'end_oak'], 1.0, { cat: 'wood', drop: 'oak_log', clean: true }],
+  ['oak_log_x_c', 'cube', ['bark_oak', 'end_oak', 'bark_oak'], 1.0, { cat: 'wood', drop: 'oak_log', axis: 'x', clean: true }],
+  ['oak_log_z_c', 'cube', ['bark_oak', 'bark_oak', 'end_oak'], 1.0, { cat: 'wood', drop: 'oak_log', axis: 'z', clean: true }],
+  ['beech_log_c', 'cube', ['end_beech', 'bark_beech', 'end_beech'], 1.0, { cat: 'wood', drop: 'beech_log', clean: true }],
+  ['beech_log_x_c', 'cube', ['bark_beech', 'end_beech', 'bark_beech'], 1.0, { cat: 'wood', drop: 'beech_log', axis: 'x', clean: true }],
+  ['beech_log_z_c', 'cube', ['bark_beech', 'bark_beech', 'end_beech'], 1.0, { cat: 'wood', drop: 'beech_log', axis: 'z', clean: true }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
@@ -70,7 +77,7 @@ export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   faces: mats ? mats.map(matLayer) : null,
   // Matériau par direction [X, Y+, Y-, Z], et sens du fil : 0 libre, 1 tourné d'un quart, 2 fixe.
   dirFaces: !mats ? null : p.axis === 'x' || p.axis === 'z' ? [mats[1], mats[0], mats[0], mats[2]].map(matLayer) : [mats[1], mats[0], mats[2], mats[1]].map(matLayer),
-  grain: p.axis === 'x' ? [0, 1, 1, 1] : p.axis === 'z' ? [1, 2, 2, 0] : p.axis === 'pz' ? [0, 1, 1, 0] : p.axis === 'py' ? [1, 0, 0, 1] : name === 'planks' ? [0, 2, 2, 0] : [0, 0, 0, 0],
+  grain: (p.axis === 'x' ? [0, 1, 1, 1] : p.axis === 'z' ? [1, 2, 2, 0] : p.axis === 'pz' ? [0, 1, 1, 0] : p.axis === 'py' ? [1, 0, 0, 1] : name === 'planks' ? [0, 2, 2, 0] : [0, 0, 0, 0]).map((g) => g + (p.clean ? 4 : 0)),
   solid: shape === 'cube' || shape === 'leaf' || !!p.solid,
   opaque: shape === 'cube',
   light: p.light || 0,

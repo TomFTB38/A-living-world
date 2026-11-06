@@ -31,7 +31,7 @@ fn personnage_et_inventaire_ecran() {
     let mut s = session(); let md = alw_core::actors::Models::build(); assert!(md.n > 1000);
     for n in ORDER { assert!(md.held(n).is_some(), "{n}"); }
     let v = alw_core::view::identity();
-    let heros = |s: &Session| s.draws(&md, &v).into_iter().filter(|d| d.hero).count(); s.third = true; let d = s.draws(&md, &v); assert_eq!(heros(&s), 7, "corps et outil"); for k in &d { assert!(k.m[12].is_finite() && k.r.count > 0); }
+    let heros = |s: &Session| s.draws(&md, &v).into_iter().filter(|d| d.hero).count(); s.third = true; let d = s.draws(&md, &v); assert_eq!(heros(&s), 11, "corps articulé et outil"); for k in &d { assert!(k.m[12].is_finite() && k.r.count > 0); }
     s.third = false; assert_eq!(heros(&s), 2, "bras et outil"); s.sel = 8; assert_eq!(heros(&s), 1, "poing"); s.sel = 5; assert_eq!(heros(&s), 1, "bloc seul");
     for _ in 0..30 { s.anim.update(1.0 / 60.0, alw_core::actors::AnimIn { speed: 6.0, ground: true, mining: true, ..Default::default() }); } assert!(s.anim.swing > 0.0);
     // glisser-déposer : échange, réunion, retour à la case d'origine
@@ -110,4 +110,21 @@ fn l_eau_coule_sur_le_vrai_relief() {
     let pump = |s: &mut Session| { for _ in 0..4000 { let p = s.player.p; let (b, _) = s.world.update(p[0], p[2]); for c in &b { assert!(c.mesh.n_w % 4 == 0); } if s.world.waiting() == 0 { return; } std::thread::sleep(std::time::Duration::from_millis(1)); } panic!("remaillage bloqué"); };
     let mut n = 0; for _ in 0..240 { s.tick(1.0 / 60.0, Input::default(), Actions::default()); pump(&mut s); n += 1; }
     let mut cells = 0; for dx in -30..30 { for dz in -30..30 { for y in 30..80 { if s.world.get(x + dx, y, z + dz).is_some_and(|b| is_water(b) && b != B::WATER) { cells += 1; } } } } println!("{n} étapes, {cells} cases d'eau courante"); assert!(cells > 5);
+}
+
+#[test]
+fn roulades_et_troncs_poses() {
+    let mut s = session(); let none = Input::default(); for _ in 0..30 { s.tick(1.0 / 60.0, none, Actions::default()); } assert!(s.player.ground);
+    s.player.yaw = 0.0; let md = alw_core::actors::Models::build(); let v = alw_core::view::identity();
+    for (x, z) in [(0.0, 0.0), (0.0, -1.0), (1.0, 0.0), (-1.0, 0.0)] {
+        for _ in 0..40 { s.tick(1.0 / 60.0, none, Actions::default()); } let p0 = s.player.p;
+        s.tick(1.0 / 60.0, Input { x, z, roll: true, ..none }, Actions::default()); assert!(s.player.rolling()); let mut mid = 0.0; let mut dip = 0.0f64;
+        for k in 0..40 { s.tick(1.0 / 60.0, none, Actions::default()); if k == 15 { mid = s.player.roll_t; dip = s.player.p[1] + 1.62 - s.player.eye()[1]; s.third = true; assert_eq!(s.draws(&md, &v).iter().filter(|d| d.hero).count(), 11); for d in s.draws(&md, &v) { assert!(d.m.iter().all(|a| a.is_finite())); } } if !s.player.rolling() { break; } }
+        assert!(!s.player.rolling(), "la roulade finit"); assert!(mid > 0.0 && dip > 0.3); let (dx, dz) = (s.player.p[0] - p0[0], s.player.p[2] - p0[2]); println!("roulade ({x},{z}) : {dx:.2} {dz:.2}");
+        let want = if (x, z) == (0.0, 0.0) { (0.0, 1.0) } else { (x, z) }; assert!(dx * want.0 + dz * want.1 > 1.0 || dx.hypot(dz) < 0.5, "sens de la roulade"); // un obstacle peut l'arrêter
+    }
+    let h0 = s.vit[0]; s.tick(1.0 / 60.0, Input { roll: true, ..none }, Actions::default()); for _ in 0..4 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.player.rolling() { s.hurt(10.0); assert_eq!(s.vit[0], h0, "esquive"); }
+    assert_eq!(placed_variant(B::OAK_LOG), by_name("oak_log_c").unwrap()); assert_eq!(placed_variant(B::BEECH_LOG_X), by_name("beech_log_x_c").unwrap()); assert_eq!(placed_variant(B::STONE), B::STONE);
+    let c = BLOCKS[by_name("oak_log_x_c").unwrap() as usize]; assert_eq!(c.drop, Some("oak_log")); assert!(c.grain.iter().all(|g| *g >= 4)); assert_eq!(alw_core::audio::sound_of("oak_log_x_c").m, "wood"); assert_eq!(is_log(by_name("oak_log_c").unwrap()), true);
+    s.inv[5] = Some(Stack { item: "oak_log", n: Some(5) }); s.sel = 5; s.third = false; let mut ok = false; for k in 0..40 { for y in 0..8 { s.player.yaw = y as f64 * 0.8; s.player.pitch = -1.4 + k as f64 * 0.05; s.tick(0.0, none, Actions::default()); if let Some(g) = s.ghost() { if g.1 && s.place() { let q = g.0; let b = s.world.get(q[0], q[1], q[2]).unwrap(); assert!(BLOCKS[b as usize].name.ends_with("_c"), "posé {}", BLOCKS[b as usize].name); ok = true; break; } } } if ok { break; } } assert!(ok, "pose d'un tronc");
 }

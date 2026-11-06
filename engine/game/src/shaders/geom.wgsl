@@ -45,21 +45,21 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
   if (kind <= 1) {
     let cell = floor(pp - ln * 0.02); let h = hash13(cell + vec3f(0.5)); let h2 = hash13(cell.zxy + vec3f(7.5));
     var f = fract(uv0);
-    if (rot == 1 || (rot == 0 && ax.y > 0.5 && h2 > 0.5)) { f = f.yx; dx = dx.yx; dy = dy.yx; let q = tt; tt = bb; bb = q; }
+    let grain = rot & 3; if (grain == 1 || (grain == 0 && ax.y > 0.5 && h2 > 0.5)) { f = f.yx; dx = dx.yx; dy = dy.yx; let q = tt; tt = bb; bb = q; }
     let l = layer0 + (i32(h * 4.0) & 3);
     let a = textureSampleGrad(t_alb, s_rep, f, l, dx, dy); let m = textureSampleGrad(t_nrm, s_rep, f, l, dx, dy);
     alb = a.rgb * a.rgb * i.tint;
     alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.86);
     if (layer0 >= 4 && layer0 < 16) { alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.74) * vec3f(0.84, 0.82, 0.86); } // terre : brune, pas orange
     let bark = layer0 >= BARK0 && layer0 < LEAF0;
-    alb *= select(0.9 + 0.2 * h2, 0.84 + 0.32 * h2, bark);
-    if (bark || (layer0 >= STONE0 && layer0 < GRAVEL0)) { let e = min(f, vec2f(1.0) - f); alb *= 0.8 + 0.2 * smoothstep(0.0, 0.04, min(e.x, e.y)); }
+    alb *= select(0.9 + 0.2 * h2, 0.95 + 0.1 * h2, bark);
+    if (layer0 >= STONE0 && layer0 < GRAVEL0) { let e = min(f, vec2f(1.0) - f); alb *= 0.8 + 0.2 * smoothstep(0.0, 0.04, min(e.x, e.y)); }
     let d = m.xy * 2.0 - 1.0; if (!held) { nn = normalize(n + (tt * d.x + bb * d.y) * 0.9); } rough = m.b;
     if (kind == 1) { trans = 1.0; rough = 0.5; alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.8) * vec3f(0.74, 0.8, 0.74); } // feuillage au soleil : vert profond, pas jaune fluo
     // mousse en petits pixels sur les pierres et l'écorce
     let mossy_rock = layer0 >= MOSSY0 && layer0 < MOSSY0 + 4;
     let mossable = mossy_rock || (layer0 >= BARK0 && layer0 < BARK0 + 4) || (layer0 >= BEECH0 && layer0 < BEECH0 + 4);
-    if (mossable && !held && fine < 0.07) {
+    if (mossable && !held && fine < 0.07 && rot < 4) {
       let g = floor(i.w * 9.0) / 9.0; let mn = noise(g * 0.031) * 0.78 + hash13(g) * 0.22 + select(0.0, 0.14, n.y > 0.5);
       let mm = step(select(0.5, 0.7, bark), mn);
       alb = mix(alb, vec3f(0.13, 0.22, 0.045) * (0.75 + 0.7 * hash13(g + vec3f(3.0))), mm); rough = mix(rough, 0.95, mm);

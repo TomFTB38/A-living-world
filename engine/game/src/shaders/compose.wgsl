@@ -19,5 +19,9 @@ fn inv_d(d: f32) -> f32 { return 1.0 / max(d, 1e-6); }
     vv += textureSampleLevel(t_vol, s_clamp, p, 0.0) * g; w += g;
   }
   vv /= w; c = c * vv.a + vv.rgb;
+  if (u.weather.w > 0.5) { // sous l'eau : la distance se perd vite dans un vert sombre, éclairé par la surface
+    let glow = (mix(u.hor.rgb, u.top.rgb, 0.5) * 0.5 + u.sun_col.rgb * 0.06) * vec3f(0.14, 0.34, 0.36);
+    c = mix(c * vec3f(0.55, 0.82, 0.8), glow, 1.0 - exp(-len * 0.16));
+  }
   return vec4f(c, 1.0);
 }

@@ -22,18 +22,18 @@ fn pos(p: vec2f, d: f32) -> vec3f { return world_from(p, max(d, 1e-6)); }
   var sh = shadow_at(i.w, vec3f(0.0, 1.0, 0.0), dist, i.clip.xy, 4); if (fall > 0.5) { sh = 0.5 + 0.2 * sh; }
   let water = mix(tint * (u.sun_col.rgb * 0.35 * sh + mix(u.hor.rgb, u.top.rgb, 0.5) * 0.7 * i.lit.y), scene, absorb * 0.82);
   var r = reflect(v, n); r.y = abs(r.y);
-  let fr = 0.03 + 0.97 * pow(1.0 - sat(dot(-v, n)), 5.0);
+  let fr = 0.07 + 0.93 * pow(1.0 - sat(dot(-v, n)), 4.0); // assez de reflet, même vu d'au-dessus
   var refl = sky_color(r) * mix(0.22, 1.0, i.lit.y);
   if (fall < 0.5) {
     var q = i.w + r * 0.8; var st = 1.8; var hit = vec2f(-1.0);
-    for (var k = 0; k < 14; k++) {
+    for (var k = 0; k < 30; k++) {
       let c = u.vp * vec4f(q, 1.0); if (c.w <= 0.0) { break; } let s = to_uv(c.xy / c.w);
       if (s.x < 0.0 || s.y < 0.0 || s.x > 1.0 || s.y > 1.0) { break; }
       let dq = depth_at(t_d, s); let pp = pos(s, dq);
       if (dq > 0.0 && length(pp - u.cam.xyz) < length(q - u.cam.xyz) && length(pp - q) < st * 2.5) { hit = s; break; }
-      q += r * st; st *= 1.18;
+      q += r * st; st *= 1.09;
     }
-    if (hit.x >= 0.0) { let ed = smoothstep(0.0, 0.08, min(min(hit.x, hit.y), min(1.0 - hit.x, 1.0 - hit.y))); refl = mix(refl, textureSampleLevel(t_scene, s_clamp, hit, 0.0).rgb, ed * 0.9); }
+    if (hit.x >= 0.0) { let ed = smoothstep(0.0, 0.08, min(min(hit.x, hit.y), min(1.0 - hit.x, 1.0 - hit.y))); refl = mix(refl, textureSampleLevel(t_scene, s_clamp, hit, 0.0).rgb, ed * 0.95); }
   }
   var c = mix(water, refl, fr);
   let hv = normalize(u.sun.xyz - v); c += u.sun_col.rgb * pow(sat(dot(n, hv)), 900.0) * sh * 1.6;
@@ -42,6 +42,6 @@ fn pos(p: vec2f, d: f32) -> vec3f { return world_from(p, max(d, 1e-6)); }
   var foam = max((1.0 - smoothstep(0.05, 0.7, depth)) * smoothstep(0.42, 0.7, fnz + 0.25), smoothstep(0.2, 1.5, i.foam) * smoothstep(0.42, 0.56, boil)) * select(0.0, 1.0, fall < 0.5);
   let lit_s = mix(u.hor.rgb, u.top.rgb, 0.5);
   if (fall > 0.5) { let streak = noise(vec3f((i.w.x + i.w.z) * 1.7, i.w.y * 0.09 + time * 0.9, 0.2)); foam = smoothstep(0.56, 0.76, streak) * 0.42; c = mix(c, vec3f(0.34, 0.5, 0.52) * (u.sun_col.rgb * 0.3 * sh + lit_s * 0.9 * max(i.lit.y, 0.4)), 0.3); }
-  c = mix(c, vec3f(1.0) * (u.sun_col.rgb * 0.55 * sh + lit_s * 0.8 * i.lit.y), foam * 0.8);
+  c = mix(c, vec3f(0.92, 0.97, 0.98) * (u.sun_col.rgb * 0.34 * sh + lit_s * 0.62 * i.lit.y), foam * 0.55);
   return vec4f(c, 1.0);
 }

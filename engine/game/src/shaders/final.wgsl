@@ -6,6 +6,11 @@ fn aces(x: vec3f) -> vec3f { return clamp(x * (2.51 * x + vec3f(0.03)) / (x * (2
   var c = textureLoad(t_t, px, 0).rgb;
   let nb = (textureLoad(t_t, min(px + vec2i(1, 0), dim), 0).rgb + textureLoad(t_t, max(px - vec2i(1, 0), vec2i(0)), 0).rgb + textureLoad(t_t, min(px + vec2i(0, 1), dim), 0).rgb + textureLoad(t_t, max(px - vec2i(0, 1), vec2i(0)), 0).rgb) * 0.25;
   c = max(c + (c - nb) * 0.32, vec3f(0.0));
+  if (u.weather.w > 0.5) { // sous l'eau : image brouillée qui ondule doucement
+    let t = u.cam.w; var acc = vec3f(0.0); let wob = vec2f(sin(i.uv.y * 24.0 + t * 2.0), cos(i.uv.x * 20.0 + t * 1.7)) * 3.0;
+    for (var k = 0; k < 8; k++) { let a = f32(k) * 0.7854; let r = 3.0 + 3.0 * f32(k % 2); let o = vec2i(vec2f(cos(a), sin(a)) * r + wob); acc += textureLoad(t_t, clamp(px + o, vec2i(0), dim), 0).rgb; }
+    c = acc / 8.0;
+  }
   c += textureSampleLevel(t_b, s_clamp, i.uv, 0.0).rgb * 0.04;
   c = pow(aces(c * u.sun.w * u.weather.z), vec3f(1.0 / 2.2));
   let l = dot(c, vec3f(0.3, 0.59, 0.11));
