@@ -8,8 +8,8 @@ use crate::view::{invert, mul, roll_z, trs, M4};
 use std::collections::HashMap;
 
 type C = [f64; 3];
-const SKIN: C = [0.86, 0.66, 0.53]; const SKIN2: C = [0.76, 0.55, 0.43]; const LIP: C = [0.6, 0.34, 0.3]; const WHITE: C = [0.95, 0.94, 0.9]; const IRIS: C = [0.2, 0.42, 0.34]; const PUPIL: C = [0.06, 0.05, 0.05];
-const HAIR: C = [0.2, 0.12, 0.07]; const HAIR2: C = [0.3, 0.18, 0.1]; const TUNIC: C = [0.3, 0.42, 0.3]; const TUNIC2: C = [0.23, 0.33, 0.24]; const LINEN: C = [0.8, 0.76, 0.64]; const LEATHER2: C = [0.42, 0.26, 0.14]; const BELT: C = [0.26, 0.16, 0.09]; const BUCKLE: C = [0.74, 0.6, 0.3];
+const SKIN: C = [0.86, 0.66, 0.53]; const SKIN2: C = [0.76, 0.55, 0.43]; const LIP: C = [0.6, 0.34, 0.3]; const WHITE: C = [1.0, 0.98, 0.94]; const IRIS: C = [0.3, 0.24, 0.14]; const PUPIL: C = [0.06, 0.05, 0.05];
+const HAIR: C = [0.2, 0.12, 0.07]; const HAIR2: C = [0.3, 0.18, 0.1]; const TUNIC: C = [0.36, 0.44, 0.3]; const TUNIC2: C = [0.28, 0.35, 0.25]; const LINEN: C = [0.8, 0.76, 0.64]; const LEATHER2: C = [0.42, 0.26, 0.14]; const BELT: C = [0.26, 0.16, 0.09]; const BUCKLE: C = [0.74, 0.6, 0.3];
 const PANTS: C = [0.33, 0.29, 0.24]; const PANTS2: C = [0.27, 0.23, 0.19]; const BOOT: C = [0.24, 0.15, 0.09]; const SOLE: C = [0.12, 0.09, 0.07];
 const BAG: C = [0.42, 0.27, 0.15]; const BAG2: C = [0.52, 0.35, 0.2]; const ROLL: C = [0.68, 0.6, 0.44]; const STRAP: C = [0.26, 0.16, 0.09];
 const SHIRT: C = TUNIC; const SHIRT2: C = TUNIC2;
@@ -36,10 +36,9 @@ fn head() -> VBuf {
     b(o2, [-0.175, 0.03, -0.185, 0.175, 0.38, 0.185], SKIN); b(o2, [-0.14, -0.01, -0.13, 0.14, 0.05, 0.16], SKIN2); // crâne, mâchoire plus étroite
     for sx in [-1.0f64, 1.0] {
         let box_ = |o: &mut VBuf, a: f64, y0: f64, z0: f64, c: f64, y1: f64, z1: f64, col: C| b(o, [f64::min(sx * a, sx * c), y0, z0, f64::max(sx * a, sx * c), y1, z1], col);
-        box_(o2, 0.04, 0.195, 0.185, 0.125, 0.245, 0.192, WHITE); box_(o2, 0.06, 0.195, 0.19, 0.105, 0.24, 0.197, IRIS); box_(o2, 0.072, 0.205, 0.195, 0.095, 0.232, 0.2, PUPIL); // œil
+        box_(o2, 0.04, 0.198, 0.185, 0.125, 0.244, 0.187, WHITE); box_(o2, 0.062, 0.198, 0.185, 0.104, 0.244, 0.189, IRIS); box_(o2, 0.074, 0.208, 0.185, 0.092, 0.234, 0.191, PUPIL); // œil, à plat : le relief le faisait loucher de trois quarts
         box_(o2, 0.032, 0.262, 0.185, 0.135, 0.288, 0.2, HAIR); box_(o2, 0.04, 0.175, 0.185, 0.125, 0.19, 0.19, SKIN2); // sourcil, paupière basse
         box_(o2, 0.175, 0.14, -0.03, 0.195, 0.245, 0.05, SKIN2); // oreille
-        box_(o2, 0.11, 0.1, 0.185, 0.16, 0.15, 0.188, [0.85, 0.58, 0.47]); // joue
     }
     b(o2, [-0.028, 0.125, 0.185, 0.028, 0.235, 0.232], SKIN); b(o2, [-0.034, 0.125, 0.205, 0.034, 0.155, 0.238], SKIN2); // nez
     b(o2, [-0.068, 0.075, 0.185, 0.068, 0.092, 0.195], LIP); b(o2, [-0.045, 0.092, 0.185, 0.045, 0.1, 0.192], SKIN2); // bouche
