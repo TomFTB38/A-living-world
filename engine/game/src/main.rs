@@ -222,6 +222,11 @@ fn capture(a: &[String]) {
         if scene == "horizon" { s.player.p[1] = 96.0; let f = view::norm([x - s.player.p[0], -8.0, z - s.player.p[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
         else { let l = (x * x + z * z).sqrt(); let (ex, ez) = (x - x / l * 170.0, z - z / l * 170.0); let h = w.column(ex, ez).h.max(w.column(ex, ez).water); s.player.p = [ex, h + 12.0, ez]; let f = view::norm([x - ex, 20.0, z - ez]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
     }
+    if scene == "chute" {
+        // La plus proche chute de rivière : un palier où le niveau change entre deux colonnes voisines.
+        let w = WorldGen::new(SEED); let mut found = None; 'f: for r in 2..500i32 { for k in 0..(r * 6) { let a = k as f64 / (r * 6) as f64 * std::f64::consts::TAU; let (x, z) = ((a.cos() * r as f64 * 3.0).floor(), (a.sin() * r as f64 * 3.0).floor()); let c = w.column(x, z); if c.water == 0.0 || c.still { continue; } for (dx, dz) in [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)] { let n = w.column(x + dx, z + dz); if n.water - c.water >= 4.0 { found = Some((x, z, dx, dz, c.water)); break 'f; } } } }
+        println!("chute : {found:?}"); if let Some((x, z, dx, dz, l)) = found { s.sel = 8; s.third = false; let e = [x - dx * 8.0 + dz * 5.0, l + 5.0, z - dz * 8.0 + dx * 5.0]; s.player.p = [e[0], e[1] - 1.62, e[2]]; pump(&mut s, &mut g); let f = view::norm([x - e[0], l + 1.5 - e[1], z - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
+    }
     if scene == "grotte" {
         // Une vraie entrée : la colonne creusée la plus proche, on descend dedans.
         let w = WorldGen::new(SEED); let mut found = None; 'g: for r in 2..100i32 { for dz in -r..=r { for dx in -r..=r { if i32::abs(dx).max(i32::abs(dz)) != r { continue; } let (cx, cz) = (dx, dz); let v = w.gen_chunk(cx, cz); for x in (0..32).step_by(4) { for z in (0..32).step_by(4) { let (wx, wz) = (cx * 32 + x as i32, cz * 32 + z as i32); let h = w.column(wx as f64, wz as f64).h as i32; if h > 40 && h < 100 && (0..7).all(|k| v[alw_core::blocks::idx(x, (h - 1 - k) as usize, z)] == 0) { found = Some((wx, h, wz)); break 'g; } } } } } }

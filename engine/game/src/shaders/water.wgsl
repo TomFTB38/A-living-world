@@ -35,7 +35,7 @@ fn pos(p: vec2f, d: f32) -> vec3f { return world_from(p, max(d, 1e-6)); }
     }
     if (hit.x >= 0.0) { let ed = smoothstep(0.0, 0.08, min(min(hit.x, hit.y), min(1.0 - hit.x, 1.0 - hit.y))); refl = mix(refl, textureSampleLevel(t_scene, s_clamp, hit, 0.0).rgb, ed * 0.95); }
   }
-  var c = mix(water, refl, fr);
+  var c = mix(water, refl, fr * select(1.0, 0.3, fall > 0.5)); // une chute ne se comporte pas comme un miroir
   let hv = normalize(u.sun.xyz - v); c += u.sun_col.rgb * pow(sat(dot(n, hv)), 900.0) * sh * 1.6;
   let glint = pow(sat(dot(reflect(v, normalize(n + vec3f(0.0, 0.2, 0.0))), u.sun.xyz)), 1400.0) * 40.0 * sh; c += u.sun_col.rgb * min(glint, 1.5);
   let fnz = noise(vec3f(i.w.xz * 0.42, time * 0.09)); let boil = 0.6 * noise(vec3f(i.w.xz * 0.37 + vec2f(0.13), time * 0.3)) + 0.4 * noise(vec3f(i.w.zx * 0.91, 0.4 - time * 0.45));

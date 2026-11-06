@@ -22,6 +22,13 @@ fn main() {
         println!("  grottes: {:.2} % de vide sous la surface, {open} colonnes ouvertes en surface sur {} ; chunk {:.1} ms", air as f64 / (air + solid) as f64 * 100.0, chunks * CX * CX, t.elapsed().as_secs_f64() * 1000.0 / chunks as f64);
         let t = Instant::now(); let (_, n) = far_mesh(&g, 0, 0); println!("  horizon {n} sommets, {:.0} ms", t.elapsed().as_secs_f64() * 1000.0);
     }
+    // Murs d'eau : une face d'eau exposée à l'air, sans rien pour la porter en dessous, est un aquarium suspendu.
+    for seed in [20261104, 7, -1234] { let g = WorldGen::new(seed); let (mut walls, mut tall, mut mountain, mut columns) = (0, 0, 0, 0); let mut chunks = std::collections::HashMap::new();
+        for cz in -16..16 { for cx in -16..16 { chunks.insert((cx, cz), g.gen_chunk(cx, cz)); } }
+        let at = |x: i32, y: usize, z: i32| chunks.get(&(x.div_euclid(32), z.div_euclid(32))).map_or(1u8, |c| c[idx(x.rem_euclid(32) as usize, y, z.rem_euclid(32) as usize)]);
+        for x in -500..500 { for z in -500..500 { let c = g.column(x as f64, z as f64); if c.water == 0.0 { continue; } columns += 1; if c.h > 76.0 { mountain += 1; } let wy = c.water as usize;
+            for (a, b) in [(1, 0), (-1, 0), (0, 1), (0, -1)] { let mut run = 0; let mut y = wy + 8; while y > 3 { if is_water(at(x, y, z)) && at(x + a, y, z + b) == 0 { run += 1; } y -= 1; } if run >= 1 && at(x + a, wy, z + b) == 0 { walls += 1; if run >= 3 { tall += 1; } } } } }
+        println!("seed {seed}: {columns} colonnes d'eau, {mountain} en altitude, {walls} faces d'eau à l'air, {tall} de 3 blocs ou plus"); }
     // Une grotte : on part d'une entrée et on suit le vide sous terre.
     let g = WorldGen::new(20261104); let mut cache = std::collections::HashMap::new(); let mut get = |x: i32, y: i32, z: i32, g: &WorldGen| -> u8 { if !(0..CH as i32).contains(&y) { return 1; } let k = (x.div_euclid(32), z.div_euclid(32)); let c = cache.entry(k).or_insert_with(|| g.gen_chunk(k.0, k.1)); c[idx(x.rem_euclid(32) as usize, y as usize, z.rem_euclid(32) as usize)] };
     let mut reports = 0; 'e: for z in (-600..600).step_by(9) { for x in (-600..600).step_by(9) { let h = g.column(x as f64, z as f64).h as i32; if !(40..100).contains(&h) || !(1..7).all(|k| get(x, h - k, z, &g) == 0) { continue; }

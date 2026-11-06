@@ -20,7 +20,9 @@ export class WorldGen {
     const s = this.seed;
     if (hashFloat(gx, gz, s, 71) > 0.42) return null;
     const x = (gx + 0.2 + 0.6 * hashFloat(gx, gz, s, 72)) * POND_CELL, z = (gz + 0.2 + 0.6 * hashFloat(gx, gz, s, 73)) * POND_CELL;
-    return { x, z, r: 7 + 8 * hashFloat(gx, gz, s, 74), level: Math.floor(this.rawHeight(x, z).hs) - 1 };
+    const r = 7 + 8 * hashFloat(gx, gz, s, 74), mid = this.rawHeight(x, z); let lo = mid.hs, hi = mid.hs;
+    for (let k = 0; k < 8; k++) { const a = k * 0.7854, q = this.rawHeight(x + Math.cos(a) * r * 1.2, z + Math.sin(a) * r * 1.2).hs; lo = Math.min(lo, q); hi = Math.max(hi, q); }
+    return hi - lo > 5 || mid.massif > 0.02 ? null : { x, z, r, level: Math.floor(lo) - 1 };
   }
 
   rawHeight(x, z) {
@@ -30,6 +32,17 @@ export class WorldGen {
     const hs = low + 5.5 * this.nHill.fbm2(wx / 96, wz / 96, 3);
     return { wx, wz, low, hs, massif };
   }
+
+  bed(x, z, wx, wz, rs, low, massif) {
+    const grad = Math.max(Math.hypot(this.nRiver.fbm2((wx + 1) / 400, wz / 400, 2, 2.1, 0.32) - rs, this.nRiver.fbm2(wx / 400, (wz + 1) / 400, 2, 2.1, 0.32) - rs), 1e-5);
+    const dry = 1 - smooth(0.04, 0.26, massif), w0 = (1.7 + 1.2 * (0.5 + 0.5 * this.nRiver.n2(x / 60, z / 60))) * dry;
+    return { dR: Math.abs(rs) / grad, wid: w0 < 0.8 ? 0 : w0, L: Math.floor((low - 4) / 4) * 4 + 1, grad };
+  }
+  riverLevel(x, z) {
+    const { wx, wz, low, massif } = this.rawHeight(x, z), b = this.bed(x, z, wx, wz, this.nRiver.fbm2(wx / 400, wz / 400, 2, 2.1, 0.32), low, massif);
+    return b.wid > 0 && b.dR < b.wid ? [b.L, b.dR / b.wid] : null;
+  }
+  fallTop(x, z, water) { let t = 0; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const r = this.riverLevel(x + a, z + b); if (r && r[0] > water && r[1] < 0.55) t = Math.max(t, r[0]); } return t; }
 
   // Remplit this.c pour la colonne (x,z) : altitude, eau, chemin, densité forestière.
   column(x, z) {
@@ -42,16 +55,16 @@ export class WorldGen {
     h += 1.6 * this.nHill.n2(x / 19, z / 19);
 
     // rivière : ligne de niveau du bruit déformé, niveaux quantifiés = cascades. La distance est la valeur du bruit divisée par sa pente.
-    const rs = this.nRiver.fbm2(wx / 400, wz / 400, 2, 2.1, 0.32), rn = Math.abs(rs);
-    const grad = Math.max(Math.hypot(this.nRiver.fbm2((wx + 1) / 400, wz / 400, 2, 2.1, 0.32) - rs, this.nRiver.fbm2(wx / 400, (wz + 1) / 400, 2, 2.1, 0.32) - rs), 1e-5);
-    const dR = rn / grad, wid = 1.7 + 1.2 * (0.5 + 0.5 * this.nRiver.n2(x / 60, z / 60));
-    const L = Math.floor((low - 4) / 4) * 4 + 1; // paliers de 4 blocs : de vraies cascades
-    let water = 0, bank = 0, still = 0;
-    if (dR < wid + 13) {
+    const rs = this.nRiver.fbm2(wx / 400, wz / 400, 2, 2.1, 0.32), { dR, wid, L, grad } = this.bed(x, z, wx, wz, rs, low, massif);
+    let water = 0, bank = 0, still = 0, wet = false;
+    if (wid > 0 && dR < wid + 13) {
+      wet = true;
       bank = 1 - smooth(wid, wid + 13, dR);
       const target = L + 1 + 3 * smooth(wid, wid + 8, dR);
       if (h > target) h = lerp(h, target, smooth(0, 1, bank * 1.25));
-      if (dR < wid) { h = L - 2 - (1 - dR / wid) * 1.6; water = L; } else if (h < L + 1) h = L + 1;
+      const lip = dR >= wid * 0.55 && dR < wid && [[3, 0], [-3, 0], [0, 3], [0, -3]].some(([a, b]) => { const n = this.riverLevel(x + a, z + b); return n && n[0] < L; });
+      if (dR < wid && !lip) { h = L - 2 - (1 - dR / wid) * 1.6; water = L; }
+      else { let top = L; if (dR < wid + 5) for (let a = -3; a <= 3; a++) for (let b = -3; b <= 3; b++) { const n = this.riverLevel(x + a, z + b); if (n) top = Math.max(top, n[0]); } if (h < top + 1) h = top + 1; }
     }
     // étangs
     const gx = Math.floor(x / POND_CELL), gz = Math.floor(z / POND_CELL);
@@ -60,9 +73,11 @@ export class WorldGen {
       if (!p) continue;
       const d = Math.hypot(x - p.x, z - p.z) + 3 * this.nDeco.n2(x / 9, z / 9);
       if (d > p.r * 2) continue;
+      wet = true;
       const bowl = lerp(p.level - 3, h, smooth(p.r * 0.7, p.r * 1.8, d));
       if (bowl < h) h = bowl;
       if (d < p.r * 1.05 && h < p.level && p.level > water) { water = p.level; still = 1; }
+      if (d >= p.r * 1.05) { const rim = p.level + 1 - (d - p.r * 1.05) * 0.8; if (h < rim) h = rim; }
     }
     // chemin
     const pn = Math.abs(this.nPath.n2(wx / 210 + 9, wz / 210 + 3)) * 165;
@@ -81,7 +96,7 @@ export class WorldGen {
       if (walk > 0) h = lerp(h, low - 1, walk); // niveau continu : le sentier reste praticable au passage des chutes
     }
     const f = this.nForest.fbm2(x / 170, z / 170, 3) * 1.5 + 0.78 + 0.12 * this.nForest.n2(x / 31, z / 31);
-    c.h = Math.min(h, 120); c.water = water; c.still = still; c.forest = clamp(f, 0, 1); c.path = path; c.bank = bank;
+    c.wet = wet; c.h = Math.min(h, 120); c.water = water; c.still = still; c.forest = clamp(f, 0, 1); c.path = path; c.bank = bank;
     c.cliff = smooth(0.1, 0.55, this.nCliff.n2(x / 120, z / 120));
     return c;
   }
@@ -110,9 +125,9 @@ export class WorldGen {
       const ymax = Math.min(CH - 2, Math.ceil(hf + 7));
       for (let y = 0; y <= ymax; y++) {
         let d = hf - y;
-        if (cliff > 0.01 && y > hf - 12) d += cliff * 6 * (1 - clamp((y - hf) / 8, 0, 1)) * this.nCave.n3(wx / 25, y / 15, wz / 25);
+        if (cliff > 0.01 && !c.wet && y > hf - 12) d += cliff * 6 * (1 - clamp((y - hf) / 8, 0, 1)) * this.nCave.n3(wx / 25, y / 15, wz / 25);
         if (d > 0) {
-          if (y > 2 && y < hf - 3 + entry * 5 && this.isCave(wx, y, wz)) continue;
+          if (y > 2 && !c.wet && y < hf - 3 + entry * 5 && this.isCave(wx, y, wz)) continue;
           v[idx(x, y, z)] = B.stone; top = y;
         }
       }
@@ -136,6 +151,7 @@ export class WorldGen {
       }
       if (water) {
         for (let y = top + 1; y <= water; y++) v[idx(x, y, z)] = B.water;
+        if (!c.still) { const t = this.fallTop(wx, wz, water); for (let y = water + 1; y <= Math.min(t, CH - 2); y++) if (!v[idx(x, y, z)]) v[idx(x, y, z)] = B.water; }
         // Rochers qui affleurent dans le lit, posés en groupes
         if (this.nDeco.n2(wx / 4.3 + 31, wz / 4.3 - 12) > 0.56) { const crown = water + (hashFloat(wx, wz, this.seed, 9) > 0.55 ? 1 : 0); for (let y = top + 1; y <= crown && y < CH - 1; y++) v[idx(x, y, z)] = y === crown ? B.mossy_stone : B.stone; top = crown; }
       }

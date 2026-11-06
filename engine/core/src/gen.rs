@@ -9,12 +9,14 @@ use std::rc::Rc;
 const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38;
 
 #[derive(Clone, Copy, Default, Debug)]
-pub struct Column { pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
+pub struct Column { pub wet: bool, pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
 #[derive(Clone, Copy)] struct Pond { x: f64, z: f64, r: f64, level: f64 }
 struct Raw { wx: f64, wz: f64, low: f64, hs: f64, massif: f64 }
 /// Empreinte : voxels (x, y, z, id) d'un arbre ou d'un rocher, posés dans chaque chunk touché.
 pub struct Stamp { data: Vec<[i32; 4]>, force: bool }
 
+struct Bed { d_r: f64, wid: f64, l: f64, grad: f64 }
+const LIP: f64 = 0.55; // part du lit qui se déverse au bord d'un palier
 fn fdiv(a: i32, b: i32) -> i32 { a.div_euclid(b) }
 #[inline] fn ri(x: f64) -> i32 { round(x) as i32 }
 
@@ -44,12 +46,28 @@ impl WorldGen {
         let s = self.seed;
         let p = if hash_float(gx, gz, s, 71) > 0.42 { None } else {
             let x = (gx as f64 + 0.2 + 0.6 * hash_float(gx, gz, s, 72)) * POND_CELL as f64; let z = (gz as f64 + 0.2 + 0.6 * hash_float(gx, gz, s, 73)) * POND_CELL as f64;
-            Some(Pond { x, z, r: 7.0 + 8.0 * hash_float(gx, gz, s, 74), level: self.raw_height(x, z).hs.floor() - 1.0 })
+            // Un lac se pose à plat, au niveau du point bas de sa rive ; sur une pente, il n'y a pas de lac.
+            let r = 7.0 + 8.0 * hash_float(gx, gz, s, 74); let mid = self.raw_height(x, z); let (mut lo, mut hi) = (mid.hs, mid.hs);
+            for k in 0..8 { let a = k as f64 * 0.7854; let q = self.raw_height(x + cos(a) * r * 1.2, z + sin(a) * r * 1.2).hs; lo = lo.min(q); hi = hi.max(q); }
+            if hi - lo > 5.0 || mid.massif > 0.02 { None } else { Some(Pond { x, z, r, level: lo.floor() - 1.0 }) }
         };
         self.ponds.borrow_mut().insert((gx, gz), p);
         p
     }
     /// Altitude, eau, chemin et densité forestière d'une colonne.
+    /// Lit de rivière en ce point. Un massif tarit la rivière : elle y prend sa source au lieu de gravir la pente.
+    fn bed(&self, x: f64, z: f64, wx: f64, wz: f64, rs: f64, low: f64, massif: f64) -> Bed {
+        let (gx0, gz0) = (self.n_river.fbm2((wx + 1.0) / 400.0, wz / 400.0, 2, 2.1, 0.32) - rs, self.n_river.fbm2(wx / 400.0, (wz + 1.0) / 400.0, 2, 2.1, 0.32) - rs); let grad = hypot2(gx0, gz0).max(1e-5);
+        let dry = 1.0 - smooth(0.04, 0.26, massif); let w0 = (1.7 + 1.2 * (0.5 + 0.5 * self.n_river.n2(x / 60.0, z / 60.0))) * dry;
+        Bed { d_r: rs.abs() / grad, wid: if w0 < 0.8 { 0.0 } else { w0 }, l: ((low - 4.0) / 4.0).floor() * 4.0 + 1.0, grad }
+    }
+    /// Niveau de la rivière ici, s'il y en a une, et la position dans le lit (0 au milieu, 1 au bord).
+    fn river_level(&self, x: f64, z: f64) -> Option<(f64, f64)> {
+        let Raw { wx, wz, low, massif, .. } = self.raw_height(x, z); let b = self.bed(x, z, wx, wz, self.n_river.fbm2(wx / 400.0, wz / 400.0, 2, 2.1, 0.32), low, massif);
+        (b.wid > 0.0 && b.d_r < b.wid).then_some((b.l, b.d_r / b.wid))
+    }
+    /// Sommet de la chute qui tombe dans cette colonne : le palier voisin plus haut, s'il s'y déverse.
+    fn fall_top(&self, x: f64, z: f64, water: f64) -> f64 { let mut t = 0.0f64; for (a, b) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)] { if let Some((l, k)) = self.river_level(x + a, z + b) { if l > water && k < LIP { t = t.max(l); } } } t }
     pub fn column(&self, x: f64, z: f64) -> Column {
         let Raw { wx, wz, low, hs, massif } = self.raw_height(x, z);
         let step_n = self.n_hill.n2(x / 52.0 + 11.0, z / 52.0 - 7.0); let s = 4.0;
@@ -58,17 +76,21 @@ impl WorldGen {
         let mut h = lerp(hs, terr, smooth(-0.35, 0.25, step_n) * (1.0 - massif)); // les terrasses sont pour les collines : une montagne en escalier ferait une pyramide
         h += 1.6 * self.n_hill.n2(x / 19.0, z / 19.0);
         // rivière : niveaux quantifiés = cascades
-        let rs = self.n_river.fbm2(wx / 400.0, wz / 400.0, 2, 2.1, 0.32); let rn = rs.abs();
-        // Vraie distance au lit : valeur du bruit divisée par sa pente. La largeur ne dépend plus de la forme du bruit.
-        let (gx0, gz0) = (self.n_river.fbm2((wx + 1.0) / 400.0, wz / 400.0, 2, 2.1, 0.32) - rs, self.n_river.fbm2(wx / 400.0, (wz + 1.0) / 400.0, 2, 2.1, 0.32) - rs); let grad = hypot2(gx0, gz0).max(1e-5);
-        let d_r = rn / grad; let wid = 1.7 + 1.2 * (0.5 + 0.5 * self.n_river.n2(x / 60.0, z / 60.0));
-        let l = ((low - 4.0) / 4.0).floor() * 4.0 + 1.0;
-        let (mut water, mut bank, mut still) = (0.0, 0.0, false);
-        if d_r < wid + 13.0 {
-            bank = 1.0 - smooth(wid, wid + 13.0, d_r);
+        let rs = self.n_river.fbm2(wx / 400.0, wz / 400.0, 2, 2.1, 0.32);
+        let Bed { d_r, wid, l, grad } = self.bed(x, z, wx, wz, rs, low, massif);
+        let (mut water, mut bank, mut still) = (0.0, 0.0, false); let mut wet = false;
+        if wid > 0.0 && d_r < wid + 13.0 {
+            wet = true; bank = 1.0 - smooth(wid, wid + 13.0, d_r);
             let target = l + 1.0 + 3.0 * smooth(wid, wid + 8.0, d_r);
             if h > target { h = lerp(h, target, smooth(0.0, 1.0, bank * 1.25)); }
-            if d_r < wid { h = l - 2.0 - (1.0 - d_r / wid) * 1.6; water = l; } else if h < l + 1.0 { h = l + 1.0; }
+            // Au bord d'un palier, seul le milieu du lit se déverse : les côtés forment une margelle de roche.
+            let lip = d_r >= wid * LIP && d_r < wid && [(3.0, 0.0), (-3.0, 0.0), (0.0, 3.0), (0.0, -3.0)].iter().any(|(a, b)| self.river_level(x + a, z + b).is_some_and(|n| n.0 < l));
+            if d_r < wid && !lip { h = l - 2.0 - (1.0 - d_r / wid) * 1.6; water = l; }
+            else {
+                // La berge retient le niveau le plus haut qu'elle touche, sinon l'eau d'un palier fuirait sur le côté.
+                let mut top = l; if d_r < wid + 5.0 { for a in -3..=3 { for b in -3..=3 { if let Some(n) = self.river_level(x + a as f64, z + b as f64) { top = top.max(n.0); } } } }
+                if h < top + 1.0 { h = top + 1.0; }
+            }
         }
         // étangs
         let (gx, gz) = ((x / POND_CELL as f64).floor() as i32, (z / POND_CELL as f64).floor() as i32);
@@ -76,9 +98,12 @@ impl WorldGen {
             let Some(p) = self.pond_at(gx + i, gz + j) else { continue };
             let d = hypot2(x - p.x, z - p.z) + 3.0 * self.n_deco.n2(x / 9.0, z / 9.0);
             if d > p.r * 2.0 { continue; }
+            wet = true;
             let bowl = lerp(p.level - 3.0, h, smooth(p.r * 0.7, p.r * 1.8, d));
             if bowl < h { h = bowl; }
             if d < p.r * 1.05 && h < p.level && p.level > water { water = p.level; still = true; }
+            // La berge retient l'eau : le sol remonte jusqu'au-dessus du niveau du lac, puis rejoint le terrain en pente douce.
+            if d >= p.r * 1.05 { let rim = p.level + 1.0 - (d - p.r * 1.05) * 0.8; if h < rim { h = rim; } }
         } }
         // chemins : réseau de traverse, et un sentier le long de chaque ruisseau
         let pn = self.n_path.n2(wx / 210.0 + 9.0, wz / 210.0 + 3.0).abs() * 165.0;
@@ -96,7 +121,7 @@ impl WorldGen {
             if walk > 0.0 { h = lerp(h, low - 1.0, walk); }
         }
         let f = self.n_forest.fbm(x / 170.0, z / 170.0, 3) * 1.5 + 0.78 + 0.12 * self.n_forest.n2(x / 31.0, z / 31.0);
-        Column { h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
+        Column { wet, h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
     }
     fn stone_at(&self, x: f64, y: f64, z: f64) -> u8 {
         let b = (y + 5.0 * self.n_cliff.n2(x / 70.0, z / 70.0)) / 7.0;
@@ -119,9 +144,9 @@ impl WorldGen {
             let ymax = (CH as f64 - 2.0).min((hf + 7.0).ceil()) as i32;
             for y in 0..=ymax {
                 let yf = y as f64; let mut d = hf - yf;
-                if cliff > 0.01 && yf > hf - 12.0 { d += cliff * 6.0 * (1.0 - clamp((yf - hf) / 8.0, 0.0, 1.0)) * self.n_cave.n3(wx / 25.0, yf / 15.0, wz / 25.0); }
+                if cliff > 0.01 && !c.wet && yf > hf - 12.0 { d += cliff * 6.0 * (1.0 - clamp((yf - hf) / 8.0, 0.0, 1.0)) * self.n_cave.n3(wx / 25.0, yf / 15.0, wz / 25.0); }
                 if d > 0.0 {
-                    if y > 2 && yf < hf - 3.0 + entry * 5.0 && self.is_cave(wx, yf, wz) { continue; }
+                    if y > 2 && !c.wet && yf < hf - 3.0 + entry * 5.0 && self.is_cave(wx, yf, wz) { continue; } // jamais de vide à côté de l'eau
                     v[idx(x, y as usize, z)] = B::STONE; top = y;
                 }
             }
@@ -147,6 +172,8 @@ impl WorldGen {
             let wi = water as i32;
             if wi != 0 {
                 for y in (top + 1)..=wi { v[idx(x, y as usize, z)] = B::WATER; }
+                // La chute rejoint le bassin : une colonne d'eau pleine, plaquée contre le palier du dessus.
+                if !c.still { let t = self.fall_top(wx, wz, water) as i32; for y in (wi + 1)..=t.min(CH as i32 - 2) { if v[idx(x, y as usize, z)] == 0 { v[idx(x, y as usize, z)] = B::WATER; } } }
                 // rochers qui affleurent dans le lit
                 if self.n_deco.n2(wx / 4.3 + 31.0, wz / 4.3 - 12.0) > 0.56 {
                     let crown = wi + if hash_float(wxi, wzi, self.seed, 9) > 0.55 { 1 } else { 0 };
