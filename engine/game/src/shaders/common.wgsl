@@ -61,3 +61,22 @@ fn depth_at(t: texture_depth_2d, uv: vec2f) -> f32 {
   let s = vec2f(textureDimensions(t)); let p = clamp(vec2i(uv * s), vec2i(0), vec2i(s) - vec2i(1));
   return textureLoad(t, p, 0);
 }
+
+// Lucioles : des points vivants qui flottent autour du joueur, cachés par ce qui est devant eux.
+// Ajoutées après l'anticrénelage, qui effacerait des points aussi fins.
+fn fireflies(px2: vec2f, d: f32) -> vec3f {
+  if (u.extra.x <= 0.01) { return vec3f(0.0); }
+  let uv = px2 / u.jit.zw; let len = length(world_from(uv, max(d, 1e-5)) - u.cam.xyz);
+  let t = u.cam.w; let b = vec3f(26.0, 7.0, 26.0); var glow = vec3f(0.0);
+  for (var k = 0; k < 56; k++) {
+    let f = f32(k); let h = vec3f(hash13(vec3f(f, 1.7, 3.1)), hash13(vec3f(f, 8.3, 0.4)), hash13(vec3f(2.9, f, 5.5)));
+    var p = h * b + vec3f(sin(t * 0.31 + f * 1.7) * 1.6, sin(t * 0.47 + f * 2.3) * 0.7, cos(t * 0.27 + f * 0.9) * 1.6);
+    p = p - b * floor((p - u.cam.xyz + b * 0.5) / b) - vec3f(0.0, 1.5, 0.0);
+    let cc = u.vp * vec4f(p, 1.0); if (cc.w <= 0.1) { continue; }
+    let dist = length(p - u.cam.xyz); if (d > 0.0 && dist > len + 0.3) { continue; }
+    let s = to_uv(cc.xy / cc.w) * u.jit.zw; let r = length(px2 - s); let size = 1.6 + 30.0 / max(dist, 1.0);
+    let blink = smoothstep(0.1, 0.8, 0.5 + 0.5 * sin(t * (1.3 + h.x) + f * 4.1));
+    glow += vec3f(0.62, 1.0, 0.32) * blink * (exp(-r * r / (size * size * 0.16)) * 4.0 + exp(-r / size) * 0.35) / (1.0 + dist * 0.04);
+  }
+  return glow * u.extra.x;
+}

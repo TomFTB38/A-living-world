@@ -19,5 +19,5 @@ fn inv(c: vec3f) -> vec3f { return c / max(1.0 - dot(c, vec3f(0.299, 0.587, 0.11
   if (q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0) { return vec4f(inv(c), 1.0); }
   let h = clamp(ycc(ton(textureSampleLevel(t_hist, s_clamp, q, 0.0).rgb)), lo, hi);
   let mv = length((q - i.uv) / texel); let a = mix(0.09, 0.28, sat(mv * 0.08));
-  return vec4f(inv(rgb(mix(h, y, a))), 1.0);
+  return vec4f(inv(rgb(mix(h, y, a))) + fireflies(i.pos.xy, depth_at(t_d, i.uv)), 1.0);
 }
