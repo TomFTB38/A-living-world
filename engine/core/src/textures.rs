@@ -49,10 +49,10 @@ const SNOW: [C; 3] = pl!("#c9d5e3", "#e3ebf3", "#f7fafd"); const ICE: [C; 3] = p
 const PLANKS: [C; 3] = pl!("#6c4524", "#94673a", "#b98a52"); const PATH: [C; 4] = pl!("#7c5b35", "#a07a4c", "#bc9663", "#d2b080");
 const SOIL: [C; 4] = pl!("#2f2413", "#4a3a1f", "#5e5127", "#6f6a2f"); const SAND: [C; 4] = pl!("#a89268", "#c2ac7e", "#d2bf92", "#e0cfa6"); const GRAVEL: [C; 4] = pl!("#6c6761", "#8e8679", "#a89f91", "#c0b7a9");
 
-const DRY: [C; 4] = pl!("#6e6532", "#8e8340", "#ae9f55", "#cbb978"); const CRACKED: [C; 4] = pl!("#7a6248", "#98805f", "#b29b78", "#c8b493");
+const DRY: [C; 4] = pl!("#8a7136", "#ad8f47", "#cbae63", "#e2cb8a"); const CRACKED: [C; 4] = pl!("#7a6248", "#98805f", "#b29b78", "#c8b493");
 /// Herbe sèche de steppe : paille dorée, quelques touffes encore vertes, de la terre qui perce.
 fn dry_top(t: &Tile, x: f64, y: f64) -> S {
-    let (n, s, b) = (t.fbm(x, y, 4, 3), t.val(x, y, 32), t.val(x * 0.5 + 3.0, y, 24)); let green = smooth(0.6, 0.75, t.fbm(x + 17.0, y - 5.0, 3, 2)); let bare = smooth(0.66, 0.78, t.fbm(x - 9.0, y + 21.0, 5, 2));
+    let (n, s, b) = (t.fbm(x, y, 4, 3), t.val(x, y, 32), t.val(x * 0.5 + 3.0, y, 24)); let green = smooth(0.68, 0.8, t.fbm(x + 17.0, y - 5.0, 3, 2)); let bare = smooth(0.66, 0.78, t.fbm(x - 9.0, y + 21.0, 5, 2));
     let mut c = pal(&DRY, 0.2 + 0.6 * n + 0.3 * (s - 0.5) + 0.22 * (b - 0.5)); c = [lerp(c[0], c[0] * 0.78, green), lerp(c[1], c[1] * 0.98, green), lerp(c[2], c[2] * 0.7, green)];
     if bare > 0.0 { let e = pal(&CRACKED, 0.25 + 0.5 * n); c = [lerp(c[0], e[0], bare), lerp(c[1], e[1], bare), lerp(c[2], e[2], bare)]; }
     S { c, h: 0.4 + 0.5 * s * (1.0 - bare), r: 0.8 }

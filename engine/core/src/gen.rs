@@ -308,11 +308,11 @@ impl WorldGen {
     fn rock_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
         let s = self.seed;
         let x = ((gx as f64 + hash_float(gx, gz, s, 22)) * ROCK_CELL as f64).floor(); let z = ((gz as f64 + hash_float(gx, gz, s, 23)) * ROCK_CELL as f64).floor();
-        let st = self.climate.at(x, z).strong(Biome::Steppe); if hash_float(gx, gz, s, 21) > 0.62 + 0.25 * st { return None; } // la steppe est semée de rochers
+        let st = self.climate.at(x, z).strong(Biome::Steppe); if hash_float(gx, gz, s, 21) > 0.62 + 0.12 * st { return None; } // la steppe est semée de rochers
         let c = self.column(x, z);
         if c.water != 0.0 || c.path > 0.1 { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 24)); let mut data = Vec::new();
-        let n = r.int(1, 3); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6 || st > 0.5; let tall = 1.0 + 0.9 * st * hash_float(gx, gz, s, 25);
+        let n = r.int(1, 3).min(if st > 0.5 { 2 } else { 3 }); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6 || st > 0.5; let tall = 1.0 + 0.4 * st * hash_float(gx, gz, s, 25);
         for k in 0..n {
             let rx = r.range(1.6, 4.2); let ry = r.range(1.3, 3.0) * tall; let rz = r.range(1.6, 4.2);
             let ax = x + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 }; let az = z + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 };
