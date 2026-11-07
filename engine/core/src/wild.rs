@@ -40,7 +40,7 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
         }
         for _ in 0..40 { let (x, y, z) = (r.range(-0.35, 0.35), r.range(-0.35, 0.35), r.range(-0.35, 0.35)); let w = 0.024; b(o, [x - w, y - w, z - w, x + w, y + w, z + w], [0.66, 0.56, 0.4]); }
     }
-    let mut print = VBuf::new(60); b(&mut print, [-0.06, 0.0, -0.1, 0.06, 0.012, 0.1], [0.42, 0.48, 0.6]);
+    let mut print = VBuf::new(60); b(&mut print, [-0.07, 0.0, -0.11, 0.07, 0.012, 0.11], [0.2, 0.24, 0.33]);
     vec![("fox", fox), ("foxHead", fox_head), ("foxLeg", fox_leg), ("hare", hare), ("crow", crow), ("crowWing", crow_wing), ("tumble", tumble), ("print", print)]
 }
 
