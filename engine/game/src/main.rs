@@ -282,6 +282,15 @@ fn capture(a: &[String]) {
             s.taiga = if scene == "taiga_faune" { 1.0 } else { 0.0 }; s.tick(0.0, none, Actions::default());
         }
     }
+    if scene == "tronc_creux" {
+        // Le tronc creux le plus proche : une cavité d'air entourée de bois couché, vue de biais depuis son ouverture.
+        use alw_core::blocks::{idx, is_log, is_opaque, CH, CX}; let w = WorldGen::new(SEED); let mut found = None;
+        'g: for r in 1..60i32 { for dz in -r..=r { for dx in -r..=r { if dx.abs().max(dz.abs()) != r { continue; } let v = w.gen_chunk(dx, dz);
+            for y in 2..CH - 2 { for z in 2..CX - 2 { for x in 2..CX - 2 { if v[idx(x, y, z)] != 0 { continue; } let along_z = is_log(v[idx(x + 1, y, z)]) && is_log(v[idx(x - 1, y, z)]); let along_x = is_log(v[idx(x, y, z + 1)]) && is_log(v[idx(x, y, z - 1)]);
+                if (along_x || along_z) && is_log(v[idx(x, y + 1, z)]) && is_log(v[idx(x, y - 1, z)]) && is_opaque(v[idx(x, y - 2, z)]) { found = Some((dx * 32 + x as i32, y as i32, dz * 32 + z as i32, along_x)); break 'g; } } } } } } }
+        println!("tronc creux : {found:?}");
+        if let Some((x, y, z, along_x)) = found { let (cx, cy, cz) = (x as f64 + 0.5, y as f64 + 0.5, z as f64 + 0.5); let e = if along_x { [cx - 6.0, cy + 1.6, cz + 2.5] } else { [cx + 2.5, cy + 1.6, cz - 6.0] }; s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [e[0], e[1] - 1.62, e[2]]; pump(&mut s, &mut g); let f = view::norm([cx - e[0], cy - e[1], cz - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); s.tick(0.0, none, Actions::default()); }
+    }
     if scene == "steppe" {
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Steppe) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
         println!("steppe : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 13.0, z]; let f = view::norm([a.cos(), -0.24, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.steppe = 1.0; s.tick(0.0, none, Actions::default()); }
