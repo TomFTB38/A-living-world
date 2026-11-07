@@ -99,6 +99,12 @@ fn needles(t: &Tile, x: f64, y: f64) -> S {
         None => S { c: pl!("#0d1912")[0], h: 0.0, r: 0.9 },
     }
 }
+/// Cœur de bois mort mis à nu : des fibres longues dans le sens du fil, brun clair, fendues et piquées de pourriture plus sombre.
+fn wood_inner(t: &Tile, x: f64, y: f64) -> S {
+    let fib = t.fbm(x * 3.0, y * 0.35, 4, 3); let streak = t.val(x * 4.0, y * 0.2, 16); let rot = smooth(0.55, 0.72, t.fbm(x + 21.0, y - 8.0, 3, 3)); let split = smooth(0.06, 0.0, (t.val(x * 1.5, y * 0.12, 8) - 0.5).abs());
+    let c = pal(&pl!("#5e4733", "#7d6248", "#9c7f60", "#b89c7c"), 0.25 + 0.5 * fib + 0.25 * (streak - 0.5)); let k = (1.0 - 0.45 * rot) * (1.0 - 0.5 * split);
+    S { c: [c[0] * k, c[1] * k * 0.97, c[2] * k * 0.92], h: 0.4 + 0.3 * fib - 0.3 * split - 0.15 * rot, r: 0.92 }
+}
 fn grass_top(t: &Tile, x: f64, y: f64) -> S {
     let (n, s, b) = (t.fbm(x, y, 4, 3), t.val(x, y, 32), t.val(x + 7.0, y * 0.45, 24));
     S { c: pal(&GRASS, 0.2 + 0.55 * n + 0.32 * (s - 0.5) + 0.25 * (b - 0.5)), h: 0.4 + 0.5 * s, r: 0.72 }
@@ -213,7 +219,7 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "bark_spruce" => bark(t, x, y, &SPRUCE, 0.7), "end_spruce" => wood_end(t, x, y, &SPRUCE_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &SPRUCE, 0.7)),
         "leaf_spruce" => needles(t, x, y), "leaf_snow" => leaf_snow(t, x, y),
         "bark_dead" => bark(t, x, y, &DEAD, 0.95), "end_dead" => wood_end(t, x, y, &DEAD_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &DEAD, 0.95)), "lichen" => lichen(t, x, y),
-        "bark_acacia" => bark(t, x, y, &ACACIA, 1.0), "end_acacia" => wood_end(t, x, y, &ACACIA_W, 0.75, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &ACACIA, 1.0)), "leaf_acacia" => leaf(t, x, y, [0.62, 0.7, 0.4]), "bone" => bone(t, x, y),
+        "bark_acacia" => bark(t, x, y, &ACACIA, 1.0), "end_acacia" => wood_end(t, x, y, &ACACIA_W, 0.75, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &ACACIA, 1.0)), "leaf_acacia" => leaf(t, x, y, [0.62, 0.7, 0.4]), "bone" => bone(t, x, y), "wood_inner" => wood_inner(t, x, y),
         "grass_dry_top" => dry_top(t, x, y), "grass_dry_side" => dry_side(t, x, y), "dry_earth" => cracked(t, x, y),
         "water_foam" => { let f = t.fbm(x, y, 8, 3); S { c: [f, f, f], h: f, r: 0.3 } }
         _ => panic!("matériau sans générateur : {name}"),

@@ -301,9 +301,9 @@ impl Mesher {
                         if k == ax && ((pos && same(fwd)) || (!pos && same(back))) { continue; } // tronc continu : pas de tranche entre deux blocs
                         let outer = k != ax && ((pos && hi[k] >= 1.0) || (!pos && lo[k] <= 0.0));
                         if outer { let nb = voxel(n[0] as i32, n[1] as i32, n[2] as i32); if is_opaque(nb) { continue; } }
-                        let di = if k == 1 { if pos { 1 } else { 2 } } else if k == 0 { 0 } else { 3 }; let layer = lb.dir_faces[di] as f64; o.rot = lb.grain[di];
-                        // Face intérieure (vers le cœur vide) : plus sombre.
-                        let inner = k != ax && !outer; let tone = if inner { 0.55 } else { 1.0 };
+                        let di = if k == 1 { if pos { 1 } else { 2 } } else if k == 0 { 0 } else { 3 }; o.rot = lb.grain[di];
+                        // Face intérieure (vers le cœur vide) : du bois nu aux fibres longues, pas de l'écorce, un peu dans l'ombre.
+                        let inner = k != ax && !outer; let layer = if inner { mat_layer("wood_inner") as f64 } else { lb.dir_faces[di] as f64 }; let tone = if inner { 0.8 } else { 1.0 };
                         let w = if pos { hi[k] } else { lo[k] }; let (a1, a2) = ((k + 1) % 3, (k + 2) % 3);
                         let corner = |p: f64, q: f64| { let mut c = [0.0; 3]; c[k] = w; c[a1] = p; c[a2] = q; [x + c[0], y + c[1], z + c[2]] };
                         let mut pts = [corner(lo[a1], lo[a2]), corner(hi[a1], lo[a2]), corner(hi[a1], hi[a2]), corner(lo[a1], hi[a2])]; if !pos { pts.swap(1, 3); }
