@@ -479,7 +479,7 @@ impl Mesher {
             }
             "cactus" => {
                 // Cactus : un fût côtelé plus fin qu'un bloc, piqué d'aréoles claires ; il se raccorde aux cactus voisins pour former tronc et bras.
-                let up = voxel(0, 1, 0) == b; let down = voxel(0, -1, 0) == b; let sides: Vec<(i32, i32)> = [(1, 0), (-1, 0), (0, 1), (0, -1)].into_iter().filter(|d| voxel(d.0, 0, d.1) == b).collect();
+                let up = voxel(0, 1, 0) == b; let down = voxel(0, -1, 0) == b; let sides: Vec<(i32, i32)> = [(1, 0), (-1, 0), (0, 1), (0, -1)].into_iter().filter(|d| voxel(d.0, 0, d.1) == b && (!down || voxel(d.0, -1, d.1) != b)).collect(); // deux fûts côte à côte ne se soudent qu'au pied du bras, pas à chaque étage
                 let w = if sides.is_empty() || up || down { 0.21 + 0.03 * ((hash_int(wx, 0, wz, 5) & 3) as f64 / 3.0) } else { 0.17 };
                 let (cx, cz) = (x + 0.5, z + 0.5); let g = [0.19, 0.4, 0.2];
                 let col = |o: &mut VBuf, y0: f64, y1: f64, r_: &mut Rng| {

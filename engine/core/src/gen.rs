@@ -610,7 +610,7 @@ fn grow_acacia(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
 fn grow_cactus(x: f64, y: f64, z: f64, r: &mut Rng) -> Stamp {
     let (cx, cz, y0) = (ri(x), ri(z), y as i32 + 1); let mut data = Vec::new(); let big = r.next() < 0.6; let h = if big { r.int(4, 7) } else { r.int(1, 2) };
     for k in 0..h { data.push([cx, y0 + k, cz, B::CACTUS as i32]); }
-    if big { let mut used = vec![]; for _ in 0..r.int(1, 3) { let d = [(1, 0), (-1, 0), (0, 1), (0, -1)][r.int(0, 3) as usize]; if used.contains(&d) { continue; } used.push(d); let at = r.int(2, (h - 2).max(2)); let out = r.int(1, 2);
+    if big { let mut used = vec![]; for _ in 0..r.int(1, 3) { let d = [(1, 0), (-1, 0), (0, 1), (0, -1)][r.int(0, 3) as usize]; if used.contains(&d) { continue; } used.push(d); let at = r.int(2, (h - 2).max(2)); let out = if r.next() < 0.75 { 2 } else { 1 }; /* un bras s'écarte en général d'un bloc avant de remonter */
         for k in 1..=out { data.push([cx + d.0 * k, y0 + at, cz + d.1 * k, B::CACTUS as i32]); } for k in 1..=r.int(1, 3).min(h - at) { data.push([cx + d.0 * out, y0 + at + k, cz + d.1 * out, B::CACTUS as i32]); } } }
     Stamp { data, force: false, ground: false }
 }
