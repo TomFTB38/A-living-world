@@ -14,13 +14,13 @@ use std::collections::HashMap;
 pub const INV_SIZE: usize = 36; pub const STACK: u32 = 99;
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Item { pub id: &'static str, pub label: &'static str, pub block: Option<u8>, pub tool: Option<&'static str> }
-const LABELS: [(&str, &str); 32] = [("grass", "Herbe"), ("dirt", "Terre"), ("path", "Terre de chemin"), ("forest_soil", "Humus"), ("gravel", "Gravier"), ("sand", "Sable"), ("stone", "Pierre"), ("mossy_stone", "Pierre moussue"), ("limestone", "Calcaire"), ("granite", "Granit"),
+const LABELS: [(&str, &str); 36] = [("grass", "Herbe"), ("dirt", "Terre"), ("path", "Terre de chemin"), ("forest_soil", "Humus"), ("gravel", "Gravier"), ("sand", "Sable"), ("stone", "Pierre"), ("mossy_stone", "Pierre moussue"), ("limestone", "Calcaire"), ("granite", "Granit"),
     ("oak_log", "Bois de chêne"), ("birch_log", "Bois de bouleau"), ("beech_log", "Bois de hêtre"), ("planks", "Planches"), ("fence", "Clôture"), ("oak_leaves", "Feuilles de chêne"), ("birch_leaves", "Feuilles de bouleau"), ("beech_leaves", "Feuilles de hêtre"),
-    ("tall_grass", "Herbes hautes"), ("fern", "Fougère"), ("daisy", "Marguerite"), ("lupine", "Lupin"), ("pink_flower", "Fleur rose"), ("yellow_flower", "Fleur jaune"), ("mushroom", "Champignon"), ("shelf_fungus", "Polypore"), ("lily_pad", "Nénuphar"), ("vine", "Liane"), ("flagstone", "Dalle"), ("lantern", "Lanterne"), ("water", "Eau"), ("glowcap", "Champignon lumineux")];
+    ("tall_grass", "Herbes hautes"), ("fern", "Fougère"), ("daisy", "Marguerite"), ("lupine", "Lupin"), ("pink_flower", "Fleur rose"), ("yellow_flower", "Fleur jaune"), ("mushroom", "Champignon"), ("shelf_fungus", "Polypore"), ("lily_pad", "Nénuphar"), ("vine", "Liane"), ("flagstone", "Dalle"), ("lantern", "Lanterne"), ("water", "Eau"), ("glowcap", "Champignon lumineux"), ("snow", "Neige"), ("ice", "Glace"), ("spruce_log", "Bois d'épicéa"), ("spruce_leaves", "Aiguilles d'épicéa")];
 /// Tous les objets : outils d'abord, puis l'ordre du catalogue.
-pub const ORDER: [&str; 35] = ["pickaxe", "axe", "sword", "grass", "dirt", "path", "forest_soil", "gravel", "sand", "stone", "mossy_stone", "limestone", "granite", "oak_log", "birch_log", "beech_log", "planks", "fence", "oak_leaves", "birch_leaves", "beech_leaves", "tall_grass", "fern", "daisy", "lupine", "pink_flower", "yellow_flower", "mushroom", "glowcap", "shelf_fungus", "lily_pad", "vine", "flagstone", "lantern", "water"];
+pub const ORDER: [&str; 39] = ["pickaxe", "axe", "sword", "grass", "dirt", "path", "forest_soil", "gravel", "sand", "snow", "ice", "stone", "mossy_stone", "limestone", "granite", "oak_log", "birch_log", "beech_log", "spruce_log", "planks", "fence", "oak_leaves", "birch_leaves", "beech_leaves", "spruce_leaves", "tall_grass", "fern", "daisy", "lupine", "pink_flower", "yellow_flower", "mushroom", "glowcap", "shelf_fungus", "lily_pad", "vine", "flagstone", "lantern", "water"];
 /// Onglets du catalogue créatif ; le premier montre tout.
-pub const TABS: [(&str, &[&str]); 7] = [("Tout", &ORDER), ("Terrain", &["grass", "dirt", "path", "forest_soil", "gravel", "sand", "water"]), ("Roches", &["stone", "mossy_stone", "limestone", "granite", "flagstone"]), ("Bois", &["oak_log", "birch_log", "beech_log", "planks", "fence"]), ("Feuillages", &["oak_leaves", "birch_leaves", "beech_leaves", "vine"]), ("Plantes", &["tall_grass", "fern", "daisy", "lupine", "pink_flower", "yellow_flower", "mushroom", "glowcap", "shelf_fungus", "lily_pad"]), ("Objets", &["pickaxe", "axe", "sword", "lantern"])];
+pub const TABS: [(&str, &[&str]); 7] = [("Tout", &ORDER), ("Terrain", &["grass", "dirt", "path", "forest_soil", "gravel", "sand", "snow", "ice", "water"]), ("Roches", &["stone", "mossy_stone", "limestone", "granite", "flagstone"]), ("Bois", &["oak_log", "birch_log", "beech_log", "spruce_log", "planks", "fence"]), ("Feuillages", &["oak_leaves", "birch_leaves", "beech_leaves", "spruce_leaves", "vine"]), ("Plantes", &["tall_grass", "fern", "daisy", "lupine", "pink_flower", "yellow_flower", "mushroom", "glowcap", "shelf_fungus", "lily_pad"]), ("Objets", &["pickaxe", "axe", "sword", "lantern"])];
 pub fn item(id: &str) -> Option<Item> {
     match id { "pickaxe" => return Some(Item { id: "pickaxe", label: "Pioche", block: None, tool: Some("rock") }), "axe" => return Some(Item { id: "axe", label: "Hache", block: None, tool: Some("wood") }), "sword" => return Some(Item { id: "sword", label: "Épée", block: None, tool: None }), _ => {} }
     LABELS.iter().find(|l| l.0 == id).map(|l| Item { id: l.0, label: l.1, block: by_name(l.0), tool: None })
@@ -51,13 +51,13 @@ pub struct Actions { pub mine: bool, pub place: bool }
 pub struct Session {
     pub world: Streamer, pub player: Player, pub inv: [Option<Stack>; INV_SIZE], pub sel: usize, pub creative: bool, pub target: Option<Target>, pub orient: u8, pub hour: f64, pub vit: [f64; 3], pub seed: i32, pub third: bool, pub cam_dist: f64, pub eye: [f64; 3], pub look: [f64; 3], pub anim: Anim, pub inv_open: bool, pub cursor: Option<Stack>, pub from: Option<usize>,
     mine_key: Option<(i32, i32, i32)>, pub mine_t: f64, cool: f64, axis: Option<char>, pub dirty: bool, pub tab: usize,
-    pub deep: f64, glows: HashMap<(i32, i32), Vec<[i32; 3]>>, scanned: std::collections::HashSet<(i32, i32)>, pub fauna: Fauna, pub weather: Weather, pub sound: SoundScape, gen: WorldGen, pub elapsed: f64, hurt_at: f64, built: Vec<f64>, swing_t: f64, dig_t: f64, step_t: f64, water_t: f64, env_t: f64, was_wet: bool, was_ground: bool, fall_v: f64, brook: Option<[f64; 3]>, fall: Option<[f64; 3]>, felling: Option<Tree>, pub falling: Option<Fall>, pub fall_serial: u64, pub flow: Flow,
+    pub deep: f64, pub taiga: f64, glows: HashMap<(i32, i32), Vec<[i32; 3]>>, scanned: std::collections::HashSet<(i32, i32)>, pub fauna: Fauna, pub weather: Weather, pub sound: SoundScape, gen: WorldGen, pub elapsed: f64, hurt_at: f64, built: Vec<f64>, swing_t: f64, dig_t: f64, step_t: f64, water_t: f64, env_t: f64, was_wet: bool, was_ground: bool, fall_v: f64, brook: Option<[f64; 3]>, fall: Option<[f64; 3]>, felling: Option<Tree>, pub falling: Option<Fall>, pub fall_serial: u64, pub flow: Flow,
 }
 impl Session {
     pub fn new(seed: i32, p: &Preset, threads: usize, at: [f64; 3]) -> Self {
         let mut inv = [None; INV_SIZE];
         for (i, (it, n)) in [("pickaxe", None), ("axe", None), ("sword", None), ("lantern", Some(32)), ("dirt", Some(64)), ("stone", Some(32)), ("planks", Some(16))].into_iter().enumerate() { inv[i] = Some(Stack { item: it, n }); }
-        Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, deep: 0.0, glows: HashMap::new(), scanned: Default::default(), fauna: Fauna::new(seed), weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None, felling: None, falling: None, fall_serial: 0, flow: Flow::default() }
+        Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, deep: 0.0, taiga: 0.0, glows: HashMap::new(), scanned: Default::default(), fauna: Fauna::new(seed), weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None, felling: None, falling: None, fall_serial: 0, flow: Flow::default() }
     }
     pub fn held(&self) -> Option<Item> { self.inv[self.sel].and_then(|s| item(s.item)) }
     pub fn add_item(&mut self, id: &str, n: u32) {
@@ -70,7 +70,7 @@ impl Session {
         let g = |s: &Self, a, b, c| s.world.get(a, b, c).unwrap_or(0);
         let up = g(self, x, y + 1, z);
         if up > 0 && is_deco(up) && up != B::VINE && up != B::SHELF_FUNGUS && up != B::FENCE { self.world.edit(x, y + 1, z, 0); }
-        let (mut k, mut n) = (y - 1, 0); while g(self, x, k, z) == B::VINE && n < 12 { self.world.edit(x, k, z, 0); k -= 1; n += 1; }
+        let (mut k, mut n) = (y - 1, 0); while (g(self, x, k, z) == B::VINE || g(self, x, k, z) == B::ICICLE) && n < 12 { self.world.edit(x, k, z, 0); k -= 1; n += 1; }
         for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] { if g(self, x + dx, y, z + dz) == B::SHELF_FUNGUS {
             let kept = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|(a, b)| { let c = g(self, x + dx + a, y, z + dz + b); c > 0 && BLOCKS[c as usize].opaque });
             if !kept { self.world.edit(x + dx, y, z + dz, 0); }
@@ -135,7 +135,7 @@ impl Session {
         let mining = a.mine && !open; self.anim.update(dt, AnimIn { speed: self.player.speed, ground: self.player.ground, vy: self.player.v[1], crouch: self.player.crouch, fly: self.player.fly, mining });
         if !self.creative { let k = if i.sprint { 2.0 } else { 1.0 }; self.vit[1] = (self.vit[1] - dt * 0.012 * k).max(0.0); self.vit[2] = (self.vit[2] - dt * 0.018 * k).max(0.0); }
         if self.player.in_water { self.vit[2] = (self.vit[2] + dt * 8.0).min(100.0); }
-        self.elapsed += dt; self.weather.update(dt); let t = self.mix().strong(crate::biome::Biome::DeepForest); self.deep += (t - self.deep) * (dt / 2.5).min(1.0);
+        self.elapsed += dt; self.weather.update(dt); let t = self.mix().strong(crate::biome::Biome::DeepForest); self.deep += (t - self.deep) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Taiga); self.taiga += (t - self.taiga) * (dt / 2.5).min(1.0);
         let changes = self.flow.step(dt, &self.world); if !changes.is_empty() { self.world.edit_many(&changes); self.dirty = true; }
         if let Some(mut f) = self.falling.take() { if f.step(dt, &self.world) { self.sound.tree_land(); } if !f.done() { self.falling = Some(f); } }
         if self.world.loaded() > 0 {
@@ -203,7 +203,7 @@ impl Session {
         self.was_ground = pl.ground; let vy = pl.v[1]; self.fall_v = if vy < -1.0 { vy } else if pl.ground { self.fall_v * 0.5 } else { self.fall_v };
         self.env_t -= dt;
         if self.env_t <= 0.0 {
-            self.env_t = 0.2; let covered = self.covered(eye); let sub = at(self, eye).is_some_and(is_water); let brook = if self.flow.quiet < 2.0 { self.flow.last.or(self.brook) } else { self.brook }; self.sound.env(w.cloud, w.rain, covered, sub, brook, self.fall);
+            self.env_t = 0.2; let covered = self.covered(eye); let sub = at(self, eye).is_some_and(is_water); let brook = if self.flow.quiet < 2.0 { self.flow.last.or(self.brook) } else { self.brook }; self.sound.env(w.cloud, w.rain * (1.0 - self.taiga), covered, sub, brook, self.fall);
             let now = self.elapsed; self.built.retain(|t| now - t < 25.0);
             self.sound.mood(pick_mood(Situation { hurt: now - self.hurt_at < 12.0, enemy: false, food: self.vit[1], water: self.vit[2], submerged: sub, underground: p[1] < self.gen.column(p[0], p[2]).h - 4.0 && covered, building: self.built.len() >= 3, night: self.sun_height() < 0.0, rain: w.rain > 0.5 }));
         }
@@ -273,14 +273,14 @@ impl Session {
     pub fn set_creative(&mut self, on: bool) { self.creative = on; if !on { self.player.fly = false; } }
     /// Sauvegarde lisible : l'état du joueur, puis seulement ce qui diffère du monde généré.
     pub fn save_text(&self) -> String {
-        let p = &self.player; let mut s = format!("A Living World 1\nseed {}\nplayer {} {} {} {} {}\nhour {}\ncreative {}\nsel {}\nvit {} {} {}\nweather {}\n", self.seed, p.p[0], p.p[1], p.p[2], p.yaw, p.pitch, self.hour, self.creative as u8, self.sel, self.vit[0], self.vit[1], self.vit[2], self.weather.t);
+        let p = &self.player; let mut s = format!("A Living World 1\npalette {}\nseed {}\nplayer {} {} {} {} {}\nhour {}\ncreative {}\nsel {}\nvit {} {} {}\nweather {}\n", BLOCKS.iter().map(|b| b.name).collect::<Vec<_>>().join(" "), self.seed, p.p[0], p.p[1], p.p[2], p.yaw, p.pitch, self.hour, self.creative as u8, self.sel, self.vit[0], self.vit[1], self.vit[2], self.weather.t);
         for (i, it) in self.inv.iter().enumerate() { if let Some(v) = it { s += &format!("inv {} {} {}\n", i, v.item, v.n.map_or(-1, |n| n as i64)); } }
         for (k, e) in self.world.edits() { s += &format!("chunk {} {}", k.0, k.1); let mut l: Vec<_> = e.into_iter().collect(); l.sort(); for (i, id) in l { s += &format!(" {i}:{id}"); } s.push('\n'); }
         s
     }
     pub fn load_text(&mut self, t: &str) -> Result<(), String> {
         let mut lines = t.lines(); if lines.next() != Some("A Living World 1") { return Err("format inconnu".into()); }
-        let mut edits: HashMap<(i32, i32), HashMap<u32, u8>> = HashMap::new(); let mut inv = [None; INV_SIZE];
+        let mut edits: HashMap<(i32, i32), HashMap<u32, u8>> = HashMap::new(); let mut remap: Option<Vec<u8>> = None; let mut inv = [None; INV_SIZE];
         let num = |v: Option<&str>| v.and_then(|x| x.parse::<f64>().ok()).ok_or("nombre illisible");
         for l in lines {
             let mut a = l.split(' ');
@@ -290,7 +290,9 @@ impl Session {
                 Some("weather") => self.weather.t = num(a.next())?,
                 Some("vit") => { for k in 0..3 { self.vit[k] = num(a.next())?; } }
                 Some("inv") => { let i = num(a.next())? as usize; let id = a.next().unwrap_or(""); let n = num(a.next())?; if let (Some(it), true) = (item(id), i < INV_SIZE) { inv[i] = Some(Stack { item: it.id, n: if n < 0.0 { None } else { Some(n as u32) } }); } }
-                Some("chunk") => { let k = (num(a.next())? as i32, num(a.next())? as i32); let e = edits.entry(k).or_default(); for c in a { if let Some((i, id)) = c.split_once(':') { if let (Ok(i), Ok(id)) = (i.parse(), id.parse()) { e.insert(i, id); } } } }
+                // Les blocs sont sauvegardés par numéro ; la palette les retrouve par leur nom si la liste a changé.
+                Some("palette") => remap = Some(a.map(|n| by_name(n).unwrap_or(0)).collect()),
+                Some("chunk") => { let k = (num(a.next())? as i32, num(a.next())? as i32); let e = edits.entry(k).or_default(); for c in a { if let Some((i, id)) = c.split_once(':') { if let (Ok(i), Ok(id)) = (i.parse::<u32>(), id.parse::<u8>()) { e.insert(i, remap.as_ref().map_or(id, |r| r.get(id as usize).copied().unwrap_or(0))); } } } }
                 _ => {}
             }
         }

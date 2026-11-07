@@ -148,7 +148,7 @@ export function buildTextures(size = 128) {
   const H = new Float32Array(size * size), k = TEX / size, gain = (1.6 * size) / TEX;
   const wrap = (v) => (v + size) % size;
   MATERIALS.forEach((name, m) => {
-    const gen = GEN[name], amp = size > TEX ? DETAIL[name] || 0 : 0;
+    const gen = GEN[name] || GEN.stone, /* le prototype est figé : nouveaux matériaux remplacés */ amp = size > TEX ? DETAIL[name] || 0 : 0;
     for (let v = 0; v < VARIANTS; v++) {
       const t = new Tile(1000 + m * 17 + v * 3), layer = m * VARIANTS + v, base = layer * size * size * 4;
       for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {

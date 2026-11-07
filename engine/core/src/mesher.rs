@@ -387,6 +387,14 @@ impl Mesher {
                 }
                 let t = r_.range(0.0, 6.3); blade(o, x + 0.5, y, z + 0.5, t, 0.04, 0.34, 0.15, 0.36, 0.5, 0.18, s, l, s);
             }
+            "icicle" => {
+                // Glaçons : des pointes effilées qui pendent du bloc du dessus.
+                let n = r_.int(2, 4);
+                for _ in 0..n {
+                    let a = x + r_.range(0.2, 0.8); let c = z + r_.range(0.2, 0.8); let len = r_.range(0.3, 0.95); let w0 = r_.range(0.05, 0.1);
+                    for k in 0..3 { let f = k as f64 / 3.0; let w = w0 * (1.0 - f * 0.7); bx3(o, a - w, y + 1.0 - len * (f + 1.0 / 3.0), c - w, a + w, y + 1.0 - len * f, c + w, 0.78, 0.88, 0.98, 0.0, s, l); }
+                }
+            }
             "glowcap" => {
                 // Champignon lumineux : un pied pâle, un chapeau qui éclaire le sous-bois.
                 let n = r_.int(2, 4);

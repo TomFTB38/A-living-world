@@ -168,3 +168,10 @@ fn les_champignons_lumineux_eclairent() {
     let e = [x as f64, y as f64, z as f64]; let l = s.lights(e, 48); assert!(!l.is_empty(), "lumière colorée trouvée"); assert_eq!(l[0].0, [x as f32 + 0.5, y as f32 + 0.35, z as f32 + 0.5]);
     s.world.edit(x, y, z, 0); for _ in 0..3000 { s.sync(); if s.world.waiting() == 0 && s.lights(e, 48).iter().all(|q| q.0 != l[0].0) { break; } std::thread::sleep(std::time::Duration::from_millis(2)); } assert!(s.lights(e, 48).iter().all(|q| q.0 != l[0].0), "éteinte une fois cueilli");
 }
+
+#[test]
+fn la_sauvegarde_retrouve_les_blocs_par_leur_nom() {
+    let mut s = session(); let t = s.save_text(); assert!(t.lines().nth(1).unwrap().starts_with("palette air "));
+    // une ancienne liste où « stone » portait le numéro 1 : le bloc revient en pierre, quel que soit son numéro actuel
+    let old = "A Living World 1\npalette air stone\nseed 20261104\nchunk 0 0 5:1\n"; s.load_text(old).unwrap(); assert_eq!(s.world.edits()[&(0, 0)][&5], B::STONE);
+}

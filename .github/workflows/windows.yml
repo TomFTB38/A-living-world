@@ -35,6 +35,7 @@ jobs:
           shot sous_eau -62 47 -55 -54 42 -51 16.4 4 1280 720 2048 sous_eau
           shot horizon -38.5 53 0.5 -20 52 -30 16.4 6 1280 720 2048 horizon
           shot montagne -38.5 53 0.5 -20 52 -30 16.4 6 1280 720 2048 montagne
+          shot taiga -38.5 53 0.5 -20 52 -30 14 4 1280 720 2048 taiga
           shot foret -38.5 53 0.5 -20 52 -30 11 3 1280 720 1024 foret
           shot foret_nuit -38.5 53 0.5 -20 52 -30 22.5 3 1280 720 1024 foret
           shot f3 -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 f3

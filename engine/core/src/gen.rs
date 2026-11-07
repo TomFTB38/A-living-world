@@ -142,7 +142,7 @@ impl WorldGen {
         for z in 0..CX { for x in 0..CX {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let c = self.column(wx, wz); let (hf, cliff, fr, path, water) = (c.h, c.cliff, c.forest, c.path, c.water);
-            let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest);
+            let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga); let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, taiga);
             // Par endroits, le toit des galeries s'efface : la grotte s'ouvre en surface, jamais sous l'eau ni sous un chemin.
             let entry = if water == 0.0 && path < 0.1 { smooth(0.3, 0.5, self.n_cave.n2(wx / 70.0, wz / 70.0)) } else { 0.0 };
             let ymax = (CH as f64 - 2.0).min((hf + 7.0).ceil()) as i32;
@@ -165,6 +165,8 @@ impl WorldGen {
                     v[i] = if path > 0.45 { B::PATH }
                     else if water != 0.0 && yf < water + 1.0 { if self.n_deco.n2(wx / 7.0, wz / 7.0) > 0.0 { B::GRAVEL } else { B::SAND } }
                     else if c.bank > 0.72 && yf <= water + 2.0 { B::GRAVEL }
+                    else if yf > 101.0 + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0) { B::SNOW } // sommets enneigés, partout
+                    else if cold { B::SNOW }
                     else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) } // haute montagne : la roche à nu
                     else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 - 0.9 * deep { B::FOREST_SOIL }
                     else if cliff > 0.45 && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
@@ -176,8 +178,9 @@ impl WorldGen {
             let wi = water as i32;
             if wi != 0 {
                 for y in (top + 1)..=wi { v[idx(x, y as usize, z)] = B::WATER; }
+                if cold && wi > top { v[idx(x, wi as usize, z)] = B::ICE; } // lac et rivière gelés en surface
                 // La chute rejoint le bassin : une colonne d'eau pleine, plaquée contre le palier du dessus.
-                if !c.still { let t = self.fall_top(wx, wz, water) as i32; for y in (wi + 1)..=t.min(CH as i32 - 2) { if v[idx(x, y as usize, z)] == 0 { v[idx(x, y as usize, z)] = B::WATER; } } }
+                if !c.still { let t = self.fall_top(wx, wz, water) as i32; for y in (wi + 1)..=t.min(CH as i32 - 2) { if v[idx(x, y as usize, z)] == 0 { v[idx(x, y as usize, z)] = if cold { B::ICE } else { B::WATER }; } } } // chute gelée
                 // rochers qui affleurent dans le lit
                 if self.n_deco.n2(wx / 4.3 + 31.0, wz / 4.3 - 12.0) > 0.56 {
                     let crown = wi + if hash_float(wxi, wzi, self.seed, 9) > 0.55 { 1 } else { 0 };
@@ -202,7 +205,7 @@ impl WorldGen {
             let ground = v[idx(x, y - 1, z)]; let here = v[idx(x, y, z)];
             let wy = waters[x + z * CX];
             if wy != 0 {
-                if here == B::WATER && nd.n2(wx / 8.0, wz / 8.0) > 0.42 && hash_float(wxi, wzi, s, 5) < 0.45 && v[idx(x, wy as usize + 1, z)] == 0 { v[idx(x, wy as usize + 1, z)] = B::LILY_PAD; }
+                if here == B::WATER && nd.n2(wx / 8.0, wz / 8.0) > 0.42 && hash_float(wxi, wzi, s, 5) < 0.45 && v[idx(x, wy as usize, z)] == B::WATER && v[idx(x, wy as usize + 1, z)] == 0 { v[idx(x, wy as usize + 1, z)] = B::LILY_PAD; }
                 continue;
             }
             if here != 0 { continue; }
@@ -236,11 +239,12 @@ impl WorldGen {
         let s = self.seed;
         for z in 0..CX { for x in 0..CX {
             let (wx, wz) = (ox + x as i32, oz + z as i32);
-            let deep = self.climate.at(wx as f64, wz as f64).strong(Biome::DeepForest); if hash_float(wx, wz, s, 11) > 0.075 + 0.2 * deep { continue; }
+            let m = self.climate.at(wx as f64, wz as f64); let (deep, taiga) = (m.strong(Biome::DeepForest), m.strong(Biome::Taiga)); if hash_float(wx, wz, s, 11) > 0.075 + 0.2 * deep { continue; }
             let mut y = CH - 2;
             while y > 4 {
                 let b = v[idx(x, y, z)];
                 if is_leaf(b) && v[idx(x, y - 1, z)] == 0 {
+                    if taiga > 0.5 { v[idx(x, y - 1, z)] = B::ICICLE; break; } // au froid, des glaçons à la place des lianes
                     let n = 2 + (hash_float(wx, wz, s, 12) * (5.0 + 5.0 * deep)).floor() as usize;
                     let mut k = 1;
                     while k <= n && v[idx(x, y - k, z)] == 0 { v[idx(x, y - k, z)] = B::VINE; k += 1; }
@@ -315,7 +319,8 @@ impl WorldGen {
         if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) * (1.0 - 0.8 * c.mix.strong(Biome::Meadow)) * (1.0 + 0.8 * c.mix.strong(Biome::DeepForest)) { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 34));
         let sp = self.n_forest.n2(gx as f64 / 5.1 + 3.0, gz as f64 / 5.1 - 8.0); let roll = r.next();
-        let y = c.h.floor(); let age = r.next(); let deep = c.mix.strong(Biome::DeepForest);
+        let y = c.h.floor(); let age = r.next(); let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga);
+        if taiga > 0.5 && roll > 0.1 { return Some(grow_spruce(x, y, z, &mut r, age, taiga > 0.6)); } // taïga : des épicéas, quelques bouleaux
         // Forêt profonde : presque plus de bouleaux, des géants aux racines énormes, un feuillage sombre.
         if deep > 0.5 { let mut st = if roll < 0.28 { grow_beech(x, y, z, &mut r, (0.6 + 0.6 * age).min(1.2)) } else { grow_oak(x, y, z, &mut r, 0.62 + 0.75 * age) }; for d in &mut st.data { if d[3] == B::OAK_LEAVES as i32 { d[3] = B::OAK_LEAVES_DEEP as i32; } else if d[3] == B::BEECH_LEAVES as i32 { d[3] = B::BEECH_LEAVES_DEEP as i32; } } return Some(st); }
         Some(if roll < 0.34 + sp * 0.3 { grow_birch(x, y, z, &mut r, age) } else if roll < 0.52 { grow_beech(x, y, z, &mut r, age) } else { grow_oak(x, y, z, &mut r, age * age * age) })
@@ -412,6 +417,22 @@ fn grow_oak(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
         while g.wood.contains_key(&(cx, yy, cz)) && steps < 12 { steps += 1; cx += dx; cz += dz; }
         g.extra.push([cx, yy, cz, B::SHELF_FUNGUS as i32]);
     }
+    g.finish()
+}
+/// Épicéa : un tronc droit et des étages de branches qui s'élargissent vers le bas, enneigés sur le dessus.
+fn grow_spruce(x: f64, y: f64, z: f64, r: &mut Rng, age: f64, snowy: bool) -> Stamp {
+    let mut g = Grower::default(); let hh = lerp(7.0, 18.0, age); let rad = lerp(0.45, 1.0, age);
+    let trunk = g.limb(&[x, y - 1.0, z], [r.range(-0.03, 0.03), 1.0, r.range(-0.03, 0.03)], hh, rad, 0.4, B::SPRUCE_LOG, r, 0.02, 0.0);
+    let top = trunk[trunk.len() - 1]; let base = y + hh * 0.22; let ytop = top[1] + 2.0; let wide = lerp(2.4, 5.2, age); let tier = 2.0 + (age * 2.0).floor();
+    let mut ly = base.floor();
+    while ly <= ytop {
+        let t = ((ytop - ly) / (ytop - base)).clamp(0.0, 1.0); let fr = ((ly - base) % tier) / tier; let rr = (0.55 + t * wide) * (1.0 - 0.38 * fr);
+        let q = trunk[((ly - y + 1.0).max(0.0) as usize).min(trunk.len() - 1)]; let (cx, cz) = (round(q[0]) as i32, round(q[2]) as i32); let n = rr.ceil() as i32;
+        for dz in -n..=n { for dx in -n..=n { let d = hypot2(dx as f64, dz as f64) + 0.5 * r.next(); if d <= rr { g.leaf.insert((cx + dx, ly as i32, cz + dz), B::SPRUCE_LEAVES); } } }
+        ly += 1.0;
+    }
+    let (tx, tz) = (round(top[0]) as i32, round(top[2]) as i32); for k in 0..2 { g.leaf.insert((tx, ytop as i32 + 1 + k, tz), B::SPRUCE_LEAVES); }
+    if snowy { let keys: Vec<Key> = g.leaf.keys().copied().collect(); for k in keys { let up = (k.0, k.1 + 1, k.2); if !g.leaf.contains_key(&up) && !g.wood.contains_key(&up) { g.leaf.insert(k, B::SPRUCE_LEAVES_SNOW); } } }
     g.finish()
 }
 fn grow_birch(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {

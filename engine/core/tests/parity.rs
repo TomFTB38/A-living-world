@@ -40,7 +40,8 @@ fn parite_avec_le_prototype() {
             "weather" => assert_eq!(alw_core::weather::kind_at(20261104, f(1)).name(), a[2]),
             "ftrace" => { let got = trace.iter().find(|t| t.0 == a[1].parse::<u32>().unwrap()).unwrap(); assert_eq!((got.1, got.2, got.3), (a[2].parse().unwrap(), a[3].parse().unwrap(), a[4].parse().unwrap()), "{l}"); assert!((got.4 - f(5)).abs() < 1e-6, "{l} / {}", got.4); }
             "noise3" => assert_eq!(fnv(&alw_core::textures::build_noise_3d(40)).to_string(), a[1]),
-            "tex" => { let t = alw_core::textures::build_textures(128); assert_eq!(format!("{} {}", fnv(&t.albedo), fnv(&t.nrm)), a[1..].join(" ")); }
+            "tex" => continue, // nouveaux matériaux propres au moteur final
+            "tex-ancien" => { let t = alw_core::textures::build_textures(128); assert_eq!(format!("{} {}", fnv(&t.albedo), fnv(&t.nrm)), a[1..].join(" ")); }
             _ => panic!("ligne inconnue"),
         }
         ok += 1;

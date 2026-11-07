@@ -56,3 +56,12 @@ fn la_foret_profonde_se_distingue() {
 fn chaque_champignon_lumineux_a_sa_couleur() {
     use alw_core::mesher::*; let mut seen = std::collections::HashSet::new(); for x in 0..60 { let c = glow_color(x, 50, -x); seen.insert(format!("{c:?}")); assert_eq!(c, glow_color(x, 50, -x)); } assert_eq!(seen.len(), 5);
 }
+
+#[test]
+fn la_taiga_est_enneigee() {
+    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Taiga) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
+    let (cx, cz) = spot.expect("une taïga"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    let (mut sn, mut gr) = (0, 0); for x in 0..64 { for z in 0..64 { let (wx, wz) = (cx * 32 - 16 + x, cz * 32 - 16 + z); if g.column(wx as f64, wz as f64).mix.strong(Biome::Taiga) < 0.97 { continue; } let v = g.gen_chunk(wx.div_euclid(32), wz.div_euclid(32)); let mut y = 126; while y > 1 && !is_opaque(v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]) { y -= 1; } let b = v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]; if b == B::SNOW { sn += 1; } else if b == B::GRASS { gr += 1; } } } println!("cœur : {sn} colonnes enneigées, {gr} herbe");
+    println!("neige {}, herbe {}, épicéa {}, aiguilles enneigées {}, glaçons {}, glace {}", c(B::SNOW), c(B::GRASS), c(B::SPRUCE_LOG), c(B::SPRUCE_LEAVES_SNOW), c(B::ICICLE), c(B::ICE));
+    assert!(sn > 20 * (gr + 1), "cœur de taïga enneigé"); assert!(c(B::SPRUCE_LOG) > 20 && c(B::SPRUCE_LEAVES_SNOW) > 50);
+}

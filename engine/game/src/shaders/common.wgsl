@@ -6,7 +6,7 @@ struct F {
 // cam.w temps · sun.w exposition · sun_col.w couverture nuageuse · top.w texel d'ombre · hor.w nuit · ground.w brume
 // jit.xy gigue · jit.zw taille · misc : image, voile, trou de l'horizon lointain, remise à zéro du TAA
 // weather : densification de la brume, pluie, luminosité choisie par le joueur, sous l'eau
-// extra.x : lucioles · extra.y : nombre de lumières colorées (position, couleur)
+// extra.x : lucioles · extra.y : nombre de lumières colorées (position, couleur) · extra.z : neige
 @group(0) @binding(0) var<uniform> u: F;
 @group(0) @binding(1) var t_noise: texture_3d<f32>;
 @group(0) @binding(2) var s_rep: sampler;

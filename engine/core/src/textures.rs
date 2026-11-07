@@ -44,6 +44,8 @@ const LIME: [C; 4] = pl!("#857a63", "#ad9f84", "#cdc0a4", "#e6dcc4"); const MOSS
 const OAK: [C; 4] = pl!("#4a2c14", "#7a4f29", "#a8743f", "#cf9d62"); const BEECH: [C; 4] = pl!("#726c60", "#938c7f", "#b0a99b", "#c9c3b5");
 const BIRCH: [C; 3] = pl!("#d6d0bf", "#ece7da", "#fbf8f0"); const BIRCH_DARK: [C; 2] = pl!("#17140f", "#3e3428");
 const OAK_W: [C; 4] = pl!("#5d3a1c", "#8e6133", "#bd8c52", "#dcb67e"); const BIRCH_W: [C; 4] = pl!("#a98a5d", "#cdb080", "#e6d3a8", "#f3e8c9"); const BEECH_W: [C; 4] = pl!("#8a6a48", "#b28f66", "#d0b08a", "#e4cdaa");
+const SPRUCE: [C; 4] = pl!("#2f2219", "#4a3727", "#664c36", "#86694c"); const SPRUCE_W: [C; 4] = pl!("#7d5d3c", "#a17f57", "#c2a276", "#dcc39b");
+const SNOW: [C; 3] = pl!("#c9d5e3", "#e3ebf3", "#f7fafd"); const ICE: [C; 3] = pl!("#7fa6c4", "#a6c6dd", "#d2e6f2");
 const PLANKS: [C; 3] = pl!("#6c4524", "#94673a", "#b98a52"); const PATH: [C; 4] = pl!("#7c5b35", "#a07a4c", "#bc9663", "#d2b080");
 const SOIL: [C; 4] = pl!("#2f2413", "#4a3a1f", "#5e5127", "#6f6a2f"); const SAND: [C; 4] = pl!("#a89268", "#c2ac7e", "#d2bf92", "#e0cfa6"); const GRAVEL: [C; 4] = pl!("#6c6761", "#8e8679", "#a89f91", "#c0b7a9");
 
@@ -120,6 +122,22 @@ fn planks(t: &Tile, x: f64, y: f64) -> S {
     let row = (y / 16.0).floor(); let f = (y % 16.0) / 16.0; let seam = smooth(0.0, 0.07, f) * smooth(1.0, 0.93, f); let g = t.val(x + row * 19.0, y * 2.2, 12); let tone = t.pi(row as i64 * 13);
     S { c: mul(pal(&PLANKS, 0.15 + 0.45 * tone + 0.4 * g), 0.5 + 0.5 * seam), h: seam * (0.7 + 0.3 * g), r: 0.7 }
 }
+fn snow(t: &Tile, x: f64, y: f64) -> S {
+    let (n, s, sp) = (t.fbm(x, y, 4, 3), t.val(x, y, 32), t.pi((x as i64) * 67 + (y as i64) * 131)); let glint = if sp > 0.985 { 0.12 } else { 0.0 };
+    S { c: pal(&SNOW, 0.25 + 0.55 * n + 0.2 * (s - 0.5) + glint), h: 0.35 + 0.4 * n, r: 0.6 }
+}
+fn snow_side(t: &Tile, x: f64, y: f64) -> S {
+    let fringe = 10.0 + 7.0 * t.val(x, 0.0, 16) + 4.0 * t.val(x, 0.0, 32);
+    if y < fringe { return snow(t, x, y); } let mut d = dirt(t, x, y, &DIRT); if y < fringe + 3.0 { d.c = mul(d.c, 0.7); } d
+}
+fn ice(t: &Tile, x: f64, y: f64) -> S {
+    let (d1, d2, _) = t.vor(x, y, 5); let crack = smooth(0.06, 0.0, d2 - d1); let (n, s) = (t.fbm(x, y, 3, 3), t.val(x, y, 16)); let bub = if t.val(x, y, 48) > 0.82 { 0.12 } else { 0.0 };
+    S { c: mul(pal(&ICE, 0.25 + 0.5 * n + 0.2 * (s - 0.5) + bub + 0.35 * crack), 1.0), h: 0.6 - 0.5 * crack, r: 0.12 + 0.3 * crack }
+}
+fn leaf_snow(t: &Tile, x: f64, y: f64) -> S {
+    let l = leaf(t, x, y, [0.5, 0.72, 0.64]); let cover = smooth(0.38, 0.52, t.fbm(x + 13.0, y * 1.6, 5, 3) + 0.1 * (1.0 - y / 64.0));
+    if cover > 0.5 { let s = snow(t, x, y); return S { c: s.c, h: 0.7, r: 0.6 }; } l
+}
 fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
     let b_oak = |a: &Tile, b: f64, c: f64| bark(a, b, c, &OAK, 1.0); let b_beech = |a: &Tile, b: f64, c: f64| bark(a, b, c, &BEECH, 0.28);
     match name {
@@ -129,6 +147,9 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "leaf_oak" => leaf(t, x, y, [1.0, 1.0, 1.0]), "leaf_birch" => leaf(t, x, y, [1.2, 1.12, 0.9]), "leaf_beech" => leaf(t, x, y, [0.86, 1.0, 0.82]),
         "end_oak" => wood_end(t, x, y, &OAK_W, 0.78, &b_oak), "end_birch" => wood_end(t, x, y, &BIRCH_W, 0.95, &birch), "end_beech" => wood_end(t, x, y, &BEECH_W, 0.85, &b_beech),
         "planks" => planks(t, x, y),
+        "snow" => snow(t, x, y), "snow_side" => snow_side(t, x, y), "ice" => ice(t, x, y),
+        "bark_spruce" => bark(t, x, y, &SPRUCE, 0.7), "end_spruce" => wood_end(t, x, y, &SPRUCE_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &SPRUCE, 0.7)),
+        "leaf_spruce" => leaf(t, x, y, [0.5, 0.72, 0.64]), "leaf_snow" => leaf_snow(t, x, y),
         "water_foam" => { let f = t.fbm(x, y, 8, 3); S { c: [f, f, f], h: f, r: 0.3 } }
         _ => panic!("matériau sans générateur : {name}"),
     }

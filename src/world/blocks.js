@@ -7,7 +7,8 @@ export const idx = (x, y, z) => x + z * CX + y * CX * CX;
 // Matériaux : chaque matériau occupe VARIANTS couches consécutives du texture array.
 export const VARIANTS = 4;
 export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'mossy_stone', 'limestone', 'granite', 'gravel', 'sand',
-  'bark_oak', 'bark_birch', 'bark_beech', 'leaf_oak', 'leaf_birch', 'leaf_beech', 'planks', 'forest_soil', 'water_foam', 'end_oak', 'end_birch', 'end_beech'];
+  'bark_oak', 'bark_birch', 'bark_beech', 'leaf_oak', 'leaf_birch', 'leaf_beech', 'planks', 'forest_soil', 'water_foam', 'end_oak', 'end_birch', 'end_beech',
+  'snow', 'snow_side', 'ice', 'bark_spruce', 'end_spruce', 'leaf_spruce', 'leaf_snow'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -75,6 +76,18 @@ const defs = [
   ['beech_log_c', 'cube', ['end_beech', 'bark_beech', 'end_beech'], 1.0, { cat: 'wood', drop: 'beech_log', clean: true }],
   ['beech_log_x_c', 'cube', ['bark_beech', 'end_beech', 'bark_beech'], 1.0, { cat: 'wood', drop: 'beech_log', axis: 'x', clean: true }],
   ['beech_log_z_c', 'cube', ['bark_beech', 'bark_beech', 'end_beech'], 1.0, { cat: 'wood', drop: 'beech_log', axis: 'z', clean: true }],
+  // Taïga. Nouveaux blocs toujours en fin de liste : les identifiants déjà sauvegardés ne bougent pas.
+  ['snow', 'cube', ['snow', 'snow_side', 'dirt'], 0.4, { cat: 'terrain' }],
+  ['ice', 'cube', ['ice', 'ice', 'ice'], 0.5, { cat: 'terrain' }],
+  ['spruce_log', 'cube', ['end_spruce', 'bark_spruce', 'end_spruce'], 1.0, { cat: 'wood' }],
+  ['spruce_log_x', 'cube', ['bark_spruce', 'end_spruce', 'bark_spruce'], 1.0, { cat: 'wood', drop: 'spruce_log', axis: 'x' }],
+  ['spruce_log_z', 'cube', ['bark_spruce', 'bark_spruce', 'end_spruce'], 1.0, { cat: 'wood', drop: 'spruce_log', axis: 'z' }],
+  ['spruce_log_c', 'cube', ['end_spruce', 'bark_spruce', 'end_spruce'], 1.0, { cat: 'wood', drop: 'spruce_log', clean: true }],
+  ['spruce_log_x_c', 'cube', ['bark_spruce', 'end_spruce', 'bark_spruce'], 1.0, { cat: 'wood', drop: 'spruce_log', axis: 'x', clean: true }],
+  ['spruce_log_z_c', 'cube', ['bark_spruce', 'bark_spruce', 'end_spruce'], 1.0, { cat: 'wood', drop: 'spruce_log', axis: 'z', clean: true }],
+  ['spruce_leaves', 'leaf', ['leaf_spruce', 'leaf_spruce', 'leaf_spruce'], 0.12, { cat: 'foliage', drop: null }],
+  ['spruce_leaves_snow', 'leaf', ['leaf_snow', 'leaf_snow', 'leaf_snow'], 0.12, { cat: 'foliage', drop: null }],
+  ['icicle', 'deco', null, 0.02, { model: 'icicle', drop: null }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
@@ -102,7 +115,7 @@ export const EMIT = Uint8Array.from(BLOCKS.map((b) => b.light));
 
 // Orientation : les bois suivent la direction donnée, verticale dès qu'elle s'écarte assez de l'horizon.
 // Blocs orientables, par axe x, y, z.
-const ORIENT = { oak_log: ['oak_log_x', 'oak_log', 'oak_log_z'], birch_log: ['birch_log_x', 'birch_log', 'birch_log_z'], beech_log: ['beech_log_x', 'beech_log', 'beech_log_z'], planks: ['planks', 'planks_y', 'planks_z'] };
+const ORIENT = { spruce_log: ['spruce_log_x', 'spruce_log', 'spruce_log_z'], oak_log: ['oak_log_x', 'oak_log', 'oak_log_z'], birch_log: ['birch_log_x', 'birch_log', 'birch_log_z'], beech_log: ['beech_log_x', 'beech_log', 'beech_log_z'], planks: ['planks', 'planks_y', 'planks_z'] };
 export const canOrient = (id) => !!ORIENT[BLOCKS[id].name];
 export const axisOf = (id) => { const n = BLOCKS[id].name; for (const k in ORIENT) { const i = ORIENT[k].indexOf(n); if (i >= 0) return 'xyz'[i]; } return null; };
 export const MODES = ['selon le regard', 'debout', 'dans le sens du regard', 'en travers du regard'];
