@@ -7,7 +7,7 @@ fn inv_d(d: f32) -> f32 { return 1.0 / max(d, 1e-6); }
   let px = vec2i(i.pos.xy); var c = textureLoad(t_hdr, px, 0).rgb; let d = depth_at(t_d, i.uv); let texel = 1.0 / u.jit.zw;
   let wp = world_from(i.uv, max(d, 1e-5)); let ray = wp - u.cam.xyz; let len = length(ray); let v = ray / len;
   let mist = sky_color(normalize(vec3f(v.x, max(v.y, 0.03) * 0.25 + 0.03, v.z))); let m = u.misc.y;
-  if (d <= 0.0) { let cl = textureSampleLevel(t_cl, s_clamp, i.uv, 0.0); c = c * cl.a + cl.rgb + aurora(v) * max(cl.a, 0.3); // les aurores percent un ciel voilé c = mix(c, mist, min(1.0, m * 160.0)); }
+  if (d <= 0.0) { let cl = textureSampleLevel(t_cl, s_clamp, i.uv, 0.0); c = c * cl.a + cl.rgb + aurora(v) * max(cl.a, 0.3); /* les aurores percent un ciel voilé */ c = mix(c, mist, min(1.0, m * 160.0)); }
   else {
     let far = max(len - 70.0, 0.0); let a = 1.0 - exp(-far * 0.00052 * (1.0 + exp(-max(wp.y - 50.0, 0.0) * 0.02)));
     let air = sky_color(normalize(vec3f(v.x, max(v.y, 0.03), v.z))); c = mix(c, air, a); c = mix(c, mist, 1.0 - exp(-len * m));
