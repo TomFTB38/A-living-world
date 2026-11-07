@@ -76,7 +76,7 @@ fn la_steppe_est_seche_et_ouverte() {
     let (mut dry, mut green) = (0, 0); for x in 0..128 { for z in 0..128 { let (wx, wz) = (cx * 32 - 64 + x, cz * 32 - 64 + z); let col = g.column(wx as f64, wz as f64); if col.mix.strong(Biome::Steppe) < 0.97 || col.water != 0.0 || col.bank > 0.35 { continue; } let v = g.gen_chunk(wx.div_euclid(32), wz.div_euclid(32)); let mut y = 126; while y > 1 && !is_opaque(v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]) { y -= 1; } let b = v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]; if b == B::STEPPE_GRASS || b == B::DRY_EARTH { dry += 1; } else if is_grass(b) { green += 1; } } }
     println!("cœur : {dry} colonnes sèches, {green} vertes"); assert!(dry > 20 * (green + 1), "le sol de la steppe est sec");
     assert!(c(B::DRY_EARTH) > 100 && c(B::FEATHER_GRASS) > 500 && c(B::SAGEBRUSH) > 50 && c(B::DEAD_BUSH) > 10);
-    assert!(logs == 0, "la steppe n'a que des acacias et des arbres morts : {logs} autres troncs"); assert!(c(B::ACACIA_LEAVES) > 0 || c(B::DEAD_LOG) > 0);
+    assert!(logs == 0, "la steppe n'a que des acacias et des arbres morts : {logs} autres troncs"); assert!(c(B::ACACIA_LEAVES) > 0 || c(B::DEAD_LOG) > 0); assert_eq!(c(B::VINE), 0, "pas de lianes dans la steppe");
 }
 
 #[test]
