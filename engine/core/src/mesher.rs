@@ -286,6 +286,32 @@ impl Mesher {
                 }
                 return;
             }
+            "hollow" => {
+                // Tronc creux : quatre parois d'écorce autour d'un cœur vide, ouvert dans le sens du fil, cernes visibles sur la tranche.
+                let name = BLOCKS[b as usize].name; let ax = if name.ends_with("_x") { 0 } else if name.ends_with("_z") { 2 } else { 1 };
+                let log = by_name(&format!("{}_log{}", species(b), ["_x", "", "_z"][ax])).unwrap_or(B::OAK_LOG); let lb = BLOCKS[log as usize];
+                let same = |b2: u8| b2 == b; let d = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+                let (fwd, back) = (voxel(d[ax][0], d[ax][1], d[ax][2]), voxel(-d[ax][0], -d[ax][1], -d[ax][2]));
+                const T: f64 = 0.22; let (u, v) = ([0, 1, 2].into_iter().filter(|k| *k != ax).collect::<Vec<_>>()[0], [0, 1, 2].into_iter().filter(|k| *k != ax).collect::<Vec<_>>()[1]);
+                // (u0, u1, v0, v1) de chaque paroi, dans la section ; la longueur va de 0 à 1 le long du fil.
+                for (u0, u1, v0, v1) in [(0.0, 1.0, 0.0, T), (0.0, 1.0, 1.0 - T, 1.0), (0.0, T, T, 1.0 - T), (1.0 - T, 1.0, T, 1.0 - T)] {
+                    let mut lo = [0.0; 3]; let mut hi = [1.0; 3]; lo[u] = u0; hi[u] = u1; lo[v] = v0; hi[v] = v1;
+                    for f in 0..6 {
+                        let k = f / 2; let pos = f % 2 == 1; let mut n = [0.0; 3]; n[k] = if pos { 1.0 } else { -1.0 };
+                        if k == ax && ((pos && same(fwd)) || (!pos && same(back))) { continue; } // tronc continu : pas de tranche entre deux blocs
+                        let outer = k != ax && ((pos && hi[k] >= 1.0) || (!pos && lo[k] <= 0.0));
+                        if outer { let nb = voxel(n[0] as i32, n[1] as i32, n[2] as i32); if is_opaque(nb) { continue; } }
+                        let di = if k == 1 { if pos { 1 } else { 2 } } else if k == 0 { 0 } else { 3 }; let layer = lb.dir_faces[di] as f64; o.rot = lb.grain[di];
+                        // Face intérieure (vers le cœur vide) : plus sombre.
+                        let inner = k != ax && !outer; let tone = if inner { 0.55 } else { 1.0 };
+                        let w = if pos { hi[k] } else { lo[k] }; let (a1, a2) = ((k + 1) % 3, (k + 2) % 3);
+                        let corner = |p: f64, q: f64| { let mut c = [0.0; 3]; c[k] = w; c[a1] = p; c[a2] = q; [x + c[0], y + c[1], z + c[2]] };
+                        let mut pts = [corner(lo[a1], lo[a2]), corner(hi[a1], lo[a2]), corner(hi[a1], hi[a2]), corner(lo[a1], hi[a2])]; if !pos { pts.swap(1, 3); }
+                        for pt in pts { o.v(pt[0], pt[1], pt[2], layer, n[0], n[1], n[2], 0.0, if inner { 170.0 } else { 235.0 }, s, l, kind::TEX, tone, tone, tone); }
+                    }
+                }
+                o.rot = 0; return;
+            }
             "branch" => {
                 // Branche fine : un nœud central et un bras vers chaque bois ou feuillage voisin, comme une clôture.
                 let col = match species(b) { "birch" => [0.86, 0.84, 0.8], "beech" => [0.5, 0.48, 0.44], "spruce" => [0.32, 0.23, 0.16], "dead" => [0.56, 0.53, 0.49], "acacia" => [0.36, 0.3, 0.25], _ => [0.42, 0.29, 0.17] };

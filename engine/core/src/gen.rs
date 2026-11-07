@@ -340,27 +340,19 @@ impl WorldGen {
         }
         Some(Stamp { data, force: true })
     }
-    /// Tronc mort couché et creux : un anneau de bois, ouvert aux deux bouts, posé à plat sur toute sa longueur.
+    /// Tronc mort couché et creux : une file de blocs de tronc creux, posée à plat, ouverte aux deux bouts.
     fn hollow_log(&self, x: f64, z: f64, r: &mut Rng, wood: u8) -> Option<Stamp> {
-        let w: i32 = if r.next() < 0.3 { 2 } else { 1 }; let len = r.int(5, 10); let a0 = r.int(0, 1); let h0 = self.column(x, z).h.floor();
+        let len = r.int(3, 7); let a0 = r.int(0, 1); let h0 = self.column(x, z).h.floor();
         let dir = |a: i32| if a == 0 { (1.0, 0.0) } else { (0.0, 1.0) };
-        let flat = |a: i32| { let (dx, dz) = dir(a); (-w..=w).map(|sd| (0..len).take_while(|k| self.column(x + dx * *k as f64 + dz * sd as f64, z + dz * *k as f64 + dx * sd as f64).h.floor() == h0).count() as i32).min().unwrap_or(0) };
-        let a = if flat(a0) >= flat(1 - a0) { a0 } else { 1 - a0 }; let n = flat(a); if n < 4 { return None; }
-        let (dx, dz) = dir(a); let id = oriented_block(wood, if a == 0 { 'x' } else { 'z' }); let mut data = Vec::new();
-        for k in 0..n { for t in -w..=w { for sd in -w..=w {
-            let ring = if w == 1 { t.abs().max(sd.abs()) == 1 } else { let d = ((t * t + sd * sd) as f64).sqrt(); (1.3..=2.4).contains(&d) }; if !ring { continue; }
-            let end = k == 0 || k == n - 1; if end && t == w && r.next() < 0.5 { continue; } // bouts cassés, ébréchés sur le dessus
-            if !end && t == w && r.next() < 0.08 { continue; } // un trou par endroits dans l'écorce
-            data.push([ri(x + dx * k as f64 + dz * sd as f64), h0 as i32 + 1 + w + t, ri(z + dz * k as f64 + dx * sd as f64), id as i32]);
-        } } }
-        Some(Stamp { data, force: false })
+        let flat = |a: i32| { let (dx, dz) = dir(a); (0..len).take_while(|k| self.column(x + dx * *k as f64, z + dz * *k as f64).h.floor() == h0).count() as i32 };
+        let a = if flat(a0) >= flat(1 - a0) { a0 } else { 1 - a0 }; let n = flat(a); if n < 3 { return None; }
+        let (dx, dz) = dir(a); let id = oriented_block(hollow_of(wood), if a == 0 { 'x' } else { 'z' });
+        Some(Stamp { data: (0..n).map(|k| [ri(x + dx * k as f64), h0 as i32 + 1, ri(z + dz * k as f64), id as i32]).collect(), force: false })
     }
-    /// Souche creuse : un anneau de bois debout, vide au milieu, aux bords inégaux.
+    /// Souche creuse : un ou deux blocs de tronc creux debout, le cœur vide ouvert vers le ciel.
     fn hollow_stump(&self, x: f64, z: f64, r: &mut Rng, wood: u8) -> Option<Stamp> {
-        let h0 = self.column(x, z).h.floor(); for dz in -1..=1 { for dx in -1..=1 { if self.column(x + dx as f64, z + dz as f64).h.floor() != h0 { return None; } } }
-        let mut data = Vec::new(); let base = r.int(1, 2);
-        for dz in -1..=1i32 { for dx in -1..=1i32 { if dx == 0 && dz == 0 { continue; } let h = base + r.int(0, 1); for y in 1..=h { data.push([ri(x) + dx, h0 as i32 + y, ri(z) + dz, wood as i32]); } } }
-        Some(Stamp { data, force: false })
+        let h0 = self.column(x, z).h.floor(); let id = hollow_of(wood);
+        Some(Stamp { data: (1..=r.int(1, 2)).map(|y| [ri(x), h0 as i32 + y, ri(z), id as i32]).collect(), force: false })
     }
     /// Squelette d'un grand animal disparu, à moitié enfoui dans la steppe : échine, côtes, crâne, défenses et os épars.
     fn bone_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {

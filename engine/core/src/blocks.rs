@@ -44,6 +44,8 @@ pub fn is_branch(b: u8) -> bool { BLOCKS[b as usize].name.ends_with("_branch") }
 pub fn branch_of(log: u8) -> u8 { by_name(&format!("{}_branch", species(log))).unwrap_or(log) }
 /// Le tronc d'une essence, à partir de sa branche fine.
 pub fn log_of(b: u8) -> u8 { if is_branch(b) { by_name(&format!("{}_log", species(b))).unwrap_or(b) } else { b } }
+/// Le bloc de tronc creux d'une essence (chêne, épicéa ou bois mort).
+pub fn hollow_of(log: u8) -> u8 { by_name(&format!("{}_hollow", species(log))).unwrap_or(B::DEAD_HOLLOW) }
 pub fn species(b: u8) -> &'static str { BLOCKS[b as usize].name.split('_').next().unwrap_or("") }
 #[inline(always)] pub fn is_leaf(b: u8) -> bool { BLOCKS[b as usize].shape == Shape::Leaf }
 #[inline(always)] pub fn is_deco(b: u8) -> bool { BLOCKS[b as usize].shape == Shape::Deco }
@@ -59,6 +61,9 @@ pub fn oriented_block(id: u8, axis: char) -> u8 {
         B::SPRUCE_LOG => [B::SPRUCE_LOG_X, B::SPRUCE_LOG, B::SPRUCE_LOG_Z],
         B::DEAD_LOG => [B::DEAD_LOG_X, B::DEAD_LOG, B::DEAD_LOG_Z],
         B::ACACIA_LOG => [B::ACACIA_LOG_X, B::ACACIA_LOG, B::ACACIA_LOG_Z],
+        B::OAK_HOLLOW => [B::OAK_HOLLOW_X, B::OAK_HOLLOW, B::OAK_HOLLOW_Z],
+        B::SPRUCE_HOLLOW => [B::SPRUCE_HOLLOW_X, B::SPRUCE_HOLLOW, B::SPRUCE_HOLLOW_Z],
+        B::DEAD_HOLLOW => [B::DEAD_HOLLOW_X, B::DEAD_HOLLOW, B::DEAD_HOLLOW_Z],
         B::PLANKS => [B::PLANKS, B::PLANKS_Y, B::PLANKS_Z],
         _ => return id,
     };

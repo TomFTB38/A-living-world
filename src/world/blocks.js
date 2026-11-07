@@ -129,6 +129,16 @@ const defs = [
   ['spruce_branch', 'deco', null, 0.4, { model: 'branch', solid: true, cat: 'wood', drop: 'spruce_log' }],
   ['dead_branch', 'deco', null, 0.4, { model: 'branch', solid: true, cat: 'wood', drop: 'dead_log' }],
   ['acacia_branch', 'deco', null, 0.4, { model: 'branch', solid: true, cat: 'wood', drop: 'acacia_log' }],
+  // Troncs creux : un bloc de tronc vidé de son cœur, couché (x, z) ou debout
+  ['oak_hollow', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood' }],
+  ['oak_hollow_x', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood', drop: 'oak_hollow' }],
+  ['oak_hollow_z', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood', drop: 'oak_hollow' }],
+  ['spruce_hollow', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood' }],
+  ['spruce_hollow_x', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood', drop: 'spruce_hollow' }],
+  ['spruce_hollow_z', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood', drop: 'spruce_hollow' }],
+  ['dead_hollow', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood' }],
+  ['dead_hollow_x', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood', drop: 'dead_hollow' }],
+  ['dead_hollow_z', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood', drop: 'dead_hollow' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
@@ -156,7 +166,7 @@ export const EMIT = Uint8Array.from(BLOCKS.map((b) => b.light));
 
 // Orientation : les bois suivent la direction donnée, verticale dès qu'elle s'écarte assez de l'horizon.
 // Blocs orientables, par axe x, y, z.
-const ORIENT = { acacia_log: ['acacia_log_x', 'acacia_log', 'acacia_log_z'], dead_log: ['dead_log_x', 'dead_log', 'dead_log_z'], spruce_log: ['spruce_log_x', 'spruce_log', 'spruce_log_z'], oak_log: ['oak_log_x', 'oak_log', 'oak_log_z'], birch_log: ['birch_log_x', 'birch_log', 'birch_log_z'], beech_log: ['beech_log_x', 'beech_log', 'beech_log_z'], planks: ['planks', 'planks_y', 'planks_z'] };
+const ORIENT = { oak_hollow: ['oak_hollow_x', 'oak_hollow', 'oak_hollow_z'], spruce_hollow: ['spruce_hollow_x', 'spruce_hollow', 'spruce_hollow_z'], dead_hollow: ['dead_hollow_x', 'dead_hollow', 'dead_hollow_z'], acacia_log: ['acacia_log_x', 'acacia_log', 'acacia_log_z'], dead_log: ['dead_log_x', 'dead_log', 'dead_log_z'], spruce_log: ['spruce_log_x', 'spruce_log', 'spruce_log_z'], oak_log: ['oak_log_x', 'oak_log', 'oak_log_z'], birch_log: ['birch_log_x', 'birch_log', 'birch_log_z'], beech_log: ['beech_log_x', 'beech_log', 'beech_log_z'], planks: ['planks', 'planks_y', 'planks_z'] };
 export const canOrient = (id) => !!ORIENT[BLOCKS[id].name];
 export const axisOf = (id) => { const n = BLOCKS[id].name; for (const k in ORIENT) { const i = ORIENT[k].indexOf(n); if (i >= 0) return 'xyz'[i]; } return null; };
 export const MODES = ['selon le regard', 'debout', 'dans le sens du regard', 'en travers du regard'];

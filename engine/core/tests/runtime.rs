@@ -112,13 +112,9 @@ fn aucun_bloc_d_arbre_ne_flotte() {
 
 #[test]
 fn troncs_et_souches_creux() {
-    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let mut found = 0;
-    // Un tronc creux : un bloc d'air entouré de bois couché sur ses quatre côtés.
+    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut lying, mut standing) = (0, 0);
     'f: for r in 4..60 { for k in 0..24 { let a = k as f64 / 24.0 * std::f64::consts::TAU; let (cx, cz) = ((a.cos() * r as f64).floor() as i32, (a.sin() * r as f64).floor() as i32); let m = g.column(cx as f64 * 32.0, cz as f64 * 32.0).mix; if m.strong(Biome::Taiga) < 0.5 && m.strong(Biome::DeepForest) < 0.5 && m.strong(Biome::Temperate) < 0.5 { continue; }
-        let v = g.gen_chunk(cx, cz); let wood = |b: u8| is_log(b);
-        for y in 2..CH - 2 { for z in 1..CX - 1 { for x in 1..CX - 1 { if v[idx(x, y, z)] != 0 { continue; }
-            let side = (wood(v[idx(x + 1, y, z)]) && wood(v[idx(x - 1, y, z)])) || (wood(v[idx(x, y, z + 1)]) && wood(v[idx(x, y, z - 1)]));
-            if side && wood(v[idx(x, y + 1, z)]) && wood(v[idx(x, y - 1, z)]) && is_opaque(v[idx(x, y - 2, z)]) { found += 1; } } } }
-        if found > 6 { println!("cavités de troncs creux : {found} (chunk {cx},{cz})"); break 'f; } } }
-    assert!(found > 6, "aucun tronc creux : {found}");
+        for b in g.gen_chunk(cx, cz) { let n = BLOCKS[b as usize].name; if n.contains("_hollow") { if n.ends_with("_x") || n.ends_with("_z") { lying += 1; } else { standing += 1; } } }
+        if lying > 10 && standing > 2 { break 'f; } } }
+    println!("troncs creux couchés {lying}, souches creuses {standing}"); assert!(lying > 10 && standing > 2);
 }
