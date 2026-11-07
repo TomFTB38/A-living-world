@@ -7,6 +7,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+# Une nouvelle version annule la compilation de la précédente : seule la plus récente est publiée.
+concurrency:
+  group: moteur-windows
+  cancel-in-progress: true
 jobs:
   windows:
     runs-on: windows-latest
