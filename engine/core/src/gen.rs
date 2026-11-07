@@ -380,9 +380,10 @@ impl WorldGen {
             if roll < 0.26 {
                 // Tronc couché : seulement sur un sol assez plat pour qu'il repose de tout son long.
                 let (len, a) = (r.range(4.0, 9.0), r.int(0, 1)); let (dx, dz) = if a == 0 { (1.0, 0.0) } else { (0.0, 1.0) };
-                let hs: Vec<f64> = (0..=len as i32).map(|k| self.column(x + dx * k as f64, z + dz * k as f64).h.floor()).collect(); let (lo, hi) = hs.iter().fold((f64::MAX, f64::MIN), |m, v| (m.0.min(*v), m.1.max(*v)));
-                if hi - lo > 1.0 { return None; } let id = oriented_block(if r.next() < 0.5 { B::SPRUCE_LOG } else { B::DEAD_LOG }, if a == 0 { 'x' } else { 'z' });
-                return Some(Stamp { data: (0..=len as i32).map(|k| [ri(x + dx * k as f64), hi as i32 + 1, ri(z + dz * k as f64), id as i32]).collect(), force: false });
+                /* posé à plat de bout en bout : le tronc s'arrête là où le sol change de hauteur, jamais au-dessus du vide */
+                let h0 = self.column(x, z).h.floor(); let n = (0..=len as i32).take_while(|k| self.column(x + dx * *k as f64, z + dz * *k as f64).h.floor() == h0).count() as i32; if n < 3 { return None; }
+                let id = oriented_block(if r.next() < 0.5 { B::SPRUCE_LOG } else { B::DEAD_LOG }, if a == 0 { 'x' } else { 'z' });
+                return Some(Stamp { data: (0..n).map(|k| [ri(x + dx * k as f64), h0 as i32 + 1, ri(z + dz * k as f64), id as i32]).collect(), force: false });
             }
         }
         if taiga > 0.5 && roll > 0.1 * (1.0 - taiga) * 2.0 { return Some(grow_spruce(x, y, z, &mut r, age, taiga > 0.6)); } // taïga : des épicéas, quelques bouleaux
@@ -407,11 +408,15 @@ impl Grower {
     #[allow(clippy::too_many_arguments)]
     fn limb(&mut self, p: &[f64], dir: [f64; 3], len: f64, r0: f64, r1: f64, id: u8, rng: &mut Rng, curl: f64, up: f64) -> Vec<[f64; 6]> {
         let n = len.ceil() as i32; let mut pts = Vec::with_capacity(n as usize + 1);
-        let (mut x, mut y, mut z) = (p[0], p[1], p[2]); let [mut dx, mut dy, mut dz] = dir;
+        let (mut x, mut y, mut z) = (p[0], p[1], p[2]); let [mut dx, mut dy, mut dz] = dir; let mut prev: Option<Key> = None;
         for i in 0..=n {
             let t = i as f64 / n as f64;
             let axis = if dy.abs() > hypot2(dx, dz) { 'y' } else if dx.abs() >= dz.abs() { 'x' } else { 'z' };
-            self.sphere_wood(x, y, z, lerp(r0, r1, t), oriented_block(id, axis));
+            let bid = oriented_block(id, axis); self.sphere_wood(x, y, z, lerp(r0, r1, t), bid);
+            // Une branche fine avance d'un bloc à la fois par une face : jamais deux cubes qui ne se touchent que par un coin.
+            let cur = (round(x) as i32, round(y) as i32, round(z) as i32);
+            if let Some(mut q) = prev { while q != cur { if q.1 != cur.1 { q.1 += (cur.1 - q.1).signum(); } else if q.0 != cur.0 { q.0 += (cur.0 - q.0).signum(); } else { q.2 += (cur.2 - q.2).signum(); } self.wood.entry(q).or_insert(bid); } }
+            prev = Some(cur);
             pts.push([x, y, z, dx, dy, dz]);
             dx += rng.range(-curl, curl); dz += rng.range(-curl, curl); dy += rng.range(-curl * 0.5, curl * 0.5) + up;
             let l = hypot3(dx, dy, dz); dx /= l; dy /= l; dz /= l;
@@ -430,7 +435,11 @@ impl Grower {
             if e + wob < 0.95 { self.leaf.insert((qx + dxi, qy + dyi, qz + dzi), id); }
         } } }
     }
-    fn finish(self) -> Stamp {
+    fn finish(mut self) -> Stamp {
+        // Seul le feuillage relié au bois par ses faces reste : aucune touffe ne flotte en l'air.
+        let mut keep = std::collections::BTreeSet::new(); let mut q: Vec<Key> = self.wood.keys().copied().collect();
+        while let Some(p) = q.pop() { for d in [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)] { let n = (p.0 + d.0, p.1 + d.1, p.2 + d.2); if self.leaf.contains_key(&n) && !self.wood.contains_key(&n) && keep.insert(n) { q.push(n); } } }
+        self.leaf.retain(|k, _| keep.contains(k));
         let mut data = Vec::with_capacity(self.leaf.len() + self.wood.len() + self.extra.len());
         for (k, id) in &self.leaf { if !self.wood.contains_key(k) { data.push([k.0, k.1, k.2, *id as i32]); } }
         for (k, id) in &self.wood { data.push([k.0, k.1, k.2, *id as i32]); }

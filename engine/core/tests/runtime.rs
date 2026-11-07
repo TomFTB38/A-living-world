@@ -94,3 +94,18 @@ fn la_taiga_a_son_sous_bois() {
     println!("myrtilles {}, sorbiers {}, fougères rousses {}, lichens {}, bois mort {}, bouleaux {}, troncs couchés {}", c(B::BLUEBERRY), c(B::ROWAN), c(B::FERN_DRY), c(B::LICHEN_STONE), c(B::DEAD_LOG) + c(B::DEAD_LOG_X) + c(B::DEAD_LOG_Z), c(B::BIRCH_LOG), c(B::SPRUCE_LOG_X) + c(B::SPRUCE_LOG_Z) + c(B::DEAD_LOG_X) + c(B::DEAD_LOG_Z));
     assert!(c(B::BLUEBERRY) > 30 && c(B::ROWAN) > 3 && c(B::FERN_DRY) > 20 && c(B::LICHEN_STONE) > 30); assert!(c(B::DEAD_LOG) + c(B::DEAD_LOG_X) + c(B::DEAD_LOG_Z) > 5 && c(B::BIRCH_LOG) > 5);
 }
+
+#[test]
+fn aucun_bloc_d_arbre_ne_flotte() {
+    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104);
+    // Un bout de chaque biome : chaque tronc et chaque feuille touche, par une face, un autre bloc plein ou du feuillage.
+    let mut spots = vec![]; for b in [Biome::Temperate, Biome::DeepForest, Biome::Taiga, Biome::Steppe, Biome::Meadow] { 'f: for r in 0..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if r == 0 && b != Biome::Temperate { continue; } if g.column(x, z).mix.strong(b) > 0.9 { spots.push(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } } }
+    let tree = |b: u8| is_log(b) || is_leaf(b); let (mut bad, mut total) = (0, 0);
+    for (cx, cz) in spots { for a in 0..2 { for c in 0..2 {
+        let v = g.gen_chunk(cx + a, cz + c);
+        for y in 1..CH - 1 { for z in 1..CX - 1 { for x in 1..CX - 1 { let b = v[idx(x, y, z)]; if !tree(b) { continue; } total += 1;
+            let ok = [(1i32, 0i32, 0i32), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)].iter().any(|d| { let n = v[idx((x as i32 + d.0) as usize, (y as i32 + d.1) as usize, (z as i32 + d.2) as usize)]; is_solid(n) || is_leaf(n) });
+            if !ok { bad += 1; } } } }
+    } } }
+    println!("{bad} blocs isolés sur {total}"); assert_eq!(bad, 0);
+}
