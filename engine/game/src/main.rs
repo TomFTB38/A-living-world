@@ -27,12 +27,12 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
     let (proj, vm) = (view::perspective(1.05, w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
     let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let draws = s.draws(md, &vm); let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
     gpu.lights = s.lights(s.eye, gpu::LIGHTS);
-    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); let night = (1.0 - (sky.dir[1] * 4.0).clamp(0.0, 1.0)) as f32; env.flies = s.deep as f32 * (0.55 + 0.9 * night);
+    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); let night = sky.night.clamp(0.0, 1.0); // la nuit, la direction est celle de la lune : elle ne dit pas l'heure env.flies = s.deep as f32 * (0.55 + 0.9 * night);
     // Taïga : ciel froid, soleil pâle, neige qui tombe à la place de la pluie.
     let tg = s.taiga as f32; if tg > 0.01 { for k in 0..3 { sky.top[k] += ([0.5, 0.64, 0.82][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.35 * tg; sky.hor[k] += ([0.82, 0.88, 0.95][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.4 * tg; sky.col[k] *= 1.0 + ([0.12, 0.02, -0.16][k]) * tg * (1.0 - night); }
         // Soleil d'hiver : bas sur l'horizon, doré, aux ombres longues ; brume au fond des vallées le matin ; aurores la nuit.
         if sky.dir[1] > 0.05 { sky.dir[1] = 0.05 + (sky.dir[1] - 0.05) * (1.0 - 0.5 * tg); let l = (sky.dir[0] * sky.dir[0] + sky.dir[1] * sky.dir[1] + sky.dir[2] * sky.dir[2]).sqrt(); for v in &mut sky.dir { *v /= l; } }
-        let h = s.hour as f32; env.valley = tg * ((h - 4.5) / 2.0).clamp(0.0, 1.0) * (1.0 - ((h - 9.0) / 2.5).clamp(0.0, 1.0)) * 0.85; env.aurora = tg * night * (1.0 - env.cloud).clamp(0.3, 1.0); env.snow = tg * (0.3 + 0.7 * s.weather.state.rain as f32); env.rain *= 1.0 - tg; } // Steppe : lumière chaude et dorée, horizon voilé de poussière.
+        let h = s.hour as f32; env.valley = tg * ((h - 4.5) / 2.0).clamp(0.0, 1.0) * (1.0 - ((h - 9.0) / 2.5).clamp(0.0, 1.0)) * 0.6; env.aurora = tg * night * (1.0 - env.cloud).clamp(0.3, 1.0); env.snow = tg * (0.3 + 0.7 * s.weather.state.rain as f32); env.rain *= 1.0 - tg; } // Steppe : lumière chaude et dorée, horizon voilé de poussière.
     let st = s.steppe as f32 * (1.0 - night); if st > 0.01 { for k in 0..3 { sky.hor[k] += ([0.96, 0.86, 0.68][k] - sky.hor[k]) * 0.3 * st; sky.col[k] *= 1.0 + ([0.07, 0.02, -0.08][k]) * st; } env.mist += 0.0012 * st; }
     env.bright *= 1.0 - 0.42 * s.deep as f32; env.fog_k += 2.6 * s.deep as f32; env.mist += 0.0035 * s.deep as f32; for v in &mut sky.top { *v *= 1.0 - 0.3 * s.deep as f32; }
     gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], s.progress() as f32)), s.ghost(), &draws, &ui)
@@ -278,13 +278,13 @@ fn capture(a: &[String]) {
                 let (cx, cz) = at(11.0, -1.0); s.wild.put(Kind::Crow, [cx, gy(&s, cx, cz) + 3.5, cz], s.player.yaw + 1.6, true);
                 let (cx, cz) = at(8.0, 0.5); s.wild.put(Kind::Crow, [cx, gy(&s, cx, cz), cz], s.player.yaw + 2.6, false);
                 for i in 0..14 { let k = 1.5 + i as f64 * 0.62; let side = if i % 2 == 0 { 0.13 } else { -0.13 }; let (px, pz) = at(k, side + 0.6 * (k * 0.3).sin()); let y = gy(&s, px, pz); if let Some(top) = snow_at(&s.world, px, y, pz) { s.wild.prints.push(Print { p: [px, top + 0.004, pz], yaw: s.player.yaw, age: 0.0, small: false }); } }
-            } else { for (k, l) in [(7.0, -2.0), (11.0, 3.0), (16.0, -1.0)] { let (tx, tz) = at(k, l); s.wild.put(Kind::Tumble, [tx, gy(&s, tx, tz), tz], 0.0, false); } s.steppe = 1.0; }
+            } else { for (k, l) in [(4.5, -0.8), (7.5, 1.4), (11.0, -0.4)] { let (tx, tz) = at(k, l); s.wild.put(Kind::Tumble, [tx, gy(&s, tx, tz), tz], 0.0, false); } s.steppe = 1.0; }
             s.taiga = if scene == "taiga_faune" { 1.0 } else { 0.0 }; s.tick(0.0, none, Actions::default());
         }
     }
     if scene == "steppe" {
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Steppe) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
-        println!("steppe : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 7.0, z]; let f = view::norm([a.cos(), -0.16, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.steppe = 1.0; s.tick(0.0, none, Actions::default()); }
+        println!("steppe : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 13.0, z]; let f = view::norm([a.cos(), -0.24, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.steppe = 1.0; s.tick(0.0, none, Actions::default()); }
     }
     if scene == "prairie" {
         // Le point le plus proche franchement en prairie, vu à hauteur d'homme vers le centre du biome.

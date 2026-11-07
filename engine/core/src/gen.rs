@@ -267,7 +267,7 @@ impl WorldGen {
         let s = self.seed;
         for z in 0..CX { for x in 0..CX {
             let (wx, wz) = (ox + x as i32, oz + z as i32);
-            let m = self.climate.at(wx as f64, wz as f64); let (deep, taiga) = (m.strong(Biome::DeepForest), m.strong(Biome::Taiga)); if hash_float(wx, wz, s, 11) > 0.075 + 0.2 * deep { continue; }
+            let m = self.climate.at(wx as f64, wz as f64); let (deep, taiga) = (m.strong(Biome::DeepForest), m.strong(Biome::Taiga)); if hash_float(wx, wz, s, 11) > 0.075 + 0.2 * deep || m.strong(Biome::Steppe) > 0.2 { continue; } // pas de lianes dans la steppe
             let mut y = CH - 2;
             while y > 4 {
                 let b = v[idx(x, y, z)];
@@ -374,7 +374,7 @@ impl WorldGen {
         if c.mix.strong(Biome::Steppe) > 0.5 { return Some(if roll < 0.45 { grow_dead(x, y, z, &mut r, age) } else { grow_acacia(x, y, z, &mut r, age) }); } // steppe : des acacias et des arbres morts, rien d'autre
         if taiga > 0.5 {
             // Taïga : surtout des épicéas, des bouleaux blancs isolés, des sapins morts, des souches et des troncs couchés.
-            if roll < 0.07 { return Some(grow_birch(x, y, z, &mut r, 0.3 + 0.5 * age)); }
+            if roll < 0.07 { let mut st = grow_birch(x, y, z, &mut r, 0.25 * age); for d in &mut st.data { if d[3] == B::BIRCH_LEAVES as i32 { d[3] = B::BIRCH_LEAVES_GOLD as i32; } } return Some(st); } // bouleau blanc, mince, aux dernières feuilles dorées
             if roll < 0.15 { return Some(grow_dead_fir(x, y, z, &mut r, age)); }
             if roll < 0.2 { let id = if r.next() < 0.6 { B::SPRUCE_LOG } else { B::DEAD_LOG }; return Some(stump(x, y, z, &mut r, id)); }
             if roll < 0.26 {
@@ -534,7 +534,7 @@ fn grow_acacia(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
     }
     let canopy = tips.iter().fold(f64::MIN, |m, t| m.max(t[1])).round();
     for t in &tips {
-        let rad = lerp(2.6, 4.6, age) * r.range(0.85, 1.15); let (cx, cz) = (round(t[0]) as i32, round(t[2]) as i32); let n = rad.ceil() as i32; let cy = canopy as i32 + if r.next() < 0.3 { 1 } else { 0 };
+        let rad = lerp(2.0, 3.4, age) * r.range(0.85, 1.15); let (cx, cz) = (round(t[0]) as i32, round(t[2]) as i32); let n = rad.ceil() as i32; let cy = canopy as i32 + if r.next() < 0.3 { 1 } else { 0 };
         // Une ombrelle : une nappe pleine, une nappe plus étroite au-dessus, des pointes qui pendent au bord.
         for dz in -n..=n { for dx in -n..=n { let d = hypot2(dx as f64, dz as f64) + 0.6 * r.next(); if d <= rad { g.leaf.insert((cx + dx, cy, cz + dz), lf); if d <= rad * 0.6 { g.leaf.insert((cx + dx, cy + 1, cz + dz), lf); } if d > rad - 1.0 && r.next() < 0.18 { g.leaf.insert((cx + dx, cy - 1, cz + dz), lf); } } } }
         let (tx, ty, tz) = (t[0], t[1], t[2]); let mut yy = ty; while yy < cy as f64 { g.wood.insert((round(tx) as i32, round(yy) as i32, round(tz) as i32), log); yy += 1.0; }

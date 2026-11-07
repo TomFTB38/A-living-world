@@ -35,12 +35,12 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
     let mut tumble = VBuf::new(4000); { let o = &mut tumble; let mut r = Rng::new(77);
         for _ in 0..14 {
             let (a, e) = (r.range(0.0, 6.283), r.range(-1.4, 1.4)); let (ax, ay, az) = (cos(a) * cos(e), sin(e), sin(a) * cos(e)); let (ux, uy, uz) = { let (x, y, z) = (-az, 0.0, ax); let l = hypot2(x, z).max(1e-6); (x / l, y, z / l) };
-            let (vx, vy, vz) = (ay * uz - az * uy, az * ux - ax * uz, ax * uy - ay * ux); let (start, len) = (r.range(0.0, 6.283), r.range(1.6, 3.2)); let rad = r.range(0.32, 0.46); let k = r.range(0.85, 1.15);
-            for i in 0..14 { let t = start + len * i as f64 / 14.0; let (cx, cy, cz) = ((ux * cos(t) + vx * sin(t)) * rad, (uy * cos(t) + vy * sin(t)) * rad, (uz * cos(t) + vz * sin(t)) * rad); let w = 0.022; b(o, [cx - w, cy - w, cz - w, cx + w, cy + w, cz + w], [0.62 * k, 0.52 * k, 0.36 * k]); }
+            let (vx, vy, vz) = (ay * uz - az * uy, az * ux - ax * uz, ax * uy - ay * ux); let (start, len) = (r.range(0.0, 6.283), r.range(1.6, 3.2)); let rad = r.range(0.45, 0.62); let k = r.range(0.85, 1.15);
+            for i in 0..14 { let t = start + len * i as f64 / 14.0; let (cx, cy, cz) = ((ux * cos(t) + vx * sin(t)) * rad, (uy * cos(t) + vy * sin(t)) * rad, (uz * cos(t) + vz * sin(t)) * rad); let w = 0.028; b(o, [cx - w, cy - w, cz - w, cx + w, cy + w, cz + w], [0.8 * k, 0.68 * k, 0.48 * k]); }
         }
-        for _ in 0..30 { let (x, y, z) = (r.range(-0.25, 0.25), r.range(-0.25, 0.25), r.range(-0.25, 0.25)); let w = 0.018; b(o, [x - w, y - w, z - w, x + w, y + w, z + w], [0.5, 0.42, 0.3]); }
+        for _ in 0..40 { let (x, y, z) = (r.range(-0.35, 0.35), r.range(-0.35, 0.35), r.range(-0.35, 0.35)); let w = 0.024; b(o, [x - w, y - w, z - w, x + w, y + w, z + w], [0.66, 0.56, 0.4]); }
     }
-    let mut print = VBuf::new(60); b(&mut print, [-0.05, 0.0, -0.08, 0.05, 0.012, 0.08], [0.66, 0.71, 0.8]);
+    let mut print = VBuf::new(60); b(&mut print, [-0.06, 0.0, -0.1, 0.06, 0.012, 0.1], [0.42, 0.48, 0.6]);
     vec![("fox", fox), ("foxHead", fox_head), ("foxLeg", fox_leg), ("hare", hare), ("crow", crow), ("crowWing", crow_wing), ("tumble", tumble), ("print", print)]
 }
 
@@ -134,7 +134,7 @@ impl Wild {
             Some(g) if g <= c.p[1] + 2.05 => { c.v[1] = 6.0; c.p[1] += c.v[1] * dt; } // un bloc plus haut : il bondit par-dessus
             _ => { c.v[0] *= -0.3; c.v[2] *= -0.3; c.p[1] += c.v[1].max(0.0) * dt; }
         }
-        let sp = hypot2(c.v[0], c.v[2]); c.spin += sp / 0.42 * dt; c.axis = if sp > 0.01 { [c.v[2] / sp, 0.0, -c.v[0] / sp] } else { c.axis };
+        let sp = hypot2(c.v[0], c.v[2]); c.spin += sp / 0.58 * dt; c.axis = if sp > 0.01 { [c.v[2] / sp, 0.0, -c.v[0] / sp] } else { c.axis };
     }
     pub fn draws(&self, md: &Models) -> Vec<Draw> {
         let mut out = Vec::with_capacity(self.all.len() * 7 + self.prints.len());
@@ -151,7 +151,7 @@ impl Wild {
                     let base = trs(c.p[0], c.p[1] + 0.05, c.p[2], c.yaw, 0.0, 1.0); let f = if c.state == State::Fly { 0.25 + 0.55 * sin(c.phase) } else { -1.25 };
                     put("crow", base); put("crowWing", mul(&base, &mul(&trs(0.06 * CROW, 0.08 * CROW, 0.0, 0.0, 0.0, 1.0), &roll_z(f)))); put("crowWing", mul(&base, &mul(&trs(-0.06 * CROW, 0.08 * CROW, 0.0, 0.0, 0.0, 1.0), &roll_z(std::f64::consts::PI - f))));
                 }
-                Kind::Tumble => put("tumble", rot_axis([c.p[0], c.p[1] + 0.42, c.p[2]], c.axis, c.spin, 1.0)),
+                Kind::Tumble => put("tumble", rot_axis([c.p[0], c.p[1] + 0.58, c.p[2]], c.axis, c.spin, 1.0)),
             }
         }
         for pr in &self.prints { let sc = if pr.small { 0.55 } else { 1.0 }; put("print", trs(pr.p[0], pr.p[1], pr.p[2], pr.yaw, 0.0, sc)); }

@@ -203,7 +203,7 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "bark_spruce" => bark(t, x, y, &SPRUCE, 0.7), "end_spruce" => wood_end(t, x, y, &SPRUCE_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &SPRUCE, 0.7)),
         "leaf_spruce" => needles(t, x, y), "leaf_snow" => leaf_snow(t, x, y),
         "bark_dead" => bark(t, x, y, &DEAD, 0.95), "end_dead" => wood_end(t, x, y, &DEAD_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &DEAD, 0.95)), "lichen" => lichen(t, x, y),
-        "bark_acacia" => bark(t, x, y, &ACACIA, 1.0), "end_acacia" => wood_end(t, x, y, &ACACIA_W, 0.75, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &ACACIA, 1.0)), "leaf_acacia" => leaf(t, x, y, [0.92, 1.0, 0.6]), "bone" => bone(t, x, y),
+        "bark_acacia" => bark(t, x, y, &ACACIA, 1.0), "end_acacia" => wood_end(t, x, y, &ACACIA_W, 0.75, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &ACACIA, 1.0)), "leaf_acacia" => leaf(t, x, y, [0.62, 0.7, 0.4]), "bone" => bone(t, x, y),
         "grass_dry_top" => dry_top(t, x, y), "grass_dry_side" => dry_side(t, x, y), "dry_earth" => cracked(t, x, y),
         "water_foam" => { let f = t.fbm(x, y, 8, 3); S { c: [f, f, f], h: f, r: 0.3 } }
         _ => panic!("matériau sans générateur : {name}"),

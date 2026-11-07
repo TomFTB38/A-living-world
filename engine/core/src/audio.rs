@@ -13,7 +13,7 @@ pub fn sound_of(name: &str) -> &'static Mat {
     let name = name.strip_suffix("_c").unwrap_or(name); let n = name.strip_suffix("_x").or(name.strip_suffix("_y")).or(name.strip_suffix("_z")).unwrap_or(name);
     let n = if n.starts_with("water") { "water" } else { n.strip_suffix("_deep").unwrap_or(n) };
     if n == "snow" || n.starts_with("snow_layer") { return &SNOW; }
-    let n = match n { "frost_grass" | "feather_grass" | "sagebrush" | "dead_bush" | "blueberry" | "rowan" | "fern_dry" => "tall_grass", "dead_log" | "acacia_log" => "oak_log", "acacia_leaves" => "oak_leaves", "lichen_stone" | "bone" => "stone", "steppe_grass" => "grass", "ice" | "icicle" => "stone", "spruce_log" => "oak_log", "spruce_leaves" | "spruce_leaves_snow" => "oak_leaves", _ => n };
+    let n = match n { "frost_grass" | "feather_grass" | "sagebrush" | "dead_bush" | "blueberry" | "rowan" | "fern_dry" => "tall_grass", "dead_log" | "acacia_log" => "oak_log", "acacia_leaves" => "oak_leaves", "birch_leaves_gold" => "birch_leaves", "lichen_stone" | "bone" => "stone", "steppe_grass" => "grass", "ice" | "icicle" => "stone", "spruce_log" => "oak_log", "spruce_leaves" | "spruce_leaves_snow" => "oak_leaves", _ => n };
     SOUNDS.iter().find(|s| s.0 == n).map(|s| &s.1).unwrap_or_else(|| &SOUNDS.iter().find(|s| s.0 == "dirt").unwrap().1)
 }
 /// Neige : un crissement feutré, grave, avec le grain fin des cristaux qui s'écrasent.

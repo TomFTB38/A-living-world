@@ -121,6 +121,7 @@ const defs = [
   ['acacia_log_z', 'cube', ['bark_acacia', 'bark_acacia', 'end_acacia'], 1.0, { cat: 'wood', drop: 'acacia_log', axis: 'z' }],
   ['acacia_leaves', 'leaf', ['leaf_acacia', 'leaf_acacia', 'leaf_acacia'], 0.12, { cat: 'foliage', drop: null }],
   ['bone', 'cube', ['bone', 'bone', 'bone'], 0.9, { cat: 'rock' }],
+  ['birch_leaves_gold', 'leaf', ['leaf_birch', 'leaf_birch', 'leaf_birch'], 0.12, { cat: 'foliage', drop: null, tint: [1.45, 1.05, 0.35] }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
