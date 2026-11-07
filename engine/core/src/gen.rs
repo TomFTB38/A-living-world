@@ -169,7 +169,7 @@ impl WorldGen {
                     else if cold { B::SNOW }
                     else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) } // haute montagne : la roche à nu
                     else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 - 0.9 * deep { B::FOREST_SOIL }
-                    else if cliff > 0.45 && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
+                    else if cliff > 0.45 && !cold && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
                     else if hash_float(wxi, wzi, self.seed, 41) < deep { B::GRASS_DEEP } else { B::GRASS };
                 } else if steep { v[i] = self.stone_at(wx, y as f64, wz); }
                 else { v[i] = B::DIRT; }
@@ -182,10 +182,10 @@ impl WorldGen {
                 // La chute rejoint le bassin : une colonne d'eau pleine, plaquée contre le palier du dessus.
                 if !c.still { let t = self.fall_top(wx, wz, water) as i32; for y in (wi + 1)..=t.min(CH as i32 - 2) { if v[idx(x, y as usize, z)] == 0 { v[idx(x, y as usize, z)] = if cold { B::ICE } else { B::WATER }; } } } // chute gelée
                 // rochers qui affleurent dans le lit
-                if self.n_deco.n2(wx / 4.3 + 31.0, wz / 4.3 - 12.0) > 0.56 {
+                if !cold && self.n_deco.n2(wx / 4.3 + 31.0, wz / 4.3 - 12.0) > 0.56 {
                     let crown = wi + if hash_float(wxi, wzi, self.seed, 9) > 0.55 { 1 } else { 0 };
                     let mut y = top + 1;
-                    while y <= crown && y < CH as i32 - 1 { v[idx(x, y as usize, z)] = if y == crown { B::MOSSY_STONE } else { B::STONE }; y += 1; }
+                    while y <= crown && y < CH as i32 - 1 { v[idx(x, y as usize, z)] = if y == crown && !cold { B::MOSSY_STONE } else { B::STONE }; y += 1; }
                     top = crown;
                 }
             }
@@ -288,7 +288,7 @@ impl WorldGen {
         let c = self.column(x, z);
         if c.water != 0.0 || c.path > 0.1 { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 24)); let mut data = Vec::new();
-        let n = r.int(1, 3); let base = c.h.floor();
+        let n = r.int(1, 3); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6;
         for k in 0..n {
             let rx = r.range(1.6, 4.2); let ry = r.range(1.3, 3.0); let rz = r.range(1.6, 4.2);
             let ax = x + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 }; let az = z + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 };
@@ -300,7 +300,7 @@ impl WorldGen {
                     let e = dx * dx / (rx * rx) + dy * dy / (ry * ry) + dz * dz / (rz * rz);
                     if e + nn < 1.0 {
                         let e2 = dx * dx / (rx * rx) + (dy + 1.0) * (dy + 1.0) / (ry * ry) + dz * dz / (rz * rz) + nn;
-                        let id = if e2 >= 1.0 && r.next() < 0.75 { B::MOSSY_STONE } else { self.stone_at(ax, base + dy, az) };
+                        let id = if e2 >= 1.0 && r.next() < 0.75 { if cold { B::SNOW } else { B::MOSSY_STONE } } else { self.stone_at(ax, base + dy, az) };
                         data.push([ri(ax + dx), (base + dy) as i32, ri(az + dz), id as i32]);
                     }
                 } }
@@ -320,7 +320,7 @@ impl WorldGen {
         let mut r = Rng::new(hash_int(gx, gz, s, 34));
         let sp = self.n_forest.n2(gx as f64 / 5.1 + 3.0, gz as f64 / 5.1 - 8.0); let roll = r.next();
         let y = c.h.floor(); let age = r.next(); let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga);
-        if taiga > 0.5 && roll > 0.1 { return Some(grow_spruce(x, y, z, &mut r, age, taiga > 0.6)); } // taïga : des épicéas, quelques bouleaux
+        if taiga > 0.5 && roll > 0.1 * (1.0 - taiga) * 2.0 { return Some(grow_spruce(x, y, z, &mut r, age, taiga > 0.6)); } // taïga : des épicéas, quelques bouleaux
         // Forêt profonde : presque plus de bouleaux, des géants aux racines énormes, un feuillage sombre.
         if deep > 0.5 { let mut st = if roll < 0.28 { grow_beech(x, y, z, &mut r, (0.6 + 0.6 * age).min(1.2)) } else { grow_oak(x, y, z, &mut r, 0.62 + 0.75 * age) }; for d in &mut st.data { if d[3] == B::OAK_LEAVES as i32 { d[3] = B::OAK_LEAVES_DEEP as i32; } else if d[3] == B::BEECH_LEAVES as i32 { d[3] = B::BEECH_LEAVES_DEEP as i32; } } return Some(st); }
         Some(if roll < 0.34 + sp * 0.3 { grow_birch(x, y, z, &mut r, age) } else if roll < 0.52 { grow_beech(x, y, z, &mut r, age) } else { grow_oak(x, y, z, &mut r, age * age * age) })

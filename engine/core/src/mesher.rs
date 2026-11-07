@@ -493,7 +493,8 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32) -> (Vec<u8>, usize) {
             let canopy = if c.water != 0.0 || c.h > 86.0 { 0.0 } else if c.forest > 0.35 { 13.0 * (1f64).min((c.forest - 0.35) * 3.0) } else { 0.0 };
             hs[k] = ((if c.water != 0.0 { c.water } else { c.h }) + canopy - sink) as f32;
             let t = (gen.n_deco.n2(wx / 40.0, wz / 40.0) + 1.0) * 0.5;
-            cols[k] = if c.water != 0.0 { [0.22, 0.36, 0.42] } else if c.h > 90.0 { [(0.42 + 0.1 * t) as f32, (0.4 + 0.1 * t) as f32, (0.37 + 0.09 * t) as f32] } else if canopy > 3.0 { [(0.2 + 0.1 * t) as f32, (0.34 + 0.1 * t) as f32, 0.09] } else { [(0.42 + 0.1 * t) as f32, (0.5 + 0.05 * t) as f32, 0.2] };
+            let (tg, dp) = (c.mix.strong(crate::biome::Biome::Taiga), c.mix.strong(crate::biome::Biome::DeepForest));
+            cols[k] = if tg > 0.5 || c.h > 100.0 { if c.water != 0.0 { [0.7, 0.8, 0.88] } else if canopy > 3.0 { [0.42, 0.5, 0.48] } else { [0.86, 0.9, 0.95] } } else if dp > 0.5 && canopy > 3.0 { [0.1, 0.2, 0.12] } else if c.water != 0.0 { [0.22, 0.36, 0.42] } else if c.h > 90.0 { [(0.42 + 0.1 * t) as f32, (0.4 + 0.1 * t) as f32, (0.37 + 0.09 * t) as f32] } else if canopy > 3.0 { [(0.2 + 0.1 * t) as f32, (0.34 + 0.1 * t) as f32, 0.09] } else { [(0.42 + 0.1 * t) as f32, (0.5 + 0.05 * t) as f32, 0.2] };
         } }
         for j in 0..CELLS { for i in 0..CELLS {
             let (x0, z0) = ((i as f64 - half) * step, (j as f64 - half) * step); let (x1, z1) = (x0 + step, z0 + step);
