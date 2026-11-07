@@ -9,7 +9,7 @@ export const VARIANTS = 4;
 export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'mossy_stone', 'limestone', 'granite', 'gravel', 'sand',
   'bark_oak', 'bark_birch', 'bark_beech', 'leaf_oak', 'leaf_birch', 'leaf_beech', 'planks', 'forest_soil', 'water_foam', 'end_oak', 'end_birch', 'end_beech',
   'snow', 'snow_side', 'ice', 'bark_spruce', 'end_spruce', 'leaf_spruce', 'leaf_snow',
-  'grass_dry_top', 'grass_dry_side', 'dry_earth'];
+  'grass_dry_top', 'grass_dry_side', 'dry_earth', 'bark_dead', 'end_dead', 'lichen', 'bark_acacia', 'end_acacia', 'leaf_acacia', 'bone'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -107,6 +107,20 @@ const defs = [
   ['feather_grass', 'deco', null, 0.02, { model: 'feather' }],
   ['sagebrush', 'deco', null, 0.05, { model: 'sage' }],
   ['dead_bush', 'deco', null, 0.02, { model: 'deadbush' }],
+  // Bois mort (arbres secs de la steppe, sapins morts de la taïga), roche à lichens, sous-bois de la taïga
+  ['dead_log', 'cube', ['end_dead', 'bark_dead', 'end_dead'], 0.9, { cat: 'wood' }],
+  ['dead_log_x', 'cube', ['bark_dead', 'end_dead', 'bark_dead'], 0.9, { cat: 'wood', drop: 'dead_log', axis: 'x' }],
+  ['dead_log_z', 'cube', ['bark_dead', 'bark_dead', 'end_dead'], 0.9, { cat: 'wood', drop: 'dead_log', axis: 'z' }],
+  ['lichen_stone', 'cube', ['lichen', 'lichen', 'stone'], 1.3, { cat: 'rock' }],
+  ['blueberry', 'deco', null, 0.03, { model: 'blueberry' }],
+  ['rowan', 'deco', null, 0.06, { model: 'rowan' }],
+  ['fern_dry', 'deco', null, 0.02, { model: 'fern_dry' }],
+  // Acacias et ossements de la steppe
+  ['acacia_log', 'cube', ['end_acacia', 'bark_acacia', 'end_acacia'], 1.0, { cat: 'wood' }],
+  ['acacia_log_x', 'cube', ['bark_acacia', 'end_acacia', 'bark_acacia'], 1.0, { cat: 'wood', drop: 'acacia_log', axis: 'x' }],
+  ['acacia_log_z', 'cube', ['bark_acacia', 'bark_acacia', 'end_acacia'], 1.0, { cat: 'wood', drop: 'acacia_log', axis: 'z' }],
+  ['acacia_leaves', 'leaf', ['leaf_acacia', 'leaf_acacia', 'leaf_acacia'], 0.12, { cat: 'foliage', drop: null }],
+  ['bone', 'cube', ['bone', 'bone', 'bone'], 0.9, { cat: 'rock' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
@@ -134,7 +148,7 @@ export const EMIT = Uint8Array.from(BLOCKS.map((b) => b.light));
 
 // Orientation : les bois suivent la direction donnée, verticale dès qu'elle s'écarte assez de l'horizon.
 // Blocs orientables, par axe x, y, z.
-const ORIENT = { spruce_log: ['spruce_log_x', 'spruce_log', 'spruce_log_z'], oak_log: ['oak_log_x', 'oak_log', 'oak_log_z'], birch_log: ['birch_log_x', 'birch_log', 'birch_log_z'], beech_log: ['beech_log_x', 'beech_log', 'beech_log_z'], planks: ['planks', 'planks_y', 'planks_z'] };
+const ORIENT = { acacia_log: ['acacia_log_x', 'acacia_log', 'acacia_log_z'], dead_log: ['dead_log_x', 'dead_log', 'dead_log_z'], spruce_log: ['spruce_log_x', 'spruce_log', 'spruce_log_z'], oak_log: ['oak_log_x', 'oak_log', 'oak_log_z'], birch_log: ['birch_log_x', 'birch_log', 'birch_log_z'], beech_log: ['beech_log_x', 'beech_log', 'beech_log_z'], planks: ['planks', 'planks_y', 'planks_z'] };
 export const canOrient = (id) => !!ORIENT[BLOCKS[id].name];
 export const axisOf = (id) => { const n = BLOCKS[id].name; for (const k in ORIENT) { const i = ORIENT[k].indexOf(n); if (i >= 0) return 'xyz'[i]; } return null; };
 export const MODES = ['selon le regard', 'debout', 'dans le sens du regard', 'en travers du regard'];

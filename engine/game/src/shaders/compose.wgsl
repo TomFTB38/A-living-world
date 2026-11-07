@@ -7,10 +7,12 @@ fn inv_d(d: f32) -> f32 { return 1.0 / max(d, 1e-6); }
   let px = vec2i(i.pos.xy); var c = textureLoad(t_hdr, px, 0).rgb; let d = depth_at(t_d, i.uv); let texel = 1.0 / u.jit.zw;
   let wp = world_from(i.uv, max(d, 1e-5)); let ray = wp - u.cam.xyz; let len = length(ray); let v = ray / len;
   let mist = sky_color(normalize(vec3f(v.x, max(v.y, 0.03) * 0.25 + 0.03, v.z))); let m = u.misc.y;
-  if (d <= 0.0) { let cl = textureSampleLevel(t_cl, s_clamp, i.uv, 0.0); c = c * cl.a + cl.rgb; c = mix(c, mist, min(1.0, m * 160.0)); }
+  if (d <= 0.0) { let cl = textureSampleLevel(t_cl, s_clamp, i.uv, 0.0); c = (c + aurora(v)) * cl.a + cl.rgb; c = mix(c, mist, min(1.0, m * 160.0)); }
   else {
     let far = max(len - 70.0, 0.0); let a = 1.0 - exp(-far * 0.00052 * (1.0 + exp(-max(wp.y - 50.0, 0.0) * 0.02)));
     let air = sky_color(normalize(vec3f(v.x, max(v.y, 0.03), v.z))); c = mix(c, air, a); c = mix(c, mist, 1.0 - exp(-len * m));
+    // Brume de vallée : une nappe basse et pâle qui remplit les creux, plus dense au loin.
+    if (u.extra2.x > 0.01) { let lo = exp(-max(wp.y - 57.0 - 5.0 * noise(wp * 0.004), 0.0) * 0.16); let veil = mix(u.hor.rgb, vec3f(1.0, 0.92, 0.8) * length(u.sun_col.rgb) * 0.5, 0.25); c = mix(c, veil, u.extra2.x * lo * (1.0 - exp(-len * 0.012)) * 0.9); }
   }
   var vv = vec4f(0.0); var w = 0.0; let d0 = inv_d(d);
   for (var j = 0; j < 4; j++) {

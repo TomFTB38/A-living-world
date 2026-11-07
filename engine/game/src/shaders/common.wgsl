@@ -1,12 +1,13 @@
 // Constantes de l'image, partagées par toutes les passes. Profondeur inversée : proche = 1, ciel = 0.
 struct F {
   vp: mat4x4f, ivp: mat4x4f, prev_vp: mat4x4f, view: mat4x4f, proj: mat4x4f, iproj: mat4x4f, shadow_vp: array<mat4x4f, 3>,
-  cascade: vec4f, cam: vec4f, sun: vec4f, sun_col: vec4f, top: vec4f, hor: vec4f, ground: vec4f, jit: vec4f, misc: vec4f, aim: vec4f, ghost: vec4f, weather: vec4f, extra: vec4f, lights: array<vec4f, 96>,
+  cascade: vec4f, cam: vec4f, sun: vec4f, sun_col: vec4f, top: vec4f, hor: vec4f, ground: vec4f, jit: vec4f, misc: vec4f, aim: vec4f, ghost: vec4f, weather: vec4f, extra: vec4f, extra2: vec4f, lights: array<vec4f, 96>,
 };
 // cam.w temps · sun.w exposition · sun_col.w couverture nuageuse · top.w texel d'ombre · hor.w nuit · ground.w brume
 // jit.xy gigue · jit.zw taille · misc : image, voile, trou de l'horizon lointain, remise à zéro du TAA
 // weather : densification de la brume, pluie, luminosité choisie par le joueur, sous l'eau
 // extra.x : lucioles · extra.y : nombre de lumières colorées (position, couleur) · extra.z : neige
+// extra2.x : brume de vallée · extra2.y : aurores boréales
 @group(0) @binding(0) var<uniform> u: F;
 @group(0) @binding(1) var t_noise: texture_3d<f32>;
 @group(0) @binding(2) var s_rep: sampler;
@@ -51,6 +52,19 @@ fn sky_color(d: vec3f) -> vec3f {
   c += u.sun_col.rgb * (0.0035 / (1.02 - mu * 0.985) + 0.05 * pow(mu, 8.0)) * (0.25 + 0.75 * t);
   if (d.y < 0.0) { c = mix(c, u.ground.rgb, sat(-d.y * 7.0)); }
   return c;
+}
+/// Aurores boréales : des rideaux verts qui ondulent, frangés de violet en hauteur.
+fn aurora(v: vec3f) -> vec3f {
+  if (u.extra2.y <= 0.01 || v.y <= 0.01) { return vec3f(0.0); }
+  let t = u.cam.w * 0.02; var acc = vec3f(0.0);
+  for (var k = 0; k < 12; k++) {
+    let f = f32(k) / 12.0; let q = v.xz / v.y * (1.0 + f * 0.55) * 0.35;
+    let wv = noise(vec3f(q.x * 0.09 + t * 0.4, f * 0.2, q.y * 0.05 + t * 0.15));
+    let dist = abs(fract(q.y * 0.11 + 1.3 * wv + 0.15 * sin(q.x * 0.35 + t * 3.0)) - 0.5);
+    let band = smoothstep(0.09, 0.0, dist) * (0.55 + 0.45 * noise(vec3f(q.x * 0.7, q.y * 0.3, t * 2.0)));
+    acc += mix(vec3f(0.08, 1.0, 0.42), vec3f(0.55, 0.16, 0.95), smoothstep(0.35, 0.95, f)) * band * (1.0 - f * 0.6);
+  }
+  return acc * 0.07 * u.extra2.y * smoothstep(0.02, 0.2, v.y);
 }
 struct FOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f };
 @vertex fn vs_full(@builtin(vertex_index) i: u32) -> FOut {

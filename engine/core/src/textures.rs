@@ -68,6 +68,38 @@ fn cracked(t: &Tile, x: f64, y: f64) -> S {
     let c = pal(&CRACKED, 0.3 + 0.3 * t.pi(id) + 0.4 * (n - 0.5) + 0.2 * (s - 0.5));
     S { c: mul(c, 0.5 + 0.5 * crack), h: 0.15 + 0.6 * crack + 0.15 * n, r: 0.9 }
 }
+const DEAD: [C; 4] = pl!("#4f4a44", "#726b62", "#958d81", "#b7afa2"); const DEAD_W: [C; 4] = pl!("#7e7466", "#9f9483", "#bdb29f", "#d4cab7"); const LICHEN: [C; 3] = pl!("#8b987a", "#a9b592", "#c7cfae");
+/// Roche couverte de lichens : des plaques pâles vert-de-gris, quelques taches orangées.
+fn lichen(t: &Tile, x: f64, y: f64) -> S {
+    let st = stone(t, x, y, &STONE, 5); let (d1, _, id) = t.vor(x + 5.0, y + 11.0, 9); let m = t.fbm(x + 13.0, y - 7.0, 6, 3); let g = t.val(x, y, 32);
+    let crust = m > 0.56 || (t.pi(id) > 0.72 && d1 < 0.32 + 0.1 * g); let orange = t.pi(id) > 0.93 && d1 < 0.22;
+    if orange { return S { c: mul(pl!("#c98b3c")[0], 0.85 + 0.25 * g), h: 0.55, r: 0.85 }; }
+    if crust { return S { c: pal(&LICHEN, 0.2 + 0.6 * g + 0.3 * (m - 0.56)), h: 0.5 + 0.3 * g, r: 0.9 }; } st
+}
+const ACACIA: [C; 4] = pl!("#3b322b", "#5a4b3f", "#7a6654", "#97836c"); const ACACIA_W: [C; 4] = pl!("#8a3f1f", "#ad5a2e", "#c87a45", "#dd9a63");
+const BONE: [C; 4] = pl!("#a99d84", "#c6bba2", "#ddd3bd", "#efe8d8"); const NEEDLE: [C; 4] = pl!("#1b3624", "#2b5132", "#467446", "#76a274");
+/// Os blanchis par le soleil : ivoire, pores fins, quelques fêlures.
+fn bone(t: &Tile, x: f64, y: f64) -> S {
+    let (n, s) = (t.fbm(x, y, 5, 3), t.val(x, y, 32)); let pore = if t.val(x * 1.3, y * 1.3, 48) > 0.8 { 0.18 } else { 0.0 }; let (d1, d2, _) = t.vor(x, y, 4); let _ = d1; let crack = smooth(0.03, 0.0, d2 - d1) * smooth(0.55, 0.7, t.fbm(x + 3.0, y, 3, 2));
+    S { c: mul(pal(&BONE, 0.3 + 0.55 * n + 0.15 * (s - 0.5)), 1.0 - pore - 0.35 * crack), h: 0.5 + 0.3 * n - pore - 0.4 * crack, r: 0.6 }
+}
+/// Aiguilles d'épicéa : des rameaux croisés, chacun couvert d'aiguilles fines en arêtes de poisson, plus claires au bout.
+fn needles(t: &Tile, x: f64, y: f64) -> S {
+    const CELL: f64 = 16.0; let (cx, cy) = ((x / CELL).floor() as i64, (y / CELL).floor() as i64); let mut best: Option<(f64, f64, bool)> = None;
+    for j in -1..=1 { for i in -1..=1 {
+        let (gx, gy) = (cx + i, cy + j); let k = gx.rem_euclid(4) * 7 + gy.rem_euclid(4) * 13 + 3;
+        let (px, py) = ((gx as f64 + 0.5 + 0.7 * (t.pi(k) - 0.5)) * CELL, (gy as f64 + 0.5 + 0.7 * (t.pi(k + 50) - 0.5)) * CELL); let a = t.pi(k + 100) * 6.283; let l = 10.0 + 7.0 * t.pi(k + 150);
+        let (du, dv) = (x - px, y - py); let (u, v) = (du * a.cos() + dv * a.sin(), -du * a.sin() + dv * a.cos()); if u.abs() > l { continue; }
+        let w = 6.5 * (1.0 - (u / l).powi(2)); if v.abs() > w { continue; }
+        let twig = v.abs() < 0.6 && u < l * 0.85; let s2 = ((u + v.abs() * 1.1) / 2.1).rem_euclid(1.0); let needle = s2 < 0.45;
+        if twig || needle { let pr = t.pi(k + 200); if best.is_none_or(|b| pr > b.0) { best = Some((pr, v.abs() / w.max(0.1), twig)); } }
+    } }
+    match best {
+        Some((_, tip, true)) => { let _ = tip; S { c: pl!("#3d3024")[0], h: 0.55, r: 0.8 } }
+        Some((_, tip, false)) => { let n = t.val(x, y, 16); S { c: pal(&NEEDLE, 0.15 + 0.6 * tip + 0.25 * (n - 0.5)), h: 0.45 + 0.5 * (1.0 - tip), r: 0.5 } }
+        None => S { c: pl!("#0d1912")[0], h: 0.0, r: 0.9 },
+    }
+}
 fn grass_top(t: &Tile, x: f64, y: f64) -> S {
     let (n, s, b) = (t.fbm(x, y, 4, 3), t.val(x, y, 32), t.val(x + 7.0, y * 0.45, 24));
     S { c: pal(&GRASS, 0.2 + 0.55 * n + 0.32 * (s - 0.5) + 0.25 * (b - 0.5)), h: 0.4 + 0.5 * s, r: 0.72 }
@@ -156,7 +188,7 @@ fn ice(t: &Tile, x: f64, y: f64) -> S {
 /// Côté d'un étage d'épicéa enneigé : la neige déborde du dessus, les aiguilles sombres dessous.
 fn leaf_snow(t: &Tile, x: f64, y: f64) -> S {
     let fringe = 9.0 + 9.0 * t.val(x, 0.0, 16) + 5.0 * t.val(x, 0.0, 32);
-    if y < fringe { let s = snow(t, x, y); return S { c: s.c, h: 0.75, r: 0.6 }; } leaf(t, x, y, [0.34, 0.55, 0.46])
+    if y < fringe { let s = snow(t, x, y); return S { c: s.c, h: 0.75, r: 0.6 }; } needles(t, x, y)
 }
 fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
     let b_oak = |a: &Tile, b: f64, c: f64| bark(a, b, c, &OAK, 1.0); let b_beech = |a: &Tile, b: f64, c: f64| bark(a, b, c, &BEECH, 0.28);
@@ -169,13 +201,15 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "planks" => planks(t, x, y),
         "snow" => snow(t, x, y), "snow_side" => snow_side(t, x, y), "ice" => ice(t, x, y),
         "bark_spruce" => bark(t, x, y, &SPRUCE, 0.7), "end_spruce" => wood_end(t, x, y, &SPRUCE_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &SPRUCE, 0.7)),
-        "leaf_spruce" => leaf(t, x, y, [0.34, 0.55, 0.46]), "leaf_snow" => leaf_snow(t, x, y),
+        "leaf_spruce" => needles(t, x, y), "leaf_snow" => leaf_snow(t, x, y),
+        "bark_dead" => bark(t, x, y, &DEAD, 0.95), "end_dead" => wood_end(t, x, y, &DEAD_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &DEAD, 0.95)), "lichen" => lichen(t, x, y),
+        "bark_acacia" => bark(t, x, y, &ACACIA, 1.0), "end_acacia" => wood_end(t, x, y, &ACACIA_W, 0.75, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &ACACIA, 1.0)), "leaf_acacia" => leaf(t, x, y, [0.92, 1.0, 0.6]), "bone" => bone(t, x, y),
         "grass_dry_top" => dry_top(t, x, y), "grass_dry_side" => dry_side(t, x, y), "dry_earth" => cracked(t, x, y),
         "water_foam" => { let f = t.fbm(x, y, 8, 3); S { c: [f, f, f], h: f, r: 0.3 } }
         _ => panic!("matériau sans générateur : {name}"),
     }
 }
-fn detail(n: &str) -> f64 { match n { "bark_oak" => 0.2, "bark_birch" => 0.08, "bark_beech" => 0.14, "end_oak" => 0.1, "end_birch" => 0.08, "end_beech" => 0.08, "leaf_oak" => 0.16, "leaf_birch" => 0.16, "leaf_beech" => 0.16, "stone" => 0.2, "mossy_stone" => 0.2, "limestone" => 0.2, "granite" => 0.2, "gravel" => 0.22, "dirt" => 0.22, "path" => 0.2, "forest_soil" => 0.24, "grass_top" => 0.22, "grass_side" => 0.2, "planks" => 0.14, "sand" => 0.14, "grass_dry_top" => 0.22, "grass_dry_side" => 0.2, "dry_earth" => 0.18, _ => 0.0 } }
+fn detail(n: &str) -> f64 { match n { "bark_oak" => 0.2, "bark_birch" => 0.08, "bark_beech" => 0.14, "end_oak" => 0.1, "end_birch" => 0.08, "end_beech" => 0.08, "leaf_oak" => 0.16, "leaf_birch" => 0.16, "leaf_beech" => 0.16, "stone" => 0.2, "mossy_stone" => 0.2, "limestone" => 0.2, "granite" => 0.2, "gravel" => 0.22, "dirt" => 0.22, "path" => 0.2, "forest_soil" => 0.24, "grass_top" => 0.22, "grass_side" => 0.2, "planks" => 0.14, "sand" => 0.14, "grass_dry_top" => 0.22, "grass_dry_side" => 0.2, "dry_earth" => 0.18, "bark_dead" => 0.2, "lichen" => 0.2, "bark_acacia" => 0.2, "leaf_acacia" => 0.16, "bone" => 0.12, "leaf_spruce" => 0.1, _ => 0.0 } }
 pub struct Textures { pub albedo: Vec<u8>, pub nrm: Vec<u8>, pub layers: u32, pub size: u32 }
 /// Deux piles RGBA : albédo, puis normale XY et rugosité. Le motif vit dans un repère de 64 unités ; à 128 pixels, une octave fine ajoute un vrai détail.
 pub fn build_textures(size: usize) -> Textures {

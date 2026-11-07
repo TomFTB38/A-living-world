@@ -71,9 +71,26 @@ fn la_steppe_est_seche_et_ouverte() {
     use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Steppe) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
     let (cx, cz) = spot.expect("une steppe"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
     let logs = c(B::OAK_LOG) + c(B::BIRCH_LOG) + c(B::BEECH_LOG) + c(B::SPRUCE_LOG);
+    println!("acacias {} (feuilles {}), bois mort {}", c(B::ACACIA_LOG), c(B::ACACIA_LEAVES), c(B::DEAD_LOG));
     println!("steppe {cx},{cz} : herbe sèche {}, terre craquelée {}, herbe verte {}, stipe {}, armoise {}, buissons morts {}, fleurs {}, troncs {}, mousse {}", c(B::STEPPE_GRASS), c(B::DRY_EARTH), c(B::GRASS), c(B::FEATHER_GRASS), c(B::SAGEBRUSH), c(B::DEAD_BUSH), c(B::YELLOW_FLOWER) + c(B::LUPINE), logs, c(B::MOSSY_STONE));
     let (mut dry, mut green) = (0, 0); for x in 0..128 { for z in 0..128 { let (wx, wz) = (cx * 32 - 64 + x, cz * 32 - 64 + z); let col = g.column(wx as f64, wz as f64); if col.mix.strong(Biome::Steppe) < 0.97 || col.water != 0.0 || col.bank > 0.35 { continue; } let v = g.gen_chunk(wx.div_euclid(32), wz.div_euclid(32)); let mut y = 126; while y > 1 && !is_opaque(v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]) { y -= 1; } let b = v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]; if b == B::STEPPE_GRASS || b == B::DRY_EARTH { dry += 1; } else if is_grass(b) { green += 1; } } }
     println!("cœur : {dry} colonnes sèches, {green} vertes"); assert!(dry > 20 * (green + 1), "le sol de la steppe est sec");
     assert!(c(B::DRY_EARTH) > 100 && c(B::FEATHER_GRASS) > 500 && c(B::SAGEBRUSH) > 50 && c(B::DEAD_BUSH) > 10);
-    assert!(logs < 200, "la steppe reste ouverte : {logs} troncs");
+    assert!(logs == 0, "la steppe n'a que des acacias et des arbres morts : {logs} autres troncs"); assert!(c(B::ACACIA_LEAVES) > 0 || c(B::DEAD_LOG) > 0);
+}
+
+#[test]
+fn la_steppe_garde_des_ossements() {
+    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let mut found = 0;
+    // Cherche un squelette dans un grand rayon de steppe : le crâne et les côtes sont faits d'os.
+    'f: for gz in -12..12 { for gx in -12..12 { let (x, z) = (gx as f64 * 150.0 + 75.0, gz as f64 * 150.0 + 75.0); if g.column(x, z).mix.strong(Biome::Steppe) < 0.7 { continue; } for dz in -1..=1 { for dx in -1..=1 { let v = g.gen_chunk((x / 32.0).floor() as i32 + dx, (z / 32.0).floor() as i32 + dz); found += v.iter().filter(|b| **b == B::BONE).count(); } } if found > 40 { println!("squelette près de {x},{z} : {found} os"); break 'f; } } }
+    assert!(found > 40, "aucun squelette trouvé : {found}");
+}
+
+#[test]
+fn la_taiga_a_son_sous_bois() {
+    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Taiga) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
+    let (cx, cz) = spot.unwrap(); let mut n = std::collections::HashMap::new(); for a in -3..3 { for b in -3..3 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    println!("myrtilles {}, sorbiers {}, fougères rousses {}, lichens {}, bois mort {}, bouleaux {}, troncs couchés {}", c(B::BLUEBERRY), c(B::ROWAN), c(B::FERN_DRY), c(B::LICHEN_STONE), c(B::DEAD_LOG) + c(B::DEAD_LOG_X) + c(B::DEAD_LOG_Z), c(B::BIRCH_LOG), c(B::SPRUCE_LOG_X) + c(B::SPRUCE_LOG_Z) + c(B::DEAD_LOG_X) + c(B::DEAD_LOG_Z));
+    assert!(c(B::BLUEBERRY) > 30 && c(B::ROWAN) > 3 && c(B::FERN_DRY) > 20 && c(B::LICHEN_STONE) > 30); assert!(c(B::DEAD_LOG) + c(B::DEAD_LOG_X) + c(B::DEAD_LOG_Z) > 5 && c(B::BIRCH_LOG) > 5);
 }

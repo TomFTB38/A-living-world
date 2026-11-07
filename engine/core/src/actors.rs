@@ -138,6 +138,7 @@ impl Models {
             items.insert(it.id, Held { r: take(&mut all, o), hold, local });
         }
         for (name, o) in crate::fauna::parts() { parts.insert(name, take(&mut all, o)); }
+        for (name, o) in crate::wild::parts() { parts.insert(name, take(&mut all, o)); }
         let n = all.n; Models { data: all.data, n, char_verts, parts, items }
     }
     pub fn held(&self, id: &str) -> Option<Held> { self.items.get(id).copied() }

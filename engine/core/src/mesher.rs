@@ -309,9 +309,10 @@ impl Mesher {
                 let h = r_.range(0.5, 0.8); blade(o, cx, y, cz, a + 1.57, 0.42, h, 0.15, 0.45 * t, 0.58 * t, 0.15 * t, s, l, s);
                 return;
             }
-            if m == "fern" {
-                let a = r_.range(0.0, 3.0); blade(o, cx, y, cz, a, 0.5, 0.6, 0.3, 0.23, 0.46, 0.13, s, l, s);
-                let a = r_.range(3.0, 6.0); blade(o, cx, y, cz, a, 0.5, 0.6, 0.3, 0.26, 0.5, 0.14, s, l, s);
+            if m == "fern" || m == "fern_dry" {
+                let k = if m == "fern" { [0.23, 0.46, 0.13] } else { [0.5, 0.32, 0.17] };
+                let a = r_.range(0.0, 3.0); blade(o, cx, y, cz, a, 0.5, 0.6, 0.3, k[0], k[1], k[2], s, l, s);
+                let a = r_.range(3.0, 6.0); blade(o, cx, y, cz, a, 0.5, 0.6, 0.3, k[0] * 1.1, k[1] * 1.1, k[2] * 1.1, s, l, s);
                 return;
             }
             let col = match m { "lupine" => [0.44, 0.26, 0.72], "pink" => [0.9, 0.42, 0.6], "yellow" => [0.95, 0.74, 0.16], "mushroom" => [0.75, 0.6, 0.45], "glowcap" => [0.3, 0.7, 0.8], _ => [0.95, 0.93, 0.85] };
@@ -333,8 +334,8 @@ impl Mesher {
                     blade(o, a, y, c, ang, w, h, 0.1, 0.4 * base, 0.5 * base, 0.2 * base, s, l, (s - 40.0).max(0.0));
                 }
             }
-            "fern" => {
-                let n = r_.int(5, 8); let h0 = r_.range(0.55, 1.0); let t = r_.range(0.85, 1.15); let start = r_.range(0.0, 6.28);
+            "fern" | "fern_dry" => {
+                let dry = m == "fern_dry"; let n = r_.int(5, 8); let h0 = r_.range(0.55, 1.0); let t = r_.range(0.85, 1.15); let start = r_.range(0.0, 6.28);
                 for i in 0..n {
                     let a = start + (i as f64 / n as f64) * 6.28 + r_.range(-0.25, 0.25); let (ca, sa) = (cos(a), sin(a)); let ll = r_.range(0.55, 0.95);
                     let seg = 8;
@@ -343,7 +344,7 @@ impl Mesher {
                         let (ax, az, ay) = (cx + ca * dist, cz + sa * dist, y + hh);
                         let f0 = (k - 1) as f64 / seg as f64; let (bxx, bz, by) = (cx + ca * ll * f0, cz + sa * ll * f0, y + h0 * sin(f0 * 2.1) * (1.0 - f0 * 0.25));
                         let (px2, pz2, w) = (-sa * lw, ca * lw, 40.0 + 170.0 * f);
-                        let g = 0.42 * t + 0.05 * (k & 1) as f64; let re = 0.3 * t; let bl = 0.17 * t;
+                        let (g, re, bl) = if dry { (0.33 * t + 0.04 * (k & 1) as f64, 0.58 * t, 0.2 * t) } else { (0.42 * t + 0.05 * (k & 1) as f64, 0.3 * t, 0.17 * t) }; // fougère rousse : brunie par le gel
                         for side in [-1.0, 1.0] {
                             o.v(bxx, by, bz, 0.0, 0.0, 1.0, 0.0, w, 190.0, s, l, FOLIAGE, re * 0.8, g * 0.8, bl);
                             o.v(ax, ay, az, 0.0, 0.0, 1.0, 0.0, w, 190.0, s, l, FOLIAGE, re, g, bl);
@@ -434,9 +435,46 @@ impl Mesher {
                 }
             }
             "deadbush" => {
-                // Buisson mort : des brindilles sèches et grises qui partent en étoile.
-                let n = r_.int(6, 9); let (a0, c0) = (x + r_.range(0.4, 0.6), z + r_.range(0.4, 0.6));
-                for _ in 0..n { let t = r_.range(0.85, 1.15); blade(o, a0, y, c0, r_.range(0.0, 6.28), r_.range(0.012, 0.02), r_.range(0.28, 0.62), r_.range(0.15, 0.4), 0.46 * t, 0.37 * t, 0.27 * t, s, l, (s - 25.0).max(0.0)); }
+                // Buisson mort : des tiges ligneuses qui partent en évantail du collet, se ramifient deux fois et finissent en brindilles fines.
+                let (a0, c0) = (x + r_.range(0.42, 0.58), z + r_.range(0.42, 0.58)); let gray = r_.range(0.0, 1.0); let size = r_.range(0.75, 1.2);
+                let col = |k: f64, f: f64| [(0.44 + 0.08 * gray) * k * (1.0 + 0.12 * f), (0.36 + 0.12 * gray) * k * (1.0 + 0.12 * f), (0.27 + 0.16 * gray) * k * (1.0 + 0.12 * f)];
+                bx3(o, a0 - 0.05, y, c0 - 0.05, a0 + 0.05, y + 0.06, c0 + 0.05, 0.3, 0.24, 0.18, 0.0, s, l); // collet
+                let n = r_.int(5, 8); let spin = r_.range(0.0, 6.28);
+                for i in 0..n {
+                    let a = spin + i as f64 / n as f64 * 6.28 + r_.range(-0.35, 0.35); let (h, lean) = (r_.range(0.32, 0.62) * size, r_.range(0.18, 0.42) * size); let k = r_.range(0.85, 1.15);
+                    let c = col(k, 0.0); blade(o, a0, y + 0.03, c0, a, r_.range(0.018, 0.026), h, lean, c[0], c[1], c[2], s, l, (s - 25.0).max(0.0));
+                    for _ in 0..r_.int(2, 3) {
+                        // Fourche : part le long de la tige, s'écarte puis se divise encore en brindilles.
+                        let f = r_.range(0.35, 0.8); let (fx, fz, fy) = (a0 + cos(a) * lean * f * 0.8, c0 + sin(a) * lean * f * 0.8, y + 0.03 + h * f * 0.95);
+                        let a2 = a + r_.range(0.5, 1.1) * if r_.next() < 0.5 { -1.0 } else { 1.0 }; let (h2, l2) = (r_.range(0.12, 0.26) * size, r_.range(0.1, 0.24) * size); let c = col(k, 0.5);
+                        blade(o, fx, fy, fz, a2, 0.012, h2, l2, c[0], c[1], c[2], s, l, (s - 25.0).max(0.0));
+                        let (tx, tz, ty) = (fx + cos(a2) * l2 * 0.8, fz + sin(a2) * l2 * 0.8, fy + h2 * 0.9); let c = col(k, 1.0);
+                        for _ in 0..2 { blade(o, tx, ty, tz, a2 + r_.range(-0.9, 0.9), 0.007, r_.range(0.05, 0.12) * size, r_.range(0.04, 0.1), c[0], c[1], c[2], s, l, (s - 25.0).max(0.0)); }
+                    }
+                }
+            }
+            "blueberry" => {
+                // Myrtillier : un petit tapis de rameaux verts aux feuilles menues, semé de baies bleu nuit.
+                let n = r_.int(5, 8);
+                for _ in 0..n {
+                    let (a, c) = (x + r_.range(0.15, 0.85), z + r_.range(0.15, 0.85)); let h = r_.range(0.12, 0.3); let t = r_.range(0.85, 1.15);
+                    bx(o, a - 0.012, y, c - 0.012, a + 0.012, y + h, c + 0.012, 0.26 * t, 0.4 * t, 0.16 * t, 40.0, s, l, FOLIAGE, false, 60.0, 255.0);
+                    for k in 0..3 { let (dx, dz, yy) = (r_.range(-0.07, 0.07), r_.range(-0.07, 0.07), y + h * (0.45 + 0.27 * k as f64)); let w = r_.range(0.03, 0.05); bx(o, a + dx - w, yy, c + dz - w, a + dx + w, yy + 0.02, c + dz + w, 0.3 * t, 0.5 * t, 0.2 * t, 60.0, s, l, FOLIAGE, true, 70.0, 255.0); }
+                    if r_.next() < 0.7 { let (dx, dz, yy) = (r_.range(-0.05, 0.05), r_.range(-0.05, 0.05), y + h * r_.range(0.3, 0.8)); bx(o, a + dx - 0.024, yy, c + dz - 0.024, a + dx + 0.024, yy + 0.045, c + dz + 0.024, 0.14, 0.17, 0.42, 60.0, s, l, FLAT, true, 70.0, 255.0); }
+                }
+            }
+            "rowan" => {
+                // Jeune sorbier : un buisson élancé, feuillage roussi par le froid et grappes de baies rouge vif.
+                let (a0, c0) = (x + 0.5, z + 0.5); let hh = r_.range(0.8, 1.35);
+                bx3(o, a0 - 0.03, y, c0 - 0.03, a0 + 0.03, y + hh * 0.6, c0 + 0.03, 0.38, 0.3, 0.22, 0.0, s, l);
+                for _ in 0..r_.int(7, 11) {
+                    let (dx, dz) = (r_.range(-0.34, 0.34), r_.range(-0.34, 0.34)); let yy = y + hh * r_.range(0.4, 0.95) - (dx * dx + dz * dz) * 0.8; let w = r_.range(0.07, 0.12); let k = r_.range(0.85, 1.15); let warm = r_.next();
+                    bx(o, a0 + dx - w, yy, c0 + dz - w, a0 + dx + w, yy + 0.05, c0 + dz + w, (0.42 + 0.3 * warm) * k, (0.42 - 0.12 * warm) * k, 0.16 * k, 70.0, s, l, FOLIAGE, true, 80.0, 255.0);
+                }
+                for _ in 0..r_.int(3, 5) {
+                    let (dx, dz) = (r_.range(-0.26, 0.26), r_.range(-0.26, 0.26)); let yy = y + hh * r_.range(0.45, 0.85);
+                    for (ox, oy, oz) in [(0.0, 0.0, 0.0), (0.035, -0.03, 0.02), (-0.03, -0.03, -0.02), (0.01, -0.06, -0.03)] { bx(o, a0 + dx + ox - 0.025, yy + oy, c0 + dz + oz - 0.025, a0 + dx + ox + 0.025, yy + oy + 0.045, c0 + dz + oz + 0.025, 0.95, 0.14, 0.08, 60.0, s, l, FLAT, true, 70.0, 255.0); }
+                }
             }
             "icicle" => {
                 // Glaçons : des pointes effilées qui pendent du bloc du dessus.

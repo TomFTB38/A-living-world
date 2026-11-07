@@ -19,3 +19,4 @@ pub mod fauna;
 pub mod flow;
 pub mod biome;
 pub mod felling;
+pub mod wild;

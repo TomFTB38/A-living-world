@@ -51,6 +51,8 @@ pub fn oriented_block(id: u8, axis: char) -> u8 {
         B::BIRCH_LOG => [B::BIRCH_LOG_X, B::BIRCH_LOG, B::BIRCH_LOG_Z],
         B::BEECH_LOG => [B::BEECH_LOG_X, B::BEECH_LOG, B::BEECH_LOG_Z],
         B::SPRUCE_LOG => [B::SPRUCE_LOG_X, B::SPRUCE_LOG, B::SPRUCE_LOG_Z],
+        B::DEAD_LOG => [B::DEAD_LOG_X, B::DEAD_LOG, B::DEAD_LOG_Z],
+        B::ACACIA_LOG => [B::ACACIA_LOG_X, B::ACACIA_LOG, B::ACACIA_LOG_Z],
         B::PLANKS => [B::PLANKS, B::PLANKS_Y, B::PLANKS_Z],
         _ => return id,
     };

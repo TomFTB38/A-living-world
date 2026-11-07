@@ -12,9 +12,16 @@ const fn l(set: &'static str, rate: f32, vol: f32) -> L { L { set, rate, vol, lp
 pub fn sound_of(name: &str) -> &'static Mat {
     let name = name.strip_suffix("_c").unwrap_or(name); let n = name.strip_suffix("_x").or(name.strip_suffix("_y")).or(name.strip_suffix("_z")).unwrap_or(name);
     let n = if n.starts_with("water") { "water" } else { n.strip_suffix("_deep").unwrap_or(n) };
-    let n = match n { "snow" => "sand", n if n.starts_with("snow_layer") => "sand", "frost_grass" | "feather_grass" | "sagebrush" | "dead_bush" => "tall_grass", "steppe_grass" => "grass", "ice" | "icicle" => "stone", "spruce_log" => "oak_log", "spruce_leaves" | "spruce_leaves_snow" => "oak_leaves", _ => n };
+    if n == "snow" || n.starts_with("snow_layer") { return &SNOW; }
+    let n = match n { "frost_grass" | "feather_grass" | "sagebrush" | "dead_bush" | "blueberry" | "rowan" | "fern_dry" => "tall_grass", "dead_log" | "acacia_log" => "oak_log", "acacia_leaves" => "oak_leaves", "lichen_stone" | "bone" => "stone", "steppe_grass" => "grass", "ice" | "icicle" => "stone", "spruce_log" => "oak_log", "spruce_leaves" | "spruce_leaves_snow" => "oak_leaves", _ => n };
     SOUNDS.iter().find(|s| s.0 == n).map(|s| &s.1).unwrap_or_else(|| &SOUNDS.iter().find(|s| s.0 == "dirt").unwrap().1)
 }
+/// Neige : un crissement feutré, grave, avec le grain fin des cristaux qui s'écrasent.
+static SNOW: Mat = Mat { m: "earth",
+    step: &[L { set: "crumble", rate: 1.5, vol: 0.3, lp: 4500.0, at: 0.0 }, L { set: "sand", rate: 0.62, vol: 0.34, lp: 2200.0, at: 0.0 }, L { set: "gravel", rate: 1.45, vol: 0.07, lp: 3200.0, at: 0.02 }],
+    hit: &[L { set: "sand", rate: 0.7, vol: 0.45, lp: 2600.0, at: 0.0 }, L { set: "crumble", rate: 1.3, vol: 0.2, lp: 4000.0, at: 0.0 }],
+    brk: &[L { set: "sand", rate: 0.66, vol: 0.6, lp: 2400.0, at: 0.0 }, L { set: "crumble", rate: 1.2, vol: 0.3, lp: 4000.0, at: 0.0 }],
+    put: &[L { set: "sand", rate: 0.7, vol: 0.5, lp: 2400.0, at: 0.0 }] };
 fn round_lp(set: &str) -> f32 { match set { "leaf" => 4200.0, "crumble" => 6000.0, "gravel" => 5200.0, "sand" => 7000.0, _ => 0.0 } }
 
 pub struct Clip { pub pcm: Vec<f32>, pub ch: usize }
@@ -241,9 +248,9 @@ impl Mixer {
 #[inline] fn blep(t: f32, d: f32) -> f32 { if t < d { let x = t / d; x + x - x * x - 1.0 } else if t > 1.0 - d { let x = (t - 1.0) / d; x * x + x + x + 1.0 } else { 0.0 } }
 
 /// Ce que le jeu demande : mêmes règles que le prototype, réglées à l'oreille.
-pub struct SoundScape { tx: Option<Sender<Cmd>>, pub ear: [f64; 3], pub yaw: f64, rnd: Rnd }
+pub struct SoundScape { tx: Option<Sender<Cmd>>, pub ear: [f64; 3], pub yaw: f64, rnd: Rnd, pub breeze: f32 }
 impl SoundScape {
-    pub fn new(tx: Option<Sender<Cmd>>) -> Self { SoundScape { tx, ear: [0.0; 3], yaw: 0.0, rnd: Rnd(0x51ed270b) } }
+    pub fn new(tx: Option<Sender<Cmd>>) -> Self { SoundScape { tx, ear: [0.0; 3], yaw: 0.0, rnd: Rnd(0x51ed270b), breeze: 0.0 } }
     fn send(&self, c: Cmd) { if let Some(t) = &self.tx { let _ = t.send(c); } }
     fn at(&self, pos: [f64; 3], r: f64) -> Option<(f32, f32)> {
         let (dx, dy, dz) = (pos[0] - self.ear[0], pos[1] - self.ear[1], pos[2] - self.ear[2]); let d = (dx * dx + dy * dy + dz * dz).sqrt(); if d >= r { return None; }
@@ -286,8 +293,20 @@ impl SoundScape {
     pub fn env(&self, cloud: f64, rain: f64, covered: bool, submerged: bool, brook: Option<[f64; 3]>, fall: Option<[f64; 3]>) {
         let storm = rain.max((cloud - 0.72).max(0.0) / 0.28 * 0.4) as f32; let q = if covered { 0.3 } else { 1.0 }; let soft = |v: f32| v.sqrt() * v.sqrt().sqrt();
         let fl = brook.and_then(|b| self.at(b, 22.0)); let dr = fall.and_then(|b| self.at(b, 38.0));
-        self.send(Cmd::Env { wind: if storm > 0.02 { 0.3 * storm * q } else { 0.0 }, rain: 0.24 * rain as f32 * q, brook: (if submerged { 0.16 } else { fl.map_or(0.0, |a| 0.22 * soft(a.0)) }, fl.map_or(0.0, |a| a.1)), fall: (dr.map_or(0.0, |a| 0.36 * soft(a.0)), dr.map_or(0.0, |a| a.1)), under: submerged });
+        self.send(Cmd::Env { wind: (if storm > 0.02 { 0.3 * storm * q } else { 0.0 }).max(self.breeze * q), rain: 0.24 * rain as f32 * q, brook: (if submerged { 0.16 } else { fl.map_or(0.0, |a| 0.22 * soft(a.0)) }, fl.map_or(0.0, |a| a.1)), fall: (dr.map_or(0.0, |a| 0.36 * soft(a.0)), dr.map_or(0.0, |a| a.1)), under: submerged });
     }
+    /// Corbeau : deux ou trois croassements rauques.
+    pub fn caw(&mut self, pos: [f64; 3]) {
+        let Some((v, pan)) = self.at(pos, 60.0) else { return }; let r = &mut self.rnd; let n = 2 + r.pick(2); let f = r.range(520.0, 640.0); let mut o = Vec::new();
+        for i in 0..n { o.push(Cmd::Tone { f, to: f * 0.7, dur: 0.24, vol: 0.16 * v, pan, delay: i as f32 * 0.36, saw: true, lp: 1700.0 }); o.push(Cmd::Tone { f: f * 1.5, to: f * 1.02, dur: 0.2, vol: 0.05 * v, pan, delay: i as f32 * 0.36, saw: true, lp: 2400.0 }); }
+        for c in o { self.send(c); }
+    }
+    /// Renard : un aboiement bref et aigu, répété.
+    pub fn fox_bark(&mut self, pos: [f64; 3]) { let Some((v, pan)) = self.at(pos, 45.0) else { return }; for i in 0..2 { self.send(Cmd::Tone { f: 820.0, to: 540.0, dur: 0.13, vol: 0.18 * v, pan, delay: i as f32 * 0.3, saw: true, lp: 2600.0 }); } }
+    /// Virevoltant qui retombe : un froissement de brindilles sèches.
+    pub fn rustle(&self, pos: [f64; 3]) { if let Some((v, pan)) = self.at(pos, 24.0) { self.send(Cmd::Play { l: l("leaf", 1.3, 0.3 * v), k: 1.0, pan, delay: 0.0 }); self.send(Cmd::Play { l: l("crumble", 1.6, 0.12 * v), k: 1.0, pan, delay: 0.03 }); } }
+    /// Branche qui casse au loin, puis la neige qui tombe des aiguilles.
+    pub fn branch(&self, pos: [f64; 3]) { if let Some((v, pan)) = self.at(pos, 40.0) { self.send(Cmd::Play { l: l("crack", 1.25, 0.32 * v), k: 1.0, pan, delay: 0.0 }); self.send(Cmd::Play { l: L { lp: 2500.0, ..l("sand", 0.7, 0.22 * v) }, k: 1.0, pan, delay: 0.25 }); } }
     pub fn mood(&self, m: Mood) { self.send(Cmd::Mood(m)); }
     pub fn force(&self, m: Option<Mood>) { self.send(Cmd::Force(m)); }
     pub fn volumes(&self, master: f32, sfx: f32, music: f32) { self.send(Cmd::Volumes { master, sfx, music }); }

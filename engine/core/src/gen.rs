@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
-const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38;
+const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const BONE_CELL: i32 = 150; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38;
 
 #[derive(Clone, Copy, Default, Debug)]
 pub struct Column { pub mix: Mix, pub wet: bool, pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
@@ -167,7 +167,7 @@ impl WorldGen {
                     else if water != 0.0 && yf < water + 1.0 { if self.n_deco.n2(wx / 7.0, wz / 7.0) > 0.0 { B::GRAVEL } else { B::SAND } }
                     else if c.bank > 0.72 && yf <= water + 2.0 { B::GRAVEL }
                     else if yf > 101.0 + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0) { self.stone_at(wx, yf, wz) } // sommets : roche, couverte de neige plus loin
-                    else if cold { if self.n_deco.n2(wx / 9.0, wz / 9.0) > 0.3 { B::DIRT } else { self.stone_at(wx, yf, wz) } } // taïga : surtout de la roche sous la neige
+                    else if cold { if self.n_deco.n2(wx / 9.0, wz / 9.0) > 0.3 { B::DIRT } else if hash_float(wxi, wzi, self.seed, 46) < 0.3 { B::LICHEN_STONE } else { self.stone_at(wx, yf, wz) } } // taïga : surtout de la roche sous la neige
                     else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) } // haute montagne : la roche à nu
                     else if dry && c.bank < 0.35 { let n = self.n_deco.n2(wx / 14.0 + 5.0, wz / 14.0 - 3.0) + 0.25 * self.n_deco.n2(wx / 3.0, wz / 3.0); if n > 0.4 { B::DRY_EARTH } else if n < -0.62 { B::GRAVEL } else { B::STEPPE_GRASS } } // steppe : paille, plaques de terre craquelée, cailloux ; l'herbe reste verte au bord de l'eau
                     else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 - 0.9 * deep { B::FOREST_SOIL }
@@ -213,7 +213,11 @@ impl WorldGen {
             if here != 0 { continue; }
             let r = hash_float(wxi, wzi, s, 3);
             // Au froid, sous la future pellicule de neige : quelques herbes givrées et des pommes de pin, rien d'autre.
-            if hash_float(wxi, wzi, s, 42) < smooth(0.3, 0.7, self.climate.at(wx, wz).strong(Biome::Taiga)) { if is_opaque(ground) && ground != B::ICE { v[idx(x, y, z)] = if r < 0.06 { B::FROST_GRASS } else if r < 0.072 { B::PINECONE } else { 0 }; } continue; } let (fr, path, meadow, deep, _) = info[x + z * CX];
+            if hash_float(wxi, wzi, s, 42) < smooth(0.3, 0.7, self.climate.at(wx, wz).strong(Biome::Taiga)) { if is_opaque(ground) && ground != B::ICE {
+                // Sous-bois : myrtilliers en tapis, fougères rousses, quelques sorbiers à baies rouges, herbes givrées et pommes de pin.
+                let patch = smooth(-0.1, 0.5, nd.n2(wx / 12.0 - 31.0, wz / 12.0 + 17.0)); let t = hash_float(wxi, wzi, s, 47);
+                v[idx(x, y, z)] = if r < 0.05 { B::FROST_GRASS } else if r < 0.062 { B::PINECONE } else if r < 0.062 + 0.22 * patch { if t < 0.75 { B::BLUEBERRY } else { B::FERN_DRY } } else if r < 0.075 + 0.22 * patch { B::FERN_DRY } else if r < 0.081 + 0.22 * patch { B::ROWAN } else { 0 };
+            } continue; } let (fr, path, meadow, deep, _) = info[x + z * CX];
             if ground == B::PATH { if r < 0.055 { v[idx(x, y, z)] = B::FLAGSTONE; } continue; }
             // Steppe : touffes de stipe en vagues, armoises éparses, quelques buissons morts et de rares fleurs.
             if ground == B::STEPPE_GRASS || ground == B::DRY_EARTH {
@@ -293,13 +297,16 @@ impl WorldGen {
         for gz in fdiv(z0, ROCK_CELL)..=fdiv(z1, ROCK_CELL) { for gx in fdiv(x0, ROCK_CELL)..=fdiv(x1, ROCK_CELL) {
             if let Some(st) = self.cached(0, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
         } }
+        for gz in fdiv(z0, BONE_CELL)..=fdiv(z1, BONE_CELL) { for gx in fdiv(x0, BONE_CELL)..=fdiv(x1, BONE_CELL) {
+            if let Some(st) = self.cached(2, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
+        } }
         for gz in fdiv(z0, TREE_CELL)..=fdiv(z1, TREE_CELL) { for gx in fdiv(x0, TREE_CELL)..=fdiv(x1, TREE_CELL) {
             if let Some(st) = self.cached(1, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
         } }
     }
     fn cached(&self, kind: u8, gx: i32, gz: i32) -> Option<Rc<Stamp>> {
         if let Some(s) = self.stamps.borrow().get(&(kind, gx, gz)) { return s.clone(); }
-        let st = if kind == 0 { self.rock_stamp(gx, gz) } else { self.tree_stamp(gx, gz) }.map(Rc::new);
+        let st = match kind { 0 => self.rock_stamp(gx, gz), 1 => self.tree_stamp(gx, gz), _ => self.bone_stamp(gx, gz) }.map(Rc::new);
         let mut m = self.stamps.borrow_mut();
         if m.len() > 6000 { m.clear(); }
         m.insert((kind, gx, gz), st.clone());
@@ -312,7 +319,7 @@ impl WorldGen {
         let c = self.column(x, z);
         if c.water != 0.0 || c.path > 0.1 { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 24)); let mut data = Vec::new();
-        let n = r.int(1, 3).min(if st > 0.5 { 2 } else { 3 }); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6 || st > 0.5; let tall = 1.0 + 0.4 * st * hash_float(gx, gz, s, 25);
+        let n = r.int(1, 3).min(if st > 0.5 { 2 } else { 3 }); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6 || st > 0.5; let tall = 1.0 + 0.4 * st * hash_float(gx, gz, s, 25); let tg = c.mix.strong(Biome::Taiga);
         for k in 0..n {
             let rx = r.range(1.6, 4.2); let ry = r.range(1.3, 3.0) * tall; let rz = r.range(1.6, 4.2);
             let ax = x + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 }; let az = z + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 };
@@ -324,7 +331,7 @@ impl WorldGen {
                     let e = dx * dx / (rx * rx) + dy * dy / (ry * ry) + dz * dz / (rz * rz);
                     if e + nn < 1.0 {
                         let e2 = dx * dx / (rx * rx) + (dy + 1.0) * (dy + 1.0) / (ry * ry) + dz * dz / (rz * rz) + nn;
-                        let id = if e2 >= 1.0 && r.next() < 0.75 && !cold { B::MOSSY_STONE } else { self.stone_at(ax, base + dy, az) };
+                        let id = if e2 >= 1.0 && r.next() < 0.75 && !cold { B::MOSSY_STONE } else if e2 >= 1.0 && tg > 0.5 && r.next() < 0.65 { B::LICHEN_STONE } else { self.stone_at(ax, base + dy, az) }; // au froid, les lichens remplacent la mousse
                         data.push([ri(ax + dx), (base + dy) as i32, ri(az + dz), id as i32]);
                     }
                 } }
@@ -333,6 +340,25 @@ impl WorldGen {
         }
         Some(Stamp { data, force: true })
     }
+    /// Squelette d'un grand animal disparu, à moitié enfoui dans la steppe : échine, côtes, crâne, défenses et os épars.
+    fn bone_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
+        let s = self.seed; if hash_float(gx, gz, s, 61) > 0.45 { return None; }
+        let (x, z) = (((gx as f64 + 0.25 + 0.5 * hash_float(gx, gz, s, 62)) * BONE_CELL as f64).floor(), ((gz as f64 + 0.25 + 0.5 * hash_float(gx, gz, s, 63)) * BONE_CELL as f64).floor());
+        let c = self.column(x, z); if c.mix.strong(Biome::Steppe) < 0.7 || c.water != 0.0 || c.path > 0.0 || c.wet { return None; }
+        let mut r = Rng::new(hash_int(gx, gz, s, 64)); let a = r.range(0.0, 6.283); let (fx, fz) = (cos(a), sin(a)); let (sx, sz) = (-fz, fx);
+        let base = c.h.floor(); let len = r.range(11.0, 17.0); let tall = r.range(3.0, 5.0); let mut set = std::collections::BTreeSet::new();
+        let mut put = |u: f64, y: f64, w: f64| { set.insert((ri(x + fx * u + sx * w), ri(y), ri(z + fz * u + sz * w))); };
+        let spine = |t: f64| base + 0.6 + tall * sin(t.clamp(0.0, 1.0) * std::f64::consts::PI) - 1.2 * t;
+        let mut t = 0.0; while t <= 1.0 { put(len * (t - 0.5), spine(t), 0.0); t += 0.5 / len; }
+        // côtes : des arcs de chaque côté, plus larges au milieu, qui plongent dans le sol
+        let mut u = 0.25; while u < 0.75 { let ys = spine(u); let rad = (ys - base) * 0.9 + 0.8 * sin(u * std::f64::consts::PI); for side in [-1.0, 1.0] { let mut th = 0.0; while th < 2.4 { let y = ys - rad * (1.0 - cos(th)) * 0.75; if y < base - 0.5 { break; } put(len * (u - 0.5) + 0.3 * th, y, side * rad * sin(th)); th += 0.18; } } u += 0.11; }
+        // crâne en tête, deux défenses recourbées
+        let head = len * 0.5 + 1.5; let hy = spine(1.0) + 0.5; for du in 0..4 { for dw in -1..=1 { for dy in 0..3 { let eye = du == 2 && dy == 2 && dw != 0; if !eye { put(head + du as f64, hy + dy as f64 - 1.0, dw as f64); } } } }
+        for side in [-1.0, 1.0] { let mut th = 0.0; while th < 2.6 { put(head + 3.5 + 2.2 * sin(th), hy - 0.8 + 2.0 * (1.0 - cos(th)) * 0.6 - 0.6 * sin(th), side * (1.2 + 0.3 * th)); th += 0.2; } }
+        // quelques os longs épars autour
+        for _ in 0..r.int(2, 4) { let (u0, w0, b) = (r.range(-len * 0.6, len * 0.6), r.range(-5.0, 5.0), r.range(0.0, 6.283)); for k in 0..r.int(2, 4) { put(u0 + cos(b) * k as f64, base + 1.0, w0 + sin(b) * k as f64); } }
+        Some(Stamp { data: set.into_iter().map(|(a, b, c)| [a, b, c, B::BONE as i32]).collect(), force: false })
+    }
     fn tree_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
         let s = self.seed; let tc = TREE_CELL as f64;
         let x = ((gx as f64 + 0.15 + 0.7 * hash_float(gx, gz, s, 31)) * tc).floor(); let z = ((gz as f64 + 0.15 + 0.7 * hash_float(gx, gz, s, 32)) * tc).floor();
@@ -340,11 +366,25 @@ impl WorldGen {
         if c.water != 0.0 || c.path > 0.0 || c.bank > 0.4 || c.h > 86.0 { return None; }
         let pick = hash_float(gx, gz, s, 33);
         let glade = smooth(-0.1, 0.45, self.n_forest.n2(x / 46.0 + 70.0, z / 46.0 - 40.0));
-        if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) * (1.0 - 0.8 * c.mix.strong(Biome::Meadow)) * (1.0 + 0.8 * c.mix.strong(Biome::DeepForest)) * (1.0 - 0.9 * c.mix.strong(Biome::Steppe)) { return None; }
+        let steppe = c.mix.strong(Biome::Steppe); if steppe > 0.5 { if pick > 0.075 { return None; } } // steppe : un arbre isolé de loin en loin
+        else if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) * (1.0 - 0.8 * c.mix.strong(Biome::Meadow)) * (1.0 + 0.8 * c.mix.strong(Biome::DeepForest)) * (1.0 - 0.86 * c.mix.strong(Biome::Steppe)) { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 34));
         let sp = self.n_forest.n2(gx as f64 / 5.1 + 3.0, gz as f64 / 5.1 - 8.0); let roll = r.next();
         let y = c.h.floor(); let age = r.next(); let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga);
-        if c.mix.strong(Biome::Steppe) > 0.5 { return Some(grow_oak(x, y, z, &mut r, 0.12 + 0.3 * age)); } // steppe : un arbre isolé, petit et trapu
+        if c.mix.strong(Biome::Steppe) > 0.5 { return Some(if roll < 0.45 { grow_dead(x, y, z, &mut r, age) } else { grow_acacia(x, y, z, &mut r, age) }); } // steppe : des acacias et des arbres morts, rien d'autre
+        if taiga > 0.5 {
+            // Taïga : surtout des épicéas, des bouleaux blancs isolés, des sapins morts, des souches et des troncs couchés.
+            if roll < 0.07 { return Some(grow_birch(x, y, z, &mut r, 0.3 + 0.5 * age)); }
+            if roll < 0.15 { return Some(grow_dead_fir(x, y, z, &mut r, age)); }
+            if roll < 0.2 { let id = if r.next() < 0.6 { B::SPRUCE_LOG } else { B::DEAD_LOG }; return Some(stump(x, y, z, &mut r, id)); }
+            if roll < 0.26 {
+                // Tronc couché : seulement sur un sol assez plat pour qu'il repose de tout son long.
+                let (len, a) = (r.range(4.0, 9.0), r.int(0, 1)); let (dx, dz) = if a == 0 { (1.0, 0.0) } else { (0.0, 1.0) };
+                let hs: Vec<f64> = (0..=len as i32).map(|k| self.column(x + dx * k as f64, z + dz * k as f64).h.floor()).collect(); let (lo, hi) = hs.iter().fold((f64::MAX, f64::MIN), |m, v| (m.0.min(*v), m.1.max(*v)));
+                if hi - lo > 1.0 { return None; } let id = oriented_block(if r.next() < 0.5 { B::SPRUCE_LOG } else { B::DEAD_LOG }, if a == 0 { 'x' } else { 'z' });
+                return Some(Stamp { data: (0..=len as i32).map(|k| [ri(x + dx * k as f64), hi as i32 + 1, ri(z + dz * k as f64), id as i32]).collect(), force: false });
+            }
+        }
         if taiga > 0.5 && roll > 0.1 * (1.0 - taiga) * 2.0 { return Some(grow_spruce(x, y, z, &mut r, age, taiga > 0.6)); } // taïga : des épicéas, quelques bouleaux
         // Forêt profonde : presque plus de bouleaux, des géants aux racines énormes, un feuillage sombre.
         if deep > 0.5 { let mut st = if roll < 0.28 { grow_beech(x, y, z, &mut r, (0.6 + 0.6 * age).min(1.2)) } else { grow_oak(x, y, z, &mut r, 0.62 + 0.75 * age) }; for d in &mut st.data { if d[3] == B::OAK_LEAVES as i32 { d[3] = B::OAK_LEAVES_DEEP as i32; } else if d[3] == B::BEECH_LEAVES as i32 { d[3] = B::BEECH_LEAVES_DEEP as i32; } } return Some(st); }
@@ -458,6 +498,47 @@ fn grow_spruce(x: f64, y: f64, z: f64, r: &mut Rng, age: f64, snowy: bool) -> St
     }
     let (tx, tz) = (round(top[0]) as i32, round(top[2]) as i32); for k in 0..2 { g.leaf.insert((tx, ytop as i32 + 1 + k, tz), B::SPRUCE_LEAVES); }
     if snowy { let keys: Vec<Key> = g.leaf.keys().copied().collect(); for k in keys { let up = (k.0, k.1 + 1, k.2); if !g.leaf.contains_key(&up) && !g.wood.contains_key(&up) { g.leaf.insert(k, B::SPRUCE_LEAVES_SNOW); } } }
+    g.finish()
+}
+/// Arbre mort de la steppe : un tronc tordu et gris, quelques branches nues qui se tendent vers le ciel.
+fn grow_dead(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
+    let mut g = Grower::default(); let hh = lerp(4.0, 9.0, age); let rad = lerp(0.42, 0.9, age);
+    let trunk = g.limb(&[x, y - 1.0, z], [r.range(-0.25, 0.25), 1.0, r.range(-0.25, 0.25)], hh, rad, 0.42, B::DEAD_LOG, r, 0.16, 0.02);
+    let arms = 2 + (age * 3.0).floor() as i32 + r.int(0, 1);
+    for i in 0..arms {
+        let a = (i as f64 / arms as f64) * 6.283 + r.range(-0.6, 0.6); let at = trunk[at_frac(trunk.len(), r.range(0.45, 0.95)).min(trunk.len() - 1)];
+        let pts = g.limb(&at, [cos(a), r.range(0.35, 0.9), sin(a)], lerp(2.0, 5.0, age) * r.range(0.7, 1.2), 0.42, 0.42, B::DEAD_LOG, r, 0.3, 0.06);
+        if r.next() < 0.6 { let q = pts[at_frac(pts.len(), r.range(0.4, 0.8)).min(pts.len() - 1)]; let a2 = a + r.range(-1.3, 1.3); g.limb(&q, [cos(a2), r.range(0.5, 1.0), sin(a2)], r.range(1.5, 3.0), 0.42, 0.42, B::DEAD_LOG, r, 0.3, 0.05); }
+    }
+    g.finish()
+}
+/// Sapin mort : un fût droit et gris, des chicots de branches courtes, la cime cassée.
+fn grow_dead_fir(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
+    let mut g = Grower::default(); let hh = lerp(6.0, 14.0, age) * r.range(0.6, 1.0);
+    let trunk = g.limb(&[x, y - 1.0, z], [r.range(-0.04, 0.04), 1.0, r.range(-0.04, 0.04)], hh, lerp(0.45, 0.8, age), 0.42, B::DEAD_LOG, r, 0.02, 0.0);
+    let mut k = 3usize; while k + 1 < trunk.len() { let q = trunk[k]; let a = r.range(0.0, 6.283); if r.next() < 0.75 { g.limb(&q, [cos(a), r.range(-0.2, 0.15), sin(a)], r.range(1.0, 2.6) * (1.0 - k as f64 / trunk.len() as f64 * 0.6), 0.42, 0.42, B::DEAD_LOG, r, 0.1, 0.0); } k += r.int(1, 2) as usize; }
+    g.finish()
+}
+/// Souche : un court morceau de tronc coupé net.
+fn stump(x: f64, y: f64, z: f64, r: &mut Rng, id: u8) -> Stamp {
+    let mut g = Grower::default(); let h = r.range(0.5, 2.0); g.limb(&[x, y - 1.0, z], [0.0, 1.0, 0.0], h, r.range(0.42, 0.95), 0.42, id, r, 0.0, 0.0); g.finish()
+}
+/// Acacia : un tronc penché qui se divise en bras obliques, chacun portant une ombrelle de feuillage plate et large.
+fn grow_acacia(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
+    let mut g = Grower::default(); let (log, lf) = (B::ACACIA_LOG, B::ACACIA_LEAVES); let lean = r.range(0.0, 6.283); let tilt = r.range(0.1, 0.35);
+    let trunk = g.limb(&[x, y - 1.0, z], [cos(lean) * tilt, 1.0, sin(lean) * tilt], lerp(3.0, 5.5, age), lerp(0.5, 0.9, age), 0.45, log, r, 0.06, 0.0);
+    let top = trunk[trunk.len() - 1]; let arms = 2 + r.int(0, 2); let mut tips = vec![];
+    for i in 0..arms {
+        let a = lean + (i as f64 / arms as f64) * 6.283 + r.range(-0.5, 0.5); let pts = g.limb(&top, [cos(a), r.range(0.6, 1.0), sin(a)], lerp(2.5, 5.0, age) * r.range(0.8, 1.2), 0.45, 0.42, log, r, 0.12, 0.0);
+        tips.push(pts[pts.len() - 1]);
+    }
+    let canopy = tips.iter().fold(f64::MIN, |m, t| m.max(t[1])).round();
+    for t in &tips {
+        let rad = lerp(2.6, 4.6, age) * r.range(0.85, 1.15); let (cx, cz) = (round(t[0]) as i32, round(t[2]) as i32); let n = rad.ceil() as i32; let cy = canopy as i32 + if r.next() < 0.3 { 1 } else { 0 };
+        // Une ombrelle : une nappe pleine, une nappe plus étroite au-dessus, des pointes qui pendent au bord.
+        for dz in -n..=n { for dx in -n..=n { let d = hypot2(dx as f64, dz as f64) + 0.6 * r.next(); if d <= rad { g.leaf.insert((cx + dx, cy, cz + dz), lf); if d <= rad * 0.6 { g.leaf.insert((cx + dx, cy + 1, cz + dz), lf); } if d > rad - 1.0 && r.next() < 0.18 { g.leaf.insert((cx + dx, cy - 1, cz + dz), lf); } } } }
+        let (tx, ty, tz) = (t[0], t[1], t[2]); let mut yy = ty; while yy < cy as f64 { g.wood.insert((round(tx) as i32, round(yy) as i32, round(tz) as i32), log); yy += 1.0; }
+    }
     g.finish()
 }
 fn grow_birch(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {

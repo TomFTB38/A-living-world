@@ -42,7 +42,7 @@ pub fn parts() -> [(&'static str, VBuf); 5] {
 /// Ce que la faune fait entendre.
 #[derive(Clone, Copy, Debug)] pub enum Ev { Bird([f64; 3], usize), Wings([f64; 3]), Hoof([f64; 3], bool), Alarm([f64; 3]), Call([f64; 3]) }
 pub struct Fauna { rng: Rng, pub deer: Vec<Deer>, pub birds: Vec<Bird>, t: f64, day: f64, pub ev: Vec<Ev> }
-fn ground(w: &impl Voxels, x: f64, z: f64, y0: f64) -> Option<f64> {
+pub(crate) fn ground(w: &impl Voxels, x: f64, z: f64, y0: f64) -> Option<f64> {
     let (fx, fz, base) = (x.floor() as i32, z.floor() as i32, y0.floor() as i32); let mut y = base + 2;
     while y > base - 22 && y > 1 {
         let b = w.get(fx, y, fz)?; if is_water(b) { return None; }
@@ -52,7 +52,7 @@ fn ground(w: &impl Voxels, x: f64, z: f64, y0: f64) -> Option<f64> {
     None
 }
 /// Le corps tient-il là ? Pattes, flancs, tête et croupe doivent rester hors des blocs solides.
-fn fits(w: &impl Voxels, x: f64, y: f64, z: f64, yaw: f64, h: i32) -> bool {
+pub(crate) fn fits(w: &impl Voxels, x: f64, y: f64, z: f64, yaw: f64, h: i32) -> bool {
     let (s, c, yy) = (sin(yaw), cos(yaw), (y + 0.05).floor() as i32);
     for (f, l) in [(0.75, 0.0), (0.5, 0.25), (0.5, -0.25), (0.0, 0.25), (0.0, -0.25), (-0.6, 0.25), (-0.6, -0.25)] {
         let (bx, bz) = ((x + s * f + c * l).floor() as i32, (z + c * f - s * l).floor() as i32);

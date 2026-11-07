@@ -29,7 +29,7 @@ pub fn find_tree(w: &impl Voxels, x: i32, y: i32, z: i32) -> Option<Tree> {
             if w.get(n.0, n.1, n.2).is_some_and(|b| is_leaf(b) && species(b) == sp) { done.insert(n); lq.push_back((n, d + 1)); }
         } } }
     }
-    if done.len() < 6 { return None; }
+    if done.len() < 6 && !(sp == "dead" && logs.len() >= 4) { return None; } // un arbre mort n'a plus de feuillage
     let mut leaves: Vec<P> = done.into_iter().collect(); leaves.sort(); Some(Tree { logs, leaves })
 }
 struct Flutter { p: [f64; 3], v: [f64; 3], spin: f64, life: f64 }
