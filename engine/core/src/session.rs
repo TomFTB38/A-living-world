@@ -118,7 +118,7 @@ impl Session {
     /// Le tronc au-dessus de l'entaille tombe, le feuillage disparaît, le pied de l'arbre reste en place.
     fn fell(&mut self, t: Target) {
         let Some(tree) = self.felling.take() else { return }; let at = |s: &Self, p: (i32, i32, i32)| s.world.get(p.0, p.1, p.2).unwrap_or(0);
-        let logs: Vec<((i32, i32, i32), u8)> = tree.logs.iter().filter(|p| p.1 >= t.y).map(|p| (*p, at(self, *p))).collect();
+        let logs: Vec<((i32, i32, i32), u8)> = tree.logs.iter().filter(|p| p.1 >= t.y).map(|p| (*p, log_of(at(self, *p)))).collect();
         let leaf_id = tree.leaves.first().map_or(0, |p| at(self, *p)); let drop = BLOCKS[t.id as usize].drop.unwrap_or("oak_log");
         let edits: Vec<_> = logs.iter().map(|(p, _)| (p.0, p.1, p.2, 0)).chain(tree.leaves.iter().map(|p| (p.0, p.1, p.2, 0))).collect(); self.world.edit_many(&edits);
         self.falling = Some(Fall::new(&logs, &tree.leaves, leaf_id, (t.x, t.y, t.z), self.player.p, (t.x * 31 + t.z) as u32)); self.fall_serial += 1;

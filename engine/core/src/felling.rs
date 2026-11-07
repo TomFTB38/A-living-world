@@ -12,12 +12,12 @@ type P = (i32, i32, i32);
 pub struct Tree { pub logs: Vec<P>, pub leaves: Vec<P> }
 /// Un arbre, c'est des troncs de même essence reliés entre eux et portant du feuillage : un mur de bûches n'en est pas un.
 pub fn find_tree(w: &impl Voxels, x: i32, y: i32, z: i32) -> Option<Tree> {
-    let b0 = w.get(x, y, z)?; if !is_log(b0) { return None; } let sp = species(b0);
+    let b0 = w.get(x, y, z)?; if !is_log(b0) && !is_branch(b0) { return None; } let sp = species(b0);
     let (mut seen, mut q) = (HashSet::from([(x, y, z)]), VecDeque::from([(x, y, z)]));
     while let Some(p) = q.pop_front() {
         for dy in -1..=1 { for dz in -1..=1 { for dx in -1..=1 {
             let n = (p.0 + dx, p.1 + dy, p.2 + dz); if (n.0 - x).abs() > REACH || (n.2 - z).abs() > REACH || seen.contains(&n) || seen.len() >= MAX_LOGS { continue; }
-            if w.get(n.0, n.1, n.2).is_some_and(|b| is_log(b) && species(b) == sp) { seen.insert(n); q.push_back(n); }
+            if w.get(n.0, n.1, n.2).is_some_and(|b| (is_log(b) || is_branch(b)) && species(b) == sp) { seen.insert(n); q.push_back(n); }
         } } }
     }
     let logs: Vec<P> = { let mut v: Vec<P> = seen.into_iter().collect(); v.sort(); v };

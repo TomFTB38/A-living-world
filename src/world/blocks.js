@@ -122,6 +122,13 @@ const defs = [
   ['acacia_leaves', 'leaf', ['leaf_acacia', 'leaf_acacia', 'leaf_acacia'], 0.12, { cat: 'foliage', drop: null }],
   ['bone', 'cube', ['bone', 'bone', 'bone'], 0.9, { cat: 'rock' }],
   ['birch_leaves_gold', 'leaf', ['leaf_birch', 'leaf_birch', 'leaf_birch'], 0.12, { cat: 'foliage', drop: null, tint: [1.45, 1.05, 0.35] }],
+  // Branches fines : une section plus petite qu'un bloc, reliée aux bois et aux feuillages voisins
+  ['oak_branch', 'deco', null, 0.4, { model: 'branch', solid: true, cat: 'wood', drop: 'oak_log' }],
+  ['birch_branch', 'deco', null, 0.4, { model: 'branch', solid: true, cat: 'wood', drop: 'birch_log' }],
+  ['beech_branch', 'deco', null, 0.4, { model: 'branch', solid: true, cat: 'wood', drop: 'beech_log' }],
+  ['spruce_branch', 'deco', null, 0.4, { model: 'branch', solid: true, cat: 'wood', drop: 'spruce_log' }],
+  ['dead_branch', 'deco', null, 0.4, { model: 'branch', solid: true, cat: 'wood', drop: 'dead_log' }],
+  ['acacia_branch', 'deco', null, 0.4, { model: 'branch', solid: true, cat: 'wood', drop: 'acacia_log' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({

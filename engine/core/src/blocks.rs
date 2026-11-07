@@ -38,6 +38,12 @@ pub fn snow_level(b: u8) -> u8 { if b == B::SNOW_LAYER { 1 } else if (B::SNOW_LA
 pub fn snow_of(n: u8) -> u8 { match n { 0 => 0, 1 => B::SNOW_LAYER, 2..=9 => B::SNOW_LAYER_2 + n - 2, _ => B::SNOW } }
 /// Variante sans mousse d'un bloc posé par le joueur, quand elle existe.
 pub fn placed_variant(b: u8) -> u8 { let n = BLOCKS[b as usize].name; if is_log(b) { by_name(&format!("{n}_c")).unwrap_or(b) } else { b } }
+/// Branche fine : même essence qu'un tronc, mais une section plus petite qu'un bloc.
+pub fn is_branch(b: u8) -> bool { BLOCKS[b as usize].name.ends_with("_branch") }
+/// La branche fine d'une essence, à partir d'un de ses troncs.
+pub fn branch_of(log: u8) -> u8 { by_name(&format!("{}_branch", species(log))).unwrap_or(log) }
+/// Le tronc d'une essence, à partir de sa branche fine.
+pub fn log_of(b: u8) -> u8 { if is_branch(b) { by_name(&format!("{}_log", species(b))).unwrap_or(b) } else { b } }
 pub fn species(b: u8) -> &'static str { BLOCKS[b as usize].name.split('_').next().unwrap_or("") }
 #[inline(always)] pub fn is_leaf(b: u8) -> bool { BLOCKS[b as usize].shape == Shape::Leaf }
 #[inline(always)] pub fn is_deco(b: u8) -> bool { BLOCKS[b as usize].shape == Shape::Deco }

@@ -286,6 +286,19 @@ impl Mesher {
                 }
                 return;
             }
+            "branch" => {
+                // Branche fine : un nœud central et un bras vers chaque bois ou feuillage voisin, comme une clôture.
+                let col = match species(b) { "birch" => [0.86, 0.84, 0.8], "beech" => [0.5, 0.48, 0.44], "spruce" => [0.32, 0.23, 0.16], "dead" => [0.56, 0.53, 0.49], "acacia" => [0.36, 0.3, 0.25], _ => [0.42, 0.29, 0.17] };
+                let k = r_.range(0.88, 1.08); let w = r_.range(0.13, 0.18); let (c0, c1) = (0.5 - w, 0.5 + w); let col = [col[0] * k, col[1] * k, col[2] * k];
+                let joins = |b2: u8| is_log(b2) || is_branch(b2) || is_leaf(b2);
+                let mut any = false; let arm = |o: &mut VBuf, a: [f64; 6]| { bx3(o, x + a[0], y + a[1], z + a[2], x + a[3], y + a[4], z + a[5], col[0], col[1], col[2], 0.0, s, l); };
+                arm(o, [c0, c0, c0, c1, c1, c1]);
+                if joins(voxel(1, 0, 0)) { arm(o, [c1, c0, c0, 1.0, c1, c1]); any = true; } if joins(voxel(-1, 0, 0)) { arm(o, [0.0, c0, c0, c0, c1, c1]); any = true; }
+                if joins(voxel(0, 0, 1)) { arm(o, [c0, c0, c1, c1, c1, 1.0]); any = true; } if joins(voxel(0, 0, -1)) { arm(o, [c0, c0, 0.0, c1, c1, c0]); any = true; }
+                if joins(voxel(0, 1, 0)) { arm(o, [c0, c1, c0, c1, 1.0, c1]); any = true; } if joins(voxel(0, -1, 0)) || is_opaque(voxel(0, -1, 0)) { arm(o, [c0, 0.0, c0, c1, c0, c1]); any = true; }
+                if !any { arm(o, [c0, 0.0, c0, c1, 1.0, c1]); }
+                return;
+            }
             "flagstone" => {
                 let w = r_.range(0.32, 0.46); let d = r_.range(0.28, 0.44); let g = r_.range(0.42, 0.56); let a = x + 0.5 + r_.range(-0.08, 0.08); let c = z + 0.5 + r_.range(-0.08, 0.08);
                 bx3(o, a - w, y, c - d, a + w, y + 0.13, c + d, g * 1.02, g, g * 0.92, 0.0, s, l);

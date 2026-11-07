@@ -287,7 +287,7 @@ impl WorldGen {
             let (x, y, z, id) = (d[0] - ox, d[1], d[2] - oz, d[3] as u8);
             if x < 0 || z < 0 || x >= CX as i32 || z >= CX as i32 || y < 0 || y >= CH as i32 { continue; }
             let k = idx(x as usize, y as usize, z as usize); let cur = v[k];
-            if cur == 0 { v[k] = id; } else if id != 0 && (st.force || is_deco(cur)) { v[k] = id; }
+            if cur == 0 { v[k] = id; } else if id != 0 && (st.force || (is_deco(cur) && !is_branch(cur))) { v[k] = id; } // les branches d'un arbre voisin restent en place
             if st.force && is_solid(id) && y > heights[x as usize + z as usize * CX] { heights[x as usize + z as usize * CX] = y; }
         }
     }
@@ -379,9 +379,9 @@ impl WorldGen {
             if roll < 0.2 { let id = if r.next() < 0.6 { B::SPRUCE_LOG } else { B::DEAD_LOG }; return Some(stump(x, y, z, &mut r, id)); }
             if roll < 0.26 {
                 // Tronc couché : seulement sur un sol assez plat pour qu'il repose de tout son long.
-                let (len, a) = (r.range(4.0, 9.0), r.int(0, 1)); let (dx, dz) = if a == 0 { (1.0, 0.0) } else { (0.0, 1.0) };
+                let (len, a0) = (r.range(4.0, 9.0), r.int(0, 1)); let h0 = self.column(x, z).h.floor(); let flat = |a: i32| { let (dx, dz) = if a == 0 { (1.0, 0.0) } else { (0.0, 1.0) }; (0..=len as i32).take_while(|k| self.column(x + dx * *k as f64, z + dz * *k as f64).h.floor() == h0).count() }; let a = if flat(a0) >= flat(1 - a0) { a0 } else { 1 - a0 }; let (dx, dz) = if a == 0 { (1.0, 0.0) } else { (0.0, 1.0) };
                 /* posé à plat de bout en bout : le tronc s'arrête là où le sol change de hauteur, jamais au-dessus du vide */
-                let h0 = self.column(x, z).h.floor(); let n = (0..=len as i32).take_while(|k| self.column(x + dx * *k as f64, z + dz * *k as f64).h.floor() == h0).count() as i32; if n < 3 { return None; }
+                let n = (0..=len as i32).take_while(|k| self.column(x + dx * *k as f64, z + dz * *k as f64).h.floor() == h0).count() as i32; if n < 3 { return None; }
                 let id = oriented_block(if r.next() < 0.5 { B::SPRUCE_LOG } else { B::DEAD_LOG }, if a == 0 { 'x' } else { 'z' });
                 return Some(Stamp { data: (0..n).map(|k| [ri(x + dx * k as f64), h0 as i32 + 1, ri(z + dz * k as f64), id as i32]).collect(), force: false });
             }
@@ -402,7 +402,7 @@ impl Grower {
         let rr = (r + 1.0).ceil() as i32; let (rx, ry, rz) = (round(cx), round(cy), round(cz));
         for dy in -rr..=rr { for dz in -rr..=rr { for dx in -rr..=rr {
             let (xx, zz, y2) = (rx + dx as f64 - cx, rz + dz as f64 - cz, ry + dy as f64 - cy);
-            if xx * xx + y2 * y2 / 1.0 + zz * zz <= r * r { self.wood.insert((rx as i32 + dx, ry as i32 + dy, rz as i32 + dz), id); }
+            if xx * xx + y2 * y2 / 1.0 + zz * zz <= r * r { let k = (rx as i32 + dx, ry as i32 + dy, rz as i32 + dz); if is_branch(id) { self.wood.entry(k).or_insert(id); } else { self.wood.insert(k, id); } } // une branche fine ne creuse jamais un tronc
         } } }
     }
     #[allow(clippy::too_many_arguments)]
@@ -412,7 +412,8 @@ impl Grower {
         for i in 0..=n {
             let t = i as f64 / n as f64;
             let axis = if dy.abs() > hypot2(dx, dz) { 'y' } else if dx.abs() >= dz.abs() { 'x' } else { 'z' };
-            let bid = oriented_block(id, axis); self.sphere_wood(x, y, z, lerp(r0, r1, t), bid);
+            // Là où la branche devient plus fine qu'un bloc, elle passe en branche fine, reliée à ses voisins.
+            let rad = lerp(r0, r1, t); let bid = if rad < 0.5 { branch_of(id) } else { oriented_block(id, axis) }; self.sphere_wood(x, y, z, rad, bid);
             // Une branche fine avance d'un bloc à la fois par une face : jamais deux cubes qui ne se touchent que par un coin.
             let cur = (round(x) as i32, round(y) as i32, round(z) as i32);
             if let Some(mut q) = prev { while q != cur { if q.1 != cur.1 { q.1 += (cur.1 - q.1).signum(); } else if q.0 != cur.0 { q.0 += (cur.0 - q.0).signum(); } else { q.2 += (cur.2 - q.2).signum(); } self.wood.entry(q).or_insert(bid); } }
@@ -546,7 +547,7 @@ fn grow_acacia(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
         let rad = lerp(2.0, 3.4, age) * r.range(0.85, 1.15); let (cx, cz) = (round(t[0]) as i32, round(t[2]) as i32); let n = rad.ceil() as i32; let cy = canopy as i32 + if r.next() < 0.3 { 1 } else { 0 };
         // Une ombrelle : une nappe pleine, une nappe plus étroite au-dessus, des pointes qui pendent au bord.
         for dz in -n..=n { for dx in -n..=n { let d = hypot2(dx as f64, dz as f64) + 0.6 * r.next(); if d <= rad { g.leaf.insert((cx + dx, cy, cz + dz), lf); if d <= rad * 0.6 { g.leaf.insert((cx + dx, cy + 1, cz + dz), lf); } if d > rad - 1.0 && r.next() < 0.18 { g.leaf.insert((cx + dx, cy - 1, cz + dz), lf); } } } }
-        let (tx, ty, tz) = (t[0], t[1], t[2]); let mut yy = ty; while yy < cy as f64 { g.wood.insert((round(tx) as i32, round(yy) as i32, round(tz) as i32), log); yy += 1.0; }
+        let (tx, ty, tz) = (t[0], t[1], t[2]); let mut yy = ty; while yy < cy as f64 { g.wood.entry((round(tx) as i32, round(yy) as i32, round(tz) as i32)).or_insert(B::ACACIA_BRANCH); yy += 1.0; }
     }
     g.finish()
 }
