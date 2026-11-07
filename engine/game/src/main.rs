@@ -254,6 +254,7 @@ fn capture(a: &[String]) {
         else { let l = (x * x + z * z).sqrt(); let (ex, ez) = (x - x / l * 170.0, z - z / l * 170.0); let h = w.column(ex, ez).h.max(w.column(ex, ez).water); s.player.p = [ex, h + 12.0, ez]; let f = view::norm([x - ex, 20.0, z - ez]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
     }
     if scene == "taiga" {
+        if s.hour > 20.0 { s.weather.snap(Kind::Clair); } // les aurores ne se voient que par ciel dégagé
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Taiga) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
         println!("taïga : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 4.0, z]; let f = view::norm([a.cos(), -0.12, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.taiga = 1.0; s.tick(0.0, none, Actions::default()); }
     }
@@ -293,7 +294,7 @@ fn capture(a: &[String]) {
     }
     if scene == "steppe" {
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Steppe) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
-        println!("steppe : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 13.0, z]; let f = view::norm([a.cos(), -0.24, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.steppe = 1.0; s.tick(0.0, none, Actions::default()); }
+        println!("steppe : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x - a.cos() * 14.0, h + 16.0, z - a.sin() * 14.0]; let f = view::norm([a.cos(), -0.22, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.steppe = 1.0; s.tick(0.0, none, Actions::default()); }
     }
     if scene == "prairie" {
         // Le point le plus proche franchement en prairie, vu à hauteur d'homme vers le centre du biome.

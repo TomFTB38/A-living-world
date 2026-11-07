@@ -119,7 +119,7 @@ const defs = [
   ['acacia_log', 'cube', ['end_acacia', 'bark_acacia', 'end_acacia'], 1.0, { cat: 'wood' }],
   ['acacia_log_x', 'cube', ['bark_acacia', 'end_acacia', 'bark_acacia'], 1.0, { cat: 'wood', drop: 'acacia_log', axis: 'x' }],
   ['acacia_log_z', 'cube', ['bark_acacia', 'bark_acacia', 'end_acacia'], 1.0, { cat: 'wood', drop: 'acacia_log', axis: 'z' }],
-  ['acacia_leaves', 'leaf', ['leaf_acacia', 'leaf_acacia', 'leaf_acacia'], 0.12, { cat: 'foliage', drop: null }],
+  ['acacia_leaves', 'leaf', ['leaf_acacia', 'leaf_acacia', 'leaf_acacia'], 0.12, { cat: 'foliage', drop: null, tint: [0.72, 0.74, 0.5] }],
   ['bone', 'cube', ['bone', 'bone', 'bone'], 0.9, { cat: 'rock' }],
   ['birch_leaves_gold', 'leaf', ['leaf_birch', 'leaf_birch', 'leaf_birch'], 0.12, { cat: 'foliage', drop: null, tint: [1.45, 1.05, 0.35] }],
   // Branches fines : une section plus petite qu'un bloc, reliée aux bois et aux feuillages voisins
