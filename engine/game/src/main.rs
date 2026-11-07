@@ -368,7 +368,10 @@ fn capture(a: &[String]) {
         s.player.fly = false; s.third = false; s.sel = 2; for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.dead.is_some() { s.respawn(); } s.vit = [100.0; 3];
         let gy = |s: &Session, x: f64, z: f64| { let mut y = s.player.p[1] as i32 + 4; while y > 2 && !s.world.get(x.floor() as i32, y, z.floor() as i32).is_some_and(is_solid) { y -= 1; } y + 1 };
         let (p, fx, fz) = (s.player.p, s.player.yaw.sin(), s.player.yaw.cos()); let (sx, sz) = (-fz, fx); let at = |k: f64, l: f64| (p[0] + fx * k + sx * l, p[2] + fz * k + sz * l);
-        let (cx, cz) = at(3.2, -0.9); let (wx, wz) = at(3.6, 1.4); let (y1, y2) = (gy(&s, cx, cz), gy(&s, wx, wz));
+        let (wx, wz) = at(3.6, 1.4); let y2 = gy(&s, wx, wz);
+        // Le feu sur la terre ferme la plus proche de la vue : jamais dans l'eau ni sous l'établi.
+        let dry = |s: &Session, x: f64, z: f64| { let y = gy(s, x, z); s.world.get(x.floor() as i32, y, z.floor() as i32).is_some_and(|b| !alw_core::blocks::is_water(b)) && !s.world.get(x.floor() as i32, y - 1, z.floor() as i32).is_some_and(alw_core::blocks::is_water) };
+        let (cx, cz) = [(3.2, -0.9), (3.0, 0.0), (2.6, -0.4), (3.6, -1.8), (2.4, 0.6), (4.2, -0.2), (2.2, -1.4)].into_iter().map(|(k, l)| at(k, l)).find(|q| dry(&s, q.0, q.1) && (q.0.floor() != wx.floor() || q.1.floor() != wz.floor())).unwrap_or(at(2.6, 0.0)); let y1 = gy(&s, cx, cz);
         s.world.edit_many(&[(cx.floor() as i32, y1, cz.floor() as i32, B::CAMPFIRE), (wx.floor() as i32, y2, wz.floor() as i32, B::WORKBENCH)]); pump(&mut s, &mut g);
         s.player.pitch = -0.32; s.vit = [62.0, 34.0, 17.0]; s.stamina = 41.0;
         if scene == "survie" { let (dx, dz) = at(5.5, -2.6); s.fauna.put([dx, gy(&s, dx, dz) as f64, dz], s.player.yaw + 2.0); s.air = 55.0; s.tick(0.0, none, Actions::default()); s.hurt_at = s.elapsed - 0.25; }
