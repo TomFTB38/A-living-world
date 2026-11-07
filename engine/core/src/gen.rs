@@ -39,8 +39,12 @@ impl WorldGen {
         // Grand relief : des massifs rares et lointains, posés sur les collines, jamais au-dessus du plafond du monde.
         let massif = smooth(0.14, 0.5, self.n_base.fbm(wx / 1500.0 + 210.0, wz / 1500.0 - 130.0, 3));
         let ridge = 1.0 - self.n_hill.fbm(wx / 330.0 + 80.0, wz / 330.0 + 25.0, 3).abs() * 1.6;
-        let low = 52.0 + 15.0 * self.n_base.fbm(wx / 340.0, wz / 340.0, 3) + massif * (14.0 + 34.0 * ridge.max(0.0) * ridge.max(0.0));
-        let hs = low + 5.5 * self.n_hill.fbm(wx / 96.0, wz / 96.0, 3);
+        let mut low = 52.0 + 15.0 * self.n_base.fbm(wx / 340.0, wz / 340.0, 3) + massif * (14.0 + 34.0 * ridge.max(0.0) * ridge.max(0.0));
+        let mut hs = low + 5.5 * self.n_hill.fbm(wx / 96.0, wz / 96.0, 3);
+        // Le relief propre aux biomes entre ici, avant les rivières et les lacs : leur eau suit le désert plat comme le plateau des hautes terres.
+        let m = self.climate.at(x, z); let (de, hl) = (m.strong(Biome::Desert), m.strong(Biome::Highlands));
+        if de > 0.01 { let plain = 54.0 + 4.0 * self.n_base.fbm(wx / 600.0, wz / 600.0, 2); low = lerp(low, plain, de); hs = lerp(hs, low, de); }
+        if hl > 0.01 { let crest = 1.0 - self.n_hill.fbm(x / 120.0 + 40.0, z / 120.0 - 11.0, 3).abs() * 1.8; let lift = hl * (1.0 - massif) * (13.0 + 11.0 * crest.max(0.0)); low += lift; hs = low + (hs - (low - lift)) * 0.8; }
         Raw { wx, wz, low, hs, massif }
     }
     fn pond_at(&self, gx: i32, gz: i32) -> Option<Pond> {
@@ -83,11 +87,11 @@ impl WorldGen {
         if desert > 0.01 {
             let a = 0.6 + 0.9 * self.n_warp.n2(x / 900.0, z / 900.0); let u = (x * cos(a) + z * sin(a)) / 34.0 + 1.6 * self.n_deco.n2(x / 90.0, z / 90.0);
             let crest = sin(u) * 0.5 + 0.5; let dune = 6.0 * crest * crest * (0.45 + 0.55 * smooth(-0.4, 0.4, self.n_hill.n2(x / 180.0 + 7.0, z / 180.0 - 3.0)));
-            let plain = 54.0 + 4.0 * self.n_base.fbm(wx / 600.0, wz / 600.0, 2); h = lerp(h, plain + dune, desert);
+            h = lerp(h, low + dune, desert); // le sol plat vient de raw_height ; les dunes s'y posent
         }
         // Hautes terres : un plateau soulevé, des croupes arrondies et des crêtes, la roche qui perce partout.
         let high = mix.strong(Biome::Highlands);
-        if high > 0.01 { let ridge = 1.0 - self.n_hill.fbm(x / 120.0 + 40.0, z / 120.0 - 11.0, 3).abs() * 1.8; h = lerp(h, low + 13.0 + 11.0 * ridge.max(0.0) + (h - low) * 0.6, high * (1.0 - massif)); }
+        let _ = high; // le plateau est déjà soulevé dans raw_height
         // rivière : niveaux quantifiés = cascades
         let rs = self.n_river.fbm2(wx / 400.0, wz / 400.0, 2, 2.1, 0.32);
         let Bed { d_r, wid, l, grad } = self.bed(x, z, wx, wz, rs, low, massif);

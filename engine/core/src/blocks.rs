@@ -29,7 +29,7 @@ pub struct Block {
 pub fn is_log(b: u8) -> bool { BLOCKS[b as usize].name.contains("_log") }
 /// Teinte de biome des faces pleines : numéro dans TONES, gardé dans le masque du maillage.
 /// TONES[2] n'est pas une teinte : c'est la marque « neige posée dessus », lue par le rendu.
-pub const TONES: [[f64; 3]; 4] = [[1.0, 1.0, 1.0], [0.6, 0.74, 0.62], [1.0, 1.0, 2.0], [0.98, 0.86, 0.6]];
+pub const TONES: [[f64; 3]; 4] = [[1.0, 1.0, 1.0], [0.6, 0.74, 0.62], [1.0, 1.0, 2.0], [1.2, 0.86, 0.5]]; // 3 : herbe de lande, olive et paille
 #[inline] pub fn tone(b: u8) -> i32 { if b == B::GRASS_DEEP { 1 } else if b == B::MOOR_GRASS { 3 } else { 0 } }
 #[inline] pub fn is_grass(b: u8) -> bool { b == B::GRASS || b == B::GRASS_DEEP }
 /// Épaisseur d'une pellicule de neige en dixièmes de bloc (1 à 9), 0 si ce n'en est pas une.

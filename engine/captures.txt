@@ -1,4 +1,4 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-# Écrire « toutes » pour la série complète.
+# Écrire le mot-clé de série complète pour tout prendre.
 spawn jeu creatif
-desert cactus hautes_terres
+desert oasis hautes_terres
