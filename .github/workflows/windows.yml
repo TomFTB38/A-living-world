@@ -12,6 +12,18 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      # Cache de compilation : les dépendances (wgpu, winit…) ne sont recompilées que si Cargo.lock change.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            engine/core/target
+            engine/game/target
+          key: windows-cargo-${{ hashFiles('engine/**/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            windows-cargo-${{ hashFiles('engine/**/Cargo.lock') }}-
+            windows-cargo-
       - name: Tests du cœur
         run: cargo test --release
         working-directory: engine/core
@@ -24,7 +36,9 @@ jobs:
         run: |
           set +e
           mkdir -p capture
-          shot() { n=$1; shift; for essai in 1 2 3; do rm -f capture/$n.bmp engine/game/target/release/alw-erreur.txt; timeout 240 engine/game/target/release/a-living-world.exe --capture capture/$n.bmp "$@" 2>&1 | tee -a capture/journal.txt; c=${PIPESTATUS[0]}; echo "== $n : code $c (essai $essai)" | tee -a capture/journal.txt; cat engine/game/target/release/alw-erreur.txt 2>/dev/null | tee -a capture/journal.txt; [ "$c" = 0 ] && break; done; }
+          # Seules les captures listées dans engine/captures.txt sont prises (« toutes » pour la série complète).
+          want() { grep -qwE "$1|toutes" engine/captures.txt; }
+          shot() { n=$1; shift; want "$n" || return 0; for essai in 1 2 3; do rm -f capture/$n.bmp engine/game/target/release/alw-erreur.txt; timeout 240 engine/game/target/release/a-living-world.exe --capture capture/$n.bmp "$@" 2>&1 | tee -a capture/journal.txt; c=${PIPESTATUS[0]}; echo "== $n : code $c (essai $essai)" | tee -a capture/journal.txt; cat engine/game/target/release/alw-erreur.txt 2>/dev/null | tee -a capture/journal.txt; [ "$c" = 0 ] && break; done; }
           shot spawn -38.5 53 0.5 -20 52 -30 16.4 6 1280 720 2048
           shot eau -62 47 -55 -54 42 -51 16.4 5 1280 720 2048
           shot jeu -38.5 52.5 0.5 -36 50 3 16.4 4 1280 720 2048 jeu
@@ -62,6 +76,10 @@ jobs:
           git -c user.name=ci -c user.email=ci@local add -A
           git -c user.name=ci -c user.email=ci@local commit -qm "Capture ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" captures
+      # Garde-fou : si le jeu ne démarre pas (captures de contrôle absentes), rien n'est publié.
+      - name: Le jeu démarre
+        shell: bash
+        run: test -f capture/spawn.bmp && test -f capture/jeu.bmp
       - uses: actions/upload-artifact@v4
         with:
           name: a-living-world-windows
