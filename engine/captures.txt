@@ -1,4 +1,4 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
 # Écrire « toutes » pour la série complète.
 spawn jeu creatif
-desert oasis materiaux taiga_nuit
+desert oasis taiga_nuit

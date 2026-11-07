@@ -160,7 +160,7 @@ impl WorldGen {
             let ymax = (CH as f64 - 2.0).min((hf + 7.0).ceil()) as i32;
             for y in 0..=ymax {
                 let yf = y as f64; let mut d = hf - yf;
-                if cliff > 0.01 && !c.wet && yf > hf - 12.0 { d += cliff * 6.0 * (1.0 - clamp((yf - hf) / 8.0, 0.0, 1.0)) * self.n_cave.n3(wx / 25.0, yf / 15.0, wz / 25.0); }
+                if cliff > 0.01 && !c.wet && yf > hf - 12.0 && c.mix.strong(Biome::Desert) < 0.5 { d += cliff * 6.0 * (1.0 - clamp((yf - hf) / 8.0, 0.0, 1.0)) * self.n_cave.n3(wx / 25.0, yf / 15.0, wz / 25.0); }
                 if d > 0.0 {
                     if y > 2 && !c.wet && yf < hf - 3.0 + entry * 5.0 && self.is_cave(wx, yf, wz) { continue; } // jamais de vide à côté de l'eau
                     v[idx(x, y as usize, z)] = B::STONE; top = y;
@@ -180,7 +180,7 @@ impl WorldGen {
                     else if yf > 101.0 + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0) { self.stone_at(wx, yf, wz) } // sommets : roche, couverte de neige plus loin
                     else if cold { if self.n_deco.n2(wx / 9.0, wz / 9.0) > 0.3 { B::DIRT } else if hash_float(wxi, wzi, self.seed, 46) < 0.3 { B::LICHEN_STONE } else { self.stone_at(wx, yf, wz) } } // taïga : surtout de la roche sous la neige
                     else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) } // haute montagne : la roche à nu
-                    else if sandy && c.bank < 0.3 { B::SAND } // désert : du sable en surface, sur les dunes comme au sommet des mesas ; l'eau garde ses rives
+                    else if sandy && c.bank < 0.75 { B::SAND } // désert : du sable en surface, sur les dunes comme au sommet des mesas ; l'eau garde ses rives
                     else if dry && c.bank < 0.35 { let n = self.n_deco.n2(wx / 14.0 + 5.0, wz / 14.0 - 3.0) + 0.25 * self.n_deco.n2(wx / 3.0, wz / 3.0); if n > 0.4 { B::DRY_EARTH } else if n < -0.62 { B::GRAVEL } else { B::STEPPE_GRASS } } // steppe : paille, plaques de terre craquelée, cailloux ; l'herbe reste verte au bord de l'eau
                     else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 - 0.9 * deep { B::FOREST_SOIL }
                     else if cliff > 0.45 && !cold && !dry && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
