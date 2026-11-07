@@ -78,7 +78,7 @@ const defs = [
   ['beech_log_x_c', 'cube', ['bark_beech', 'end_beech', 'bark_beech'], 1.0, { cat: 'wood', drop: 'beech_log', axis: 'x', clean: true }],
   ['beech_log_z_c', 'cube', ['bark_beech', 'bark_beech', 'end_beech'], 1.0, { cat: 'wood', drop: 'beech_log', axis: 'z', clean: true }],
   // Taïga. Nouveaux blocs toujours en fin de liste : les identifiants déjà sauvegardés ne bougent pas.
-  ['snow', 'cube', ['snow', 'snow_side', 'dirt'], 0.4, { cat: 'terrain' }],
+  ['snow', 'cube', ['snow', 'snow', 'snow'], 0.4, { cat: 'terrain' }], // bloc de neige plein, sur toutes ses faces
   ['ice', 'cube', ['ice', 'ice', 'ice'], 0.5, { cat: 'terrain' }],
   ['spruce_log', 'cube', ['end_spruce', 'bark_spruce', 'end_spruce'], 1.0, { cat: 'wood' }],
   ['spruce_log_x', 'cube', ['bark_spruce', 'end_spruce', 'bark_spruce'], 1.0, { cat: 'wood', drop: 'spruce_log', axis: 'x' }],
