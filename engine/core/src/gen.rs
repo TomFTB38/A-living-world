@@ -340,6 +340,28 @@ impl WorldGen {
         }
         Some(Stamp { data, force: true })
     }
+    /// Tronc mort couché et creux : un anneau de bois, ouvert aux deux bouts, posé à plat sur toute sa longueur.
+    fn hollow_log(&self, x: f64, z: f64, r: &mut Rng, wood: u8) -> Option<Stamp> {
+        let w: i32 = if r.next() < 0.3 { 2 } else { 1 }; let len = r.int(5, 10); let a0 = r.int(0, 1); let h0 = self.column(x, z).h.floor();
+        let dir = |a: i32| if a == 0 { (1.0, 0.0) } else { (0.0, 1.0) };
+        let flat = |a: i32| { let (dx, dz) = dir(a); (-w..=w).map(|sd| (0..len).take_while(|k| self.column(x + dx * *k as f64 + dz * sd as f64, z + dz * *k as f64 + dx * sd as f64).h.floor() == h0).count() as i32).min().unwrap_or(0) };
+        let a = if flat(a0) >= flat(1 - a0) { a0 } else { 1 - a0 }; let n = flat(a); if n < 4 { return None; }
+        let (dx, dz) = dir(a); let id = oriented_block(wood, if a == 0 { 'x' } else { 'z' }); let mut data = Vec::new();
+        for k in 0..n { for t in -w..=w { for sd in -w..=w {
+            let ring = if w == 1 { t.abs().max(sd.abs()) == 1 } else { let d = ((t * t + sd * sd) as f64).sqrt(); (1.3..=2.4).contains(&d) }; if !ring { continue; }
+            let end = k == 0 || k == n - 1; if end && t == w && r.next() < 0.5 { continue; } // bouts cassés, ébréchés sur le dessus
+            if !end && t == w && r.next() < 0.08 { continue; } // un trou par endroits dans l'écorce
+            data.push([ri(x + dx * k as f64 + dz * sd as f64), h0 as i32 + 1 + w + t, ri(z + dz * k as f64 + dx * sd as f64), id as i32]);
+        } } }
+        Some(Stamp { data, force: false })
+    }
+    /// Souche creuse : un anneau de bois debout, vide au milieu, aux bords inégaux.
+    fn hollow_stump(&self, x: f64, z: f64, r: &mut Rng, wood: u8) -> Option<Stamp> {
+        let h0 = self.column(x, z).h.floor(); for dz in -1..=1 { for dx in -1..=1 { if self.column(x + dx as f64, z + dz as f64).h.floor() != h0 { return None; } } }
+        let mut data = Vec::new(); let base = r.int(1, 2);
+        for dz in -1..=1i32 { for dx in -1..=1i32 { if dx == 0 && dz == 0 { continue; } let h = base + r.int(0, 1); for y in 1..=h { data.push([ri(x) + dx, h0 as i32 + y, ri(z) + dz, wood as i32]); } } }
+        Some(Stamp { data, force: false })
+    }
     /// Squelette d'un grand animal disparu, à moitié enfoui dans la steppe : échine, côtes, crâne, défenses et os épars.
     fn bone_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
         let s = self.seed; if hash_float(gx, gz, s, 61) > 0.45 { return None; }
@@ -376,7 +398,8 @@ impl WorldGen {
             // Taïga : surtout des épicéas, des bouleaux blancs isolés, des sapins morts, des souches et des troncs couchés.
             if roll < 0.07 { let mut st = grow_birch(x, y, z, &mut r, 0.25 * age); for d in &mut st.data { if d[3] == B::BIRCH_LEAVES as i32 { d[3] = B::BIRCH_LEAVES_GOLD as i32; } } return Some(st); } // bouleau blanc, mince, aux dernières feuilles dorées
             if roll < 0.15 { return Some(grow_dead_fir(x, y, z, &mut r, age)); }
-            if roll < 0.2 { let id = if r.next() < 0.6 { B::SPRUCE_LOG } else { B::DEAD_LOG }; return Some(stump(x, y, z, &mut r, id)); }
+            if roll < 0.2 { let id = if r.next() < 0.6 { B::SPRUCE_LOG } else { B::DEAD_LOG }; if r.next() < 0.5 { return self.hollow_stump(x, z, &mut r, id); } return Some(stump(x, y, z, &mut r, id)); }
+            if roll < 0.23 { let id = if r.next() < 0.6 { B::DEAD_LOG } else { B::SPRUCE_LOG }; return self.hollow_log(x, z, &mut r, id); }
             if roll < 0.26 {
                 // Tronc couché : seulement sur un sol assez plat pour qu'il repose de tout son long.
                 let (len, a0) = (r.range(4.0, 9.0), r.int(0, 1)); let h0 = self.column(x, z).h.floor(); let flat = |a: i32| { let (dx, dz) = if a == 0 { (1.0, 0.0) } else { (0.0, 1.0) }; (0..=len as i32).take_while(|k| self.column(x + dx * *k as f64, z + dz * *k as f64).h.floor() == h0).count() }; let a = if flat(a0) >= flat(1 - a0) { a0 } else { 1 - a0 }; let (dx, dz) = if a == 0 { (1.0, 0.0) } else { (0.0, 1.0) };
@@ -387,6 +410,8 @@ impl WorldGen {
             }
         }
         if taiga > 0.5 && roll > 0.1 * (1.0 - taiga) * 2.0 { return Some(grow_spruce(x, y, z, &mut r, age, taiga > 0.6)); } // taïga : des épicéas, quelques bouleaux
+        // En forêt, de vieux troncs morts et creux gisent au sol, et des souches évidées restent debout.
+        if c.forest > 0.45 && roll > 0.955 { let id = if r.next() < 0.5 { B::DEAD_LOG } else { B::OAK_LOG }; return if roll > 0.98 { self.hollow_stump(x, z, &mut r, id) } else { self.hollow_log(x, z, &mut r, id) }; }
         // Forêt profonde : presque plus de bouleaux, des géants aux racines énormes, un feuillage sombre.
         if deep > 0.5 { let mut st = if roll < 0.28 { grow_beech(x, y, z, &mut r, (0.6 + 0.6 * age).min(1.2)) } else { grow_oak(x, y, z, &mut r, 0.62 + 0.75 * age) }; for d in &mut st.data { if d[3] == B::OAK_LEAVES as i32 { d[3] = B::OAK_LEAVES_DEEP as i32; } else if d[3] == B::BEECH_LEAVES as i32 { d[3] = B::BEECH_LEAVES_DEEP as i32; } } return Some(st); }
         Some(if roll < 0.34 + sp * 0.3 { grow_birch(x, y, z, &mut r, age) } else if roll < 0.52 { grow_beech(x, y, z, &mut r, age) } else { grow_oak(x, y, z, &mut r, age * age * age) })
