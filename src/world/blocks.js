@@ -8,7 +8,8 @@ export const idx = (x, y, z) => x + z * CX + y * CX * CX;
 export const VARIANTS = 4;
 export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'mossy_stone', 'limestone', 'granite', 'gravel', 'sand',
   'bark_oak', 'bark_birch', 'bark_beech', 'leaf_oak', 'leaf_birch', 'leaf_beech', 'planks', 'forest_soil', 'water_foam', 'end_oak', 'end_birch', 'end_beech',
-  'snow', 'snow_side', 'ice', 'bark_spruce', 'end_spruce', 'leaf_spruce', 'leaf_snow'];
+  'snow', 'snow_side', 'ice', 'bark_spruce', 'end_spruce', 'leaf_spruce', 'leaf_snow',
+  'grass_dry_top', 'grass_dry_side', 'dry_earth'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -100,6 +101,12 @@ const defs = [
   ['snow_layer_7', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
   ['snow_layer_8', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
   ['snow_layer_9', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
+  // Steppe sèche
+  ['steppe_grass', 'cube', ['grass_dry_top', 'grass_dry_side', 'dirt'], 0.5, { drop: 'dirt', cat: 'terrain' }],
+  ['dry_earth', 'cube', ['dry_earth', 'dry_earth', 'dirt'], 0.45, { cat: 'terrain' }],
+  ['feather_grass', 'deco', null, 0.02, { model: 'feather' }],
+  ['sagebrush', 'deco', null, 0.05, { model: 'sage' }],
+  ['dead_bush', 'deco', null, 0.02, { model: 'deadbush' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({

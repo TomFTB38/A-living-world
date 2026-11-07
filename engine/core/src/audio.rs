@@ -12,7 +12,7 @@ const fn l(set: &'static str, rate: f32, vol: f32) -> L { L { set, rate, vol, lp
 pub fn sound_of(name: &str) -> &'static Mat {
     let name = name.strip_suffix("_c").unwrap_or(name); let n = name.strip_suffix("_x").or(name.strip_suffix("_y")).or(name.strip_suffix("_z")).unwrap_or(name);
     let n = if n.starts_with("water") { "water" } else { n.strip_suffix("_deep").unwrap_or(n) };
-    let n = match n { "snow" => "sand", n if n.starts_with("snow_layer") => "sand", "frost_grass" => "tall_grass", "ice" | "icicle" => "stone", "spruce_log" => "oak_log", "spruce_leaves" | "spruce_leaves_snow" => "oak_leaves", _ => n };
+    let n = match n { "snow" => "sand", n if n.starts_with("snow_layer") => "sand", "frost_grass" | "feather_grass" | "sagebrush" | "dead_bush" => "tall_grass", "steppe_grass" => "grass", "ice" | "icicle" => "stone", "spruce_log" => "oak_log", "spruce_leaves" | "spruce_leaves_snow" => "oak_leaves", _ => n };
     SOUNDS.iter().find(|s| s.0 == n).map(|s| &s.1).unwrap_or_else(|| &SOUNDS.iter().find(|s| s.0 == "dirt").unwrap().1)
 }
 fn round_lp(set: &str) -> f32 { match set { "leaf" => 4200.0, "crumble" => 6000.0, "gravel" => 5200.0, "sand" => 7000.0, _ => 0.0 } }

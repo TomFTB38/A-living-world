@@ -8,7 +8,7 @@ use winit::window::Window;
 use crate::{font_data as fd, hud};
 
 const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; pub const LIGHTS: usize = 48; const FLOATS: usize = 196 + LIGHTS * 8; const MAX_ACTORS: u64 = 128; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 60_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 52.0;
-pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 7;
+pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 8;
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32, pub cascades: [f64; 3] }
 struct Part { buf: wgpu::Buffer, indices: u32 }

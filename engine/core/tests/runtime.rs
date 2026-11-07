@@ -65,3 +65,15 @@ fn la_taiga_est_enneigee() {
     println!("pellicule {}, roche {}, terre {}, pommes de pin {}, givre {}, neige {}, herbe {}, épicéa {}, aiguilles enneigées {}, glaçons {}, glace {}", c(B::SNOW_LAYER), c(B::STONE) + c(B::GRANITE) + c(B::LIMESTONE), c(B::DIRT), c(B::PINECONE), c(B::FROST_GRASS), c(B::SNOW), c(B::GRASS), c(B::SPRUCE_LOG), c(B::SPRUCE_LEAVES_SNOW), c(B::ICICLE), c(B::ICE));
     assert!(sn > 20 * (gr + 1), "cœur de taïga enneigé"); assert!(c(B::SPRUCE_LOG) > 20 && c(B::SPRUCE_LEAVES_SNOW) > 50 && c(B::PINECONE) > 10);
 }
+
+#[test]
+fn la_steppe_est_seche_et_ouverte() {
+    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Steppe) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
+    let (cx, cz) = spot.expect("une steppe"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    let logs = c(B::OAK_LOG) + c(B::BIRCH_LOG) + c(B::BEECH_LOG) + c(B::SPRUCE_LOG);
+    println!("steppe {cx},{cz} : herbe sèche {}, terre craquelée {}, herbe verte {}, stipe {}, armoise {}, buissons morts {}, fleurs {}, troncs {}, mousse {}", c(B::STEPPE_GRASS), c(B::DRY_EARTH), c(B::GRASS), c(B::FEATHER_GRASS), c(B::SAGEBRUSH), c(B::DEAD_BUSH), c(B::YELLOW_FLOWER) + c(B::LUPINE), logs, c(B::MOSSY_STONE));
+    let (mut dry, mut green) = (0, 0); for x in 0..128 { for z in 0..128 { let (wx, wz) = (cx * 32 - 64 + x, cz * 32 - 64 + z); let col = g.column(wx as f64, wz as f64); if col.mix.strong(Biome::Steppe) < 0.97 || col.water != 0.0 || col.bank > 0.35 { continue; } let v = g.gen_chunk(wx.div_euclid(32), wz.div_euclid(32)); let mut y = 126; while y > 1 && !is_opaque(v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]) { y -= 1; } let b = v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]; if b == B::STEPPE_GRASS || b == B::DRY_EARTH { dry += 1; } else if is_grass(b) { green += 1; } } }
+    println!("cœur : {dry} colonnes sèches, {green} vertes"); assert!(dry > 20 * (green + 1), "le sol de la steppe est sec");
+    assert!(c(B::DRY_EARTH) > 100 && c(B::FEATHER_GRASS) > 500 && c(B::SAGEBRUSH) > 50 && c(B::DEAD_BUSH) > 10);
+    assert!(logs < 200, "la steppe reste ouverte : {logs} troncs");
+}

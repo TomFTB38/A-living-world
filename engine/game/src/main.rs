@@ -29,7 +29,9 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
     gpu.lights = s.lights(s.eye, gpu::LIGHTS);
     let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); let night = (1.0 - (sky.dir[1] * 4.0).clamp(0.0, 1.0)) as f32; env.flies = s.deep as f32 * (0.55 + 0.9 * night);
     // Taïga : ciel froid, soleil pâle, neige qui tombe à la place de la pluie.
-    let tg = s.taiga as f32; if tg > 0.01 { for k in 0..3 { sky.top[k] += ([0.5, 0.64, 0.82][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.35 * tg; sky.hor[k] += ([0.82, 0.88, 0.95][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.4 * tg; sky.col[k] *= 1.0 + ([-0.1, -0.03, 0.08][k]) * tg; } env.snow = tg * (0.3 + 0.7 * s.weather.state.rain as f32); env.rain *= 1.0 - tg; } env.bright *= 1.0 - 0.42 * s.deep as f32; env.fog_k += 2.6 * s.deep as f32; env.mist += 0.0035 * s.deep as f32; for v in &mut sky.top { *v *= 1.0 - 0.3 * s.deep as f32; }
+    let tg = s.taiga as f32; if tg > 0.01 { for k in 0..3 { sky.top[k] += ([0.5, 0.64, 0.82][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.35 * tg; sky.hor[k] += ([0.82, 0.88, 0.95][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.4 * tg; sky.col[k] *= 1.0 + ([-0.1, -0.03, 0.08][k]) * tg; } env.snow = tg * (0.3 + 0.7 * s.weather.state.rain as f32); env.rain *= 1.0 - tg; } // Steppe : lumière chaude et dorée, horizon voilé de poussière.
+    let st = s.steppe as f32 * (1.0 - night); if st > 0.01 { for k in 0..3 { sky.hor[k] += ([0.96, 0.86, 0.68][k] - sky.hor[k]) * 0.3 * st; sky.col[k] *= 1.0 + ([0.07, 0.02, -0.08][k]) * st; } env.mist += 0.0012 * st; }
+    env.bright *= 1.0 - 0.42 * s.deep as f32; env.fog_k += 2.6 * s.deep as f32; env.mist += 0.0035 * s.deep as f32; for v in &mut sky.top { *v *= 1.0 - 0.3 * s.deep as f32; }
     gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], s.progress() as f32)), s.ghost(), &draws, &ui)
 }
 /// Réglages enregistrés ; un fichier plus ancien garde ses valeurs et prend les nouvelles par défaut.
@@ -255,6 +257,10 @@ fn capture(a: &[String]) {
     if scene == "foret" {
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::DeepForest) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
         println!("forêt : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 1.0, z]; let f = view::norm([a.cos(), 0.1, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.tick(0.0, none, Actions::default()); s.deep = 1.0; s.tick(0.0, none, Actions::default()); }
+    }
+    if scene == "steppe" {
+        let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Steppe) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
+        println!("steppe : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 3.0, z]; let f = view::norm([a.cos(), -0.1, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.steppe = 1.0; s.tick(0.0, none, Actions::default()); }
     }
     if scene == "prairie" {
         // Le point le plus proche franchement en prairie, vu à hauteur d'homme vers le centre du biome.

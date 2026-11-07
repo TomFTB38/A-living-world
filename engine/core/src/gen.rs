@@ -71,12 +71,13 @@ impl WorldGen {
     /// Sommet de la chute qui tombe dans cette colonne : le palier voisin plus haut, s'il s'y déverse.
     fn fall_top(&self, x: f64, z: f64, water: f64) -> f64 { let mut t = 0.0f64; for (a, b) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)] { if let Some((l, k)) = self.river_level(x + a, z + b) { if l > water && k < LIP { t = t.max(l); } } } t }
     pub fn column(&self, x: f64, z: f64) -> Column {
-        let Raw { wx, wz, low, hs, massif } = self.raw_height(x, z);
+        let Raw { wx, wz, low, hs, massif } = self.raw_height(x, z); let mix = self.climate.at(x, z); let steppe = mix.strong(Biome::Steppe);
         let step_n = self.n_hill.n2(x / 52.0 + 11.0, z / 52.0 - 7.0); let s = 4.0;
         let q = hs / s; let fl = q.floor(); let fr = q - fl;
         let terr = (fl + smooth(0.32, 0.68, fr)) * s;
-        let mut h = lerp(hs, terr, smooth(-0.35, 0.25, step_n) * (1.0 - massif)); // les terrasses sont pour les collines : une montagne en escalier ferait une pyramide
-        h += 1.6 * self.n_hill.n2(x / 19.0, z / 19.0);
+        let mut h = lerp(hs, terr, smooth(-0.35, 0.25, step_n) * (1.0 - massif) * (1.0 - steppe)); // la steppe ondule, sans gradins
+        h = lerp(h, low + (h - low) * 0.6, steppe * (1.0 - massif)); // les terrasses sont pour les collines : une montagne en escalier ferait une pyramide
+        h += (1.6 - 0.8 * steppe) * self.n_hill.n2(x / 19.0, z / 19.0);
         // rivière : niveaux quantifiés = cascades
         let rs = self.n_river.fbm2(wx / 400.0, wz / 400.0, 2, 2.1, 0.32);
         let Bed { d_r, wid, l, grad } = self.bed(x, z, wx, wz, rs, low, massif);
@@ -124,7 +125,7 @@ impl WorldGen {
         }
         let f = self.n_forest.fbm(x / 170.0, z / 170.0, 3) * 1.5 + 0.78 + 0.12 * self.n_forest.n2(x / 31.0, z / 31.0);
         // La prairie éclaircit la forêt ; le relief et l'eau restent communs, pour que rien ne se voie à la frontière.
-        let mix = self.climate.at(x, z); let f = f - 1.1 * mix.strong(Biome::Meadow) + 0.7 * mix.strong(Biome::DeepForest);
+        let f = f - 1.1 * mix.strong(Biome::Meadow) + 0.7 * mix.strong(Biome::DeepForest) - 1.6 * steppe;
         Column { mix, wet, h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
     }
     fn stone_at(&self, x: f64, y: f64, z: f64) -> u8 {
@@ -138,11 +139,11 @@ impl WorldGen {
     /// Terrain, décor et empreintes, sans aucune dépendance à l'ordre de chargement.
     pub fn gen_chunk(&self, cx: i32, cz: i32) -> Vec<u8> {
         let mut v = vec![0u8; CA]; let (ox, oz) = (cx * CX as i32, cz * CX as i32);
-        let mut heights = vec![0i32; CX * CX]; let mut waters = vec![0i32; CX * CX]; let mut info = vec![(0.0f64, 0.0f64, 0.0f64, 0.0f64); CX * CX];
+        let mut heights = vec![0i32; CX * CX]; let mut waters = vec![0i32; CX * CX]; let mut info = vec![(0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64); CX * CX];
         for z in 0..CX { for x in 0..CX {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let c = self.column(wx, wz); let (hf, cliff, fr, path, water) = (c.h, c.cliff, c.forest, c.path, c.water);
-            let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga); let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, taiga);
+            let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga); let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, taiga); let steppe = c.mix.strong(Biome::Steppe); let dry = hash_float(wxi, wzi, self.seed, 44) < smooth(0.3, 0.7, steppe);
             // Par endroits, le toit des galeries s'efface : la grotte s'ouvre en surface, jamais sous l'eau ni sous un chemin.
             let entry = if water == 0.0 && path < 0.1 { smooth(0.3, 0.5, self.n_cave.n2(wx / 70.0, wz / 70.0)) } else { 0.0 };
             let ymax = (CH as f64 - 2.0).min((hf + 7.0).ceil()) as i32;
@@ -168,8 +169,9 @@ impl WorldGen {
                     else if yf > 101.0 + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0) { self.stone_at(wx, yf, wz) } // sommets : roche, couverte de neige plus loin
                     else if cold { if self.n_deco.n2(wx / 9.0, wz / 9.0) > 0.3 { B::DIRT } else { self.stone_at(wx, yf, wz) } } // taïga : surtout de la roche sous la neige
                     else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) } // haute montagne : la roche à nu
+                    else if dry && c.bank < 0.35 { let n = self.n_deco.n2(wx / 14.0 + 5.0, wz / 14.0 - 3.0) + 0.25 * self.n_deco.n2(wx / 3.0, wz / 3.0); if n > 0.4 { B::DRY_EARTH } else if n < -0.62 { B::GRAVEL } else { B::STEPPE_GRASS } } // steppe : paille, plaques de terre craquelée, cailloux ; l'herbe reste verte au bord de l'eau
                     else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 - 0.9 * deep { B::FOREST_SOIL }
-                    else if cliff > 0.45 && !cold && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
+                    else if cliff > 0.45 && !cold && !dry && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
                     else if hash_float(wxi, wzi, self.seed, 41) < deep { B::GRASS_DEEP } else { B::GRASS };
                 } else if steep { v[i] = self.stone_at(wx, y as f64, wz); }
                 else if cold { v[i] = self.stone_at(wx, y as f64, wz); } else { v[i] = B::DIRT; }
@@ -189,14 +191,14 @@ impl WorldGen {
                     top = crown;
                 }
             }
-            heights[x + z * CX] = top; waters[x + z * CX] = wi; info[x + z * CX] = (fr, path, c.mix.strong(Biome::Meadow), deep);
+            heights[x + z * CX] = top; waters[x + z * CX] = wi; info[x + z * CX] = (fr, path, c.mix.strong(Biome::Meadow), deep, steppe);
         } }
         self.stamp_all(&mut v, cx, cz, &mut heights);
         self.scatter_deco(&mut v, ox, oz, &heights, &waters, &info);
         self.hang_vines(&mut v, ox, oz); self.snow_cover(&mut v, ox, oz);
         v
     }
-    fn scatter_deco(&self, v: &mut [u8], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64, f64, f64)]) {
+    fn scatter_deco(&self, v: &mut [u8], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64, f64, f64, f64)]) {
         let s = self.seed; let nd = &self.n_deco;
         for z in 0..CX { for x in 0..CX {
             let y = (heights[x + z * CX] + 1) as usize;
@@ -211,8 +213,16 @@ impl WorldGen {
             if here != 0 { continue; }
             let r = hash_float(wxi, wzi, s, 3);
             // Au froid, sous la future pellicule de neige : quelques herbes givrées et des pommes de pin, rien d'autre.
-            if hash_float(wxi, wzi, s, 42) < smooth(0.3, 0.7, self.climate.at(wx, wz).strong(Biome::Taiga)) { if is_opaque(ground) && ground != B::ICE { v[idx(x, y, z)] = if r < 0.06 { B::FROST_GRASS } else if r < 0.072 { B::PINECONE } else { 0 }; } continue; } let (fr, path, meadow, deep) = info[x + z * CX];
+            if hash_float(wxi, wzi, s, 42) < smooth(0.3, 0.7, self.climate.at(wx, wz).strong(Biome::Taiga)) { if is_opaque(ground) && ground != B::ICE { v[idx(x, y, z)] = if r < 0.06 { B::FROST_GRASS } else if r < 0.072 { B::PINECONE } else { 0 }; } continue; } let (fr, path, meadow, deep, _) = info[x + z * CX];
             if ground == B::PATH { if r < 0.055 { v[idx(x, y, z)] = B::FLAGSTONE; } continue; }
+            // Steppe : touffes de stipe en vagues, armoises éparses, quelques buissons morts et de rares fleurs.
+            if ground == B::STEPPE_GRASS || ground == B::DRY_EARTH {
+                let clump = smooth(-0.35, 0.55, nd.n2(wx / 9.0 + 13.0, wz / 9.0 - 21.0)); let t = hash_float(wxi, wzi, s, 45);
+                v[idx(x, y, z)] = if ground == B::DRY_EARTH { if r < 0.04 { B::FEATHER_GRASS } else if r < 0.065 { B::DEAD_BUSH } else { 0 } }
+                    else if r < 0.08 + 0.42 * clump { B::FEATHER_GRASS } else if r < 0.12 + 0.42 * clump + 0.05 * (1.0 - clump) { B::SAGEBRUSH }
+                    else if r < 0.135 + 0.42 * clump + 0.05 * (1.0 - clump) { B::DEAD_BUSH } else if r < 0.155 + 0.42 * clump + 0.05 * (1.0 - clump) { if t < 0.6 { B::YELLOW_FLOWER } else { B::LUPINE } } else { 0 };
+                continue;
+            }
             if !is_grass(ground) && ground != B::FOREST_SOIL && ground != B::MOSSY_STONE { continue; }
             if path > 0.02 && path < 0.4 && nd.n2(wx / 40.0 - 9.0, wz / 40.0 + 5.0) > 0.2 {
                 v[idx(x, y, z)] = B::FENCE;
@@ -297,14 +307,14 @@ impl WorldGen {
     }
     fn rock_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
         let s = self.seed;
-        if hash_float(gx, gz, s, 21) > 0.62 { return None; }
         let x = ((gx as f64 + hash_float(gx, gz, s, 22)) * ROCK_CELL as f64).floor(); let z = ((gz as f64 + hash_float(gx, gz, s, 23)) * ROCK_CELL as f64).floor();
+        let st = self.climate.at(x, z).strong(Biome::Steppe); if hash_float(gx, gz, s, 21) > 0.62 + 0.25 * st { return None; } // la steppe est semée de rochers
         let c = self.column(x, z);
         if c.water != 0.0 || c.path > 0.1 { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 24)); let mut data = Vec::new();
-        let n = r.int(1, 3); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6;
+        let n = r.int(1, 3); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6 || st > 0.5; let tall = 1.0 + 0.9 * st * hash_float(gx, gz, s, 25);
         for k in 0..n {
-            let rx = r.range(1.6, 4.2); let ry = r.range(1.3, 3.0); let rz = r.range(1.6, 4.2);
+            let rx = r.range(1.6, 4.2); let ry = r.range(1.3, 3.0) * tall; let rz = r.range(1.6, 4.2);
             let ax = x + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 }; let az = z + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 };
             let mut dy = -2.0;
             while dy <= ry + 1.0 {
@@ -330,10 +340,11 @@ impl WorldGen {
         if c.water != 0.0 || c.path > 0.0 || c.bank > 0.4 || c.h > 86.0 { return None; }
         let pick = hash_float(gx, gz, s, 33);
         let glade = smooth(-0.1, 0.45, self.n_forest.n2(x / 46.0 + 70.0, z / 46.0 - 40.0));
-        if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) * (1.0 - 0.8 * c.mix.strong(Biome::Meadow)) * (1.0 + 0.8 * c.mix.strong(Biome::DeepForest)) { return None; }
+        if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) * (1.0 - 0.8 * c.mix.strong(Biome::Meadow)) * (1.0 + 0.8 * c.mix.strong(Biome::DeepForest)) * (1.0 - 0.9 * c.mix.strong(Biome::Steppe)) { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 34));
         let sp = self.n_forest.n2(gx as f64 / 5.1 + 3.0, gz as f64 / 5.1 - 8.0); let roll = r.next();
         let y = c.h.floor(); let age = r.next(); let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga);
+        if c.mix.strong(Biome::Steppe) > 0.5 { return Some(grow_oak(x, y, z, &mut r, 0.12 + 0.3 * age)); } // steppe : un arbre isolé, petit et trapu
         if taiga > 0.5 && roll > 0.1 * (1.0 - taiga) * 2.0 { return Some(grow_spruce(x, y, z, &mut r, age, taiga > 0.6)); } // taïga : des épicéas, quelques bouleaux
         // Forêt profonde : presque plus de bouleaux, des géants aux racines énormes, un feuillage sombre.
         if deep > 0.5 { let mut st = if roll < 0.28 { grow_beech(x, y, z, &mut r, (0.6 + 0.6 * age).min(1.2)) } else { grow_oak(x, y, z, &mut r, 0.62 + 0.75 * age) }; for d in &mut st.data { if d[3] == B::OAK_LEAVES as i32 { d[3] = B::OAK_LEAVES_DEEP as i32; } else if d[3] == B::BEECH_LEAVES as i32 { d[3] = B::BEECH_LEAVES_DEEP as i32; } } return Some(st); }

@@ -414,6 +414,30 @@ impl Mesher {
                 let n = r_.int(6, 10);
                 for _ in 0..n { let t = r_.range(0.85, 1.1); let (a, c, ang, w, h, lean) = (x + r_.next(), z + r_.next(), r_.range(0.0, 6.28), r_.range(0.02, 0.035), r_.range(0.2, 0.55), r_.range(0.05, 0.2)); blade(o, a, y, c, ang, w, h, lean, 0.78 * t, 0.83 * t, 0.86 * t, s, l, (s - 25.0).max(0.0)); }
             }
+            "feather" => {
+                // Stipe plumeuse : de longues tiges dorées qui s'arquent sous le vent, quelques brins verts au pied.
+                let n = r_.int(10, 15); let base = r_.range(0.88, 1.1); let lean0 = r_.range(0.0, 6.28);
+                for _ in 0..n {
+                    let t = base * r_.range(0.88, 1.12); let ang = lean0 + r_.range(-0.9, 0.9);
+                    blade(o, x + r_.range(0.2, 0.8), y, z + r_.range(0.2, 0.8), ang, r_.range(0.012, 0.024), r_.range(0.5, 1.05), r_.range(0.18, 0.42), 0.76 * t, 0.68 * t, 0.44 * t, s, l, (s - 25.0).max(0.0));
+                }
+                for _ in 0..4 { blade(o, x + r_.range(0.3, 0.7), y, z + r_.range(0.3, 0.7), r_.range(0.0, 6.28), r_.range(0.03, 0.05), r_.range(0.15, 0.3), 0.08, 0.46 * base, 0.5 * base, 0.28 * base, s, l, (s - 40.0).max(0.0)); }
+            }
+            "sage" => {
+                // Armoise : un petit buisson rond, gris-vert argenté, sur un pied ligneux.
+                let (a0, c0) = (x + r_.range(0.4, 0.6), z + r_.range(0.4, 0.6)); let t = r_.range(0.9, 1.1); let hmax = r_.range(0.4, 0.62);
+                bx3(o, a0 - 0.035, y, c0 - 0.035, a0 + 0.035, y + 0.16, c0 + 0.035, 0.36, 0.28, 0.2, 0.0, s, l);
+                let n = r_.int(6, 9);
+                for _ in 0..n {
+                    let (a, c) = (a0 + r_.range(-0.26, 0.26), c0 + r_.range(-0.26, 0.26)); let w = r_.range(0.09, 0.17); let yy = y + r_.range(0.08, hmax - 0.12); let k = t * r_.range(0.88, 1.12);
+                    bx(o, a - w, yy, c - w, a + w, yy + w * 1.3, c + w, 0.5 * k, 0.56 * k, 0.48 * k, 30.0, s, l, FOLIAGE, true, 40.0, 255.0);
+                }
+            }
+            "deadbush" => {
+                // Buisson mort : des brindilles sèches et grises qui partent en étoile.
+                let n = r_.int(6, 9); let (a0, c0) = (x + r_.range(0.4, 0.6), z + r_.range(0.4, 0.6));
+                for _ in 0..n { let t = r_.range(0.85, 1.15); blade(o, a0, y, c0, r_.range(0.0, 6.28), r_.range(0.012, 0.02), r_.range(0.28, 0.62), r_.range(0.15, 0.4), 0.46 * t, 0.37 * t, 0.27 * t, s, l, (s - 25.0).max(0.0)); }
+            }
             "icicle" => {
                 // Glaçons : des pointes effilées qui pendent du bloc du dessus.
                 let n = r_.int(2, 4);
@@ -530,8 +554,8 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32) -> (Vec<u8>, usize) {
             let canopy = if c.water != 0.0 || c.h > 86.0 { 0.0 } else if c.forest > 0.35 { 13.0 * (1f64).min((c.forest - 0.35) * 3.0) } else { 0.0 };
             hs[k] = ((if c.water != 0.0 { c.water } else { c.h }) + canopy - sink) as f32;
             let t = (gen.n_deco.n2(wx / 40.0, wz / 40.0) + 1.0) * 0.5;
-            let (tg, dp) = (c.mix.strong(crate::biome::Biome::Taiga), c.mix.strong(crate::biome::Biome::DeepForest));
-            cols[k] = if tg > 0.5 || c.h > 100.0 { if c.water != 0.0 { [0.7, 0.8, 0.88] } else if canopy > 3.0 { [0.42, 0.5, 0.48] } else { [0.86, 0.9, 0.95] } } else if dp > 0.5 && canopy > 3.0 { [0.1, 0.2, 0.12] } else if c.water != 0.0 { [0.22, 0.36, 0.42] } else if c.h > 90.0 { [(0.42 + 0.1 * t) as f32, (0.4 + 0.1 * t) as f32, (0.37 + 0.09 * t) as f32] } else if canopy > 3.0 { [(0.2 + 0.1 * t) as f32, (0.34 + 0.1 * t) as f32, 0.09] } else { [(0.42 + 0.1 * t) as f32, (0.5 + 0.05 * t) as f32, 0.2] };
+            let (tg, dp, st) = (c.mix.strong(crate::biome::Biome::Taiga), c.mix.strong(crate::biome::Biome::DeepForest), c.mix.strong(crate::biome::Biome::Steppe));
+            cols[k] = if st > 0.5 && c.water == 0.0 && c.h <= 90.0 && canopy <= 3.0 { [(0.56 + 0.08 * t) as f32, (0.5 + 0.06 * t) as f32, (0.3 + 0.04 * t) as f32] } else if tg > 0.5 || c.h > 100.0 { if c.water != 0.0 { [0.7, 0.8, 0.88] } else if canopy > 3.0 { [0.42, 0.5, 0.48] } else { [0.86, 0.9, 0.95] } } else if dp > 0.5 && canopy > 3.0 { [0.1, 0.2, 0.12] } else if c.water != 0.0 { [0.22, 0.36, 0.42] } else if c.h > 90.0 { [(0.42 + 0.1 * t) as f32, (0.4 + 0.1 * t) as f32, (0.37 + 0.09 * t) as f32] } else if canopy > 3.0 { [(0.2 + 0.1 * t) as f32, (0.34 + 0.1 * t) as f32, 0.09] } else { [(0.42 + 0.1 * t) as f32, (0.5 + 0.05 * t) as f32, 0.2] };
         } }
         for j in 0..CELLS { for i in 0..CELLS {
             let (x0, z0) = ((i as f64 - half) * step, (j as f64 - half) * step); let (x1, z1) = (x0 + step, z0 + step);

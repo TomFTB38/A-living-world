@@ -49,6 +49,25 @@ const SNOW: [C; 3] = pl!("#c9d5e3", "#e3ebf3", "#f7fafd"); const ICE: [C; 3] = p
 const PLANKS: [C; 3] = pl!("#6c4524", "#94673a", "#b98a52"); const PATH: [C; 4] = pl!("#7c5b35", "#a07a4c", "#bc9663", "#d2b080");
 const SOIL: [C; 4] = pl!("#2f2413", "#4a3a1f", "#5e5127", "#6f6a2f"); const SAND: [C; 4] = pl!("#a89268", "#c2ac7e", "#d2bf92", "#e0cfa6"); const GRAVEL: [C; 4] = pl!("#6c6761", "#8e8679", "#a89f91", "#c0b7a9");
 
+const DRY: [C; 4] = pl!("#6e6532", "#8e8340", "#ae9f55", "#cbb978"); const CRACKED: [C; 4] = pl!("#7a6248", "#98805f", "#b29b78", "#c8b493");
+/// Herbe sèche de steppe : paille dorée, quelques touffes encore vertes, de la terre qui perce.
+fn dry_top(t: &Tile, x: f64, y: f64) -> S {
+    let (n, s, b) = (t.fbm(x, y, 4, 3), t.val(x, y, 32), t.val(x * 0.5 + 3.0, y, 24)); let green = smooth(0.6, 0.75, t.fbm(x + 17.0, y - 5.0, 3, 2)); let bare = smooth(0.66, 0.78, t.fbm(x - 9.0, y + 21.0, 5, 2));
+    let mut c = pal(&DRY, 0.2 + 0.6 * n + 0.3 * (s - 0.5) + 0.22 * (b - 0.5)); c = [lerp(c[0], c[0] * 0.78, green), lerp(c[1], c[1] * 0.98, green), lerp(c[2], c[2] * 0.7, green)];
+    if bare > 0.0 { let e = pal(&CRACKED, 0.25 + 0.5 * n); c = [lerp(c[0], e[0], bare), lerp(c[1], e[1], bare), lerp(c[2], e[2], bare)]; }
+    S { c, h: 0.4 + 0.5 * s * (1.0 - bare), r: 0.8 }
+}
+fn dry_side(t: &Tile, x: f64, y: f64) -> S {
+    let fringe = 9.0 + 7.0 * t.val(x, 0.0, 16) + 4.0 * t.val(x, 0.0, 32);
+    if y < fringe { let mut g = dry_top(t, x, y); g.c = mul(g.c, 0.75 + 0.3 * (1.0 - y / fringe)); return g; }
+    let mut d = dirt(t, x, y, &DIRT); let e = smooth(fringe + 4.0, fringe, y); d.c = mul(d.c, 1.0 - 0.3 * e); d
+}
+/// Terre sèche craquelée : des plaques pâles séparées de fentes sombres.
+fn cracked(t: &Tile, x: f64, y: f64) -> S {
+    let (d1, d2, id) = t.vor(x + 4.0 * t.fbm(x, y, 4, 2), y + 4.0 * t.fbm(x + 30.0, y, 4, 2), 7); let _ = d1; let crack = smooth(0.0, 0.06, d2 - d1); let (n, s) = (t.fbm(x, y, 6, 3), t.val(x, y, 32));
+    let c = pal(&CRACKED, 0.3 + 0.3 * t.pi(id) + 0.4 * (n - 0.5) + 0.2 * (s - 0.5));
+    S { c: mul(c, 0.5 + 0.5 * crack), h: 0.15 + 0.6 * crack + 0.15 * n, r: 0.9 }
+}
 fn grass_top(t: &Tile, x: f64, y: f64) -> S {
     let (n, s, b) = (t.fbm(x, y, 4, 3), t.val(x, y, 32), t.val(x + 7.0, y * 0.45, 24));
     S { c: pal(&GRASS, 0.2 + 0.55 * n + 0.32 * (s - 0.5) + 0.25 * (b - 0.5)), h: 0.4 + 0.5 * s, r: 0.72 }
@@ -151,11 +170,12 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "snow" => snow(t, x, y), "snow_side" => snow_side(t, x, y), "ice" => ice(t, x, y),
         "bark_spruce" => bark(t, x, y, &SPRUCE, 0.7), "end_spruce" => wood_end(t, x, y, &SPRUCE_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &SPRUCE, 0.7)),
         "leaf_spruce" => leaf(t, x, y, [0.34, 0.55, 0.46]), "leaf_snow" => leaf_snow(t, x, y),
+        "grass_dry_top" => dry_top(t, x, y), "grass_dry_side" => dry_side(t, x, y), "dry_earth" => cracked(t, x, y),
         "water_foam" => { let f = t.fbm(x, y, 8, 3); S { c: [f, f, f], h: f, r: 0.3 } }
         _ => panic!("matériau sans générateur : {name}"),
     }
 }
-fn detail(n: &str) -> f64 { match n { "bark_oak" => 0.2, "bark_birch" => 0.08, "bark_beech" => 0.14, "end_oak" => 0.1, "end_birch" => 0.08, "end_beech" => 0.08, "leaf_oak" => 0.16, "leaf_birch" => 0.16, "leaf_beech" => 0.16, "stone" => 0.2, "mossy_stone" => 0.2, "limestone" => 0.2, "granite" => 0.2, "gravel" => 0.22, "dirt" => 0.22, "path" => 0.2, "forest_soil" => 0.24, "grass_top" => 0.22, "grass_side" => 0.2, "planks" => 0.14, "sand" => 0.14, _ => 0.0 } }
+fn detail(n: &str) -> f64 { match n { "bark_oak" => 0.2, "bark_birch" => 0.08, "bark_beech" => 0.14, "end_oak" => 0.1, "end_birch" => 0.08, "end_beech" => 0.08, "leaf_oak" => 0.16, "leaf_birch" => 0.16, "leaf_beech" => 0.16, "stone" => 0.2, "mossy_stone" => 0.2, "limestone" => 0.2, "granite" => 0.2, "gravel" => 0.22, "dirt" => 0.22, "path" => 0.2, "forest_soil" => 0.24, "grass_top" => 0.22, "grass_side" => 0.2, "planks" => 0.14, "sand" => 0.14, "grass_dry_top" => 0.22, "grass_dry_side" => 0.2, "dry_earth" => 0.18, _ => 0.0 } }
 pub struct Textures { pub albedo: Vec<u8>, pub nrm: Vec<u8>, pub layers: u32, pub size: u32 }
 /// Deux piles RGBA : albédo, puis normale XY et rugosité. Le motif vit dans un repère de 64 unités ; à 128 pixels, une octave fine ajoute un vrai détail.
 pub fn build_textures(size: usize) -> Textures {
