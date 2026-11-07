@@ -88,9 +88,18 @@ const defs = [
   ['spruce_leaves', 'leaf', ['leaf_spruce', 'leaf_spruce', 'leaf_spruce'], 0.12, { cat: 'foliage', drop: null }],
   ['spruce_leaves_snow', 'leaf', ['snow', 'leaf_snow', 'leaf_spruce'], 0.12, { cat: 'foliage', drop: null }],
   ['icicle', 'deco', null, 0.02, { model: 'icicle', drop: null }],
-  ['snow_layer', 'deco', null, 0.1, { model: 'snowlayer', drop: null }],
+  ['snow_layer', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
   ['pinecone', 'deco', null, 0.02, { model: 'pinecone', drop: 'pinecone' }],
   ['frost_grass', 'deco', null, 0.02, { model: 'frost', drop: null }],
+  // pellicule de neige plus épaisse : n dixièmes de bloc
+  ['snow_layer_2', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
+  ['snow_layer_3', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
+  ['snow_layer_4', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
+  ['snow_layer_5', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
+  ['snow_layer_6', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
+  ['snow_layer_7', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
+  ['snow_layer_8', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
+  ['snow_layer_9', 'deco', null, 0.1, { model: 'snowlayer', drop: 'snow_layer' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({

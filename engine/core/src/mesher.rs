@@ -145,7 +145,7 @@ impl Mesher {
                             skyn |= (round(ss as f64 / n as f64) as i32) << (c * 4); blkn |= (round(bb as f64 / n as f64) as i32) << (c * 4);
                         }
                         let pos = (i + j * nu) as usize;
-                        let tn = if di != 2 && self.vk(k + WW) == B::SNOW_LAYER { 2 } else { tone(b) }; // neige posée dessus : le bloc en reçoit un peu
+                        let tn = if di != 2 && snow_level(self.vk(k + WW)) > 0 { 2 } else { tone(b) }; // neige posée dessus : le bloc en reçoit un peu
                         self.m1[pos] = (face << 8) | ao | (if is_leaf(b) { 1 << 24 } else { 0 }) | (grain << 25) | (tn << 28);
                         self.m2[pos] = skyn | (blkn << 16); any = true;
                     } }
@@ -390,14 +390,15 @@ impl Mesher {
             }
             "snowlayer" => {
                 // Pellicule de neige : une dalle fine, texturée, posée sur le bloc ; ses bords ne se dessinent que vers l'air.
-                let h = 0.1 + 0.07 * (hash_int(wx, yi, wz, 95) % 1000) as f64 / 1000.0; let layer = BLOCKS[B::SNOW as usize].faces[0] as f64; let (a, b, c, d, e) = (x, x + 1.0, z, z + 1.0, y + h);
+                let h = snow_level(b) as f64 / 10.0; let layer = BLOCKS[B::SNOW as usize].faces[0] as f64; let (a, b, c, d, e) = (x, x + 1.0, z, z + 1.0, y + h);
                 let mut q = |p: [[f64; 3]; 4], n: [f64; 3], ao: f64| { for v in p { o.v(v[0], v[1], v[2], layer, n[0], n[1], n[2], 0.0, ao, s, l, TEX, 1.0, 1.0, 1.0); } };
                 q([[a, e, d], [b, e, d], [b, e, c], [a, e, c]], [0.0, 1.0, 0.0], 255.0);
-                let open = |v: u8| v != B::SNOW_LAYER && !is_opaque(v);
-                if open(voxel(0, 0, 1)) { q([[a, y, d], [b, y, d], [b, e, d], [a, e, d]], [0.0, 0.0, 1.0], 220.0); }
-                if open(voxel(0, 0, -1)) { q([[b, y, c], [a, y, c], [a, e, c], [b, e, c]], [0.0, 0.0, -1.0], 220.0); }
-                if open(voxel(1, 0, 0)) { q([[b, y, d], [b, y, c], [b, e, c], [b, e, d]], [1.0, 0.0, 0.0], 220.0); }
-                if open(voxel(-1, 0, 0)) { q([[a, y, c], [a, y, d], [a, e, d], [a, e, c]], [-1.0, 0.0, 0.0], 220.0); }
+                // Le bord se dessine depuis le haut de la pellicule voisine, s'il y en a une plus basse.
+                let low = |v: u8| if is_opaque(v) { e } else { y + snow_level(v) as f64 / 10.0 };
+                let f = low(voxel(0, 0, 1)); if f < e { q([[a, f, d], [b, f, d], [b, e, d], [a, e, d]], [0.0, 0.0, 1.0], 220.0); }
+                let f = low(voxel(0, 0, -1)); if f < e { q([[b, f, c], [a, f, c], [a, e, c], [b, e, c]], [0.0, 0.0, -1.0], 220.0); }
+                let f = low(voxel(1, 0, 0)); if f < e { q([[b, f, d], [b, f, c], [b, e, c], [b, e, d]], [1.0, 0.0, 0.0], 220.0); }
+                let f = low(voxel(-1, 0, 0)); if f < e { q([[a, f, c], [a, f, d], [a, e, d], [a, e, c]], [-1.0, 0.0, 0.0], 220.0); }
             }
             "pinecone" => {
                 // Pomme de pin : pendue sous une branche, ou tombée au sol.

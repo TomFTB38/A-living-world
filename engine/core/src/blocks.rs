@@ -32,6 +32,10 @@ pub fn is_log(b: u8) -> bool { BLOCKS[b as usize].name.contains("_log") }
 pub const TONES: [[f64; 3]; 3] = [[1.0, 1.0, 1.0], [0.6, 0.74, 0.62], [1.0, 1.0, 2.0]];
 #[inline] pub fn tone(b: u8) -> i32 { if b == B::GRASS_DEEP { 1 } else { 0 } }
 #[inline] pub fn is_grass(b: u8) -> bool { b == B::GRASS || b == B::GRASS_DEEP }
+/// Épaisseur d'une pellicule de neige en dixièmes de bloc (1 à 9), 0 si ce n'en est pas une.
+pub fn snow_level(b: u8) -> u8 { if b == B::SNOW_LAYER { 1 } else if (B::SNOW_LAYER_2..=B::SNOW_LAYER_9).contains(&b) { b - B::SNOW_LAYER_2 + 2 } else { 0 } }
+/// Pellicule de n dixièmes ; à dix, c'est un bloc de neige plein.
+pub fn snow_of(n: u8) -> u8 { match n { 0 => 0, 1 => B::SNOW_LAYER, 2..=9 => B::SNOW_LAYER_2 + n - 2, _ => B::SNOW } }
 /// Variante sans mousse d'un bloc posé par le joueur, quand elle existe.
 pub fn placed_variant(b: u8) -> u8 { let n = BLOCKS[b as usize].name; if is_log(b) { by_name(&format!("{n}_c")).unwrap_or(b) } else { b } }
 pub fn species(b: u8) -> &'static str { BLOCKS[b as usize].name.split('_').next().unwrap_or("") }

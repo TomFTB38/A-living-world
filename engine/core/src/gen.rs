@@ -243,7 +243,10 @@ impl WorldGen {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let mut y = CH - 2; while y > 1 && v[idx(x, y, z)] == 0 { y -= 1; } let b = v[idx(x, y, z)]; if !is_opaque(b) || b == B::ICE { continue; }
             let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, self.climate.at(wx, wz).strong(Biome::Taiga)); let peak = y as f64 > 101.0 + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0);
-            if cold || peak { v[idx(x, y + 1, z)] = B::SNOW_LAYER; }
+            // Épaisseur variable : congères de quelques dixièmes, plus épaisses au cœur de la taïga et en altitude.
+            let drift = smooth(-0.2, 0.7, self.n_deco.n2(wx / 15.0 + 19.0, wz / 15.0 - 4.0)) * 0.75 + 0.25 * hash_float(wxi, wzi, self.seed, 43);
+            let deep = self.climate.at(wx, wz).strong(Biome::Taiga) + if peak { 0.6 } else { 0.0 };
+            if cold || peak { v[idx(x, y + 1, z)] = snow_of((1.0 + drift * (2.0 + 4.0 * deep.min(1.0))).floor().min(6.0) as u8); }
         } }
     }
     fn hang_vines(&self, v: &mut [u8], ox: i32, oz: i32) {

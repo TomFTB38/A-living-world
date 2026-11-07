@@ -175,3 +175,11 @@ fn la_sauvegarde_retrouve_les_blocs_par_leur_nom() {
     // une ancienne liste où « stone » portait le numéro 1 : le bloc revient en pierre, quel que soit son numéro actuel
     let old = "A Living World 1\npalette air stone\nseed 20261104\nchunk 0 0 5:1\n"; s.load_text(old).unwrap(); assert_eq!(s.world.edits()[&(0, 0)][&5], B::STONE);
 }
+
+#[test]
+fn la_neige_s_epaissit_par_dixiemes() {
+    assert_eq!(snow_level(B::SNOW_LAYER), 1); assert_eq!(snow_level(snow_of(7)), 7); assert_eq!(snow_of(10), B::SNOW); for n in 1..10 { assert_eq!(snow_level(snow_of(n)), n); }
+    let mut s = session(); s.creative = true; let (x, y, z) = (s.player.p[0] as i32 + 2, 110, s.player.p[2] as i32 + 1); s.world.edit_many(&[(x, y, z, B::STONE), (x, y + 1, z, B::SNOW_LAYER)]);
+    s.inv[0] = Some(Stack { item: "snow_layer", n: None }); s.sel = 0; s.third = false; s.player.fly = true; s.player.p = [x as f64 + 0.5, y as f64 + 3.0, z as f64 + 0.5]; s.player.pitch = -1.55;
+    for k in 2..=10u8 { s.tick(0.0, Input::default(), Actions::default()); assert!(s.place(), "pose {k}"); let b = s.world.get(x, y + 1, z).unwrap(); if k < 10 { assert_eq!(snow_level(b), k); } else { assert_eq!(b, B::SNOW); } }
+}
