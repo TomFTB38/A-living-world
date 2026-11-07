@@ -64,7 +64,7 @@ fn aurora(v: vec3f) -> vec3f {
     let band = smoothstep(0.09, 0.0, dist) * (0.55 + 0.45 * noise(vec3f(q.x * 0.7, q.y * 0.3, t * 2.0)));
     acc += mix(vec3f(0.08, 1.0, 0.42), vec3f(0.55, 0.16, 0.95), smoothstep(0.35, 0.95, f)) * band * (1.0 - f * 0.6);
   }
-  return acc * 0.07 * u.extra2.y * smoothstep(0.02, 0.2, v.y);
+  return acc * 0.16 * u.extra2.y * smoothstep(0.02, 0.2, v.y);
 }
 struct FOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f };
 @vertex fn vs_full(@builtin(vertex_index) i: u32) -> FOut {
