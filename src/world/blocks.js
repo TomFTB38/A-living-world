@@ -148,9 +148,13 @@ const defs = [
   // Désert
   ['sandstone', 'cube', ['sandstone_top', 'sandstone', 'sandstone_top'], 1.0, { cat: 'rock' }],
   ['red_sandstone', 'cube', ['red_sandstone', 'red_sandstone', 'red_sandstone'], 1.0, { cat: 'rock' }],
-  ['cactus', 'cube', ['cactus_top', 'cactus_side', 'cactus_top'], 0.5, { cat: 'foliage' }],
+  ['cactus', 'deco', null, 0.5, { model: 'cactus', solid: true, cat: 'foliage', drop: 'cactus' }], // un fût côtelé plus fin qu'un bloc, relié à ses voisins
   ['palm_log', 'cube', ['end_palm', 'bark_palm', 'end_palm'], 0.9, { cat: 'wood' }],
   ['palm_leaves', 'leaf', ['leaf_palm', 'leaf_palm', 'leaf_palm'], 0.12, { cat: 'foliage', drop: null, tint: [0.8, 0.86, 0.6] }],
+  // Hautes terres
+  ['moor_grass', 'cube', ['grass_top', 'grass_side', 'dirt'], 0.5, { drop: 'dirt', cat: 'terrain' }],
+  ['heather', 'deco', null, 0.04, { model: 'heather' }],
+  ['cotton_grass', 'deco', null, 0.02, { model: 'cotton' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({

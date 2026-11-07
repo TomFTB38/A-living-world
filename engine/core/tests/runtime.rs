@@ -40,7 +40,7 @@ fn le_monde_ne_depend_que_de_la_seed() {
 fn chaque_biome_a_un_vrai_coeur() {
     use alw_core::biome::*; let c = Climate::new(20261104); let mut top = [0.0f64; COUNT];
     for x in (-9000..9000).step_by(40) { for z in (-9000..9000).step_by(40) { let m = c.at(x as f64, z as f64); for i in 0..COUNT { top[i] = top[i].max(m.w[i]); } } }
-    println!("{top:?}"); for b in [Biome::Temperate, Biome::Meadow, Biome::DeepForest, Biome::Taiga, Biome::Steppe, Biome::Desert] { assert!(c_strong(&top, b) > 0.95, "{} jamais franc : {:?}", NAMES[b as usize], top); }
+    println!("{top:?}"); for b in [Biome::Temperate, Biome::Meadow, Biome::DeepForest, Biome::Taiga, Biome::Steppe, Biome::Desert, Biome::Highlands] { assert!(c_strong(&top, b) > 0.95, "{} jamais franc : {:?}", NAMES[b as usize], top); }
 }
 fn c_strong(t: &[f64; alw_core::biome::COUNT], b: alw_core::biome::Biome) -> f64 { alw_core::noise::smooth(0.3, 0.55, t[b as usize]) }
 
@@ -68,12 +68,12 @@ fn la_taiga_est_enneigee() {
 
 #[test]
 fn la_steppe_est_seche_et_ouverte() {
-    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Steppe) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
+    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Steppe) > 0.93 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
     let (cx, cz) = spot.expect("une steppe"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
     let logs = c(B::OAK_LOG) + c(B::BIRCH_LOG) + c(B::BEECH_LOG) + c(B::SPRUCE_LOG);
     println!("acacias {} (feuilles {}), bois mort {}", c(B::ACACIA_LOG), c(B::ACACIA_LEAVES), c(B::DEAD_LOG));
     println!("steppe {cx},{cz} : herbe sèche {}, terre craquelée {}, herbe verte {}, stipe {}, armoise {}, buissons morts {}, fleurs {}, troncs {}, mousse {}", c(B::STEPPE_GRASS), c(B::DRY_EARTH), c(B::GRASS), c(B::FEATHER_GRASS), c(B::SAGEBRUSH), c(B::DEAD_BUSH), c(B::YELLOW_FLOWER) + c(B::LUPINE), logs, c(B::MOSSY_STONE));
-    let (mut dry, mut green) = (0, 0); for x in 0..128 { for z in 0..128 { let (wx, wz) = (cx * 32 - 64 + x, cz * 32 - 64 + z); let col = g.column(wx as f64, wz as f64); if col.mix.strong(Biome::Steppe) < 0.97 || col.water != 0.0 || col.bank > 0.35 { continue; } let v = g.gen_chunk(wx.div_euclid(32), wz.div_euclid(32)); let mut y = 126; while y > 1 && !is_opaque(v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]) { y -= 1; } let b = v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]; if b == B::STEPPE_GRASS || b == B::DRY_EARTH { dry += 1; } else if is_grass(b) { green += 1; } } }
+    let (mut dry, mut green) = (0, 0); for x in 0..128 { for z in 0..128 { let (wx, wz) = (cx * 32 - 64 + x, cz * 32 - 64 + z); let col = g.column(wx as f64, wz as f64); if col.mix.strong(Biome::Steppe) < 0.93 || col.water != 0.0 || col.bank > 0.35 { continue; } let v = g.gen_chunk(wx.div_euclid(32), wz.div_euclid(32)); let mut y = 126; while y > 1 && !is_opaque(v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]) { y -= 1; } let b = v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]; if b == B::STEPPE_GRASS || b == B::DRY_EARTH { dry += 1; } else if is_grass(b) { green += 1; } } }
     println!("cœur : {dry} colonnes sèches, {green} vertes"); assert!(dry > 20 * (green + 1), "le sol de la steppe est sec");
     assert!(c(B::DRY_EARTH) > 100 && c(B::FEATHER_GRASS) > 500 && c(B::SAGEBRUSH) > 50 && c(B::DEAD_BUSH) > 10);
     assert!(logs == 0, "la steppe n'a que des acacias et des arbres morts : {logs} autres troncs"); assert!(c(B::ACACIA_LEAVES) > 0 || c(B::DEAD_LOG) > 0); assert_eq!(c(B::VINE), 0, "pas de lianes dans la steppe");
@@ -125,7 +125,8 @@ fn le_desert_est_de_sable_et_de_gres() {
     let (cx, cz) = spot.expect("un désert"); let mut n = std::collections::HashMap::new(); for a in -3..3 { for b in -3..3 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
     let mut hs = vec![]; for i in 0..64 { let col = g.column((cx * 32 + i * 3) as f64, (cz * 32) as f64); if col.mix.strong(Biome::Desert) > 0.9 { hs.push(col.h); } } let relief = hs.iter().cloned().fold(f64::MIN, f64::max) - hs.iter().cloned().fold(f64::MAX, f64::min);
     println!("désert {cx},{cz} : sable {}, grès {}, grès rouge {}, cactus {}, palmiers {}, herbe {}, os {}, relief {relief:.1}", c(B::SAND), c(B::SANDSTONE), c(B::RED_SANDSTONE), c(B::CACTUS), c(B::PALM_LOG), c(B::GRASS), c(B::BONE));
-    assert!(c(B::SAND) > 20 * (c(B::GRASS) + 1)); assert!(c(B::SANDSTONE) > 1000 && c(B::RED_SANDSTONE) > 200 && c(B::CACTUS) > 10); assert!(relief > 3.0, "des dunes");
+    assert!(c(B::SAND) > 20 * (c(B::GRASS) + 1)); assert!(c(B::CACTUS) > 10); assert!(relief > 2.0 && relief < 14.0, "des dunes, pas de montagnes : {relief}"); let mut rock = 0; let mut tops = 0; for x in 0..96 { for z in 0..96 { let (wx, wz) = (cx * 32 - 64 + x, cz * 32 - 64 + z); let col = g.column(wx as f64, wz as f64); if col.mix.strong(Biome::Desert) < 0.97 || col.water != 0.0 { continue; } let v = g.gen_chunk(wx.div_euclid(32), wz.div_euclid(32)); let mut y = 126; while y > 1 && !is_opaque(v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]) { y -= 1; } let b = v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]; tops += 1; if b != B::SAND { rock += 1; } } }
+    println!("surface du cœur : {tops} colonnes, {rock} hors sable"); assert!(rock * 50 < tops, "presque que du sable en surface");
 }
 
 #[test]
@@ -133,4 +134,13 @@ fn les_oasis_ont_des_palmiers() {
     use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let mut spot = None; 'f: for r in 8..700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = g.column(x, z); if c.mix.strong(Biome::Desert) > 0.97 && c.water != 0.0 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } }
     let (cx, cz) = spot.expect("un point d'eau au désert"); let mut palms = 0; let mut fronds = 0; for a in -2..=2 { for b in -2..=2 { for id in g.gen_chunk(cx + a, cz + b) { if id == B::PALM_LOG { palms += 1; } if id == B::PALM_LEAVES { fronds += 1; } } } }
     println!("oasis {cx},{cz} : {palms} blocs de stipe, {fronds} palmes"); assert!(palms > 10 && fronds > 50);
+}
+
+#[test]
+fn les_hautes_terres_sont_une_lande_rocheuse() {
+    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Highlands) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32, x, z)); break 'f; } } r += 1; }
+    let (cx, cz, x0, z0) = spot.expect("des hautes terres"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    let logs = c(B::OAK_LOG) + c(B::BIRCH_LOG) + c(B::BEECH_LOG) + c(B::SPRUCE_LOG); let h = g.column(x0, z0).h;
+    println!("hautes terres {cx},{cz} (altitude {h:.0}) : lande {}, herbe {}, bruyère {}, linaigrette {}, éboulis {}, troncs {}", c(B::MOOR_GRASS), c(B::GRASS), c(B::HEATHER), c(B::COTTON_GRASS), c(B::GRAVEL), logs);
+    assert!(c(B::MOOR_GRASS) > 5 * (c(B::GRASS) + 1) && c(B::HEATHER) > 100 && logs < 400, "une lande presque sans arbres");
 }

@@ -77,15 +77,17 @@ impl WorldGen {
         let terr = (fl + smooth(0.32, 0.68, fr)) * s;
         let mut h = lerp(hs, terr, smooth(-0.35, 0.25, step_n) * (1.0 - massif) * (1.0 - steppe)); // la steppe ondule, sans gradins
         h = lerp(h, low + (h - low) * 0.6, steppe * (1.0 - massif)); // les terrasses sont pour les collines : une montagne en escalier ferait une pyramide
-        h += (1.6 - 0.8 * steppe) * self.n_hill.n2(x / 19.0, z / 19.0);
-        // Désert : des dunes en longues crêtes orientées par le vent, et çà et là des mesas de grès aux sommets plats.
+        h += (1.6 - 0.8 * steppe) * self.n_hill.n2(x / 19.0, z / 19.0) * (1.0 - mix.strong(Biome::Desert));
+        // Désert : une étendue presque plate, sans montagne ni rocher, seulement des dunes douces en longues crêtes orientées par le vent.
         let desert = mix.strong(Biome::Desert);
         if desert > 0.01 {
-            let a = 0.6 + 0.9 * self.n_warp.n2(x / 900.0, z / 900.0); let u = (x * cos(a) + z * sin(a)) / 21.0 + 1.8 * self.n_deco.n2(x / 70.0, z / 70.0);
-            let crest = (1.0 - sin(u).abs()).powf(1.7); let dune = 1.0 + 7.5 * crest * smooth(-0.35, 0.35, self.n_hill.n2(x / 150.0 + 7.0, z / 150.0 - 3.0));
-            let mn = self.n_cliff.n2(x / 170.0 + 31.0, z / 170.0 - 17.0); let mesa = smooth(0.3, 0.36, mn); let top = ((low + 15.0 + 8.0 * smooth(0.36, 0.7, mn)) / 4.0).floor() * 4.0;
-            let target = lerp(low + (h - low) * 0.35 + dune, top, mesa); h = lerp(h, target, desert * (1.0 - massif));
+            let a = 0.6 + 0.9 * self.n_warp.n2(x / 900.0, z / 900.0); let u = (x * cos(a) + z * sin(a)) / 34.0 + 1.6 * self.n_deco.n2(x / 90.0, z / 90.0);
+            let crest = sin(u) * 0.5 + 0.5; let dune = 6.0 * crest * crest * (0.45 + 0.55 * smooth(-0.4, 0.4, self.n_hill.n2(x / 180.0 + 7.0, z / 180.0 - 3.0)));
+            let plain = 54.0 + 4.0 * self.n_base.fbm(wx / 600.0, wz / 600.0, 2); h = lerp(h, plain + dune, desert);
         }
+        // Hautes terres : un plateau soulevé, des croupes arrondies et des crêtes, la roche qui perce partout.
+        let high = mix.strong(Biome::Highlands);
+        if high > 0.01 { let ridge = 1.0 - self.n_hill.fbm(x / 120.0 + 40.0, z / 120.0 - 11.0, 3).abs() * 1.8; h = lerp(h, low + 13.0 + 11.0 * ridge.max(0.0) + (h - low) * 0.6, high * (1.0 - massif)); }
         // rivière : niveaux quantifiés = cascades
         let rs = self.n_river.fbm2(wx / 400.0, wz / 400.0, 2, 2.1, 0.32);
         let Bed { d_r, wid, l, grad } = self.bed(x, z, wx, wz, rs, low, massif);
@@ -133,7 +135,7 @@ impl WorldGen {
         }
         let f = self.n_forest.fbm(x / 170.0, z / 170.0, 3) * 1.5 + 0.78 + 0.12 * self.n_forest.n2(x / 31.0, z / 31.0);
         // La prairie éclaircit la forêt ; le relief et l'eau restent communs, pour que rien ne se voie à la frontière.
-        let f = f - 1.1 * mix.strong(Biome::Meadow) + 0.7 * mix.strong(Biome::DeepForest) - 1.6 * steppe - 1.8 * desert;
+        let f = f - 1.1 * mix.strong(Biome::Meadow) + 0.7 * mix.strong(Biome::DeepForest) - 1.6 * steppe - 1.8 * desert - 1.5 * high;
         Column { mix, wet, h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
     }
     fn stone_at(&self, x: f64, y: f64, z: f64) -> u8 {
@@ -154,7 +156,7 @@ impl WorldGen {
         for z in 0..CX { for x in 0..CX {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let c = self.column(wx, wz); let (hf, cliff, fr, path, water) = (c.h, c.cliff, c.forest, c.path, c.water);
-            let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga); let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, taiga); let steppe = c.mix.strong(Biome::Steppe); let dry = hash_float(wxi, wzi, self.seed, 44) < smooth(0.3, 0.7, steppe); let sandy = hash_float(wxi, wzi, self.seed, 48) < smooth(0.3, 0.7, c.mix.strong(Biome::Desert));
+            let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga); let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, taiga); let steppe = c.mix.strong(Biome::Steppe); let dry = hash_float(wxi, wzi, self.seed, 44) < smooth(0.3, 0.7, steppe); let sandy = hash_float(wxi, wzi, self.seed, 48) < smooth(0.3, 0.7, c.mix.strong(Biome::Desert)); let moor = hash_float(wxi, wzi, self.seed, 49) < smooth(0.3, 0.7, c.mix.strong(Biome::Highlands));
             // Par endroits, le toit des galeries s'efface : la grotte s'ouvre en surface, jamais sous l'eau ni sous un chemin.
             let entry = if water == 0.0 && path < 0.1 { smooth(0.3, 0.5, self.n_cave.n2(wx / 70.0, wz / 70.0)) } else { 0.0 };
             let ymax = (CH as f64 - 2.0).min((hf + 7.0).ceil()) as i32;
@@ -181,6 +183,7 @@ impl WorldGen {
                     else if cold { if self.n_deco.n2(wx / 9.0, wz / 9.0) > 0.3 { B::DIRT } else if hash_float(wxi, wzi, self.seed, 46) < 0.3 { B::LICHEN_STONE } else { self.stone_at(wx, yf, wz) } } // taïga : surtout de la roche sous la neige
                     else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) } // haute montagne : la roche à nu
                     else if sandy && c.bank < 0.75 { B::SAND } // désert : du sable en surface, sur les dunes comme au sommet des mesas ; l'eau garde ses rives
+                    else if moor && c.bank < 0.6 { let n = self.n_deco.n2(wx / 10.0 + 3.0, wz / 10.0 - 8.0); if cliff > 0.3 && n > 0.15 { self.stone_at(wx, yf, wz) } else if n < -0.55 { B::GRAVEL } else if c.wet && n > 0.35 { B::FOREST_SOIL } else { B::MOOR_GRASS } } // lande : herbe rase, roche nue, éboulis, tourbe près de l'eau
                     else if dry && c.bank < 0.35 { let n = self.n_deco.n2(wx / 14.0 + 5.0, wz / 14.0 - 3.0) + 0.25 * self.n_deco.n2(wx / 3.0, wz / 3.0); if n > 0.4 { B::DRY_EARTH } else if n < -0.62 { B::GRAVEL } else { B::STEPPE_GRASS } } // steppe : paille, plaques de terre craquelée, cailloux ; l'herbe reste verte au bord de l'eau
                     else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 - 0.9 * deep { B::FOREST_SOIL }
                     else if cliff > 0.45 && !cold && !dry && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
@@ -232,6 +235,12 @@ impl WorldGen {
                 v[idx(x, y, z)] = if r < 0.05 { B::FROST_GRASS } else if r < 0.062 { B::PINECONE } else if r < 0.062 + 0.22 * patch { if t < 0.75 { B::BLUEBERRY } else { B::FERN_DRY } } else if r < 0.075 + 0.22 * patch { B::FERN_DRY } else if r < 0.081 + 0.22 * patch { B::ROWAN } else { 0 };
             } continue; } let (fr, path, meadow, deep, _) = info[x + z * CX];
             if ground == B::PATH { if r < 0.055 { v[idx(x, y, z)] = B::FLAGSTONE; } continue; }
+            // Hautes terres : bruyère en nappes, linaigrettes près de l'eau, herbe rase et quelques fleurs.
+            if ground == B::MOOR_GRASS || (ground == B::FOREST_SOIL && info[x + z * CX].4 < 0.5 && self.climate.at(wx, wz).strong(Biome::Highlands) > 0.5) {
+                let patch = smooth(-0.2, 0.45, nd.n2(wx / 13.0 + 21.0, wz / 13.0 - 9.0)); let wet = ground == B::FOREST_SOIL;
+                v[idx(x, y, z)] = if wet { if r < 0.35 { B::COTTON_GRASS } else if r < 0.5 { B::TALL_GRASS } else { 0 } } else if r < 0.08 + 0.55 * patch { B::HEATHER } else if r < 0.2 + 0.55 * patch { B::TALL_GRASS } else if r < 0.21 + 0.55 * patch { B::YELLOW_FLOWER } else { 0 };
+                continue;
+            }
             // Désert : presque nu ; quelques touffes d'herbe dure sur les dunes et des buissons morts.
             if ground == B::SAND { v[idx(x, y, z)] = if r < 0.01 { B::DEAD_BUSH } else if r < 0.028 { B::FEATHER_GRASS } else { 0 }; continue; }
             // Steppe : touffes de stipe en vagues, armoises éparses, quelques buissons morts et de rares fleurs.
@@ -330,11 +339,11 @@ impl WorldGen {
     fn rock_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
         let s = self.seed;
         let x = ((gx as f64 + hash_float(gx, gz, s, 22)) * ROCK_CELL as f64).floor(); let z = ((gz as f64 + hash_float(gx, gz, s, 23)) * ROCK_CELL as f64).floor();
-        let st = self.climate.at(x, z).strong(Biome::Steppe); if hash_float(gx, gz, s, 21) > 0.62 + 0.12 * st { return None; } // la steppe est semée de rochers
+        let cm = self.climate.at(x, z); let st = cm.strong(Biome::Steppe); let hl = cm.strong(Biome::Highlands); if hash_float(gx, gz, s, 21) > 0.62 + 0.12 * st + 0.3 * hl || cm.strong(Biome::Desert) > 0.3 { return None; } // pas de rochers dans le désert // la steppe est semée de rochers
         let c = self.column(x, z);
         if c.water != 0.0 || c.path > 0.1 { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 24)); let mut data = Vec::new();
-        let n = r.int(1, 3).min(if st > 0.5 { 2 } else { 3 }); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6 || st > 0.5; let tall = 1.0 + 0.4 * st * hash_float(gx, gz, s, 25); let tg = c.mix.strong(Biome::Taiga); let de = c.mix.strong(Biome::Desert) > 0.5;
+        let n = r.int(1, 3).min(if st > 0.5 { 2 } else { 3 }); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6 || st > 0.5; let tall = 1.0 + 0.4 * st * hash_float(gx, gz, s, 25) + 1.3 * hl * hash_float(gx, gz, s, 26); /* hautes terres : de vrais chaos rocheux, dressés */ let tg = c.mix.strong(Biome::Taiga); let de = c.mix.strong(Biome::Desert) > 0.5;
         for k in 0..n {
             let rx = r.range(1.6, 4.2); let ry = r.range(1.3, 3.0) * tall; let rz = r.range(1.6, 4.2);
             let ax = x + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 }; let az = z + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 };
@@ -402,6 +411,7 @@ impl WorldGen {
             if c.wet { if pick > 0.55 { return None; } let mut r = Rng::new(hash_int(gx, gz, s, 34)); let age = r.next(); return Some(grow_palm(x, c.h.floor(), z, &mut r, age)); }
             if pick > 0.11 { return None; } let mut r = Rng::new(hash_int(gx, gz, s, 34)); return Some(grow_cactus(x, c.h.floor(), z, &mut r));
         }
+        if c.mix.strong(Biome::Highlands) > 0.5 { if pick > 0.04 { return None; } let mut r = Rng::new(hash_int(gx, gz, s, 34)); let age = 0.15 * r.next(); return Some(grow_birch(x, c.h.floor(), z, &mut r, age)); } // hautes terres : presque aucun arbre, un bouleau rabougri de loin en loin
         let steppe = c.mix.strong(Biome::Steppe); if steppe > 0.5 { if pick > 0.075 { return None; } } // steppe : un arbre isolé de loin en loin
         else if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) * (1.0 - 0.8 * c.mix.strong(Biome::Meadow)) * (1.0 + 0.8 * c.mix.strong(Biome::DeepForest)) * (1.0 - 0.86 * c.mix.strong(Biome::Steppe)) { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 34));

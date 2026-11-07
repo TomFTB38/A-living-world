@@ -477,6 +477,40 @@ impl Mesher {
                     }
                 }
             }
+            "cactus" => {
+                // Cactus : un fût côtelé plus fin qu'un bloc, piqué d'aréoles claires ; il se raccorde aux cactus voisins pour former tronc et bras.
+                let up = voxel(0, 1, 0) == b; let down = voxel(0, -1, 0) == b; let sides: Vec<(i32, i32)> = [(1, 0), (-1, 0), (0, 1), (0, -1)].into_iter().filter(|d| voxel(d.0, 0, d.1) == b).collect();
+                let w = if sides.is_empty() || up || down { 0.21 + 0.03 * ((hash_int(wx, 0, wz, 5) & 3) as f64 / 3.0) } else { 0.17 };
+                let (cx, cz) = (x + 0.5, z + 0.5); let g = [0.19, 0.4, 0.2];
+                let col = |o: &mut VBuf, y0: f64, y1: f64, r_: &mut Rng| {
+                    rod(o, [cx, y + y0, cz], [cx, y + y1, cz], w, w, g, s, l, FLAT, 0.0, 0.0);
+                    for k in 0..8 { let a = k as f64 * 0.785 + 0.39; let (rx, rz) = (cx + cos(a) * w * 1.02, cz + sin(a) * w * 1.02); rod(o, [rx, y + y0, rz], [rx, y + y1, rz], 0.035, 0.035, [g[0] * 1.15, g[1] * 1.15, g[2] * 1.1], s, l, FLAT, 0.0, 0.0);
+                        let mut t = y0 + 0.08; while t < y1 - 0.04 { if r_.next() < 0.8 { let (sx, sz) = (cx + cos(a) * (w + 0.05), cz + sin(a) * (w + 0.05)); bx3(o, sx - 0.012, y + t, sz - 0.012, sx + 0.012, y + t + 0.024, sz + 0.012, 0.88, 0.85, 0.72, 0.0, s, l); } t += 0.16; } }
+                };
+                if up || down || sides.is_empty() || sides.len() == 1 && up {
+                    let y0 = if down || sides.is_empty() { 0.0 } else { 0.5 - w }; let y1 = if up { 1.0 } else { 0.86 };
+                    col(o, y0, y1, r_); if !up { rod(o, [cx, y + y1, cz], [cx, y + y1 + 0.06, cz], w * 0.85, w * 0.55, g, s, l, FLAT, 0.0, 0.0); } // sommet arrondi
+                }
+                for (dx, dz) in &sides { let e = [cx + *dx as f64 * 0.5, y + 0.5, cz + *dz as f64 * 0.5]; rod(o, [cx, y + 0.5, cz], e, w * 0.9, w * 0.9, g, s, l, FLAT, 0.0, 0.0); }
+                if !up && !down && !sides.is_empty() && !(sides.len() == 1 && up) { rod(o, [cx, y + 0.5 - w, cz], [cx, y + 0.5 + w, cz], w, w, g, s, l, FLAT, 0.0, 0.0); } // coude d'un bras horizontal
+                return;
+            }
+            "heather" => {
+                // Bruyère : un coussin bas de rameaux ligneux serrés, couverts de minuscules feuilles et d'épis de fleurs mauves.
+                let n = r_.int(6, 9); let bloom = r_.range(0.6, 1.0);
+                for _ in 0..n {
+                    let (a, c) = (x + r_.range(0.12, 0.88), z + r_.range(0.12, 0.88)); let h = r_.range(0.14, 0.32); let top = [a + r_.range(-0.06, 0.06), y + h, c + r_.range(-0.06, 0.06)];
+                    rod(o, [a, y, c], top, 0.012, 0.007, [0.3, 0.24, 0.18], s, l, FLAT, 0.0, 30.0);
+                    for k in 0..4 { let f = 0.3 + 0.17 * k as f64; let (px, py, pz) = (a + (top[0] - a) * f, y + h * f, c + (top[2] - c) * f); let w = 0.035 - 0.005 * k as f64; let g = r_.range(0.85, 1.1); bx(o, px - w, py, pz - w, px + w, py + 0.04, pz + w, 0.24 * g, 0.34 * g, 0.2 * g, 40.0 * f, s, l, FOLIAGE, true, 50.0 * f, 255.0); }
+                    let k = r_.range(0.85, 1.15) * bloom; bx(o, top[0] - 0.022, top[1] - 0.09, top[2] - 0.022, top[0] + 0.022, top[1] + 0.02, top[2] + 0.022, 0.62 * k, 0.32 * k, 0.6 * k, 50.0, s, l, FOLIAGE, true, 60.0, 255.0);
+                }
+            }
+            "cotton" => {
+                // Linaigrette : de fines tiges qui portent chacune une houppe de coton blanc.
+                for _ in 0..r_.int(5, 8) { let (a, c) = (x + r_.range(0.15, 0.85), z + r_.range(0.15, 0.85)); let h = r_.range(0.3, 0.55); let top = [a + r_.range(-0.05, 0.05), y + h, c + r_.range(-0.05, 0.05)];
+                    rod(o, [a, y, c], top, 0.008, 0.006, [0.4, 0.46, 0.28], s, l, FOLIAGE, 0.0, 90.0); let w = r_.range(0.035, 0.05); bx(o, top[0] - w, top[1], top[2] - w, top[0] + w, top[1] + w * 1.6, top[2] + w, 0.95, 0.95, 0.92, 90.0, s, l, FOLIAGE, true, 100.0, 255.0); }
+                for _ in 0..3 { blade(o, x + r_.range(0.2, 0.8), y, z + r_.range(0.2, 0.8), r_.range(0.0, 6.28), 0.03, r_.range(0.15, 0.3), 0.1, 0.38, 0.46, 0.22, s, l, (s - 40.0).max(0.0)); }
+            }
             "deadbush" => {
                 // Buisson mort : des tiges ligneuses en volume, qui se ramifient trois fois et finissent en brindilles grises.
                 let (a0, c0) = (x + r_.range(0.42, 0.58), z + r_.range(0.42, 0.58)); let gray = r_.range(0.0, 1.0); let size = r_.range(0.8, 1.2);
@@ -649,7 +683,7 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32) -> (Vec<u8>, usize) {
             hs[k] = ((if c.water != 0.0 { c.water } else { c.h }) + canopy - sink) as f32;
             let t = (gen.n_deco.n2(wx / 40.0, wz / 40.0) + 1.0) * 0.5;
             let (tg, dp, st, de) = (c.mix.strong(crate::biome::Biome::Taiga), c.mix.strong(crate::biome::Biome::DeepForest), c.mix.strong(crate::biome::Biome::Steppe), c.mix.strong(crate::biome::Biome::Desert));
-            cols[k] = if de > 0.5 && c.water == 0.0 && c.h <= 95.0 { [(0.84 + 0.05 * t) as f32, (0.7 + 0.04 * t) as f32, (0.48 + 0.03 * t) as f32] } else if st > 0.5 && c.water == 0.0 && c.h <= 90.0 && canopy <= 3.0 { [(0.56 + 0.08 * t) as f32, (0.5 + 0.06 * t) as f32, (0.3 + 0.04 * t) as f32] } else if tg > 0.5 || c.h > 100.0 { if c.water != 0.0 { [0.7, 0.8, 0.88] } else if canopy > 3.0 { [0.42, 0.5, 0.48] } else { [0.86, 0.9, 0.95] } } else if dp > 0.5 && canopy > 3.0 { [0.1, 0.2, 0.12] } else if c.water != 0.0 { [0.22, 0.36, 0.42] } else if c.h > 90.0 { [(0.42 + 0.1 * t) as f32, (0.4 + 0.1 * t) as f32, (0.37 + 0.09 * t) as f32] } else if canopy > 3.0 { [(0.2 + 0.1 * t) as f32, (0.34 + 0.1 * t) as f32, 0.09] } else { [(0.42 + 0.1 * t) as f32, (0.5 + 0.05 * t) as f32, 0.2] };
+            cols[k] = if c.mix.strong(crate::biome::Biome::Highlands) > 0.5 && c.water == 0.0 && c.h <= 100.0 { [(0.48 + 0.08 * t) as f32, (0.46 + 0.06 * t) as f32, (0.33 + 0.04 * t) as f32] } else if de > 0.5 && c.water == 0.0 && c.h <= 95.0 { [(0.84 + 0.05 * t) as f32, (0.7 + 0.04 * t) as f32, (0.48 + 0.03 * t) as f32] } else if st > 0.5 && c.water == 0.0 && c.h <= 90.0 && canopy <= 3.0 { [(0.56 + 0.08 * t) as f32, (0.5 + 0.06 * t) as f32, (0.3 + 0.04 * t) as f32] } else if tg > 0.5 || c.h > 100.0 { if c.water != 0.0 { [0.7, 0.8, 0.88] } else if canopy > 3.0 { [0.42, 0.5, 0.48] } else { [0.86, 0.9, 0.95] } } else if dp > 0.5 && canopy > 3.0 { [0.1, 0.2, 0.12] } else if c.water != 0.0 { [0.22, 0.36, 0.42] } else if c.h > 90.0 { [(0.42 + 0.1 * t) as f32, (0.4 + 0.1 * t) as f32, (0.37 + 0.09 * t) as f32] } else if canopy > 3.0 { [(0.2 + 0.1 * t) as f32, (0.34 + 0.1 * t) as f32, 0.09] } else { [(0.42 + 0.1 * t) as f32, (0.5 + 0.05 * t) as f32, 0.2] };
         } }
         for j in 0..CELLS { for i in 0..CELLS {
             let (x0, z0) = ((i as f64 - half) * step, (j as f64 - half) * step); let (x1, z1) = (x0 + step, z0 + step);

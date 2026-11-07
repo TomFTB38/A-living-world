@@ -4,7 +4,7 @@ use crate::blocks::{Block, Shape};
 pub const VARIANTS: u32 = 4;
 pub const MATERIALS: [&str; 48] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm"];
 
-pub const BLOCKS: [Block; 121] = [
+pub const BLOCKS: [Block; 124] = [
     Block { id: 0, name: "air", shape: Shape::Air, hardness: 0.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "decor", drop: Some("air") },
     Block { id: 1, name: "grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
     Block { id: 2, name: "dirt", shape: Shape::Cube, hardness: 0.45, faces: [8,8,8], dir_faces: [8,8,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
@@ -123,9 +123,12 @@ pub const BLOCKS: [Block; 121] = [
     Block { id: 115, name: "glowcap_cyan", shape: Shape::Deco, hardness: 0.02, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("glowcap"), cat: "decor", drop: Some("glowcap_cyan") },
     Block { id: 116, name: "sandstone", shape: Shape::Cube, hardness: 1.0, faces: [164,160,164], dir_faces: [160,164,164,160], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("sandstone") },
     Block { id: 117, name: "red_sandstone", shape: Shape::Cube, hardness: 1.0, faces: [168,168,168], dir_faces: [168,168,168,168], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("red_sandstone") },
-    Block { id: 118, name: "cactus", shape: Shape::Cube, hardness: 0.5, faces: [176,172,176], dir_faces: [172,176,176,172], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "foliage", drop: Some("cactus") },
+    Block { id: 118, name: "cactus", shape: Shape::Deco, hardness: 0.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("cactus"), cat: "foliage", drop: Some("cactus") },
     Block { id: 119, name: "palm_log", shape: Shape::Cube, hardness: 0.9, faces: [184,180,184], dir_faces: [180,184,184,180], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("palm_log") },
     Block { id: 120, name: "palm_leaves", shape: Shape::Leaf, hardness: 0.12, faces: [188,188,188], dir_faces: [188,188,188,188], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [0.8,0.86,0.6], model: None, cat: "foliage", drop: None },
+    Block { id: 121, name: "moor_grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
+    Block { id: 122, name: "heather", shape: Shape::Deco, hardness: 0.04, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("heather"), cat: "decor", drop: Some("heather") },
+    Block { id: 123, name: "cotton_grass", shape: Shape::Deco, hardness: 0.02, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("cotton"), cat: "decor", drop: Some("cotton_grass") },
 ];
 
 #[allow(non_snake_case)]
@@ -251,4 +254,7 @@ pub mod B {
     pub const CACTUS: u8 = 118;
     pub const PALM_LOG: u8 = 119;
     pub const PALM_LEAVES: u8 = 120;
+    pub const MOOR_GRASS: u8 = 121;
+    pub const HEATHER: u8 = 122;
+    pub const COTTON_GRASS: u8 = 123;
 }
