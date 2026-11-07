@@ -8,7 +8,7 @@ use winit::window::Window;
 use crate::{font_data as fd, hud};
 
 const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; pub const LIGHTS: usize = 48; const FLOATS: usize = 200 + LIGHTS * 8; const MAX_ACTORS: u64 = 512; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 60_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 52.0;
-pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 8;
+pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 9;
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32, pub cascades: [f64; 3] }
 struct Part { buf: wgpu::Buffer, indices: u32 }
@@ -94,7 +94,7 @@ impl Gpu {
         let mut config = wgpu::SurfaceConfiguration { usage: wgpu::TextureUsages::RENDER_ATTACHMENT, format, width: width.max(1), height: height.max(1), present_mode: wgpu::PresentMode::AutoNoVsync, desired_maximum_frame_latency: 2, alpha_mode: wgpu::CompositeAlphaMode::Auto, view_formats: vec![] };
         if let Some(s) = &surface { config.alpha_mode = s.get_capabilities(&adapter).alpha_modes[0]; s.configure(&device, &config); }
         let d = &device;
-        let tex = textures::build_textures(128);
+        let tex = textures::build_textures(256); /* 256 pixels par bloc : un grain de roche net de près */
         let alb = texture_array(d, &queue, &tex.albedo, tex.size, tex.layers); let nrm = texture_array(d, &queue, &tex.nrm, tex.size, tex.layers);
         const NZ: u32 = 40;
         let noise_t = d.create_texture(&wgpu::TextureDescriptor { label: Some("bruit"), size: wgpu::Extent3d { width: NZ, height: NZ, depth_or_array_layers: NZ }, mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D3, format: wgpu::TextureFormat::R8Unorm, usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST, view_formats: &[] });

@@ -78,6 +78,14 @@ impl WorldGen {
         let mut h = lerp(hs, terr, smooth(-0.35, 0.25, step_n) * (1.0 - massif) * (1.0 - steppe)); // la steppe ondule, sans gradins
         h = lerp(h, low + (h - low) * 0.6, steppe * (1.0 - massif)); // les terrasses sont pour les collines : une montagne en escalier ferait une pyramide
         h += (1.6 - 0.8 * steppe) * self.n_hill.n2(x / 19.0, z / 19.0);
+        // Désert : des dunes en longues crêtes orientées par le vent, et çà et là des mesas de grès aux sommets plats.
+        let desert = mix.strong(Biome::Desert);
+        if desert > 0.01 {
+            let a = 0.6 + 0.9 * self.n_warp.n2(x / 900.0, z / 900.0); let u = (x * cos(a) + z * sin(a)) / 21.0 + 1.8 * self.n_deco.n2(x / 70.0, z / 70.0);
+            let crest = (1.0 - sin(u).abs()).powf(1.7); let dune = 1.0 + 7.5 * crest * smooth(-0.35, 0.35, self.n_hill.n2(x / 150.0 + 7.0, z / 150.0 - 3.0));
+            let mn = self.n_cliff.n2(x / 170.0 + 31.0, z / 170.0 - 17.0); let mesa = smooth(0.3, 0.36, mn); let top = ((low + 15.0 + 8.0 * smooth(0.36, 0.7, mn)) / 4.0).floor() * 4.0;
+            let target = lerp(low + (h - low) * 0.35 + dune, top, mesa); h = lerp(h, target, desert * (1.0 - massif));
+        }
         // rivière : niveaux quantifiés = cascades
         let rs = self.n_river.fbm2(wx / 400.0, wz / 400.0, 2, 2.1, 0.32);
         let Bed { d_r, wid, l, grad } = self.bed(x, z, wx, wz, rs, low, massif);
@@ -125,7 +133,7 @@ impl WorldGen {
         }
         let f = self.n_forest.fbm(x / 170.0, z / 170.0, 3) * 1.5 + 0.78 + 0.12 * self.n_forest.n2(x / 31.0, z / 31.0);
         // La prairie éclaircit la forêt ; le relief et l'eau restent communs, pour que rien ne se voie à la frontière.
-        let f = f - 1.1 * mix.strong(Biome::Meadow) + 0.7 * mix.strong(Biome::DeepForest) - 1.6 * steppe;
+        let f = f - 1.1 * mix.strong(Biome::Meadow) + 0.7 * mix.strong(Biome::DeepForest) - 1.6 * steppe - 1.8 * desert;
         Column { mix, wet, h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
     }
     fn stone_at(&self, x: f64, y: f64, z: f64) -> u8 {
@@ -133,6 +141,8 @@ impl WorldGen {
         let n = self.n_cliff.n3(x / 38.0, y / 14.0, z / 38.0);
         if n > 0.58 { B::GRANITE } else if n < -0.62 { B::LIMESTONE } else { B::STONE }
     }
+    /// Grès du désert : des lits horizontaux beige et rouge, de quelques blocs d'épaisseur, légèrement ondulés.
+    fn sandstone_at(&self, x: f64, y: f64, z: f64) -> u8 { let b = ((y + 2.0 * self.n_cliff.n2(x / 50.0, z / 50.0)) / 3.0).floor() as i64; if b.rem_euclid(4) == 1 { B::RED_SANDSTONE } else { B::SANDSTONE } }
     fn is_cave(&self, x: f64, y: f64, z: f64) -> bool {
         let a = self.n_cave.n3(x / 30.0, y / 18.0, z / 30.0); let b = self.n_cave.n3(x / 30.0 + 50.0, y / 18.0 - 20.0, z / 30.0 + 90.0);
         a * a + b * b < 0.0065
@@ -144,7 +154,7 @@ impl WorldGen {
         for z in 0..CX { for x in 0..CX {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let c = self.column(wx, wz); let (hf, cliff, fr, path, water) = (c.h, c.cliff, c.forest, c.path, c.water);
-            let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga); let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, taiga); let steppe = c.mix.strong(Biome::Steppe); let dry = hash_float(wxi, wzi, self.seed, 44) < smooth(0.3, 0.7, steppe);
+            let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga); let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, taiga); let steppe = c.mix.strong(Biome::Steppe); let dry = hash_float(wxi, wzi, self.seed, 44) < smooth(0.3, 0.7, steppe); let sandy = hash_float(wxi, wzi, self.seed, 48) < smooth(0.3, 0.7, c.mix.strong(Biome::Desert));
             // Par endroits, le toit des galeries s'efface : la grotte s'ouvre en surface, jamais sous l'eau ni sous un chemin.
             let entry = if water == 0.0 && path < 0.1 { smooth(0.3, 0.5, self.n_cave.n2(wx / 70.0, wz / 70.0)) } else { 0.0 };
             let ymax = (CH as f64 - 2.0).min((hf + 7.0).ceil()) as i32;
@@ -170,11 +180,13 @@ impl WorldGen {
                     else if yf > 101.0 + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0) { self.stone_at(wx, yf, wz) } // sommets : roche, couverte de neige plus loin
                     else if cold { if self.n_deco.n2(wx / 9.0, wz / 9.0) > 0.3 { B::DIRT } else if hash_float(wxi, wzi, self.seed, 46) < 0.3 { B::LICHEN_STONE } else { self.stone_at(wx, yf, wz) } } // taïga : surtout de la roche sous la neige
                     else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) } // haute montagne : la roche à nu
+                    else if sandy && c.bank < 0.3 { B::SAND } // désert : du sable en surface, sur les dunes comme au sommet des mesas ; l'eau garde ses rives
                     else if dry && c.bank < 0.35 { let n = self.n_deco.n2(wx / 14.0 + 5.0, wz / 14.0 - 3.0) + 0.25 * self.n_deco.n2(wx / 3.0, wz / 3.0); if n > 0.4 { B::DRY_EARTH } else if n < -0.62 { B::GRAVEL } else { B::STEPPE_GRASS } } // steppe : paille, plaques de terre craquelée, cailloux ; l'herbe reste verte au bord de l'eau
                     else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 - 0.9 * deep { B::FOREST_SOIL }
                     else if cliff > 0.45 && !cold && !dry && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
                     else if hash_float(wxi, wzi, self.seed, 41) < deep { B::GRASS_DEEP } else { B::GRASS };
-                } else if steep { v[i] = self.stone_at(wx, y as f64, wz); }
+                } else if sandy { v[i] = if depth < 3 && !(depth > 0 && v[idx(x, (y + 1) as usize, z)] != B::SAND) { B::SAND } else { self.sandstone_at(wx, y as f64, wz) }; } // sous le sable, des lits de grès beige et rouge
+                else if steep { v[i] = self.stone_at(wx, y as f64, wz); }
                 else if cold { v[i] = self.stone_at(wx, y as f64, wz); } else { v[i] = B::DIRT; }
                 depth += 1;
             }
@@ -220,6 +232,8 @@ impl WorldGen {
                 v[idx(x, y, z)] = if r < 0.05 { B::FROST_GRASS } else if r < 0.062 { B::PINECONE } else if r < 0.062 + 0.22 * patch { if t < 0.75 { B::BLUEBERRY } else { B::FERN_DRY } } else if r < 0.075 + 0.22 * patch { B::FERN_DRY } else if r < 0.081 + 0.22 * patch { B::ROWAN } else { 0 };
             } continue; } let (fr, path, meadow, deep, _) = info[x + z * CX];
             if ground == B::PATH { if r < 0.055 { v[idx(x, y, z)] = B::FLAGSTONE; } continue; }
+            // Désert : presque nu ; quelques touffes d'herbe dure sur les dunes et des buissons morts.
+            if ground == B::SAND { v[idx(x, y, z)] = if r < 0.01 { B::DEAD_BUSH } else if r < 0.028 { B::FEATHER_GRASS } else { 0 }; continue; }
             // Steppe : touffes de stipe en vagues, armoises éparses, quelques buissons morts et de rares fleurs.
             if ground == B::STEPPE_GRASS || ground == B::DRY_EARTH {
                 let clump = smooth(-0.35, 0.55, nd.n2(wx / 9.0 + 13.0, wz / 9.0 - 21.0)); let t = hash_float(wxi, wzi, s, 45);
@@ -268,7 +282,7 @@ impl WorldGen {
         let s = self.seed;
         for z in 0..CX { for x in 0..CX {
             let (wx, wz) = (ox + x as i32, oz + z as i32);
-            let m = self.climate.at(wx as f64, wz as f64); let (deep, taiga) = (m.strong(Biome::DeepForest), m.strong(Biome::Taiga)); if hash_float(wx, wz, s, 11) > 0.075 + 0.2 * deep || m.strong(Biome::Steppe) > 0.2 { continue; } // pas de lianes dans la steppe
+            let m = self.climate.at(wx as f64, wz as f64); let (deep, taiga) = (m.strong(Biome::DeepForest), m.strong(Biome::Taiga)); if hash_float(wx, wz, s, 11) > 0.075 + 0.2 * deep || m.strong(Biome::Steppe) > 0.2 || m.strong(Biome::Desert) > 0.2 { continue; } // pas de lianes dans la steppe ni au désert
             let mut y = CH - 2;
             while y > 4 {
                 let b = v[idx(x, y, z)];
@@ -320,7 +334,7 @@ impl WorldGen {
         let c = self.column(x, z);
         if c.water != 0.0 || c.path > 0.1 { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 24)); let mut data = Vec::new();
-        let n = r.int(1, 3).min(if st > 0.5 { 2 } else { 3 }); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6 || st > 0.5; let tall = 1.0 + 0.4 * st * hash_float(gx, gz, s, 25); let tg = c.mix.strong(Biome::Taiga);
+        let n = r.int(1, 3).min(if st > 0.5 { 2 } else { 3 }); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6 || st > 0.5; let tall = 1.0 + 0.4 * st * hash_float(gx, gz, s, 25); let tg = c.mix.strong(Biome::Taiga); let de = c.mix.strong(Biome::Desert) > 0.5;
         for k in 0..n {
             let rx = r.range(1.6, 4.2); let ry = r.range(1.3, 3.0) * tall; let rz = r.range(1.6, 4.2);
             let ax = x + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 }; let az = z + if k != 0 { r.range(-4.0, 4.0) } else { 0.0 };
@@ -332,7 +346,7 @@ impl WorldGen {
                     let e = dx * dx / (rx * rx) + dy * dy / (ry * ry) + dz * dz / (rz * rz);
                     if e + nn < 1.0 {
                         let e2 = dx * dx / (rx * rx) + (dy + 1.0) * (dy + 1.0) / (ry * ry) + dz * dz / (rz * rz) + nn;
-                        let id = if e2 >= 1.0 && r.next() < 0.75 && !cold { B::MOSSY_STONE } else if e2 >= 1.0 && tg > 0.5 && r.next() < 0.65 { B::LICHEN_STONE } else { self.stone_at(ax, base + dy, az) }; // au froid, les lichens remplacent la mousse
+                        let id = if e2 >= 1.0 && r.next() < 0.75 && !cold { B::MOSSY_STONE } else if e2 >= 1.0 && tg > 0.5 && r.next() < 0.65 { B::LICHEN_STONE } else if de { self.sandstone_at(ax, base + dy, az) } else { self.stone_at(ax, base + dy, az) }; // au froid, les lichens remplacent la mousse
                         data.push([ri(ax + dx), (base + dy) as i32, ri(az + dz), id as i32]);
                     }
                 } }
@@ -360,7 +374,7 @@ impl WorldGen {
     fn bone_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
         let s = self.seed; if hash_float(gx, gz, s, 61) > 0.7 { return None; }
         let (x, z) = (((gx as f64 + 0.25 + 0.5 * hash_float(gx, gz, s, 62)) * BONE_CELL as f64).floor(), ((gz as f64 + 0.25 + 0.5 * hash_float(gx, gz, s, 63)) * BONE_CELL as f64).floor());
-        let c = self.column(x, z); if c.mix.strong(Biome::Steppe) < 0.5 || c.water != 0.0 || c.path > 0.0 || c.wet { return None; }
+        let c = self.column(x, z); if c.mix.strong(Biome::Steppe).max(c.mix.strong(Biome::Desert)) < 0.5 || c.water != 0.0 || c.path > 0.0 || c.wet { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 64)); let a = r.range(0.0, 6.283); let (fx, fz) = (cos(a), sin(a)); let (sx, sz) = (-fz, fx);
         let base = c.h.floor(); let len = r.range(11.0, 17.0); let tall = r.range(3.0, 5.0); let mut set = std::collections::BTreeSet::new();
         let mut put = |u: f64, y: f64, w: f64| { set.insert((ri(x + fx * u + sx * w), ri(y), ri(z + fz * u + sz * w))); };
@@ -382,6 +396,12 @@ impl WorldGen {
         if c.water != 0.0 || c.path > 0.0 || c.bank > 0.4 || c.h > 86.0 { return None; }
         let pick = hash_float(gx, gz, s, 33);
         let glade = smooth(-0.1, 0.45, self.n_forest.n2(x / 46.0 + 70.0, z / 46.0 - 40.0));
+        let desert = c.mix.strong(Biome::Desert);
+        if desert > 0.5 {
+            // Désert : des palmiers autour des points d'eau, des cactus ailleurs, clairsemés.
+            if c.wet { if pick > 0.55 { return None; } let mut r = Rng::new(hash_int(gx, gz, s, 34)); let age = r.next(); return Some(grow_palm(x, c.h.floor(), z, &mut r, age)); }
+            if pick > 0.11 { return None; } let mut r = Rng::new(hash_int(gx, gz, s, 34)); return Some(grow_cactus(x, c.h.floor(), z, &mut r));
+        }
         let steppe = c.mix.strong(Biome::Steppe); if steppe > 0.5 { if pick > 0.075 { return None; } } // steppe : un arbre isolé de loin en loin
         else if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) * (1.0 - 0.8 * c.mix.strong(Biome::Meadow)) * (1.0 + 0.8 * c.mix.strong(Biome::DeepForest)) * (1.0 - 0.86 * c.mix.strong(Biome::Steppe)) { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 34));
@@ -432,7 +452,7 @@ impl Grower {
             let t = i as f64 / n as f64;
             let axis = if dy.abs() > hypot2(dx, dz) { 'y' } else if dx.abs() >= dz.abs() { 'x' } else { 'z' };
             // Là où la branche devient plus fine qu'un bloc, elle passe en branche fine, reliée à ses voisins.
-            let rad = lerp(r0, r1, t); let bid = if rad < 0.5 { branch_of(id) } else { oriented_block(id, axis) }; self.sphere_wood(x, y, z, rad, bid);
+            let rad = lerp(r0, r1, t); let bid = oriented_block(id, axis); self.sphere_wood(x, y, z, rad, bid);
             // Une branche fine avance d'un bloc à la fois par une face : jamais deux cubes qui ne se touchent que par un coin.
             let cur = (round(x) as i32, round(y) as i32, round(z) as i32);
             if let Some(mut q) = prev { while q != cur { if q.1 != cur.1 { q.1 += (cur.1 - q.1).signum(); } else if q.0 != cur.0 { q.0 += (cur.0 - q.0).signum(); } else { q.2 += (cur.2 - q.2).signum(); } self.wood.entry(q).or_insert(bid); } }
@@ -566,7 +586,28 @@ fn grow_acacia(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
         let rad = lerp(2.0, 3.4, age) * r.range(0.85, 1.15); let (cx, cz) = (round(t[0]) as i32, round(t[2]) as i32); let n = rad.ceil() as i32; let cy = canopy as i32 + if r.next() < 0.3 { 1 } else { 0 };
         // Une ombrelle : une nappe pleine, une nappe plus étroite au-dessus, des pointes qui pendent au bord.
         for dz in -n..=n { for dx in -n..=n { let d = hypot2(dx as f64, dz as f64) + 0.6 * r.next(); if d <= rad { g.leaf.insert((cx + dx, cy, cz + dz), lf); if d <= rad * 0.6 { g.leaf.insert((cx + dx, cy + 1, cz + dz), lf); } if d > rad - 1.0 && r.next() < 0.18 { g.leaf.insert((cx + dx, cy - 1, cz + dz), lf); } } } }
-        let (tx, ty, tz) = (t[0], t[1], t[2]); let mut yy = ty; while yy < cy as f64 { g.wood.entry((round(tx) as i32, round(yy) as i32, round(tz) as i32)).or_insert(B::ACACIA_BRANCH); yy += 1.0; }
+        let (tx, ty, tz) = (t[0], t[1], t[2]); let mut yy = ty; while yy < cy as f64 { g.wood.entry((round(tx) as i32, round(yy) as i32, round(tz) as i32)).or_insert(B::ACACIA_LOG); yy += 1.0; }
+    }
+    g.finish()
+}
+/// Cactus : un fût côtelé, et pour les grands deux ou trois bras qui partent de côté puis se redressent.
+fn grow_cactus(x: f64, y: f64, z: f64, r: &mut Rng) -> Stamp {
+    let (cx, cz, y0) = (ri(x), ri(z), y as i32 + 1); let mut data = Vec::new(); let big = r.next() < 0.6; let h = if big { r.int(4, 7) } else { r.int(1, 2) };
+    for k in 0..h { data.push([cx, y0 + k, cz, B::CACTUS as i32]); }
+    if big { let mut used = vec![]; for _ in 0..r.int(1, 3) { let d = [(1, 0), (-1, 0), (0, 1), (0, -1)][r.int(0, 3) as usize]; if used.contains(&d) { continue; } used.push(d); let at = r.int(2, (h - 2).max(2)); let out = r.int(1, 2);
+        for k in 1..=out { data.push([cx + d.0 * k, y0 + at, cz + d.1 * k, B::CACTUS as i32]); } for k in 1..=r.int(1, 3).min(h - at) { data.push([cx + d.0 * out, y0 + at + k, cz + d.1 * out, B::CACTUS as i32]); } } }
+    Stamp { data, force: false }
+}
+/// Palmier : un stipe fin qui s'incline et se courbe, couronné de longues palmes qui retombent en étoile.
+fn grow_palm(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
+    let mut g = Grower::default(); let a = r.range(0.0, 6.283); let lean = r.range(0.15, 0.4);
+    let trunk = g.limb(&[x, y - 1.0, z], [cos(a) * lean, 1.0, sin(a) * lean], lerp(5.0, 10.0, age), 0.45, 0.42, B::PALM_LOG, r, 0.03, -0.02);
+    let top = trunk[trunk.len() - 1]; let (tx, ty, tz) = (round(top[0]) as i32, round(top[1]) as i32 + 1, round(top[2]) as i32); g.leaf.insert((tx, ty, tz), B::PALM_LEAVES); g.leaf.insert((tx, ty - 1, tz), B::PALM_LEAVES);
+    let n = r.int(6, 8); let spin = r.range(0.0, 6.283);
+    for i in 0..n {
+        let b = spin + i as f64 / n as f64 * 6.283 + r.range(-0.2, 0.2); let len = lerp(3.0, 5.0, age) * r.range(0.85, 1.15); let mut prev = (tx, ty, tz);
+        let mut s = 0.5; while s <= len { let (fx, fz) = (tx as f64 + cos(b) * s, tz as f64 + sin(b) * s); let fy = ty as f64 + 0.6 * s - 0.28 * s * s;
+            let cur = (round(fx) as i32, round(fy) as i32, round(fz) as i32); let mut q = prev; while q != cur { if q.1 != cur.1 { q.1 += (cur.1 - q.1).signum(); } else if q.0 != cur.0 { q.0 += (cur.0 - q.0).signum(); } else { q.2 += (cur.2 - q.2).signum(); } g.leaf.insert(q, B::PALM_LEAVES); } prev = cur; s += 0.5; }
     }
     g.finish()
 }

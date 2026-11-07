@@ -105,6 +105,30 @@ fn wood_inner(t: &Tile, x: f64, y: f64) -> S {
     let c = pal(&pl!("#5e4733", "#7d6248", "#9c7f60", "#b89c7c"), 0.25 + 0.5 * fib + 0.25 * (streak - 0.5)); let k = (1.0 - 0.45 * rot) * (1.0 - 0.5 * split);
     S { c: [c[0] * k, c[1] * k * 0.97, c[2] * k * 0.92], h: 0.4 + 0.3 * fib - 0.3 * split - 0.15 * rot, r: 0.92 }
 }
+/// Grès : des lits horizontaux de sable cimenté, ocre et beige, parfois obliques, au grain fin et poudreux.
+fn sandstone(t: &Tile, x: f64, y: f64, base: [f64; 3], band: [f64; 3]) -> S {
+    let warp = 3.0 * t.fbm(x, y, 3, 2); let cross = if t.fbm(x + 50.0, y, 2, 2) > 0.55 { x * 0.35 } else { 0.0 }; let bed = ((y + warp + cross) / 64.0 * 9.0).rem_euclid(1.0);
+    let layer = t.pi(((y + warp + cross) / 64.0 * 9.0).floor() as i64 * 13 + 7); let grain = t.val(x, y, 64); let n = t.fbm(x, y, 5, 3);
+    let k = 0.9 + 0.1 * layer + 0.06 * (grain - 0.5) + 0.06 * (n - 0.5); let line = smooth(0.0, 0.06, bed) * smooth(1.0, 0.94, bed);
+    let c = [lerp(band[0], base[0], line) * k, lerp(band[1], base[1], line) * k, lerp(band[2], base[2], line) * k];
+    S { c, h: 0.45 + 0.25 * line + 0.15 * (grain - 0.5), r: 0.92 }
+}
+fn sandstone_top(t: &Tile, x: f64, y: f64) -> S { let (n, g) = (t.fbm(x, y, 4, 3), t.val(x, y, 64)); let k = 0.92 + 0.1 * (n - 0.5) + 0.06 * (g - 0.5); S { c: [0.84 * k, 0.72 * k, 0.52 * k], h: 0.5 + 0.2 * (n - 0.5), r: 0.9 } }
+/// Cactus : des côtes verticales vert sombre, les sillons plus foncés, des aréoles claires piquées d'épines.
+fn cactus_side(t: &Tile, x: f64, _y: f64) -> S {
+    let rib = (x / 64.0 * 8.0).rem_euclid(1.0); let ridge = (rib * std::f64::consts::PI).sin(); let n = t.fbm(x, _y, 6, 3);
+    let areole = { let q = (_y / 64.0 * 10.0 + if (x / 8.0).floor() as i64 % 2 == 0 { 0.5 } else { 0.0 }).rem_euclid(1.0); (rib - 0.5).abs() < 0.08 && (q - 0.5).abs() < 0.06 };
+    if areole { return S { c: [0.86, 0.84, 0.72], h: 1.0, r: 0.6 }; }
+    let k = 0.55 + 0.45 * ridge + 0.08 * (n - 0.5); S { c: [0.2 * k, 0.42 * k, 0.2 * k], h: ridge, r: 0.55 }
+}
+fn cactus_top(t: &Tile, x: f64, y: f64) -> S { let (dx, dy) = (x - 31.5, y - 31.5); let a = dy.atan2(dx); let rib = (a * 8.0 / 6.283).rem_euclid(1.0); let ridge = (rib * std::f64::consts::PI).sin(); let r = hypot2(dx, dy) / 32.0; let k = (0.55 + 0.45 * ridge) * (1.0 - 0.3 * r) + 0.05 * (t.val(x, y, 32) - 0.5); S { c: [0.24 * k, 0.46 * k, 0.22 * k], h: ridge * (1.0 - r), r: 0.55 } }
+/// Stipe de palmier : des écailles en losanges laissées par les palmes tombées, brun gris et fibreuses.
+fn bark_palm(t: &Tile, x: f64, y: f64) -> S {
+    let row = (y / 64.0 * 6.0).floor(); let off = if row as i64 % 2 == 0 { 0.0 } else { 0.5 }; let u = (x / 64.0 * 4.0 + off).rem_euclid(1.0); let v = (y / 64.0 * 6.0).rem_euclid(1.0);
+    let scale = 1.0 - ((u - 0.5).abs() * 2.0 + (1.0 - v)) * 0.5; let fib = t.val(x * 3.0, y * 0.5, 32); let edge = smooth(0.0, 0.12, scale);
+    let c = pal(&pl!("#4a3c2e", "#6b5845", "#8c7860", "#a8957a"), 0.25 + 0.5 * scale + 0.2 * (fib - 0.5)); S { c: mul(c, 0.6 + 0.4 * edge), h: scale, r: 0.9 }
+}
+fn end_palm(t: &Tile, x: f64, y: f64) -> S { let r = hypot2(x - 31.5, y - 31.5) / 32.0; let f = t.val(x * 2.0, y * 2.0, 64); let c = pal(&pl!("#7a6448", "#9a8160", "#b89e7a"), 0.3 + 0.4 * f - 0.3 * r); S { c, h: 0.5 + 0.3 * f, r: 0.85 } }
 fn grass_top(t: &Tile, x: f64, y: f64) -> S {
     let (n, s, b) = (t.fbm(x, y, 4, 3), t.val(x, y, 32), t.val(x + 7.0, y * 0.45, 24));
     S { c: pal(&GRASS, 0.2 + 0.55 * n + 0.32 * (s - 0.5) + 0.25 * (b - 0.5)), h: 0.4 + 0.5 * s, r: 0.72 }
@@ -123,15 +147,18 @@ fn stone(t: &Tile, x: f64, y: f64, a: &[C], cells: i64) -> S {
     let tone = 0.34 + 0.32 * t.pi(id) + 0.55 * (n - 0.5) + 0.3 * (s - 0.5) + 0.12 * crack;
     S { c: pal(a, tone * (0.72 + 0.28 * crack)), h: 0.2 + 0.6 * crack + 0.2 * n, r: 0.8 }
 }
-/// Granit : un grain fin et serré — feldspath rosé, quartz laiteux, mica noir en points — sous une teinte d'ensemble douce, sans motif.
+/// Granit : une mosaïque serrée de cristaux de quelques millimètres — feldspath rose saumon et blanc laiteux, quartz gris vitreux,
+/// mica noir en paillettes — sous une patine d'altération grise. Chaque cristal a sa teinte propre et des bords nets.
 fn granite(t: &Tile, x: f64, y: f64) -> S {
-    let big = t.fbm(x, y, 3, 3); let mid = t.fbm(x + 17.0, y - 9.0, 9, 3); let g1 = t.val(x, y, 48); let g2 = t.val(x + 31.0, y + 7.0, 64); let g3 = t.val(x - 11.0, y + 23.0, 40);
-    let base = [0.6 + 0.08 * (big - 0.5), 0.56 + 0.06 * (big - 0.5), 0.53 + 0.05 * (big - 0.5)];
-    let mut c = [base[0] + 0.1 * (mid - 0.5), base[1] + 0.09 * (mid - 0.5), base[2] + 0.09 * (mid - 0.5)];
-    let feld = smooth(0.58, 0.72, g1); c = [lerp(c[0], 0.72, feld * 0.6), lerp(c[1], 0.56, feld * 0.6), lerp(c[2], 0.5, feld * 0.6)];
-    let quartz = smooth(0.66, 0.78, g2); c = [lerp(c[0], 0.8, quartz * 0.5), lerp(c[1], 0.79, quartz * 0.5), lerp(c[2], 0.77, quartz * 0.5)];
-    let mica = smooth(0.74, 0.84, g3); c = [lerp(c[0], 0.12, mica * 0.85), lerp(c[1], 0.11, mica * 0.85), lerp(c[2], 0.12, mica * 0.85)];
-    S { c, h: 0.45 + 0.2 * (mid - 0.5) + 0.15 * quartz - 0.1 * mica, r: 0.55 + 0.2 * mica - 0.15 * quartz }
+    let (d1, d2, id) = t.vor(x + 0.6 * t.fbm(x, y, 16, 2), y + 0.6 * t.fbm(x + 5.0, y, 16, 2), 44); let m = t.pi(id); let v = t.pi(id + 501); let edge = smooth(0.0, 0.05, d2 - d1);
+    let (c, h, r) = if m < 0.36 { ([0.78 + 0.08 * v, 0.6 + 0.07 * v, 0.53 + 0.06 * v], 0.62, 0.62) } // feldspath rose
+        else if m < 0.6 { ([0.86 + 0.06 * v, 0.84 + 0.06 * v, 0.8 + 0.06 * v], 0.6, 0.6) } // feldspath blanc
+        else if m < 0.86 { ([0.5 + 0.1 * v, 0.5 + 0.1 * v, 0.52 + 0.1 * v], 0.7, 0.3) } // quartz
+        else { ([0.08 + 0.05 * v, 0.07 + 0.05 * v, 0.08 + 0.05 * v], 0.45, 0.45) }; // mica
+    // Reflets internes et clivages fins dans chaque cristal, puis la patine grise qui ternit la surface exposée.
+    let inner = 0.92 + 0.12 * t.val(x * 2.0 + v * 40.0, y * 2.0, 64); let patina = 0.25 + 0.2 * smooth(0.35, 0.75, t.fbm(x, y, 3, 3)); let dirt = 0.06 * (t.fbm(x + 30.0, y, 6, 3) - 0.5);
+    let k = inner * (0.82 + 0.18 * edge); let gray = 0.58 + dirt;
+    S { c: [lerp(c[0] * k, gray, patina), lerp(c[1] * k, gray * 0.99, patina), lerp(c[2] * k, gray * 0.98, patina)], h: h * (0.6 + 0.4 * edge), r }
 }
 /// Calcaire : une pierre crème, lisse, aux lits à peine marqués, tachée de gris et piquée de petites cavités.
 fn limestone(t: &Tile, x: f64, y: f64) -> S {
@@ -220,6 +247,8 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "leaf_spruce" => needles(t, x, y), "leaf_snow" => leaf_snow(t, x, y),
         "bark_dead" => bark(t, x, y, &DEAD, 0.95), "end_dead" => wood_end(t, x, y, &DEAD_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &DEAD, 0.95)), "lichen" => lichen(t, x, y),
         "bark_acacia" => bark(t, x, y, &ACACIA, 1.0), "end_acacia" => wood_end(t, x, y, &ACACIA_W, 0.75, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &ACACIA, 1.0)), "leaf_acacia" => leaf(t, x, y, [0.62, 0.7, 0.4]), "bone" => bone(t, x, y), "wood_inner" => wood_inner(t, x, y),
+        "sandstone" => sandstone(t, x, y, [0.82, 0.68, 0.48], [0.7, 0.55, 0.36]), "sandstone_top" => sandstone_top(t, x, y), "red_sandstone" => sandstone(t, x, y, [0.74, 0.42, 0.26], [0.6, 0.32, 0.2]),
+        "cactus_side" => cactus_side(t, x, y), "cactus_top" => cactus_top(t, x, y), "bark_palm" => bark_palm(t, x, y), "end_palm" => end_palm(t, x, y), "leaf_palm" => leaf(t, x, y, [0.8, 0.95, 0.55]),
         "grass_dry_top" => dry_top(t, x, y), "grass_dry_side" => dry_side(t, x, y), "dry_earth" => cracked(t, x, y),
         "water_foam" => { let f = t.fbm(x, y, 8, 3); S { c: [f, f, f], h: f, r: 0.3 } }
         _ => panic!("matériau sans générateur : {name}"),

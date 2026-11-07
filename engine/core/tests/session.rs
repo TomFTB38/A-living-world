@@ -45,7 +45,7 @@ fn personnage_et_inventaire_ecran() {
 
 #[test]
 fn categories_et_gestes_de_l_inventaire() {
-    let mut all: Vec<&str> = TABS[1..].iter().flat_map(|t| t.1.iter().copied()).collect(); all.sort(); let mut o = ORDER.to_vec(); o.sort(); assert_eq!(all, o, "chaque objet a une catégorie, une seule");
+    let mut all: Vec<&str> = TABS.iter().flat_map(|t| t.1.iter().copied()).collect(); all.sort(); let mut o = ORDER.to_vec(); o.sort(); assert_eq!(all, o, "chaque objet a une catégorie, une seule");
     let mut s = session(); s.inv = [None; INV_SIZE]; s.add_item("dirt", 51);
     s.take_half(0); assert_eq!(s.cursor.unwrap().n, Some(26)); assert_eq!(s.inv[0].unwrap().n, Some(25));
     s.put_one(1); assert_eq!(s.inv[1].unwrap().n, Some(1)); assert_eq!(s.cursor.unwrap().n, Some(25));

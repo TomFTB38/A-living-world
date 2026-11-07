@@ -9,7 +9,8 @@ export const VARIANTS = 4;
 export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'mossy_stone', 'limestone', 'granite', 'gravel', 'sand',
   'bark_oak', 'bark_birch', 'bark_beech', 'leaf_oak', 'leaf_birch', 'leaf_beech', 'planks', 'forest_soil', 'water_foam', 'end_oak', 'end_birch', 'end_beech',
   'snow', 'snow_side', 'ice', 'bark_spruce', 'end_spruce', 'leaf_spruce', 'leaf_snow',
-  'grass_dry_top', 'grass_dry_side', 'dry_earth', 'bark_dead', 'end_dead', 'lichen', 'bark_acacia', 'end_acacia', 'leaf_acacia', 'bone', 'wood_inner'];
+  'grass_dry_top', 'grass_dry_side', 'dry_earth', 'bark_dead', 'end_dead', 'lichen', 'bark_acacia', 'end_acacia', 'leaf_acacia', 'bone', 'wood_inner',
+  'sandstone', 'sandstone_top', 'red_sandstone', 'cactus_side', 'cactus_top', 'bark_palm', 'end_palm', 'leaf_palm'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -144,6 +145,12 @@ const defs = [
   ['glowcap_pink', 'deco', null, 0.02, { model: 'glowcap', drop: 'glowcap_pink' }],
   ['glowcap_violet', 'deco', null, 0.02, { model: 'glowcap', drop: 'glowcap_violet' }],
   ['glowcap_cyan', 'deco', null, 0.02, { model: 'glowcap', drop: 'glowcap_cyan' }],
+  // Désert
+  ['sandstone', 'cube', ['sandstone_top', 'sandstone', 'sandstone_top'], 1.0, { cat: 'rock' }],
+  ['red_sandstone', 'cube', ['red_sandstone', 'red_sandstone', 'red_sandstone'], 1.0, { cat: 'rock' }],
+  ['cactus', 'cube', ['cactus_top', 'cactus_side', 'cactus_top'], 0.5, { cat: 'foliage' }],
+  ['palm_log', 'cube', ['end_palm', 'bark_palm', 'end_palm'], 0.9, { cat: 'wood' }],
+  ['palm_leaves', 'leaf', ['leaf_palm', 'leaf_palm', 'leaf_palm'], 0.12, { cat: 'foliage', drop: null, tint: [0.8, 0.86, 0.6] }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({

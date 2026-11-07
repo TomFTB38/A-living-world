@@ -118,3 +118,19 @@ fn troncs_et_souches_creux() {
         if lying > 10 && standing > 2 { break 'f; } } }
     println!("troncs creux couchés {lying}, souches creuses {standing}"); assert!(lying > 10 && standing > 2);
 }
+
+#[test]
+fn le_desert_est_de_sable_et_de_gres() {
+    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Desert) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
+    let (cx, cz) = spot.expect("un désert"); let mut n = std::collections::HashMap::new(); for a in -3..3 { for b in -3..3 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    let mut hs = vec![]; for i in 0..64 { let col = g.column((cx * 32 + i * 3) as f64, (cz * 32) as f64); if col.mix.strong(Biome::Desert) > 0.9 { hs.push(col.h); } } let relief = hs.iter().cloned().fold(f64::MIN, f64::max) - hs.iter().cloned().fold(f64::MAX, f64::min);
+    println!("désert {cx},{cz} : sable {}, grès {}, grès rouge {}, cactus {}, palmiers {}, herbe {}, os {}, relief {relief:.1}", c(B::SAND), c(B::SANDSTONE), c(B::RED_SANDSTONE), c(B::CACTUS), c(B::PALM_LOG), c(B::GRASS), c(B::BONE));
+    assert!(c(B::SAND) > 20 * (c(B::GRASS) + 1)); assert!(c(B::SANDSTONE) > 1000 && c(B::RED_SANDSTONE) > 200 && c(B::CACTUS) > 10); assert!(relief > 3.0, "des dunes");
+}
+
+#[test]
+fn les_oasis_ont_des_palmiers() {
+    use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let mut spot = None; 'f: for r in 8..700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = g.column(x, z); if c.mix.strong(Biome::Desert) > 0.97 && c.water != 0.0 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } }
+    let (cx, cz) = spot.expect("un point d'eau au désert"); let mut palms = 0; let mut fronds = 0; for a in -2..=2 { for b in -2..=2 { for id in g.gen_chunk(cx + a, cz + b) { if id == B::PALM_LOG { palms += 1; } if id == B::PALM_LEAVES { fronds += 1; } } } }
+    println!("oasis {cx},{cz} : {palms} blocs de stipe, {fronds} palmes"); assert!(palms > 10 && fronds > 50);
+}

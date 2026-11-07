@@ -34,6 +34,8 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
         if sky.dir[1] > 0.05 { sky.dir[1] = 0.05 + (sky.dir[1] - 0.05) * (1.0 - 0.5 * tg); let l = (sky.dir[0] * sky.dir[0] + sky.dir[1] * sky.dir[1] + sky.dir[2] * sky.dir[2]).sqrt(); for v in &mut sky.dir { *v /= l; } }
         let h = s.hour as f32; env.valley = tg * ((h - 4.5) / 2.0).clamp(0.0, 1.0) * (1.0 - ((h - 9.0) / 2.5).clamp(0.0, 1.0)) * 0.6; env.aurora = tg * night * (1.0 - env.cloud).clamp(0.3, 1.0); env.snow = tg * (0.3 * env.cloud + 0.7 * s.weather.state.rain as f32); /* ciel dégagé : pas de neige qui tombe */ env.rain *= 1.0 - tg; } // Steppe : lumière chaude et dorée, horizon voilé de poussière.
     let st = s.steppe as f32 * (1.0 - night); if st > 0.01 { for k in 0..3 { sky.hor[k] += ([0.96, 0.86, 0.68][k] - sky.hor[k]) * 0.3 * st; sky.col[k] *= 1.0 + ([0.07, 0.02, -0.08][k]) * st; } env.mist += 0.0012 * st; }
+    // Désert : ciel pâle et brûlant, horizon blanchi par la chaleur, lumière crue.
+    let de = s.desert as f32 * (1.0 - night); if de > 0.01 { for k in 0..3 { sky.hor[k] += ([1.0, 0.92, 0.78][k] * 1.15 - sky.hor[k]) * 0.35 * de; sky.top[k] += ([0.42, 0.56, 0.78][k] - sky.top[k]) * 0.25 * de; sky.col[k] *= 1.0 + ([0.1, 0.05, -0.04][k]) * de; } env.mist += 0.0016 * de; env.rain *= 1.0 - s.desert as f32; }
     env.bright *= 1.0 - 0.42 * s.deep as f32; env.fog_k += 2.6 * s.deep as f32; env.mist += 0.0035 * s.deep as f32; for v in &mut sky.top { *v *= 1.0 - 0.3 * s.deep as f32; }
     gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], s.progress() as f32)), s.ghost(), &draws, &ui)
 }
@@ -301,6 +303,11 @@ fn capture(a: &[String]) {
         for (i, b) in [B::GRANITE, B::LIMESTONE, B::GRAVEL, B::STONE].iter().enumerate() { let (x, z) = (p[0] + fx * 4.0 + sx * (i as f64 * 1.0 - 1.5), p[2] + fz * 4.0 + sz * (i as f64 * 1.0 - 1.5)); let y = gy(&s, x, z); edits.push((x.floor() as i32, y + 1, z.floor() as i32, *b)); }
         for (i, b) in [B::SAGEBRUSH, B::DEAD_BUSH, B::ROWAN, B::BLUEBERRY, B::GLOWCAP, B::GLOWCAP_BLUE, B::GLOWCAP_PINK, B::GLOWCAP_VIOLET, B::GLOWCAP_CYAN].iter().enumerate() { let (x, z) = (p[0] + fx * 2.6 + sx * (i as f64 * 0.9 - 3.6), p[2] + fz * 2.6 + sz * (i as f64 * 0.9 - 3.6)); let y = gy(&s, x, z); edits.push((x.floor() as i32, y + 1, z.floor() as i32, *b)); }
         s.world.edit_many(&edits); pump(&mut s, &mut g); s.player.pitch = -0.32; s.tick(0.0, none, Actions::default());
+    }
+    if scene == "desert" || scene == "oasis" {
+        // Le cœur du désert, vu d'un peu haut ; pour l'oasis, le premier point d'eau du désert.
+        let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Desert) > 0.97 && (if scene == "oasis" { c.water != 0.0 } else { c.water == 0.0 && c.path == 0.0 }) { found = Some((x, z, a, c.h.max(c.water))); break 'p; } } }
+        println!("{scene} : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; let back = if scene == "oasis" { 12.0 } else { 6.0 }; s.player.p = [x - a.cos() * back, h + 9.0, z - a.sin() * back]; let f = view::norm([a.cos(), -0.2, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.desert = 1.0; s.tick(0.0, none, Actions::default()); }
     }
     if scene == "steppe" {
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Steppe) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
