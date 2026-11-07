@@ -119,7 +119,7 @@ const defs = [
   ['acacia_log', 'cube', ['end_acacia', 'bark_acacia', 'end_acacia'], 1.0, { cat: 'wood' }],
   ['acacia_log_x', 'cube', ['bark_acacia', 'end_acacia', 'bark_acacia'], 1.0, { cat: 'wood', drop: 'acacia_log', axis: 'x' }],
   ['acacia_log_z', 'cube', ['bark_acacia', 'bark_acacia', 'end_acacia'], 1.0, { cat: 'wood', drop: 'acacia_log', axis: 'z' }],
-  ['acacia_leaves', 'leaf', ['leaf_acacia', 'leaf_acacia', 'leaf_acacia'], 0.12, { cat: 'foliage', drop: null, tint: [0.72, 0.74, 0.5] }],
+  ['acacia_leaves', 'leaf', ['leaf_acacia', 'leaf_acacia', 'leaf_acacia'], 0.12, { cat: 'foliage', drop: null, tint: [0.66, 0.66, 0.46] }],
   ['bone', 'cube', ['bone', 'bone', 'bone'], 0.9, { cat: 'rock' }],
   ['birch_leaves_gold', 'leaf', ['leaf_birch', 'leaf_birch', 'leaf_birch'], 0.12, { cat: 'foliage', drop: null, tint: [1.45, 1.05, 0.35] }],
   // Branches fines : une section plus petite qu'un bloc, reliée aux bois et aux feuillages voisins
@@ -139,6 +139,11 @@ const defs = [
   ['dead_hollow', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood' }],
   ['dead_hollow_x', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood', drop: 'dead_hollow' }],
   ['dead_hollow_z', 'deco', null, 0.8, { model: 'hollow', solid: true, cat: 'wood', drop: 'dead_hollow' }],
+  // Champignons lumineux : une couleur par bloc (le premier, 'glowcap', est le vert)
+  ['glowcap_blue', 'deco', null, 0.02, { model: 'glowcap', drop: 'glowcap_blue' }],
+  ['glowcap_pink', 'deco', null, 0.02, { model: 'glowcap', drop: 'glowcap_pink' }],
+  ['glowcap_violet', 'deco', null, 0.02, { model: 'glowcap', drop: 'glowcap_violet' }],
+  ['glowcap_cyan', 'deco', null, 0.02, { model: 'glowcap', drop: 'glowcap_cyan' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({

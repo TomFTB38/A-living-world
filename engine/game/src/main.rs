@@ -293,6 +293,15 @@ fn capture(a: &[String]) {
         println!("tronc creux : {found:?}");
         if let Some((x, y, z, ax)) = found { let (cx, cy, cz) = (x as f64 + 0.5, y as f64 + 0.5, z as f64 + 0.5); let e = [cx - ax.0 as f64 * 3.2 + ax.1 as f64 * 0.9, cy + 0.9, cz - ax.1 as f64 * 3.2 + ax.0 as f64 * 0.9]; s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [e[0], e[1] - 1.62, e[2]]; pump(&mut s, &mut g); let f = view::norm([cx - e[0], cy - e[1], cz - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); s.tick(0.0, none, Actions::default()); }
     }
+    if scene == "materiaux" {
+        // Une rangée posée devant la caméra : roches et gravier retravaillés, buissons, champignons de chaque couleur.
+        use alw_core::blocks::{is_solid, B}; use alw_core::player::Voxels; pump(&mut s, &mut g);
+        let (fx, fz) = (s.player.yaw.sin(), s.player.yaw.cos()); let (sx, sz) = (-fz, fx); let gy = |s: &Session, x: f64, z: f64| { let mut y = 120; while y > 2 && !s.world.get(x.floor() as i32, y, z.floor() as i32).is_some_and(is_solid) { y -= 1; } y };
+        let mut edits = vec![]; let p = s.player.p;
+        for (i, b) in [B::GRANITE, B::LIMESTONE, B::GRAVEL, B::STONE].iter().enumerate() { let (x, z) = (p[0] + fx * 4.0 + sx * (i as f64 * 1.0 - 1.5), p[2] + fz * 4.0 + sz * (i as f64 * 1.0 - 1.5)); let y = gy(&s, x, z); edits.push((x.floor() as i32, y + 1, z.floor() as i32, *b)); }
+        for (i, b) in [B::SAGEBRUSH, B::DEAD_BUSH, B::ROWAN, B::BLUEBERRY, B::GLOWCAP, B::GLOWCAP_BLUE, B::GLOWCAP_PINK, B::GLOWCAP_VIOLET, B::GLOWCAP_CYAN].iter().enumerate() { let (x, z) = (p[0] + fx * 2.6 + sx * (i as f64 * 0.9 - 3.6), p[2] + fz * 2.6 + sz * (i as f64 * 0.9 - 3.6)); let y = gy(&s, x, z); edits.push((x.floor() as i32, y + 1, z.floor() as i32, *b)); }
+        s.world.edit_many(&edits); pump(&mut s, &mut g); s.player.pitch = -0.32; s.tick(0.0, none, Actions::default());
+    }
     if scene == "steppe" {
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Steppe) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
         println!("steppe : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x - a.cos() * 14.0, h + 16.0, z - a.sin() * 14.0]; let f = view::norm([a.cos(), -0.22, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.steppe = 1.0; s.tick(0.0, none, Actions::default()); }

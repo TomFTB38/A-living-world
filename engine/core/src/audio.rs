@@ -301,8 +301,24 @@ impl SoundScape {
         for i in 0..n { o.push(Cmd::Tone { f, to: f * 0.7, dur: 0.24, vol: 0.16 * v, pan, delay: i as f32 * 0.36, saw: true, lp: 1700.0 }); o.push(Cmd::Tone { f: f * 1.5, to: f * 1.02, dur: 0.2, vol: 0.05 * v, pan, delay: i as f32 * 0.36, saw: true, lp: 2400.0 }); }
         for c in o { self.send(c); }
     }
-    /// Renard : un aboiement bref et aigu, répété.
-    pub fn fox_bark(&mut self, pos: [f64; 3]) { let Some((v, pan)) = self.at(pos, 45.0) else { return }; for i in 0..2 { self.send(Cmd::Tone { f: 820.0, to: 540.0, dur: 0.13, vol: 0.18 * v, pan, delay: i as f32 * 0.3, saw: true, lp: 2600.0 }); } }
+    /// Renard : des jappements rauques et brefs, en série — une voix éraillée (dents de scie et harmonique) mêlée d'un souffle.
+    pub fn fox_bark(&mut self, pos: [f64; 3]) {
+        let Some((v, pan)) = self.at(pos, 60.0) else { return }; let r = &mut self.rnd; let n = 3 + r.pick(3); let f0 = r.range(560.0, 700.0); let gap = r.range(0.5, 0.8); let mut o = Vec::new();
+        for i in 0..n { let d = i as f32 * gap + r.range(-0.05, 0.05); let f = f0 * r.range(0.95, 1.05);
+            o.push(Cmd::Tone { f: f * 0.8, to: f * 1.1, dur: 0.05, vol: 0.12 * v, pan, delay: d, saw: true, lp: 2800.0 });
+            o.push(Cmd::Tone { f: f * 1.1, to: f * 0.7, dur: 0.14, vol: 0.17 * v, pan, delay: d + 0.05, saw: true, lp: 2400.0 });
+            o.push(Cmd::Tone { f: f * 2.3, to: f * 1.5, dur: 0.13, vol: 0.05 * v, pan, delay: d + 0.05, saw: true, lp: 3800.0 });
+            o.push(Cmd::Play { l: L { lp: 3000.0, ..l("snort", 2.1, 0.16 * v) }, k: 1.0, pan, delay: d + 0.02 }); }
+        for c in o { self.send(c); }
+    }
+    /// Cri de renard : une plainte aiguë et rauque qui monte puis retombe.
+    pub fn fox_scream(&mut self, pos: [f64; 3]) {
+        let Some((v, pan)) = self.at(pos, 90.0) else { return }; let f = self.rnd.range(1050.0, 1300.0);
+        for (a, b, dur, d, k) in [(f, f * 1.25, 0.22, 0.0, 1.0), (f * 1.25, f * 0.6, 0.55, 0.22, 1.0), (f * 2.1, f * 1.3, 0.6, 0.15, 0.3)] { self.send(Cmd::Tone { f: a, to: b, dur, vol: 0.13 * v * k, pan, delay: d, saw: true, lp: 3200.0 }); }
+        self.send(Cmd::Play { l: L { lp: 3500.0, ..l("puff", 2.4, 0.18 * v) }, k: 1.0, pan, delay: 0.05 });
+    }
+    /// Lièvre qui détale : un coup sourd de patte arrière sur le sol.
+    pub fn thump(&self, pos: [f64; 3]) { if let Some((v, pan)) = self.at(pos, 22.0) { self.send(Cmd::Play { l: L { lp: 500.0, ..l("knock", 0.5, 0.5 * v) }, k: 1.0, pan, delay: 0.0 }); self.send(Cmd::Play { l: L { lp: 500.0, ..l("knock", 0.45, 0.4 * v) }, k: 1.0, pan, delay: 0.16 }); } }
     /// Virevoltant qui retombe : un froissement de brindilles sèches.
     pub fn rustle(&self, pos: [f64; 3]) { if let Some((v, pan)) = self.at(pos, 24.0) { self.send(Cmd::Play { l: l("leaf", 1.3, 0.3 * v), k: 1.0, pan, delay: 0.0 }); self.send(Cmd::Play { l: l("crumble", 1.6, 0.12 * v), k: 1.0, pan, delay: 0.03 }); } }
     /// Branche qui casse au loin, puis la neige qui tombe des aiguilles.

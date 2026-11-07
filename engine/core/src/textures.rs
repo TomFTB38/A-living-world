@@ -39,15 +39,14 @@ fn mul(c: C, k: f64) -> C { [c[0] * k, c[1] * k, c[2] * k] }
 
 const GRASS: [C; 4] = pl!("#556b2a", "#6f8834", "#8ba042", "#a9b658"); const DIRT: [C; 4] = pl!("#4d3019", "#6e4725", "#8a5f35", "#a57c4d");
 const STONE: [C; 4] = pl!("#5c564c", "#7f786b", "#a0998b", "#bfb8aa"); const LEAF: [C; 4] = pl!("#2f5518", "#4f7f25", "#86ac38", "#c6d862");
-const FELD: [C; 4] = pl!("#7a5a52", "#9a7468", "#b98f7f", "#d3ab98"); const QUARTZ: [C; 3] = pl!("#a9a5a0", "#c9c6c0", "#e6e3dc"); const MICA: [C; 3] = pl!("#17151a", "#2d2a30", "#45414a");
-const LIME: [C; 4] = pl!("#857a63", "#ad9f84", "#cdc0a4", "#e6dcc4"); const MOSS: [C; 4] = pl!("#37561d", "#55792a", "#7a9c37", "#a6bd4f");
+const MOSS: [C; 4] = pl!("#37561d", "#55792a", "#7a9c37", "#a6bd4f");
 const OAK: [C; 4] = pl!("#4a2c14", "#7a4f29", "#a8743f", "#cf9d62"); const BEECH: [C; 4] = pl!("#726c60", "#938c7f", "#b0a99b", "#c9c3b5");
 const BIRCH: [C; 3] = pl!("#d6d0bf", "#ece7da", "#fbf8f0"); const BIRCH_DARK: [C; 2] = pl!("#17140f", "#3e3428");
 const OAK_W: [C; 4] = pl!("#5d3a1c", "#8e6133", "#bd8c52", "#dcb67e"); const BIRCH_W: [C; 4] = pl!("#a98a5d", "#cdb080", "#e6d3a8", "#f3e8c9"); const BEECH_W: [C; 4] = pl!("#8a6a48", "#b28f66", "#d0b08a", "#e4cdaa");
 const SPRUCE: [C; 4] = pl!("#2f2219", "#4a3727", "#664c36", "#86694c"); const SPRUCE_W: [C; 4] = pl!("#7d5d3c", "#a17f57", "#c2a276", "#dcc39b");
 const SNOW: [C; 3] = pl!("#c9d5e3", "#e3ebf3", "#f7fafd"); const ICE: [C; 3] = pl!("#7fa6c4", "#a6c6dd", "#d2e6f2");
 const PLANKS: [C; 3] = pl!("#6c4524", "#94673a", "#b98a52"); const PATH: [C; 4] = pl!("#7c5b35", "#a07a4c", "#bc9663", "#d2b080");
-const SOIL: [C; 4] = pl!("#2f2413", "#4a3a1f", "#5e5127", "#6f6a2f"); const SAND: [C; 4] = pl!("#a89268", "#c2ac7e", "#d2bf92", "#e0cfa6"); const GRAVEL: [C; 4] = pl!("#6c6761", "#8e8679", "#a89f91", "#c0b7a9");
+const SOIL: [C; 4] = pl!("#2f2413", "#4a3a1f", "#5e5127", "#6f6a2f"); const SAND: [C; 4] = pl!("#a89268", "#c2ac7e", "#d2bf92", "#e0cfa6");
 
 const DRY: [C; 4] = pl!("#8a7136", "#ad8f47", "#cbae63", "#e2cb8a"); const CRACKED: [C; 4] = pl!("#7a6248", "#98805f", "#b29b78", "#c8b493");
 /// Herbe sèche de steppe : paille dorée, quelques touffes encore vertes, de la terre qui perce.
@@ -118,21 +117,32 @@ fn stone(t: &Tile, x: f64, y: f64, a: &[C], cells: i64) -> S {
     let tone = 0.34 + 0.32 * t.pi(id) + 0.55 * (n - 0.5) + 0.3 * (s - 0.5) + 0.12 * crack;
     S { c: pal(a, tone * (0.72 + 0.28 * crack)), h: 0.2 + 0.6 * crack + 0.2 * n, r: 0.8 }
 }
+/// Granit : un grain fin et serré — feldspath rosé, quartz laiteux, mica noir en points — sous une teinte d'ensemble douce, sans motif.
 fn granite(t: &Tile, x: f64, y: f64) -> S {
-    let (d1, d2, id) = t.vor(x, y, 17); let (e1, _, id2) = t.vor(x + 9.0, y + 5.0, 27); let (r, m, n, fine) = (t.pi(id), t.pi(id2), t.fbm(x, y, 6, 3), t.val(x, y, 32));
-    let (dark, clear) = (m > 0.8 && e1 < 0.42, r > 0.68);
-    let c = if dark { pal(&MICA, n) } else if clear { pal(&QUARTZ, 0.2 + 0.7 * n) } else { pal(&FELD, 0.15 + 0.6 * r + 0.35 * (n - 0.5) + 0.2 * (fine - 0.5)) };
-    let edge = smooth(0.0, 0.08, d2 - d1);
-    S { c: mul(c, 0.86 + 0.14 * edge), h: 0.35 + 0.35 * edge + if clear { 0.2 } else { 0.0 } + 0.1 * n, r: if clear { 0.42 } else { 0.62 } }
+    let big = t.fbm(x, y, 3, 3); let mid = t.fbm(x + 17.0, y - 9.0, 9, 3); let g1 = t.val(x, y, 48); let g2 = t.val(x + 31.0, y + 7.0, 64); let g3 = t.val(x - 11.0, y + 23.0, 40);
+    let base = [0.6 + 0.08 * (big - 0.5), 0.56 + 0.06 * (big - 0.5), 0.53 + 0.05 * (big - 0.5)];
+    let mut c = [base[0] + 0.1 * (mid - 0.5), base[1] + 0.09 * (mid - 0.5), base[2] + 0.09 * (mid - 0.5)];
+    let feld = smooth(0.58, 0.72, g1); c = [lerp(c[0], 0.72, feld * 0.6), lerp(c[1], 0.56, feld * 0.6), lerp(c[2], 0.5, feld * 0.6)];
+    let quartz = smooth(0.66, 0.78, g2); c = [lerp(c[0], 0.8, quartz * 0.5), lerp(c[1], 0.79, quartz * 0.5), lerp(c[2], 0.77, quartz * 0.5)];
+    let mica = smooth(0.74, 0.84, g3); c = [lerp(c[0], 0.12, mica * 0.85), lerp(c[1], 0.11, mica * 0.85), lerp(c[2], 0.12, mica * 0.85)];
+    S { c, h: 0.45 + 0.2 * (mid - 0.5) + 0.15 * quartz - 0.1 * mica, r: 0.55 + 0.2 * mica - 0.15 * quartz }
 }
+/// Calcaire : une pierre crème, lisse, aux lits à peine marqués, tachée de gris et piquée de petites cavités.
 fn limestone(t: &Tile, x: f64, y: f64) -> S {
-    let wx = x + 9.0 * t.fbm(x, y, 3, 3) - 4.5; let wy = y + 9.0 * t.fbm(x + 23.0, y + 11.0, 3, 3) - 4.5; let (d1, d2, id) = t.vor(wx, wy, 4);
-    let broken = smooth(0.42, 0.58, t.fbm(x + 41.0, y + 3.0, 4, 3)); let crack = 1.0 - broken * (1.0 - smooth(0.0, 0.04, d2 - d1));
-    let (p1, _, pid) = t.vor(x + 3.0, y + 8.0, 10); let (q1, _, qid) = t.vor(x + 17.0, y + 2.0, 22);
-    let big = if t.pi(pid) > 0.7 { smooth(0.08, 0.34, p1) } else { 1.0 }; let small = if t.pi(qid) > 0.8 { smooth(0.1, 0.42, q1) } else { 1.0 }; let pit = big.min(small);
-    let n = t.fbm(x, y, 7, 4); let stain = smooth(0.42, 0.72, t.fbm(x + 9.0, y + 40.0, 3, 3)); let bed = 0.5 + 0.5 * sin(wy * std::f64::consts::PI * 6.0 / 64.0 + 5.0 * (n - 0.5));
-    let c = pal(&LIME, 0.42 + 0.2 * t.pi(id) + 0.85 * (n - 0.5) + 0.12 * (bed - 0.5)); let k = (0.55 + 0.45 * crack) * (0.72 + 0.28 * pit);
-    S { c: [c[0] * k, c[1] * k * (1.0 - 0.05 * stain), c[2] * k * (1.0 - 0.14 * stain)], h: 0.1 + 0.42 * crack * pit + 0.48 * n * pit, r: 0.9 }
+    let big = t.fbm(x, y, 2, 3); let mid = t.fbm(x + 41.0, y + 3.0, 6, 4); let fine = t.val(x, y, 48); let bed = 0.5 + 0.5 * sin((y + 6.0 * t.fbm(x, y + 9.0, 3, 2)) * std::f64::consts::PI * 4.0 / 64.0);
+    let stain = smooth(0.5, 0.75, t.fbm(x - 13.0, y + 40.0, 4, 3)); let pit = smooth(0.82, 0.9, t.val(x + 5.0, y - 3.0, 32));
+    let v = 0.72 + 0.08 * (big - 0.5) + 0.07 * (mid - 0.5) + 0.03 * (fine - 0.5) + 0.025 * (bed - 0.5);
+    let c = [v * (1.0 - 0.1 * stain) * (1.0 - 0.35 * pit), v * 0.96 * (1.0 - 0.1 * stain) * (1.0 - 0.35 * pit), v * 0.86 * (1.0 - 0.06 * stain) * (1.0 - 0.35 * pit)];
+    S { c, h: 0.5 + 0.15 * (mid - 0.5) + 0.05 * bed - 0.4 * pit, r: 0.85 }
+}
+/// Gravier : des galets arrondis serrés, de tailles et de couleurs variées, ombrés comme des petits dômes, avec du sable sombre entre eux.
+fn gravel(t: &Tile, x: f64, y: f64) -> S {
+    let (d1, d2, id) = t.vor(x + 3.0 * t.fbm(x, y, 6, 2), y + 3.0 * t.fbm(x + 9.0, y, 6, 2), 13); let k = t.pi(id); let k2 = t.pi(id + 300);
+    let size = 0.36 + 0.12 * k2; let dome = (1.0 - (d1 / size).min(1.0)).max(0.0); let gap = smooth(0.0, 0.07, d2 - d1);
+    let pebble = match (k * 5.0) as i32 { 0 => [0.52, 0.5, 0.47], 1 => [0.6, 0.55, 0.47], 2 => [0.42, 0.41, 0.4], 3 => [0.66, 0.64, 0.6], _ => [0.55, 0.47, 0.38] };
+    let shade = 0.62 + 0.38 * dome.sqrt() + 0.06 * (t.val(x, y, 48) - 0.5); let fill = [0.26, 0.24, 0.21];
+    let c = if gap < 0.35 || dome <= 0.0 { fill } else { [pebble[0] * shade, pebble[1] * shade, pebble[2] * shade] };
+    S { c, h: if gap < 0.35 { 0.05 } else { 0.25 + 0.7 * dome.sqrt() }, r: if gap < 0.35 { 0.95 } else { 0.6 } }
 }
 fn mossy(t: &Tile, x: f64, y: f64) -> S {
     let st = stone(t, x, y, &STONE, 5); let drip = 15.0 + 22.0 * t.fbm(x, 0.0, 5, 3); let m = t.fbm(x, y, 7, 3); let k = y < drip || m > 0.61; let g = t.val(x, y, 32);
@@ -194,7 +204,7 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
     let b_oak = |a: &Tile, b: f64, c: f64| bark(a, b, c, &OAK, 1.0); let b_beech = |a: &Tile, b: f64, c: f64| bark(a, b, c, &BEECH, 0.28);
     match name {
         "grass_top" => grass_top(t, x, y), "grass_side" => grass_side(t, x, y), "dirt" => dirt(t, x, y, &DIRT), "path" => dirt(t, x, y, &PATH), "forest_soil" => dirt(t, x, y, &SOIL),
-        "stone" => stone(t, x, y, &STONE, 5), "mossy_stone" => mossy(t, x, y), "limestone" => limestone(t, x, y), "granite" => granite(t, x, y), "gravel" => stone(t, x, y, &GRAVEL, 11), "sand" => dirt(t, x, y, &SAND),
+        "stone" => stone(t, x, y, &STONE, 5), "mossy_stone" => mossy(t, x, y), "limestone" => limestone(t, x, y), "granite" => granite(t, x, y), "gravel" => gravel(t, x, y), "sand" => dirt(t, x, y, &SAND),
         "bark_oak" => b_oak(t, x, y), "bark_birch" => birch(t, x, y), "bark_beech" => b_beech(t, x, y),
         "leaf_oak" => leaf(t, x, y, [1.0, 1.0, 1.0]), "leaf_birch" => leaf(t, x, y, [1.2, 1.12, 0.9]), "leaf_beech" => leaf(t, x, y, [0.86, 1.0, 0.82]),
         "end_oak" => wood_end(t, x, y, &OAK_W, 0.78, &b_oak), "end_birch" => wood_end(t, x, y, &BIRCH_W, 0.95, &birch), "end_beech" => wood_end(t, x, y, &BEECH_W, 0.85, &b_beech),
@@ -209,7 +219,7 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         _ => panic!("matériau sans générateur : {name}"),
     }
 }
-fn detail(n: &str) -> f64 { match n { "bark_oak" => 0.2, "bark_birch" => 0.08, "bark_beech" => 0.14, "end_oak" => 0.1, "end_birch" => 0.08, "end_beech" => 0.08, "leaf_oak" => 0.16, "leaf_birch" => 0.16, "leaf_beech" => 0.16, "stone" => 0.2, "mossy_stone" => 0.2, "limestone" => 0.2, "granite" => 0.2, "gravel" => 0.22, "dirt" => 0.22, "path" => 0.2, "forest_soil" => 0.24, "grass_top" => 0.22, "grass_side" => 0.2, "planks" => 0.14, "sand" => 0.14, "grass_dry_top" => 0.22, "grass_dry_side" => 0.2, "dry_earth" => 0.18, "bark_dead" => 0.2, "lichen" => 0.2, "bark_acacia" => 0.2, "leaf_acacia" => 0.16, "bone" => 0.12, "leaf_spruce" => 0.1, _ => 0.0 } }
+fn detail(n: &str) -> f64 { match n { "bark_oak" => 0.2, "bark_birch" => 0.08, "bark_beech" => 0.14, "end_oak" => 0.1, "end_birch" => 0.08, "end_beech" => 0.08, "leaf_oak" => 0.16, "leaf_birch" => 0.16, "leaf_beech" => 0.16, "stone" => 0.2, "mossy_stone" => 0.2, "limestone" => 0.06, "granite" => 0.06, "gravel" => 0.08, "dirt" => 0.22, "path" => 0.2, "forest_soil" => 0.24, "grass_top" => 0.22, "grass_side" => 0.2, "planks" => 0.14, "sand" => 0.14, "grass_dry_top" => 0.22, "grass_dry_side" => 0.2, "dry_earth" => 0.18, "bark_dead" => 0.2, "lichen" => 0.2, "bark_acacia" => 0.2, "leaf_acacia" => 0.16, "bone" => 0.12, "leaf_spruce" => 0.1, _ => 0.0 } }
 pub struct Textures { pub albedo: Vec<u8>, pub nrm: Vec<u8>, pub layers: u32, pub size: u32 }
 /// Deux piles RGBA : albédo, puis normale XY et rugosité. Le motif vit dans un repère de 64 unités ; à 128 pixels, une octave fine ajoute un vrai détail.
 pub fn build_textures(size: usize) -> Textures {

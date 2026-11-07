@@ -46,6 +46,10 @@ pub fn branch_of(log: u8) -> u8 { by_name(&format!("{}_branch", species(log))).u
 pub fn log_of(b: u8) -> u8 { if is_branch(b) { by_name(&format!("{}_log", species(b))).unwrap_or(b) } else { b } }
 /// Le bloc de tronc creux d'une essence (chêne, épicéa ou bois mort).
 pub fn hollow_of(log: u8) -> u8 { by_name(&format!("{}_hollow", species(log))).unwrap_or(B::DEAD_HOLLOW) }
+/// Couleur d'un champignon lumineux (indice dans mesher::GLOW), s'il en est un.
+pub fn glow_index(b: u8) -> Option<usize> { match b { B::GLOWCAP => Some(0), B::GLOWCAP_BLUE => Some(1), B::GLOWCAP_PINK => Some(2), B::GLOWCAP_VIOLET => Some(3), B::GLOWCAP_CYAN => Some(4), _ => None } }
+/// Champignon lumineux de la couleur k.
+pub fn glowcap_of(k: usize) -> u8 { [B::GLOWCAP, B::GLOWCAP_BLUE, B::GLOWCAP_PINK, B::GLOWCAP_VIOLET, B::GLOWCAP_CYAN][k % 5] }
 pub fn species(b: u8) -> &'static str { BLOCKS[b as usize].name.split('_').next().unwrap_or("") }
 #[inline(always)] pub fn is_leaf(b: u8) -> bool { BLOCKS[b as usize].shape == Shape::Leaf }
 #[inline(always)] pub fn is_deco(b: u8) -> bool { BLOCKS[b as usize].shape == Shape::Deco }

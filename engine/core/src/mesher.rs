@@ -464,55 +464,57 @@ impl Mesher {
                 for _ in 0..4 { blade(o, x + r_.range(0.3, 0.7), y, z + r_.range(0.3, 0.7), r_.range(0.0, 6.28), r_.range(0.03, 0.05), r_.range(0.15, 0.3), 0.08, 0.46 * base, 0.5 * base, 0.28 * base, s, l, (s - 40.0).max(0.0)); }
             }
             "sage" => {
-                // Armoise : un petit buisson rond, gris-vert argenté, sur un pied ligneux.
-                let (a0, c0) = (x + r_.range(0.4, 0.6), z + r_.range(0.4, 0.6)); let t = r_.range(0.9, 1.1); let hmax = r_.range(0.4, 0.62);
-                bx3(o, a0 - 0.035, y, c0 - 0.035, a0 + 0.035, y + 0.16, c0 + 0.035, 0.36, 0.28, 0.2, 0.0, s, l);
-                let n = r_.int(6, 9);
-                for _ in 0..n {
-                    let (a, c) = (a0 + r_.range(-0.26, 0.26), c0 + r_.range(-0.26, 0.26)); let w = r_.range(0.09, 0.17); let yy = y + r_.range(0.08, hmax - 0.12); let k = t * r_.range(0.88, 1.12);
-                    bx(o, a - w, yy, c - w, a + w, yy + w * 1.3, c + w, 0.5 * k, 0.56 * k, 0.48 * k, 30.0, s, l, FOLIAGE, true, 40.0, 255.0);
-                }
-            }
-            "deadbush" => {
-                // Buisson mort : des tiges ligneuses qui partent en évantail du collet, se ramifient deux fois et finissent en brindilles fines.
-                let (a0, c0) = (x + r_.range(0.42, 0.58), z + r_.range(0.42, 0.58)); let gray = r_.range(0.0, 1.0); let size = r_.range(0.75, 1.2);
-                let col = |k: f64, f: f64| [(0.44 + 0.08 * gray) * k * (1.0 + 0.12 * f), (0.36 + 0.12 * gray) * k * (1.0 + 0.12 * f), (0.27 + 0.16 * gray) * k * (1.0 + 0.12 * f)];
-                bx3(o, a0 - 0.05, y, c0 - 0.05, a0 + 0.05, y + 0.06, c0 + 0.05, 0.3, 0.24, 0.18, 0.0, s, l); // collet
-                let n = r_.int(5, 8); let spin = r_.range(0.0, 6.28);
+                // Armoise : des tiges ligneuses qui s'écartent du collet, couvertes de petites touffes de feuilles gris-vert argenté.
+                let (a0, c0) = (x + r_.range(0.42, 0.58), z + r_.range(0.42, 0.58)); let size = r_.range(0.8, 1.15); let base = [0.5, 0.56, 0.47];
+                let n = r_.int(5, 7); let spin = r_.range(0.0, 6.28);
                 for i in 0..n {
-                    let a = spin + i as f64 / n as f64 * 6.28 + r_.range(-0.35, 0.35); let (h, lean) = (r_.range(0.32, 0.62) * size, r_.range(0.18, 0.42) * size); let k = r_.range(0.85, 1.15);
-                    let c = col(k, 0.0); blade(o, a0, y + 0.03, c0, a, r_.range(0.018, 0.026), h, lean, c[0], c[1], c[2], s, l, (s - 25.0).max(0.0));
-                    for _ in 0..r_.int(2, 3) {
-                        // Fourche : part le long de la tige, s'écarte puis se divise encore en brindilles.
-                        let f = r_.range(0.35, 0.8); let (fx, fz, fy) = (a0 + cos(a) * lean * f * 0.8, c0 + sin(a) * lean * f * 0.8, y + 0.03 + h * f * 0.95);
-                        let a2 = a + r_.range(0.5, 1.1) * if r_.next() < 0.5 { -1.0 } else { 1.0 }; let (h2, l2) = (r_.range(0.12, 0.26) * size, r_.range(0.1, 0.24) * size); let c = col(k, 0.5);
-                        blade(o, fx, fy, fz, a2, 0.012, h2, l2, c[0], c[1], c[2], s, l, (s - 25.0).max(0.0));
-                        let (tx, tz, ty) = (fx + cos(a2) * l2 * 0.8, fz + sin(a2) * l2 * 0.8, fy + h2 * 0.9); let c = col(k, 1.0);
-                        for _ in 0..2 { blade(o, tx, ty, tz, a2 + r_.range(-0.9, 0.9), 0.007, r_.range(0.05, 0.12) * size, r_.range(0.04, 0.1), c[0], c[1], c[2], s, l, (s - 25.0).max(0.0)); }
+                    let a = spin + i as f64 / n as f64 * 6.28 + r_.range(-0.3, 0.3); let (rr, hh) = (r_.range(0.12, 0.3) * size, r_.range(0.22, 0.44) * size);
+                    let tip = [a0 + cos(a) * rr, y + hh, c0 + sin(a) * rr]; rod(o, [a0, y, c0], tip, 0.022, 0.012, [0.36, 0.3, 0.24], s, l, FLAT, 0.0, 40.0);
+                    for q in 0..r_.int(9, 13) {
+                        let f = 0.35 + 0.65 * q as f64 / 12.0; let (px, py, pz) = (a0 + (tip[0] - a0) * f + r_.range(-0.09, 0.09), y + (tip[1] - y) * f + r_.range(-0.05, 0.07), c0 + (tip[2] - c0) * f + r_.range(-0.09, 0.09));
+                        let w = r_.range(0.03, 0.055) * size; let k = r_.range(0.82, 1.15) * (0.75 + 0.35 * f); let silver = r_.range(0.0, 0.12);
+                        bx(o, px - w, py - w * 0.7, pz - w, px + w, py + w * 0.7, pz + w, (base[0] + silver) * k, (base[1] + silver) * k, (base[2] + silver) * k, 30.0 * f, s, l, FOLIAGE, true, 40.0 * f, 255.0);
                     }
                 }
             }
+            "deadbush" => {
+                // Buisson mort : des tiges ligneuses en volume, qui se ramifient trois fois et finissent en brindilles grises.
+                let (a0, c0) = (x + r_.range(0.42, 0.58), z + r_.range(0.42, 0.58)); let gray = r_.range(0.0, 1.0); let size = r_.range(0.8, 1.2);
+                let col = |k: f64| [(0.42 + 0.1 * gray) * k, (0.35 + 0.12 * gray) * k, (0.27 + 0.15 * gray) * k];
+                let n = r_.int(5, 8); let spin = r_.range(0.0, 6.28);
+                let mut stack: Vec<([f64; 3], f64, f64, f64, f64, u8)> = (0..n).map(|i| ([a0, y, c0], spin + i as f64 / n as f64 * 6.28, r_.range(0.35, 0.95), r_.range(0.3, 0.5) * size, 0.022, 0u8)).collect();
+                while let Some((p0, a, up, len, w, depth)) = stack.pop() {
+                    let (h, sp) = (up * len, (1.0 - up * up).max(0.05).sqrt() * len); let p1 = [p0[0] + cos(a) * sp, p0[1] + h, p0[2] + sin(a) * sp];
+                    rod(o, p0, p1, w, w * 0.6, col(r_.range(0.85, 1.15) * (1.0 + 0.08 * depth as f64)), s, l, FLAT, 0.0, 0.0);
+                    if depth < 2 { for _ in 0..r_.int(2, 3) { let f = r_.range(0.45, 1.0); let q = [p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f, p0[2] + (p1[2] - p0[2]) * f]; stack.push((q, a + r_.range(-0.9, 0.9), (up + r_.range(-0.3, 0.2)).clamp(0.15, 0.95), len * r_.range(0.4, 0.6), w * 0.6, depth + 1)); } }
+                }
+            }
             "blueberry" => {
-                // Myrtillier : un petit tapis de rameaux verts aux feuilles menues, semé de baies bleu nuit.
+                // Myrtillier : des rameaux fins et anguleux, de petites feuilles ovales et quelques baies bleu nuit.
                 let n = r_.int(5, 8);
                 for _ in 0..n {
-                    let (a, c) = (x + r_.range(0.15, 0.85), z + r_.range(0.15, 0.85)); let h = r_.range(0.12, 0.3); let t = r_.range(0.85, 1.15);
-                    bx(o, a - 0.012, y, c - 0.012, a + 0.012, y + h, c + 0.012, 0.26 * t, 0.4 * t, 0.16 * t, 40.0, s, l, FOLIAGE, false, 60.0, 255.0);
-                    for k in 0..3 { let (dx, dz, yy) = (r_.range(-0.07, 0.07), r_.range(-0.07, 0.07), y + h * (0.45 + 0.27 * k as f64)); let w = r_.range(0.03, 0.05); bx(o, a + dx - w, yy, c + dz - w, a + dx + w, yy + 0.02, c + dz + w, 0.3 * t, 0.5 * t, 0.2 * t, 60.0, s, l, FOLIAGE, true, 70.0, 255.0); }
-                    if r_.next() < 0.7 { let (dx, dz, yy) = (r_.range(-0.05, 0.05), r_.range(-0.05, 0.05), y + h * r_.range(0.3, 0.8)); bx(o, a + dx - 0.024, yy, c + dz - 0.024, a + dx + 0.024, yy + 0.045, c + dz + 0.024, 0.14, 0.17, 0.42, 60.0, s, l, FLAT, true, 70.0, 255.0); }
+                    let (a, c) = (x + r_.range(0.15, 0.85), z + r_.range(0.15, 0.85)); let h = r_.range(0.14, 0.32); let t = r_.range(0.85, 1.15); let lean = (r_.range(-0.06, 0.06), r_.range(-0.06, 0.06));
+                    let top = [a + lean.0, y + h, c + lean.1]; rod(o, [a, y, c], top, 0.01, 0.006, [0.3 * t, 0.36 * t, 0.16 * t], s, l, FLAT, 0.0, 30.0);
+                    for k in 0..r_.int(5, 8) { let f = r_.range(0.35, 1.0); let (px, py, pz) = (a + lean.0 * f + r_.range(-0.05, 0.05), y + h * f, c + lean.1 * f + r_.range(-0.05, 0.05)); let (wl, wd) = if k % 2 == 0 { (0.035, 0.02) } else { (0.02, 0.035) }; let g = r_.range(0.85, 1.15);
+                        bx(o, px - wl, py, pz - wd, px + wl, py + 0.012, pz + wd, 0.26 * t * g, 0.46 * t * g, 0.18 * t * g, 50.0 * f, s, l, FOLIAGE, true, 60.0 * f, 255.0); }
+                    if r_.next() < 0.65 { let f = r_.range(0.3, 0.8); let (px, py, pz) = (a + lean.0 * f + r_.range(-0.03, 0.03), y + h * f - 0.03, c + lean.1 * f + r_.range(-0.03, 0.03)); bx(o, px - 0.022, py, pz - 0.022, px + 0.022, py + 0.042, pz + 0.022, 0.12, 0.15, 0.38, 40.0, s, l, FLAT, true, 50.0, 255.0); }
                 }
             }
             "rowan" => {
-                // Jeune sorbier : un buisson élancé, feuillage roussi par le froid et grappes de baies rouge vif.
-                let (a0, c0) = (x + 0.5, z + 0.5); let hh = r_.range(0.8, 1.35);
-                bx3(o, a0 - 0.03, y, c0 - 0.03, a0 + 0.03, y + hh * 0.6, c0 + 0.03, 0.38, 0.3, 0.22, 0.0, s, l);
-                for _ in 0..r_.int(7, 11) {
-                    let (dx, dz) = (r_.range(-0.34, 0.34), r_.range(-0.34, 0.34)); let yy = y + hh * r_.range(0.4, 0.95) - (dx * dx + dz * dz) * 0.8; let w = r_.range(0.07, 0.12); let k = r_.range(0.85, 1.15); let warm = r_.next();
-                    bx(o, a0 + dx - w, yy, c0 + dz - w, a0 + dx + w, yy + 0.05, c0 + dz + w, (0.42 + 0.3 * warm) * k, (0.42 - 0.12 * warm) * k, 0.16 * k, 70.0, s, l, FOLIAGE, true, 80.0, 255.0);
-                }
-                for _ in 0..r_.int(3, 5) {
-                    let (dx, dz) = (r_.range(-0.26, 0.26), r_.range(-0.26, 0.26)); let yy = y + hh * r_.range(0.45, 0.85);
-                    for (ox, oy, oz) in [(0.0, 0.0, 0.0), (0.035, -0.03, 0.02), (-0.03, -0.03, -0.02), (0.01, -0.06, -0.03)] { bx(o, a0 + dx + ox - 0.025, yy + oy, c0 + dz + oz - 0.025, a0 + dx + ox + 0.025, yy + oy + 0.045, c0 + dz + oz + 0.025, 0.95, 0.14, 0.08, 60.0, s, l, FLAT, true, 70.0, 255.0); }
+                // Jeune sorbier : deux ou trois tiges fines, des feuilles composées en folioles qui roussissent, des grappes de baies rouges.
+                let (a0, c0) = (x + 0.5, z + 0.5); let hh = r_.range(0.85, 1.4); let n = r_.int(2, 3);
+                for _ in 0..n {
+                    let top = [a0 + r_.range(-0.18, 0.18), y + hh * r_.range(0.75, 1.0), c0 + r_.range(-0.18, 0.18)]; rod(o, [a0 + r_.range(-0.04, 0.04), y, c0 + r_.range(-0.04, 0.04)], top, 0.025, 0.012, [0.4, 0.33, 0.26], s, l, FLAT, 0.0, 60.0);
+                    for _ in 0..r_.int(4, 6) {
+                        // Feuille composée : une nervure et des paires de folioles allongées de part et d'autre.
+                        let f = r_.range(0.45, 1.0); let q = [a0 + (top[0] - a0) * f, y + (top[1] - y) * f, c0 + (top[2] - c0) * f]; let a = r_.range(0.0, 6.28); let len = r_.range(0.2, 0.32); let warm = r_.next();
+                        let e = [q[0] + cos(a) * len, q[1] + r_.range(-0.04, 0.06), q[2] + sin(a) * len]; rod(o, q, e, 0.006, 0.004, [0.42, 0.4, 0.2], s, l, FOLIAGE, 60.0, 90.0);
+                        let col = [(0.4 + 0.42 * warm), (0.44 - 0.16 * warm), 0.14 + 0.02 * warm];
+                        for k in 1..=4 { let g = k as f64 / 4.5; let (mx, my, mz) = (q[0] + (e[0] - q[0]) * g, q[1] + (e[1] - q[1]) * g, q[2] + (e[2] - q[2]) * g); for side in [-1.0, 1.0] { let (px, pz) = (mx - sin(a) * 0.045 * side, mz + cos(a) * 0.045 * side); let kk = r_.range(0.85, 1.15);
+                            bx(o, px - 0.028, my, pz - 0.028, px + 0.028, my + 0.01, pz + 0.028, col[0] * kk, col[1] * kk, col[2] * kk, 70.0, s, l, FOLIAGE, true, 90.0, 255.0); } }
+                    }
+                    for _ in 0..r_.int(1, 2) { let q = [top[0] + r_.range(-0.1, 0.1), top[1] - r_.range(0.05, 0.2), top[2] + r_.range(-0.1, 0.1)];
+                        for (ox, oy, oz) in [(0.0, 0.0, 0.0), (0.04, -0.03, 0.02), (-0.035, -0.03, -0.02), (0.01, -0.06, -0.035), (-0.02, -0.07, 0.03), (0.03, -0.09, -0.01)] { bx(o, q[0] + ox - 0.022, q[1] + oy, q[2] + oz - 0.022, q[0] + ox + 0.022, q[1] + oy + 0.04, q[2] + oz + 0.022, 0.9, 0.13, 0.08, 60.0, s, l, FLAT, true, 70.0, 255.0); } }
                 }
             }
             "icicle" => {
@@ -529,7 +531,7 @@ impl Mesher {
                 for _ in 0..n {
                     let a = x + r_.range(0.25, 0.75); let c = z + r_.range(0.25, 0.75); let h = r_.range(0.2, 0.5); let w = r_.range(0.08, 0.17);
                     bx3(o, a - 0.03, y, c - 0.03, a + 0.03, y + h, c + 0.03, 0.82, 0.86, 0.9, 0.0, s, l);
-                    let col = glow_color(wx, yi, wz); // vert, bleu, rose, violet ou turquoise
+                    let col = GLOW[glow_index(b).unwrap_or(0)]; // vert, bleu, rose, violet ou turquoise : la couleur est celle du bloc
                     bx(o, a - w, y + h, c - w, a + w, y + h + 0.09, c + w, col[0], col[1], col[2], 0.0, s, 255.0, EMIT, true, 0.0, 255.0);
                 }
             }
@@ -554,6 +556,21 @@ fn face(o: &mut VBuf, p: [f64; 12], n: [f64; 3], wa: f64, wb: f64, ao_l: f64, ao
     o.v(p[3], p[4], p[5], 0.0, n[0], n[1], n[2], wa, ao_l, s, l, kd, r, g, b);
     o.v(p[6], p[7], p[8], 0.0, n[0], n[1], n[2], wb, ao, s, l, kd, r, g, b);
     o.v(p[9], p[10], p[11], 0.0, n[0], n[1], n[2], wb, ao, s, l, kd, r, g, b);
+}
+/// Tige en volume : un prisme à section carrée de `a` vers `b`, qui s'affine de `w0` à `w1`, fermé au bout.
+#[allow(clippy::too_many_arguments)]
+fn rod(o: &mut VBuf, a: [f64; 3], b: [f64; 3], w0: f64, w1: f64, col: [f64; 3], s: f64, l: f64, kd: u8, wa: f64, wb: f64) {
+    let d0 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]; let dl = hypot3(d0[0], d0[1], d0[2]).max(1e-6); let d = [d0[0] / dl, d0[1] / dl, d0[2] / dl];
+    let cr = |p: [f64; 3], q: [f64; 3]| [p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0]]; let nz = |p: [f64; 3]| { let m = hypot3(p[0], p[1], p[2]).max(1e-6); [p[0] / m, p[1] / m, p[2] / m] };
+    let u = nz(cr(d, if d[1].abs() > 0.9 { [1.0, 0.0, 0.0] } else { [0.0, 1.0, 0.0] })); let v = cr(u, d);
+    let at = |p: [f64; 3], n: [f64; 3], r: [f64; 3], w: f64, sr: f64| [p[0] + (n[0] + r[0] * sr) * w, p[1] + (n[1] + r[1] * sr) * w, p[2] + (n[2] + r[2] * sr) * w];
+    for n in [u, v, [-u[0], -u[1], -u[2]], [-v[0], -v[1], -v[2]]] {
+        let r = cr(d, n); let (p0, p1, p2, p3) = (at(a, n, r, w0, -1.0), at(a, n, r, w0, 1.0), at(b, n, r, w1, 1.0), at(b, n, r, w1, -1.0));
+        face(o, [p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2]], n, wa, wb, 200.0, 255.0, col, s, l, kd);
+    }
+    let c = |su: f64, sv: f64| [b[0] + (u[0] * su + v[0] * sv) * w1, b[1] + (u[1] * su + v[1] * sv) * w1, b[2] + (u[2] * su + v[2] * sv) * w1];
+    let (q0, q1, q2, q3) = (c(-1.0, 1.0), c(1.0, 1.0), c(1.0, -1.0), c(-1.0, -1.0));
+    face(o, [q0[0], q0[1], q0[2], q1[0], q1[1], q1[2], q2[0], q2[1], q2[2], q3[0], q3[1], q3[2]], d, wb, wb, 255.0, 255.0, col, s, l, kd);
 }
 /// Pavé coloré, pour le décor et les petits modèles.
 #[allow(clippy::too_many_arguments)]

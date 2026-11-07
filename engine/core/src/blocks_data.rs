@@ -4,7 +4,7 @@ use crate::blocks::{Block, Shape};
 pub const VARIANTS: u32 = 4;
 pub const MATERIALS: [&str; 39] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone"];
 
-pub const BLOCKS: [Block; 112] = [
+pub const BLOCKS: [Block; 116] = [
     Block { id: 0, name: "air", shape: Shape::Air, hardness: 0.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "decor", drop: Some("air") },
     Block { id: 1, name: "grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
     Block { id: 2, name: "dirt", shape: Shape::Cube, hardness: 0.45, faces: [8,8,8], dir_faces: [8,8,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
@@ -99,7 +99,7 @@ pub const BLOCKS: [Block; 112] = [
     Block { id: 91, name: "acacia_log", shape: Shape::Cube, hardness: 1.0, faces: [144,140,144], dir_faces: [140,144,144,140], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("acacia_log") },
     Block { id: 92, name: "acacia_log_x", shape: Shape::Cube, hardness: 1.0, faces: [140,144,140], dir_faces: [144,140,140,140], grain: [0,1,1,1], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("acacia_log") },
     Block { id: 93, name: "acacia_log_z", shape: Shape::Cube, hardness: 1.0, faces: [140,140,144], dir_faces: [140,140,140,144], grain: [1,2,2,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("acacia_log") },
-    Block { id: 94, name: "acacia_leaves", shape: Shape::Leaf, hardness: 0.12, faces: [148,148,148], dir_faces: [148,148,148,148], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [0.72,0.74,0.5], model: None, cat: "foliage", drop: None },
+    Block { id: 94, name: "acacia_leaves", shape: Shape::Leaf, hardness: 0.12, faces: [148,148,148], dir_faces: [148,148,148,148], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [0.66,0.66,0.46], model: None, cat: "foliage", drop: None },
     Block { id: 95, name: "bone", shape: Shape::Cube, hardness: 0.9, faces: [152,152,152], dir_faces: [152,152,152,152], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("bone") },
     Block { id: 96, name: "birch_leaves_gold", shape: Shape::Leaf, hardness: 0.12, faces: [56,56,56], dir_faces: [56,56,56,56], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.45,1.05,0.35], model: None, cat: "foliage", drop: None },
     Block { id: 97, name: "oak_branch", shape: Shape::Deco, hardness: 0.4, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("branch"), cat: "wood", drop: Some("oak_log") },
@@ -117,6 +117,10 @@ pub const BLOCKS: [Block; 112] = [
     Block { id: 109, name: "dead_hollow", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("hollow"), cat: "wood", drop: Some("dead_hollow") },
     Block { id: 110, name: "dead_hollow_x", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("hollow"), cat: "wood", drop: Some("dead_hollow") },
     Block { id: 111, name: "dead_hollow_z", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("hollow"), cat: "wood", drop: Some("dead_hollow") },
+    Block { id: 112, name: "glowcap_blue", shape: Shape::Deco, hardness: 0.02, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("glowcap"), cat: "decor", drop: Some("glowcap_blue") },
+    Block { id: 113, name: "glowcap_pink", shape: Shape::Deco, hardness: 0.02, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("glowcap"), cat: "decor", drop: Some("glowcap_pink") },
+    Block { id: 114, name: "glowcap_violet", shape: Shape::Deco, hardness: 0.02, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("glowcap"), cat: "decor", drop: Some("glowcap_violet") },
+    Block { id: 115, name: "glowcap_cyan", shape: Shape::Deco, hardness: 0.02, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("glowcap"), cat: "decor", drop: Some("glowcap_cyan") },
 ];
 
 #[allow(non_snake_case)]
@@ -233,4 +237,8 @@ pub mod B {
     pub const DEAD_HOLLOW: u8 = 109;
     pub const DEAD_HOLLOW_X: u8 = 110;
     pub const DEAD_HOLLOW_Z: u8 = 111;
+    pub const GLOWCAP_BLUE: u8 = 112;
+    pub const GLOWCAP_PINK: u8 = 113;
+    pub const GLOWCAP_VIOLET: u8 = 114;
+    pub const GLOWCAP_CYAN: u8 = 115;
 }

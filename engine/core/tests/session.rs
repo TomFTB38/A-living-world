@@ -69,7 +69,7 @@ fn la_faune_vit_dans_le_monde_reel() {
     let mut s = session(); let (mut deer, mut bird) = (0, 0);
     for k in 0..3600 { s.tick(1.0 / 60.0, Input::default(), Actions::default()); deer = deer.max(s.fauna.deer.len()); bird = bird.max(s.fauna.birds.len()); if k % 120 == 0 { let p = s.player.p; s.world.update(p[0], p[2]); } }
     println!("{deer} cerfs, {bird} oiseaux au plus"); assert!(deer + bird > 0, "des animaux apparaissent");
-    let md = alw_core::actors::Models::build(); let d = s.draws(&md, &alw_core::view::look_dir([0.0; 3], [0.0, 0.0, 1.0])); assert!(d.iter().filter(|x| !x.hero).count() == s.fauna.deer.len() * 6 + s.fauna.birds.len() * 3); assert!(d.len() <= 96);
+    let md = alw_core::actors::Models::build(); let d = s.draws(&md, &alw_core::view::look_dir([0.0; 3], [0.0, 0.0, 1.0])); let wild = s.wild.draws(&md).len(); println!("{} morceaux de faune sauvage ({} bêtes, {} traces)", wild, s.wild.all.len(), s.wild.prints.len()); assert!(d.iter().filter(|x| !x.hero).count() == s.fauna.deer.len() * 6 + s.fauna.birds.len() * 3 + wild); assert!(d.len() <= 512, "tient dans le tampon des morceaux");
     for id in ORDER { let m = md.icon_matrix(id); let h = md.held(id).unwrap(); let (a, b) = (h.r.first as usize / 6 * 4, (h.r.first + h.r.count) as usize / 6 * 4);
         for v in md.data[a * 20..b * 20].chunks_exact(20) { let p = [0, 2, 4].map(|k| i16::from_le_bytes([v[k], v[k + 1]]) as f32 / 128.0); let q = alw_core::view::mul(&m, &alw_core::view::trs(p[0] as f64, p[1] as f64, p[2] as f64, 0.0, 0.0, 1.0)); assert!(q[12].abs() <= 0.93 && q[13].abs() <= 0.93 && q[14] >= -0.001 && q[14] <= 1.001, "{id} sort de son icône : {:?}", &q[12..15]); } }
 }
