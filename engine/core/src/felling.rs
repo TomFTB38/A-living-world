@@ -7,7 +7,7 @@ use crate::noise::Rng;
 use crate::player::Voxels;
 use crate::view::{mul, rot_axis, trs, M4};
 use std::collections::{HashSet, VecDeque};
-pub const FELL_TIME: f64 = 10.0; pub const MAX_LOGS: usize = 1500; const REACH: i32 = 16; const LEAF_DIST: u8 = 6; const FLUTTER: usize = 24;
+pub const FELL_TIME: f64 = 10.0; pub const MAX_LOGS: usize = 900; const REACH: i32 = 11; const MAX_LEAVES: usize = 2500; const LEAF_DIST: u8 = 6; const FLUTTER: usize = 24;
 type P = (i32, i32, i32);
 pub struct Tree { pub logs: Vec<P>, pub leaves: Vec<P> }
 /// Un arbre, c'est des troncs de même essence reliés entre eux et portant du feuillage : un mur de bûches n'en est pas un.
@@ -17,7 +17,10 @@ pub fn find_tree(w: &impl Voxels, x: i32, y: i32, z: i32) -> Option<Tree> {
     while let Some(p) = q.pop_front() {
         for dy in -1..=1 { for dz in -1..=1 { for dx in -1..=1 {
             let n = (p.0 + dx, p.1 + dy, p.2 + dz); if (n.0 - x).abs() > REACH || (n.2 - z).abs() > REACH || seen.contains(&n) || seen.len() >= MAX_LOGS { continue; }
-            if w.get(n.0, n.1, n.2).is_some_and(|b| (is_log(b) || is_branch(b)) && species(b) == sp) { seen.insert(n); q.push_back(n); }
+            if !w.get(n.0, n.1, n.2).is_some_and(|b| (is_log(b) || is_branch(b)) && species(b) == sp) { continue; }
+            // Un arbre voisin collé au nôtre n'est pas emporté : au-delà du tronc, un bois qui a encore un tronc sous lui, à hauteur de l'entaille, appartient à un autre arbre.
+            let far = (n.0 - x).abs().max((n.2 - z).abs()) > 3; if far && w.get(n.0, y.min(n.1), n.2).is_some_and(|b| is_log(b) && species(b) == sp) && w.get(n.0, y.min(n.1) - 1, n.2).is_some_and(|b| is_log(b) || is_opaque(b)) { continue; }
+            seen.insert(n); q.push_back(n);
         } } }
     }
     let logs: Vec<P> = { let mut v: Vec<P> = seen.into_iter().collect(); v.sort(); v };
@@ -26,7 +29,7 @@ pub fn find_tree(w: &impl Voxels, x: i32, y: i32, z: i32) -> Option<Tree> {
         if d >= LEAF_DIST { continue; }
         for dy in -1..=1 { for dz in -1..=1 { for dx in -1..=1 {
             let n = (p.0 + dx, p.1 + dy, p.2 + dz); if done.contains(&n) { continue; }
-            if w.get(n.0, n.1, n.2).is_some_and(|b| is_leaf(b) && species(b) == sp) { done.insert(n); lq.push_back((n, d + 1)); }
+            if done.len() < MAX_LEAVES && w.get(n.0, n.1, n.2).is_some_and(|b| is_leaf(b) && species(b) == sp) { done.insert(n); lq.push_back((n, d + 1)); }
         } } }
     }
     if done.len() < 6 && !(sp == "dead" && logs.len() >= 4) { return None; } // un arbre mort n'a plus de feuillage

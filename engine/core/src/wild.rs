@@ -101,7 +101,7 @@ impl Wild {
     }
     fn walker(&mut self, c: &mut Critter, dt: f64, w: &impl Voxels, p: [f64; 3]) {
         let hare = c.kind == Kind::Hare; let dist = hypot2(c.p[0] - p[0], c.p[2] - p[2]); let r = &mut self.rng;
-        if dist < if hare { 9.0 } else { 12.0 } && c.state != State::Flee {
+        if dist < if hare { 4.5 } else { 6.0 } && c.state != State::Flee {
             c.state = State::Flee; c.t = r.range(3.0, 5.0); c.yaw = (c.p[0] - p[0]).atan2(c.p[2] - p[2]); if hare { self.ev.push(Ev::Thump(c.p)); } else if r.next() < 0.6 { self.ev.push(Ev::Bark(c.p)); }
         }
         if !hare && c.state == State::Idle && r.next() < dt * 0.02 { self.ev.push(if r.next() < 0.3 { Ev::Scream(c.p) } else { Ev::Bark(c.p) }); } // le renard appelle de loin en loin
@@ -121,7 +121,7 @@ impl Wild {
         let r = &mut self.rng; c.phase += dt * if c.state == State::Fly { 11.0 } else { 0.0 }; c.t -= dt;
         if r.next() < dt * 0.12 { self.ev.push(Ev::Caw(c.p)); }
         if c.state == State::Idle {
-            if hypot2(c.p[0] - p[0], c.p[2] - p[2]) < 9.0 || c.t <= 0.0 { c.state = State::Fly; c.t = r.range(8.0, 18.0); c.v[1] = 3.0; self.ev.push(Ev::Caw(c.p)); }
+            if hypot2(c.p[0] - p[0], c.p[2] - p[2]) < 5.0 || c.t <= 0.0 { c.state = State::Fly; c.t = r.range(8.0, 18.0); c.v[1] = 3.0; self.ev.push(Ev::Caw(c.p)); }
             return;
         }
         // Vol plané en larges cercles au-dessus des arbres, parfois une pause au sol.

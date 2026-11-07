@@ -14,7 +14,7 @@ pub struct Column { pub mix: Mix, pub wet: bool, pub h: f64, pub water: f64, pub
 #[derive(Clone, Copy)] struct Pond { x: f64, z: f64, r: f64, level: f64 }
 struct Raw { wx: f64, wz: f64, low: f64, hs: f64, massif: f64 }
 /// Empreinte : voxels (x, y, z, id) d'un arbre ou d'un rocher, posés dans chaque chunk touché.
-pub struct Stamp { data: Vec<[i32; 4]>, force: bool }
+pub struct Stamp { data: Vec<[i32; 4]>, force: bool, ground: bool }
 
 struct Bed { d_r: f64, wid: f64, l: f64, grad: f64 }
 const LIP: f64 = 0.55; // part du lit qui se déverse au bord d'un palier
@@ -315,6 +315,8 @@ impl WorldGen {
             let (x, y, z, id) = (d[0] - ox, d[1], d[2] - oz, d[3] as u8);
             if x < 0 || z < 0 || x >= CX as i32 || z >= CX as i32 || y < 0 || y >= CH as i32 { continue; }
             let k = idx(x as usize, y as usize, z as usize); let cur = v[k];
+            // Ce qui gît au sol (troncs couchés, souches) ne se pose que sur du plein : jamais au-dessus d'un creux.
+            if st.ground && (y == 0 || !is_solid(v[idx(x as usize, y as usize - 1, z as usize)])) { continue; }
             if cur == 0 { v[k] = id; } else if id != 0 && (st.force || (is_deco(cur) && !is_branch(cur))) { v[k] = id; } // les branches d'un arbre voisin restent en place
             if st.force && is_solid(id) && y > heights[x as usize + z as usize * CX] { heights[x as usize + z as usize * CX] = y; }
         }
@@ -366,7 +368,7 @@ impl WorldGen {
                 dy += 1.0;
             }
         }
-        Some(Stamp { data, force: true })
+        Some(Stamp { data, force: true, ground: false })
     }
     /// Tronc mort couché et creux : une file de blocs de tronc creux, posée à plat, ouverte aux deux bouts.
     fn hollow_log(&self, x: f64, z: f64, r: &mut Rng, wood: u8) -> Option<Stamp> {
@@ -376,12 +378,12 @@ impl WorldGen {
         let flat = |a: i32| { let (dx, dz) = dir(a); (0..len).take_while(|k| { let h = self.column(x + dx * *k as f64, z + dz * *k as f64).h.floor(); h == h0 || h == h0 + 1.0 }).count() as i32 };
         let a = if flat(a0) >= flat(1 - a0) { a0 } else { 1 - a0 }; let n = flat(a); if n < 3 { return None; }
         let (dx, dz) = dir(a); let id = oriented_block(hollow_of(wood), if a == 0 { 'x' } else { 'z' });
-        Some(Stamp { data: (0..n).map(|k| [ri(x + dx * k as f64), h0 as i32 + 1, ri(z + dz * k as f64), id as i32]).collect(), force: true })
+        Some(Stamp { data: (0..n).map(|k| [ri(x + dx * k as f64), h0 as i32 + 1, ri(z + dz * k as f64), id as i32]).collect(), force: true, ground: true })
     }
     /// Souche creuse : un ou deux blocs de tronc creux debout, le cœur vide ouvert vers le ciel.
     fn hollow_stump(&self, x: f64, z: f64, r: &mut Rng, wood: u8) -> Option<Stamp> {
         let h0 = self.column(x, z).h.floor(); let id = hollow_of(wood);
-        Some(Stamp { data: (1..=r.int(1, 2)).map(|y| [ri(x), h0 as i32 + y, ri(z), id as i32]).collect(), force: false })
+        Some(Stamp { data: (1..=r.int(1, 2)).map(|y| [ri(x), h0 as i32 + y, ri(z), id as i32]).collect(), force: false, ground: true })
     }
     /// Squelette d'un grand animal disparu, à moitié enfoui dans la steppe : échine, côtes, crâne, défenses et os épars.
     fn bone_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
@@ -400,7 +402,7 @@ impl WorldGen {
         for side in [-1.0, 1.0] { let mut th = 0.0; while th < 2.6 { put(head + 3.5 + 2.2 * sin(th), hy - 0.8 + 2.0 * (1.0 - cos(th)) * 0.6 - 0.6 * sin(th), side * (1.2 + 0.3 * th)); th += 0.2; } }
         // quelques os longs épars autour
         for _ in 0..r.int(2, 4) { let (u0, w0, b) = (r.range(-len * 0.6, len * 0.6), r.range(-5.0, 5.0), r.range(0.0, 6.283)); for k in 0..r.int(2, 4) { put(u0 + cos(b) * k as f64, base + 1.0, w0 + sin(b) * k as f64); } }
-        Some(Stamp { data: set.into_iter().map(|(a, b, c)| [a, b, c, B::BONE as i32]).collect(), force: false })
+        Some(Stamp { data: set.into_iter().map(|(a, b, c)| [a, b, c, B::BONE as i32]).collect(), force: false, ground: false })
     }
     fn tree_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
         let s = self.seed; let tc = TREE_CELL as f64;
@@ -434,7 +436,7 @@ impl WorldGen {
                 /* posé à plat de bout en bout : le tronc s'arrête là où le sol change de hauteur, jamais au-dessus du vide */
                 let n = (0..=len as i32).take_while(|k| { let h = self.column(x + dx * *k as f64, z + dz * *k as f64).h.floor(); h == h0 || h == h0 + 1.0 }).count() as i32; if n < 3 { return None; }
                 let id = oriented_block(if r.next() < 0.5 { B::SPRUCE_LOG } else { B::DEAD_LOG }, if a == 0 { 'x' } else { 'z' });
-                return Some(Stamp { data: (0..n).map(|k| [ri(x + dx * k as f64), h0 as i32 + 1, ri(z + dz * k as f64), id as i32]).collect(), force: true });
+                return Some(Stamp { data: (0..n).map(|k| [ri(x + dx * k as f64), h0 as i32 + 1, ri(z + dz * k as f64), id as i32]).collect(), force: true, ground: true });
             }
         }
         if taiga > 0.5 && roll > 0.1 * (1.0 - taiga) * 2.0 { return Some(grow_spruce(x, y, z, &mut r, age, taiga > 0.6)); } // taïga : des épicéas, quelques bouleaux
@@ -498,7 +500,7 @@ impl Grower {
         for (k, id) in &self.leaf { if !self.wood.contains_key(k) { data.push([k.0, k.1, k.2, *id as i32]); } }
         for (k, id) in &self.wood { data.push([k.0, k.1, k.2, *id as i32]); }
         data.extend_from_slice(&self.extra);
-        Stamp { data, force: false }
+        Stamp { data, force: false, ground: false }
     }
 }
 #[inline] fn at_frac(n: usize, t: f64) -> usize { (n as f64 * t).floor() as usize }
@@ -610,7 +612,7 @@ fn grow_cactus(x: f64, y: f64, z: f64, r: &mut Rng) -> Stamp {
     for k in 0..h { data.push([cx, y0 + k, cz, B::CACTUS as i32]); }
     if big { let mut used = vec![]; for _ in 0..r.int(1, 3) { let d = [(1, 0), (-1, 0), (0, 1), (0, -1)][r.int(0, 3) as usize]; if used.contains(&d) { continue; } used.push(d); let at = r.int(2, (h - 2).max(2)); let out = r.int(1, 2);
         for k in 1..=out { data.push([cx + d.0 * k, y0 + at, cz + d.1 * k, B::CACTUS as i32]); } for k in 1..=r.int(1, 3).min(h - at) { data.push([cx + d.0 * out, y0 + at + k, cz + d.1 * out, B::CACTUS as i32]); } } }
-    Stamp { data, force: false }
+    Stamp { data, force: false, ground: false }
 }
 /// Palmier : un stipe fin qui s'incline et se courbe, couronné de longues palmes qui retombent en étoile.
 fn grow_palm(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {

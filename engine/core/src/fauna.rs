@@ -94,7 +94,7 @@ impl Fauna {
     }
     fn step_deer(&mut self, d: &mut Deer, dt: f64, w: &impl Voxels, p: [f64; 3]) {
         let r = &mut self.rng; let dist = hypot2(d.p[0] - p[0], d.p[2] - p[2]);
-        if dist < 8.0 && d.state != DeerState::Flee {
+        if dist < 4.5 && d.state != DeerState::Flee { // on peut approcher un cerf calme à quelques pas
             d.state = DeerState::Flee; d.t = r.range(3.0, 5.0); self.ev.push(Ev::Alarm(d.p)); let a = (d.p[0] - p[0]).atan2(d.p[2] - p[2]);
             for o in [0.0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6] { if turn(d, w, a + o) { break; } }
         }
@@ -133,7 +133,7 @@ impl Fauna {
         let r = &mut self.rng;
         for i in 0..12 {
             let c = if i % 2 != 0 { b.p } else { p }; let (a, d) = (r.range(0.0, 6.283), r.range(8.0, 24.0)); let (x, z) = ((c[0] + cos(a) * d).floor() + 0.5, (c[2] + sin(a) * d).floor() + 0.5);
-            if let Some((y, clear)) = top_at(w, x, z, b.p[1]) { if clear && hypot2(x - p[0], z - p[2]) > 7.0 && (y < p[1] + 9.0 || i > 9) { b.tg = [x, y, z]; b.land = true; return; } }
+            if let Some((y, clear)) = top_at(w, x, z, b.p[1]) { if clear && hypot2(x - p[0], z - p[2]) > 4.0 && (y < p[1] + 9.0 || i > 9) { b.tg = [x, y, z]; b.land = true; return; } }
         }
         let a = r.range(0.0, 6.283); let top = top_at(w, b.p[0], b.p[2], b.p[1]);
         b.tg = [b.p[0] + cos(a) * 24.0, top.map_or(b.p[1], |t| t.0) + 8.0, b.p[2] + sin(a) * 24.0]; b.land = false;
@@ -144,7 +144,7 @@ impl Fauna {
             let r = &mut self.rng; b.t -= dt; b.sing -= dt; b.hop = (b.hop - dt * 5.0).max(0.0);
             if b.sing <= 0.0 { b.sing = r.range(3.0, 9.0); if self.day > 0.25 { self.ev.push(Ev::Bird(b.p, b.voice)); } b.hop = 0.6; }
             if r.next() < dt * 0.5 { b.yaw += r.range(-1.5, 1.5); b.hop = 1.0; }
-            if dist < 6.0 || (b.t <= 0.0 && self.day > 0.25) { b.state = BirdState::Fly; self.ev.push(Ev::Wings(b.p)); self.goal(b, w, p); b.v[1] = 3.5; }
+            if dist < 3.5 || (b.t <= 0.0 && self.day > 0.25) { b.state = BirdState::Fly; self.ev.push(Ev::Wings(b.p)); self.goal(b, w, p); b.v[1] = 3.5; }
             return;
         }
         b.flap += dt * 30.0; b.scan -= dt;
