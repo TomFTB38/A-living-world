@@ -74,9 +74,9 @@ fn fireflies(px2: vec2f, d: f32) -> vec3f {
     p = p - b * floor((p - u.cam.xyz + b * 0.5) / b) - vec3f(0.0, 1.5, 0.0);
     let cc = u.vp * vec4f(p, 1.0); if (cc.w <= 0.1) { continue; }
     let dist = length(p - u.cam.xyz); if (d > 0.0 && dist > len + 0.3) { continue; }
-    let s = to_uv(cc.xy / cc.w) * u.jit.zw; let r = length(px2 - s); let size = 1.6 + 30.0 / max(dist, 1.0);
+    let s = to_uv(cc.xy / cc.w) * u.jit.zw; let r = length(px2 - s); let size = 2.2 + 36.0 / max(dist, 1.0);
     let blink = smoothstep(0.1, 0.8, 0.5 + 0.5 * sin(t * (1.3 + h.x) + f * 4.1));
-    glow += vec3f(0.62, 1.0, 0.32) * blink * (exp(-r * r / (size * size * 0.16)) * 4.0 + exp(-r / size) * 0.35) / (1.0 + dist * 0.04);
+    glow += vec3f(0.62, 1.0, 0.32) * blink * (exp(-r * r / (size * size * 0.3)) * 3.5 + exp(-r / size) * 0.6) / (1.0 + dist * 0.04);
   }
   return glow * u.extra.x;
 }

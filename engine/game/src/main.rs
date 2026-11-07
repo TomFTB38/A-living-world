@@ -207,7 +207,7 @@ fn capture(a: &[String]) {
     let md = Models::build(); let scene = a.get(12).cloned().unwrap_or_default();
     let mut g = pollster::block_on(gpu::Gpu::new(None, w, h, gpu::Options { shadow, fallback: true, hole: (radius as f32 - 0.6) * 32.0, cascades: if scene == "ultra" { gpu::CASCADES_ULTRA } else { gpu::CASCADES } }, &md));
     let mut s = Session::new(SEED, &(if scene == "ultra" { Preset { radius, ..ULTRA } } else { Preset { radius, lod1: 2.3, lod2: 4.6 } }), 4, [eye[0], eye[1] - 1.62, eye[2]]); s.hour = n(7, 16.4); s.player.fly = true;
-    let pump = |s: &mut Session, g: &mut gpu::Gpu| loop { let p = s.player.p; let (b, f) = s.world.update(p[0], p[2]); for c in b { g.upload(c); } for k in f { g.forget(k); } if s.world.waiting() == 0 { break; } std::thread::sleep(std::time::Duration::from_millis(5)); };
+    let pump = |s: &mut Session, g: &mut gpu::Gpu| loop { let (b, f) = s.sync(); for c in b { g.upload(c); } for k in f { g.forget(k); } if s.world.waiting() == 0 { break; } std::thread::sleep(std::time::Duration::from_millis(5)); };
     let t0 = Instant::now(); pump(&mut s, &mut g); println!("{} chunks chargés en {:.1} s", s.world.loaded(), t0.elapsed().as_secs_f64());
     let f = view::norm([look[0] - eye[0], look[1] - eye[1], look[2] - eye[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
     let none = Input::default(); s.third = scene == "tiers"; s.tick(0.0, none, Actions::default());
