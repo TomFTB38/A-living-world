@@ -20,3 +20,4 @@ pub mod flow;
 pub mod biome;
 pub mod felling;
 pub mod wild;
+pub mod survival;

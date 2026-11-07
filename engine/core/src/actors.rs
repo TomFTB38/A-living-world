@@ -61,7 +61,10 @@ fn fore() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.075, -0.09, -0.078,
 fn fist() -> VBuf { let mut o = VBuf::new(100); b(&mut o, [-0.085, -0.34, -0.085, 0.085, 0.0, 0.085], SHIRT); b(&mut o, [-0.09, -0.38, -0.09, 0.09, -0.33, 0.09], SHIRT2); b(&mut o, [-0.08, -0.66, -0.08, 0.08, -0.38, 0.08], SKIN); o }
 
 // Outils : image 56 × 56 décrite par des formes, puis extrudée en petits voxels. Couleurs : indices de PAL.
-const PAL: [C; 12] = [[0.3, 0.17, 0.08], [0.48, 0.29, 0.14], [0.66, 0.43, 0.22], [0.2, 0.11, 0.06], [0.36, 0.2, 0.1], [0.4, 0.39, 0.38], [0.62, 0.61, 0.6], [0.84, 0.83, 0.82], [1.0, 0.99, 0.97], [0.62, 0.42, 0.1], [0.92, 0.7, 0.2], [0.0; 3]];
+const PAL: [C; 24] = [[0.3, 0.17, 0.08], [0.48, 0.29, 0.14], [0.66, 0.43, 0.22], [0.2, 0.11, 0.06], [0.36, 0.2, 0.1], [0.4, 0.39, 0.38], [0.62, 0.61, 0.6], [0.84, 0.83, 0.82], [1.0, 0.99, 0.97], [0.62, 0.42, 0.1], [0.92, 0.7, 0.2], [0.0; 3],
+    [0.14, 0.17, 0.4], [0.32, 0.4, 0.7], [0.24, 0.44, 0.18], [0.74, 0.14, 0.08], [0.96, 0.4, 0.18], [0.66, 0.16, 0.16], [0.9, 0.62, 0.56], [0.9, 0.86, 0.76], [0.36, 0.17, 0.08], [0.56, 0.3, 0.13], [0.6, 0.4, 0.22], [0.42, 0.26, 0.13]];
+// Survie : baies, gibier, cuir. Des volumes plus épais que les lames.
+const BERRY: [u8; 2] = [12, 13]; const LEAF: u8 = 14; const ROWAN: [u8; 2] = [15, 16]; const MEAT: [u8; 2] = [17, 18]; const BONE: u8 = 19; const COOKED: [u8; 2] = [20, 21]; const HIDE: [u8; 2] = [22, 23];
 const WOOD: [u8; 3] = [0, 1, 2]; const LEATHER: [u8; 2] = [3, 4]; const STEEL: [u8; 4] = [5, 6, 7, 8]; const GOLD: [u8; 2] = [9, 10];
 const R2: f64 = std::f64::consts::FRAC_1_SQRT_2;
 fn handle(s: f64, p: f64, a: f64, e: f64) -> Option<u8> {
@@ -84,6 +87,24 @@ fn shape(name: &str, x: f64, y: f64) -> Option<u8> {
             if p <= 0.0 && p > -0.11 && (s - 0.88).abs() < 0.065 { return Some(if p < -0.08 { STEEL[2] } else { STEEL[1] }); }
             handle(s, p, 0.08, 1.03)
         }
+        "stick" => { let (s, p) = ((x + y) * R2, (y - x) * R2); if s > 0.14 && s < 1.26 && p.abs() < 0.036 { return Some(if p > 0.012 { WOOD[2] } else if p < -0.012 { WOOD[0] } else { WOOD[1] }); } None }
+        "berries" | "rowan_berries" => {
+            let c = if name == "berries" { BERRY } else { ROWAN };
+            for (cx, cy) in [(0.52, 0.36), (0.4, 0.5), (0.6, 0.5), (0.5, 0.63), (0.36, 0.67), (0.65, 0.67)] { let (dx, dy) = (x - cx, y - cy); if dx * dx + dy * dy < 0.0081 { return Some(if dx + dy < -0.05 { c[1] } else { c[0] }); } }
+            let (dx, dy) = (x - 0.66, y - 0.22); if (dx + dy) * (dx + dy) / 0.03 + (dx - dy) * (dx - dy) / 0.006 < 1.0 { return Some(LEAF); }
+            if (x - 0.52).abs() < 0.015 && y > 0.18 && y < 0.3 { return Some(WOOD[0]); } None
+        }
+        "raw_meat" | "cooked_meat" => {
+            let c = if name == "raw_meat" { MEAT } else { COOKED }; let (s, p) = ((x + y) * R2, (y - x) * R2);
+            for (cs, cp) in [(0.28, -0.07), (0.28, 0.07)] { if crate::det::hypot2(s - cs, p - cp) < 0.075 { return Some(BONE); } }
+            if s > 0.28 && s < 0.6 && p.abs() < 0.04 { return Some(BONE); }
+            let (ds, dp) = (s - 0.86, p); if ds * ds / 0.08 + dp * dp / 0.042 < 1.0 { return Some(if ds * ds / 0.08 + dp * dp / 0.042 > 0.72 && dp < 0.0 { c[1] } else { c[0] }); } None
+        }
+        "leather" => {
+            let (dx, dy) = ((x - 0.5).abs(), (y - 0.5).abs()); if dx > 0.34 || dy > 0.28 { return None; }
+            if dx > 0.26 && dy > 0.2 { return None; } if (dx > 0.3 && dy < 0.06) || (dy > 0.24 && dx < 0.07) { return None; } // coins et pattes de la peau
+            Some(if ((x + y * 0.3) * 9.0).floor() as i64 & 1 != 0 { HIDE[0] } else { HIDE[1] })
+        }
         _ => {
             let (s, p) = ((x + y) * R2, (y - x) * R2);
             if s > 0.47 && s < 1.32 { let w = if s > 1.14 { 0.058 * (1.32 - s) / 0.18 } else { 0.058 }; if p.abs() < w { return Some(if p.abs() < 0.01 { STEEL[0] } else if p > 0.0 { STEEL[3] } else { STEEL[1] }); } }
@@ -101,7 +122,7 @@ fn tool_mesh(name: &str) -> VBuf {
         for i in 0..=N {
             let c = if i < N { shape(name, (i as f64 + 0.5) / N as f64, (j as f64 + 0.5) / N as f64) } else { None };
             if let Some((a, k)) = run { if c != Some(k) {
-                let th = if k == STEEL[3] { 0.012 } else if STEEL.contains(&k) { 0.022 } else { 0.03 }; let col = PAL[k as usize];
+                let th = if k == STEEL[3] { 0.012 } else if STEEL.contains(&k) { 0.022 } else if k >= BERRY[0] { 0.05 } else { 0.03 }; let col = PAL[k as usize];
                 bx(&mut o, a as f64 * px - grip, j as f64 * px - grip, -th, i as f64 * px - grip, (j + 1) as f64 * px - grip, th, col[0], col[1], col[2], 0.0, 255.0, 0.0, kind::FLAT, true, 0.0, 255.0);
                 run = None;
             } }
@@ -131,7 +152,7 @@ impl Models {
                 None => (tool_mesh(name), Hold::Tool),
                 // Dans le monde, le polypore se dessine contre son arbre : tenu ou en icône, il n'a pas de support.
                 Some(id) if id == B::SHELF_FUNGUS => { let mut o = VBuf::new(60); for (y, w, t) in [(0.12, 0.42, 1.0), (0.38, 0.33, 1.08), (0.62, 0.24, 0.94)] { b(&mut o, [0.5 - w, y, 0.5 - w, 0.5 + w, y + 0.09, 0.5 + w], [0.82 * t, 0.68 * t, 0.5 * t]); } (o, Hold::Deco) }
-                Some(id) if BLOCKS[id as usize].shape == Shape::Deco => { let mut o = VBuf::new(800); mv.deco_model(&mut o, id, 0, 0, 0, 7, 11, 255.0, if id == B::LANTERN { 255.0 } else { 0.0 }, 0); (o, Hold::Deco) }
+                Some(id) if BLOCKS[id as usize].shape == Shape::Deco => { let mut o = VBuf::new(800); mv.deco_model(&mut o, id, 0, 0, 0, 7, 11, 255.0, if emit(id) != 0 { 255.0 } else { 0.0 }, 0); (o, Hold::Deco) }
                 Some(id) => (cube_mesh(id), Hold::Block),
             };
             let local = hold == Hold::Block && it.block != Some(B::WATER);
@@ -139,6 +160,7 @@ impl Models {
         }
         for (name, o) in crate::fauna::parts() { parts.insert(name, take(&mut all, o)); }
         for (name, o) in crate::wild::parts() { parts.insert(name, take(&mut all, o)); }
+        for (name, o) in crate::survival::parts() { parts.insert(name, take(&mut all, o)); }
         let n = all.n; Models { data: all.data, n, char_verts, parts, items }
     }
     pub fn held(&self, id: &str) -> Option<Held> { self.items.get(id).copied() }

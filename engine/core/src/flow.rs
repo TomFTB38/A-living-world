@@ -8,7 +8,7 @@ const PER_STEP: usize = 700; const MAX_CELLS: usize = 400000;
 type P = (i32, i32, i32);
 const SIDES: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 #[derive(Default)] pub struct Flow { dirty: HashSet<P>, t: f64, cells: usize, pub last: Option<[f64; 3]>, pub quiet: f64 }
-fn replaceable(b: u8) -> bool { b == 0 || (is_deco(b) && !is_solid(b) && b != B::LANTERN) || (is_water(b) && b != B::WATER) }
+fn replaceable(b: u8) -> bool { b == 0 || (is_deco(b) && !is_solid(b) && emit(b) == 0) || (is_water(b) && b != B::WATER) }
 impl Flow {
     /// Un bloc a changé : lui et ses voisins doivent être recalculés.
     pub fn touch(&mut self, x: i32, y: i32, z: i32) { for p in [(x, y, z), (x + 1, y, z), (x - 1, y, z), (x, y, z + 1), (x, y, z - 1), (x, y + 1, z), (x, y - 1, z)] { self.dirty.insert(p); } }

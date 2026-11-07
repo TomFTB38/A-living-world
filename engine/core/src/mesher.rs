@@ -269,8 +269,28 @@ impl Mesher {
                 }
                 return;
             }
+            "campfire" => {
+                // Feu de camp : un cercle de pierres, des bûches croisées, des flammes qui éclairent d'elles-mêmes.
+                for k in 0..8 { let a = k as f64 * 0.785 + 0.2; let (cx, cz) = (x + 0.5 + cos(a) * 0.36, z + 0.5 + sin(a) * 0.36); let t = 0.85 + 0.25 * r_.next(); let q = 0.075 + 0.025 * r_.next(); bx3(o, cx - q, y, cz - q, cx + q, y + 0.11 + 0.04 * r_.next(), cz + q, 0.46 * t, 0.45 * t, 0.43 * t, 0.0, s, l); }
+                bx3(o, x + 0.2, y, z + 0.44, x + 0.8, y + 0.12, z + 0.56, 0.36, 0.22, 0.12, 0.0, s, l); bx3(o, x + 0.44, y + 0.08, z + 0.2, x + 0.56, y + 0.2, z + 0.8, 0.3, 0.18, 0.1, 0.0, s, l);
+                bx3(o, x + 0.38, y + 0.02, z + 0.38, x + 0.62, y + 0.06, z + 0.62, 0.1, 0.07, 0.05, 0.0, s, l); // braises
+                for (dx, dz, h, w, c) in [(0.0, 0.0, 0.52, 0.11, [2.4, 1.2, 0.3]), (0.09, 0.05, 0.36, 0.08, [2.2, 0.9, 0.2]), (-0.08, -0.06, 0.4, 0.08, [2.3, 1.0, 0.25]), (0.03, -0.1, 0.28, 0.06, [2.6, 1.6, 0.5])] {
+                    let (cx, cz) = (x + 0.5 + dx, z + 0.5 + dz); bx(o, cx - w, y + 0.1, cz - w, cx + w, y + 0.1 + h, cz + w, c[0], c[1], c[2], 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
+                }
+                return;
+            }
+            "workbench" => {
+                // Établi : un plateau épais sur quatre pieds, une planche de rangement, un maillet et une scie posés dessus.
+                let wood = |o: &mut VBuf, a: f64, e: f64, c: f64, a1: f64, e1: f64, c1: f64, k: f64| bx3(o, x + a, y + e, z + c, x + a1, y + e1, z + c1, 0.58 * k, 0.4 * k, 0.24 * k, 0.0, s, l);
+                wood(o, 0.02, 0.8, 0.02, 0.98, 0.96, 0.98, 1.0); wood(o, 0.04, 0.78, 0.04, 0.96, 0.8, 0.96, 0.7);
+                for (a, c) in [(0.06, 0.06), (0.8, 0.06), (0.06, 0.8), (0.8, 0.8)] { wood(o, a, 0.0, c, a + 0.14, 0.8, c + 0.14, 0.78); }
+                wood(o, 0.08, 0.26, 0.08, 0.92, 0.32, 0.92, 0.86);
+                bx3(o, x + 0.18, y + 0.96, z + 0.2, x + 0.5, y + 1.08, z + 0.32, 0.4, 0.26, 0.14, 0.0, s, l); bx3(o, x + 0.3, y + 0.96, z + 0.32, x + 0.36, y + 1.0, z + 0.6, 0.62, 0.45, 0.26, 0.0, s, l); // maillet
+                bx3(o, x + 0.58, y + 0.96, z + 0.5, x + 0.86, y + 0.975, z + 0.66, 0.7, 0.7, 0.72, 0.0, s, l); bx3(o, x + 0.5, y + 0.96, z + 0.54, x + 0.6, y + 1.0, z + 0.62, 0.3, 0.18, 0.1, 0.0, s, l); // scie
+                return;
+            }
             "fence" => {
-                let wood = |o: &mut VBuf, a: f64, e: f64, c: f64, a1: f64, e1: f64, c1: f64, k: f64| bx3(o, a, e, c, a1, e1, c1, 0.46 * k, 0.31 * k, 0.18 * k, 0.0, s, l);
+                let wood =|o: &mut VBuf, a: f64, e: f64, c: f64, a1: f64, e1: f64, c1: f64, k: f64| bx3(o, a, e, c, a1, e1, c1, 0.46 * k, 0.31 * k, 0.18 * k, 0.0, s, l);
                 wood(o, x + 0.39, y, z + 0.39, x + 0.61, y + 1.0, z + 0.61, 1.0);
                 wood(o, x + 0.35, y + 0.97, z + 0.35, x + 0.65, y + 1.04, z + 0.65, 1.12);
                 let con = |b2: u8| b2 == B::FENCE || BLOCKS[b2 as usize].opaque;

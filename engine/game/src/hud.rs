@@ -3,17 +3,20 @@
 use crate::font_data as fd;
 use crate::gpu::ICON_COLS;
 use alw_core::session::{item, Session, INV_SIZE, ORDER, TABS};
+use alw_core::survival::{group_label, Station, RECIPES};
 pub const VERT: usize = 36; // octets par sommet : position, uv, couleur, couche
 #[derive(Default)]
 pub struct Ui { pub data: Vec<f32>, w: f32, h: f32 }
 type C = [f32; 4];
 const LAYER_FLAT: f32 = -1.0; const LAYER_TEXT: f32 = -2.0; const LAYER_ICON: f32 = -3.0;
 const INK: C = [0.95, 0.96, 0.92, 1.0]; const DIM: C = [0.72, 0.76, 0.7, 0.95]; const PANEL: C = [0.09, 0.11, 0.095, 0.95]; const WELL: C = [0.0, 0.0, 0.0, 0.32]; const ACCENT: C = [0.55, 0.78, 0.42, 1.0];
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum Hit { Slot(usize), Catalog(&'static str), Tab(usize) }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum Hit { Slot(usize), Catalog(&'static str), Tab(usize), Recipe(usize) }
+const RECIPE_COLS: usize = 5; const BAD: C = [1.0, 0.45, 0.38, 1.0];
 fn scale(h: f32) -> f32 { (h / 900.0).clamp(0.8, 2.0) }
 /// Disposition de l'écran d'inventaire, partagée par le dessin et la souris : [x, y, largeur, hauteur].
 pub fn layout(creative: bool, tab: usize, w: f32, h: f32) -> Vec<(Hit, [f32; 4])> {
-    let k = scale(h); let c = 58.0 * k; let g = 5.0 * k; let tw = 9.0 * c + 8.0 * g; let x0 = (w - tw) * 0.5; let mut o = Vec::new();
+    // En survie, la grille des recettes se tient à droite du sac : l'ensemble reste centré.
+    let k = scale(h); let c = 58.0 * k; let g = 5.0 * k; let tw = 9.0 * c + 8.0 * g; let side = if creative { 0.0 } else { RECIPE_COLS as f32 * (c + g) - g + 46.0 * k }; let x0 = (w - tw - side) * 0.5; let mut o = Vec::new();
     let top = h * 0.5 - if creative { 300.0 } else { 130.0 } * k; let mut y = top;
     if creative {
         let n = TABS.len() as f32; let tb = (tw - (n - 1.0) * g) / n; let th = 32.0 * k;
@@ -24,6 +27,7 @@ pub fn layout(creative: bool, tab: usize, w: f32, h: f32) -> Vec<(Hit, [f32; 4])
     }
     for r in 0..3 { for cl in 0..9 { o.push((Hit::Slot(9 + r * 9 + cl), [x0 + cl as f32 * (c + g), y + r as f32 * (c + g), c, c])); } }
     for cl in 0..9 { o.push((Hit::Slot(cl), [x0 + cl as f32 * (c + g), y + 3.0 * (c + g) + 12.0 * k, c, c])); }
+    if !creative { let xr = x0 + tw + 46.0 * k; for i in 0..RECIPES.len() { let (r, cl) = (i / RECIPE_COLS, i % RECIPE_COLS); o.push((Hit::Recipe(i), [xr + cl as f32 * (c + g), y + r as f32 * (c + g), c, c])); } }
     o
 }
 fn inside(m: [f32; 2], r: [f32; 4]) -> bool { m[0] >= r[0] && m[1] >= r[1] && m[0] < r[0] + r[2] && m[1] < r[1] + r[3] }
@@ -51,18 +55,50 @@ pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
     let b = (tw - 2.0 * g) / 3.0; o.push((M::Credits, [x0, y, b, bh])); o.push((M::NewWorld, [x0 + b + g, y, b, bh])); o.push((M::Quit, [x0 + 2.0 * (b + g), y, b, bh])); o
 }
 pub fn menu_at(w: f32, h: f32, m: &Menu, p: [f32; 2]) -> Option<M> { menu_layout(w, h, m).into_iter().find(|x| inside(p, x.1)).map(|x| x.0) }
+/// Bouton « Réapparaître » de l'écran de mort.
+pub fn death_button(w: f32, h: f32) -> [f32; 4] { let k = scale(h); let (bw, bh) = (300.0 * k, 48.0 * k); [(w - bw) * 0.5, h * 0.58, bw, bh] }
+pub fn death_at(w: f32, h: f32, m: [f32; 2]) -> bool { inside(m, death_button(w, h)) }
 impl Ui {
+    fn death(&mut self, s: &Session, d: &alw_core::survival::Death, w: f32, h: f32, k: f32, mouse: [f32; 2]) {
+        self.rect(0.0, 0.0, w, h, [0.16, 0.02, 0.02, 0.72]);
+        let line = |u: &mut Ui, t: &str, y: f32, z: f32, c: C| u.text(t, (w - Ui::text_width(t, z)) * 0.5, y, z, c);
+        line(self, "Vous êtes mort", h * 0.33, 46.0 * k, INK);
+        if !d.cause.is_empty() { line(self, &format!("Cause : {}", d.cause), h * 0.33 + 66.0 * k, 20.0 * k, [0.95, 0.75, 0.7, 1.0]); }
+        if !s.stashes.is_empty() { line(self, "Vos affaires sont restées dans un sac, là où vous êtes tombé.", h * 0.33 + 98.0 * k, 17.0 * k, DIM); }
+        let r = death_button(w, h); let on = inside(mouse, r); self.panel(r, k, if on { [0.5, 0.2, 0.14, 1.0] } else { [0.3, 0.1, 0.08, 1.0] }); self.centered("Réapparaître", r, 19.0 * k, INK);
+        line(self, "ou Entrée", r[1] + r[3] + 12.0 * k, 15.0 * k, DIM);
+    }
     fn panel(&mut self, r: [f32; 4], k: f32, c: C) { let e = 2.0 * k; self.rect(r[0] + e, r[1], r[2] - 2.0 * e, r[3], c); self.rect(r[0], r[1] + e, e, r[3] - 2.0 * e, c); self.rect(r[0] + r[2] - e, r[1] + e, e, r[3] - 2.0 * e, c); }
     fn centered(&mut self, t: &str, r: [f32; 4], z: f32, c: C) { self.text(t, r[0] + (r[2] - Ui::text_width(t, z)) * 0.5, r[1] + (r[3] - z * 1.35) * 0.5, z, c); }
     fn inventory(&mut self, s: &Session, w: f32, h: f32, k: f32, mouse: [f32; 2]) {
         self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.03, 0.55]);
-        let l = layout(s.creative, s.tab, w, h); let (x0, y0) = (l[0].1[0], l[0].1[1]); let bottom = l.iter().fold(0.0f32, |a, r| a.max(r.1[1] + r.1[3])); let tw = 9.0 * 58.0 * k + 8.0 * 5.0 * k; let m = 22.0 * k;
+        let l = layout(s.creative, s.tab, w, h); let (x0, y0) = (l[0].1[0], l[0].1[1]); let bottom = l.iter().filter(|r| !matches!(r.0, Hit::Recipe(_))).fold(0.0f32, |a, r| a.max(r.1[1] + r.1[3])); let tw = 9.0 * 58.0 * k + 8.0 * 5.0 * k; let m = 22.0 * k;
         self.panel([x0 - m, y0 - m - 30.0 * k, tw + 2.0 * m, bottom - y0 + 2.0 * m + 30.0 * k + 18.0 * k], k, PANEL);
         self.text(if s.creative { "Catalogue" } else { "Inventaire" }, x0, y0 - 38.0 * k, 22.0 * k, INK);
         if s.creative { let t = "Maj + clic : vers la barre  ·  clic droit : moitié du tas"; let z = 15.0 * k; self.text(t, x0 + tw - Ui::text_width(t, z), y0 - 33.0 * k, z, DIM); }
+        // Fabrication : ce qui est faisable ici et maintenant ressort, le reste est voilé ; la bulle dit ce qui manque.
+        let st = if s.creative { (false, false) } else { s.stations() }; let mut lines: Vec<(String, C)> = Vec::new();
+        if let Some((_, r0)) = l.iter().find(|r| r.0 == Hit::Recipe(0)) {
+            let (xr, rw) = (r0[0], RECIPE_COLS as f32 * 63.0 * k - 5.0 * k); let rows = RECIPES.len().div_ceil(RECIPE_COLS) as f32; let gb = r0[1] + rows * 63.0 * k;
+            self.panel([xr - m, y0 - m - 30.0 * k, rw + 2.0 * m, gb - y0 + 2.0 * m + 30.0 * k + 44.0 * k], k, PANEL); self.text("Fabrication", xr, y0 - 38.0 * k, 22.0 * k, INK);
+            let z = 15.0 * k; let say = |on: bool, yes: &'static str, no: &'static str| if on { (yes, ACCENT) } else { (no, DIM) };
+            for (i, (t, c)) in [say(st.0, "Établi à portée", "Aucun établi à portée"), say(st.1, "Feu de camp à portée", "Aucun feu à portée")].into_iter().enumerate() { self.text(t, xr, gb + 4.0 * k + i as f32 * 21.0 * k, z, c); }
+        }
         let hover = hit_at(s.creative, s.tab, w, h, mouse); let mut tip = None;
         for (hit, r) in &l {
             let on = hover == Some(*hit);
+            if let Hit::Recipe(i) = hit {
+                let rc = &RECIPES[*i]; let ok = s.can_craft(rc, st); self.panel(*r, k, if on && ok { [0.55, 0.78, 0.42, 0.3] } else if on { [1.0, 1.0, 1.0, 0.14] } else { WELL });
+                self.icon(rc.out, r[0] + r[2] * 0.5, r[1] + r[2] * 0.5, r[2] * 0.43); if rc.n > 1 { let t = rc.n.to_string(); let z = 16.0 * k; self.text(&t, r[0] + r[2] - Ui::text_width(&t, z) - 4.0 * k, r[1] + r[2] - z - 4.0 * k, z, [1.0; 4]); }
+                if !ok { self.rect(r[0] + 2.0 * k, r[1] + 2.0 * k, r[2] - 4.0 * k, r[3] - 4.0 * k, [0.05, 0.06, 0.05, 0.6]); }
+                if on {
+                    let name = item(rc.out).map_or(rc.out, |i| i.label); lines.push((if rc.n > 1 { format!("{name} ({})", rc.n) } else { name.to_string() }, INK));
+                    for (need, n) in rc.need { let have = s.count(need); let label = group_label(need).or(item(need).map(|i| i.label)).unwrap_or(need); lines.push((format!("{n} {label}  ·  {have} en stock"), if have >= *n { DIM } else { BAD })); }
+                    let here = match rc.at { Station::Hand => true, Station::Bench => st.0, Station::Fire => st.1 }; lines.push((rc.at.label().to_string(), if here { DIM } else { BAD }));
+                    lines.push((if ok { "Clic : fabriquer  ·  Maj + clic : tout" } else { "Impossible pour l'instant" }.to_string(), if ok { ACCENT } else { DIM }));
+                }
+                continue;
+            }
             if let Hit::Tab(i) = hit { let sel = *i == s.tab; self.panel(*r, k, if sel { [0.28, 0.4, 0.22, 1.0] } else if on { [0.2, 0.24, 0.2, 1.0] } else { [0.0, 0.0, 0.0, 0.34] }); self.centered(TABS[*i].0, *r, 16.5 * k, if sel { INK } else { DIM }); continue; }
             self.panel(*r, k, if on { [1.0, 1.0, 1.0, 0.2] } else { WELL });
             let st = match hit { Hit::Slot(i) => s.inv[*i].map(|v| (v.item, v.n)), Hit::Catalog(id) => Some((*id, None)), _ => None };
@@ -73,6 +109,10 @@ impl Ui {
             }
         }
         if let Some(c) = s.cursor { self.icon(c.item, mouse[0], mouse[1], 30.0 * k); if let Some(n) = c.n { self.text(&n.to_string(), mouse[0] + 12.0 * k, mouse[1] + 10.0 * k, 16.0 * k, [1.0; 4]); } }
+        else if !lines.is_empty() {
+            let z = 16.0 * k; let lh = 22.0 * k; let tw = lines.iter().fold(0.0f32, |a, l| a.max(Ui::text_width(&l.0, z))); let (bx, by) = ((mouse[0] + 14.0 * k).min(w - tw - 30.0 * k), mouse[1] + 8.0 * k);
+            self.panel([bx, by, tw + 18.0 * k, lines.len() as f32 * lh + 12.0 * k], k, [0.03, 0.04, 0.03, 0.96]); for (i, (t, c)) in lines.iter().enumerate() { self.text(t, bx + 9.0 * k, by + 6.0 * k + i as f32 * lh, if i == 0 { 18.0 * k } else { z }, *c); }
+        }
         else if let Some(t) = tip { let z = 17.0 * k; let tw = Ui::text_width(t, z); self.panel([mouse[0] + 14.0 * k, mouse[1] + 8.0 * k, tw + 18.0 * k, z + 14.0 * k], k, [0.03, 0.04, 0.03, 0.95]); self.text(t, mouse[0] + 23.0 * k, mouse[1] + 12.0 * k, z, INK); }
     }
     fn menu(&mut self, m: &Menu, w: f32, h: f32, mouse: [f32; 2]) {
@@ -110,7 +150,13 @@ impl Ui {
     }
     pub fn build(s: &Session, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &Menu, info: &[String]) -> Ui {
         let mut u = Ui { data: Vec::with_capacity(9000), w, h }; let k = scale(h); let w1 = [1.0, 1.0, 1.0, 0.9];
-        u.rect(w * 0.5 - 1.0, h * 0.5 - 8.0, 2.0, 16.0, w1); u.rect(w * 0.5 - 8.0, h * 0.5 - 1.0, 16.0, 2.0, w1);
+        // Blessure : l'écran rougit un instant ; à bout de forces, les bords restent rouges et battent.
+        let fl = s.flash() as f32; if fl > 0.0 { u.rect(0.0, 0.0, w, h, [0.62, 0.04, 0.03, 0.3 * fl]); }
+        if !s.creative && s.dead.is_none() && s.vit[0] < 25.0 { let a = (0.16 + 0.1 * (s.elapsed as f32 * 4.0).sin()) * (1.0 - s.vit[0] as f32 / 25.0).max(0.35); let e = 60.0 * k; let c = [0.55, 0.03, 0.02, a];
+            u.rect(0.0, 0.0, w, e, c); u.rect(0.0, h - e, w, e, c); u.rect(0.0, e, e, h - 2.0 * e, c); u.rect(w - e, e, e, h - 2.0 * e, c); }
+        // Le réticule rougit quand il est sur un animal à portée.
+        let ch = if s.prey.is_some() { [1.0, 0.5, 0.4, 1.0] } else { w1 }; let t = if s.prey.is_some() { 3.0 } else { 2.0 };
+        u.rect(w * 0.5 - t * 0.5, h * 0.5 - 8.0, t, 16.0, ch); u.rect(w * 0.5 - 8.0, h * 0.5 - t * 0.5, 16.0, t, ch);
         let cell = 62.0 * k; let gap = 5.0 * k; let total = 9.0 * cell + 8.0 * gap; let (x0, y0) = ((w - total) * 0.5, h - cell - 16.0 * k);
         for i in 0..9.min(INV_SIZE) {
             let x = x0 + i as f32 * (cell + gap); let on = i == s.sel;
@@ -123,12 +169,18 @@ impl Ui {
         }
         if let Some(it) = s.held() { let z = 22.0 * k; u.text(it.label, (w - Ui::text_width(it.label, z)) * 0.5, y0 - z - 12.0 * k, z, w1); }
         if !s.creative {
-            for (i, (v, c)) in [(s.vit[0], [0.88, 0.25, 0.25, 0.95]), (s.vit[1], [0.9, 0.62, 0.2, 0.95]), (s.vit[2], [0.25, 0.6, 0.9, 0.95])].into_iter().enumerate() {
-                let (bw, bh, y) = (190.0 * k, 12.0 * k, h - 26.0 * k - (2 - i) as f32 * 18.0 * k); u.rect(18.0 * k, y, bw, bh, [0.0, 0.0, 0.0, 0.45]); u.rect(18.0 * k, y, bw * (v as f32 / 100.0), bh, c);
+            // Vie, faim, soif, endurance ; le souffle seulement sous l'eau. Une jauge presque vide clignote.
+            let mut bars = vec![("Vie", s.vit[0], [0.88, 0.25, 0.25, 0.95]), ("Faim", s.vit[1], [0.9, 0.62, 0.2, 0.95]), ("Soif", s.vit[2], [0.25, 0.6, 0.9, 0.95]), (if s.winded { "Essoufflé" } else { "Endurance" }, s.stamina, if s.winded { [0.6, 0.6, 0.45, 0.95] } else { [0.78, 0.86, 0.36, 0.95] })];
+            if s.air < 99.9 { bars.push(("Souffle", s.air, [0.7, 0.92, 1.0, 0.95])); }
+            let n = bars.len();
+            for (i, (name, v, mut c)) in bars.into_iter().enumerate() {
+                let (bw, bh, y) = (190.0 * k, 12.0 * k, h - 26.0 * k - (n - 1 - i) as f32 * 19.0 * k); if v < 20.0 { c[3] *= 0.55 + 0.45 * (s.elapsed as f32 * 6.0).sin().abs(); }
+                u.rect(18.0 * k, y, bw, bh, [0.0, 0.0, 0.0, 0.45]); u.rect(18.0 * k, y, bw * (v as f32 / 100.0).clamp(0.0, 1.0), bh, c); u.text(name, 18.0 * k + bw + 8.0 * k, y - 3.0 * k, 14.0 * k, DIM);
             }
         } else { let z = 18.0 * k; u.text("Mode créatif", 18.0 * k, h - 34.0 * k, z, w1); }
         if !info.is_empty() { let z = 16.0 * k; let bw = info.iter().fold(0.0f32, |a, l| a.max(Ui::text_width(l, z))); u.rect(10.0 * k, 10.0 * k, bw + 24.0 * k, info.len() as f32 * 22.0 * k + 14.0 * k, [0.0, 0.0, 0.0, 0.5]); for (i, l) in info.iter().enumerate() { u.text(l, 22.0 * k, 16.0 * k + i as f32 * 22.0 * k, z, INK); } }
         if s.inv_open { u.inventory(s, w, h, k, mouse); }
+        if let Some(d) = &s.dead { u.death(s, d, w, h, k, mouse); }
         if menu.open { u.menu(menu, w, h, mouse); }
         if let Some(m) = msg { let z = 20.0 * k; u.text(m, (w - Ui::text_width(m, z)) * 0.5, h * 0.16, z, w1); }
         let _ = (u.w, u.h); u

@@ -54,7 +54,8 @@ fn debug_lines(s: &Session, fps: f64, tris: usize, quality: &str) -> Vec<String>
     let t = s.target.map_or("rien".to_string(), |t| format!("{} ({}, {}, {})", alw_core::blocks::BLOCKS[t.id as usize].name, t.x, t.y, t.z));
     vec![format!("{fps:.0} FPS  ·  {:.1} M triangles  ·  qualité {quality}", tris as f64 / 1e6), format!("Graine {}", s.seed), format!("Position {:.1}  {:.1}  {:.1}", p[0], p[1], p[2]), format!("Chunk {} {}  ·  {} chargés  ·  {} en attente", (p[0] / 32.0).floor(), (p[2] / 32.0).floor(), s.world.loaded(), s.world.waiting()),
         format!("Biome {}", alw_core::biome::NAMES[order[0]]), format!("Mélange {} {:.0} %, {} {:.0} %", alw_core::biome::NAMES[order[0]], m.w[order[0]] * 100.0, alw_core::biome::NAMES[order[1]], m.w[order[1]] * 100.0), format!("Climat : température {:.2}, humidité {:.2}", m.temp, m.wet),
-        format!("Heure {:02}:{:02}  ·  météo {}", s.hour as u32, (s.hour.fract() * 60.0) as u32, s.weather.kind.name()), format!("Visé : {t}"), format!("Animaux : {} cerfs, {} oiseaux", s.fauna.deer.len(), s.fauna.birds.len())]
+        format!("Heure {:02}:{:02}  ·  météo {}", s.hour as u32, (s.hour.fract() * 60.0) as u32, s.weather.kind.name()), format!("Visé : {t}"), format!("Animaux : {} cerfs, {} oiseaux", s.fauna.deer.len(), s.fauna.birds.len()),
+        format!("Vie {:.0}  ·  faim {:.0}  ·  soif {:.0}  ·  endurance {:.0}  ·  souffle {:.0}", s.vit[0], s.vit[1], s.vit[2], s.stamina, s.air)]
 }
 /// Graine de la partie : celle de la sauvegarde, sinon celle choisie par « Nouveau monde », sinon celle du monde de départ.
 fn world_seed() -> i32 {
@@ -100,6 +101,8 @@ impl Game {
         let open = self.s.inv_open || self.menu.open; let input = if open { Input::default() } else { Input { x: ax(k(KeyCode::KeyA) || k(KeyCode::KeyQ), k(KeyCode::KeyD)), z: ax(k(KeyCode::KeyW) || k(KeyCode::KeyZ), k(KeyCode::KeyS)), jump: k(KeyCode::Space), sprint: k(KeyCode::ShiftLeft), crouch: k(KeyCode::ControlLeft), roll: k(KeyCode::KeyV) } };
         self.place_t -= dt; let place = self.rmb && self.place_t <= 0.0; if place { self.place_t = 0.22; }
         self.s.tick(dt, input, Actions { mine: self.lmb, place });
+        for n in std::mem::take(&mut self.s.notes) { self.say(n); }
+        if self.s.dead.is_some() && self.grabbed { self.grab(false); } // l'écran de mort a besoin du pointeur
         let (built, gone) = self.s.sync();
         for b in built { self.gpu.upload(b); }
         for g in gone { self.gpu.forget(g); }
@@ -154,6 +157,7 @@ impl ApplicationHandler for App {
                     }
                     return;
                 }
+                if g.s.dead.is_some() { if button == MouseButton::Left && down && hud::death_at(w, h, g.mouse) { g.s.respawn(); g.grab(true); } return; }
                 if g.s.inv_open {
                     let at = hud::hit_at(g.s.creative, g.s.tab, w, h, g.mouse); let shift = g.keys.contains(&KeyCode::ShiftLeft) || g.keys.contains(&KeyCode::ShiftRight); let slot = if let Some(hud::Hit::Slot(i)) = at { Some(i) } else { None };
                     match (button, down) {
@@ -161,6 +165,8 @@ impl ApplicationHandler for App {
                             Some(hud::Hit::Tab(i)) => g.s.tab = i,
                             Some(hud::Hit::Slot(i)) => if shift { g.s.quick_slot(i) } else { g.s.grab_slot(i) },
                             Some(hud::Hit::Catalog(id)) => if shift { g.s.quick_catalog(id) } else if g.s.cursor.is_none() { g.s.grab_catalog(id) },
+                            // Maj + clic fabrique tant que les ingrédients suivent.
+                            Some(hud::Hit::Recipe(i)) => { let mut made = 0; loop { match g.s.craft(i) { Ok(()) => { made += 1; if !shift || made >= 64 { break; } } Err(e) => { if made == 0 { g.say(e.into()); } break; } } } }
                             None => {}
                         },
                         (MouseButton::Left, false) => g.s.drop_slot(slot),
@@ -183,8 +189,9 @@ impl ApplicationHandler for App {
                 let PhysicalKey::Code(c) = event.physical_key else { return };
                 if event.state != ElementState::Pressed { g.keys.remove(&c); return; }
                 if !event.repeat { match c {
+                    KeyCode::Enter | KeyCode::NumpadEnter if g.s.dead.is_some() && !g.menu.open => { g.s.respawn(); g.grab(true); }
                     KeyCode::Escape => { if g.s.inv_open { g.s.inv_open = false; g.s.drop_slot(None); g.grab(true); } else if g.menu.open { g.close_menu(); } else { g.menu.open = true; g.grab(false); } }
-                    _ if g.menu.open => {}
+                    _ if g.menu.open || g.s.dead.is_some() => {}
                     KeyCode::KeyE => { let on = !g.s.inv_open; g.s.inv_open = on; if !on { g.s.drop_slot(None); } g.grab(!on); }
                     KeyCode::KeyC => { g.s.third = !g.s.third; let m = if g.s.third { "Troisième personne" } else { "Première personne" }; g.say(m.into()); }
                     KeyCode::KeyF => { if g.s.creative { g.s.player.fly = !g.s.player.fly; let m = if g.s.player.fly { "Vol activé" } else { "Vol désactivé" }; g.say(m.into()); } else { g.say("Le vol demande le mode créatif (G)".into()); } }
@@ -354,6 +361,20 @@ fn capture(a: &[String]) {
         for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false }); if alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z) == Some(0) { break; } }
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
+    }
+    if ["survie", "craft", "campement", "mort"].contains(&scene.as_str()) {
+        // Survie : on retombe au sol, un établi et un feu de camp devant soi, des jauges entamées.
+        use alw_core::blocks::{is_solid, B}; use alw_core::player::Voxels;
+        s.player.fly = false; s.third = false; s.sel = 2; for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.dead.is_some() { s.respawn(); } s.vit = [100.0; 3];
+        let gy = |s: &Session, x: f64, z: f64| { let mut y = s.player.p[1] as i32 + 4; while y > 2 && !s.world.get(x.floor() as i32, y, z.floor() as i32).is_some_and(is_solid) { y -= 1; } y + 1 };
+        let (p, fx, fz) = (s.player.p, s.player.yaw.sin(), s.player.yaw.cos()); let (sx, sz) = (-fz, fx); let at = |k: f64, l: f64| (p[0] + fx * k + sx * l, p[2] + fz * k + sz * l);
+        let (cx, cz) = at(3.2, -0.9); let (wx, wz) = at(3.6, 1.4); let (y1, y2) = (gy(&s, cx, cz), gy(&s, wx, wz));
+        s.world.edit_many(&[(cx.floor() as i32, y1, cz.floor() as i32, B::CAMPFIRE), (wx.floor() as i32, y2, wz.floor() as i32, B::WORKBENCH)]); pump(&mut s, &mut g);
+        s.player.pitch = -0.32; s.vit = [62.0, 34.0, 17.0]; s.stamina = 41.0;
+        if scene == "survie" { let (dx, dz) = at(5.5, -2.6); s.fauna.put([dx, gy(&s, dx, dz) as f64, dz], s.player.yaw + 2.0); s.air = 55.0; s.tick(0.0, none, Actions::default()); s.hurt_at = s.elapsed - 0.25; }
+        if scene == "craft" { s.inv = [None; alw_core::session::INV_SIZE]; for (id, n) in [("oak_log", 3), ("planks", 6), ("stick", 5), ("stone", 4), ("raw_meat", 2), ("berries", 7), ("leather", 1), ("glowcap", 2), ("pickaxe", 1)] { s.add_item(id, n); } s.inv_open = true; }
+        if scene == "mort" { s.harm(500.0, "Une chute", false); }
+        s.tick(0.0, none, Actions::default()); println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
     }
     let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 1, confirm: false };
     let info = if scene == "f3" || scene == "foret" { debug_lines(&s, 240.0, 5_200_000, "Ultra") } else { Vec::new() };

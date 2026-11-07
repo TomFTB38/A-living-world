@@ -36,7 +36,7 @@ pub fn parts() -> [(&'static str, VBuf); 5] {
     [("deerBody", body), ("deerHead", head), ("deerLeg", leg), ("bird", bird), ("wing", wing)]
 }
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum DeerState { Graze, Walk, Flee }
-#[derive(Clone, Debug)] pub struct Deer { pub p: [f64; 3], pub gy: f64, pub yaw: f64, pub state: DeerState, pub t: f64, pub phase: f64, pub head: f64, pub hoof: f64, pub speed: f64, blocked: u32 }
+#[derive(Clone, Debug)] pub struct Deer { pub p: [f64; 3], pub gy: f64, pub yaw: f64, pub state: DeerState, pub t: f64, pub phase: f64, pub head: f64, pub hoof: f64, pub speed: f64, blocked: u32, pub hp: f64, pub hit: f64 }
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum BirdState { Fly, Perch, Gone }
 #[derive(Clone, Debug)] pub struct Bird { pub p: [f64; 3], pub yaw: f64, pub state: BirdState, pub t: f64, pub v: [f64; 3], pub flap: f64, pub voice: usize, pub sing: f64, pub hop: f64, tg: [f64; 3], land: bool, scan: f64, surf: Option<f64>, stuck: f64 }
 /// Ce que la faune fait entendre.
@@ -83,7 +83,7 @@ impl Fauna {
         self.t += dt; self.day = day;
         if self.deer.len() < MAX_DEER && self.rng.next() < dt * 2.0 {
             let s = self.spawn_spot(w, p, 16.0, 60.0); let yaw = self.rng.range(0.0, 6.28);
-            if let Some(s) = s { if fits(w, s[0], s[1], s[2], yaw, 2) { let t = self.rng.range(2.0, 7.0); let phase = self.rng.range(0.0, 6.0); self.deer.push(Deer { p: s, gy: s[1], yaw, state: DeerState::Graze, t, phase, head: 1.0, hoof: 0.0, speed: 0.0, blocked: 0 }); } }
+            if let Some(s) = s { if fits(w, s[0], s[1], s[2], yaw, 2) { let t = self.rng.range(2.0, 7.0); let phase = self.rng.range(0.0, 6.0); self.deer.push(Deer { p: s, gy: s[1], yaw, state: DeerState::Graze, t, phase, head: 1.0, hoof: 0.0, speed: 0.0, blocked: 0, hp: crate::survival::DEER_HP, hit: 0.0 }); } }
         }
         // Les oiseaux arrivent en vol, en petits groupes, puis se posent à découvert.
         if day > 0.25 && self.birds.len() < MAX_BIRDS - 2 && self.rng.next() < dt * 1.2 { self.flock(w, p); }
@@ -93,7 +93,7 @@ impl Fauna {
         birds.retain(|b| b.state != BirdState::Gone && hypot2(b.p[0] - p[0], b.p[2] - p[2]) < 82.0); self.birds = birds;
     }
     fn step_deer(&mut self, d: &mut Deer, dt: f64, w: &impl Voxels, p: [f64; 3]) {
-        let r = &mut self.rng; let dist = hypot2(d.p[0] - p[0], d.p[2] - p[2]);
+        d.hit = (d.hit - dt).max(0.0); let r = &mut self.rng; let dist = hypot2(d.p[0] - p[0], d.p[2] - p[2]);
         if dist < 4.5 && d.state != DeerState::Flee { // on peut approcher un cerf calme à quelques pas
             d.state = DeerState::Flee; d.t = r.range(3.0, 5.0); self.ev.push(Ev::Alarm(d.p)); let a = (d.p[0] - p[0]).atan2(d.p[2] - p[2]);
             for o in [0.0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6] { if turn(d, w, a + o) { break; } }
@@ -116,6 +116,14 @@ impl Fauna {
             }
             d.p[1] += (d.gy - d.p[1]) * (dt * 9.0).min(1.0);
         }
+    }
+    /// Pose un cerf calme à un endroit précis (bancs d'essai, captures).
+    pub fn put(&mut self, p: [f64; 3], yaw: f64) { self.deer.push(Deer { p, gy: p[1], yaw, state: DeerState::Graze, t: 30.0, phase: 0.0, head: 1.0, hoof: 0.0, speed: 0.0, blocked: 0, hp: crate::survival::DEER_HP, hit: 0.0 }); }
+    /// Un coup porté au cerf `i` depuis `from` : il fuit, ou tombe. Vrai s'il est mort (il disparaît alors).
+    pub fn strike(&mut self, i: usize, dmg: f64, from: [f64; 3]) -> bool {
+        let Some(d) = self.deer.get_mut(i) else { return false }; d.hp -= dmg; d.hit = 0.3;
+        if d.hp <= 0.0 { self.deer.remove(i); return true; }
+        d.state = DeerState::Flee; d.t = self.rng.range(4.0, 6.0); d.yaw = (d.p[0] - from[0]).atan2(d.p[2] - from[2]); self.ev.push(Ev::Alarm(d.p)); false
     }
     fn flock(&mut self, w: &impl Voxels, p: [f64; 3]) {
         let r = &mut self.rng; let (a, d) = (r.range(0.0, 6.283), r.range(18.0, 36.0)); let (cx, cz) = (p[0] + cos(a) * d, p[2] + sin(a) * d);
@@ -169,7 +177,7 @@ impl Fauna {
         let mut out = Vec::with_capacity(self.deer.len() * 6 + self.birds.len() * 3);
         let mut put = |n: &str, m: M4| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false });
         for d in &self.deer {
-            let base = trs(d.p[0], d.p[1], d.p[2], d.yaw, 0.0, 1.0); let s = if d.speed != 0.0 { sin(d.phase) * 0.75 } else { 0.0 }; const HIP: f64 = 0.72;
+            let base = trs(d.p[0], d.p[1] + d.hit * 0.5, d.p[2], d.yaw, -d.hit * 0.8, 1.0); let s = if d.speed != 0.0 { sin(d.phase) * 0.75 } else { 0.0 }; const HIP: f64 = 0.72;
             put("deerBody", mul(&base, &trs(0.0, HIP, 0.0, 0.0, 0.0, 1.0))); put("deerHead", mul(&base, &trs(0.0, HIP + 0.28, 0.45, 0.0, 0.42 + 1.05 * d.head, 1.0)));
             for (x, z, a) in [(-0.13, 0.44, s), (0.13, 0.44, -s), (-0.13, -0.44, -s), (0.13, -0.44, s)] { put("deerLeg", mul(&base, &trs(x, HIP, z, 0.0, a, 1.0))); }
         }

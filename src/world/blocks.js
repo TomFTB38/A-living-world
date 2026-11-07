@@ -155,6 +155,9 @@ const defs = [
   ['moor_grass', 'cube', ['grass_top', 'grass_side', 'dirt'], 0.5, { drop: 'dirt', cat: 'terrain' }],
   ['heather', 'deco', null, 0.04, { model: 'heather' }],
   ['cotton_grass', 'deco', null, 0.02, { model: 'cotton' }],
+  // Survie : stations de fabrication
+  ['campfire', 'deco', null, 0.4, { model: 'campfire', light: 13, cat: 'light', drop: 'campfire' }], // cuit la viande, brûle qui marche dedans
+  ['workbench', 'deco', null, 0.8, { model: 'workbench', solid: true, cat: 'wood', drop: 'workbench' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
