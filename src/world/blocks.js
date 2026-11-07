@@ -86,8 +86,11 @@ const defs = [
   ['spruce_log_x_c', 'cube', ['bark_spruce', 'end_spruce', 'bark_spruce'], 1.0, { cat: 'wood', drop: 'spruce_log', axis: 'x', clean: true }],
   ['spruce_log_z_c', 'cube', ['bark_spruce', 'bark_spruce', 'end_spruce'], 1.0, { cat: 'wood', drop: 'spruce_log', axis: 'z', clean: true }],
   ['spruce_leaves', 'leaf', ['leaf_spruce', 'leaf_spruce', 'leaf_spruce'], 0.12, { cat: 'foliage', drop: null }],
-  ['spruce_leaves_snow', 'leaf', ['leaf_snow', 'leaf_snow', 'leaf_snow'], 0.12, { cat: 'foliage', drop: null }],
+  ['spruce_leaves_snow', 'leaf', ['snow', 'leaf_snow', 'leaf_spruce'], 0.12, { cat: 'foliage', drop: null }],
   ['icicle', 'deco', null, 0.02, { model: 'icicle', drop: null }],
+  ['snow_layer', 'deco', null, 0.1, { model: 'snowlayer', drop: null }],
+  ['pinecone', 'deco', null, 0.02, { model: 'pinecone', drop: 'pinecone' }],
+  ['frost_grass', 'deco', null, 0.02, { model: 'frost', drop: null }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({

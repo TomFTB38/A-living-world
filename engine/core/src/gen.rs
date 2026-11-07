@@ -165,14 +165,14 @@ impl WorldGen {
                     v[i] = if path > 0.45 { B::PATH }
                     else if water != 0.0 && yf < water + 1.0 { if self.n_deco.n2(wx / 7.0, wz / 7.0) > 0.0 { B::GRAVEL } else { B::SAND } }
                     else if c.bank > 0.72 && yf <= water + 2.0 { B::GRAVEL }
-                    else if yf > 101.0 + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0) { B::SNOW } // sommets enneigés, partout
-                    else if cold { B::SNOW }
+                    else if yf > 101.0 + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0) { self.stone_at(wx, yf, wz) } // sommets : roche, couverte de neige plus loin
+                    else if cold { if self.n_deco.n2(wx / 9.0, wz / 9.0) > 0.3 { B::DIRT } else { self.stone_at(wx, yf, wz) } } // taïga : surtout de la roche sous la neige
                     else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) } // haute montagne : la roche à nu
                     else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 - 0.9 * deep { B::FOREST_SOIL }
                     else if cliff > 0.45 && !cold && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
                     else if hash_float(wxi, wzi, self.seed, 41) < deep { B::GRASS_DEEP } else { B::GRASS };
                 } else if steep { v[i] = self.stone_at(wx, y as f64, wz); }
-                else { v[i] = B::DIRT; }
+                else if cold { v[i] = self.stone_at(wx, y as f64, wz); } else { v[i] = B::DIRT; }
                 depth += 1;
             }
             let wi = water as i32;
@@ -193,7 +193,7 @@ impl WorldGen {
         } }
         self.stamp_all(&mut v, cx, cz, &mut heights);
         self.scatter_deco(&mut v, ox, oz, &heights, &waters, &info);
-        self.hang_vines(&mut v, ox, oz);
+        self.hang_vines(&mut v, ox, oz); self.snow_cover(&mut v, ox, oz);
         v
     }
     fn scatter_deco(&self, v: &mut [u8], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64, f64, f64)]) {
@@ -209,7 +209,9 @@ impl WorldGen {
                 continue;
             }
             if here != 0 { continue; }
-            let r = hash_float(wxi, wzi, s, 3); let (fr, path, meadow, deep) = info[x + z * CX];
+            let r = hash_float(wxi, wzi, s, 3);
+            // Au froid, sous la future pellicule de neige : quelques herbes givrées et des pommes de pin, rien d'autre.
+            if hash_float(wxi, wzi, s, 42) < smooth(0.3, 0.7, self.climate.at(wx, wz).strong(Biome::Taiga)) { if is_opaque(ground) && ground != B::ICE { v[idx(x, y, z)] = if r < 0.06 { B::FROST_GRASS } else if r < 0.072 { B::PINECONE } else { 0 }; } continue; } let (fr, path, meadow, deep) = info[x + z * CX];
             if ground == B::PATH { if r < 0.055 { v[idx(x, y, z)] = B::FLAGSTONE; } continue; }
             if !is_grass(ground) && ground != B::FOREST_SOIL && ground != B::MOSSY_STONE { continue; }
             if path > 0.02 && path < 0.4 && nd.n2(wx / 40.0 - 9.0, wz / 40.0 + 5.0) > 0.2 {
@@ -235,6 +237,15 @@ impl WorldGen {
             v[idx(x, y, z)] = id;
         } }
     }
+    /// Pellicule de neige sur tout ce qui est exposé au ciel froid : sol, rochers, troncs coupés, pas l'eau gelée ni le feuillage.
+    fn snow_cover(&self, v: &mut [u8], ox: i32, oz: i32) {
+        for z in 0..CX { for x in 0..CX {
+            let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
+            let mut y = CH - 2; while y > 1 && v[idx(x, y, z)] == 0 { y -= 1; } let b = v[idx(x, y, z)]; if !is_opaque(b) || b == B::ICE { continue; }
+            let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, self.climate.at(wx, wz).strong(Biome::Taiga)); let peak = y as f64 > 101.0 + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0);
+            if cold || peak { v[idx(x, y + 1, z)] = B::SNOW_LAYER; }
+        } }
+    }
     fn hang_vines(&self, v: &mut [u8], ox: i32, oz: i32) {
         let s = self.seed;
         for z in 0..CX { for x in 0..CX {
@@ -244,7 +255,7 @@ impl WorldGen {
             while y > 4 {
                 let b = v[idx(x, y, z)];
                 if is_leaf(b) && v[idx(x, y - 1, z)] == 0 {
-                    if taiga > 0.5 { v[idx(x, y - 1, z)] = B::ICICLE; break; } // au froid, des glaçons à la place des lianes
+                    if taiga > 0.5 { v[idx(x, y - 1, z)] = if hash_float(wx, wz, s, 14) < 0.55 { B::PINECONE } else { B::ICICLE }; break; } // au froid, des glaçons à la place des lianes
                     let n = 2 + (hash_float(wx, wz, s, 12) * (5.0 + 5.0 * deep)).floor() as usize;
                     let mut k = 1;
                     while k <= n && v[idx(x, y - k, z)] == 0 { v[idx(x, y - k, z)] = B::VINE; k += 1; }
@@ -300,7 +311,7 @@ impl WorldGen {
                     let e = dx * dx / (rx * rx) + dy * dy / (ry * ry) + dz * dz / (rz * rz);
                     if e + nn < 1.0 {
                         let e2 = dx * dx / (rx * rx) + (dy + 1.0) * (dy + 1.0) / (ry * ry) + dz * dz / (rz * rz) + nn;
-                        let id = if e2 >= 1.0 && r.next() < 0.75 { if cold { B::SNOW } else { B::MOSSY_STONE } } else { self.stone_at(ax, base + dy, az) };
+                        let id = if e2 >= 1.0 && r.next() < 0.75 && !cold { B::MOSSY_STONE } else { self.stone_at(ax, base + dy, az) };
                         data.push([ri(ax + dx), (base + dy) as i32, ri(az + dz), id as i32]);
                     }
                 } }

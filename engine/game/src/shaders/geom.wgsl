@@ -48,12 +48,19 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
     let grain = rot & 3; if (grain == 1 || (grain == 0 && ax.y > 0.5 && h2 > 0.5)) { f = f.yx; dx = dx.yx; dy = dy.yx; let q = tt; tt = bb; bb = q; }
     let l = layer0 + (i32(h * 4.0) & 3);
     let a = textureSampleGrad(t_alb, s_rep, f, l, dx, dy); let m = textureSampleGrad(t_nrm, s_rep, f, l, dx, dy);
-    alb = a.rgb * a.rgb * i.tint;
+    let snowy = i.tint.b > 1.98 && i.tint.r < 1.02; let tn = select(i.tint, vec3f(1.0), snowy);
+    alb = a.rgb * a.rgb * tn;
     alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.86);
     if (layer0 >= 4 && layer0 < 16) { alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.74) * vec3f(0.84, 0.82, 0.86); } // terre : brune, pas orange
     let bark = layer0 >= BARK0 && layer0 < LEAF0;
     alb *= select(0.9 + 0.2 * h2, 0.95 + 0.1 * h2, bark);
     if (layer0 >= STONE0 && layer0 < GRAVEL0) { let e = min(f, vec2f(1.0) - f); alb *= 0.8 + 0.2 * smoothstep(0.0, 0.04, min(e.x, e.y)); }
+    if (snowy) { // neige posée dessus : saupoudrée sur le dessus, un liseré en haut des côtés
+      let g = floor(i.w * 8.0) / 8.0; var m2 = 0.0;
+      if (n.y > 0.5) { m2 = step(0.5, hash13(g * 3.1) * 0.55 + noise(g * 0.4) * 0.6); }
+      else { m2 = step(0.86 - 0.14 * hash13(vec3f(g.x, 0.0, g.z) * 5.3), fract(i.w.y - 0.001)); }
+      alb = mix(alb, vec3f(0.82, 0.86, 0.92), m2);
+    }
     let d = m.xy * 2.0 - 1.0; if (!held) { nn = normalize(n + (tt * d.x + bb * d.y) * 0.9); } rough = m.b;
     if (kind == 1) { trans = 1.0; rough = 0.5; alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.8) * vec3f(0.74, 0.8, 0.74); } // feuillage au soleil : vert profond, pas jaune fluo
     // mousse en petits pixels sur les pierres et l'écorce

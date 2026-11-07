@@ -128,15 +128,16 @@ fn snow(t: &Tile, x: f64, y: f64) -> S {
 }
 fn snow_side(t: &Tile, x: f64, y: f64) -> S {
     let fringe = 10.0 + 7.0 * t.val(x, 0.0, 16) + 4.0 * t.val(x, 0.0, 32);
-    if y < fringe { return snow(t, x, y); } let mut d = dirt(t, x, y, &DIRT); if y < fringe + 3.0 { d.c = mul(d.c, 0.7); } d
+    if y < fringe { return snow(t, x, y); } let mut d = stone(t, x, y, &STONE, 5); if y < fringe + 3.0 { d.c = mul(d.c, 0.75); } d
 }
 fn ice(t: &Tile, x: f64, y: f64) -> S {
     let (d1, d2, _) = t.vor(x, y, 5); let crack = smooth(0.06, 0.0, d2 - d1); let (n, s) = (t.fbm(x, y, 3, 3), t.val(x, y, 16)); let bub = if t.val(x, y, 48) > 0.82 { 0.12 } else { 0.0 };
     S { c: mul(pal(&ICE, 0.25 + 0.5 * n + 0.2 * (s - 0.5) + bub + 0.35 * crack), 1.0), h: 0.6 - 0.5 * crack, r: 0.12 + 0.3 * crack }
 }
+/// Côté d'un étage d'épicéa enneigé : la neige déborde du dessus, les aiguilles sombres dessous.
 fn leaf_snow(t: &Tile, x: f64, y: f64) -> S {
-    let l = leaf(t, x, y, [0.5, 0.72, 0.64]); let cover = smooth(0.38, 0.52, t.fbm(x + 13.0, y * 1.6, 5, 3) + 0.1 * (1.0 - y / 64.0));
-    if cover > 0.5 { let s = snow(t, x, y); return S { c: s.c, h: 0.7, r: 0.6 }; } l
+    let fringe = 9.0 + 9.0 * t.val(x, 0.0, 16) + 5.0 * t.val(x, 0.0, 32);
+    if y < fringe { let s = snow(t, x, y); return S { c: s.c, h: 0.75, r: 0.6 }; } leaf(t, x, y, [0.34, 0.55, 0.46])
 }
 fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
     let b_oak = |a: &Tile, b: f64, c: f64| bark(a, b, c, &OAK, 1.0); let b_beech = |a: &Tile, b: f64, c: f64| bark(a, b, c, &BEECH, 0.28);
@@ -149,7 +150,7 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "planks" => planks(t, x, y),
         "snow" => snow(t, x, y), "snow_side" => snow_side(t, x, y), "ice" => ice(t, x, y),
         "bark_spruce" => bark(t, x, y, &SPRUCE, 0.7), "end_spruce" => wood_end(t, x, y, &SPRUCE_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &SPRUCE, 0.7)),
-        "leaf_spruce" => leaf(t, x, y, [0.5, 0.72, 0.64]), "leaf_snow" => leaf_snow(t, x, y),
+        "leaf_spruce" => leaf(t, x, y, [0.34, 0.55, 0.46]), "leaf_snow" => leaf_snow(t, x, y),
         "water_foam" => { let f = t.fbm(x, y, 8, 3); S { c: [f, f, f], h: f, r: 0.3 } }
         _ => panic!("matériau sans générateur : {name}"),
     }

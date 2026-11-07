@@ -145,7 +145,8 @@ impl Mesher {
                             skyn |= (round(ss as f64 / n as f64) as i32) << (c * 4); blkn |= (round(bb as f64 / n as f64) as i32) << (c * 4);
                         }
                         let pos = (i + j * nu) as usize;
-                        self.m1[pos] = (face << 8) | ao | (if is_leaf(b) { 1 << 24 } else { 0 }) | (grain << 25) | (tone(b) << 28);
+                        let tn = if di != 2 && self.vk(k + WW) == B::SNOW_LAYER { 2 } else { tone(b) }; // neige posée dessus : le bloc en reçoit un peu
+                        self.m1[pos] = (face << 8) | ao | (if is_leaf(b) { 1 << 24 } else { 0 }) | (grain << 25) | (tn << 28);
                         self.m2[pos] = skyn | (blkn << 16); any = true;
                     } }
                     if !any { continue; }
@@ -387,6 +388,31 @@ impl Mesher {
                 }
                 let t = r_.range(0.0, 6.3); blade(o, x + 0.5, y, z + 0.5, t, 0.04, 0.34, 0.15, 0.36, 0.5, 0.18, s, l, s);
             }
+            "snowlayer" => {
+                // Pellicule de neige : une dalle fine, texturée, posée sur le bloc ; ses bords ne se dessinent que vers l'air.
+                let h = 0.1 + 0.07 * (hash_int(wx, yi, wz, 95) % 1000) as f64 / 1000.0; let layer = BLOCKS[B::SNOW as usize].faces[0] as f64; let (a, b, c, d, e) = (x, x + 1.0, z, z + 1.0, y + h);
+                let mut q = |p: [[f64; 3]; 4], n: [f64; 3], ao: f64| { for v in p { o.v(v[0], v[1], v[2], layer, n[0], n[1], n[2], 0.0, ao, s, l, TEX, 1.0, 1.0, 1.0); } };
+                q([[a, e, d], [b, e, d], [b, e, c], [a, e, c]], [0.0, 1.0, 0.0], 255.0);
+                let open = |v: u8| v != B::SNOW_LAYER && !is_opaque(v);
+                if open(voxel(0, 0, 1)) { q([[a, y, d], [b, y, d], [b, e, d], [a, e, d]], [0.0, 0.0, 1.0], 220.0); }
+                if open(voxel(0, 0, -1)) { q([[b, y, c], [a, y, c], [a, e, c], [b, e, c]], [0.0, 0.0, -1.0], 220.0); }
+                if open(voxel(1, 0, 0)) { q([[b, y, d], [b, y, c], [b, e, c], [b, e, d]], [1.0, 0.0, 0.0], 220.0); }
+                if open(voxel(-1, 0, 0)) { q([[a, y, c], [a, y, d], [a, e, d], [a, e, c]], [-1.0, 0.0, 0.0], 220.0); }
+            }
+            "pinecone" => {
+                // Pomme de pin : pendue sous une branche, ou tombée au sol.
+                let hang = is_leaf(voxel(0, 1, 0)); let n = if hang { 1 } else { r_.int(1, 3) };
+                for _ in 0..n {
+                    let (a, c) = (x + r_.range(0.3, 0.7), z + r_.range(0.3, 0.7)); let k = r_.range(0.85, 1.15);
+                    if hang { for (y0, y1, w) in [(0.9, 1.0, 0.035), (0.72, 0.9, 0.075), (0.6, 0.72, 0.05)] { bx3(o, a - w, y + y0, c - w, a + w, y + y1, c + w, 0.4 * k, 0.24 * k, 0.12 * k, 0.0, s, l); } }
+                    else { for (x0, x1, w) in [(-0.13, -0.04, 0.05), (-0.04, 0.09, 0.075), (0.09, 0.15, 0.045)] { bx3(o, a + x0, y, c - w, a + x1, y + w * 1.6, c + w, 0.4 * k, 0.24 * k, 0.12 * k, 0.0, s, l); } }
+                }
+            }
+            "frost" => {
+                // Herbes givrées : des brins pâles qui percent la neige.
+                let n = r_.int(6, 10);
+                for _ in 0..n { let t = r_.range(0.85, 1.1); let (a, c, ang, w, h, lean) = (x + r_.next(), z + r_.next(), r_.range(0.0, 6.28), r_.range(0.02, 0.035), r_.range(0.2, 0.55), r_.range(0.05, 0.2)); blade(o, a, y, c, ang, w, h, lean, 0.78 * t, 0.83 * t, 0.86 * t, s, l, (s - 25.0).max(0.0)); }
+            }
             "icicle" => {
                 // Glaçons : des pointes effilées qui pendent du bloc du dessus.
                 let n = r_.int(2, 4);
@@ -462,6 +488,16 @@ fn stem(o: &mut VBuf, x: f64, y: f64, z: f64, h: f64, s: f64, l: f64) { bx(o, x 
 fn leaf_cubes(o: &mut VBuf, b: u8, x: f64, y: f64, z: f64, wx: i32, yi: i32, wz: i32, s: f64, l: f64, lod: u8) {
     let layer = BLOCKS[b as usize].faces[0] as f64; let t = BLOCKS[b as usize].tint;
     let mut r = Rng::new(hash_int(wx, yi, wz, 77)); let zone = hash_int(wx >> 3, yi >> 2, wz >> 3, 7) as f64 / 4294967296.0; let lit = 0.74 + 0.4 * (s / 255.0);
+    // Épicéa : un étage net d'un bloc, dessus et côtés distincts (neige sur le dessus quand il y en a).
+    if b == B::SPRUCE_LEAVES || b == B::SPRUCE_LEAVES_SNOW {
+        let bk = BLOCKS[b as usize]; let (top, side, bot) = (bk.dir_faces[1] as f64, bk.dir_faces[0] as f64, bk.dir_faces[2] as f64); let j = |r: &mut Rng| r.range(-0.05, 0.05);
+        let (a, e, c) = (x + j(&mut r), y, z + j(&mut r)); let (a1, e1, c1) = (a + 1.0 + j(&mut r).abs(), e + 1.0, c + 1.0 + j(&mut r).abs()); let k = r.range(0.9, 1.08) * lit;
+        let mut quad = |p: [f64; 12], ly: f64, nx: f64, ny: f64, nz: f64, ao: f64| { for i in (0..12).step_by(3) { o.v(p[i], p[i + 1], p[i + 2], ly, nx, ny, nz, 60.0, ao, s, l, LEAF, k, k, k); } };
+        quad([a, e1, c1, a1, e1, c1, a1, e1, c, a, e1, c], top, 0.0, 1.0, 0.0, 255.0);
+        quad([a, e, c1, a1, e, c1, a1, e1, c1, a, e1, c1], side, 0.0, 0.0, 1.0, 215.0); quad([a1, e, c, a, e, c, a, e1, c, a1, e1, c], side, 0.0, 0.0, -1.0, 215.0);
+        quad([a1, e, c1, a1, e, c, a1, e1, c, a1, e1, c1], side, 1.0, 0.0, 0.0, 215.0); quad([a, e, c, a, e, c1, a, e1, c1, a, e1, c], side, -1.0, 0.0, 0.0, 215.0);
+        quad([a, e, c, a1, e, c, a1, e, c1, a, e, c1], bot, 0.0, -1.0, 0.0, 150.0); return;
+    }
     let n = if lod == 0 { 3 } else { 1 };
     for _ in 0..n {
         let size = if lod == 0 { r.range(0.5, 0.86) } else { r.range(1.0, 1.14) };

@@ -28,7 +28,8 @@ pub struct Block {
 /// Vrai pour tous les troncs, quelle que soit leur orientation ; l'essence est le premier mot du nom.
 pub fn is_log(b: u8) -> bool { BLOCKS[b as usize].name.contains("_log") }
 /// Teinte de biome des faces pleines : numéro dans TONES, gardé dans le masque du maillage.
-pub const TONES: [[f64; 3]; 2] = [[1.0, 1.0, 1.0], [0.6, 0.74, 0.62]];
+/// TONES[2] n'est pas une teinte : c'est la marque « neige posée dessus », lue par le rendu.
+pub const TONES: [[f64; 3]; 3] = [[1.0, 1.0, 1.0], [0.6, 0.74, 0.62], [1.0, 1.0, 2.0]];
 #[inline] pub fn tone(b: u8) -> i32 { if b == B::GRASS_DEEP { 1 } else { 0 } }
 #[inline] pub fn is_grass(b: u8) -> bool { b == B::GRASS || b == B::GRASS_DEEP }
 /// Variante sans mousse d'un bloc posé par le joueur, quand elle existe.
