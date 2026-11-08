@@ -274,9 +274,67 @@ impl Mesher {
                 for k in 0..8 { let a = k as f64 * 0.785 + 0.2; let (cx, cz) = (x + 0.5 + cos(a) * 0.36, z + 0.5 + sin(a) * 0.36); let t = 0.85 + 0.25 * r_.next(); let q = 0.075 + 0.025 * r_.next(); bx3(o, cx - q, y, cz - q, cx + q, y + 0.11 + 0.04 * r_.next(), cz + q, 0.46 * t, 0.45 * t, 0.43 * t, 0.0, s, l); }
                 bx3(o, x + 0.2, y, z + 0.44, x + 0.8, y + 0.12, z + 0.56, 0.36, 0.22, 0.12, 0.0, s, l); bx3(o, x + 0.44, y + 0.08, z + 0.2, x + 0.56, y + 0.2, z + 0.8, 0.3, 0.18, 0.1, 0.0, s, l);
                 bx3(o, x + 0.38, y + 0.02, z + 0.38, x + 0.62, y + 0.06, z + 0.62, 0.1, 0.07, 0.05, 0.0, s, l); // braises
+                if b != B::CAMPFIRE { return; } // feu éteint : cendres froides, sans flammes
                 for (dx, dz, h, w, c) in [(0.0, 0.0, 0.52, 0.11, [2.4, 1.2, 0.3]), (0.09, 0.05, 0.36, 0.08, [2.2, 0.9, 0.2]), (-0.08, -0.06, 0.4, 0.08, [2.3, 1.0, 0.25]), (0.03, -0.1, 0.28, 0.06, [2.6, 1.6, 0.5])] {
                     let (cx, cz) = (x + 0.5 + dx, z + 0.5 + dz); bx(o, cx - w, y + 0.1, cz - w, cx + w, y + 0.1 + h, cz + w, c[0], c[1], c[2], 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
                 }
+                return;
+            }
+            "furnace" => {
+                // Four : un massif de pierres sèches, une gueule rougeoyante, une cheminée courte.
+                let st = |o: &mut VBuf, a: f64, e: f64, c: f64, a1: f64, e1: f64, c1: f64, k: f64| bx3(o, x + a, y + e, z + c, x + a1, y + e1, z + c1, 0.5 * k, 0.48 * k, 0.45 * k, 0.0, s, l);
+                for (i, (e, e1)) in [(0.0, 0.3), (0.3, 0.6), (0.6, 0.86)].iter().enumerate() { let k = 0.85 + 0.12 * (i as f64 % 2.0); st(o, 0.04, *e, 0.04, 0.96, *e1, 0.96, k); }
+                st(o, 0.3, 0.86, 0.3, 0.7, 1.0, 0.7, 0.75); bx3(o, x + 0.36, y + 0.98, z + 0.36, x + 0.64, y + 1.0, z + 0.64, 0.08, 0.07, 0.06, 0.0, s, l);
+                bx(o, x + 0.28, y + 0.08, z + 0.955, x + 0.72, y + 0.42, z + 0.97, 2.2, 0.8, 0.25, 0.0, s, 255.0, EMIT, false, 0.0, 255.0); // gueule
+                return;
+            }
+            "anvil" => {
+                // Enclume posée sur un billot : pied de bois, table d'acier, bigorne.
+                bx3(o, x + 0.22, y, z + 0.22, x + 0.78, y + 0.45, z + 0.78, 0.42, 0.3, 0.18, 0.0, s, l); bx3(o, x + 0.2, y + 0.43, z + 0.2, x + 0.8, y + 0.47, z + 0.8, 0.5, 0.36, 0.22, 0.0, s, l);
+                let m = |o: &mut VBuf, a: f64, e: f64, c: f64, a1: f64, e1: f64, c1: f64, k: f64| bx3(o, x + a, y + e, z + c, x + a1, y + e1, z + c1, 0.3 * k, 0.31 * k, 0.33 * k, 0.0, s, l);
+                m(o, 0.36, 0.47, 0.32, 0.64, 0.62, 0.68, 0.9); m(o, 0.26, 0.62, 0.22, 0.74, 0.78, 0.78, 1.1); m(o, 0.36, 0.64, 0.78, 0.64, 0.75, 0.92, 1.0); m(o, 0.42, 0.66, 0.92, 0.58, 0.72, 0.99, 1.15);
+                return;
+            }
+            "mason_bench" => {
+                // Banc de taille : un établi bas et massif, un bloc dégrossi, un ciseau et une massette.
+                let wood = |o: &mut VBuf, a: f64, e: f64, c: f64, a1: f64, e1: f64, c1: f64, k: f64| bx3(o, x + a, y + e, z + c, x + a1, y + e1, z + c1, 0.5 * k, 0.36 * k, 0.22 * k, 0.0, s, l);
+                wood(o, 0.02, 0.6, 0.02, 0.98, 0.74, 0.98, 1.0); for (a, c) in [(0.05, 0.05), (0.79, 0.05), (0.05, 0.79), (0.79, 0.79)] { wood(o, a, 0.0, c, a + 0.16, 0.6, c + 0.16, 0.8); }
+                bx3(o, x + 0.18, y + 0.74, z + 0.22, x + 0.6, y + 1.0, z + 0.62, 0.62, 0.6, 0.55, 0.0, s, l); bx3(o, x + 0.6, y + 0.74, z + 0.3, x + 0.68, y + 0.92, z + 0.5, 0.7, 0.68, 0.62, 0.0, s, l);
+                bx3(o, x + 0.68, y + 0.74, z + 0.66, x + 0.9, y + 0.78, z + 0.7, 0.6, 0.6, 0.62, 0.0, s, l); bx3(o, x + 0.7, y + 0.74, z + 0.2, x + 0.86, y + 0.84, z + 0.3, 0.35, 0.34, 0.33, 0.0, s, l);
+                return;
+            }
+            "chest" => {
+                // Coffre : planches cerclées de fer, couvercle bombé, serrure.
+                let wood = |o: &mut VBuf, a: f64, e: f64, c: f64, a1: f64, e1: f64, c1: f64, k: f64| bx3(o, x + a, y + e, z + c, x + a1, y + e1, z + c1, 0.55 * k, 0.37 * k, 0.2 * k, 0.0, s, l);
+                wood(o, 0.08, 0.0, 0.14, 0.92, 0.56, 0.86, 1.0); wood(o, 0.07, 0.56, 0.13, 0.93, 0.72, 0.87, 1.1); wood(o, 0.1, 0.72, 0.18, 0.9, 0.78, 0.82, 1.05);
+                for a in [0.16, 0.8] { bx3(o, x + a, y, z + 0.13, x + a + 0.05, y + 0.785, z + 0.87, 0.24, 0.24, 0.25, 0.0, s, l); }
+                bx3(o, x + 0.44, y + 0.42, z + 0.86, x + 0.56, y + 0.6, z + 0.89, 0.7, 0.58, 0.3, 0.0, s, l);
+                return;
+            }
+            "bedroll" => {
+                // Sac de couchage : une natte de fibres roulée en tête, une couverture de peau.
+                bx3(o, x + 0.08, y, z + 0.02, x + 0.92, y + 0.06, z + 0.98, 0.56, 0.5, 0.3, 0.0, s, l); bx3(o, x + 0.1, y + 0.06, z + 0.3, x + 0.9, y + 0.12, z + 0.97, 0.5, 0.36, 0.22, 0.0, s, l);
+                bx3(o, x + 0.1, y + 0.06, z + 0.04, x + 0.9, y + 0.2, z + 0.26, 0.64, 0.58, 0.36, 0.0, s, l); return;
+            }
+            "bed" => {
+                // Lit : cadre de bois, matelas de paille, couverture, oreiller.
+                let wood = |o: &mut VBuf, a: f64, e: f64, c: f64, a1: f64, e1: f64, c1: f64| bx3(o, x + a, y + e, z + c, x + a1, y + e1, z + c1, 0.5, 0.34, 0.2, 0.0, s, l);
+                wood(o, 0.02, 0.12, 0.02, 0.98, 0.3, 0.98); for (a, c) in [(0.02, 0.02), (0.88, 0.02), (0.02, 0.88), (0.88, 0.88)] { wood(o, a, 0.0, c, a + 0.1, 0.12, c + 0.1); } wood(o, 0.02, 0.3, 0.02, 0.98, 0.7, 0.1);
+                bx3(o, x + 0.06, y + 0.3, z + 0.1, x + 0.94, y + 0.42, z + 0.96, 0.8, 0.72, 0.48, 0.0, s, l); bx3(o, x + 0.05, y + 0.42, z + 0.36, x + 0.95, y + 0.47, z + 0.97, 0.36, 0.42, 0.56, 0.0, s, l);
+                bx3(o, x + 0.18, y + 0.42, z + 0.12, x + 0.82, y + 0.52, z + 0.32, 0.9, 0.88, 0.82, 0.0, s, l); return;
+            }
+            "torch" => {
+                // Torche plantée : un bâton, une tête de fibres enroulées, une flamme vive.
+                bx3(o, x + 0.46, y, z + 0.46, x + 0.54, y + 0.62, z + 0.54, 0.42, 0.28, 0.15, 0.0, s, l); bx3(o, x + 0.43, y + 0.58, z + 0.43, x + 0.57, y + 0.72, z + 0.57, 0.3, 0.24, 0.14, 0.0, s, l);
+                bx(o, x + 0.44, y + 0.72, z + 0.44, x + 0.56, y + 0.9, z + 0.56, 2.5, 1.3, 0.35, 0.0, s, 255.0, EMIT, false, 0.0, 255.0); bx(o, x + 0.47, y + 0.88, z + 0.47, x + 0.53, y + 0.98, z + 0.53, 2.8, 1.9, 0.7, 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
+                return;
+            }
+            "wheat" => {
+                // Blé : de jeunes pousses vertes, puis des tiges qui montent et jaunissent, des épis au dernier stade.
+                let st = BLOCKS[b as usize].name.as_bytes().last().map_or(0, |c| (c - b'0') as usize); let h = [0.18, 0.4, 0.7, 0.92][st.min(3)]; let col = [[0.36, 0.6, 0.2], [0.42, 0.62, 0.22], [0.62, 0.66, 0.26], [0.86, 0.72, 0.32]][st.min(3)];
+                for _ in 0..r_.int(9, 12) { let (a, c) = (x + r_.range(0.12, 0.88), z + r_.range(0.12, 0.88)); let hh = h * r_.range(0.8, 1.08); let k = r_.range(0.85, 1.1);
+                    rod(o, [a, y, c], [a + r_.range(-0.05, 0.05), y + hh, c + r_.range(-0.05, 0.05)], 0.012, 0.007, [col[0] * k, col[1] * k, col[2] * k], s, l, FOLIAGE, 0.0, 120.0);
+                    if st == 3 { bx(o, a - 0.025, y + hh - 0.02, c - 0.025, a + 0.025, y + hh + 0.12, c + 0.025, 0.9 * k, 0.76 * k, 0.36 * k, 120.0, s, l, FOLIAGE, true, 140.0, 255.0); } }
                 return;
             }
             "twigs" => {

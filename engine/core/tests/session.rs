@@ -22,8 +22,8 @@ fn casser_poser_sauver() {
 }
 #[test]
 fn inventaire() {
-    let mut s = session(); s.inv = [None; INV_SIZE]; s.add_item("dirt", 150); assert_eq!(s.inv[0].unwrap().n, Some(99)); assert_eq!(s.inv[1].unwrap().n, Some(51));
-    s.add_item("inconnu", 1); assert!(s.inv[2].is_none());
+    let mut s = session(); s.inv = [None; INV_SIZE]; s.add_item("dirt", 150); assert_eq!(s.inv[0].unwrap().n, Some(64)); assert_eq!(s.inv[1].unwrap().n, Some(64)); assert_eq!(s.inv[2].unwrap().n, Some(22));
+    s.add_item("inconnu", 1); assert!(s.inv[3].is_none());
     for b in BLOCKS.iter() { if let Some(d) = b.drop { if b.name != "air" { assert!(item(d).is_some(), "objet pour {d}"); } } }
     assert_eq!(gaze_axis(0.1, -0.9, 0.2, 0, None), 'y'); assert_eq!(gaze_axis(0.9, -0.2, 0.1, 0, None), 'x'); assert_eq!(gaze_axis(0.9, 0.0, 0.1, 3, None), 'z');
 }
@@ -31,7 +31,7 @@ fn inventaire() {
 #[test]
 fn personnage_et_inventaire_ecran() {
     let mut s = session(); let md = alw_core::actors::Models::build(); assert!(md.n > 1000);
-    for n in ORDER { assert!(md.held(n).is_some(), "{n}"); }
+    for n in order() { assert!(md.held(n).is_some(), "{n}"); }
     let v = alw_core::view::identity();
     let heros = |s: &Session| s.draws(&md, &v).into_iter().filter(|d| d.hero).count(); s.third = true; let d = s.draws(&md, &v); assert_eq!(heros(&s), 11, "corps articulé et outil"); for k in &d { assert!(k.m[12].is_finite() && k.r.count > 0); }
     s.third = false; assert_eq!(heros(&s), 2, "bras et outil"); s.sel = 8; assert_eq!(heros(&s), 1, "poing"); s.sel = 5; assert_eq!(heros(&s), 1, "bloc seul");
@@ -39,13 +39,13 @@ fn personnage_et_inventaire_ecran() {
     // glisser-déposer : échange, réunion, retour à la case d'origine
     s.inv = [None; INV_SIZE]; s.add_item("dirt", 10); s.add_item("stone", 5); s.grab_slot(0); s.drop_slot(Some(1)); assert_eq!(s.inv[1].unwrap().item, "dirt"); assert_eq!(s.inv[0].unwrap().item, "stone");
     s.add_item("stone", 3); s.grab_slot(1); s.drop_slot(None); assert_eq!(s.inv[1].unwrap().item, "dirt");
-    s.inv[2] = Some(Stack { item: "dirt", n: Some(95) }); s.grab_slot(1); s.drop_slot(Some(2)); assert_eq!(s.inv[2].unwrap().n, Some(99)); assert_eq!(s.inv[1].unwrap().n, Some(6));
-    s.grab_catalog("lantern"); s.drop_slot(Some(9)); assert_eq!(s.inv[9].unwrap().n, Some(99));
+    s.inv[2] = Some(Stack::new("dirt", Some(60))); s.grab_slot(1); s.drop_slot(Some(2)); assert_eq!(s.inv[2].unwrap().n, Some(64)); assert_eq!(s.inv[1].unwrap().n, Some(6), "le surplus retourne d'où il vient");
+    s.grab_catalog("lantern"); s.drop_slot(Some(9)); assert_eq!(s.inv[9].unwrap().n, Some(64));
 }
 
 #[test]
 fn categories_et_gestes_de_l_inventaire() {
-    let mut all: Vec<&str> = TABS.iter().flat_map(|t| t.1.iter().copied()).collect(); all.sort(); let mut o = ORDER.to_vec(); o.sort(); assert_eq!(all, o, "chaque objet a une catégorie, une seule");
+    let mut all: Vec<&str> = tabs().iter().flat_map(|t| t.1.iter().copied()).collect(); all.sort(); let mut o = order().to_vec(); o.sort(); assert_eq!(all, o, "chaque objet a une catégorie, une seule");
     let mut s = session(); s.inv = [None; INV_SIZE]; s.add_item("dirt", 51);
     s.take_half(0); assert_eq!(s.cursor.unwrap().n, Some(26)); assert_eq!(s.inv[0].unwrap().n, Some(25));
     s.put_one(1); assert_eq!(s.inv[1].unwrap().n, Some(1)); assert_eq!(s.cursor.unwrap().n, Some(25));
@@ -70,7 +70,7 @@ fn la_faune_vit_dans_le_monde_reel() {
     for k in 0..3600 { s.tick(1.0 / 60.0, Input::default(), Actions::default()); deer = deer.max(s.fauna.deer.len()); bird = bird.max(s.fauna.birds.len()); if k % 120 == 0 { let p = s.player.p; s.world.update(p[0], p[2]); } }
     println!("{deer} cerfs, {bird} oiseaux au plus"); assert!(deer + bird > 0, "des animaux apparaissent");
     let md = alw_core::actors::Models::build(); let d = s.draws(&md, &alw_core::view::look_dir([0.0; 3], [0.0, 0.0, 1.0])); let wild = s.wild.draws(&md).len(); println!("{} morceaux de faune sauvage ({} bêtes, {} traces)", wild, s.wild.all.len(), s.wild.prints.len()); assert!(d.iter().filter(|x| !x.hero).count() == s.fauna.deer.len() * 6 + s.fauna.birds.len() * 3 + wild); assert!(d.len() <= 512, "tient dans le tampon des morceaux");
-    for id in ORDER { let m = md.icon_matrix(id); let h = md.held(id).unwrap(); let (a, b) = (h.r.first as usize / 6 * 4, (h.r.first + h.r.count) as usize / 6 * 4);
+    for id in order() { let m = md.icon_matrix(id); let h = md.held(id).unwrap(); let (a, b) = (h.r.first as usize / 6 * 4, (h.r.first + h.r.count) as usize / 6 * 4);
         for v in md.data[a * 20..b * 20].chunks_exact(20) { let p = [0, 2, 4].map(|k| i16::from_le_bytes([v[k], v[k + 1]]) as f32 / 128.0); let q = alw_core::view::mul(&m, &alw_core::view::trs(p[0] as f64, p[1] as f64, p[2] as f64, 0.0, 0.0, 1.0)); assert!(q[12].abs() <= 0.93 && q[13].abs() <= 0.93 && q[14] >= -0.001 && q[14] <= 1.001, "{id} sort de son icône : {:?}", &q[12..15]); } }
 }
 
@@ -85,9 +85,10 @@ fn arbre_abattu_a_la_hache() {
     for k in 0..8 { s.world.edit(x, y + k, z, B::OAK_LOG); } for dx in -2..=2 { for dz in -2..=2 { for k in 7..10 { if (dx, dz) != (0, 0) || k > 7 { s.world.edit(x + dx, y + k, z + dz, B::OAK_LEAVES); } } } }
     let tree = find_tree(&s.world, x, y + 1, z).expect("arbre d'essai"); ready(&mut s);
     s.player.p = [x as f64 + 4.5, y as f64, z as f64 + 0.5]; let cut = (x, y + 1, z); let e = s.player.eye(); let d = [cut.0 as f64 + 0.5 - e[0], cut.1 as f64 + 0.5 - e[1], cut.2 as f64 + 0.5 - e[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt(); s.third = false; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / l).asin();
-    s.inv = [None; INV_SIZE]; s.inv[1] = Some(Stack { item: "axe", n: None }); s.sel = 1; s.tick(0.0, Input::default(), Actions::default()); let t = s.target.expect("le tronc est visé"); assert!(is_log(t.id), "visé {}", BLOCKS[t.id as usize].name);
-    let a = Actions { mine: true, place: false }; for _ in 0..(9.5 * 60.0) as i32 { s.tick(1.0 / 60.0, Input::default(), a); } assert!(s.falling.is_none(), "encore debout après 9,5 s"); assert!(s.progress() > 0.9); assert_eq!(s.world.get(t.x, t.y, t.z), Some(t.id));
-    for _ in 0..60 { s.tick(1.0 / 60.0, Input::default(), a); } assert!(s.falling.is_some(), "tombe après 10 s"); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0));
+    s.inv = [None; INV_SIZE]; s.inv[1] = Some(Stack::new("axe", None)); s.sel = 1; s.tick(0.0, Input::default(), Actions::default()); let t = s.target.expect("le tronc est visé"); assert!(is_log(t.id), "visé {}", BLOCKS[t.id as usize].name);
+    let a = Actions { mine: true, place: false }; let need = 3.0 + tree.logs.len() as f64 * 0.12; // la hache de fer : plus l'arbre est grand, plus c'est long
+    for _ in 0..(need * 0.95 * 60.0) as i32 { s.stamina = 100.0; s.tick(1.0 / 60.0, Input::default(), a); } assert!(s.falling.is_none(), "encore debout"); assert!(s.progress() > 0.9); assert_eq!(s.world.get(t.x, t.y, t.z), Some(t.id));
+    for _ in 0..(need * 0.1 * 60.0 + 5.0) as i32 { s.stamina = 100.0; s.tick(1.0 / 60.0, Input::default(), a); } assert!(s.falling.is_some(), "tombe"); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0));
     for (px, py, pz) in tree.leaves.iter().copied() { assert!(s.world.get(px, py, pz).is_none_or(|b| !is_leaf(b)), "feuillage disparu"); }
     assert!(tree.logs.iter().filter(|p| p.1 < t.y).all(|p| s.world.get(p.0, p.1, p.2).is_some_and(is_log)), "le pied reste"); let got = s.inv.iter().flatten().filter(|i| i.item.ends_with("_log")).map(|i| i.n.unwrap()).sum::<u32>(); assert!(got > 0); println!("récolté {got}");
     let md = alw_core::actors::Models::build(); let v = alw_core::view::look_dir(s.eye, s.look); assert!(s.draws(&md, &v).iter().any(|d| d.dynamic)); let ended = (0..600).any(|_| { s.tick(1.0 / 60.0, Input::default(), Actions::default()); s.falling.is_none() }); assert!(ended, "la chute se termine");
@@ -128,7 +129,7 @@ fn roulades_et_troncs_poses() {
     let h0 = s.vit[0]; s.tick(1.0 / 60.0, Input { roll: true, ..none }, Actions::default()); for _ in 0..4 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.player.rolling() { s.hurt(10.0); assert_eq!(s.vit[0], h0, "esquive"); }
     assert_eq!(placed_variant(B::OAK_LOG), by_name("oak_log_c").unwrap()); assert_eq!(placed_variant(B::BEECH_LOG_X), by_name("beech_log_x_c").unwrap()); assert_eq!(placed_variant(B::STONE), B::STONE);
     let c = BLOCKS[by_name("oak_log_x_c").unwrap() as usize]; assert_eq!(c.drop, Some("oak_log")); assert!(c.grain.iter().all(|g| *g >= 4)); assert_eq!(alw_core::audio::sound_of("oak_log_x_c").m, "wood"); assert_eq!(is_log(by_name("oak_log_c").unwrap()), true);
-    s.inv[5] = Some(Stack { item: "oak_log", n: Some(5) }); s.sel = 5; s.third = false; let mut ok = false; for k in 0..40 { for y in 0..8 { s.player.yaw = y as f64 * 0.8; s.player.pitch = -1.4 + k as f64 * 0.05; s.tick(0.0, none, Actions::default()); if let Some(g) = s.ghost() { if g.1 && s.place() { let q = g.0; let b = s.world.get(q[0], q[1], q[2]).unwrap(); assert!(BLOCKS[b as usize].name.ends_with("_c"), "posé {}", BLOCKS[b as usize].name); ok = true; break; } } } if ok { break; } } assert!(ok, "pose d'un tronc");
+    s.inv[5] = Some(Stack::new("oak_log", Some(5))); s.sel = 5; s.third = false; let mut ok = false; for k in 0..40 { for y in 0..8 { s.player.yaw = y as f64 * 0.8; s.player.pitch = -1.4 + k as f64 * 0.05; s.tick(0.0, none, Actions::default()); if let Some(g) = s.ghost() { if g.1 && s.place() { let q = g.0; let b = s.world.get(q[0], q[1], q[2]).unwrap(); assert!(BLOCKS[b as usize].name.ends_with("_c"), "posé {}", BLOCKS[b as usize].name); ok = true; break; } } } if ok { break; } } assert!(ok, "pose d'un tronc");
 }
 
 #[test]
@@ -180,6 +181,6 @@ fn la_sauvegarde_retrouve_les_blocs_par_leur_nom() {
 fn la_neige_s_epaissit_par_dixiemes() {
     assert_eq!(snow_level(B::SNOW_LAYER), 1); assert_eq!(snow_level(snow_of(7)), 7); assert_eq!(snow_of(10), B::SNOW); for n in 1..10 { assert_eq!(snow_level(snow_of(n)), n); }
     let mut s = session(); s.creative = true; let (x, y, z) = (s.player.p[0] as i32 + 2, 110, s.player.p[2] as i32 + 1); s.world.edit_many(&[(x, y, z, B::STONE), (x, y + 1, z, B::SNOW_LAYER)]);
-    s.inv[0] = Some(Stack { item: "snow_layer", n: None }); s.sel = 0; s.third = false; s.player.fly = true; s.player.p = [x as f64 + 0.5, y as f64 + 3.0, z as f64 + 0.5]; s.player.pitch = -1.55;
+    s.inv[0] = Some(Stack::new("snow_layer", None)); s.sel = 0; s.third = false; s.player.fly = true; s.player.p = [x as f64 + 0.5, y as f64 + 3.0, z as f64 + 0.5]; s.player.pitch = -1.55;
     for k in 2..=10u8 { s.tick(0.0, Input::default(), Actions::default()); assert!(s.place(), "pose {k}"); let b = s.world.get(x, y + 1, z).unwrap(); if k < 10 { assert_eq!(snow_level(b), k); } else { assert_eq!(b, B::SNOW); } }
 }

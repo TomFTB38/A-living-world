@@ -3,7 +3,7 @@ use crate::blocks::*;
 use crate::det::{cos, round, sin};
 use crate::mesher::{bx, kind, Mesher, VBuf, VSIZE};
 use crate::noise::hash_float;
-use crate::session::{item, ORDER};
+use crate::session::{item, order};
 use crate::view::{invert, mul, roll_z, trs, M4};
 use std::collections::HashMap;
 
@@ -143,14 +143,20 @@ fn shape(name: &str, x: f64, y: f64) -> Option<u8> {
         }
     }
 }
+/// Couleur et épaisseur d'un point de l'image d'un objet : les anciens dessins par indice de palette, les nouveaux par familles.
+fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
+    if matches!(name, "pickaxe" | "axe" | "sword" | "stick" | "berries" | "rowan_berries" | "raw_meat" | "cooked_meat" | "leather" | "stone_axe" | "stone_pickaxe" | "stone_knife" | "pebble" | "fiber" | "seeds") {
+        return shape(name, x, y).map(|k| (PAL[k as usize], if k == STEEL[3] { 0.012 } else if STEEL.contains(&k) { 0.022 } else if k >= BERRY[0] { 0.05 } else { 0.03 }));
+    }
+    crate::icons::look(name, x, y)
+}
 fn tool_mesh(name: &str) -> VBuf {
     let mut o = VBuf::new(8000); const N: usize = 56; let s = 0.86; let px = s / N as f64; let grip = 0.2 * R2 * s;
     for j in 0..N {
-        let mut run: Option<(usize, u8)> = None;
+        let mut run: Option<(usize, (C, f64))> = None;
         for i in 0..=N {
-            let c = if i < N { shape(name, (i as f64 + 0.5) / N as f64, (j as f64 + 0.5) / N as f64) } else { None };
-            if let Some((a, k)) = run { if c != Some(k) {
-                let th = if k == STEEL[3] { 0.012 } else if STEEL.contains(&k) { 0.022 } else if k >= BERRY[0] { 0.05 } else { 0.03 }; let col = PAL[k as usize];
+            let c = if i < N { look(name, (i as f64 + 0.5) / N as f64, (j as f64 + 0.5) / N as f64) } else { None };
+            if let Some((a, (col, th))) = run { if c != Some((col, th)) {
                 bx(&mut o, a as f64 * px - grip, j as f64 * px - grip, -th, i as f64 * px - grip, (j + 1) as f64 * px - grip, th, col[0], col[1], col[2], 0.0, 255.0, 0.0, kind::FLAT, true, 0.0, 255.0);
                 run = None;
             } }
@@ -175,7 +181,7 @@ impl Models {
         let mut all = VBuf::new(5000); let mut parts = HashMap::new();
         for (n, m) in [("torso", torso()), ("head", head()), ("thigh", thigh()), ("shin", shin()), ("upper", upper()), ("fore", fore()), ("fist", fist())] { let r = take(&mut all, m); parts.insert(n, r); }
         let char_verts = all.n; let mut items = HashMap::new(); let mv = Mesher::new();
-        for name in ORDER {
+        for name in order() {
             let it = item(name).unwrap(); let (o, hold) = match it.block {
                 None => (tool_mesh(name), Hold::Tool),
                 // Dans le monde, le polypore se dessine contre son arbre : tenu ou en icône, il n'a pas de support.

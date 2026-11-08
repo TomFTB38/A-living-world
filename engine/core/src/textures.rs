@@ -212,9 +212,39 @@ fn leaf(t: &Tile, x: f64, y: f64, sh: C) -> S {
     let c = pal(&LEAF, 0.12 + 0.56 * t.pi(id) + 0.3 * (m - 0.2) + 0.12 * vein + 0.1 * (g - 0.5)); let k = 0.55 + 0.45 * rim;
     S { c: [c[0] * sh[0] * k, c[1] * sh[1] * k, c[2] * sh[2] * k], h: rim * (0.5 + 0.5 * t.pi(id)), r: 0.5 }
 }
-fn planks(t: &Tile, x: f64, y: f64) -> S {
+fn planks(t: &Tile, x: f64, y: f64, p: &[C]) -> S {
     let row = (y / 16.0).floor(); let f = (y % 16.0) / 16.0; let seam = smooth(0.0, 0.07, f) * smooth(1.0, 0.93, f); let g = t.val(x + row * 19.0, y * 2.2, 12); let tone = t.pi(row as i64 * 13);
-    S { c: mul(pal(&PLANKS, 0.15 + 0.45 * tone + 0.4 * g), 0.5 + 0.5 * seam), h: seam * (0.7 + 0.3 * g), r: 0.7 }
+    S { c: mul(pal(p, 0.15 + 0.45 * tone + 0.4 * g), 0.5 + 0.5 * seam), h: seam * (0.7 + 0.3 * g), r: 0.7 }
+}
+const PLANKS_BIRCH: [C; 3] = pl!("#a3865c", "#c7aa7a", "#e2c999"); const PLANKS_SPRUCE: [C; 3] = pl!("#4a301a", "#6a4628", "#8a603a");
+const CUT_STONE: [C; 4] = pl!("#6e695f", "#8d877a", "#aaa395", "#c4bdae"); const BRICK: [C; 4] = pl!("#6e2c1c", "#8e3c26", "#a8502f", "#bf6a44");
+/// Minerai : la pierre ordinaire, piquée de grains et de veines de la couleur du métal.
+fn ore(t: &Tile, x: f64, y: f64, a: C, b: C) -> S {
+    let base = stone(t, x, y, &STONE, 5); let (d1, d2, id) = t.vor(x + 0.4 * t.fbm(x, y, 12, 2), y, 14); let vein = smooth(0.42, 0.62, t.fbm(x * 0.7 + 11.0, y * 1.3, 6, 3));
+    let k = t.pi(id); let grain = k > 0.72 && d1 < 0.3; let edge = smooth(0.0, 0.08, d2 - d1);
+    if grain || (vein > 0.8 && k > 0.55) { let c = if t.pi(id + 77) > 0.5 { a } else { b }; let m = 0.85 + 0.3 * t.val(x, y, 64); return S { c: mul(c, m * (0.78 + 0.22 * edge)), h: 0.75 + 0.2 * edge, r: 0.35 }; }
+    base
+}
+fn clay(t: &Tile, x: f64, y: f64) -> S { let (n, s, m) = (t.fbm(x, y, 3, 3), t.val(x, y, 48), t.fbm(x + 17.0, y, 8, 2)); let band = 0.05 * (y * 0.35 + 4.0 * n).sin(); let k = 0.86 + 0.2 * (n - 0.5) + 0.08 * (s - 0.5) + band; let warm = smooth(0.55, 0.75, m) * 0.12; S { c: [(0.55 + warm) * k, (0.56 + warm * 0.6) * k, (0.6 - warm * 0.4) * k], h: 0.45 + 0.2 * n, r: 0.75 } }
+/// Appareil de blocs : rangées décalées d'un demi-bloc, joints de mortier en creux.
+fn bricks(t: &Tile, x: f64, y: f64, h: f64, w: f64, p: &[C], mortar: C) -> S {
+    let row = (y / h).floor(); let xo = x + if row as i64 % 2 == 0 { 0.0 } else { w * 0.5 }; let col = (xo / w).floor(); let (fx, fy) = (xo - col * w, y - row * h);
+    let joint = fx.min(w - fx).min(fy.min(h - fy)); let m = smooth(0.6, 1.6, joint); let id = (row as i64) * 31 + col as i64;
+    if m < 0.5 { let n = t.val(x, y, 32); return S { c: mul(mortar, 0.9 + 0.2 * n), h: 0.1, r: 0.95 }; }
+    let n = t.fbm(x, y, 8, 3); let tone = 0.2 + 0.5 * t.pi(id) + 0.35 * (n - 0.5); let chip = smooth(0.6, 1.0, joint / 3.0);
+    S { c: mul(pal(p, tone), 0.8 + 0.2 * chip), h: 0.5 + 0.4 * m * (0.6 + 0.4 * n), r: 0.82 }
+}
+fn thatch(t: &Tile, x: f64, y: f64) -> S {
+    let strand = t.val(x * 3.0, y * 0.25, 64); let n = t.fbm(x, y, 6, 3); let row = (y / 10.0).floor(); let lap = smooth(0.0, 2.5, y - row * 10.0);
+    let k = 0.62 + 0.4 * strand + 0.15 * (n - 0.5); S { c: [0.76 * k * (0.7 + 0.3 * lap), 0.62 * k * (0.7 + 0.3 * lap), 0.32 * k * (0.7 + 0.3 * lap)], h: 0.3 + 0.5 * strand * lap, r: 0.95 }
+}
+fn cobble(t: &Tile, x: f64, y: f64) -> S {
+    let (d1, d2, id) = t.vor(x, y, 4); let gap = smooth(0.0, 0.16, d2 - d1); let n = t.fbm(x, y, 8, 3); let tone = 0.3 + 0.45 * t.pi(id) + 0.3 * (n - 0.5);
+    S { c: mul(pal(&STONE, tone), 0.35 + 0.65 * gap), h: 0.15 + 0.7 * gap * (0.7 + 0.3 * n), r: 0.85 }
+}
+fn farmland(t: &Tile, x: f64, y: f64) -> S {
+    let furrow = 0.5 + 0.5 * (y / 64.0 * std::f64::consts::TAU * 4.0).cos(); let n = t.fbm(x, y, 5, 3); let d = dirt(t, x, y, &DIRT);
+    S { c: mul(d.c, 0.62 + 0.3 * furrow + 0.08 * (n - 0.5)), h: 0.2 + 0.6 * furrow, r: 0.9 }
 }
 fn snow(t: &Tile, x: f64, y: f64) -> S {
     let (n, s, sp) = (t.fbm(x, y, 4, 3), t.val(x, y, 32), t.pi((x as i64) * 67 + (y as i64) * 131)); let glint = if sp > 0.985 { 0.12 } else { 0.0 };
@@ -241,7 +271,10 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "bark_oak" => b_oak(t, x, y), "bark_birch" => birch(t, x, y), "bark_beech" => b_beech(t, x, y),
         "leaf_oak" => leaf(t, x, y, [1.0, 1.0, 1.0]), "leaf_birch" => leaf(t, x, y, [1.2, 1.12, 0.9]), "leaf_beech" => leaf(t, x, y, [0.86, 1.0, 0.82]),
         "end_oak" => wood_end(t, x, y, &OAK_W, 0.78, &b_oak), "end_birch" => wood_end(t, x, y, &BIRCH_W, 0.95, &birch), "end_beech" => wood_end(t, x, y, &BEECH_W, 0.85, &b_beech),
-        "planks" => planks(t, x, y),
+        "planks" => planks(t, x, y, &PLANKS), "planks_birch" => planks(t, x, y, &PLANKS_BIRCH), "planks_spruce" => planks(t, x, y, &PLANKS_SPRUCE),
+        "ore_copper" => ore(t, x, y, [0.32, 0.62, 0.48], [0.78, 0.46, 0.24]), "ore_tin" => ore(t, x, y, [0.8, 0.82, 0.84], [0.58, 0.6, 0.62]), "ore_iron" => ore(t, x, y, [0.7, 0.42, 0.28], [0.52, 0.28, 0.18]), "ore_coal" => ore(t, x, y, [0.07, 0.07, 0.08], [0.16, 0.16, 0.17]),
+        "clay" => clay(t, x, y), "stone_bricks" => bricks(t, x, y, 16.0, 32.0, &CUT_STONE, [0.36, 0.34, 0.31]), "bricks" => bricks(t, x, y, 8.0, 16.0, &BRICK, [0.74, 0.7, 0.62]),
+        "thatch" => thatch(t, x, y), "cobble" => cobble(t, x, y), "farmland_top" => farmland(t, x, y),
         "snow" => snow(t, x, y), "snow_side" => snow_side(t, x, y), "ice" => ice(t, x, y),
         "bark_spruce" => bark(t, x, y, &SPRUCE, 0.7), "end_spruce" => wood_end(t, x, y, &SPRUCE_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &SPRUCE, 0.7)),
         "leaf_spruce" => needles(t, x, y), "leaf_snow" => leaf_snow(t, x, y),

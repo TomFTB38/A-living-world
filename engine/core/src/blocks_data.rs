@@ -2,9 +2,9 @@
 use crate::blocks::{Block, Shape};
 
 pub const VARIANTS: u32 = 4;
-pub const MATERIALS: [&str; 48] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm"];
+pub const MATERIALS: [&str; 60] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm", "ore_copper", "ore_tin", "ore_iron", "ore_coal", "clay", "stone_bricks", "bricks", "thatch", "planks_birch", "planks_spruce", "cobble", "farmland_top"];
 
-pub const BLOCKS: [Block; 130] = [
+pub const BLOCKS: [Block; 154] = [
     Block { id: 0, name: "air", shape: Shape::Air, hardness: 0.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "decor", drop: Some("air") },
     Block { id: 1, name: "grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
     Block { id: 2, name: "dirt", shape: Shape::Cube, hardness: 0.45, faces: [8,8,8], dir_faces: [8,8,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
@@ -135,6 +135,30 @@ pub const BLOCKS: [Block; 130] = [
     Block { id: 127, name: "pebbles", shape: Shape::Deco, hardness: 0.05, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("pebbles"), cat: "decor", drop: Some("pebble") },
     Block { id: 128, name: "blueberry_picked", shape: Shape::Deco, hardness: 0.03, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("blueberry"), cat: "decor", drop: Some("blueberry") },
     Block { id: 129, name: "rowan_picked", shape: Shape::Deco, hardness: 0.06, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rowan"), cat: "decor", drop: Some("rowan") },
+    Block { id: 130, name: "coal_ore", shape: Shape::Cube, hardness: 1.6, faces: [204,204,204], dir_faces: [204,204,204,204], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("coal") },
+    Block { id: 131, name: "copper_ore", shape: Shape::Cube, hardness: 2.0, faces: [192,192,192], dir_faces: [192,192,192,192], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("copper_ore") },
+    Block { id: 132, name: "tin_ore", shape: Shape::Cube, hardness: 2.0, faces: [196,196,196], dir_faces: [196,196,196,196], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("tin_ore") },
+    Block { id: 133, name: "iron_ore", shape: Shape::Cube, hardness: 2.4, faces: [200,200,200], dir_faces: [200,200,200,200], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("iron_ore") },
+    Block { id: 134, name: "clay", shape: Shape::Cube, hardness: 0.55, faces: [208,208,208], dir_faces: [208,208,208,208], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("clay") },
+    Block { id: 135, name: "stone_bricks", shape: Shape::Cube, hardness: 1.6, faces: [212,212,212], dir_faces: [212,212,212,212], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("stone_bricks") },
+    Block { id: 136, name: "clay_bricks", shape: Shape::Cube, hardness: 1.5, faces: [216,216,216], dir_faces: [216,216,216,216], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("clay_bricks") },
+    Block { id: 137, name: "cobblestone", shape: Shape::Cube, hardness: 1.5, faces: [232,232,232], dir_faces: [232,232,232,232], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("cobblestone") },
+    Block { id: 138, name: "thatch", shape: Shape::Cube, hardness: 0.35, faces: [220,220,220], dir_faces: [220,220,220,220], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "foliage", drop: Some("thatch") },
+    Block { id: 139, name: "birch_planks", shape: Shape::Cube, hardness: 0.7, faces: [224,224,224], dir_faces: [224,224,224,224], grain: [0,2,2,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("birch_planks") },
+    Block { id: 140, name: "spruce_planks", shape: Shape::Cube, hardness: 0.8, faces: [228,228,228], dir_faces: [228,228,228,228], grain: [0,2,2,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("spruce_planks") },
+    Block { id: 141, name: "farmland", shape: Shape::Cube, hardness: 0.45, faces: [236,8,8], dir_faces: [8,236,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
+    Block { id: 142, name: "furnace", shape: Shape::Deco, hardness: 1.4, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 7, tint: [1.0,1.0,1.0], model: Some("furnace"), cat: "rock", drop: Some("furnace") },
+    Block { id: 143, name: "anvil", shape: Shape::Deco, hardness: 2.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("anvil"), cat: "rock", drop: Some("anvil") },
+    Block { id: 144, name: "mason_bench", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("mason_bench"), cat: "wood", drop: Some("mason_bench") },
+    Block { id: 145, name: "chest", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("chest"), cat: "wood", drop: Some("chest") },
+    Block { id: 146, name: "bedroll", shape: Shape::Deco, hardness: 0.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("bedroll"), cat: "decor", drop: Some("bedroll") },
+    Block { id: 147, name: "bed", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("bed"), cat: "wood", drop: Some("bed") },
+    Block { id: 148, name: "torch", shape: Shape::Deco, hardness: 0.05, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 13, tint: [1.0,1.0,1.0], model: Some("torch"), cat: "light", drop: Some("torch") },
+    Block { id: 149, name: "campfire_out", shape: Shape::Deco, hardness: 0.4, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("campfire"), cat: "light", drop: Some("campfire") },
+    Block { id: 150, name: "wheat_0", shape: Shape::Deco, hardness: 0.02, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("wheat"), cat: "decor", drop: Some("seeds") },
+    Block { id: 151, name: "wheat_1", shape: Shape::Deco, hardness: 0.02, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("wheat"), cat: "decor", drop: Some("seeds") },
+    Block { id: 152, name: "wheat_2", shape: Shape::Deco, hardness: 0.02, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("wheat"), cat: "decor", drop: Some("seeds") },
+    Block { id: 153, name: "wheat_3", shape: Shape::Deco, hardness: 0.02, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("wheat"), cat: "decor", drop: Some("wheat") },
 ];
 
 #[allow(non_snake_case)]
@@ -269,4 +293,28 @@ pub mod B {
     pub const PEBBLES: u8 = 127;
     pub const BLUEBERRY_PICKED: u8 = 128;
     pub const ROWAN_PICKED: u8 = 129;
+    pub const COAL_ORE: u8 = 130;
+    pub const COPPER_ORE: u8 = 131;
+    pub const TIN_ORE: u8 = 132;
+    pub const IRON_ORE: u8 = 133;
+    pub const CLAY: u8 = 134;
+    pub const STONE_BRICKS: u8 = 135;
+    pub const CLAY_BRICKS: u8 = 136;
+    pub const COBBLESTONE: u8 = 137;
+    pub const THATCH: u8 = 138;
+    pub const BIRCH_PLANKS: u8 = 139;
+    pub const SPRUCE_PLANKS: u8 = 140;
+    pub const FARMLAND: u8 = 141;
+    pub const FURNACE: u8 = 142;
+    pub const ANVIL: u8 = 143;
+    pub const MASON_BENCH: u8 = 144;
+    pub const CHEST: u8 = 145;
+    pub const BEDROLL: u8 = 146;
+    pub const BED: u8 = 147;
+    pub const TORCH: u8 = 148;
+    pub const CAMPFIRE_OUT: u8 = 149;
+    pub const WHEAT_0: u8 = 150;
+    pub const WHEAT_1: u8 = 151;
+    pub const WHEAT_2: u8 = 152;
+    pub const WHEAT_3: u8 = 153;
 }

@@ -182,7 +182,7 @@ impl WorldGen {
                     let yf = y as f64;
                     v[i] = if path > 0.45 { B::PATH }
                     else if water != 0.0 && yf < water + 1.0 { if self.n_deco.n2(wx / 7.0, wz / 7.0) > 0.0 { B::GRAVEL } else { B::SAND } }
-                    else if c.bank > 0.72 && yf <= water + 2.0 { B::GRAVEL }
+                    else if c.bank > 0.72 && yf <= water + 2.0 { if self.n_deco.n2(wx / 9.0 + 40.0, wz / 9.0) > 0.3 { B::CLAY } else { B::GRAVEL } } // berges : gravier, et des bancs d'argile
                     else if yf > 101.0 + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0) { self.stone_at(wx, yf, wz) } // sommets : roche, couverte de neige plus loin
                     else if cold { if self.n_deco.n2(wx / 9.0, wz / 9.0) > 0.3 { B::DIRT } else if hash_float(wxi, wzi, self.seed, 46) < 0.3 { B::LICHEN_STONE } else { self.stone_at(wx, yf, wz) } } // taïga : surtout de la roche sous la neige
                     else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) } // haute montagne : la roche à nu
@@ -194,9 +194,14 @@ impl WorldGen {
                     else if hash_float(wxi, wzi, self.seed, 41) < deep { B::GRASS_DEEP } else { B::GRASS };
                 } else if sandy { v[i] = if depth < 3 && !(depth > 0 && v[idx(x, (y + 1) as usize, z)] != B::SAND) { B::SAND } else { self.sandstone_at(wx, y as f64, wz) }; } // sous le sable, des lits de grès beige et rouge
                 else if steep { v[i] = self.stone_at(wx, y as f64, wz); }
-                else if cold { v[i] = self.stone_at(wx, y as f64, wz); } else { v[i] = B::DIRT; }
+                else if cold { v[i] = self.stone_at(wx, y as f64, wz); } else if water != 0.0 && depth <= 2 && self.n_deco.n2(wx / 9.0 + 40.0, wz / 9.0) > 0.05 { v[i] = B::CLAY; } else { v[i] = B::DIRT; } // sous le lit des rivières, de l'argile
                 depth += 1;
             }
+            // Filons : des amas de quelques blocs, plus riches en profondeur ; charbon partout, cuivre et étain plus bas, fer tout au fond.
+            for y in 2..(top - 3).max(2) { let i = idx(x, y as usize, z); if v[i] != B::STONE && v[i] != B::GRANITE && v[i] != B::LIMESTONE { continue; }
+                let (cx3, cy3, cz3) = (wxi >> 2, y >> 2, wzi >> 2); let pick = hash_float(cx3 * 3 + cy3 * 101, cz3, self.seed, 71); let yf = y as f64;
+                let ore = if yf < 58.0 && pick < 0.016 { B::IRON_ORE } else if yf < 70.0 && pick < 0.028 { B::TIN_ORE } else if yf < 82.0 && pick < 0.048 { B::COPPER_ORE } else if yf < 96.0 && pick < 0.08 { B::COAL_ORE } else { 0 };
+                if ore != 0 && hash_float(wxi * 7 + y, wzi * 13 - y, self.seed, 72) < 0.38 { v[i] = ore; } }
             let wi = water as i32;
             if wi != 0 {
                 for y in (top + 1)..=wi { v[idx(x, y as usize, z)] = B::WATER; }
@@ -277,7 +282,7 @@ impl WorldGen {
             if fr > 0.6 && hash_float(wxi, wzi, s, 7) < 0.012 + 0.02 * deep { id = B::MUSHROOM; }
             if deep > 0.3 && hash_float(wxi, wzi, s, 13) < (0.025 + 0.06 * smooth(0.2, 0.6, nd.n2(wx / 11.0 - 40.0, wz / 11.0 + 7.0))) * deep { id = glowcap_of((hash_int(wxi, y as i32, wzi, 93) % 5) as usize); } // en ronds de sorcière plus denses
             // Forêt tempérée : quelques myrtilliers aussi, pour avoir de quoi manger dès le départ.
-            let l = litter(0.003 + 0.02 * fr, 0.014); if l != 0 { id = l; } else if fr > 0.4 && k < 0.012 + 0.032 * fr { id = B::BLUEBERRY; }
+            let l = litter(0.003 + 0.02 * fr, 0.014); if l != 0 { id = l; } else if fr > 0.4 && k < 0.017 + 0.034 * fr { id = B::BLUEBERRY; }
             if ground == B::MOSSY_STONE && r > 0.5 { id = 0; }
             if path > 0.05 { id = if r < 0.5 { B::TALL_GRASS } else { 0 }; }
             v[idx(x, y, z)] = id;

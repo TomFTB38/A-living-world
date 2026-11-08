@@ -10,7 +10,9 @@ export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'm
   'bark_oak', 'bark_birch', 'bark_beech', 'leaf_oak', 'leaf_birch', 'leaf_beech', 'planks', 'forest_soil', 'water_foam', 'end_oak', 'end_birch', 'end_beech',
   'snow', 'snow_side', 'ice', 'bark_spruce', 'end_spruce', 'leaf_spruce', 'leaf_snow',
   'grass_dry_top', 'grass_dry_side', 'dry_earth', 'bark_dead', 'end_dead', 'lichen', 'bark_acacia', 'end_acacia', 'leaf_acacia', 'bone', 'wood_inner',
-  'sandstone', 'sandstone_top', 'red_sandstone', 'cactus_side', 'cactus_top', 'bark_palm', 'end_palm', 'leaf_palm'];
+  'sandstone', 'sandstone_top', 'red_sandstone', 'cactus_side', 'cactus_top', 'bark_palm', 'end_palm', 'leaf_palm',
+  // Survie : minerais, argile, matériaux de construction, terre labourée (moteur final)
+  'ore_copper', 'ore_tin', 'ore_iron', 'ore_coal', 'clay', 'stone_bricks', 'bricks', 'thatch', 'planks_birch', 'planks_spruce', 'cobble', 'farmland_top'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -163,6 +165,34 @@ const defs = [
   ['pebbles', 'deco', null, 0.05, { model: 'pebbles', drop: 'pebble' }],
   ['blueberry_picked', 'deco', null, 0.03, { model: 'blueberry', drop: 'blueberry' }],
   ['rowan_picked', 'deco', null, 0.06, { model: 'rowan', drop: 'rowan' }],
+  // Sous terre : minerais en filons, charbon ; argile au bord de l'eau
+  ['coal_ore', 'cube', ['ore_coal', 'ore_coal', 'ore_coal'], 1.6, { cat: 'rock', drop: 'coal' }],
+  ['copper_ore', 'cube', ['ore_copper', 'ore_copper', 'ore_copper'], 2.0, { cat: 'rock' }],
+  ['tin_ore', 'cube', ['ore_tin', 'ore_tin', 'ore_tin'], 2.0, { cat: 'rock' }],
+  ['iron_ore', 'cube', ['ore_iron', 'ore_iron', 'ore_iron'], 2.4, { cat: 'rock' }],
+  ['clay', 'cube', ['clay', 'clay', 'clay'], 0.55, { cat: 'terrain' }],
+  // Construction
+  ['stone_bricks', 'cube', ['stone_bricks', 'stone_bricks', 'stone_bricks'], 1.6, { cat: 'rock' }],
+  ['clay_bricks', 'cube', ['bricks', 'bricks', 'bricks'], 1.5, { cat: 'rock' }],
+  ['cobblestone', 'cube', ['cobble', 'cobble', 'cobble'], 1.5, { cat: 'rock' }],
+  ['thatch', 'cube', ['thatch', 'thatch', 'thatch'], 0.35, { cat: 'foliage' }],
+  ['birch_planks', 'cube', ['planks_birch', 'planks_birch', 'planks_birch'], 0.7, { cat: 'wood' }],
+  ['spruce_planks', 'cube', ['planks_spruce', 'planks_spruce', 'planks_spruce'], 0.8, { cat: 'wood' }],
+  ['farmland', 'cube', ['farmland_top', 'dirt', 'dirt'], 0.45, { cat: 'terrain', drop: 'dirt' }],
+  // Ateliers, rangement, repos, lumière
+  ['furnace', 'deco', null, 1.4, { model: 'furnace', solid: true, light: 7, cat: 'rock' }],
+  ['anvil', 'deco', null, 2.0, { model: 'anvil', solid: true, cat: 'rock' }],
+  ['mason_bench', 'deco', null, 1.0, { model: 'mason_bench', solid: true, cat: 'wood' }],
+  ['chest', 'deco', null, 0.8, { model: 'chest', solid: true, cat: 'wood' }],
+  ['bedroll', 'deco', null, 0.2, { model: 'bedroll' }],
+  ['bed', 'deco', null, 0.8, { model: 'bed', solid: true, cat: 'wood' }],
+  ['torch', 'deco', null, 0.05, { model: 'torch', light: 13, cat: 'light' }],
+  ['campfire_out', 'deco', null, 0.4, { model: 'campfire', cat: 'light', drop: 'campfire' }], // feu éteint : il faut le recharger
+  // Blé cultivé : quatre stades de croissance
+  ['wheat_0', 'deco', null, 0.02, { model: 'wheat', drop: 'seeds' }],
+  ['wheat_1', 'deco', null, 0.02, { model: 'wheat', drop: 'seeds' }],
+  ['wheat_2', 'deco', null, 0.02, { model: 'wheat', drop: 'seeds' }],
+  ['wheat_3', 'deco', null, 0.02, { model: 'wheat', drop: 'wheat' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
@@ -170,7 +200,7 @@ export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   faces: mats ? mats.map(matLayer) : null,
   // Matériau par direction [X, Y+, Y-, Z], et sens du fil : 0 libre, 1 tourné d'un quart, 2 fixe.
   dirFaces: !mats ? null : p.axis === 'x' || p.axis === 'z' ? [mats[1], mats[0], mats[0], mats[2]].map(matLayer) : [mats[1], mats[0], mats[2], mats[1]].map(matLayer),
-  grain: (p.axis === 'x' ? [0, 1, 1, 1] : p.axis === 'z' ? [1, 2, 2, 0] : p.axis === 'pz' ? [0, 1, 1, 0] : p.axis === 'py' ? [1, 0, 0, 1] : name === 'planks' ? [0, 2, 2, 0] : [0, 0, 0, 0]).map((g) => g + (p.clean ? 4 : 0)),
+  grain: (p.axis === 'x' ? [0, 1, 1, 1] : p.axis === 'z' ? [1, 2, 2, 0] : p.axis === 'pz' ? [0, 1, 1, 0] : p.axis === 'py' ? [1, 0, 0, 1] : name.endsWith('planks') ? [0, 2, 2, 0] : [0, 0, 0, 0]).map((g) => g + (p.clean ? 4 : 0)),
   solid: shape === 'cube' || shape === 'leaf' || !!p.solid,
   opaque: shape === 'cube',
   light: p.light || 0,

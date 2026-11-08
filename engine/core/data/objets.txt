@@ -1,0 +1,205 @@
+# A Living World — base des objets.
+# Une ligne par objet : identifiant | nom | catégorie | masse (kg) | pile | description | propriétés
+# Catégories (onglets du catalogue) : terrain, roches, bois, plantes, batir, ateliers, outils, matieres, vivres, habits.
+# Un objet dont l'identifiant est un nom de bloc se pose comme ce bloc.
+# Propriétés :
+#   outil=<hache|pioche|pelle|couteau|faucille|houe|marteau|epee|lance> mat=<pierre|silex|cuivre|bronze|fer>  (vitesse, usure, palier : table des matières ci-dessous)
+#   aliment=faim:soif:santé  garde=jours (se conserve, 0 = longtemps)  risque=probabilité de rendre malade
+#   porte=<tete|torse|jambes|pieds|dos> chaud=… frais=… armure=… sac=kg de charge en plus
+#   combustible=secondes  boisson=soif:sûre(1)|brute(0)
+# Matières des outils : nom palier vitesse usure force
+matiere pierre 1 1.8 60 1.0
+matiere silex 1 2.2 150 1.1
+matiere cuivre 2 2.4 220 1.15
+matiere bronze 3 2.8 380 1.3
+matiere fer 4 3.2 650 1.45
+
+# --- Outils ---
+stone_knife | Couteau en pierre | outils | 0.3 | 1 | Coupe l'herbe (toujours de la fibre) et dépèce le gibier. | outil=couteau mat=pierre
+stone_axe | Hache en pierre | outils | 1.2 | 1 | Abat les arbres de taille moyenne ; trop faible pour les géants. | outil=hache mat=pierre
+stone_pickaxe | Pioche en pierre | outils | 1.3 | 1 | Extrait la pierre, le charbon, le cuivre et l'étain. | outil=pioche mat=pierre
+stone_shovel | Pelle en pierre | outils | 1.0 | 1 | Creuse la terre, le sable, le gravier et l'argile. | outil=pelle mat=pierre
+stone_hoe | Houe en pierre | outils | 1.0 | 1 | Clic droit sur l'herbe ou la terre : laboure pour semer. | outil=houe mat=pierre
+stone_hammer | Marteau en pierre | outils | 1.4 | 1 | Indispensable à l'enclume et au banc de taille. | outil=marteau mat=pierre
+stone_spear | Lance en pierre | outils | 1.5 | 1 | Frappe de plus loin que toute autre arme. | outil=lance mat=pierre
+flint_axe | Hache de silex | outils | 1.1 | 1 | Une lame de silex taillée, plus tranchante et plus durable que la pierre. | outil=hache mat=silex
+flint_pickaxe | Pioche de silex | outils | 1.2 | 1 | Une pointe de silex : creuse plus vite et dure plus longtemps. | outil=pioche mat=silex
+copper_axe | Hache en cuivre | outils | 1.4 | 1 | Le premier métal : abat tous les arbres. | outil=hache mat=cuivre
+copper_pickaxe | Pioche en cuivre | outils | 1.5 | 1 | Le premier métal : extrait aussi le fer avec patience. | outil=pioche mat=cuivre
+copper_shovel | Pelle en cuivre | outils | 1.2 | 1 | Creuse vite et longtemps. | outil=pelle mat=cuivre
+copper_knife | Couteau en cuivre | outils | 0.4 | 1 | Dépèce proprement : plus de peau et de viande. | outil=couteau mat=cuivre
+copper_sickle | Faucille en cuivre | outils | 0.6 | 1 | Fauche herbes et blé : fibre et graines à coup sûr. | outil=faucille mat=cuivre
+copper_hoe | Houe en cuivre | outils | 1.2 | 1 | Laboure la terre. | outil=houe mat=cuivre
+copper_hammer | Marteau en cuivre | outils | 1.5 | 1 | Pour la forge et la taille de pierre. | outil=marteau mat=cuivre
+copper_sword | Épée en cuivre | outils | 1.6 | 1 | Une arme courte et vive. | outil=epee mat=cuivre
+bronze_axe | Hache en bronze | outils | 1.5 | 1 | Le bronze tient le fil bien plus longtemps. | outil=hache mat=bronze
+bronze_pickaxe | Pioche en bronze | outils | 1.6 | 1 | Extrait le fer sans peine. | outil=pioche mat=bronze
+bronze_shovel | Pelle en bronze | outils | 1.3 | 1 | Creuse vite et longtemps. | outil=pelle mat=bronze
+bronze_knife | Couteau en bronze | outils | 0.4 | 1 | Dépèce proprement. | outil=couteau mat=bronze
+bronze_sickle | Faucille en bronze | outils | 0.6 | 1 | Fauche herbes et blé. | outil=faucille mat=bronze
+bronze_hoe | Houe en bronze | outils | 1.3 | 1 | Laboure la terre. | outil=houe mat=bronze
+bronze_hammer | Marteau en bronze | outils | 1.6 | 1 | Pour la forge et la taille de pierre. | outil=marteau mat=bronze
+bronze_sword | Épée en bronze | outils | 1.8 | 1 | Une arme équilibrée. | outil=epee mat=bronze
+pickaxe | Pioche en fer | outils | 1.8 | 1 | La meilleure pioche qu'on puisse forger seul. | outil=pioche mat=fer
+axe | Hache en fer | outils | 1.7 | 1 | Abat un grand arbre en quelques coups. | outil=hache mat=fer
+sword | Épée en fer | outils | 2.0 | 1 | Longue, solide et tranchante. | outil=epee mat=fer
+iron_shovel | Pelle en fer | outils | 1.5 | 1 | Creuse très vite. | outil=pelle mat=fer
+iron_knife | Couteau en fer | outils | 0.5 | 1 | Dépèce parfaitement. | outil=couteau mat=fer
+iron_sickle | Faucille en fer | outils | 0.7 | 1 | Fauche herbes et blé. | outil=faucille mat=fer
+iron_hoe | Houe en fer | outils | 1.5 | 1 | Laboure la terre. | outil=houe mat=fer
+iron_hammer | Marteau en fer | outils | 1.8 | 1 | Pour la forge et la taille de pierre. | outil=marteau mat=fer
+
+# --- Matières ---
+stick | Bâton | matieres | 0.2 | 64 | Une branche droite, pour les manches et le feu. | combustible=8
+pebble | Caillou | matieres | 0.3 | 64 | Une pierre de la taille d'un poing, à tailler. |
+flint | Silex | matieres | 0.3 | 64 | Une pierre dure qui se taille en arêtes coupantes. On le trouve dans le gravier. |
+fiber | Fibre végétale | matieres | 0.05 | 99 | Arrachée aux herbes : sert à lier, coudre et tresser. | combustible=2
+rope | Corde | matieres | 0.2 | 64 | Trois brins de fibre tressés : solide pour lier et suspendre. |
+seeds | Graines | matieres | 0.02 | 99 | Se sèment sur une terre labourée. |
+wheat | Blé | matieres | 0.1 | 99 | Une gerbe d'épis mûrs, pour le pain. |
+raw_hide | Peau crue | matieres | 1.0 | 32 | Une peau fraîche : à gratter au couteau sur l'établi pour faire du cuir. |
+leather | Cuir | matieres | 0.6 | 64 | Souple et résistant : vêtements, gourde, sac. |
+fur | Fourrure | matieres | 0.5 | 64 | Chaude et douce : vêtements d'hiver. |
+bone_needle | Aiguille en os | matieres | 0.02 | 16 | Pour coudre le cuir et la fourrure. Elle ne s'use pas. |
+coal | Charbon | matieres | 0.4 | 64 | Brûle longtemps et très chaud : fours et forge. | combustible=80
+charcoal | Charbon de bois | matieres | 0.25 | 64 | Du bois cuit à l'étouffée : un combustible de forge. | combustible=60
+copper_ore | Minerai de cuivre | roches | 2.0 | 64 | Une roche veinée de vert et d'orange. À fondre au four. |
+tin_ore | Minerai d'étain | roches | 2.0 | 64 | Des grains argentés dans la pierre. Allié au cuivre, il donne le bronze. |
+iron_ore | Minerai de fer | roches | 2.2 | 64 | Une roche rouille, dure à extraire : il faut une pioche de bronze au moins. |
+copper_ingot | Lingot de cuivre | matieres | 1.0 | 64 | Coulé au four, à travailler à l'enclume. |
+tin_ingot | Lingot d'étain | matieres | 0.8 | 64 | Coulé au four. |
+bronze_ingot | Lingot de bronze | matieres | 1.0 | 64 | Trois parts de cuivre, une d'étain. |
+iron_ingot | Lingot de fer | matieres | 1.0 | 64 | Le métal le plus dur que l'on puisse forger seul. |
+raw_brick | Brique crue | matieres | 0.8 | 64 | De l'argile moulée, à cuire au four. |
+brick | Brique | matieres | 0.7 | 64 | Cuite au four : pour bâtir des murs solides. |
+bowl | Bol en bois | matieres | 0.2 | 16 | Pour les soupes et les ragoûts. |
+
+# --- Eau ---
+waterskin | Gourde vide | vivres | 0.3 | 1 | Clic droit face à l'eau pour la remplir. |
+waterskin_raw | Gourde d'eau brute | vivres | 1.3 | 1 | Eau non traitée : à faire bouillir au feu, ou à boire à ses risques. | boisson=35:0
+waterskin_clean | Gourde d'eau potable | vivres | 1.3 | 1 | Eau bouillie : se boit sans crainte. | boisson=40:1
+
+# --- Vivres ---
+berries | Myrtilles | vivres | 0.1 | 32 | Une poignée de baies sucrées. | aliment=9:5:0 garde=3
+rowan_berries | Baies de sorbier | vivres | 0.1 | 32 | Acides, mais nourrissantes. | aliment=6:2:0 garde=4
+raw_meat | Viande crue | vivres | 0.6 | 16 | À cuire : crue, elle rend malade. | aliment=10:0:-4 garde=2 risque=0.5
+cooked_meat | Viande grillée | vivres | 0.5 | 16 | Cuite au feu de camp : rassasie longtemps. | aliment=35:0:4 garde=4
+jerky | Viande séchée | vivres | 0.2 | 32 | Fumée et séchée : se garde des semaines. | aliment=22:-6:2 garde=0
+dried_berries | Baies séchées | vivres | 0.05 | 32 | Légères et durables. | aliment=7:0:0 garde=0
+pine_nuts | Pignons grillés | vivres | 0.05 | 32 | Petits mais riches. | aliment=12:0:1 garde=0
+mushroom_stew | Soupe de champignons | vivres | 0.6 | 4 | Chaude et nourrissante ; rend aussi un peu d'eau. | aliment=30:15:6 garde=2
+stew | Ragoût | vivres | 0.7 | 4 | Viande, champignons et blé : le repas complet qui redonne des forces. | aliment=55:12:15 garde=2
+bread | Pain | vivres | 0.3 | 16 | Cuit sur les braises : se garde bien. | aliment=28:0:2 garde=6
+bandage | Bandage | vivres | 0.05 | 16 | Fibres tressées : soigne une blessure. | soin=20
+
+# --- Vêtements et équipement ---
+straw_hat | Chapeau de paille | habits | 0.2 | 1 | Protège du soleil du désert. | porte=tete frais=3
+fiber_tunic | Tunique de fibre | habits | 0.6 | 1 | Un vêtement rudimentaire, à peine chaud. | porte=torse chaud=2 armure=1
+fiber_pants | Jambières de fibre | habits | 0.5 | 1 | Protègent un peu des épines. | porte=jambes chaud=1 armure=1
+leather_cap | Bonnet de cuir | habits | 0.3 | 1 | Protège la tête. | porte=tete chaud=1 armure=2
+leather_jacket | Veste de cuir | habits | 1.6 | 1 | Solide : protège des coups et du vent. | porte=torse chaud=3 armure=4
+leather_pants | Pantalon de cuir | habits | 1.2 | 1 | Solide et souple. | porte=jambes chaud=2 armure=3
+leather_boots | Bottes de cuir | habits | 0.8 | 1 | Pour marcher loin. | porte=pieds chaud=1 armure=1
+fur_hat | Toque de fourrure | habits | 0.4 | 1 | Indispensable en taïga. | porte=tete chaud=4
+fur_coat | Manteau de fourrure | habits | 2.4 | 1 | Le froid ne passe plus ; trop chaud au désert. | porte=torse chaud=9 armure=2
+fur_boots | Bottes fourrées | habits | 1.0 | 1 | Les pieds au chaud dans la neige. | porte=pieds chaud=4 armure=1
+backpack | Sac à dos | habits | 1.2 | 1 | Porter vingt kilos de plus sans peine. | porte=dos sac=20
+iron_helmet | Casque en fer | habits | 2.0 | 1 | Lourd et froid, mais il arrête les coups. | porte=tete chaud=-1 armure=6
+iron_chestplate | Plastron en fer | habits | 7.0 | 1 | Une protection redoutable, au prix du poids. | porte=torse chaud=-2 armure=12
+
+# --- Ateliers et mobilier ---
+workbench | Établi | ateliers | 12 | 8 | Le premier atelier : outils, coffres, vêtements. |
+campfire | Feu de camp | ateliers | 6 | 8 | Cuit, fait bouillir, réchauffe et éclaire ; à nourrir de bois. |
+furnace | Four | ateliers | 30 | 8 | Fond les minerais et cuit les briques. Il faut du charbon. |
+anvil | Enclume | ateliers | 25 | 8 | Forge les outils de métal ; il faut un marteau. |
+mason_bench | Banc de taille | ateliers | 15 | 8 | Taille la pierre en blocs, en pavés et en dalles ; il faut un marteau. |
+chest | Coffre | ateliers | 8 | 8 | Range vingt-sept piles d'objets. Clic droit pour l'ouvrir. |
+bedroll | Sac de couchage | ateliers | 2 | 8 | Pour dormir à la belle étoile. Clic droit la nuit ou fatigué. |
+bed | Lit | ateliers | 20 | 8 | Un vrai repos : on se réveille frais et on y réapparaît. |
+torch | Torche | ateliers | 0.2 | 64 | Éclaire vivement autour d'elle. |
+lantern | Lanterne | ateliers | 0.6 | 64 | Une lumière douce qui ne s'éteint jamais. |
+
+# --- Construction ---
+planks | Planches | batir | 1.5 | 64 | Planches de bois, pour les sols, les murs et les meubles. | combustible=15
+birch_planks | Planches de bouleau | batir | 1.3 | 64 | Un bois clair. | combustible=15
+spruce_planks | Planches d'épicéa | batir | 1.4 | 64 | Un bois sombre. | combustible=15
+fence | Clôture | batir | 1.2 | 64 | Ferme un enclos ou un jardin. |
+thatch | Chaume | batir | 0.8 | 64 | Un toit de paille, léger et isolant. |
+cobblestone | Pavé | batir | 2.4 | 64 | Pierres assemblées : un sol ou un mur rustique. |
+stone_bricks | Pierre taillée | batir | 2.4 | 64 | Blocs réguliers pour les murs et les fondations. |
+clay_bricks | Mur de briques | batir | 2.2 | 64 | Briques cuites jointoyées. |
+flagstone | Dalle | batir | 1.2 | 64 | Une dalle plate pour les chemins. |
+
+# --- Terrain ---
+grass | Herbe | terrain | 2 | 64 | |
+steppe_grass | Herbe sèche | terrain | 2 | 64 | |
+moor_grass | Herbe de lande | terrain | 2 | 64 | |
+dirt | Terre | terrain | 2 | 64 | |
+dry_earth | Terre craquelée | terrain | 2 | 64 | |
+path | Terre de chemin | terrain | 2 | 64 | |
+forest_soil | Humus | terrain | 2 | 64 | |
+gravel | Gravier | terrain | 2.2 | 64 | Casser du gravier donne parfois un silex. |
+sand | Sable | terrain | 2 | 64 | |
+clay | Argile | terrain | 2 | 64 | Au bord de l'eau : se moule en briques. |
+snow | Neige | terrain | 0.5 | 64 | |
+snow_layer | Couche de neige | terrain | 0.1 | 64 | |
+ice | Glace | terrain | 1 | 64 | |
+water | Eau | terrain | 1 | 64 | |
+
+# --- Roches ---
+stone | Pierre | roches | 2.5 | 64 | |
+mossy_stone | Pierre moussue | roches | 2.5 | 64 | |
+limestone | Calcaire | roches | 2.4 | 64 | |
+granite | Granit | roches | 2.7 | 64 | |
+lichen_stone | Pierre à lichens | roches | 2.5 | 64 | |
+sandstone | Grès | roches | 2.2 | 64 | |
+red_sandstone | Grès rouge | roches | 2.2 | 64 | |
+coal_ore | Veine de charbon | roches | 2.5 | 64 | |
+bone | Os | roches | 0.5 | 64 | Un vieil os blanchi : se taille en aiguille. |
+
+# --- Bois ---
+oak_log | Bois de chêne | bois | 4 | 64 | | combustible=30
+birch_log | Bois de bouleau | bois | 3.5 | 64 | | combustible=30
+beech_log | Bois de hêtre | bois | 4 | 64 | | combustible=30
+spruce_log | Bois d'épicéa | bois | 3.5 | 64 | | combustible=30
+acacia_log | Bois d'acacia | bois | 4 | 64 | | combustible=30
+palm_log | Bois de palmier | bois | 3 | 64 | | combustible=25
+dead_log | Bois mort | bois | 2.5 | 64 | Sec : brûle vite et bien. | combustible=40
+oak_hollow | Tronc creux de chêne | bois | 3 | 64 | | combustible=20
+spruce_hollow | Tronc creux d'épicéa | bois | 3 | 64 | | combustible=20
+dead_hollow | Tronc creux de bois mort | bois | 2 | 64 | | combustible=20
+
+# --- Plantes ---
+twigs | Branches au sol | plantes | 0.3 | 64 | |
+pebbles | Cailloux au sol | plantes | 0.6 | 64 | |
+oak_leaves | Feuilles de chêne | plantes | 0.2 | 64 | |
+birch_leaves | Feuilles de bouleau | plantes | 0.2 | 64 | |
+beech_leaves | Feuilles de hêtre | plantes | 0.2 | 64 | |
+spruce_leaves | Aiguilles d'épicéa | plantes | 0.2 | 64 | |
+acacia_leaves | Feuilles d'acacia | plantes | 0.2 | 64 | |
+palm_leaves | Palmes | plantes | 0.2 | 64 | |
+vine | Liane | plantes | 0.1 | 64 | |
+tall_grass | Herbes hautes | plantes | 0.05 | 64 | |
+fern | Fougère | plantes | 0.05 | 64 | |
+heather | Bruyère | plantes | 0.05 | 64 | |
+cotton_grass | Linaigrette | plantes | 0.05 | 64 | |
+daisy | Marguerite | plantes | 0.02 | 64 | |
+lupine | Lupin | plantes | 0.02 | 64 | |
+pink_flower | Fleur rose | plantes | 0.02 | 64 | |
+yellow_flower | Fleur jaune | plantes | 0.02 | 64 | |
+feather_grass | Stipe plumeuse | plantes | 0.05 | 64 | |
+sagebrush | Armoise | plantes | 0.1 | 64 | |
+dead_bush | Buisson mort | plantes | 0.1 | 64 | | combustible=6
+cactus | Cactus | plantes | 1 | 64 | |
+blueberry | Myrtillier | plantes | 0.3 | 64 | Clic droit pour cueillir les baies ; elles repoussent en deux jours. |
+rowan | Sorbier | plantes | 0.6 | 64 | Clic droit pour cueillir les baies ; elles repoussent en deux jours. |
+fern_dry | Fougère rousse | plantes | 0.05 | 64 | |
+mushroom | Champignon | plantes | 0.05 | 32 | Comestible. Clic droit pour le manger, accroupi pour le poser. | aliment=7:0:0 garde=2
+glowcap | Champignon lumineux vert | plantes | 0.05 | 64 | |
+glowcap_blue | Champignon lumineux bleu | plantes | 0.05 | 64 | |
+glowcap_pink | Champignon lumineux rose | plantes | 0.05 | 64 | |
+glowcap_violet | Champignon lumineux violet | plantes | 0.05 | 64 | |
+glowcap_cyan | Champignon lumineux turquoise | plantes | 0.05 | 64 | |
+pinecone | Pomme de pin | plantes | 0.1 | 64 | Ses pignons se grillent au feu. | combustible=6
+shelf_fungus | Polypore | plantes | 0.1 | 64 | |
+lily_pad | Nénuphar | plantes | 0.05 | 64 | |

@@ -1,0 +1,122 @@
+# A Living World — recettes.
+# Groupes : un nom, un libellé, les objets qui en font partie.
+#   groupe <id> | <libellé> | objet objet …
+# Recettes : une par ligne.
+#   <sortie> <quantité> | <atelier> | <ingrédient> <n>, … | <catégorie>
+#   Atelier : main, etabli, feu, four, enclume, taille.
+#   Un ingrédient précédé de « ! » est un outil nécessaire mais conservé (le couteau, l'aiguille, le marteau).
+# Une recette apparaît dans le livre dès qu'on a eu en main l'un de ses ingrédients.
+
+groupe log | Bois | oak_log birch_log beech_log spruce_log acacia_log palm_log dead_log
+groupe rock | Pierre ou caillou | pebble stone mossy_stone limestone granite lichen_stone sandstone red_sandstone cobblestone
+groupe cut | Pierre de taille | stone limestone granite sandstone red_sandstone mossy_stone lichen_stone
+groupe glow | Champignon lumineux | glowcap glowcap_blue glowcap_pink glowcap_violet glowcap_cyan
+groupe fuel | Charbon | coal charcoal
+groupe berry | Baies | berries rowan_berries
+groupe plank | Planches | planks birch_planks spruce_planks
+groupe knife | Couteau | stone_knife copper_knife bronze_knife iron_knife
+groupe hammer | Marteau | stone_hammer copper_hammer bronze_hammer iron_hammer
+groupe needle | Aiguille | bone_needle
+
+# --- À la main : la survie primitive ---
+stone_knife 1 | main | pebble 2, stick 1, fiber 1 | outils
+stone_axe 1 | main | pebble 3, stick 2, fiber 3 | outils
+stone_pickaxe 1 | main | pebble 3, stick 2, fiber 3 | outils
+stone_shovel 1 | main | pebble 2, stick 2, fiber 2 | outils
+stone_hammer 1 | main | rock 2, stick 1, fiber 2 | outils
+stone_spear 1 | main | stick 3, pebble 1, fiber 2 | outils
+rope 1 | main | fiber 3 | matieres
+bandage 1 | main | fiber 2 | vivres
+torch 2 | main | stick 1, fiber 2 | ateliers
+planks 4 | main | oak_log 1 | batir
+planks 4 | main | beech_log 1 | batir
+planks 4 | main | acacia_log 1 | batir
+planks 4 | main | palm_log 1 | batir
+planks 2 | main | dead_log 1 | batir
+stick 2 | main | plank 1 | matieres
+workbench 1 | main | plank 4 | ateliers
+campfire 1 | main | stick 3, rock 3, fiber 1 | ateliers
+straw_hat 1 | main | fiber 6 | habits
+fiber_tunic 1 | main | fiber 10, rope 2 | habits
+fiber_pants 1 | main | fiber 8, rope 1 | habits
+bedroll 1 | main | fiber 10, rope 2 | ateliers
+bone_needle 2 | main | bone 1, !knife 1 | matieres
+raw_brick 2 | main | clay 1 | matieres
+
+# --- À l'établi : l'installation ---
+birch_planks 4 | main | birch_log 1 | batir
+spruce_planks 4 | main | spruce_log 1 | batir
+flint_axe 1 | etabli | flint 2, stick 2, rope 1 | outils
+flint_pickaxe 1 | etabli | flint 2, stick 2, rope 1 | outils
+stone_hoe 1 | etabli | pebble 2, stick 2, rope 1 | outils
+bowl 2 | etabli | plank 1, !knife 1 | matieres
+chest 1 | etabli | plank 8, rope 1 | ateliers
+fence 3 | etabli | plank 2, stick 2 | batir
+thatch 4 | etabli | fiber 8, rope 1 | batir
+lantern 2 | etabli | stick 1, glow 1 | ateliers
+waterskin 1 | etabli | leather 2, rope 1, !needle 1 | vivres
+leather 1 | etabli | raw_hide 1, !knife 1 | matieres
+leather_cap 1 | etabli | leather 2, fiber 2, !needle 1 | habits
+leather_jacket 1 | etabli | leather 5, fiber 3, !needle 1 | habits
+leather_pants 1 | etabli | leather 4, fiber 2, !needle 1 | habits
+leather_boots 1 | etabli | leather 2, fiber 2, !needle 1 | habits
+fur_hat 1 | etabli | fur 2, leather 1, !needle 1 | habits
+fur_coat 1 | etabli | fur 5, leather 2, !needle 1 | habits
+fur_boots 1 | etabli | fur 2, leather 2, !needle 1 | habits
+backpack 1 | etabli | leather 4, rope 2, !needle 1 | habits
+bed 1 | etabli | plank 6, fiber 8, leather 2 | ateliers
+furnace 1 | etabli | rock 10, clay 2 | ateliers
+mason_bench 1 | etabli | plank 4, rock 4, !hammer 1 | ateliers
+anvil 1 | etabli | cut 6, copper_ingot 3, !hammer 1 | ateliers
+
+# --- Au feu de camp : la cuisine ---
+cooked_meat 1 | feu | raw_meat 1 | vivres
+jerky 2 | feu | raw_meat 3 | vivres
+dried_berries 2 | feu | berry 4 | vivres
+pine_nuts 2 | feu | pinecone 2 | vivres
+mushroom_stew 1 | feu | mushroom 2, bowl 1 | vivres
+stew 1 | feu | cooked_meat 1, mushroom 1, wheat 2, bowl 1 | vivres
+bread 1 | feu | wheat 3 | vivres
+waterskin_clean 1 | feu | waterskin_raw 1 | vivres
+charcoal 2 | feu | log 1 | matieres
+
+# --- Au four : la fonte et la cuisson ---
+copper_ingot 1 | four | copper_ore 2, fuel 1 | matieres
+tin_ingot 1 | four | tin_ore 2, fuel 1 | matieres
+bronze_ingot 4 | four | copper_ingot 3, tin_ingot 1, fuel 1 | matieres
+iron_ingot 1 | four | iron_ore 2, fuel 2 | matieres
+brick 2 | four | raw_brick 2, fuel 1 | matieres
+
+# --- Au banc de taille : la maçonnerie ---
+stone_bricks 4 | taille | cut 4, !hammer 1 | batir
+cobblestone 4 | taille | rock 4, !hammer 1 | batir
+flagstone 4 | taille | cut 2, !hammer 1 | batir
+clay_bricks 2 | taille | brick 4, clay 1, !hammer 1 | batir
+
+# --- À l'enclume : la métallurgie ---
+copper_axe 1 | enclume | copper_ingot 3, stick 2, !hammer 1 | outils
+copper_pickaxe 1 | enclume | copper_ingot 3, stick 2, !hammer 1 | outils
+copper_shovel 1 | enclume | copper_ingot 1, stick 2, !hammer 1 | outils
+copper_knife 1 | enclume | copper_ingot 1, stick 1, !hammer 1 | outils
+copper_sickle 1 | enclume | copper_ingot 2, stick 1, !hammer 1 | outils
+copper_hoe 1 | enclume | copper_ingot 2, stick 2, !hammer 1 | outils
+copper_hammer 1 | enclume | copper_ingot 2, stick 1, !hammer 1 | outils
+copper_sword 1 | enclume | copper_ingot 3, stick 1, leather 1, !hammer 1 | outils
+bronze_axe 1 | enclume | bronze_ingot 3, stick 2, !hammer 1 | outils
+bronze_pickaxe 1 | enclume | bronze_ingot 3, stick 2, !hammer 1 | outils
+bronze_shovel 1 | enclume | bronze_ingot 1, stick 2, !hammer 1 | outils
+bronze_knife 1 | enclume | bronze_ingot 1, stick 1, !hammer 1 | outils
+bronze_sickle 1 | enclume | bronze_ingot 2, stick 1, !hammer 1 | outils
+bronze_hoe 1 | enclume | bronze_ingot 2, stick 2, !hammer 1 | outils
+bronze_hammer 1 | enclume | bronze_ingot 2, stick 1, !hammer 1 | outils
+bronze_sword 1 | enclume | bronze_ingot 3, stick 1, leather 1, !hammer 1 | outils
+axe 1 | enclume | iron_ingot 3, stick 2, !hammer 1 | outils
+pickaxe 1 | enclume | iron_ingot 3, stick 2, !hammer 1 | outils
+iron_shovel 1 | enclume | iron_ingot 1, stick 2, !hammer 1 | outils
+iron_knife 1 | enclume | iron_ingot 1, stick 1, !hammer 1 | outils
+iron_sickle 1 | enclume | iron_ingot 2, stick 1, !hammer 1 | outils
+iron_hoe 1 | enclume | iron_ingot 2, stick 2, !hammer 1 | outils
+iron_hammer 1 | enclume | iron_ingot 2, stick 1, !hammer 1 | outils
+sword 1 | enclume | iron_ingot 3, stick 1, leather 1, !hammer 1 | outils
+iron_helmet 1 | enclume | iron_ingot 4, leather 1, !hammer 1 | habits
+iron_chestplate 1 | enclume | iron_ingot 7, leather 2, !hammer 1 | habits
