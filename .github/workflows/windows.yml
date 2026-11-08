@@ -76,7 +76,7 @@ jobs:
           for sc in survie craft mort ramassage fissure construction; do shot $sc -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 $sc; done
           shot campement -38.5 53 0.5 -20 52 -30 20.6 4 1280 720 2048 campement
           shot faune -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 faune
-          for sc in village artisan; do shot $sc -38.5 53 0.5 -20 52 -30 10.5 4 1280 720 2048 $sc; done
+          for sc in village artisan carte; do shot $sc -38.5 53 0.5 -20 52 -30 10.5 4 1280 720 2048 $sc; done
       - name: Dépose la capture sur la branche captures
         shell: bash
         continue-on-error: true
