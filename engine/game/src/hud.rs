@@ -4,6 +4,7 @@ use crate::font_data as fd;
 use crate::gpu::ICON_COLS;
 use crate::needs;
 use alw_core::data::{def, Station, SLOTS};
+use alw_core::map::{unpack, Atlas, STEP, ZOOMS};
 use alw_core::play::{book, unknown, BOOK_CATS};
 use alw_core::session::{item, order, tabs, Session, CHEST0, CHEST_SIZE, EQUIP0, INV_SIZE};
 use alw_core::survival::{group_label, recipes, PROFILES, SKILLS};
@@ -263,6 +264,79 @@ impl Ui {
         let x = w * 0.5 - (rel / std::f64::consts::FRAC_PI_2).clamp(-1.0, 1.0) as f32 * w * 0.3; let y = 26.0 * k;
         self.diamond(x, y, 7.0 * k, c); let t = format!("{label} · {:.0} m", dist); self.text(&t, x - Ui::text_width(&t, 14.0 * k) * 0.5, y + 10.0 * k, 14.0 * k, [0.92, 0.92, 0.88, 0.85]);
     }
+    /// Le terrain vu, en cases de `cell` blocs de `px` pixels, centré sur `at` (x, z du monde) et découpé au cadre `r`.
+    /// Le relief s'ombre comme éclairé du nord-ouest ; l'inexploré reste vide (le fond du cadre).
+    fn terrain(&mut self, a: &Atlas, r: [f32; 4], at: [f64; 2], cell: i32, px: f32, alpha: f32) {
+        let g = (cell / STEP).max(1); let (cw, ch) = (r[2] / px, r[3] / px);
+        let (fx, fz) = (at[0] / cell as f64 - cw as f64 * 0.5, at[1] / cell as f64 - ch as f64 * 0.5); let (i0, j0) = (fx.floor() as i32, fz.floor() as i32);
+        let (ox, oz) = (r[0] - (fx - i0 as f64) as f32 * px, r[1] - (fz - j0 as f64) as f32 * px);
+        let shade = |i: i32, j: i32| -> Option<[f32; 3]> {
+            let (mx, mz) = (i * g, j * g); let (c, h) = unpack(a.get(mx, mz))?; let hn = unpack(a.get(mx - g, mz - g)).map_or(h, |v| v.1);
+            let f = (1.0 + (h as f32 - hn as f32) / g as f32 * 0.09).clamp(0.7, 1.3); Some([0, 1, 2].map(|k| ((c[k] as f32 / 255.0 * f).min(1.0) * 24.0).round() / 24.0))
+        };
+        for j in 0..=ch.ceil() as i32 + 1 {
+            let y = oz + j as f32 * px; let (y0, y1) = (y.max(r[1]), (y + px).min(r[1] + r[3])); if y1 <= y0 { continue; }
+            let mut i = 0; let n = cw.ceil() as i32 + 2;
+            while i < n {
+                let Some(c) = shade(i0 + i, j0 + j) else { i += 1; continue };
+                let mut e = i + 1; while e < n && shade(i0 + e, j0 + j) == Some(c) { e += 1; }
+                let (x0, x1) = ((ox + i as f32 * px).max(r[0]), (ox + e as f32 * px).min(r[0] + r[2])); if x1 > x0 { self.rect(x0, y0, x1 - x0, y1 - y0, [c[0], c[1], c[2], alpha]); }
+                i = e;
+            }
+        }
+    }
+    /// Position à l'écran d'un point du monde dans un cadre de carte, s'il y tombe.
+    fn on_map(r: [f32; 4], at: [f64; 2], cell: i32, px: f32, q: [f64; 2]) -> Option<[f32; 2]> {
+        let x = r[0] + r[2] * 0.5 + ((q[0] - at[0]) / cell as f64) as f32 * px; let y = r[1] + r[3] * 0.5 + ((q[1] - at[1]) / cell as f64) as f32 * px;
+        (x >= r[0] && x <= r[0] + r[2] && y >= r[1] && y <= r[1] + r[3]).then_some([x, y])
+    }
+    /// La flèche du joueur : pointe dans le sens du regard (le nord en haut).
+    fn arrow(&mut self, p: [f32; 2], yaw: f64, z: f32, c: C) {
+        let (f, q) = ([yaw.sin() as f32, yaw.cos() as f32], [-(yaw.cos() as f32), yaw.sin() as f32]);
+        let at = |a: f32, b: f32| [p[0] + f[0] * a + q[0] * b, p[1] + f[1] * a + q[1] * b];
+        self.quad([at(z, 0.0), at(-z * 0.7, z * 0.65), at(-z * 0.35, 0.0), at(-z * 0.7, -z * 0.65)], [[0.0; 2]; 4], c, LAYER_FLAT);
+    }
+    fn places(s: &Session) -> Vec<(alw_core::village::Village, bool)> {
+        s.town.known.iter().filter_map(|id| s.town.here.iter().find(|v| v.id == *id).or(s.town.atlas.get(id)).cloned()).map(|v| { let m = s.town.marked == Some(v.id); (v, m) }).collect()
+    }
+    /// Mini-carte en haut à droite : le terrain vu autour de soi, le nord en haut.
+    fn minimap(&mut self, s: &Session, w: f32, k: f32) {
+        let sz = 176.0 * k; let r = [w - sz - 16.0 * k, 16.0 * k, sz, sz]; let px = sz / 44.0; let me = [s.player.p[0], s.player.p[2]];
+        self.panel([r[0] - 4.0 * k, r[1] - 4.0 * k, r[2] + 8.0 * k, r[3] + 8.0 * k], k, [0.06, 0.07, 0.06, 0.8]);
+        self.terrain(&s.map, r, me, STEP, px, 0.95);
+        for (v, m) in Ui::places(s) { if let Some(p) = Ui::on_map(r, me, STEP, px, [v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5]) { self.diamond(p[0], p[1], 5.0 * k, if m { GOLD } else { [0.95, 0.92, 0.8, 0.95] }); } }
+        for st in &s.stashes { if let Some(p) = Ui::on_map(r, me, STEP, px, [st.p[0], st.p[2]]) { self.diamond(p[0], p[1], 4.0 * k, BAD); } }
+        self.arrow([r[0] + sz * 0.5, r[1] + sz * 0.5], s.player.yaw, 8.0 * k, [1.0, 1.0, 1.0, 1.0]);
+        let z = 13.0 * k; self.text("N", r[0] + sz * 0.5 - Ui::text_width("N", z) * 0.5, r[1] + 2.0 * k, z, [1.0, 1.0, 1.0, 0.9]);
+        let t = format!("{:.0} · {:.0}", s.player.p[0].floor(), s.player.p[2].floor()); self.text(&t, r[0] + sz - Ui::text_width(&t, z), r[1] + sz + 8.0 * k, z, [0.92, 0.92, 0.88, 0.8]);
+    }
+    /// La grande carte : un parchemin qui se déroule depuis le milieu, puis le terrain qui s'y dessine ; les plis s'estompent.
+    fn big_map(&mut self, s: &Session, w: f32, h: f32, k: f32) {
+        let a = s.map.anim as f32; if a <= 0.0 { return; } let e = 1.0 - (1.0 - a).powi(3);
+        let t1 = (e / 0.55).min(1.0); let t2 = ((e - 0.45) / 0.55).clamp(0.0, 1.0);
+        self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.02, 0.5 * e]);
+        let full = [44.0 * k, 44.0 * k, w - 88.0 * k, h - 88.0 * k]; let pw = full[2] * t1; let ph = full[3] * (0.9 + 0.1 * t1);
+        let r = [full[0] + (full[2] - pw) * 0.5, full[1] + (full[3] - ph) * 0.5, pw, ph];
+        let paper = [0.79, 0.71, 0.54, 0.97 * t1.max(0.3)]; let edge = 6.0 * k;
+        self.rect(r[0] - edge, r[1] - edge, r[2] + 2.0 * edge, r[3] + 2.0 * edge, [0.36, 0.27, 0.16, 0.95 * t1.max(0.3)]); self.rect(r[0], r[1], r[2], r[3], paper);
+        // Les rouleaux de chaque côté pendant le déroulé.
+        if t1 < 1.0 { for x in [r[0] - edge * 1.8, r[0] + r[2] - edge * 0.2] { self.rect(x, r[1] - edge * 2.0, edge * 2.0, r[3] + edge * 4.0, [0.45, 0.33, 0.2, 1.0]); } }
+        if t2 <= 0.0 { return; }
+        let cell = ZOOMS[s.map.zoom]; let px = 6.0 * k; let me = [s.player.p[0], s.player.p[2]]; let inner = [r[0] + 10.0 * k, r[1] + 54.0 * k, r[2] - 20.0 * k, r[3] - 84.0 * k];
+        self.terrain(&s.map, inner, me, cell, px, 0.9 * t2);
+        for i in 1..4 { let x = r[0] + r[2] * i as f32 / 4.0; self.rect(x - k, r[1], 2.0 * k, r[3], [0.3, 0.22, 0.12, 0.12 + 0.45 * (1.0 - t2)]); }
+        self.rect(r[0], r[1] + r[3] * 0.5 - k, r[2], 2.0 * k, [0.3, 0.22, 0.12, 0.12 + 0.45 * (1.0 - t2)]);
+        let ink = [0.22, 0.15, 0.08, t2]; let z = 15.0 * k;
+        for (v, m) in Ui::places(s) { if let Some(p) = Ui::on_map(inner, me, cell, px, [v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5]) {
+            self.diamond(p[0], p[1], 8.0 * k, [0.22, 0.15, 0.08, t2]); self.diamond(p[0], p[1], 5.5 * k, if m { [0.95, 0.75, 0.2, t2] } else { [0.95, 0.9, 0.78, t2] });
+            self.text(&v.name, p[0] - Ui::text_width(&v.name, z) * 0.5, p[1] + 9.0 * k, z, ink);
+        } }
+        for st in &s.stashes { if let Some(p) = Ui::on_map(inner, me, cell, px, [st.p[0], st.p[2]]) { self.diamond(p[0], p[1], 6.0 * k, [0.75, 0.15, 0.1, t2]); self.text("Dépouille", p[0] + 8.0 * k, p[1] - 8.0 * k, z, ink); } }
+        let c = [inner[0] + inner[2] * 0.5, inner[1] + inner[3] * 0.5]; self.arrow(c, s.player.yaw, 13.0 * k, [0.22, 0.15, 0.08, t2]); self.arrow(c, s.player.yaw, 9.0 * k, [1.0, 1.0, 1.0, t2]);
+        self.text("Carte", r[0] + 18.0 * k, r[1] + 14.0 * k, 24.0 * k, ink);
+        let ha = s.map.explored() as f64 * (STEP * STEP) as f64 / 1e4; let info = format!("1 case = {cell} blocs · exploré : {ha:.0} hectares · nord en haut"); self.text(&info, r[0] + 110.0 * k, r[1] + 22.0 * k, z, [0.3, 0.22, 0.12, t2]);
+        let help = "Molette : échelle · M ou Échap : fermer"; self.text(help, r[0] + r[2] - Ui::text_width(help, z) - 18.0 * k, r[1] + r[3] - 24.0 * k, z, [0.3, 0.22, 0.12, t2]);
+    }
     /// Marqueur discret de la dépouille : un losange sur un arc en haut de l'écran, et la distance.
     fn marker(&mut self, s: &Session, w: f32, k: f32) {
         let p = s.player.p; let Some(st) = s.stashes.iter().min_by(|a, b| ((a.p[0] - p[0]).hypot(a.p[2] - p[2])).total_cmp(&(b.p[0] - p[0]).hypot(b.p[2] - p[2]))) else { return };
@@ -298,12 +372,14 @@ impl Ui {
             if menu.marker && s.dead.is_none() && !s.stashes.is_empty() { u.marker(s, w, k); }
         } else { let z = 18.0 * k; u.text("Mode créatif", 18.0 * k, h - 34.0 * k, z, w1); }
         if !info.is_empty() { let z = 16.0 * k; let bw = info.iter().fold(0.0f32, |a, l| a.max(Ui::text_width(l, z))); u.rect(10.0 * k, 10.0 * k, bw + 24.0 * k, info.len() as f32 * 22.0 * k + 14.0 * k, [0.0, 0.0, 0.0, 0.5]); for (i, l) in info.iter().enumerate() { u.text(l, 22.0 * k, 16.0 * k + i as f32 * 22.0 * k, z, INK); } }
+        if s.dead.is_none() && !menu.open && s.map.anim <= 0.0 { u.minimap(s, w, k); }
         if let (Some(v), None) = (s.marked_village(), &s.dead) { let c = [v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5]; u.pin(s, c, &v.name, [0.55, 0.75, 0.95, 0.9], w, k); }
         // Un villageois sous le réticule : on peut lui parler.
         if s.town.talk.is_none() && !s.inv_open { if let Some(f) = s.aim_folk().and_then(|i| s.town.folk.get(i)) { let t = format!("Clic droit : parler à {}{}", f.name, f.craft.and_then(alw_core::village::craftsman).map_or(String::new(), |c| format!(" ({})", c.name.to_lowercase()))); let z = 17.0 * k; u.text(&t, (w - Ui::text_width(&t, z)) * 0.5, h * 0.5 + 26.0 * k, z, w1); } }
         if s.town.journal && s.town.talk.is_none() && !s.inv_open { u.journal(s, w, h); }
         if s.town.talk.is_some() { u.dialog(s, w, h, mouse); }
         if s.inv_open { u.inventory(s, w, h, mouse); }
+        u.big_map(s, w, h, k);
         if let Some(d) = &s.dead { u.death(s, d, w, h, k, mouse); }
         if menu.open { u.menu(menu, w, h, mouse); }
         if let Some(m) = msg { let z = 20.0 * k; u.text(m, (w - Ui::text_width(m, z)) * 0.5, h * 0.16, z, w1); }

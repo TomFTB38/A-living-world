@@ -101,12 +101,12 @@ impl Game {
         let k = |c: KeyCode| self.keys.contains(&c);
         // Regarder vers +z place +x à gauche de l'écran : la droite vaut -x.
         let ax = |a: bool, b: bool| (a as i32 - b as i32) as f64;
-        let talking = self.s.town.talk.is_some(); let open = self.s.inv_open || self.menu.open || talking; let input = if open { Input::default() } else { Input { x: ax(k(KeyCode::KeyA) || k(KeyCode::KeyQ), k(KeyCode::KeyD)), z: ax(k(KeyCode::KeyW) || k(KeyCode::KeyZ), k(KeyCode::KeyS)), jump: k(KeyCode::Space), sprint: k(KeyCode::ShiftLeft), crouch: k(KeyCode::ControlLeft), roll: k(KeyCode::KeyV) } };
+        let talking = self.s.town.talk.is_some() || self.s.map.open; let open = self.s.inv_open || self.menu.open || talking; let input = if open { Input::default() } else { Input { x: ax(k(KeyCode::KeyA) || k(KeyCode::KeyQ), k(KeyCode::KeyD)), z: ax(k(KeyCode::KeyW) || k(KeyCode::KeyZ), k(KeyCode::KeyS)), jump: k(KeyCode::Space), sprint: k(KeyCode::ShiftLeft), crouch: k(KeyCode::ControlLeft), roll: k(KeyCode::KeyV) } };
         self.place_t -= dt; let place = self.rmb && self.place_t <= 0.0; if place { self.place_t = 0.22; }
         self.s.tick(dt, input, if talking { Actions::default() } else { Actions { mine: self.lmb, place } });
         for n in std::mem::take(&mut self.s.notes) { self.say(n); }
-        if (self.s.dead.is_some() || self.s.inv_open || self.s.town.talk.is_some()) && self.grabbed && !self.menu.open { self.grab(false); }
-        if talking && self.s.town.talk.is_none() && !self.s.inv_open && !self.menu.open && self.s.dead.is_none() { self.grab(true); } // le villageois s'est éloigné // écran de mort, coffre ouvert d'un clic droit : il faut le pointeur
+        if (self.s.dead.is_some() || self.s.inv_open || self.s.town.talk.is_some() || self.s.map.open) && self.grabbed && !self.menu.open { self.grab(false); }
+        if talking && self.s.town.talk.is_none() && !self.s.map.open && !self.s.inv_open && !self.menu.open && self.s.dead.is_none() { self.grab(true); } // le villageois s'est éloigné // écran de mort, coffre ouvert d'un clic droit : il faut le pointeur
         let (built, gone) = self.s.sync();
         for b in built { self.gpu.upload(b); }
         for g in gone { self.gpu.forget(g); }
@@ -166,6 +166,7 @@ impl ApplicationHandler for App {
                     return;
                 }
                 if g.s.dead.is_some() { if button == MouseButton::Left && down && hud::death_at(w, h, g.mouse) { g.s.respawn(); g.grab(true); } return; }
+                if g.s.map.open { return; } // la carte se ferme au clavier
                 // Conversation : un clic sur une réponse.
                 if g.s.town.talk.is_some() { if button == MouseButton::Left && down { if let Some(i) = hud::dialog_at(&g.s, w, h, g.mouse) { g.s.choose(i); if g.s.town.talk.is_none() { g.grab(true); } } } return; }
                 if g.s.inv_open {
@@ -200,7 +201,7 @@ impl ApplicationHandler for App {
             WindowEvent::CursorMoved { position, .. } => { g.mouse = [position.x as f32, position.y as f32]; if let Some(i) = g.drag { g.slide(i); } }
             WindowEvent::MouseWheel { delta, .. } => {
                 let d = match delta { MouseScrollDelta::LineDelta(_, y) => y, MouseScrollDelta::PixelDelta(p) => p.y as f32 };
-                if d != 0.0 { g.s.sel = (g.s.sel as i32 + if d > 0.0 { -1 } else { 1 }).rem_euclid(9) as usize; }
+                if d != 0.0 && g.s.map.open { g.s.zoom_map(if d > 0.0 { -1 } else { 1 }); } else if d != 0.0 { g.s.sel = (g.s.sel as i32 + if d > 0.0 { -1 } else { 1 }).rem_euclid(9) as usize; }
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 let PhysicalKey::Code(c) = event.physical_key else { return };
@@ -215,10 +216,12 @@ impl ApplicationHandler for App {
                 }
                 if !event.repeat { match c {
                     KeyCode::Enter | KeyCode::NumpadEnter if g.s.dead.is_some() && !g.menu.open => { g.s.respawn(); g.grab(true); }
-                    KeyCode::Escape => { if g.s.town.talk.is_some() { g.s.close_talk(); g.grab(true); } else if g.s.town.journal { g.s.town.journal = false; } else if g.s.inv_open { g.s.inv_open = false; g.s.drop_slot(None); g.s.close_chest(); g.grab(true); } else if g.menu.open { g.close_menu(); } else { g.menu.open = true; g.grab(false); } }
+                    KeyCode::Escape => { if g.s.map.open { g.s.toggle_map(); g.grab(true); } else if g.s.town.talk.is_some() { g.s.close_talk(); g.grab(true); } else if g.s.town.journal { g.s.town.journal = false; } else if g.s.inv_open { g.s.inv_open = false; g.s.drop_slot(None); g.s.close_chest(); g.grab(true); } else if g.menu.open { g.close_menu(); } else { g.menu.open = true; g.grab(false); } }
                     _ if g.menu.open || g.s.dead.is_some() => {}
                     KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::Digit7 | KeyCode::Digit8 | KeyCode::Digit9 if g.s.town.talk.is_some() => { g.s.choose(c as usize - KeyCode::Digit1 as usize); if g.s.town.talk.is_none() { g.grab(true); } }
                     _ if g.s.town.talk.is_some() => {}
+                    KeyCode::KeyM => { g.s.toggle_map(); g.grab(!g.s.map.open); }
+                    _ if g.s.map.open => {}
                     KeyCode::KeyJ => { g.s.town.journal = !g.s.town.journal; }
                     KeyCode::KeyE => { let on = !g.s.inv_open; g.s.inv_open = on; if !on { g.s.drop_slot(None); g.s.close_chest(); } g.grab(!on); }
                     KeyCode::KeyC => { g.s.third = !g.s.third; let m = if g.s.third { "Troisième personne" } else { "Première personne" }; g.say(m.into()); }
@@ -240,7 +243,7 @@ impl ApplicationHandler for App {
     }
     fn device_event(&mut self, _: &ActiveEventLoop, _: DeviceId, e: DeviceEvent) {
         let Some(g) = self.game.as_mut() else { return };
-        if let (true, DeviceEvent::MouseMotion { delta }) = (g.grabbed && !g.s.inv_open && !g.menu.open && g.s.town.talk.is_none(), e) { g.s.player.yaw -= delta.0 * 0.0023; g.s.player.pitch = (g.s.player.pitch - delta.1 * 0.0023).clamp(-1.5, 1.5); }
+        if let (true, DeviceEvent::MouseMotion { delta }) = (g.grabbed && !g.s.inv_open && !g.menu.open && g.s.town.talk.is_none() && !g.s.map.open, e) { g.s.player.yaw -= delta.0 * 0.0023; g.s.player.pitch = (g.s.player.pitch - delta.1 * 0.0023).clamp(-1.5, 1.5); }
     }
     fn about_to_wait(&mut self, _: &ActiveEventLoop) { if let Some(g) = &self.game { g.window.request_redraw(); } }
 }
@@ -382,6 +385,12 @@ fn capture(a: &[String]) {
         println!("faune : {} cerfs, {} oiseaux", s.fauna.deer.len(), s.fauna.birds.len());
         let spot = s.fauna.deer.first().map(|d| d.p).or(s.fauna.birds.first().map(|b| b.p));
         if let Some(q) = spot { let (a, r) = ((q[2] - s.player.p[2]).atan2(q[0] - s.player.p[0]), 8.2); let e = [q[0] - a.cos() * r, q[1] + 4.5, q[2] - a.sin() * r]; s.sel = 8; s.player.p = [e[0], e[1] - 1.62, e[2]]; let f = view::norm([q[0] - e[0], q[1] + 0.8 - e[1], q[2] - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
+    }
+    if scene == "carte" {
+        // Un survol pour découvrir du terrain, puis la grande carte dépliée.
+        s.player.fly = true; let start = s.player.p;
+        for i in 0..12 { s.player.p[0] = start[0] + i as f64 * 16.0; s.player.p[2] = start[2] - i as f64 * 9.0; pump(&mut s, &mut g); for _ in 0..20 { s.tick(1.0 / 60.0, none, Actions::default()); } }
+        s.toggle_map(); for _ in 0..60 { s.tick(1.0 / 60.0, none, Actions::default()); } println!("carte : {} pixels explorés", s.map.explored());
     }
     if scene == "village" || scene == "artisan" {
         // Le village le plus proche du départ, en milieu de matinée : la place vue d'en haut, ou le forgeron à son poste et la conversation.
