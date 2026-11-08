@@ -299,16 +299,58 @@ impl Ui {
     fn places(s: &Session) -> Vec<(alw_core::village::Village, bool)> {
         s.town.known.iter().filter_map(|id| s.town.here.iter().find(|v| v.id == *id).or(s.town.atlas.get(id)).cloned()).map(|v| { let m = s.town.marked == Some(v.id); (v, m) }).collect()
     }
-    /// Mini-carte en haut à droite : le terrain vu autour de soi, le nord en haut.
+    /// Mini-carte en boussole, en haut à droite : la carte tourne avec le regard (devant soi en haut), couronne graduée,
+    /// points cardinaux qui tournent autour ; couleurs lissées et relief ombré pour se lire d'un coup d'œil.
     fn minimap(&mut self, s: &Session, w: f32, k: f32) {
-        let sz = 176.0 * k; let r = [w - sz - 16.0 * k, 16.0 * k, sz, sz]; let px = sz / 44.0; let me = [s.player.p[0], s.player.p[2]];
-        self.panel([r[0] - 4.0 * k, r[1] - 4.0 * k, r[2] + 8.0 * k, r[3] + 8.0 * k], k, [0.06, 0.07, 0.06, 0.8]);
-        self.terrain(&s.map, r, me, STEP, px, 0.95);
-        for (v, m) in Ui::places(s) { if let Some(p) = Ui::on_map(r, me, STEP, px, [v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5]) { self.diamond(p[0], p[1], 5.0 * k, if m { GOLD } else { [0.95, 0.92, 0.8, 0.95] }); } }
-        for st in &s.stashes { if let Some(p) = Ui::on_map(r, me, STEP, px, [st.p[0], st.p[2]]) { self.diamond(p[0], p[1], 4.0 * k, BAD); } }
-        self.arrow([r[0] + sz * 0.5, r[1] + sz * 0.5], s.player.yaw, 8.0 * k, [1.0, 1.0, 1.0, 1.0]);
-        let z = 13.0 * k; self.text("N", r[0] + sz * 0.5 - Ui::text_width("N", z) * 0.5, r[1] + 2.0 * k, z, [1.0, 1.0, 1.0, 0.9]);
-        let t = format!("{:.0} · {:.0}", s.player.p[0].floor(), s.player.p[2].floor()); self.text(&t, r[0] + sz - Ui::text_width(&t, z), r[1] + sz + 8.0 * k, z, [0.92, 0.92, 0.88, 0.8]);
+        const R_BLOCKS: f64 = 60.0; let rad = 92.0 * k; let ring = 17.0 * k; let c = [w - rad - ring - 16.0 * k, rad + ring + 14.0 * k];
+        let sc = rad / R_BLOCKS as f32; let yaw = s.player.yaw; let (f, r) = ([yaw.sin(), yaw.cos()], [-yaw.cos(), yaw.sin()]); let me = [s.player.p[0], s.player.p[2]];
+        let to = |dx: f64, dz: f64| [c[0] + ((dx * r[0] + dz * r[1]) as f32) * sc, c[1] - ((dx * f[0] + dz * f[1]) as f32) * sc];
+        let circle = |u: &mut Ui, r0: f32, r1: f32, col: C, n: usize| for i in 0..n {
+            let (a, b) = (i as f32 / n as f32 * std::f32::consts::TAU, (i + 1) as f32 / n as f32 * std::f32::consts::TAU);
+            let p = |rr: f32, t: f32| [c[0] + rr * t.cos(), c[1] + rr * t.sin()]; u.quad([p(r0, a), p(r1, a), p(r1, b), p(r0, b)], [[0.0; 2]; 4], col, LAYER_FLAT);
+        };
+        // Le fond : l'inexploré, sombre.
+        circle(self, 0.0, rad, [0.1, 0.12, 0.1, 0.88], 48);
+        // Le terrain, par rangées de cases de 4 blocs, coupé au cercle. Couleur lissée sur les voisines, relief ombré.
+        let a = &s.map; let g = STEP; let (pi, pj) = ((me[0] / g as f64).floor() as i32, (me[1] / g as f64).floor() as i32); let n = (R_BLOCKS / g as f64).ceil() as i32 + 1;
+        let col = |i: i32, j: i32| -> Option<[f32; 3]> {
+            let (c0, h) = unpack(a.get(i, j))?; let mut acc = [c0[0] as f32 * 4.0, c0[1] as f32 * 4.0, c0[2] as f32 * 4.0]; let mut wsum = 4.0;
+            for (di, dj, wt) in [(1, 0, 2.0), (-1, 0, 2.0), (0, 1, 2.0), (0, -1, 2.0), (1, 1, 1.0), (-1, 1, 1.0), (1, -1, 1.0), (-1, -1, 1.0)] { if let Some((cn, _)) = unpack(a.get(i + di, j + dj)) { for q in 0..3 { acc[q] += cn[q] as f32 * wt; } wsum += wt; } }
+            let hn = unpack(a.get(i - 1, j - 1)).map_or(h, |v| v.1); let fshade = (1.0 + (h as f32 - hn as f32) * 0.12).clamp(0.65, 1.35);
+            Some([0, 1, 2].map(|q| ((acc[q] / wsum / 255.0 * fshade * 1.08).min(1.0) * 16.0).round() / 16.0))
+        };
+        for j in pj - n..=pj + n {
+            let (z0, z1) = ((j * g) as f64 - me[1], ((j + 1) * g) as f64 - me[1]); let zc = (z0 + z1) * 0.5; if zc.abs() >= R_BLOCKS { continue; }
+            let hw = (R_BLOCKS * R_BLOCKS - zc * zc).sqrt(); let mut i = pi - n;
+            while i <= pi + n {
+                let Some(cc) = col(i, j) else { i += 1; continue }; let mut e = i + 1; while e <= pi + n && col(e, j) == Some(cc) { e += 1; }
+                let (x0, x1) = (((i * g) as f64 - me[0]).max(-hw), ((e * g) as f64 - me[0]).min(hw));
+                if x1 > x0 { self.quad([to(x0, z0), to(x1, z0), to(x1, z1), to(x0, z1)], [[0.0; 2]; 4], [cc[0], cc[1], cc[2], 1.0], LAYER_FLAT); }
+                i = e;
+            }
+        }
+        // Villages et dépouilles ; le village marqué hors de portée reste indiqué au bord.
+        for (v, m) in Ui::places(s) {
+            let (dx, dz) = (v.c[0] as f64 + 0.5 - me[0], v.c[2] as f64 + 0.5 - me[1]); let d = dx.hypot(dz);
+            if d < R_BLOCKS - 4.0 { let p = to(dx, dz); self.diamond(p[0], p[1], 7.5 * k, [0.1, 0.08, 0.05, 0.95]); self.diamond(p[0], p[1], 5.5 * k, if m { GOLD } else { [0.97, 0.94, 0.85, 1.0] }); }
+            else if m { let p = to(dx / d * (R_BLOCKS - 5.0), dz / d * (R_BLOCKS - 5.0)); self.diamond(p[0], p[1], 6.5 * k, [0.1, 0.08, 0.05, 0.95]); self.diamond(p[0], p[1], 4.5 * k, GOLD); }
+        }
+        for st in &s.stashes { let (dx, dz) = (st.p[0] - me[0], st.p[2] - me[1]); if dx.hypot(dz) < R_BLOCKS - 3.0 { let p = to(dx, dz); self.diamond(p[0], p[1], 5.0 * k, BAD); } }
+        // La couronne : bronze, graduée tous les 15°, avec N (rouge), E, S, O qui tournent avec le regard.
+        circle(self, rad, rad + ring, [0.2, 0.15, 0.1, 0.96], 64); circle(self, rad - 1.5 * k, rad + 1.0 * k, [0.78, 0.63, 0.38, 1.0], 64); circle(self, rad + ring - 1.5 * k, rad + ring, [0.55, 0.42, 0.25, 1.0], 64);
+        let north = { let p = to(0.0, -1.0); (p[1] - c[1]).atan2(p[0] - c[0]) };
+        for t in 0..24 { if t % 6 == 0 { continue; } let a = north + t as f32 * std::f32::consts::TAU / 24.0; let (l0, l1) = (rad + 3.0 * k, rad + if t % 2 == 0 { 8.0 } else { 5.0 } * k); let (ca, sa) = (a.cos(), a.sin()); let (px, py) = (-sa * 0.9 * k, ca * 0.9 * k);
+            self.quad([[c[0] + ca * l0 + px, c[1] + sa * l0 + py], [c[0] + ca * l1 + px, c[1] + sa * l1 + py], [c[0] + ca * l1 - px, c[1] + sa * l1 - py], [c[0] + ca * l0 - px, c[1] + sa * l0 - py]], [[0.0; 2]; 4], [0.86, 0.74, 0.52, 0.9], LAYER_FLAT); }
+        let z = 14.0 * k;
+        for (q, l) in ["N", "E", "S", "O"].iter().enumerate() {
+            let a = north + q as f32 * std::f32::consts::FRAC_PI_2; let p = [c[0] + (rad + ring * 0.5) * a.cos(), c[1] + (rad + ring * 0.5) * a.sin()];
+            if q == 0 { self.diamond(p[0], p[1], 9.5 * k, [0.72, 0.16, 0.12, 1.0]); }
+            self.text(l, p[0] - Ui::text_width(l, z) * 0.5, p[1] - z * 0.62, z, if q == 0 { [1.0, 1.0, 1.0, 1.0] } else { [0.95, 0.88, 0.7, 1.0] });
+        }
+        // Soi-même au centre, tourné vers le haut.
+        self.arrow(c, std::f64::consts::PI, 13.0 * k, [0.08, 0.06, 0.04, 1.0]); self.arrow(c, std::f64::consts::PI, 9.5 * k, [1.0, 1.0, 1.0, 1.0]);
+        let t = format!("{:.0}, {:.0}", s.player.p[0].floor(), s.player.p[2].floor()); let z = 13.0 * k; let tw = Ui::text_width(&t, z);
+        self.rect(c[0] - tw * 0.5 - 6.0 * k, c[1] + rad + ring + 4.0 * k, tw + 12.0 * k, z * 1.5, [0.0, 0.0, 0.0, 0.45]); self.text(&t, c[0] - tw * 0.5, c[1] + rad + ring + 5.0 * k, z, [0.95, 0.93, 0.86, 0.95]);
     }
     /// La grande carte : un parchemin qui se déroule depuis le milieu, puis le terrain qui s'y dessine ; les plis s'estompent.
     fn big_map(&mut self, s: &Session, w: f32, h: f32, k: f32) {
