@@ -34,7 +34,7 @@ pub fn layout(s: &Session, w: f32, h: f32) -> Vec<(Hit, [f32; 4])> {
     let chest = s.chest.is_some(); let y = h * 0.5 - 110.0 * k + if chest { 115.0 * k } else { 0.0 };
     if chest { let yc = y - 3.0 * cell - 50.0 * k; for i in 0..CHEST_SIZE { o.push((Hit::Slot(CHEST0 + i), [x0 + (i % 9) as f32 * cell, yc + (i / 9) as f32 * cell, c, c])); } }
     inv_grid(&mut o, x0, y, c, cell, k);
-    for i in 0..5 { o.push((Hit::Slot(EQUIP0 + i), [xl, y + i as f32 * cell, c, c])); }
+    for i in 0..SLOTS.len() { o.push((Hit::Slot(EQUIP0 + i), [xl, y + i as f32 * cell, c, c])); }
     // Livre de recettes : deux rangées d'onglets, la recherche, la grille, les pages, le détail et ses boutons.
     let yb = h * 0.5 - 300.0 * k; let th = 26.0 * k; let names = 1 + BOOK_CATS.len(); let per = names.div_ceil(2);
     for i in 0..names { let (r, cl) = (i / per, i % per); let n = if r == 0 { per } else { names - per }; let tbw = (bw - (n as f32 - 1.0) * g) / n as f32; o.push((Hit::BookCat(i), [xb + cl as f32 * (tbw + g), yb + r as f32 * (th + g), tbw, th])); }
@@ -194,9 +194,9 @@ impl Ui {
         if !s.creative {
             // Équipement et état du personnage, à gauche.
             let e0 = l.iter().find(|r| r.0 == Hit::Slot(EQUIP0)).map(|r| r.1).unwrap(); let (xl, lw) = (e0[0], 250.0 * k);
-            self.panel([xl - m, y0 - m - 30.0 * k, lw + 2.0 * m, bottom - y0 + 2.0 * m + 30.0 * k + 150.0 * k], k, PANEL); self.text("Personnage", xl, y0 - 38.0 * k, 22.0 * k, INK);
+            self.panel([xl - m, y0 - m - 30.0 * k, lw + 2.0 * m, SLOTS.len() as f32 * cell + 100.0 * k + if s.skills.iter().any(|v| *v >= 1.0) { 44.0 * k } else { 0.0 } + 2.0 * m + 30.0 * k], k, PANEL); self.text("Personnage", xl, y0 - 38.0 * k, 22.0 * k, INK);
             for (i, (_, name)) in SLOTS.iter().enumerate() { self.text(name, xl + cell + 4.0 * k, y0 + i as f32 * cell + 8.0 * k, 15.5 * k, DIM); if let Some(st) = s.equip[i] { if let Some(d) = def(st.item) { self.text(d.label, xl + cell + 4.0 * k, y0 + i as f32 * cell + 29.0 * k, 13.5 * k, INK); } } }
-            let (warm, cool, armor, _, _) = s.worn(); let z = 14.5 * k; let mut y = y0 + 5.0 * cell + 4.0 * k;
+            let (warm, cool, armor, _, _) = s.worn(); let z = 14.5 * k; let mut y = y0 + SLOTS.len() as f32 * cell + 8.0 * k;
             let lines = [format!("Ressenti {:.0} °C  ·  corps {:.1} °C", s.air_here(), s.body), format!("Fatigue {:.0} %  ·  armure {:.0}", s.fatigue, armor), format!("Chaleur des habits {:+.0}{}", warm, if cool > 0.0 { format!(", fraîcheur {cool:.0}") } else { String::new() }), format!("Survie : {}", PROFILES[s.profile].name)];
             for t in lines { self.text(&t, xl, y, z, DIM); y += 20.0 * k; }
             let sk: Vec<String> = SKILLS.iter().zip(s.skills.iter()).filter(|(_, v)| **v >= 1.0).map(|(n, v)| format!("{n} {:+.0} %", (alw_core::survival::skill_bonus(*v) - 1.0) * 100.0)).collect();
@@ -281,7 +281,7 @@ impl Ui {
         match t.page {
             TPage::Main => {
                 // Un voile sombre à gauche, qui s'efface vers le monde.
-                for i in 0..24 { let x = i as f32 * w * 0.03; self.rect(x, 0.0, w * 0.03 + 1.0, h, [0.02, 0.03, 0.02, 0.72 * (1.0 - i as f32 / 24.0)]); }
+                for i in 0..24 { self.rect(0.0, 0.0, w * 0.75 * (1.0 - i as f32 / 24.0), h, [0.02, 0.03, 0.02, 0.055]); }
                 self.text("A Living World", 86.0 * k, h * 0.2, 64.0 * k, INK); self.text("Survivre, bâtir, explorer un monde qui vit", 92.0 * k, h * 0.2 + 84.0 * k, 20.0 * k, [0.85, 0.88, 0.8, 0.9]);
                 for (a, r) in title_layout(t, w, h) {
                     let on = hover == Some(a); btn(self, r, on, a == T::Continue);
@@ -533,6 +533,12 @@ impl Ui {
         let fl = s.flash() as f32; if fl > 0.0 { u.rect(0.0, 0.0, w, h, [0.62, 0.04, 0.03, 0.3 * fl]); }
         if !s.creative && s.dead.is_none() && s.vit[0] < 25.0 { let a = (0.16 + 0.1 * if menu.reduce { 0.5 } else { (s.elapsed as f32 * 4.0).sin() }) * (1.0 - s.vit[0] as f32 / 25.0).max(0.35); let e = 60.0 * k; let c = [0.55, 0.03, 0.02, a];
             u.rect(0.0, 0.0, w, e, c); u.rect(0.0, h - e, w, e, c); u.rect(0.0, e, e, h - 2.0 * e, c); u.rect(w - e, e, e, h - 2.0 * e, c); }
+        // Coup chargé : un anneau qui se remplit autour du réticule ; garde levée : un écu sous le réticule, doré tant qu'elle pare.
+        if s.charge > 0.04 { let f = (s.charge / alw_core::survival::HEAVY_T).min(1.0) as f32; let n = 28; let (r0, r1) = (13.0 * k, 17.0 * k); let (cx, cy) = (w * 0.5, h * 0.5);
+            for i in 0..n { let (a, b) = (-std::f32::consts::FRAC_PI_2 + i as f32 / n as f32 * std::f32::consts::TAU, -std::f32::consts::FRAC_PI_2 + (i + 1) as f32 / n as f32 * std::f32::consts::TAU); let on = (i as f32 + 0.5) / n as f32 <= f;
+                let p = |r: f32, t: f32| [cx + r * t.cos(), cy + r * t.sin()]; u.quad([p(r0, a), p(r1, a), p(r1, b), p(r0, b)], [[0.0; 2]; 4], if on { if f >= 0.98 { [1.0, 0.55, 0.3, 0.95] } else { [1.0, 1.0, 1.0, 0.85] } } else { [0.0, 0.0, 0.0, 0.3] }, LAYER_FLAT); } }
+        if s.guard_t >= 0.0 { let parry = s.guard_t <= alw_core::survival::PARRY_T; let c = if parry { GOLD } else { [0.85, 0.88, 0.9, 0.85] }; let (x, y, r) = (w * 0.5, h * 0.5 + 30.0 * k, 9.0 * k);
+            u.quad([[x - r, y - r], [x + r, y - r], [x + r * 0.7, y + r * 0.4], [x - r * 0.7, y + r * 0.4]], [[0.0; 2]; 4], c, LAYER_FLAT); u.quad([[x - r * 0.7, y + r * 0.4], [x + r * 0.7, y + r * 0.4], [x, y + r * 1.3], [x, y + r * 1.3]], [[0.0; 2]; 4], c, LAYER_FLAT); }
         // Le réticule rougit quand il est sur un animal à portée.
         let ch = if s.prey.is_some() { [1.0, 0.5, 0.4, 1.0] } else { w1 }; let t = if s.prey.is_some() { 3.0 } else { 2.0 };
         u.rect(w * 0.5 - t * 0.5, h * 0.5 - 8.0, t, 16.0, ch); u.rect(w * 0.5 - 8.0, h * 0.5 - t * 0.5, 16.0, t, ch);
@@ -554,7 +560,7 @@ impl Ui {
             if menu.marker && s.dead.is_none() && !s.stashes.is_empty() { u.marker(s, w, k); }
         } else { let z = 18.0 * k; u.text("Mode créatif", 18.0 * k, h - 34.0 * k, z, w1); }
         if !info.is_empty() { let z = 16.0 * k; let bw = info.iter().fold(0.0f32, |a, l| a.max(Ui::text_width(l, z))); u.rect(10.0 * k, 10.0 * k, bw + 24.0 * k, info.len() as f32 * 22.0 * k + 14.0 * k, [0.0, 0.0, 0.0, 0.5]); for (i, l) in info.iter().enumerate() { u.text(l, 22.0 * k, 16.0 * k + i as f32 * 22.0 * k, z, INK); } }
-        if s.dead.is_none() && !menu.open && s.map.anim <= 0.0 { u.minimap(s, w, k); }
+        if s.dead.is_none() && !menu.open && !s.inv_open && s.town.talk.is_none() && s.map.anim <= 0.0 { u.minimap(s, w, k); }
         if menu.tips && !menu.open && info.is_empty() && s.dead.is_none() && !s.inv_open && s.town.talk.is_none() && s.map.anim <= 0.0 { u.hint(s, k); }
         if let (Some(v), None) = (s.marked_village(), &s.dead) { let c = [v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5]; u.pin(s, c, &v.name, [0.55, 0.75, 0.95, 0.9], w, k); }
         // Un villageois sous le réticule : on peut lui parler.

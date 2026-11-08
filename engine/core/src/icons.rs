@@ -53,17 +53,19 @@ fn garment(slot: &str, a: C, b: C, x: f64, y: f64) -> Option<(C, f64)> {
         "torse" => { let body = (x - 0.5).abs() < 0.2 && y > 0.25 && y < 0.85; let arms = y > 0.25 && y < 0.5 && (x - 0.5).abs() < 0.38; let neck = disc(x, y, 0.5, 0.25, 0.09, 0.06) < 1.0; (body || arms) && !neck }
         "jambes" => { y > 0.18 && y < 0.86 && (x - 0.5).abs() < 0.2 && !(y > 0.42 && (x - 0.5).abs() < 0.035) }
         "pieds" => { (x > 0.2 && x < 0.42 && y > 0.25 && y < 0.78) || (x > 0.2 && x < 0.66 && y > 0.66 && y < 0.8) }
+        // Bouclier : un écu, large en haut, en pointe en bas, avec un umbo au centre et un cerclage.
+        "main" => { let half = if y < 0.55 { 0.32 } else { 0.32 * (1.0 - (y - 0.55) / 0.34).max(0.0) }; (x - 0.5).abs() < half && y > 0.16 && y < 0.89 }
         "dos" => { let bag = (x - 0.5).abs() < 0.22 && y > 0.26 && y < 0.84; let strap = (x - 0.5).abs() < 0.12 && y > 0.14 && y <= 0.26 && (x - 0.5).abs() > 0.06; bag || strap }
         _ => false,
     };
-    if !inside { return None; } let edge = (slot == "dos" && (y - 0.46).abs() < 0.03) || (slot == "torse" && (y - 0.8).abs() < 0.03); Some((if edge { [a[0] * 0.6, a[1] * 0.6, a[2] * 0.6] } else { stripe(x + y * 0.3) }, FAT))
+    if !inside { return None; } let edge = (slot == "dos" && (y - 0.46).abs() < 0.03) || (slot == "torse" && (y - 0.8).abs() < 0.03) || (slot == "main" && ((x - 0.5).hypot(y - 0.46) < 0.07 || y < 0.2)); Some((if edge { [a[0] * 0.6, a[1] * 0.6, a[2] * 0.6] } else { stripe(x + y * 0.3) }, FAT))
 }
 pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
     let d = def(name)?;
     if let Some(t) = d.tool { return tool(t.kind, &metal(t.mat.name), x, y); }
     if let Some(w) = d.wear {
-        let slot = match w.slot { crate::data::Slot::Head => "tete", crate::data::Slot::Torso => "torse", crate::data::Slot::Legs => "jambes", crate::data::Slot::Feet => "pieds", crate::data::Slot::Back => "dos" };
-        let (a, b): (C, C) = if name.starts_with("fur") { ([0.62, 0.48, 0.32], [0.78, 0.66, 0.5]) } else if name.starts_with("leather") || name == "backpack" { ([0.44, 0.27, 0.13], [0.56, 0.36, 0.19]) } else if name.starts_with("steel") { ([0.32, 0.36, 0.42], [0.52, 0.57, 0.64]) } else if name.starts_with("iron") { ([0.5, 0.5, 0.52], [0.7, 0.7, 0.72]) } else if name == "straw_hat" { ([0.78, 0.66, 0.36], [0.66, 0.54, 0.28]) } else { ([0.58, 0.56, 0.32], [0.46, 0.46, 0.24]) };
+        let slot = match w.slot { crate::data::Slot::Head => "tete", crate::data::Slot::Torso => "torse", crate::data::Slot::Legs => "jambes", crate::data::Slot::Feet => "pieds", crate::data::Slot::Back => "dos", crate::data::Slot::Hand => "main" };
+        let (a, b): (C, C) = if name.starts_with("wooden") { ([0.5, 0.34, 0.18], [0.62, 0.44, 0.24]) } else if name.starts_with("fur") { ([0.62, 0.48, 0.32], [0.78, 0.66, 0.5]) } else if name.starts_with("leather") || name == "backpack" { ([0.44, 0.27, 0.13], [0.56, 0.36, 0.19]) } else if name.starts_with("steel") { ([0.32, 0.36, 0.42], [0.52, 0.57, 0.64]) } else if name.starts_with("iron") { ([0.5, 0.5, 0.52], [0.7, 0.7, 0.72]) } else if name == "straw_hat" { ([0.78, 0.66, 0.36], [0.66, 0.54, 0.28]) } else { ([0.58, 0.56, 0.32], [0.46, 0.46, 0.24]) };
         return garment(slot, a, b, x, y);
     }
     let (s, p) = ((x + y) * R2, (y - x) * R2);

@@ -28,7 +28,7 @@ fn spawn_point(seed: i32) -> [f64; 3] {
 }
 fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &hud::Menu, info: &[String]) -> usize {
     let (proj, vm) = (view::perspective(menu.fov(), w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
-    let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let draws = s.draws(md, &vm); let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
+    let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let mut draws = s.draws(md, &vm); if menu.title.is_some() { draws.retain(|d| !d.view); } // pas de main tendue derrière l'écran titre let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
     gpu.lights = s.lights(s.eye, gpu::LIGHTS);
     let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); let night = sky.night.clamp(0.0, 1.0); // la nuit, la direction est celle de la lune : elle ne dit pas l'heure env.flies = s.deep as f32 * (0.55 + 0.9 * night);
     // Taïga : ciel froid, soleil pâle, neige qui tombe à la place de la pluie.
@@ -181,7 +181,7 @@ impl Game {
         let titled = self.menu.title.is_some(); if titled { self.s.player.yaw += real * 0.035; } // derrière l'écran titre, la vue tourne lentement
         let talking = self.s.town.talk.is_some() || self.s.map.open || titled; let open = self.s.inv_open || self.menu.open || talking; let input = if open { Input::default() } else { Input { x: ax(b(hud::A_LEFT), b(hud::A_RIGHT)), z: ax(b(hud::A_FWD), b(hud::A_BACK)), jump: b(hud::A_JUMP), sprint: b(hud::A_SPRINT), crouch: b(hud::A_CROUCH), roll: b(hud::A_ROLL) } };
         self.place_t -= dt; let place = self.rmb && self.place_t <= 0.0; if place { self.place_t = 0.22; }
-        self.s.tick(dt, input, if talking { Actions::default() } else { Actions { mine: self.lmb, place } });
+        self.s.tick(dt, input, if talking { Actions::default() } else { Actions { mine: self.lmb, place, guard: self.rmb } });
         for n in std::mem::take(&mut self.s.notes) { self.say(n); }
         if (self.s.dead.is_some() || self.s.inv_open || self.s.town.talk.is_some() || self.s.map.open) && self.grabbed && !self.menu.open { self.grab(false); }
         if talking && !titled && self.s.town.talk.is_none() && !self.s.map.open && !self.s.inv_open && !self.menu.open && self.s.dead.is_none() { self.grab(true); } // le villageois s'est éloigné // écran de mort, coffre ouvert d'un clic droit : il faut le pointeur
@@ -370,7 +370,7 @@ fn capture(a: &[String]) {
     let f = view::norm([look[0] - eye[0], look[1] - eye[1], look[2] - eye[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
     let none = Input::default(); s.third = scene == "tiers"; s.tick(0.0, none, Actions::default());
     if scene == "tiers" { s.sel = 1; s.tick(0.0, none, Actions::default()); }
-    if scene == "bras" { s.sel = 0; for _ in 0..6 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false }); } }
+    if scene == "bras" { s.sel = 0; for _ in 0..6 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false, ..Default::default() }); } }
     if scene == "inv" { s.inv_open = true; s.grab_slot(5); s.tick(0.0, none, Actions::default()); }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 0 }; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
@@ -380,7 +380,7 @@ fn capture(a: &[String]) {
         'c: for r in 4..n { for dz in -r..=r { for dx in -r..=r { if i32::abs(dx).max(i32::abs(dz)) != r { continue; } for y in (by - 12)..(by + 6) { let (x, z) = (bx + dx, bz + dz); if alw_core::player::Voxels::get(&s.world, x, y, z).is_some_and(alw_core::blocks::is_log) && alw_core::felling::find_tree(&s.world, x, y, z).is_some_and(|t| t.logs.len() > 30) { spot = Some((x, y + 1, z)); break 'c; } } } } }
         let (x, y, z) = spot.expect("un arbre"); let e = [x as f64 + 6.5, y as f64 + 3.0, z as f64 + 0.5]; let mut clear = Vec::new(); for k in 1..8 { for h in 0..5 { for w in -1..=1 { if alw_core::player::Voxels::get(&s.world, x + k, y + h, z + w).is_some_and(|b| !alw_core::blocks::is_log(b)) { clear.push((x + k, y + h, z + w, 0)); } } } } s.world.edit_many(&clear); pump(&mut s, &mut g);
         s.player.p = [e[0], e[1] - 1.62, e[2]]; let d = view::norm([x as f64 + 0.5 - e[0], y as f64 + 0.5 - e[1], z as f64 + 0.5 - e[2]]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin(); s.sel = 1; s.third = false;
-        for _ in 0..640 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false }); if s.falling.is_some() { break; } }
+        for _ in 0..640 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false, ..Default::default() }); if s.falling.is_some() { break; } }
         println!("abattage : chute {}, cible {:?}", s.falling.is_some(), s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name)); for _ in 0..55 { s.tick(1.0 / 60.0, none, Actions::default()); } pump(&mut s, &mut g); s.player.pitch += 0.35; s.tick(0.0, none, Actions::default());
     }
     if scene == "coule" {
@@ -518,11 +518,11 @@ fn capture(a: &[String]) {
     if scene == "jeu" {
         // Scénario : casser le bloc visé, puis poser de la pierre, avec les vrais chemins du jeu.
         s.sel = 0; if s.target.is_none() { s.player.pitch = -0.9; s.tick(0.0, none, Actions::default()); } let t = s.target.expect("un bloc visé"); let before = s.inv.iter().flatten().count();
-        for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false }); if alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z) == Some(0) { break; } }
+        for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false, ..Default::default() }); if alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z) == Some(0) { break; } }
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
-        s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
+        s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true, ..Default::default() }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
     }
-    if ["survie", "craft", "campement", "mort", "ramassage", "fissure", "construction", "faune"].contains(&scene.as_str()) {
+    if ["survie", "craft", "campement", "mort", "ramassage", "fissure", "construction", "faune", "combat"].contains(&scene.as_str()) {
         // Survie : on retombe au sol, un établi et un feu de camp devant soi, des jauges entamées.
         use alw_core::blocks::{is_solid, B}; use alw_core::player::Voxels;
         s.player.fly = false; s.third = false; s.sel = 2; for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.dead.is_some() { s.respawn(); } s.vit = [100.0; 3];
@@ -565,6 +565,11 @@ fn capture(a: &[String]) {
             for h in 1..4 { let (x, z) = at(2, 4); e.push((x, y0 + h, z, turn("ladder", 3))); }
             s.world.edit_many(&e); pump(&mut s, &mut g); s.player.pitch = -0.12; s.sel = 4;
         }
+        if scene == "combat" {
+            // Un loup qui arrive de face, bouclier de fer au bras et garde levée, épée en main et coup lourd en charge.
+            s.equip[5] = Some(alw_core::session::Stack::new("iron_shield", None)); s.inv[0] = Some(alw_core::session::Stack::new("sword", None)); s.sel = 0; s.player.pitch = -0.08;
+            let (x, z) = at(3.2, 0.3); s.wild.put(alw_core::wild::Kind::Wolf, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.14, false); s.tick(0.0, none, Actions::default()); s.guard_t = 0.12; s.charge = 0.5;
+        }
         if scene == "faune" {
             // Une meute de loups qui approche, un sanglier qui fouille le sol, l'arc en main et une flèche plantée devant soi.
             use alw_core::wild::Kind as K; s.inv[0] = Some(alw_core::session::Stack::new("bow", None)); s.sel = 0; s.add_item("arrow", 12); s.player.pitch = -0.05;
@@ -575,7 +580,7 @@ fn capture(a: &[String]) {
             // Un bloc à moitié cassé à la pioche de pierre : les fissures doivent se voir.
             s.inv[0] = Some(alw_core::session::Stack::new("stone_pickaxe", None)); s.sel = 0; s.player.pitch = -0.75; s.tick(0.0, none, Actions::default());
             for _ in 0..8 { match s.target { Some(t) if alw_core::blocks::is_deco(t.id) => { s.world.edit(t.x, t.y, t.z, 0); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); } _ => break } } // les herbes d'abord : c'est le bloc dessous qu'on veut voir se fendre
-            for _ in 0..600 { s.stamina = 100.0; s.tick(1.0 / 60.0, none, Actions { mine: true, place: false }); if s.progress() > 0.62 { break; } }
+            for _ in 0..600 { s.stamina = 100.0; s.tick(1.0 / 60.0, none, Actions { mine: true, place: false, ..Default::default() }); if s.progress() > 0.62 { break; } }
             println!("fissure : progression {:.2}, cible {:?}", s.progress(), s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
         }
         if scene != "fissure" { s.tick(0.0, none, Actions::default()); } println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);

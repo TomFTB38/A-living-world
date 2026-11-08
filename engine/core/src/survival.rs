@@ -50,6 +50,14 @@ pub const STAMINA_SPRINT: f64 = 12.0; pub const STAMINA_JUMP: f64 = 5.0; pub con
 pub const STAMINA_REGEN: f64 = 22.0; pub const STAMINA_WAIT: f64 = 1.0; pub const WINDED_UNTIL: f64 = 30.0;
 /// Chaque coup, dans le vide, dans un bloc ou sur un animal, coûte un peu d'endurance.
 pub const STAMINA_SWING: f64 = 1.5;
+/// Coup lourd : temps de charge, dégâts multipliés, endurance multipliée.
+pub const HEAVY_T: f64 = 0.75; pub const HEAVY_MUL: f64 = 2.2; pub const HEAVY_COST: f64 = 2.5;
+/// Garde : une parade dans ce délai après avoir levé le bouclier pare tout et fait reculer la bête.
+pub const PARRY_T: f64 = 0.3;
+/// Part d'une attaque de face qu'arrête un bouclier, selon son armure.
+pub fn block_share(armor: f64) -> f64 { (0.35 + armor / 40.0).min(0.85) }
+/// Combien de coups encaisse un bouclier avant de se fendre.
+pub fn shield_life(armor: f64, profile: usize) -> u32 { ((40.0 + armor * 15.0) / PROFILES[profile].wear).round() as u32 }
 /// Quinze secondes de souffle sous l'eau, puis la noyade.
 pub const AIR_TIME: f64 = 15.0;
 /// Vitesse d'arrivée au sol sans dommage : une chute d'environ trois blocs et demi.

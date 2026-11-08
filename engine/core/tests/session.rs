@@ -7,7 +7,7 @@ fn aim_down(s: &mut Session) -> Target { s.player.pitch = -1.5; s.tick(0.0, Inpu
 #[test]
 fn casser_poser_sauver() {
     let mut s = session(); let t = aim_down(&mut s); let id0 = t.id; println!("visé {} à {:?}", BLOCKS[t.id as usize].name, (t.x, t.y, t.z));
-    s.sel = 0; for _ in 0..200 { s.tick(1.0 / 60.0, Input::default(), Actions { mine: true, place: false }); if s.world.get(t.x, t.y, t.z) != Some(id0) { break; } }
+    s.sel = 0; for _ in 0..200 { s.tick(1.0 / 60.0, Input::default(), Actions { mine: true, place: false, ..Default::default() }); if s.world.get(t.x, t.y, t.z) != Some(id0) { break; } }
     assert_ne!(s.world.get(t.x, t.y, t.z), Some(id0), "le bloc a disparu");
     ready(&mut s); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0), "le remaillage n'efface pas la modification");
     // rupture de stock et pose
@@ -59,8 +59,8 @@ fn sons_et_ambiance_du_jeu() {
     use alw_core::audio::*; use alw_core::weather::*; use std::sync::mpsc::channel;
     let (tx, rx) = channel(); let mut s = session(); s.sound = SoundScape::new(Some(tx)); s.sel = 0; let drain = |r: &std::sync::mpsc::Receiver<Cmd>| { let (mut p, mut e, mut sets) = (0, 0, Vec::new()); while let Ok(c) = r.try_recv() { match c { Cmd::Play { l, .. } => { p += 1; sets.push(l.set); } Cmd::Env { .. } => e += 1, _ => {} } } (p, e, sets) };
     for _ in 0..60 { s.tick(1.0 / 60.0, Input { z: 1.0, ..Default::default() }, Actions::default()); } let (p, e, sets) = drain(&rx); println!("marche {p} sons {sets:?}, {e} ambiances"); assert!(p >= 2, "des pas"); assert!(e >= 4);
-    let back = s.player.p; s.player.fly = true; s.player.p[1] = 115.0; s.player.pitch = 1.5; s.tick(0.0, Input::default(), Actions::default()); assert!(s.target.is_none(), "rien en face"); for _ in 0..30 { s.tick(1.0 / 60.0, Input::default(), Actions { mine: true, place: false }); } let (p, _, sets) = drain(&rx); println!("vide {sets:?}"); assert!(p >= 1 && sets.contains(&"whoosh"), "frapper le vide avec la pioche"); s.player.fly = false; s.player.p = back;
-    aim_down(&mut s); for _ in 0..240 { s.tick(1.0 / 60.0, Input::default(), Actions { mine: true, place: false }); } let (p, _, sets) = drain(&rx); println!("casse {p} {sets:?}"); assert!(p >= 3, "coups puis casse");
+    let back = s.player.p; s.player.fly = true; s.player.p[1] = 115.0; s.player.pitch = 1.5; s.tick(0.0, Input::default(), Actions::default()); assert!(s.target.is_none(), "rien en face"); for _ in 0..30 { s.tick(1.0 / 60.0, Input::default(), Actions { mine: true, place: false, ..Default::default() }); } let (p, _, sets) = drain(&rx); println!("vide {sets:?}"); assert!(p >= 1 && sets.contains(&"whoosh"), "frapper le vide avec la pioche"); s.player.fly = false; s.player.p = back;
+    aim_down(&mut s); for _ in 0..240 { s.tick(1.0 / 60.0, Input::default(), Actions { mine: true, place: false, ..Default::default() }); } let (p, _, sets) = drain(&rx); println!("casse {p} {sets:?}"); assert!(p >= 3, "coups puis casse");
     assert!(!s.covered([0.5, 200.0, 0.5])); s.weather.snap(Kind::Pluie); let mut k = view_sky(); let e = apply(&mut k, s.weather.state, false); assert!(e.rain == 1.0 && e.fog_k > 2.0 && e.mist > 0.0); let c = alw_core::view::sky_at(16.4); assert!(k.col[0] < c.col[0] * 0.4, "la pluie atténue le soleil");
 }
 fn view_sky() -> alw_core::view::Sky { alw_core::view::sky_at(16.4) }
@@ -86,7 +86,7 @@ fn arbre_abattu_a_la_hache() {
     let tree = find_tree(&s.world, x, y + 1, z).expect("arbre d'essai"); ready(&mut s);
     s.player.p = [x as f64 + 4.5, y as f64, z as f64 + 0.5]; let cut = (x, y + 1, z); let e = s.player.eye(); let d = [cut.0 as f64 + 0.5 - e[0], cut.1 as f64 + 0.5 - e[1], cut.2 as f64 + 0.5 - e[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt(); s.third = false; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / l).asin();
     s.inv = [None; INV_SIZE]; s.inv[1] = Some(Stack::new("axe", None)); s.sel = 1; s.tick(0.0, Input::default(), Actions::default()); let t = s.target.expect("le tronc est visé"); assert!(is_log(t.id), "visé {}", BLOCKS[t.id as usize].name);
-    let a = Actions { mine: true, place: false }; let need = 3.0 + tree.logs.len() as f64 * 0.12; // la hache de fer : plus l'arbre est grand, plus c'est long
+    let a = Actions { mine: true, place: false, ..Default::default() }; let need = 3.0 + tree.logs.len() as f64 * 0.12; // la hache de fer : plus l'arbre est grand, plus c'est long
     for _ in 0..(need * 0.95 * 60.0) as i32 { s.stamina = 100.0; s.tick(1.0 / 60.0, Input::default(), a); } assert!(s.falling.is_none(), "encore debout"); assert!(s.progress() > 0.9); assert_eq!(s.world.get(t.x, t.y, t.z), Some(t.id));
     for _ in 0..(need * 0.1 * 60.0 + 5.0) as i32 { s.stamina = 100.0; s.tick(1.0 / 60.0, Input::default(), a); } assert!(s.falling.is_some(), "tombe"); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0));
     for (px, py, pz) in tree.leaves.iter().copied() { assert!(s.world.get(px, py, pz).is_none_or(|b| !is_leaf(b)), "feuillage disparu"); }
@@ -139,7 +139,7 @@ fn son_a_droite_et_pas_de_coup_en_roulade() {
     match rx.try_recv().unwrap() { Cmd::Play { pan, .. } => assert!(pan > 0.2, "à droite : {pan}"), _ => panic!() }
     sc.yaw = std::f64::consts::PI; sc.deer_alarm([10.0, 0.0, 0.0]); let _ = rx.try_recv(); match rx.try_recv() { Ok(Cmd::Play { pan, .. }) => assert!(pan > 0.2, "demi-tour : {pan}"), _ => panic!() }
     let mut s = session(); let none = Input::default(); for _ in 0..30 { s.tick(1.0 / 60.0, none, Actions::default()); } let t = aim_down(&mut s); for _ in 0..5 { s.tick(1.0 / 60.0, none, Actions::default()); } s.tick(1.0 / 60.0, Input { roll: true, ..none }, Actions::default()); assert!(s.player.rolling());
-    s.creative = true; for _ in 0..30 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: true }); if !s.player.rolling() { break; } } assert_eq!(s.world.get(t.x, t.y, t.z), Some(t.id), "aucun coup pendant la roulade");
+    s.creative = true; for _ in 0..30 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: true, ..Default::default() }); if !s.player.rolling() { break; } } assert_eq!(s.world.get(t.x, t.y, t.z), Some(t.id), "aucun coup pendant la roulade");
 }
 #[test]
 fn la_lanterne_eclaire_sous_un_toit() {

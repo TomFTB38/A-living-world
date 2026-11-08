@@ -245,3 +245,7 @@ cooked_fish | Poisson grillé | vivres | 0.3 | 16 | Léger et nourrissant. | ali
 carrot | Carotte | vivres | 0.1 | 64 | Se croque crue ou se sème sur une terre labourée. | aliment=8:3:0 garde=8
 potato | Pomme de terre | vivres | 0.2 | 64 | Crue, elle nourrit mal ; cuite, beaucoup mieux. Se sème aussi. | aliment=4:0:0 garde=12
 baked_potato | Pomme de terre cuite | vivres | 0.2 | 32 | Cuite sous la braise. | aliment=22:0:2 garde=3
+# Boucliers : au bras gauche (« main »). Clic droit tenu : garde ; levée juste avant le coup, elle pare tout.
+wooden_shield | Bouclier de bois | habits | 3.5 | 1 | Planches cerclées de cuir. Arrête une bonne part d'une morsure de face. | porte=main armure=3
+iron_shield | Bouclier de fer | habits | 6.0 | 1 | Bois plaqué de fer. Arrête presque tout et tient longtemps. | porte=main armure=7
+steel_shield | Bouclier d'acier | habits | 5.0 | 1 | Léger et dur, œuvre d'armurier. | porte=main armure=11

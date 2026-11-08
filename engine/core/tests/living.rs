@@ -5,7 +5,7 @@ fn none() -> Input { Input::default() }
 fn ready(s: &mut Session) { for _ in 0..4000 { let p = s.player.p; s.world.update(p[0], p[2]); if s.world.waiting() == 0 && s.world.loaded() > 0 { return; } std::thread::sleep(std::time::Duration::from_millis(3)); } panic!("trop long"); }
 fn idle(s: &mut Session, sec: f64) { for _ in 0..(sec / DT) as usize { s.tick(DT, none(), Actions::default()); } }
 fn look_at(s: &mut Session, q: [f64; 3]) { let e = s.player.eye(); let d = [q[0] - e[0], q[1] - e[1], q[2] - e[2]]; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / d[0].hypot(d[2])).atan(); s.tick(0.0, none(), Actions::default()); }
-fn right(s: &mut Session) { s.tick(DT, none(), Actions { mine: false, place: true }); }
+fn right(s: &mut Session) { s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); }
 /// Un terrain plat de pierre, 25 × 25, dégagé ; le joueur au milieu, mains vides.
 fn site() -> (Session, i32) {
     let mut s = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [0.5, 120.0, 0.5]); ready(&mut s); s.third = false; s.inv = [None; INV_SIZE];
@@ -32,7 +32,7 @@ fn sanglier_charge_si_on_le_frappe() {
     let (mut s, y) = site(); s.hour = 12.0; s.wild.put(Kind::Boar, [0.5, y as f64, 2.5], 3.14, false); idle(&mut s, 3.0); s.wild.all.retain(|c| c.kind == Kind::Boar);
     assert_eq!(s.vit[0], 100.0, "le sanglier broute sans s'occuper du joueur");
     let b = s.wild.all.iter().position(|c| c.kind == Kind::Boar).expect("sanglier"); let q = s.wild.all[b].p; look_at(&mut s, [q[0], q[1] + 0.4, q[2]]);
-    assert!(matches!(s.prey, Some(Prey::Wild(_))), "le sanglier est visé"); s.tick(DT, none(), Actions { mine: true, place: false });
+    assert!(matches!(s.prey, Some(Prey::Wild(_))), "le sanglier est visé"); s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() });
     for _ in 0..(4.0 / DT) as usize { s.tick(DT, none(), Actions::default()); s.wild.all.retain(|c| c.kind == Kind::Boar); } assert!(s.vit[0] < 100.0, "frappé, il charge : vie {}", s.vit[0]);
 }
 
@@ -70,7 +70,7 @@ fn racines_semees_et_sauvages() {
     look_at(&mut s, [0.5, y as f64, 3.5]); right(&mut s); idle(&mut s, 0.5); s.sel = 1; look_at(&mut s, [1.5, y as f64, 3.5]); right(&mut s);
     assert_eq!((s.world.get(0, y, 3), s.world.get(1, y, 3)), (Some(B::CARROT_0), Some(B::POTATO_0)), "semées");
     s.pass_hours(200.0); idle(&mut s, 2.5); assert_eq!((s.world.get(0, y, 3), s.world.get(1, y, 3)), (Some(B::CARROT_3), Some(B::POTATO_3)), "mûres");
-    let before = s.count("carrot"); s.sel = 5; look_at(&mut s, [0.5, y as f64 + 0.2, 3.5]); let mut k = 0; while s.world.get(0, y, 3) == Some(B::CARROT_3) && k < 600 { s.tick(DT, none(), Actions { mine: true, place: false }); k += 1; } assert!(s.count("carrot") >= before + 3, "récolte : plus de carottes qu'on n'en a semé");
+    let before = s.count("carrot"); s.sel = 5; look_at(&mut s, [0.5, y as f64 + 0.2, 3.5]); let mut k = 0; while s.world.get(0, y, 3) == Some(B::CARROT_3) && k < 600 { s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); k += 1; } assert!(s.count("carrot") >= before + 3, "récolte : plus de carottes qu'on n'en a semé");
     // des racines sauvages poussent dans le monde
     let g = alw_core::gen::WorldGen::new(20261104); let mut n = 0; for cz in -6..6 { for cx in -6..6 { n += g.gen_chunk(cx, cz).iter().filter(|b| **b == B::CARROT_3 || **b == B::POTATO_3).count(); } } assert!(n > 3, "racines sauvages : {n}");
 }

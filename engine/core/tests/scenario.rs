@@ -15,11 +15,11 @@ fn look(s: &mut Session, q: [f64; 3]) { let e = s.player.eye(); let d = [q[0] - 
 fn clear_to(s: &mut Session, p: [i32; 3]) { let mine = |b: u8| matches!(b, B::WORKBENCH | B::CAMPFIRE | B::CHEST) || BLOCKS[b as usize].name.starts_with("planks"); /* ce qu'on a construit reste */ for e in [s.player.eye(), s.eye] { let q = [p[0] as f64 + 0.5, p[1] as f64 + 0.5, p[2] as f64 + 0.5]; for k in 1..400 { let t = k as f64 / 400.0; let c = [(e[0] + (q[0] - e[0]) * t).floor() as i32, (e[1] + (q[1] - e[1]) * t).floor() as i32, (e[2] + (q[2] - e[2]) * t).floor() as i32]; for d in [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]] { let c = [c[0] + d[0], c[1], c[2] + d[2]]; if c != p && s.world.get(c[0], c[1], c[2]).is_some_and(|b| b != 0 && !mine(b) && !is_water(b) && (!is_solid(b) || c[1] >= p[1])) || (d == [0, 0, 0] && c != p && s.world.get(c[0], c[1], c[2]).is_some_and(|b| b != 0 && !mine(b) && !is_water(b))) { s.world.edit(c[0], c[1], c[2], 0); } } } } }
 fn aim(s: &mut Session, p: [i32; 3]) { clear_to(s, p); look(s, [p[0] as f64 + 0.5, p[1] as f64 + 0.35, p[2] as f64 + 0.5]); let t = s.target.unwrap_or_else(|| panic!("rien de visé vers {p:?}")); assert_eq!([t.x, t.y, t.z], p, "on vise {}", BLOCKS[t.id as usize].name); }
 /// Clic droit sur un bloc, puis le temps que le geste se termine.
-fn right(s: &mut Session, p: [i32; 3]) { aim(s, p); s.tick(DT, none(), Actions { mine: false, place: true }); idle(s, 0.8); }
+fn right(s: &mut Session, p: [i32; 3]) { aim(s, p); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); idle(s, 0.8); }
 /// Clic gauche maintenu jusqu'à ce que le bloc cède (l'endurance se refait entre deux blocs, comme en jouant).
-fn dig(s: &mut Session, p: [i32; 3]) { aim(s, p); let b = s.world.get(p[0], p[1], p[2]); let mut k = 0; while s.world.get(p[0], p[1], p[2]) == b && k < 4000 { s.tick(DT, none(), Actions { mine: true, place: false }); if s.winded { idle(s, 2.0); aim(s, p); } k += 1; } assert!(k < 4000, "{p:?} ne cède pas"); idle(s, 0.3); }
+fn dig(s: &mut Session, p: [i32; 3]) { aim(s, p); let b = s.world.get(p[0], p[1], p[2]); let mut k = 0; while s.world.get(p[0], p[1], p[2]) == b && k < 4000 { s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); if s.winded { idle(s, 2.0); aim(s, p); } k += 1; } assert!(k < 4000, "{p:?} ne cède pas"); idle(s, 0.3); }
 /// Pose l'objet de la case `sel` sur le dessus d'un bloc de sol.
-fn place_on(s: &mut Session, sel: usize, g: [i32; 3]) -> [i32; 3] { s.sel = sel; clear_to(s, g); look(s, [g[0] as f64 + 0.5, g[1] as f64 + 0.97, g[2] as f64 + 0.5]); s.tick(DT, none(), Actions { mine: false, place: true }); idle(s, 0.4); [g[0], g[1] + 1, g[2]] }
+fn place_on(s: &mut Session, sel: usize, g: [i32; 3]) -> [i32; 3] { s.sel = sel; clear_to(s, g); look(s, [g[0] as f64 + 0.5, g[1] as f64 + 0.97, g[2] as f64 + 0.5]); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); idle(s, 0.4); [g[0], g[1] + 1, g[2]] }
 fn slot_of(s: &Session, id: &str) -> usize { s.inv.iter().position(|t| t.is_some_and(|t| t.item == id)).unwrap_or_else(|| panic!("pas de {id} dans le sac")) }
 fn craft(s: &mut Session, out: &str, times: u32) { let i = recipes().iter().position(|r| r.out == out && r.need.iter().all(|n| s.count(n.id) >= n.n)).unwrap_or_else(|| panic!("aucune recette faisable pour {out}")); for _ in 0..times { s.craft(i).unwrap_or_else(|e| panic!("{out} : {e}")); } }
 /// Un emplacement de sol libre à `d` blocs devant le joueur, de niveau avec lui.
@@ -53,7 +53,7 @@ fn de_rien_au_coffre_sauvegarde() {
     craft(&mut s, "stone_axe", 1); assert_eq!(s.count("stone_axe"), 1);
     // 3-4. Couper l'arbre : on s'approche, hache en main, clic gauche maintenu ; les rondins vont dans le sac.
     let (gx, gz) = (tree[0] + 2, tree[2]); let gy = ground(&s, gx, gz); for h in 1..=3 { s.world.edit(gx, gy + h, gz, 0); } s.player.p = [gx as f64 + 0.5, gy as f64 + 1.0, gz as f64 + 0.5]; idle(&mut s, 0.5);
-    s.sel = slot_of(&s, "stone_axe"); aim(&mut s, tree); let mut k = 0; while s.falling.is_none() && k < 3000 { s.stamina = s.stamina.max(30.0); s.tick(DT, none(), Actions { mine: true, place: false }); k += 1; }
+    s.sel = slot_of(&s, "stone_axe"); aim(&mut s, tree); let mut k = 0; while s.falling.is_none() && k < 3000 { s.stamina = s.stamina.max(30.0); s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); k += 1; }
     assert!(s.falling.is_some(), "l'arbre tombe"); idle(&mut s, 2.0); let logs = s.count("log"); assert!(logs >= 3, "rondins récoltés : {logs}");
     assert!(s.inv.iter().flatten().find(|t| t.item == "stone_axe").unwrap().wear > 0, "la hache s'use");
     // 5. L'établi : rondins en planches, planches en établi, posé au sol.
@@ -70,11 +70,11 @@ fn de_rien_au_coffre_sauvegarde() {
     // 8. Le feu de camp : bâtons, cailloux, fibre ; posé, il brûle.
     craft(&mut s, "campfire", 1); let fire = { let g = spot(&mut s, -2, 0); let i = slot_of(&s, "campfire"); place_on(&mut s, i, g) }; assert_eq!(s.world.get(fire[0], fire[1], fire[2]), Some(B::CAMPFIRE)); assert!(s.stations()[2], "feu à portée");
     // 9. Trouver de l'eau et boire, les mains libres.
-    let w = spot(&mut s, 0, -2); s.world.edit(w[0], w[1], w[2], B::WATER); s.vit[2] = 40.0; s.sel = s.inv.iter().position(|t| t.is_none()).unwrap(); clear_to(&mut s, w); look(&mut s, [w[0] as f64 + 0.5, w[1] as f64 + 0.6, w[2] as f64 + 0.5]); s.tick(DT, none(), Actions { mine: false, place: true }); idle(&mut s, 0.8); assert!(s.vit[2] > 50.0, "on a bu : {}", s.vit[2]);
+    let w = spot(&mut s, 0, -2); s.world.edit(w[0], w[1], w[2], B::WATER); s.vit[2] = 40.0; s.sel = s.inv.iter().position(|t| t.is_none()).unwrap(); clear_to(&mut s, w); look(&mut s, [w[0] as f64 + 0.5, w[1] as f64 + 0.6, w[2] as f64 + 0.5]); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); idle(&mut s, 0.8); assert!(s.vit[2] > 50.0, "on a bu : {}", s.vit[2]);
     // 10. Premier repas : un lièvre chassé, cuit au feu, mangé.
     s.sel = slot_of(&s, "flint_axe"); let g = spot(&mut s, 0, 2); let q = [g[0] as f64 + 0.5, g[1] as f64 + 1.0, g[2] as f64 + 0.5]; s.wild.put(alw_core::wild::Kind::Hare, q, 0.0, false);
-    let mut k = 0; while s.count("raw_meat") == 0 && k < 200 { look(&mut s, [q[0], q[1] + 0.25, q[2]]); s.tick(DT, none(), Actions { mine: true, place: false }); k += 1; } assert!(s.count("raw_meat") > 0, "le lièvre est chassé");
-    craft(&mut s, "cooked_meat", 1); s.vit[1] = 30.0; s.sel = slot_of(&s, "cooked_meat"); let up = [s.player.p[0], s.player.p[1] + 5.0, s.player.p[2] + 1.0]; look(&mut s, up); s.tick(DT, none(), Actions { mine: false, place: true }); assert!(s.vit[1] > 55.0, "repas : {}", s.vit[1]);
+    let mut k = 0; while s.count("raw_meat") == 0 && k < 200 { look(&mut s, [q[0], q[1] + 0.25, q[2]]); s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); k += 1; } assert!(s.count("raw_meat") > 0, "le lièvre est chassé");
+    craft(&mut s, "cooked_meat", 1); s.vit[1] = 30.0; s.sel = slot_of(&s, "cooked_meat"); let up = [s.player.p[0], s.player.p[1] + 5.0, s.player.p[2] + 1.0]; look(&mut s, up); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); assert!(s.vit[1] > 55.0, "repas : {}", s.vit[1]);
     // 11-12. Un coffre, posé, ouvert d'un clic droit, rempli comme à la souris.
     while s.count("plank") < 8 { assert!(s.count("log") > 0, "plus de bois"); craft(&mut s, "planks", 1); }
     fiber(&mut s, 3); s.sel = 0; craft(&mut s, "rope", 1); craft(&mut s, "chest", 1); let chest = { let g = spot(&mut s, 1, -2); let i = slot_of(&s, "chest"); place_on(&mut s, i, g) }; assert_eq!(s.world.get(chest[0], chest[1], chest[2]), Some(B::CHEST));

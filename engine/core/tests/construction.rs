@@ -48,16 +48,16 @@ fn porte_echelle_et_mur_fin() {
     // porte posée en regardant vers +z, dans une rangée de murs : fermée elle arrête, ouverte on passe
     let mut wall = Vec::new(); for x in -4..=4 { if x != 0 { for h in 0..3 { wall.push((x, y + h, 0, B::STONE)); } } } s.world.edit_many(&wall);
     s.inv[0] = Some(Stack::new("door", Some(1))); s.sel = 0; s.player.p = [0.5, y as f64, -2.5]; idle(&mut s, 0.2);
-    look_at(&mut s, [0.5, y as f64, 0.5]); assert_eq!(s.target.map(|t| (t.x, t.y, t.z)), Some((0, y - 1, 0)), "on vise le sol au pied du mur"); s.tick(DT, none(), Actions { mine: false, place: true }); idle(&mut s, 0.4);
+    look_at(&mut s, [0.5, y as f64, 0.5]); assert_eq!(s.target.map(|t| (t.x, t.y, t.z)), Some((0, y - 1, 0)), "on vise le sol au pied du mur"); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); idle(&mut s, 0.4);
     let lo = s.world.get(0, y, 0).unwrap(); let hi = s.world.get(0, y + 1, 0).unwrap();
     let (li, ui) = (shapes::info(lo).unwrap_or_else(|| panic!("bas de porte : {}", BLOCKS[lo as usize].name)), shapes::info(hi).expect("haut de porte")); assert!(li.kind == Kind::Door && !li.upper && ui.upper && li.facing == 0 && !li.open);
     s.player.yaw = 0.0; s.player.pitch = 0.0; walk(&mut s, 1.5, Input { z: 1.0, ..none() }); assert!(s.player.p[2] < 0.0, "porte fermée : on bute, z = {:.2}", s.player.p[2]);
-    look_at(&mut s, [0.5, y as f64 + 1.0, 0.1]); assert!(s.target.is_some_and(|t| t.x == 0 && t.z == 0), "on vise la porte : {:?}", s.target.map(|t| (t.x, t.y, t.z))); idle(&mut s, 0.5); s.tick(DT, none(), Actions { mine: false, place: true });
+    look_at(&mut s, [0.5, y as f64 + 1.0, 0.1]); assert!(s.target.is_some_and(|t| t.x == 0 && t.z == 0), "on vise la porte : {:?}", s.target.map(|t| (t.x, t.y, t.z))); idle(&mut s, 0.5); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() });
     assert!(shapes::info(s.world.get(0, y, 0).unwrap()).unwrap().open && shapes::info(s.world.get(0, y + 1, 0).unwrap()).unwrap().open, "les deux moitiés s'ouvrent");
     s.player.yaw = 0.0; s.player.pitch = 0.0; walk(&mut s, 1.5, Input { z: 1.0, ..none() }); assert!(s.player.p[2] > 1.0, "porte ouverte : on passe, z = {:.2}", s.player.p[2]);
     // casser le haut : toute la porte part, une seule porte revient
     s.inv = [None; INV_SIZE]; s.player.p = [0.5, y as f64, -2.5]; s.inv[0] = Some(Stack::new("axe", None)); s.sel = 0; idle(&mut s, 0.3);
-    look_at(&mut s, [0.5, y as f64 + 1.5, 0.5]); let mut k = 0; while s.world.get(0, y + 1, 0).is_some_and(|b| b != 0) && k < 2000 { s.stamina = 100.0; s.tick(DT, none(), Actions { mine: true, place: false }); k += 1; }
+    look_at(&mut s, [0.5, y as f64 + 1.5, 0.5]); let mut k = 0; while s.world.get(0, y + 1, 0).is_some_and(|b| b != 0) && k < 2000 { s.stamina = 100.0; s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); k += 1; }
     assert_eq!((s.world.get(0, y, 0), s.world.get(0, y + 1, 0)), (Some(0), Some(0)), "la porte part en entier"); assert_eq!(s.count("door"), 1, "une porte rendue");
     // échelle contre un mur : avancer fait grimper, sans sauter
     let (mut s, [_, y, _]) = site(); let mut e = Vec::new(); for h in 0..5 { e.push((0, y + h, -1, B::STONE)); e.push((0, y + h, -2, by_name("ladder").unwrap())); } s.world.edit_many(&e);
@@ -72,7 +72,7 @@ fn porte_echelle_et_mur_fin() {
 fn pose_rotation_dalles_et_sauvegarde() {
     let (mut s, [_, y, _]) = site(); s.player.p = [0.5, y as f64, -2.5];
     let aim_floor = |s: &mut Session, z: f64| { let e = s.player.eye(); s.player.pitch = -((e[1] - y as f64 - 0.01) / (z - e[2])).atan(); s.tick(0.0, none(), Actions::default()); };
-    let put = |s: &mut Session| { s.tick(DT, none(), Actions { mine: false, place: true }); idle(s, 0.3); };
+    let put = |s: &mut Session| { s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); idle(s, 0.3); };
     // escalier : dans le sens du regard, puis R tourne d'un quart de tour
     s.inv[0] = Some(Stack::new("planks_stairs", Some(8))); s.sel = 0; aim_floor(&mut s, 0.5); assert_eq!(s.ghost_boxes().len(), 2, "l'aperçu montre les deux marches"); put(&mut s);
     assert_eq!(shapes::info(s.world.get(0, y, 0).unwrap()).unwrap().facing, 0);

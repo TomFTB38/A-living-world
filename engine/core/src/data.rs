@@ -12,8 +12,8 @@ pub const ARTISANS: &str = include_str!("../data/artisans.txt");
 pub const VILLAGES: [&str; 6] = ["prairie", "taiga", "aride", "desert", "montagne", "hautes_terres"];
 
 /// Emplacements d'équipement, dans l'ordre de l'écran.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)] pub enum Slot { Head, Torso, Legs, Feet, Back }
-pub const SLOTS: [(Slot, &str); 5] = [(Slot::Head, "Tête"), (Slot::Torso, "Torse"), (Slot::Legs, "Jambes"), (Slot::Feet, "Pieds"), (Slot::Back, "Dos")];
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)] pub enum Slot { Head, Torso, Legs, Feet, Back, Hand }
+pub const SLOTS: [(Slot, &str); 6] = [(Slot::Head, "Tête"), (Slot::Torso, "Torse"), (Slot::Legs, "Jambes"), (Slot::Feet, "Pieds"), (Slot::Back, "Dos"), (Slot::Hand, "Main gauche")];
 /// Matière d'un outil : palier (ce qu'elle peut extraire), vitesse de travail, usure, force des coups.
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Mat { pub name: &'static str, pub tier: u8, pub speed: f64, pub dur: u32, pub force: f64 }
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Tool { pub kind: &'static str, pub mat: Mat }
@@ -72,7 +72,7 @@ impl Db {
                 let Some((k, v)) = p.split_once('=') else { db.errors.push(format!("objets.txt:{} propriété « {p} » sans valeur", ln + 1)); continue };
                 let num = |v: &str| v.parse::<f64>().ok(); let mut bad = false;
                 match k {
-                    "outil" => kind = Some(v), "mat" => mat = mats.iter().find(|m| m.name == v).copied(), "porte" => slot = match v { "tete" => Some(Slot::Head), "torse" => Some(Slot::Torso), "jambes" => Some(Slot::Legs), "pieds" => Some(Slot::Feet), "dos" => Some(Slot::Back), _ => { bad = true; None } },
+                    "outil" => kind = Some(v), "mat" => mat = mats.iter().find(|m| m.name == v).copied(), "porte" => slot = match v { "tete" => Some(Slot::Head), "torse" => Some(Slot::Torso), "jambes" => Some(Slot::Legs), "pieds" => Some(Slot::Feet), "dos" => Some(Slot::Back), "main" => Some(Slot::Hand), _ => { bad = true; None } },
                     "chaud" => warm = num(v).unwrap_or_else(|| { bad = true; 0.0 }), "frais" => cool = num(v).unwrap_or_else(|| { bad = true; 0.0 }), "armure" => armor = num(v).unwrap_or_else(|| { bad = true; 0.0 }), "sac" => bag = num(v).unwrap_or_else(|| { bad = true; 0.0 }),
                     "aliment" => { let n: Vec<f64> = v.split(':').filter_map(num).collect(); if n.len() == 3 { d.food = Some(Food { hunger: n[0], thirst: n[1], health: n[2] }); } else { bad = true; } }
                     "boisson" => { let n: Vec<f64> = v.split(':').filter_map(num).collect(); if n.len() == 2 { d.drink = Some((n[0], n[1] > 0.5)); } else { bad = true; } }

@@ -46,14 +46,14 @@ fn fabriquer_de_l_arbre_a_l_etabli() {
 #[test]
 fn manger_et_boire() {
     let mut s = session(); s.inv = [None; INV_SIZE]; s.vit = [80.0, 40.0, 30.0];
-    s.add_item("berries", 2); s.sel = 0; s.tick(DT, none(), Actions { mine: false, place: true });
+    s.add_item("berries", 2); s.sel = 0; s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() });
     assert!(s.vit[1] > 48.0 && s.vit[2] > 34.0, "myrtilles : {:?}", s.vit); assert_eq!(s.inv[0].unwrap().n, Some(1));
-    s.tick(DT, none(), Actions { mine: false, place: true }); assert_eq!(s.inv[0].unwrap().n, Some(1), "on ne mange pas deux fois d'affilée");
-    s.inv[0] = Some(Stack::new("raw_meat", Some(1))); idle(&mut s, 1.0); let h = s.vit[0]; s.tick(DT, none(), Actions { mine: false, place: true }); assert!(s.vit[0] < h, "la viande crue rend malade"); assert!(s.inv[0].is_none());
-    s.inv[0] = Some(Stack::new("cooked_meat", Some(1))); idle(&mut s, 1.0); let f = s.vit[1]; s.tick(DT, none(), Actions { mine: false, place: true }); assert!(s.vit[1] > f + 30.0);
+    s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); assert_eq!(s.inv[0].unwrap().n, Some(1), "on ne mange pas deux fois d'affilée");
+    s.inv[0] = Some(Stack::new("raw_meat", Some(1))); idle(&mut s, 1.0); let h = s.vit[0]; s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); assert!(s.vit[0] < h, "la viande crue rend malade"); assert!(s.inv[0].is_none());
+    s.inv[0] = Some(Stack::new("cooked_meat", Some(1))); idle(&mut s, 1.0); let f = s.vit[1]; s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); assert!(s.vit[1] > f + 30.0);
     // Boire : une flaque devant soi, les mains vides
     let p = s.player.p; let (x, z) = (p[0].floor() as i32, p[2].floor() as i32 + 1); let y = p[1].floor() as i32 - 1; s.world.edit(x, y, z, B::WATER);
-    s.inv[0] = None; s.player.yaw = 0.0; s.player.pitch = -0.9; s.vit[2] = 20.0; idle(&mut s, 1.0); s.player.pitch = -0.9; s.tick(DT, none(), Actions { mine: false, place: true });
+    s.inv[0] = None; s.player.yaw = 0.0; s.player.pitch = -0.9; s.vit[2] = 20.0; idle(&mut s, 1.0); s.player.pitch = -0.9; s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() });
     assert!(s.vit[2] > 30.0, "gorgée : {}", s.vit[2]);
     assert_eq!(food("berries").unwrap().hunger > 0.0, true); assert!(bonus_drop("blueberry").is_some());
 }
@@ -90,7 +90,7 @@ fn mort_sac_et_reapparition() {
     let mut s = session(); let n0 = s.inv.iter().flatten().count(); assert!(n0 > 0); let at = s.player.p;
     s.harm(250.0, "Un essai", false); let d = s.dead.clone().expect("mort"); assert_eq!(d.cause, "Un essai");
     assert!(s.inv.iter().all(|x| x.is_none())); assert_eq!(s.stashes.len(), 1); assert_eq!(s.stashes[0].items.len(), n0);
-    let p = s.player.p; s.tick(DT, Input { z: 1.0, jump: true, ..none() }, Actions { mine: true, place: true }); assert!((s.player.p[0] - p[0]).abs() < 0.01 && (s.player.p[2] - p[2]).abs() < 0.01, "mort, on ne bouge plus");
+    let p = s.player.p; s.tick(DT, Input { z: 1.0, jump: true, ..none() }, Actions { mine: true, place: true, ..Default::default() }); assert!((s.player.p[0] - p[0]).abs() < 0.01 && (s.player.p[2] - p[2]).abs() < 0.01, "mort, on ne bouge plus");
     let md = alw_core::actors::Models::build(); assert!(s.draws(&md, &alw_core::view::identity()).len() > 1, "le sac se dessine");
     // la sauvegarde garde le sac
     let txt = s.save_text(); let mut o = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [0.5, 90.0, 0.5]); o.load_text(&txt).unwrap(); assert_eq!(o.stashes, s.stashes); assert!(o.dead.is_none(), "on recharge vivant"); assert_eq!(o.vit[0], 100.0);
@@ -104,12 +104,12 @@ fn chasser() {
     let mut s = session(); s.third = false; s.player.yaw = 0.0; s.player.pitch = 0.0; s.inv[0] = Some(Stack::new("sword", None)); s.sel = 0;
     let p = s.player.p; let q = [p[0], ground_y(&s, p[0], p[2] + 2.0), p[2] + 2.0]; s.player.pitch = ((q[1] + 0.25 - s.player.eye()[1]) / 2.0).atan();
     s.wild.put(alw_core::wild::Kind::Hare, q, 0.0, false); s.tick(0.0, none(), Actions::default()); assert_eq!(s.prey, Some(Prey::Wild(s.wild.all.len() - 1)), "le lièvre est visé");
-    let meat = s.count("raw_meat"); s.tick(DT, none(), Actions { mine: true, place: false });
+    let meat = s.count("raw_meat"); s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() });
     assert!(s.wild.all.iter().all(|c| c.kind != alw_core::wild::Kind::Hare || (c.p[0] - q[0]).abs() > 0.01), "un coup d'épée abat le lièvre"); assert_eq!(s.count("raw_meat"), meat + 2);
     // le cerf encaisse un coup et s'enfuit ; le poing ne l'abat pas
     idle(&mut s, 0.5); s.sel = 8; let q = [p[0], ground_y(&s, p[0], p[2] + 2.5), p[2] + 2.5]; s.fauna.put(q, 0.0); s.player.pitch = ((q[1] + 0.9 - s.player.eye()[1]) / 2.5).atan();
     s.tick(0.0, none(), Actions::default()); assert!(matches!(s.prey, Some(Prey::Deer(_))), "le cerf est visé"); let st = s.stamina;
-    s.tick(DT, none(), Actions { mine: true, place: false }); let d = s.fauna.deer.last().unwrap(); assert!((d.hp - (DEER_HP - 2.0)).abs() < 0.05, "{}", d.hp); assert_eq!(d.state, alw_core::fauna::DeerState::Flee); assert!(s.stamina < st, "frapper fatigue");
+    s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); let d = s.fauna.deer.last().unwrap(); assert!((d.hp - (DEER_HP - 2.0)).abs() < 0.05, "{}", d.hp); assert_eq!(d.state, alw_core::fauna::DeerState::Flee); assert!(s.stamina < st, "frapper fatigue");
     assert_eq!(ray_box([0.0, 1.0, -5.0], [0.0, 0.0, 1.0], [0.0, 0.0, 0.0], 0.5, 2.0), Some(4.5)); assert_eq!(ray_box([3.0, 1.0, -5.0], [0.0, 0.0, 1.0], [0.0, 0.0, 0.0], 0.5, 2.0), None);
 }
 
@@ -130,11 +130,11 @@ fn depart_mains_vides_et_ramassage() {
     let o = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, dry()); assert!(o.inv.iter().all(|x| x.is_none()), "on commence sans rien");
     let mut s = session(); s.inv = [None; INV_SIZE]; s.third = false; s.player.pitch = -0.7; s.player.yaw = 0.0; idle(&mut s, 0.2);
     let put = |s: &mut Session, b: u8| -> Target { s.player.pitch = -0.7; s.tick(0.0, none(), Actions::default()); let t = s.target.expect("sol visé"); let (x, y, z) = (t.x, t.y + 1, t.z); s.world.edit(x, y, z, b); s.tick(0.0, none(), Actions::default()); let t = s.target.unwrap(); assert_eq!(t.id, b, "on vise ce qu'on vient de poser"); t };
-    let t = put(&mut s, B::TWIGS); s.tick(DT, none(), Actions { mine: false, place: true }); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0)); assert_eq!(s.count("stick"), 1, "une branche, un bâton");
-    idle(&mut s, 0.5); let t = put(&mut s, B::PEBBLES); s.tick(DT, none(), Actions { mine: false, place: true }); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0)); assert_eq!(s.count("pebble"), 1, "un caillou");
+    let t = put(&mut s, B::TWIGS); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0)); assert_eq!(s.count("stick"), 1, "une branche, un bâton");
+    idle(&mut s, 0.5); let t = put(&mut s, B::PEBBLES); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0)); assert_eq!(s.count("pebble"), 1, "un caillou");
     // myrtillier : cueilli au clic droit, dépouillé un jour, puis ses baies reviennent
-    idle(&mut s, 0.5); let t = put(&mut s, B::BLUEBERRY); s.tick(DT, none(), Actions { mine: false, place: true }); assert_eq!(s.count("berries"), 3); assert_eq!(s.world.get(t.x, t.y, t.z), Some(B::BLUEBERRY_PICKED));
-    idle(&mut s, 1.0); s.tick(DT, none(), Actions { mine: false, place: true }); assert_eq!(s.count("berries"), 3, "rien à cueillir sur un buisson dépouillé");
+    idle(&mut s, 0.5); let t = put(&mut s, B::BLUEBERRY); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); assert_eq!(s.count("berries"), 3); assert_eq!(s.world.get(t.x, t.y, t.z), Some(B::BLUEBERRY_PICKED));
+    idle(&mut s, 1.0); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); assert_eq!(s.count("berries"), 3, "rien à cueillir sur un buisson dépouillé");
     s.pass_hours(30.0); idle(&mut s, 2.5); assert_eq!(s.world.get(t.x, t.y, t.z), Some(B::BLUEBERRY_PICKED), "pas encore");
     let txt = s.save_text(); assert!(txt.contains("regrow "));
     s.pass_hours(19.0); idle(&mut s, 2.5); assert_eq!(s.world.get(t.x, t.y, t.z), Some(B::BLUEBERRY), "deux jours plus tard, les baies sont revenues"); assert!(s.regrow.is_empty());
@@ -150,7 +150,7 @@ fn durete_outils_de_pierre_fibre() {
     let time = |s: &mut Session, b: u8, sel: Option<usize>| -> (f64, bool) {
         s.player.pitch = -0.7; s.player.yaw = 0.0; s.tick(0.0, none(), Actions::default()); let g = s.target.unwrap(); let (x, y, z) = (g.x, g.y + 1, g.z); s.world.edit(x, y, z, b); s.stamina = 100.0;
         s.sel = sel.unwrap_or(30); let before = s.inv.iter().flatten().map(|t| t.n.unwrap_or(1)).sum::<u32>(); let mut k = 0;
-        while s.world.get(x, y, z) == Some(b) && k < 2000 { s.stamina = 100.0; s.tick(DT, none(), Actions { mine: true, place: false }); k += 1; }
+        while s.world.get(x, y, z) == Some(b) && k < 2000 { s.stamina = 100.0; s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); k += 1; }
         let after = s.inv.iter().flatten().map(|t| t.n.unwrap_or(1)).sum::<u32>(); idle(s, 0.4); (k as f64 * DT, after > before)
     };
     let pick = s.inv.iter().position(|t| t.is_some_and(|t| t.item == "stone_pickaxe")); let axe = s.inv.iter().position(|t| t.is_some_and(|t| t.item == "stone_axe")); let knife = s.inv.iter().position(|t| t.is_some_and(|t| t.item == "stone_knife"));
@@ -162,7 +162,7 @@ fn durete_outils_de_pierre_fibre() {
     let f0 = s.count("fiber"); for _ in 0..6 { time(&mut s, B::TALL_GRASS, knife); } assert_eq!(s.count("fiber"), f0 + 6);
     let (f1, g1) = (s.count("fiber"), s.count("seeds")); for _ in 0..40 { time(&mut s, B::TALL_GRASS, None); } let (df, dg) = (s.count("fiber") - f1, s.count("seeds") - g1); assert!(df > 6 && df < 30 && dg > 0 && dg < 15, "fibre {df}, graines {dg} sur 40 touffes");
     // frapper dans le vide fatigue
-    s.player.fly = true; s.player.p[1] += 30.0; s.player.pitch = 0.6; s.stamina = 100.0; for _ in 0..30 { s.tick(DT, none(), Actions { mine: true, place: false }); } assert!(s.target.is_none() && s.stamina < 100.0, "coups dans le vide : {}", s.stamina);
+    s.player.fly = true; s.player.p[1] += 30.0; s.player.pitch = 0.6; s.stamina = 100.0; for _ in 0..30 { s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); } assert!(s.target.is_none() && s.stamina < 100.0, "coups dans le vide : {}", s.stamina);
 }
 
 #[test]

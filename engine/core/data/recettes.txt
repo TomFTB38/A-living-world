@@ -156,3 +156,7 @@ fishing_rod 1 | main | stick 3, rope 1 | outils
 cooked_fish 1 | feu | fish 1 | vivres
 baked_potato 1 | feu | potato 1 | vivres
 stew 1 | feu | raw_meat 1, carrot 1, potato 1 | vivres
+# Boucliers
+wooden_shield 1 | etabli | plank 5, leather 1, fiber 2 | habits
+iron_shield 1 | enclume | iron_ingot 3, plank 3, leather 1, !hammer 1 | habits
+steel_shield 1 | enclume | steel_ingot 3, leather 2, !hammer 1 | habits | artisan=armurier

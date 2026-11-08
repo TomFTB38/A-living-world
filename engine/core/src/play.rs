@@ -127,8 +127,17 @@ impl Session {
         if w >= max { self.inv[self.sel] = None; self.notes.push(format!("{} s'est brisé", item(st.item).map_or(st.item, |i| i.label))); self.sound.break_block("stone", Some("pickaxe")); } else { self.inv[self.sel] = Some(Stack { wear: w, ..st }); }
         self.dirty = true;
     }
-    /// Usure d'un outil, de 0 (neuf) à 1 (brisé), pour l'affichage.
-    pub fn wear_of(&self, st: &Stack) -> Option<f64> { def(st.item).and_then(|d| d.tool).map(|t| st.wear as f64 / (t.mat.dur as f64 / PROFILES[self.profile].wear).max(1.0)) }
+    /// Usure d'un outil ou d'un bouclier, de 0 (neuf) à 1 (brisé), pour l'affichage.
+    pub fn wear_of(&self, st: &Stack) -> Option<f64> {
+        let d = def(st.item)?; if let Some(t) = d.tool { return Some(st.wear as f64 / (t.mat.dur as f64 / PROFILES[self.profile].wear).max(1.0)); }
+        d.wear.filter(|w| w.slot == crate::data::Slot::Hand).map(|w| st.wear as f64 / shield_life(w.armor, self.profile) as f64)
+    }
+    /// Un coup encaissé use le bouclier ; à bout, il se fend.
+    fn wear_equip(&mut self, i: usize, n: u32) {
+        if self.creative { return; } let Some(st) = self.equip[i] else { return }; let Some(w) = def(st.item).and_then(|d| d.wear) else { return };
+        let left = st.wear + n; if left >= shield_life(w.armor, self.profile) { self.equip[i] = None; self.notes.push(format!("{} s'est fendu", item(st.item).map_or(st.item, |x| x.label))); self.sound.break_block("wood", Some("axe")); } else { self.equip[i] = Some(Stack { wear: left, ..st }); }
+        self.dirty = true;
+    }
     pub(crate) fn mine_step(&mut self, dt: f64, go: bool) {
         let tool = self.tool(); let v = voice(self.tool_id()); self.swing_t -= dt;
         // Dans le vide, on frappe quand même, avec n'importe quoi ; chaque coup coûte un peu d'endurance.
@@ -195,15 +204,30 @@ impl Session {
         best.map(|b| b.1)
     }
     /// Un coup porté à l'animal visé, selon l'arme ; épuisé, on frappe moitié moins fort. Au couteau, le dépeçage rend davantage.
-    pub(crate) fn attack(&mut self) {
+    /// Le bouclier porté au bras, s'il y en a un.
+    pub fn shield(&self) -> Option<Stack> { self.equip[SLOTS.iter().position(|s| s.0 == crate::data::Slot::Hand).unwrap_or(5)] }
+    /// L'objet en main se pose-t-il (un bloc) ? Alors le clic droit pose au lieu de lever la garde.
+    pub fn held_places(&self) -> bool { self.inv[self.sel].is_some_and(|st| crate::blocks::by_name(st.item).is_some()) }
+    /// Une attaque venue de `from` contre la garde : parée (rien), bloquée en partie, ou entière. Rend les dégâts qui passent.
+    pub(crate) fn block(&mut self, from: [f64; 3], n: f64) -> f64 {
+        let Some(sh) = self.shield() else { return n }; if self.guard_t < 0.0 { return n; }
+        let (dx, dz) = (from[0] - self.player.p[0], from[2] - self.player.p[2]); let d = dx.hypot(dz).max(0.01);
+        if (dx * self.look[0] + dz * self.look[2]) / d / self.look[0].hypot(self.look[2]).max(0.01) < 0.35 { return n; } // de côté ou de dos : la garde ne couvre pas
+        let armor = def(sh.item).and_then(|d| d.wear).map_or(0.0, |w| w.armor); self.wear_equip(SLOTS.iter().position(|s| s.0 == crate::data::Slot::Hand).unwrap_or(5), 1);
+        if self.guard_t <= PARRY_T { if let Some(k) = self.wild.nearest(from) { self.wild.stagger(k, self.player.p, 2.0); } self.notes.push("Parade !".into()); self.sound.thump(from); self.skills[2] += 0.5; return 0.0; }
+        let stop = block_share(armor); let cost = n * stop * 0.8; let ok = self.creative || self.stamina >= cost; if !self.creative { self.spend(cost); }
+        self.sound.thump(from); n * (1.0 - if ok { stop } else { stop * 0.4 })
+    }
+    pub(crate) fn attack(&mut self, heavy: bool) {
         use crate::session::Prey;
         let Some(prey) = self.prey.take() else { return }; let tool = self.tool_id(); let (mut dmg, wait) = weapon(tool); self.hit_t = wait;
-        dmg *= skill_bonus(self.skills[2]); if !self.creative { if self.stamina < STAMINA_HIT { dmg *= 0.5; } self.spend(STAMINA_HIT); }
+        dmg *= skill_bonus(self.skills[2]); let cost = if heavy { STAMINA_HIT * HEAVY_COST } else { STAMINA_HIT }; if heavy { dmg *= HEAVY_MUL; }
+        if !self.creative { if self.stamina < cost { dmg *= 0.5; } self.spend(cost); }
         self.sound.swing(voice(tool), 1.0); let me = self.player.p; let knife = self.tool().is_some_and(|t| t.kind == "couteau");
         let (loot, extra): (&[(&str, u32)], &[(&str, u32)]) = match prey {
             Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); let close = (at[0] - me[0]).hypot(at[2] - me[2]) < 2.4;
                 if self.fauna.strike(k, dmg, me) { (DEER_LOOT, DEER_KNIFE) } else { if close && hash_float((self.elapsed * 977.0) as i32, k as i32, self.seed, 13) < 0.3 { self.harm(6.0, "La ruade d'un cerf", true); } (&[], &[]) } }
-            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); match self.wild.strike(k, dmg, me) { Some(crate::wild::Kind::Fox) => (FOX_LOOT, FOX_KNIFE), Some(crate::wild::Kind::Hare) => (HARE_LOOT, HARE_KNIFE), Some(crate::wild::Kind::Wolf) => (WOLF_LOOT, &[("fur", 1)]), Some(crate::wild::Kind::Boar) => (BOAR_LOOT, &[("raw_meat", 1), ("leather", 1)]), _ => (&[], &[]) } }
+            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); if heavy { self.wild.stagger(k, me, 1.2); } match self.wild.strike(k, dmg, me) { Some(crate::wild::Kind::Fox) => (FOX_LOOT, FOX_KNIFE), Some(crate::wild::Kind::Hare) => (HARE_LOOT, HARE_KNIFE), Some(crate::wild::Kind::Wolf) => (WOLF_LOOT, &[("fur", 1)]), Some(crate::wild::Kind::Boar) => (BOAR_LOOT, &[("raw_meat", 1), ("leather", 1)]), _ => (&[], &[]) } }
         };
         self.wear_tool(1);
         if !loot.is_empty() && !self.creative {

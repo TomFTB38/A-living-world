@@ -59,7 +59,7 @@ fn parler_au_forgeron_et_ses_services() {
     // Clic droit sur lui : la conversation s'ouvre.
     let f = s.town.folk[k].p; s.player.p = [f[0] - 1.6 * (s.town.folk[k].yaw).sin(), f[1], f[2] - 1.6 * (s.town.folk[k].yaw).cos()];
     let e = s.player.eye(); let d = [f[0] - e[0], f[1] + 1.5 - e[1], f[2] - e[2]]; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / d[0].hypot(d[2])).atan();
-    s.tick(DT, Input::default(), Actions::default()); s.tick(DT, Input::default(), Actions { mine: false, place: true });
+    s.tick(DT, Input::default(), Actions::default()); s.tick(DT, Input::default(), Actions { mine: false, place: true, ..Default::default() });
     assert!(s.town.talk.is_some(), "le clic droit engage la conversation"); assert!(s.town.met.contains(&(v.id, "forgeron")), "l'artisan entre au journal");
     s.close_talk(); s.talk_to(k);
     // Commande : nos matériaux et un paiement.

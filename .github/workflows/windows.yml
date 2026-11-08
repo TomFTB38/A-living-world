@@ -73,7 +73,7 @@ jobs:
           shot grotte -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 grotte
           shot ultra -38.5 53 0.5 -20 52 -30 16.4 8 1280 720 2048 ultra
           shot pluie -62 47 -55 -54 42 -51 16.4 4 1280 720 2048 pluie
-          for sc in survie craft mort ramassage fissure construction; do shot $sc -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 $sc; done
+          for sc in survie craft mort ramassage fissure construction combat; do shot $sc -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 $sc; done
           shot campement -38.5 53 0.5 -20 52 -30 20.6 4 1280 720 2048 campement
           shot faune -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 faune
           for sc in village artisan carte titre commandes; do shot $sc -38.5 53 0.5 -20 52 -30 10.5 4 1280 720 2048 $sc; done

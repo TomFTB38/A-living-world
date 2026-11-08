@@ -16,7 +16,7 @@ use std::collections::{HashMap, HashSet};
 
 pub const INV_SIZE: usize = 36; pub const STACK: u32 = 99; pub const CHEST_SIZE: usize = 27;
 /// Cases de l'écran d'inventaire : le sac (0 à 35), le coffre ouvert (36 à 62), l'équipement (63 à 67).
-pub const CHEST0: usize = INV_SIZE; pub const EQUIP0: usize = INV_SIZE + CHEST_SIZE; pub const SLOTS_ALL: usize = EQUIP0 + 5;
+pub const CHEST0: usize = INV_SIZE; pub const EQUIP0: usize = INV_SIZE + CHEST_SIZE; pub const SLOTS_ALL: usize = EQUIP0 + 6;
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Item { pub id: &'static str, pub label: &'static str, pub block: Option<u8>, pub tool: Option<&'static str> }
 /// Tous les objets, dans l'ordre du fichier de données (c'est aussi l'ordre des icônes).
@@ -50,7 +50,7 @@ pub fn raycast(w: &impl Voxels, o: [f64; 3], d: [f64; 3], max: f64, skip: &dyn F
 /// L'animal visé : un cerf ou une bête des biomes froids et secs, par son rang dans sa liste.
 #[derive(Clone, Copy, Debug, PartialEq)] pub enum Prey { Deer(usize), Wild(usize) }
 #[derive(Default, Clone, Copy)]
-pub struct Actions { pub mine: bool, pub place: bool }
+pub struct Actions { pub mine: bool, pub place: bool, pub guard: bool }
 pub struct Session {
     pub world: Streamer, pub player: Player, pub inv: [Option<Stack>; INV_SIZE], pub sel: usize, pub creative: bool, pub target: Option<Target>, pub orient: u8, pub hour: f64, pub vit: [f64; 3], pub seed: i32, pub third: bool, pub cam_dist: f64, pub eye: [f64; 3], pub look: [f64; 3], pub anim: Anim, pub inv_open: bool, pub cursor: Option<Stack>, pub from: Option<usize>,
     pub(crate) mine_key: Option<(i32, i32, i32)>, pub mine_t: f64, pub(crate) cool: f64, axis: Option<char>, pub dirty: bool, pub tab: usize,
@@ -61,7 +61,7 @@ pub struct Session {
     /// Heures de jeu écoulées depuis le début ; buissons cueillis et blé semé, avec l'heure où ils l'ont été.
     pub hours: f64, pub regrow: Vec<([i32; 3], f64)>, pub crops: Vec<([i32; 3], f64)>, pub(crate) grow_t: f64,
     /// Équipement porté (tête, torse, jambes, pieds, dos), coffres du monde, coffre ouvert, feux qui brûlent (secondes restantes).
-    pub equip: [Option<Stack>; 5], pub chests: HashMap<[i32; 3], Vec<Option<Stack>>>, pub chest: Option<[i32; 3]>, pub fires: HashMap<[i32; 3], f64>,
+    pub equip: [Option<Stack>; 6], pub chests: HashMap<[i32; 3], Vec<Option<Stack>>>, pub chest: Option<[i32; 3]>, pub fires: HashMap<[i32; 3], f64>,
     /// Profil de survie, compétences pratiquées, objets déjà eus en main (ils révèlent les recettes), recettes favorites.
     pub arrows: Vec<crate::outdoors::Arrow>, pub line: Option<crate::outdoors::Line>, pub turn: u8, pub(crate) ray_t: f64, pub profile: usize, pub skills: [f64; 5], pub seen: HashSet<&'static str>, pub taught: HashSet<&'static str>, pub fav: HashSet<&'static str>, pub last_gain: [f64; 6],
     /// Valeurs affichées des six indicateurs, lissées pour que l'icône se remplisse sans à-coup ; état du livre de recettes.
@@ -72,13 +72,15 @@ pub struct Session {
     pub map: crate::map::Atlas,
     /// Premiers pas : étape du guide et temps passé dessus.
     pub guide: usize, pub(crate) guide_t: f64,
+    /// Combat : coup chargé (temps tenu depuis le dernier coup, -1 sans), garde levée (depuis quand, -1 sans).
+    pub charge: f64, pub guard_t: f64, guard_cd: f64,
 }
 impl Session {
     pub fn new(seed: i32, p: &Preset, threads: usize, at: [f64; 3]) -> Self {
         let inv = [None; INV_SIZE]; // on commence les mains vides
         Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, deep: 0.0, taiga: 0.0, steppe: 0.0, desert: 0.0, highlands: 0.0, glows: HashMap::new(), scanned: Default::default(), fauna: Fauna::new(seed), wild: crate::wild::Wild::new(seed), branch_t: 10.0, weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None, felling: None, falling: None, fall_serial: 0, flow: Flow::default(),
             stamina: 100.0, air: 100.0, fatigue: 0.0, body: 37.0, exposure: 0.0, winded: false, spent_t: 9.0, dead: None, stashes: Vec::new(), spawn: at, bed: None, notes: Vec::new(), prey: None, cause: "", low_v: 0.0, pain_t: 0.0, use_t: 0.0, hit_t: 0.0, mine_need: 1.0, climate_t: 0.0,
-            hours: 0.0, regrow: Vec::new(), crops: Vec::new(), grow_t: 0.0, equip: [None; 5], chests: HashMap::new(), chest: None, fires: HashMap::new(), profile: 1, skills: [0.0; 5], arrows: Vec::new(), line: None, turn: 0, ray_t: 0.0, taught: HashSet::new(), seen: HashSet::new(), fav: HashSet::new(), last_gain: [-99.0; 6], gauge: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0], book: Default::default(), town: Default::default(), map: Default::default(), guide: 0, guide_t: 0.0 }
+            hours: 0.0, regrow: Vec::new(), crops: Vec::new(), grow_t: 0.0, equip: [None; 6], chests: HashMap::new(), chest: None, fires: HashMap::new(), profile: 1, skills: [0.0; 5], arrows: Vec::new(), line: None, turn: 0, ray_t: 0.0, taught: HashSet::new(), seen: HashSet::new(), fav: HashSet::new(), last_gain: [-99.0; 6], gauge: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0], book: Default::default(), town: Default::default(), map: Default::default(), guide: 0, guide_t: 0.0, charge: -1.0, guard_t: -1.0, guard_cd: 0.0 }
     }
     /// L'ancien équipement de départ : outils de fer, lanternes et quelques blocs. Pour les bancs d'essai et les captures.
     pub fn give_kit(&mut self) { for (i, (it, n)) in [("pickaxe", None), ("axe", None), ("sword", None), ("lantern", Some(32)), ("dirt", Some(16)), ("stone", Some(16)), ("planks", Some(16))].into_iter().enumerate() { self.inv[i] = Some(Stack::new(it, n)); self.seen.insert(it); } }
@@ -156,7 +158,12 @@ impl Session {
         let open = self.inv_open || self.player.rolling() || !alive; // ni coup ni pose en pleine roulade
         // Un animal visé passe avant le bloc derrière lui : le clic gauche frappe au lieu de creuser.
         let hunting = a.mine && !open && self.prey.is_some(); self.hit_t -= dt; self.use_t -= dt;
-        if hunting && self.hit_t <= 0.0 { self.attack(); }
+        // Un clic frappe tout de suite ; tenu, le bouton charge un coup lourd qui part de lui-même une fois plein.
+        if a.mine && !open { if self.charge < 0.0 { if hunting && self.hit_t <= 0.0 { self.attack(false); self.charge = 0.0; } } else { self.charge += dt; if self.charge >= crate::survival::HEAVY_T { if self.prey.is_some() { self.attack(true); } self.charge = 0.0; } } } else { self.charge = -1.0; }
+        // Clic droit tenu, bouclier au bras et rien à poser en main : la garde se lève.
+        let guarding = a.guard && !open && self.shield().is_some() && !self.held_places();
+        // Baissée, la garde ne se relève qu'après un court instant : on ne pare pas en tapotant.
+        self.guard_cd -= dt; if guarding && (self.guard_t >= 0.0 || self.guard_cd <= 0.0) { self.guard_t = self.guard_t.max(0.0) + dt; } else { if self.guard_t >= 0.0 { self.guard_cd = 0.6; } self.guard_t = -1.0; }
         self.mine_step(dt, a.mine && !open && !hunting); if a.place && !open && !self.interact() && self.place() { self.anim.trigger(); }
         let mining = a.mine && !open; self.anim.update(dt, AnimIn { speed: self.player.speed, ground: self.player.ground, vy: self.player.v[1], crouch: self.player.crouch, fly: self.player.fly, mining });
         if alive && !self.creative { self.survive(dt, i, jumped, roll_start, mining, was_ground); } else { self.low_v = 0.0; }
@@ -169,7 +176,7 @@ impl Session {
             self.fauna.update(dt, &self.world, self.player.p, (self.sun_height() * 3.0).max(0.0));
             for e in std::mem::take(&mut self.fauna.ev) { match e { Ev::Bird(p, v) => self.sound.bird(p, v), Ev::Wings(p) => self.sound.wings(p), Ev::Hoof(p, f) => self.sound.hoof(p, f), Ev::Alarm(p) => self.sound.deer_alarm(p), Ev::Call(p) => self.sound.deer_call(p) } }
             let on = self.player.ground && !self.player.fly; self.wild.update(dt, &self.world, self.player.p, (self.sun_height() * 3.0).max(0.0), self.taiga, self.steppe, (1.0 - self.taiga - self.steppe - self.deep - self.desert).max(0.0) + 0.6 * self.highlands, on);
-            for e in std::mem::take(&mut self.wild.ev) { match e { crate::wild::Ev::Bite(p, n, cause) => { self.sound.fox_bark(p); let k = 1.0 - (self.worn().2 / 40.0).min(0.6); self.harm((n * k * crate::survival::PROFILES[self.profile].harm).round().max(1.0), cause, true); }
+            for e in std::mem::take(&mut self.wild.ev) { match e { crate::wild::Ev::Bite(p, n, cause) => { self.sound.fox_bark(p); let k = 1.0 - (self.worn().2 / 40.0).min(0.6); let n = self.block(p, n); if n > 0.0 { self.harm((n * k * crate::survival::PROFILES[self.profile].harm).round().max(1.0), cause, true); } }
                 crate::wild::Ev::Howl(p) => self.sound.fox_scream(p), crate::wild::Ev::Grunt(p) => self.sound.thump(p), crate::wild::Ev::Caw(p) => self.sound.caw(p), crate::wild::Ev::Bark(p) => self.sound.fox_bark(p), crate::wild::Ev::Scream(p) => self.sound.fox_scream(p), crate::wild::Ev::Thump(p) => self.sound.thump(p), crate::wild::Ev::Rustle(p) => self.sound.rustle(p) } }
         }
         self.audio_step(dt); self.smooth_gauges(dt);
