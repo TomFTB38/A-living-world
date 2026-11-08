@@ -249,3 +249,8 @@ baked_potato | Pomme de terre cuite | vivres | 0.2 | 32 | Cuite sous la braise. 
 wooden_shield | Bouclier de bois | habits | 3.5 | 1 | Planches cerclées de cuir. Arrête une bonne part d'une morsure de face. | porte=main armure=3
 iron_shield | Bouclier de fer | habits | 6.0 | 1 | Bois plaqué de fer. Arrête presque tout et tient longtemps. | porte=main armure=7
 steel_shield | Bouclier d'acier | habits | 5.0 | 1 | Léger et dur, œuvre d'armurier. | porte=main armure=11
+# Construction : dalles verticales, volets
+planks_vslab | Dalle verticale de bois | batir | 0.5 | 64 | Un demi-bloc debout, du côté opposé à soi : cloisons fines, bords de toit. |
+stone_bricks_vslab | Dalle verticale de pierre taillée | batir | 1.0 | 64 | Un demi-bloc debout de pierre taillée. |
+cobblestone_vslab | Dalle verticale de pavé | batir | 1.0 | 64 | Un demi-bloc debout de pavé. |
+shutter | Volet | batir | 1.0 | 16 | Se pose contre une fenêtre ; clic droit pour l'ouvrir ou le fermer. |

@@ -522,7 +522,7 @@ fn capture(a: &[String]) {
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true, ..Default::default() }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
     }
-    if ["survie", "craft", "campement", "mort", "ramassage", "fissure", "construction", "faune", "combat"].contains(&scene.as_str()) {
+    if ["survie", "craft", "campement", "mort", "ramassage", "fissure", "construction", "faune", "combat", "tenue"].contains(&scene.as_str()) {
         // Survie : on retombe au sol, un établi et un feu de camp devant soi, des jauges entamées.
         use alw_core::blocks::{is_solid, B}; use alw_core::player::Voxels;
         s.player.fly = false; s.third = false; s.sel = 2; for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.dead.is_some() { s.respawn(); } s.vit = [100.0; 3];
@@ -562,8 +562,15 @@ fn capture(a: &[String]) {
             for k in -1..6 { for l in -4..5 { let (x, z) = at(k, l); let side = if l < 0 { 3 } else { 1 }; let h = if l.abs() >= 3 { 4 } else { 5 }; e.push((x, y0 + h, z, if l == 0 { B::THATCH } else { turn("thatch_stairs", side) })); } }
             for k in [0, 4] { for l in -2..3 { let (x, z) = at(k, l); e.push((x, y0 + 4, z, B::PLANKS)); } } // pignons
             let (x, z) = at(-1, 0); e.push((x, y0, z, turn("stone_bricks_stairs", 0)));
+            // volets ouverts à côté des fenêtres de façade, avant-toit en escaliers renversés sous le bord du toit
+            for l in [-2, 2] { let (x, z) = at(-1, l); let _ = (x, z); } for l in [-3, 3] { let (x, z) = at(-1, l); e.push((x, y0 + 3, z, turn("planks_stairs_top", 2))); }
             for h in 1..4 { let (x, z) = at(2, 4); e.push((x, y0 + h, z, turn("ladder", 3))); }
             s.world.edit_many(&e); pump(&mut s, &mut g); s.player.pitch = -0.12; s.sel = 4;
+        }
+        if scene == "tenue" {
+            // Le personnage vu de dos, en troisième personne : casque, plastron, jambières, bottes et bouclier de fer, le sac au dos.
+            for (i, id) in [(0, "iron_helmet"), (1, "iron_chestplate"), (2, "leather_pants"), (3, "leather_boots"), (4, "backpack"), (5, "iron_shield")] { if alw_core::data::def(id).is_some() { s.equip[i] = Some(alw_core::session::Stack::new(id, None)); } }
+            s.third = true; s.player.yaw += 2.6; s.player.pitch = -0.2; s.tick(0.0, none, Actions::default());
         }
         if scene == "combat" {
             // Un loup qui arrive de face, bouclier de fer au bras et garde levée, épée en main et coup lourd en charge.

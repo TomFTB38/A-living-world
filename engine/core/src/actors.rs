@@ -54,6 +54,32 @@ fn head() -> VBuf {
     o
 }
 const THIGH: f64 = 0.38; const UPPER: f64 = 0.29;
+/// Habits portés, par matière : fourrure, cuir, fer, acier, paille, bois, étoffe. Des coques un peu plus larges que le corps.
+pub const FAMILIES: [&str; 7] = ["fur", "leather", "iron", "steel", "straw", "wooden", "cloth"];
+pub fn family(id: &str) -> &'static str { FAMILIES.iter().find(|f| id.contains(*f)).copied().unwrap_or(if id == "backpack" { "leather" } else { "cloth" }) }
+fn outfit_parts() -> Vec<(&'static str, VBuf)> {
+    const SLOT: [&str; 6] = ["head", "torso", "thigh", "shin", "back", "shield"];
+    let mut o = Vec::new();
+    for f in FAMILIES {
+        let (a, d): (C, C) = match f { "fur" => ([0.6, 0.47, 0.32], [0.76, 0.64, 0.48]), "leather" => ([0.42, 0.26, 0.13], [0.3, 0.18, 0.09]), "iron" => ([0.56, 0.56, 0.58], [0.4, 0.4, 0.42]), "steel" => ([0.42, 0.47, 0.54], [0.3, 0.33, 0.38]), "straw" => ([0.8, 0.68, 0.38], [0.66, 0.54, 0.28]), "wooden" => ([0.52, 0.35, 0.18], [0.36, 0.24, 0.12]), _ => ([0.46, 0.5, 0.36], [0.34, 0.37, 0.26]) };
+        let metal = f == "iron" || f == "steel";
+        for slot in SLOT {
+            let mut m = VBuf::new(200); let q = &mut m;
+            match slot {
+                "head" => if f == "straw" { b(q, [-0.18, 0.3, -0.19, 0.18, 0.46, 0.19], a); b(q, [-0.3, 0.3, -0.3, 0.3, 0.33, 0.3], d); }
+                    else if metal { b(q, [-0.19, 0.2, -0.2, 0.19, 0.42, 0.2], a); b(q, [-0.2, 0.18, -0.21, 0.2, 0.23, 0.21], d); b(q, [-0.02, 0.06, 0.19, 0.02, 0.22, 0.215], d); }
+                    else { b(q, [-0.19, 0.26, -0.2, 0.19, 0.42, 0.2], a); b(q, [-0.195, 0.24, -0.205, 0.195, 0.28, 0.205], d); },
+                "torso" => { b(q, [-0.24, 0.02, -0.14, 0.24, 0.6, 0.14], a); b(q, [-0.215, -0.16, -0.135, 0.215, 0.02, 0.135], d); if metal { b(q, [-0.26, 0.48, -0.15, 0.26, 0.62, 0.15], d); } if f == "fur" { b(q, [-0.25, 0.52, -0.15, 0.25, 0.64, 0.15], d); } }
+                "thigh" => { b(q, [-0.108, -THIGH - 0.02, -0.113, 0.108, 0.01, 0.113], a); if metal { b(q, [-0.112, -0.2, 0.09, 0.112, -0.06, 0.118], d); } }
+                "shin" => { b(q, [-0.112, -0.38, -0.112, 0.112, -0.14, 0.118], a); b(q, [-0.114, -0.38, -0.114, 0.114, -0.34, 0.15], d); }
+                "back" => { b(q, [-0.19, 0.06, -0.38, 0.19, 0.56, -0.13], a); b(q, [-0.15, 0.1, -0.41, 0.15, 0.32, -0.37], d); }
+                _ => { b(q, [0.075, -0.26, -0.2, 0.1, 0.14, 0.2], a); b(q, [0.1, -0.08, -0.04, 0.13, -0.04, 0.04], d); b(q, [0.072, -0.27, -0.21, 0.098, -0.24, 0.21], d); b(q, [0.072, 0.11, -0.21, 0.098, 0.14, 0.21], d); }
+            }
+            o.push((Box::leak(format!("wear_{slot}_{f}").into_boxed_str()) as &'static str, m));
+        }
+    }
+    o
+}
 fn thigh() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.1, -THIGH - 0.03, -0.105, 0.1, 0.02, 0.105], PANTS); b(&mut o, [-0.103, -0.26, -0.03, 0.103, -0.13, 0.108], PANTS2); o }
 fn shin() -> VBuf { let mut o = VBuf::new(100); b(&mut o, [-0.09, -0.18, -0.09, 0.09, 0.02, 0.095], PANTS); b(&mut o, [-0.105, -0.22, -0.105, 0.105, -0.13, 0.11], BOOT); b(&mut o, [-0.098, -0.37, -0.1, 0.098, -0.2, 0.105], BOOT); b(&mut o, [-0.098, -0.4, -0.11, 0.098, -0.32, 0.2], BOOT); b(&mut o, [-0.102, -0.42, -0.115, 0.102, -0.395, 0.205], SOLE); o }
 fn upper() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.082, -UPPER - 0.03, -0.085, 0.082, 0.03, 0.085], TUNIC); b(&mut o, [-0.09, -0.03, -0.095, 0.09, 0.05, 0.095], STRAP); o }
@@ -180,6 +206,7 @@ impl Models {
     pub fn build() -> Self {
         let mut all = VBuf::new(5000); let mut parts = HashMap::new();
         for (n, m) in [("torso", torso()), ("head", head()), ("thigh", thigh()), ("shin", shin()), ("upper", upper()), ("fore", fore()), ("fist", fist())] { let r = take(&mut all, m); parts.insert(n, r); }
+        for (n, m) in outfit_parts() { let r = take(&mut all, m); parts.insert(n, r); }
         let char_verts = all.n; let mut items = HashMap::new(); let mv = Mesher::new();
         for name in order() {
             let it = item(name).unwrap(); let (o, hold) = match it.block {
@@ -233,7 +260,8 @@ impl Anim {
     }
     pub fn trigger(&mut self) { self.punch = 1.0; }
     /// Troisième personne. Hanches et épaules : négatif vers l'avant. Genoux : positif plie vers l'arrière ; coudes : négatif plie vers l'avant.
-    pub fn third(&self, md: &Models, p: [f64; 3], yaw: f64, pitch: f64, held: Option<Held>, roll: Option<(f64, [f64; 2])>) -> Vec<Draw> {
+    /// `outfit` : la matière de ce qui est porté à la tête, au torse, aux jambes, aux pieds, au dos et au bras (voir `family`).
+    pub fn third(&self, md: &Models, p: [f64; 3], yaw: f64, pitch: f64, held: Option<Held>, roll: Option<(f64, [f64; 2])>, outfit: [Option<&'static str>; 6]) -> Vec<Draw> {
         let (w, s, c, ground, a, pi) = (self.walk, sin(self.phase), cos(self.phase), 1.0 - self.air, self.air, std::f64::consts::PI);
         let (run, low, rise, land) = (self.run, self.low, self.rise, self.landed);
         let amp = (0.6 + 0.48 * run) * w * ground * (1.0 - 0.4 * low); let bend = 0.5 + 1.2 * run;
@@ -256,9 +284,12 @@ impl Anim {
         }
         let t = mul(&base, &trs(0.0, hip_y, 0.0, 0.0, lean, 1.0)); let mut out = Vec::with_capacity(12); let up_y = 0.56;
         let part = |n: &str| md.parts[n]; let mut put = |n: &str, m: M4| out.push(Draw { m, r: part(n), view: false, local: false, hero: true, dynamic: false });
-        put("torso", t); put("head", mul(&t, &trs(0.0, 0.66, 0.0, 0.0, -lean * 0.75 - pitch * 0.5, 1.0)));
-        for (x, h, k) in [(0.105, hip_l, knee_l), (-0.105, hip_r, knee_r)] { let m = mul(&base, &trs(x, hip_y, 0.0, 0.0, h, 1.0)); put("thigh", m); put("shin", mul(&m, &trs(0.0, -THIGH, 0.0, 0.0, k, 1.0))); }
-        let ul = mul(&t, &trs(0.3, up_y, 0.0, 0.0, arm_l, 1.0)); put("upper", ul); put("fore", mul(&ul, &trs(0.0, -UPPER, 0.0, 0.0, elbow_l, 1.0)));
+        let wear = |slot: usize, n: &str| outfit[slot].map(|f| format!("wear_{n}_{f}"));
+        let hd = mul(&t, &trs(0.0, 0.66, 0.0, 0.0, -lean * 0.75 - pitch * 0.5, 1.0)); put("torso", t); put("head", hd);
+        if let Some(n) = wear(0, "head") { put(&n, hd); } if let Some(n) = wear(1, "torso") { put(&n, t); } if let Some(n) = wear(4, "back") { put(&n, t); }
+        for (x, h, k) in [(0.105, hip_l, knee_l), (-0.105, hip_r, knee_r)] { let m = mul(&base, &trs(x, hip_y, 0.0, 0.0, h, 1.0)); put("thigh", m); let sh = mul(&m, &trs(0.0, -THIGH, 0.0, 0.0, k, 1.0)); put("shin", sh);
+            if let Some(n) = wear(2, "thigh") { put(&n, m); } if let Some(n) = wear(3, "shin") { put(&n, sh); } }
+        let ul = mul(&t, &trs(0.3, up_y, 0.0, 0.0, arm_l, 1.0)); put("upper", ul); let fl = mul(&ul, &trs(0.0, -UPPER, 0.0, 0.0, elbow_l, 1.0)); put("fore", fl); if let Some(n) = wear(5, "shield") { put(&n, fl); }
         let ur = mul(&t, &trs(-0.3, up_y, 0.02, 0.0, arm_r, 1.0)); put("upper", ur); let fr = mul(&ur, &trs(0.0, -UPPER, 0.0, 0.0, elbow_r, 1.0)); put("fore", fr);
         if let Some(h) = held { out.push(Draw { m: mul(&mul(&fr, &trs(0.0, UPPER, 0.0, 0.0, 0.0, 1.0)), &hold_m(h.hold)), r: h.r, view: false, local: h.local, hero: true, dynamic: false }); }
         out

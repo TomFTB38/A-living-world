@@ -200,7 +200,7 @@ impl Session {
         let mut consider = |t: Option<f64>, p: Prey| { if let Some(t) = t { let q = [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t]; let r = ((q[0] - head[0]).powi(2) + (q[1] - head[1]).powi(2) + (q[2] - head[2]).powi(2)).sqrt();
             if t < block_t && r <= reach && best.is_none_or(|b| t < b.0) { best = Some((t, p)); } } };
         for (k, dr) in self.fauna.deer.iter().enumerate() { consider(ray_box(o, d, dr.p, 0.55, 1.6), Prey::Deer(k)); }
-        for (k, c) in self.wild.all.iter().enumerate() { let (hw, h) = match c.kind { crate::wild::Kind::Fox => (0.35, 0.7), crate::wild::Kind::Hare => (0.28, 0.5), crate::wild::Kind::Wolf => (0.45, 1.0), crate::wild::Kind::Boar => (0.5, 0.85), _ => continue }; consider(ray_box(o, d, c.p, hw, h), Prey::Wild(k)); }
+        for (k, c) in self.wild.all.iter().enumerate() { let Some((hw, h)) = crate::outdoors::wild_box(c.kind) else { continue }; consider(ray_box(o, d, c.p, hw, h), Prey::Wild(k)); }
         best.map(|b| b.1)
     }
     /// Un coup porté à l'animal visé, selon l'arme ; épuisé, on frappe moitié moins fort. Au couteau, le dépeçage rend davantage.
@@ -227,7 +227,7 @@ impl Session {
         let (loot, extra): (&[(&str, u32)], &[(&str, u32)]) = match prey {
             Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); let close = (at[0] - me[0]).hypot(at[2] - me[2]) < 2.4;
                 if self.fauna.strike(k, dmg, me) { (DEER_LOOT, DEER_KNIFE) } else { if close && hash_float((self.elapsed * 977.0) as i32, k as i32, self.seed, 13) < 0.3 { self.harm(6.0, "La ruade d'un cerf", true); } (&[], &[]) } }
-            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); if heavy { self.wild.stagger(k, me, 1.2); } match self.wild.strike(k, dmg, me) { Some(crate::wild::Kind::Fox) => (FOX_LOOT, FOX_KNIFE), Some(crate::wild::Kind::Hare) => (HARE_LOOT, HARE_KNIFE), Some(crate::wild::Kind::Wolf) => (WOLF_LOOT, &[("fur", 1)]), Some(crate::wild::Kind::Boar) => (BOAR_LOOT, &[("raw_meat", 1), ("leather", 1)]), _ => (&[], &[]) } }
+            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); if heavy { self.wild.stagger(k, me, 1.2); } match self.wild.strike(k, dmg, me) { Some(crate::wild::Kind::Fox) => (FOX_LOOT, FOX_KNIFE), Some(crate::wild::Kind::Hare) => (HARE_LOOT, HARE_KNIFE), Some(crate::wild::Kind::Wolf) => (WOLF_LOOT, &[("fur", 1)]), Some(crate::wild::Kind::Boar) => (BOAR_LOOT, &[("raw_meat", 1), ("leather", 1)]), Some(crate::wild::Kind::Bear) => (BEAR_LOOT, &[("raw_hide", 1)]), Some(crate::wild::Kind::Ibex) => (IBEX_LOOT, &[("raw_meat", 1)]), Some(crate::wild::Kind::Lizard) => (LIZARD_LOOT, &[]), _ => (&[], &[]) } }
         };
         self.wear_tool(1);
         if !loot.is_empty() && !self.creative {
@@ -251,7 +251,7 @@ impl Session {
                 if let Some((id, n)) = pickup(name) { if self.world.edit(t.x, t.y, t.z, 0) { self.add_item(id, n); self.sound.place(name); self.anim.trigger(); self.use_t = 0.3; self.dirty = true; } return true; }
                 if let Some((id, n, bare)) = harvest(name) { if let Some(b) = by_name(bare) { if self.world.edit(t.x, t.y, t.z, b) { self.add_item(id, n); self.regrow.push((p, self.hours)); self.sound.place(name); self.anim.trigger(); self.use_t = 0.4; self.dirty = true; } } return true; }
                 // Porte et trappe : clic droit pour ouvrir ou fermer (accroupi, on pose contre elles).
-                if let Some(si) = crate::shapes::info(t.id).filter(|i| matches!(i.kind, crate::shapes::Kind::Door | crate::shapes::Kind::Trapdoor)) { if !self.player.crouch {
+                if let Some(si) = crate::shapes::info(t.id).filter(|i| matches!(i.kind, crate::shapes::Kind::Door | crate::shapes::Kind::Trapdoor | crate::shapes::Kind::Shutter)) { if !self.player.crouch {
                     if self.use_t > 0.0 { return true; } self.toggle(p, si); self.use_t = 0.25; return true; } }
                 if t.id == B::CHEST && !self.player.crouch { self.chests.entry(p).or_insert_with(|| vec![None; CHEST_SIZE]); self.chest = Some(p); self.inv_open = true; self.sound.place("chest"); return true; }
                 if (t.id == B::BED || t.id == B::BEDROLL) && !self.player.crouch { self.sleep(p, t.id); return true; }
@@ -316,7 +316,7 @@ impl Session {
         if si.kind == Kind::Door {
             let low = if si.upper { [p[0], p[1] - 1, p[2]] } else { p }; edits.push((low[0], low[1], low[2], variant(si.base, si.facing, false, open, false)));
             if self.world.get(low[0], low[1] + 1, low[2]).and_then(crate::shapes::info).is_some_and(|i| i.kind == Kind::Door) { edits.push((low[0], low[1] + 1, low[2], variant(si.base, si.facing, false, open, true))); }
-        } else { let f = self.player.forward(); edits.push((p[0], p[1], p[2], variant(si.base, (facing_of(f[0], f[2]) + 2) % 4, false, open, false))); }
+        } else if si.kind == Kind::Shutter { edits.push((p[0], p[1], p[2], variant(si.base, si.facing, false, open, false))); } else { let f = self.player.forward(); edits.push((p[0], p[1], p[2], variant(si.base, (facing_of(f[0], f[2]) + 2) % 4, false, open, false))); }
         self.world.edit_many(&edits); self.sound.place("planks"); self.anim.trigger(); self.dirty = true;
     }
     pub(crate) fn on_broken(&mut self, p: [i32; 3], id: u8) {

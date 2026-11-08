@@ -90,3 +90,23 @@ fn pose_rotation_dalles_et_sauvegarde() {
     // les modèles se dessinent
     let m = alw_core::mesher::Mesher::new(); for b in BLOCKS.iter().filter(|b| shapes::info(b.id).is_some()) { let mut v = alw_core::mesher::VBuf::new(400); m.deco_model(&mut v, b.id, 0, 0, 0, 3, 5, 255.0, 0.0, 0); assert!(v.n >= 24, "{} se dessine", b.name); }
 }
+
+#[test]
+fn escalier_renverse_dalle_verticale_et_volet() {
+    let (mut s, [_, y, _]) = site(); let put = |s: &mut Session| { s.tick(DT, none(), Actions { place: true, ..Default::default() }); idle(s, 0.3); };
+    // Sous un plafond, l'escalier se pose renversé.
+    s.world.edit(0, y + 2, 1, B::STONE); idle(&mut s, 0.1); s.inv[0] = Some(Stack::new("planks_stairs", Some(4))); s.sel = 0;
+    look_at(&mut s, [0.5, y as f64 + 1.98, 1.02]); assert_eq!(s.target.map(|t| (t.x, t.y, t.z)), Some((0, y + 2, 1)));
+    put(&mut s); let b = s.world.get(0, y + 1, 1).unwrap(); assert!(BLOCKS[b as usize].name.starts_with("planks_stairs_top"), "posé : {}", BLOCKS[b as usize].name);
+    let i = shapes::info(b).unwrap(); assert!(i.top && i.kind == Kind::Stairs); assert_eq!(shapes::geometry(i)[0][1], 0.5, "la marche pleine est en haut");
+    // Dalle verticale : debout, du côté opposé à soi.
+    s.inv[1] = Some(Stack::new("planks_vslab", Some(4))); s.sel = 1; look_at(&mut s, [-1.5, y as f64 - 0.02, 0.5]); put(&mut s);
+    let v = s.world.get(-2, y, 0).or(s.world.get(-1, y, 0)).unwrap(); let vi = shapes::info(v).expect("une dalle verticale"); assert_eq!(vi.kind, Kind::VSlab, "{}", BLOCKS[v as usize].name);
+    assert!(recipes().iter().any(|r| r.out == "planks_vslab") && recipes().iter().any(|r| r.out == "shutter"));
+    // Volet : il s'ouvre et se ferme d'un clic droit, sans changer de sens.
+    s.inv[2] = Some(Stack::new("shutter", Some(2))); s.sel = 2; look_at(&mut s, [2.5, y as f64 - 0.02, 1.5]); put(&mut s);
+    let at = [[2, y, 1], [2, y, 2], [1, y, 1]].into_iter().find(|p| s.world.get(p[0], p[1], p[2]).and_then(shapes::info).is_some_and(|i| i.kind == Kind::Shutter)).expect("volet posé");
+    let f0 = shapes::info(s.world.get(at[0], at[1], at[2]).unwrap()).unwrap(); assert!(!f0.open);
+    let bb = shapes::geometry(f0)[0]; s.sel = 3; s.player.p = [0.5, y as f64, -1.0]; idle(&mut s, 0.2); look_at(&mut s, [at[0] as f64 + (bb[0] + bb[3]) * 0.5, at[1] as f64 + 0.5, at[2] as f64 + (bb[2] + bb[5]) * 0.5]); put(&mut s);
+    let f1 = shapes::info(s.world.get(at[0], at[1], at[2]).unwrap()).unwrap(); assert!(f1.open, "le volet s'ouvre"); assert_eq!(f1.facing, f0.facing);
+}

@@ -50,7 +50,12 @@ fn la_journee_des_villageois() {
     idle(&mut s, 40.0); for f in s.town.folk.iter().filter(|f| f.v == v.id && f.craft.is_some()) { let h = &v.houses[f.house]; assert!((f.p[0] - h.spot[0]).hypot(f.p[2] - h.spot[2]) < 0.3 && f.working, "{} pas à son poste", f.name); }
     // Le soir sur la place, la nuit chez soi : le chemin passe par la porte.
     s.hour = 19.0; idle(&mut s, 60.0); for f in s.town.folk.iter().filter(|f| f.v == v.id) { assert!((f.p[0] - v.c[0] as f64).hypot(f.p[2] - v.c[2] as f64) < 7.0, "{} n'est pas sur la place le soir", f.name); }
-    s.hour = 23.0; idle(&mut s, 60.0); for f in s.town.folk.iter().filter(|f| f.v == v.id) { let h = &v.houses[f.house]; assert!((f.p[0] - h.bed[0]).hypot(f.p[2] - h.bed[2]) < 0.3, "{} n'est pas rentré", f.name); }
+    // La nuit, chacun rentre : il ouvre sa porte en passant et la referme derrière lui.
+    let doors: Vec<[i32; 3]> = v.houses.iter().map(|h| { let (dx, dz) = (h.inside[0] - h.door[0], h.inside[2] - h.door[2]); [(h.door[0] + dx * 0.5).floor() as i32, v.c[1] + 1, (h.door[2] + dz * 0.5).floor() as i32] }).collect();
+    let open = |s: &Session| doors.iter().filter(|d| s.world.get(d[0], d[1], d[2]).and_then(alw_core::shapes::info).is_some_and(|i| i.open)).count();
+    s.hour = 23.0; let mut seen_open = 0; for _ in 0..(60.0 / DT) as usize { s.tick(DT, Input::default(), Actions::default()); seen_open = seen_open.max(open(&s)); }
+    for f in s.town.folk.iter().filter(|f| f.v == v.id) { let h = &v.houses[f.house]; assert!((f.p[0] - h.bed[0]).hypot(f.p[2] - h.bed[2]) < 0.3, "{} n'est pas rentré", f.name); }
+    assert!(seen_open > 0, "les portes s'ouvrent au passage"); idle(&mut s, 3.0); assert_eq!(open(&s), 0, "et se referment derrière eux");
 }
 
 #[test]
@@ -93,7 +98,24 @@ fn parler_au_forgeron_et_ses_services() {
 fn le_travail_le_plus_fin_reste_aux_maitres() {
     let c = |id: &str| craftsman(id).unwrap(); let names = |id: &str| orders(c(id)).iter().map(|i| db().recipes[*i].out).collect::<Vec<_>>();
     assert!(!c("maitre_forgeron").services.contains(&"transmission"), "le maître forgeron ne transmet pas");
+    assert!(db().errors.is_empty(), "{:?}", db().errors); for k in alw_core::data::VILLAGES { assert!(trades(k).len() >= 6, "{k} : {} échanges", trades(k).len()); }
     assert!(names("maitre_forgeron").contains(&"master_pickaxe") && names("maitre_forgeron").contains(&"steel_pickaxe"), "le maître fait aussi le travail du forgeron");
     assert!(!names("forgeron").contains(&"master_pickaxe")); assert!(names("tailleur_pierre").contains(&"stone_bricks"), "{:?}", names("tailleur_pierre"));
     for cm in &db().craftsmen { if cm.services.contains(&"commande") { assert!(!orders(cm).is_empty(), "{} n'a rien à faire", cm.id); } }
+}
+
+#[test]
+fn saluer_echanger_et_ranger_son_arme() {
+    let (mut s, v) = in_village(); s.hour = 19.0; idle(&mut s, 30.0); s.notes.clear();
+    // Un villageois (pas un artisan) sur la place : on s'approche, il salue.
+    let k = s.town.folk.iter().position(|f| f.v == v.id && f.craft.is_none()).expect("un villageois"); let p = s.town.folk[k].p; s.player.p = [p[0] + 1.6, p[1], p[2]]; idle(&mut s, 0.5);
+    assert!(s.notes.iter().any(|n| n.contains("Bonsoir") || n.contains("Bonjour")), "il salue : {:?}", s.notes);
+    // L'épée à la main : il recule, et ne parle pas tant qu'elle n'est pas rangée.
+    s.inv[3] = Some(Stack::new("sword", None)); s.sel = 3; s.notes.clear(); idle(&mut s, 0.3); assert!(s.notes.iter().any(|n| n.contains("Rangez cette arme")), "{:?}", s.notes);
+    let k = s.town.folk.iter().position(|f| f.v == v.id && f.craft.is_none()).unwrap(); assert!(s.town.folk[k].scared > 0.0);
+    s.talk_to(k); assert_eq!(s.dialog().unwrap().options.len(), 2); s.choose(option(&s, "Ranger")); assert!(!s.armed(), "l'arme est rangée"); assert!(s.dialog().unwrap().options.len() > 2);
+    // Échanger : dix baies contre un pain.
+    s.add_item("berries", 10); s.choose(option(&s, "Échanger")); let i = option(&s, "Donner 10 myrtilles"); assert!(s.dialog().unwrap().options[i].1);
+    let r = s.rep(v.id); s.choose(i); assert_eq!(s.count("bread"), 1); assert_eq!(s.count("berries"), 0); assert_eq!(s.rep(v.id), r + 1); assert!(!s.dialog().unwrap().options[option(&s, "Donner 10 myrtilles")].1, "plus de baies");
+    s.choose(option(&s, "Retour")); s.choose(option(&s, "Au revoir")); assert!(s.town.talk.is_none());
 }

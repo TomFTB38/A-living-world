@@ -97,6 +97,8 @@ pub fn exposure(air: f64, warm: f64, cool: f64) -> f64 {
 
 /// Gibier : points de vie, ce qu'il laisse (et en plus, au couteau), la boîte qui sert à le viser.
 pub const WOLF_HP: f64 = 16.0; pub const BOAR_HP: f64 = 22.0;
+pub const BEAR_HP: f64 = 42.0; pub const IBEX_HP: f64 = 12.0; pub const LIZARD_HP: f64 = 3.0;
+pub const BEAR_LOOT: &[(&str, u32)] = &[("fur", 3), ("raw_meat", 5), ("raw_hide", 2)]; pub const IBEX_LOOT: &[(&str, u32)] = &[("raw_meat", 2), ("raw_hide", 1)]; pub const LIZARD_LOOT: &[(&str, u32)] = &[("raw_meat", 1)];
 pub const WOLF_LOOT: &[(&str, u32)] = &[("fur", 2), ("raw_meat", 1), ("bone", 1)]; pub const BOAR_LOOT: &[(&str, u32)] = &[("raw_meat", 4), ("leather", 1)];
 pub const DEER_HP: f64 = 14.0; pub const FOX_HP: f64 = 8.0; pub const HARE_HP: f64 = 4.0;
 pub const DEER_LOOT: &[(&str, u32)] = &[("raw_meat", 3), ("raw_hide", 2), ("bone", 1)]; pub const FOX_LOOT: &[(&str, u32)] = &[("fur", 1), ("raw_meat", 1)]; pub const HARE_LOOT: &[(&str, u32)] = &[("raw_meat", 2)];

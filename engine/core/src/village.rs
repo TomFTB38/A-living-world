@@ -106,7 +106,9 @@ impl WorldGen {
     fn build(&self, gx: i32, gz: i32, x: i32, y0: i32, z: i32) -> Site {
         let s = self.seed; let h = |k: i32| hash_float(gx, gz, s, 320 + k);
         let mix = self.climate.at(x as f64, z as f64); let top = (0..crate::biome::COUNT).max_by(|a, b| mix.w[*a].total_cmp(&mix.w[*b])).unwrap_or(1);
-        let kind = if y0 > 84 { "montagne" } else if mix.strong(Biome::Highlands) > 0.4 { "hautes_terres" } else { match top { t if t == Biome::Taiga as usize => "taiga", t if t == Biome::Steppe as usize => "aride", t if t == Biome::Desert as usize => "desert", t if t == Biome::Highlands as usize => "hautes_terres", _ => "prairie" } };
+        // Montagne : un bourg haut perché, ou blotti au pied de sommets qui le dominent.
+        let peaks = (0..16).map(|k| { let (a, r) = (k as f64 * TAU / 8.0, if k < 8 { 60.0 } else { 95.0 }); self.column(x as f64 + r * a.cos(), z as f64 + r * a.sin()).h }).fold(0.0, f64::max);
+        let kind = if y0 > 76 || peaks - y0 as f64 > 24.0 { "montagne" } else if mix.strong(Biome::Highlands) > 0.4 { "hautes_terres" } else { match top { t if t == Biome::Taiga as usize => "taiga", t if t == Biome::Steppe as usize => "aride", t if t == Biome::Desert as usize => "desert", t if t == Biome::Highlands as usize => "hautes_terres", _ => "prairie" } };
         // Les ateliers : le forgeron dès que le type le permet, les autres une fois sur trois de moins ; au moins deux, au plus quatre.
         let cand: Vec<&Craftsman> = db().craftsmen.iter().filter(|c| c.villages.contains(&kind)).collect();
         let mut crafts: Vec<&'static str> = cand.iter().enumerate().filter(|(i, c)| c.id == "forgeron" || h(*i as i32) < 0.68).map(|(_, c)| c.id).collect();
@@ -206,8 +208,10 @@ impl Site {
 
 // ---------------------------------------------------------------------------------------------- villageois
 #[derive(Clone, Debug)]
-pub struct Folk { pub v: (i32, i32), pub house: usize, pub craft: Option<&'static str>, pub name: String, pub p: [f64; 3], pub yaw: f64, pub phase: f64, pub moving: bool, pub working: bool, route: Vec<[f64; 3]>, goal: (u8, u32), look: u8 }
-#[derive(Clone, Copy, Debug, PartialEq)] pub enum Page { Main, Order(usize) }
+pub struct Folk { pub v: (i32, i32), pub house: usize, pub craft: Option<&'static str>, pub name: String, pub p: [f64; 3], pub yaw: f64, pub phase: f64, pub moving: bool, pub working: bool, route: Vec<[f64; 3]>, goal: (u8, u32), look: u8,
+    /// Effrayé par une arme (secondes qui restent), délai avant de resaluer le joueur.
+    pub scared: f64, greet_t: f64 }
+#[derive(Clone, Copy, Debug, PartialEq)] pub enum Page { Main, Order(usize), Trade }
 #[derive(Clone, Debug)] pub struct Talk { pub who: usize, pub page: Page, pub said: String }
 /// Les villages autour du joueur, leurs habitants, et ce que le joueur en sait.
 #[derive(Default)]
@@ -216,10 +220,15 @@ pub struct Town {
     /// Réputation par village, villages connus (vus ou entendus) avec leur description, artisans rencontrés, village marqué.
     pub rep: HashMap<(i32, i32), i32>, pub atlas: BTreeMap<(i32, i32), Village>, pub known: Vec<(i32, i32)>, pub met: HashSet<((i32, i32), &'static str)>, pub marked: Option<(i32, i32)>,
     scan_t: f64,
+    /// Ce que disent les villageois en passant (pour les notes), portes qu'ils ont ouvertes (et quand les refermer).
+    pub(crate) news: Vec<String>, doors: Vec<([i32; 3], f64)>,
 }
 /// Une fenêtre de dialogue : qui parle, ce qu'il dit, et les réponses possibles (texte, possible maintenant).
 #[derive(Clone, Debug)] pub struct Dialog { pub title: String, pub sub: String, pub said: String, pub options: Vec<(String, bool)> }
 
+/// Les échanges que proposent les villageois de ce type de village.
+pub fn trades(kind: &str) -> Vec<&'static crate::data::Trade> { db().trades.iter().filter(|t| t.kind == "tous" || t.kind == kind).collect() }
+fn label(id: &str) -> String { item(id).map_or(id.to_string(), |i| i.label.to_lowercase()) }
 pub fn craftsman(id: &str) -> Option<&'static Craftsman> { db().craftsmen.iter().find(|c| c.id == id) }
 /// Ce qu'un artisan sait faire sur commande : les recettes de son métier (un maître fait aussi celles du métier qu'il porte dans son nom)
 /// et les recettes ordinaires de ses travaux.
@@ -262,20 +271,26 @@ impl Town {
         o
     }
     /// La journée des villageois : un pas le long de leur chemin, ou leur travail sur place.
-    pub fn update(&mut self, dt: f64, hour: f64, me: [f64; 3], talking: Option<usize>) {
+    pub fn update(&mut self, dt: f64, hour: f64, me: [f64; 3], talking: Option<usize>, armed: bool) {
         for k in 0..self.folk.len() {
-            let f = self.folk[k].clone(); let (goal, at) = self.want(&f, k, hour); let dest = if goal.0 <= 1 { Some(f.house) } else { None };
-            let mut f = f;
+            let mut f = self.folk[k].clone(); let near = (f.p[0] - me[0]).hypot(f.p[2] - me[2]); f.greet_t -= dt; f.scared -= dt;
+            // Une arme tirée tout près : on recule et on rentre chez soi. Sinon, on salue celui qui passe.
+            if armed && near < 2.4 && f.scared <= 0.0 && talking != Some(k) { f.scared = 7.0; self.news.push(format!("{} recule : « Rangez cette arme ! »", f.name)); }
+            else if !armed && near < 3.0 && f.greet_t <= 0.0 && f.scared <= 0.0 && talking != Some(k) { f.greet_t = 150.0; self.news.push(format!("{} : « {} ! »", f.name, if hour >= 18.0 || hour < 5.0 { "Bonsoir" } else { "Bonjour" })); }
+            let (goal, at) = if f.scared > 0.0 { let Some(v) = self.village(f.v) else { continue }; ((5, 0), v.houses[f.house].inside) } else { self.want(&f, k, hour) };
+            let dest = if goal.0 <= 1 || goal.0 == 5 { Some(f.house) } else { None };
             if goal != f.goal { f.route = self.route(&f, at, dest); f.goal = goal; }
             if talking == Some(k) { f.moving = false; f.working = false; f.yaw = (me[0] - f.p[0]).atan2(me[2] - f.p[2]); self.folk[k] = f; continue; }
             f.working = false;
             if let Some(q) = f.route.first().copied() {
-                let (dx, dz) = (q[0] - f.p[0], q[2] - f.p[2]); let d = dx.hypot(dz); let step = 1.35 * dt;
+                let (dx, dz) = (q[0] - f.p[0], q[2] - f.p[2]); let d = dx.hypot(dz); let step = if f.scared > 0.0 { 2.6 } else { 1.35 } * dt;
                 if d <= step { f.p = q; f.route.remove(0); } else { f.p = [f.p[0] + dx / d * step, q[1], f.p[2] + dz / d * step]; f.yaw = dx.atan2(dz); }
                 f.moving = true; f.phase += dt * 7.0;
             } else {
                 f.moving = false;
                 if goal.0 == 1 { let Some(v) = self.village(f.v) else { continue }; let (bx, bz) = dir(v.houses[f.house].back); f.yaw = (bx as f64).atan2(bz as f64); f.working = true; f.phase += dt * 5.0; }
+                // Arrêté près du joueur, on se tourne vers lui.
+                if !f.working && near < 4.0 && f.scared <= 0.0 { f.yaw = (me[0] - f.p[0]).atan2(me[2] - f.p[2]); }
             }
             self.folk[k] = f;
         }
@@ -287,7 +302,7 @@ impl Town {
             for j in 0..count {
                 let pick = (hash_float(v.id.0 * 7 + i as i32, v.id.1, j as i32, 92) * FIRST.len() as f64) as usize % FIRST.len();
                 let look = if let Some(c) = h.craft { db().craftsmen.iter().position(|x| x.id == c).unwrap_or(0) as u8 } else { 6 + (hash_float(i as i32, j as i32, v.id.0, v.id.1) * 3.0) as u8 % 3 };
-                self.folk.push(Folk { v: v.id, house: i, craft: if j == 0 { h.craft } else { None }, name: FIRST[pick].to_string(), p: h.spot, yaw: 0.0, phase: n as f64, moving: false, working: false, route: Vec::new(), goal: (9, 0), look });
+                self.folk.push(Folk { v: v.id, house: i, craft: if j == 0 { h.craft } else { None }, name: FIRST[pick].to_string(), p: h.spot, yaw: 0.0, phase: n as f64, moving: false, working: false, route: Vec::new(), goal: (9, 0), look, scared: 0.0, greet_t: 0.0 });
                 n += 1;
             }
         }
@@ -345,9 +360,28 @@ impl Session {
                 self.notes.push(format!("Vous arrivez à {}", v.name)); self.discover(&v);
             } }
         }
-        let talking = self.town.talk.as_ref().map(|t| t.who);
-        self.town.update(dt, self.hour, me, talking);
+        let talking = self.town.talk.as_ref().map(|t| t.who); let armed = self.armed();
+        self.town.update(dt, self.hour, me, talking, armed); self.notes.append(&mut self.town.news); self.folk_doors(dt);
         if let Some(t) = &self.town.talk { if self.town.folk.get(t.who).is_none_or(|f| (f.p[0] - me[0]).hypot(f.p[2] - me[2]) > 6.0) { self.town.talk = None; } }
+    }
+    /// Une arme en main : épée, lance ou arc.
+    pub fn armed(&self) -> bool { self.inv[self.sel].is_some_and(|st| st.item == "bow" || def(st.item).and_then(|d| d.tool).is_some_and(|t| t.kind == "epee" || t.kind == "lance")) }
+    /// Les villageois ouvrent les portes devant eux et les referment derrière eux.
+    fn folk_doors(&mut self, dt: f64) {
+        use crate::player::Voxels; use crate::shapes::{info, Kind};
+        let mut open = Vec::new();
+        for f in &self.town.folk { if !f.moving { continue; } let Some(q) = f.route.first() else { continue }; let (dx, dz) = (q[0] - f.p[0], q[2] - f.p[2]); let d = dx.hypot(dz).max(1e-6);
+            for t in [0.0, 0.7] { let c = [(f.p[0] + dx / d * t).floor() as i32, f.p[1].floor() as i32, (f.p[2] + dz / d * t).floor() as i32]; if let Some(i) = self.world.get(c[0], c[1], c[2]).and_then(info).filter(|i| i.kind == Kind::Door) { if !i.open { open.push((c, i)); } else if let Some(e) = self.town.doors.iter_mut().find(|e| e.0 == c) { e.1 = 1.5; } } } }
+        for (c, i) in open { self.set_door(c, i, true); self.town.doors.retain(|e| e.0 != c); self.town.doors.push((c, 1.5)); }
+        let me = self.player.p; let mut close = Vec::new();
+        for e in self.town.doors.iter_mut() { e.1 -= dt; let busy = self.town.folk.iter().any(|f| (f.p[0] - e.0[0] as f64 - 0.5).hypot(f.p[2] - e.0[2] as f64 - 0.5) < 1.2) || (me[0] - e.0[0] as f64 - 0.5).hypot(me[2] - e.0[2] as f64 - 0.5) < 1.1; if busy { e.1 = e.1.max(0.5); } if e.1 <= 0.0 { close.push(e.0); } }
+        self.town.doors.retain(|e| e.1 > 0.0);
+        for c in close { if let Some(i) = self.world.get(c[0], c[1], c[2]).and_then(info).filter(|i| i.kind == Kind::Door && i.open) { self.set_door(c, i, false); } }
+    }
+    fn set_door(&mut self, c: [i32; 3], i: crate::shapes::Info, open: bool) {
+        use crate::player::Voxels; let low = if i.upper { [c[0], c[1] - 1, c[2]] } else { c }; let mut e = vec![(low[0], low[1], low[2], variant(i.base, i.facing, false, open, false))];
+        if self.world.get(low[0], low[1] + 1, low[2]).and_then(crate::shapes::info).is_some_and(|u| u.kind == crate::shapes::Kind::Door) { e.push((low[0], low[1] + 1, low[2], variant(i.base, i.facing, false, open, true))); }
+        self.world.edit_many(&e); self.sound.place("planks");
     }
     fn discover(&mut self, v: &Village) { if !self.town.known.contains(&v.id) { self.town.known.push(v.id); } self.town.atlas.insert(v.id, v.clone()); self.dirty = true; }
     /// Le villageois sous le réticule, à portée de voix et devant le bloc visé.
@@ -398,7 +432,12 @@ impl Session {
         let t = self.town.talk.as_ref()?; let f = self.town.folk.get(t.who)?; let v = self.town.village(f.v)?;
         let cm = f.craft.and_then(craftsman); let title = match cm { Some(c) => format!("{} · {}", f.name, c.name), None => format!("{} · villageois", f.name) };
         let sub = format!("{} · village de {} · réputation {}", v.name, kind_label(v.kind), self.rep(v.id)); let mut o: Vec<(String, bool)> = Vec::new();
+        if self.armed() { o.push(("Ranger mon arme".into(), true)); o.push(("Au revoir".into(), true)); return Some(Dialog { title, sub, said: "Rangez d'abord votre arme, je vous prie.".into(), options: o }); }
         match (t.page, cm) {
+            (Page::Trade, _) => {
+                for tr in trades(v.kind) { let have = self.creative || self.count(tr.give.0) >= tr.give.1; o.push((format!("Donner {} {} contre {} {}", tr.give.1, label(tr.give.0), tr.get.1, label(tr.get.0)), have)); }
+                o.push(("Retour".into(), true));
+            }
             (Page::Order(page), Some(c)) => {
                 let list = orders(c);
                 for i in list.iter().skip(page * 7).take(7) { let r = &db().recipes[*i]; let n = Self::order_needs(r); o.push((format!("{} x{} · {}", item(r.out).map_or(r.out, |x| x.label), r.n, Self::needs_text(&n)), self.has_all(&n) && self.price(c, 1).is_ok())); }
@@ -413,6 +452,7 @@ impl Session {
                     if s("reparation") { let st = self.inv[self.sel].filter(|st| st.wear > 0 && def(st.item).is_some_and(|d| d.tool.is_some() || d.wear.is_some())); o.push((match st { Some(st) => format!("Réparer {}", item(st.item).map_or(st.item, |x| x.label).to_lowercase()), None => "Réparer l'objet en main (rien à réparer)".into() }, st.is_some() && self.price(c, 1).is_ok())); }
                     if s("transmission") { let done = self.taught.contains(c.id); o.push((if done { "Technique déjà apprise".into() } else { format!("Apprendre la technique (réputation {TEACH_REP}, prix triple)") }, !done && (self.creative || self.rep(v.id) >= TEACH_REP) && self.price(c, 3).is_ok())); }
                 }
+                if cm.is_none() { o.push(("Échanger des marchandises".into(), !trades(v.kind).is_empty())); }
                 let food = self.inv[self.sel].filter(|st| crate::survival::food(st.item).is_some());
                 o.push((match food { Some(st) => format!("Offrir {}", item(st.item).map_or(st.item, |x| x.label).to_lowercase()), None => "Offrir de quoi manger (rien en main)".into() }, food.is_some()));
                 o.push(("Des nouvelles d'autres villages ?".into(), true));
@@ -428,7 +468,19 @@ impl Session {
         let Some(t) = self.town.talk.clone() else { return }; let f = self.town.folk[t.who].clone(); let cm = f.craft.and_then(craftsman); let vid = f.v;
         let say = |s: &mut Session, m: String| { if let Some(t) = s.town.talk.as_mut() { t.said = m; } };
         if !ok { if let Some(c) = cm { if let Err(e) = self.price(c, if label.starts_with("Apprendre") { 3 } else { 1 }) { say(self, format!("{e}, en paiement.")); return; } } say(self, "Je ne peux rien faire pour ça.".into()); return; }
+        if label.starts_with("Ranger mon arme") {
+            // On prend en main une case vide de la barre, sinon une case sans arme.
+            let calm = |s: &Session, i: usize| s.inv[i].is_none_or(|st| st.item != "bow" && def(st.item).and_then(|d| d.tool).is_none_or(|t| t.kind != "epee" && t.kind != "lance"));
+            if let Some(i) = (0..9).find(|i| self.inv[*i].is_none()).or((0..9).find(|i| calm(self, *i))) { self.sel = i; }
+            let m = if f.craft.is_some() { "Merci. Que puis-je pour vous ?" } else { "Merci, c'est mieux ainsi." }; say(self, m.into()); return;
+        }
+        if label.starts_with("Au revoir") { self.town.talk = None; return; }
         match t.page {
+            Page::Trade => {
+                let Some(v) = self.town.village(vid).cloned() else { return }; let list = trades(v.kind);
+                if let Some(tr) = list.get(i) { if !self.creative { self.take(tr.give.0, tr.give.1); } let left = self.add_item(tr.get.0, tr.get.1); if left > 0 { self.notes.push("Sac plein".into()); } self.seen.insert(tr.get.0); self.gain_rep(vid, 1); say(self, "Marché conclu !".into()); }
+                else if let Some(t) = self.town.talk.as_mut() { t.page = Page::Main; t.said = "Autre chose ?".into(); }
+            }
             Page::Order(page) => {
                 let Some(c) = cm else { return }; let list = orders(c); let shown: Vec<usize> = list.iter().skip(page * 7).take(7).copied().collect();
                 if i < shown.len() {
@@ -442,7 +494,8 @@ impl Session {
                 else if let Some(t) = self.town.talk.as_mut() { t.page = Page::Main; }
             }
             Page::Main => {
-                if label.starts_with("Passer commande") { if let Some(t) = self.town.talk.as_mut() { t.page = Page::Order(0); t.said = "Dites-moi ce qu'il vous faut. Fournissez la matière, je fournis le savoir-faire.".into(); } }
+                if label.starts_with("Échanger") { if let Some(t) = self.town.talk.as_mut() { t.page = Page::Trade; t.said = "Voyons ce que vous avez. Voilà ce que je peux vous donner.".into(); } }
+                else if label.starts_with("Passer commande") { if let Some(t) = self.town.talk.as_mut() { t.page = Page::Order(0); t.said = "Dites-moi ce qu'il vous faut. Fournissez la matière, je fournis le savoir-faire.".into(); } }
                 else if label.starts_with("Améliorer") {
                     let Some(c) = cm else { return }; let Some((ri, st)) = self.upgrade_of(c) else { return }; let r = db().recipes[ri].clone(); let needs = Self::upgrade_needs(&r);
                     if let Err(e) = self.pay(c, 1) { say(self, e); return; }

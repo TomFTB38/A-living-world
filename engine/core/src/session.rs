@@ -118,7 +118,7 @@ impl Session {
         if si.kind == Kind::Slab { if let Some(ti) = info(t.id) { if ti.kind == Kind::Slab && ti.base == si.base && ((!ti.top && t.py > t.y) || (ti.top && t.py < t.y)) { return full_of_slab(si.base).map(|b| vec![([t.x, t.y, t.z], b)]); } } }
         let [x, y, z] = Self::place_spot(t); let cur = self.world.get(x, y, z)?; if is_solid(cur) { return None; }
         let hit_y = self.eye[1] + self.look[1] * self.ray_t - t.y as f64;
-        let top = si.kind == Kind::Slab && (t.py < t.y || (t.py == t.y && hit_y > 0.5));
+        let top = matches!(si.kind, Kind::Slab | Kind::Stairs) && (t.py < t.y || (t.py == t.y && hit_y > 0.5)); // sous un plafond ou sur le haut d'un mur : dalle haute, escalier renversé
         let mut v = vec![([x, y, z], variant(si.base, face, top, false, false))];
         if si.kind == Kind::Door { let up = self.world.get(x, y + 1, z)?; if is_solid(up) || is_water(up) { return None; } v.push(([x, y + 1, z], variant(si.base, face, false, false, true))); }
         if v.iter().any(|(p, id)| self.blocks_player(*p, *id)) { return None; }
@@ -175,7 +175,7 @@ impl Session {
         if self.world.loaded() > 0 {
             self.fauna.update(dt, &self.world, self.player.p, (self.sun_height() * 3.0).max(0.0));
             for e in std::mem::take(&mut self.fauna.ev) { match e { Ev::Bird(p, v) => self.sound.bird(p, v), Ev::Wings(p) => self.sound.wings(p), Ev::Hoof(p, f) => self.sound.hoof(p, f), Ev::Alarm(p) => self.sound.deer_alarm(p), Ev::Call(p) => self.sound.deer_call(p) } }
-            let on = self.player.ground && !self.player.fly; self.wild.update(dt, &self.world, self.player.p, (self.sun_height() * 3.0).max(0.0), self.taiga, self.steppe, (1.0 - self.taiga - self.steppe - self.deep - self.desert).max(0.0) + 0.6 * self.highlands, on);
+            let on = self.player.ground && !self.player.fly; self.wild.update(dt, &self.world, self.player.p, (self.sun_height() * 3.0).max(0.0), self.taiga, self.steppe, (1.0 - self.taiga - self.steppe - self.deep - self.desert).max(0.0) + 0.6 * self.highlands, on, [self.deep, self.highlands, self.desert]);
             for e in std::mem::take(&mut self.wild.ev) { match e { crate::wild::Ev::Bite(p, n, cause) => { self.sound.fox_bark(p); let k = 1.0 - (self.worn().2 / 40.0).min(0.6); let n = self.block(p, n); if n > 0.0 { self.harm((n * k * crate::survival::PROFILES[self.profile].harm).round().max(1.0), cause, true); } }
                 crate::wild::Ev::Howl(p) => self.sound.fox_scream(p), crate::wild::Ev::Grunt(p) => self.sound.thump(p), crate::wild::Ev::Caw(p) => self.sound.caw(p), crate::wild::Ev::Bark(p) => self.sound.fox_bark(p), crate::wild::Ev::Scream(p) => self.sound.fox_scream(p), crate::wild::Ev::Thump(p) => self.sound.thump(p), crate::wild::Ev::Rustle(p) => self.sound.rustle(p) } }
         }
@@ -258,7 +258,7 @@ impl Session {
     pub fn draws(&self, md: &Models, view: &crate::view::M4) -> Vec<Draw> {
         let held = self.inv[self.sel].and_then(|s| md.held(s.item)); let p = &self.player;
         let roll = p.rolling().then_some((p.roll_t / crate::player::ROLL_TIME, p.roll_local));
-        let mut o = if self.third { self.anim.third(md, p.p, if p.speed > 0.2 && roll.is_none() { p.move_yaw } else { p.yaw }, p.pitch, held, roll) } else { self.anim.first(md, view, held) };
+        let mut o = if self.third { self.anim.third(md, p.p, if p.speed > 0.2 && roll.is_none() { p.move_yaw } else { p.yaw }, p.pitch, held, roll, self.equip.map(|e| e.map(|st| crate::actors::family(st.item)))) } else { self.anim.first(md, view, held) };
         o.extend(self.fauna.draws(md)); o.extend(self.wild.draws(md)); o.extend(self.town.draws(md));
         // Flèches en vol ou plantées, dans l'axe de leur trajectoire ; le bouchon de la ligne, qui plonge quand ça mord.
         for a in &self.arrows { let h = a.v[0].hypot(a.v[2]).max(1e-6); o.push(Draw { m: crate::view::trs(a.p[0], a.p[1], a.p[2], a.v[0].atan2(a.v[2]), -(a.v[1] / h).atan(), 1.0), r: md.part("arrow"), view: false, local: false, hero: false, dynamic: false }); }

@@ -74,3 +74,17 @@ fn racines_semees_et_sauvages() {
     // des racines sauvages poussent dans le monde
     let g = alw_core::gen::WorldGen::new(20261104); let mut n = 0; for cz in -6..6 { for cx in -6..6 { n += g.gen_chunk(cx, cz).iter().filter(|b| **b == B::CARROT_3 || **b == B::POTATO_3).count(); } } assert!(n > 3, "racines sauvages : {n}");
 }
+
+#[test]
+fn ours_bouquetin_et_lezard() {
+    // L'ours défend son coin : à quatre pas, il charge et frappe fort, de jour comme de nuit.
+    let (mut s, y) = site(); s.hour = 12.0; s.wild.put(Kind::Bear, [0.5, y as f64, 4.5], 3.14, false); for _ in 0..(4.0 / DT) as usize { s.tick(DT, none(), Actions::default()); s.wild.all.retain(|c| c.kind == Kind::Bear); }
+    assert!(s.vit[0] <= 88.0, "l'ours frappe : vie {}", s.vit[0]);
+    // Le bouquetin file dès qu'on l'approche ; le lézard détale au dernier moment.
+    let (mut s, y) = site(); s.hour = 12.0; s.wild.put(Kind::Ibex, [0.5, y as f64, 6.0], 0.0, false); idle(&mut s, 2.0);
+    let d = s.wild.all.iter().find(|c| c.kind == Kind::Ibex).map_or(99.0, |c| (c.p[0] - 0.5).hypot(c.p[2] - 0.5)); assert!(d > 8.0, "le bouquetin s'est éloigné : {d}");
+    let (mut s, y) = site(); s.hour = 12.0; s.wild.put(Kind::Lizard, [0.5, y as f64, 1.8], 0.0, false); s.inv[0] = Some(Stack::new("sword", None)); s.sel = 0;
+    look_at(&mut s, [0.5, y as f64 + 0.05, 1.8]); assert!(matches!(s.prey, Some(Prey::Wild(_))), "le lézard se vise");
+    s.tick(DT, none(), Actions { mine: true, ..Default::default() }); assert!(!s.wild.all.iter().any(|c| c.kind == Kind::Lizard), "un coup d'épée suffit"); assert_eq!(s.count("raw_meat"), 1);
+    assert!(alw_core::outdoors::wild_box(Kind::Bear).is_some() && !alw_core::outdoors::wild_loot(Kind::Bear).is_empty());
+}

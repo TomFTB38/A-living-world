@@ -44,6 +44,14 @@ Ouvrir `dist/index.html` dans Chrome, Edge ou Firefox, avec une carte graphique 
 
 **Construire.** Dalles de bois, de pierre taillée et de pavé (en haut ou en bas selon l'endroit visé ; deux font un bloc), escaliers (dans le sens du regard ; ils se montent sans sauter, comme les dalles), pentes de chaume pour les toits, porte sur deux blocs et trappe (clic droit pour ouvrir), échelle (on grimpe en avançant, on redescend accroupi), fenêtre à carreaux de verre (sable cuit au four), poteaux, colonnes et murs fins. R tourne d'un quart de tour avant de poser ; l'aperçu prend la forme exacte du bloc, vert si la pose est possible, rouge sinon. Les collisions suivent la géométrie dessinée (`engine/core/src/shapes.rs`, une seule source pour le dessin, les collisions et l'aperçu).
 
+**Villages.** Des bourgs générés selon le biome (prairie, taïga, steppe, désert, montagne, hautes terres), avec leurs artisans : commande, amélioration, réparation, transmission ; réputation, rumeurs, journal (J). Les villageois vivent leur journée, ouvrent les portes, saluent, reculent devant une arme tirée et échangent des marchandises (`echanges.txt`).
+
+**Carte.** Mini-carte en boussole en haut à droite, grande carte (M) qui se déplie sur ce qu'on a exploré.
+
+**Combat.** Clic pour frapper, tenu pour un coup lourd ; bouclier en main gauche, clic droit tenu pour la garde, parade au bon moment. Ours en forêt profonde et taïga, bouquetins dans les hauteurs, lézards au désert. Les habits et le bouclier se voient sur le personnage.
+
+**Parcours.** Écran titre, plusieurs mondes (dossier `mondes/`), profil choisi à la création, premiers pas guidés, commandes réglables (deux touches par action, ZQSD et WASD), sensibilité et champ de vision.
+
 **Les données.** Objets (201), recettes (120) et métiers sont dans `engine/core/data/` (`objets.txt`, `recettes.txt`, `artisans.txt`) : on ajoute une ligne, pas de code ; une erreur de saisie fait échouer les tests. Le livre de recettes (E) a ses catégories, une recherche, des favoris (clic droit) et ne montre que ce qu'on a découvert.
 
 **Le scénario de validation** du cahier des charges (ramasser, premier outil, abattre un arbre, établi, meilleure hache, abri, feu, eau, repas, coffre, rechargement à l'identique) est joué de bout en bout par `engine/core/tests/scenario.rs`, avec les vraies actions du joueur.

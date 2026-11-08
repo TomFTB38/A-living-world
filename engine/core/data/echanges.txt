@@ -1,0 +1,21 @@
+# A Living World — échanges avec les villageois (ceux qui ne tiennent pas d'atelier).
+# Une ligne par échange : type de village (ou « tous ») | ce que vous donnez | ce que vous recevez
+#   types : prairie, taiga, aride, desert, montagne, hautes_terres
+tous | berries 10 | bread 1
+tous | raw_meat 3 | bread 2
+tous | fur 2 | leather 2
+tous | coal 8 | iron_ingot 1
+tous | trout 3 | jerky 2
+prairie | wheat 8 | bread 3
+prairie | leather 2 | carrot 4
+prairie | iron_ingot 1 | seeds 6
+taiga | pine_nuts 6 | fur 1
+taiga | raw_hide 3 | jerky 3
+aride | rope 2 | dried_berries 4
+aride | copper_ingot 2 | tin_ingot 1
+desert | cactus 4 | rope 2
+desert | glass 2 | iron_ingot 1
+montagne | coal 6 | copper_ingot 2
+montagne | stew 1 | iron_ingot 1
+hautes_terres | heather 8 | rope 1
+hautes_terres | raw_hide 2 | leather 1

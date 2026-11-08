@@ -8,6 +8,9 @@ use std::sync::OnceLock;
 pub const OBJETS: &str = include_str!("../data/objets.txt");
 pub const RECETTES: &str = include_str!("../data/recettes.txt");
 pub const ARTISANS: &str = include_str!("../data/artisans.txt");
+pub const TRADES: &str = include_str!("../data/echanges.txt");
+/// Un échange proposé par les villageois d'un type de village (« tous » : partout).
+#[derive(Clone, Debug)] pub struct Trade { pub kind: &'static str, pub give: (&'static str, u32), pub get: (&'static str, u32) }
 /// Les types de villages, d'après les biomes.
 pub const VILLAGES: [&str; 6] = ["prairie", "taiga", "aride", "desert", "montagne", "hautes_terres"];
 
@@ -48,7 +51,7 @@ impl Station {
 #[derive(Clone, Debug)] pub struct Recipe { pub out: &'static str, pub n: u32, pub need: Vec<Need>, pub at: Station, pub cat: &'static str, pub artisan: Option<&'static str> }
 /// Un métier de village : le palier le plus haut qu'il maîtrise, les villages où il vit, ce qu'il propose.
 #[derive(Clone, Debug)] pub struct Craftsman { pub id: &'static str, pub name: &'static str, pub tier: u8, pub villages: Vec<&'static str>, pub services: Vec<&'static str>, pub price: Vec<(&'static str, u32)>, pub works: Vec<(Station, &'static str)> }
-pub struct Db { pub items: Vec<Def>, index: HashMap<&'static str, usize>, pub groups: Vec<(&'static str, &'static str, Vec<&'static str>)>, pub recipes: Vec<Recipe>, pub errors: Vec<String>, pub order: Vec<&'static str>, pub tabs: Vec<(&'static str, Vec<&'static str>)> , pub craftsmen: Vec<Craftsman>}
+pub struct Db { pub items: Vec<Def>, index: HashMap<&'static str, usize>, pub groups: Vec<(&'static str, &'static str, Vec<&'static str>)>, pub recipes: Vec<Recipe>, pub errors: Vec<String>, pub order: Vec<&'static str>, pub tabs: Vec<(&'static str, Vec<&'static str>)> , pub craftsmen: Vec<Craftsman>, pub trades: Vec<Trade> }
 /// Onglets du catalogue créatif : clé de catégorie et libellé court.
 pub const CATS: [(&str, &str); 10] = [("terrain", "Terrain"), ("roches", "Roches"), ("bois", "Bois"), ("plantes", "Plantes"), ("batir", "Bâtir"), ("ateliers", "Ateliers"), ("outils", "Outils"), ("matieres", "Matières"), ("vivres", "Vivres"), ("habits", "Habits")];
 
@@ -58,7 +61,7 @@ impl Db {
     pub fn members(&self, need: &str) -> Vec<&'static str> { self.groups.iter().find(|g| g.0 == need).map_or_else(|| self.get(need).map(|d| vec![d.id]).unwrap_or_default(), |g| g.2.clone()) }
     pub fn group_label(&self, need: &str) -> Option<&'static str> { self.groups.iter().find(|g| g.0 == need).map(|g| g.1) }
     fn parse() -> Db {
-        let mut db = Db { items: Vec::new(), index: HashMap::new(), groups: Vec::new(), recipes: Vec::new(), errors: Vec::new(), order: Vec::new(), tabs: Vec::new(), craftsmen: Vec::new() };
+        let mut db = Db { items: Vec::new(), index: HashMap::new(), groups: Vec::new(), recipes: Vec::new(), errors: Vec::new(), order: Vec::new(), tabs: Vec::new(), craftsmen: Vec::new(), trades: Vec::new() };
         let mut mats: Vec<Mat> = Vec::new();
         for (ln, line) in OBJETS.lines().enumerate() {
             let l = line.trim(); if l.is_empty() || l.starts_with('#') { continue; }
@@ -99,6 +102,11 @@ impl Db {
             for part in f[2].split(',') { let mut w = part.split_whitespace(); let (Some(id), Some(Ok(k))) = (w.next(), w.next().map(str::parse::<u32>)) else { db.errors.push(format!("recettes.txt:{} ingrédient « {} » illisible", ln + 1, part.trim())); continue }; let keep = id.starts_with('!'); need.push(Need { id: id.trim_start_matches('!'), n: k, keep }); }
             db.recipes.push(Recipe { out, n, need, at, cat: f[3], artisan });
         }
+        for (ln, line) in TRADES.lines().enumerate() {
+            let line = line.trim(); if line.is_empty() || line.starts_with('#') { continue; }
+            let f: Vec<&str> = line.split('|').map(str::trim).collect(); let pair = |t: &'static str| { let mut w = t.split_whitespace(); Some((w.next()?, w.next()?.parse::<u32>().ok()?)) };
+            match (f.len(), f.get(1).and_then(|t| pair(t)), f.get(2).and_then(|t| pair(t))) { (3, Some(give), Some(get)) => db.trades.push(Trade { kind: f[0], give, get }), _ => db.errors.push(format!("echanges.txt:{} illisible", ln + 1)) }
+        }
         for (ln, line) in ARTISANS.lines().enumerate() {
             let l = line.trim(); if l.is_empty() || l.starts_with('#') { continue; } let f: Vec<&'static str> = l.split('|').map(str::trim).collect();
             let Some(Ok(tier)) = f.get(2).map(|t| t.parse::<u8>()) else { db.errors.push(format!("artisans.txt:{} palier illisible", ln + 1)); continue };
@@ -110,6 +118,7 @@ impl Db {
             for v in f[3].split_whitespace() { if !VILLAGES.contains(&v) { db.errors.push(format!("artisans.txt:{} village « {v} » inconnu", ln + 1)); } }
             db.craftsmen.push(Craftsman { id: f[0], name: f[1], tier, villages: f[3].split_whitespace().collect(), services: f[4].split_whitespace().collect(), price, works });
         }
+        for t in &db.trades { for id in [t.give.0, t.get.0] { if !db.index.contains_key(id) { db.errors.push(format!("echanges.txt : objet « {id} » inconnu")); } } if t.kind != "tous" && !VILLAGES.contains(&t.kind) { db.errors.push(format!("echanges.txt : type de village « {} »", t.kind)); } }
         for c in &db.craftsmen { for (id, _) in &c.price { if !db.index.contains_key(id) { db.errors.push(format!("artisans.txt : prix de {} : objet « {id} » inconnu", c.id)); } } }
         for r in &db.recipes { if let Some(a) = r.artisan { if !db.craftsmen.iter().any(|c| c.id == a) { db.errors.push(format!("recette de {} : métier « {a} » inconnu", r.out)); } } }
         // Tout ce qu'une recette nomme doit exister.

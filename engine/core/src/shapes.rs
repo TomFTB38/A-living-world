@@ -5,7 +5,7 @@
 use crate::blocks::{by_name, BLOCKS};
 use std::sync::OnceLock;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)] pub enum Kind { Slab, Stairs, Door, Trapdoor, Ladder, Window, Pillar, Wall }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)] pub enum Kind { Slab, Stairs, Door, Trapdoor, Ladder, Window, Pillar, Wall, VSlab, Shutter }
 /// Ce qu'un bloc de forme est : sa famille, son sens (0 : +z, 1 : +x, 2 : -z, 3 : -x), moitié haute, ouvert, haut de porte,
 /// et la variante de base (l'objet posé), dont on dérive toutes les autres.
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Info { pub kind: Kind, pub facing: u8, pub top: bool, pub open: bool, pub upper: bool, pub base: u8 }
@@ -16,7 +16,9 @@ fn parse(name: &str) -> Option<Info> {
     let base = |n: &str| by_name(n).unwrap_or(0);
     if let Some(m) = name.strip_suffix("_slab_top") { return Some(Info { kind: Kind::Slab, facing: 0, top: true, open: false, upper: false, base: base(&format!("{m}_slab")) }); }
     if name.ends_with("_slab") { return Some(Info { kind: Kind::Slab, facing: 0, top: false, open: false, upper: false, base: base(name) }); }
-    if let Some(i) = name.find("_stairs") { let f = name[i + 7..].strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::Stairs, facing: f, top: false, open: false, upper: false, base: base(&name[..i + 7]) }); }
+    if let Some(i) = name.find("_stairs") { let rest = &name[i + 7..]; let top = rest.starts_with("_top"); let rest = rest.strip_prefix("_top").unwrap_or(rest); let f = rest.strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::Stairs, facing: f, top, open: false, upper: false, base: base(&name[..i + 7]) }); }
+    if let Some(i) = name.find("_vslab") { let f = name[i + 6..].strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::VSlab, facing: f, top: false, open: false, upper: false, base: base(&name[..i + 6]) }); }
+    if let Some(r) = name.strip_prefix("shutter") { let open = r.starts_with("_open"); let r = r.strip_prefix("_open").unwrap_or(r); let f = r.strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::Shutter, facing: f, top: false, open, upper: false, base: base("shutter") }); }
     if name == "door" || name.starts_with("door_") {
         let c: Vec<u8> = name.strip_prefix("door_").map_or(vec![0, 0, 0], |d| d.bytes().map(|b| b - b'0').collect());
         return Some(Info { kind: Kind::Door, facing: c[0], open: c[1] == 1, upper: c[2] == 1, top: false, base: base("door") });
@@ -44,7 +46,10 @@ pub fn geometry(i: Info) -> Vec<Bx> {
     match i.kind {
         Kind::Slab => vec![if i.top { [0.0, 0.5, 0.0, 1.0, 1.0, 1.0] } else { [0.0, 0.0, 0.0, 1.0, 0.5, 1.0] }],
         // Marche basse sur toute la surface, marche haute du côté où l'on monte (+z dans le sens de base).
-        Kind::Stairs => r(&[[0.0, 0.0, 0.0, 1.0, 0.5, 1.0], [0.0, 0.5, 0.5, 1.0, 1.0, 1.0]]),
+        Kind::Stairs => if i.top { r(&[[0.0, 0.5, 0.0, 1.0, 1.0, 1.0], [0.0, 0.0, 0.5, 1.0, 0.5, 1.0]]) } else { r(&[[0.0, 0.0, 0.0, 1.0, 0.5, 1.0], [0.0, 0.5, 0.5, 1.0, 1.0, 1.0]]) },
+        // Dalle verticale : la moitié du bloc du côté opposé à soi. Volet : un battant contre le mur du fond, qui s'ouvre contre le côté.
+        Kind::VSlab => r(&[[0.0, 0.0, 0.5, 1.0, 1.0, 1.0]]),
+        Kind::Shutter => r(&[if i.open { [1.0 - PANEL, 0.0, 0.0, 1.0, 1.0, 1.0] } else { [0.0, 0.0, 1.0 - PANEL, 1.0, 1.0, 1.0] }]),
         // Porte fermée : un battant contre le bord proche ; ouverte, il pivote contre le côté.
         Kind::Door => r(&[if i.open { [0.0, 0.0, 0.0, PANEL, 1.0, 1.0] } else { [0.0, 0.0, 0.0, 1.0, 1.0, PANEL] }]),
         Kind::Trapdoor => if i.open { r(&[[0.0, 0.0, 1.0 - PANEL, 1.0, 1.0, 1.0]]) } else { vec![[0.0, 0.0, 0.0, 1.0, PANEL, 1.0]] },
@@ -65,7 +70,9 @@ pub fn variant(base: u8, facing: u8, top: bool, open: bool, upper: bool) -> u8 {
     let n = BLOCKS[base as usize].name; let f = facing % 4; let sfx = |f: u8| if f == 0 { String::new() } else { format!("_{f}") };
     let name = match info(base).map(|i| i.kind) {
         Some(Kind::Slab) => if top { format!("{n}_top") } else { n.to_string() },
-        Some(Kind::Stairs) => format!("{n}{}", sfx(f)),
+        Some(Kind::Stairs) => format!("{n}{}{}", if top { "_top" } else { "" }, sfx(f)),
+        Some(Kind::VSlab) => format!("{n}{}", sfx(f)),
+        Some(Kind::Shutter) => format!("shutter{}{}", if open { "_open" } else { "" }, sfx(f)),
         Some(Kind::Door) => if (f, open, upper) == (0, false, false) { "door".into() } else { format!("door_{f}{}{}", open as u8, upper as u8) },
         Some(Kind::Trapdoor) => if open { format!("trapdoor_open{}", sfx(f)) } else { "trapdoor".into() },
         Some(Kind::Ladder) => format!("ladder{}", sfx(f)),

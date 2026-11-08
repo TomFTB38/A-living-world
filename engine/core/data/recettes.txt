@@ -160,3 +160,8 @@ stew 1 | feu | raw_meat 1, carrot 1, potato 1 | vivres
 wooden_shield 1 | etabli | plank 5, leather 1, fiber 2 | habits
 iron_shield 1 | enclume | iron_ingot 3, plank 3, leather 1, !hammer 1 | habits
 steel_shield 1 | enclume | steel_ingot 3, leather 2, !hammer 1 | habits | artisan=armurier
+# Dalles verticales (une dalle se redresse), volets
+planks_vslab 1 | main | planks_slab 1 | batir
+stone_bricks_vslab 1 | main | stone_bricks_slab 1 | batir
+cobblestone_vslab 1 | main | cobblestone_slab 1 | batir
+shutter 2 | etabli | plank 3, stick 2 | batir

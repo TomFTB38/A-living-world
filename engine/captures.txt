@@ -1,3 +1,3 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
 spawn jeu creatif
-titre combat craft
+tenue construction village
