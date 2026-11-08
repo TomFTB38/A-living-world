@@ -102,11 +102,13 @@ impl Session {
     pub fn station_ok(st: &[bool; 6], at: Station) -> bool { st[Station::ALL.iter().position(|s| *s == at).unwrap_or(0)] }
     /// Une recette est connue dès qu'on a eu en main l'un de ses ingrédients ou ce qu'elle produit.
     pub fn known(&self, r: &Recipe) -> bool { self.creative || self.seen.contains(r.out) || r.need.iter().any(|n| members(n.id).iter().any(|m| self.seen.contains(m))) }
-    pub fn can_craft(&self, r: &Recipe, st: &[bool; 6]) -> bool { Self::station_ok(st, r.at) && r.need.iter().all(|n| self.count(n.id) >= n.n) }
+    pub fn can_craft(&self, r: &Recipe, st: &[bool; 6]) -> bool { r.artisan.is_none_or(|a| self.creative || self.taught.contains(a)) && Self::station_ok(st, r.at) && r.need.iter().all(|n| self.count(n.id) >= n.n) }
     /// Fabrique la recette `i` une fois. L'erreur dit ce qui manque.
     pub fn craft(&mut self, i: usize) -> Result<(), &'static str> {
         let r = recipes().get(i).ok_or("Recette inconnue")?.clone(); let st = self.stations();
         if !Self::station_ok(&st, r.at) { return Err(match r.at { Station::Bench => "Il faut un établi à portée", Station::Fire => "Il faut un feu de camp allumé à portée", Station::Furnace => "Il faut un four à portée", Station::Anvil => "Il faut une enclume à portée", Station::Mason => "Il faut un banc de taille à portée", Station::Hand => "" }); }
+        // Au-delà du fer : un artisan de village doit avoir enseigné la technique.
+        if let Some(a) = r.artisan { if !self.creative && !self.taught.contains(a) { return Err("Demande un artisan de village"); } }
         if !r.need.iter().all(|n| self.count(n.id) >= n.n) { return Err("Il manque des ingrédients"); }
         let before = self.inv; for n in r.need.iter().filter(|n| !n.keep) { self.take(n.id, n.n); }
         if self.add_item(r.out, r.n) > 0 { self.inv = before; return Err("L'inventaire est plein"); }
@@ -285,6 +287,8 @@ impl Session {
     }
     /// Fermer le coffre (ou l'inventaire).
     pub fn close_chest(&mut self) { self.chest = None; }
+    /// Un artisan transmet sa technique : ses recettes deviennent faisables (aux ateliers voulus). Pour les villages.
+    pub fn learn(&mut self, craftsman: &str) -> bool { match crate::data::db().craftsmen.iter().find(|c| c.id == craftsman) { Some(c) if c.services.contains(&"transmission") => { self.taught.insert(c.id); self.dirty = true; true } _ => false } }
 
     // ------------------------------------------------------------------ sommeil
     /// Dormir jusqu'au matin : la fatigue tombe selon la qualité du lieu (lit, abri, chaleur), on guérit, le temps passe ; on réapparaîtra ici.
@@ -432,6 +436,7 @@ impl Session {
         s += &format!("spawn {} {} {}\nhours {}\n", self.spawn[0], self.spawn[1], self.spawn[2], self.hours);
         if let Some(b) = self.bed { s += &format!("bed {} {} {}\n", b[0], b[1], b[2]); }
         let mut seen: Vec<&str> = self.seen.iter().copied().collect(); seen.sort(); s += &format!("seen {}\n", seen.join(" "));
+        let mut taught: Vec<&str> = self.taught.iter().copied().collect(); taught.sort(); if !taught.is_empty() { s += &format!("taught {}\n", taught.join(" ")); }
         let mut fav: Vec<&str> = self.fav.iter().copied().collect(); fav.sort(); if !fav.is_empty() { s += &format!("fav {}\n", fav.join(" ")); }
         for (p, at) in &self.regrow { s += &format!("regrow {} {} {} {}\n", p[0], p[1], p[2], at); }
         for (p, at) in &self.crops { s += &format!("crop {} {} {} {}\n", p[0], p[1], p[2], at); }
@@ -462,6 +467,7 @@ impl Session {
                 Some("hours") => self.hours = num(a.next())?,
                 Some("bed") => self.bed = Some([num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]),
                 Some("seen") => { for id in a { if let Some(d) = def(id) { self.seen.insert(d.id); } } }
+                Some("taught") => { for id in a.by_ref() { if let Some(c) = crate::data::db().craftsmen.iter().find(|c| c.id == id) { self.taught.insert(c.id); } } }
                 Some("fav") => { for id in a { if let Some(d) = def(id) { self.fav.insert(d.id); } } }
                 Some("regrow") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; self.regrow.push((p, num(a.next())?)); }
                 Some("crop") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; self.crops.push((p, num(a.next())?)); }

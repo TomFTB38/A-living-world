@@ -1,0 +1,11 @@
+# A Living World — métiers des villages.
+# Jusqu'au fer, tout se fabrique seul. Au-delà (palier 4 et 5), il faut un artisan : il réalise une commande avec vos
+# matériaux, améliore un objet, ou vous transmet une technique. Les recettes qui le demandent portent « artisan=<métier> ».
+# Une ligne par métier : identifiant | nom | palier le plus haut qu'il maîtrise | villages où on le trouve | services
+#   villages : prairie, taiga, aride, desert, montagne, hautes_terres ; services : commande, amelioration, transmission, reparation
+forgeron | Forgeron | 4 | montagne hautes_terres prairie taiga | commande amelioration reparation transmission
+maitre_forgeron | Maître forgeron | 5 | montagne hautes_terres | commande amelioration transmission
+armurier | Armurier | 4 | montagne prairie hautes_terres | commande amelioration reparation
+maitre_menuisier | Maître menuisier | 4 | taiga prairie | commande transmission
+tailleur_pierre | Tailleur de pierre | 4 | montagne aride hautes_terres | commande transmission
+tanneur | Tanneur et couturier | 4 | taiga aride desert prairie | commande amelioration transmission

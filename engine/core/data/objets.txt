@@ -13,6 +13,9 @@ matiere silex 1 2.2 150 1.1
 matiere cuivre 2 2.4 220 1.15
 matiere bronze 3 2.8 380 1.3
 matiere fer 4 3.2 650 1.45
+# Au-delà du fer : seulement par un artisan de village (voir artisans.txt).
+matiere acier 5 3.8 1200 1.7
+matiere maitre 6 4.4 2200 2.0
 
 # --- Outils ---
 stone_knife | Couteau en pierre | outils | 0.3 | 1 | Coupe l'herbe (toujours de la fibre) et dépèce le gibier. | outil=couteau mat=pierre
@@ -203,3 +206,13 @@ glowcap_cyan | Champignon lumineux turquoise | plantes | 0.05 | 64 | |
 pinecone | Pomme de pin | plantes | 0.1 | 64 | Ses pignons se grillent au feu. | combustible=6
 shelf_fungus | Polypore | plantes | 0.1 | 64 | |
 lily_pad | Nénuphar | plantes | 0.05 | 64 | |
+
+# --- Palier 4 et 5 : l'acier et les pièces de maître, faits par les artisans des villages ---
+steel_ingot | Lingot d'acier | matieres | 1.0 | 64 | Du fer affiné au charbon par un forgeron : plus dur, plus souple. |
+steel_pickaxe | Pioche en acier | outils | 1.8 | 1 | Forgée par un forgeron : extrait les roches les plus résistantes. | outil=pioche mat=acier
+steel_axe | Hache en acier | outils | 1.7 | 1 | Forgée par un forgeron : un fil qui ne s'émousse presque pas. | outil=hache mat=acier
+steel_sword | Épée en acier | outils | 1.9 | 1 | L'arme d'un forgeron confirmé. | outil=epee mat=acier
+steel_chestplate | Cuirasse en acier | habits | 6.0 | 1 | Ajustée par un armurier : protège mieux que le fer, pèse moins. | porte=torse chaud=-1 armure=16
+master_pickaxe | Pioche de maître | outils | 1.7 | 1 | Une pièce d'exception, équilibrée par un maître forgeron. | outil=pioche mat=maitre
+master_axe | Hache de maître | outils | 1.6 | 1 | Une pièce d'exception, équilibrée par un maître forgeron. | outil=hache mat=maitre
+lined_fur_coat | Manteau de fourrure doublé | habits | 3.0 | 1 | Cousu par un tanneur : tient chaud par grand froid. | porte=torse chaud=9

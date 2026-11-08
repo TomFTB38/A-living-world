@@ -164,3 +164,18 @@ fn durete_outils_de_pierre_fibre() {
     // frapper dans le vide fatigue
     s.player.fly = true; s.player.p[1] += 30.0; s.player.pitch = 0.6; s.stamina = 100.0; for _ in 0..30 { s.tick(DT, none(), Actions { mine: true, place: false }); } assert!(s.target.is_none() && s.stamina < 100.0, "coups dans le vide : {}", s.stamina);
 }
+
+#[test]
+fn artisans_au_dela_du_fer() {
+    let db = alw_core::data::db(); assert!(db.errors.is_empty(), "{:#?}", db.errors);
+    assert!(db.craftsmen.len() >= 6); assert!(db.craftsmen.iter().all(|c| !c.villages.is_empty()), "chaque métier vit quelque part");
+    // jusqu'au fer, tout se fait seul ; au-delà, chaque recette demande un artisan, et au moins deux villages l'abritent
+    for r in recipes() { let tier = alw_core::data::def(r.out).and_then(|d| d.tool).map_or(0, |t| t.mat.tier); if tier >= 5 { assert!(r.artisan.is_some(), "{} sans artisan", r.out); } if tier > 0 && tier <= 4 { assert!(r.artisan.is_none(), "{} devrait se faire seul", r.out); } }
+    for c in &db.craftsmen { assert!(c.villages.len() >= 2, "{} : plusieurs villages, jamais un seul", c.id); }
+    let mut s = session(); s.inv = [None; INV_SIZE]; s.add_item("steel_ingot", 3); s.add_item("stick", 2); s.add_item("stone_hammer", 1);
+    let p = s.player.p; let (x, z) = (p[0].floor() as i32 + 2, p[2].floor() as i32); let y = ground_y(&s, x as f64, z as f64) as i32; s.world.edit(x, y, z, B::ANVIL);
+    let i = recipes().iter().position(|r| r.out == "steel_pickaxe").unwrap(); assert_eq!(s.craft(i), Err("Demande un artisan de village"));
+    assert!(!s.learn("maitre_forgeron_inconnu")); assert!(s.learn("forgeron")); s.craft(i).unwrap(); assert_eq!(s.count("steel_pickaxe"), 1);
+    let mut o = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, dry()); o.load_text(&s.save_text()).unwrap(); assert!(o.taught.contains("forgeron"), "la technique apprise est gardée");
+    assert!(!s.learn("armurier"), "l'armurier ne transmet pas : il faut passer commande");
+}

@@ -13,6 +13,9 @@ fn metal(m: &str) -> [C; 4] {
         "cuivre" => [[0.46, 0.22, 0.11], [0.7, 0.37, 0.19], [0.87, 0.54, 0.31], [0.98, 0.78, 0.55]],
         "bronze" => [[0.42, 0.3, 0.11], [0.64, 0.48, 0.2], [0.81, 0.65, 0.33], [0.95, 0.86, 0.55]],
         "fer" => [[0.4, 0.39, 0.38], [0.62, 0.61, 0.6], [0.84, 0.83, 0.82], [1.0, 0.99, 0.97]],
+        // Acier : bleuté et plus sombre que le fer ; pièce de maître : acier damassé, reflets chauds.
+        "acier" => [[0.24, 0.27, 0.32], [0.42, 0.46, 0.53], [0.64, 0.69, 0.76], [0.9, 0.94, 1.0]],
+        "maitre" => [[0.2, 0.2, 0.24], [0.4, 0.38, 0.44], [0.66, 0.6, 0.56], [0.98, 0.9, 0.7]],
         _ => [[0.33, 0.32, 0.31], [0.46, 0.45, 0.43], [0.6, 0.59, 0.56], [0.72, 0.7, 0.66]],
     }
 }
@@ -60,12 +63,12 @@ pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
     if let Some(t) = d.tool { return tool(t.kind, &metal(t.mat.name), x, y); }
     if let Some(w) = d.wear {
         let slot = match w.slot { crate::data::Slot::Head => "tete", crate::data::Slot::Torso => "torse", crate::data::Slot::Legs => "jambes", crate::data::Slot::Feet => "pieds", crate::data::Slot::Back => "dos" };
-        let (a, b): (C, C) = if name.starts_with("fur") { ([0.62, 0.48, 0.32], [0.78, 0.66, 0.5]) } else if name.starts_with("leather") || name == "backpack" { ([0.44, 0.27, 0.13], [0.56, 0.36, 0.19]) } else if name.starts_with("iron") { ([0.5, 0.5, 0.52], [0.7, 0.7, 0.72]) } else if name == "straw_hat" { ([0.78, 0.66, 0.36], [0.66, 0.54, 0.28]) } else { ([0.58, 0.56, 0.32], [0.46, 0.46, 0.24]) };
+        let (a, b): (C, C) = if name.starts_with("fur") { ([0.62, 0.48, 0.32], [0.78, 0.66, 0.5]) } else if name.starts_with("leather") || name == "backpack" { ([0.44, 0.27, 0.13], [0.56, 0.36, 0.19]) } else if name.starts_with("steel") { ([0.32, 0.36, 0.42], [0.52, 0.57, 0.64]) } else if name.starts_with("iron") { ([0.5, 0.5, 0.52], [0.7, 0.7, 0.72]) } else if name == "straw_hat" { ([0.78, 0.66, 0.36], [0.66, 0.54, 0.28]) } else { ([0.58, 0.56, 0.32], [0.46, 0.46, 0.24]) };
         return garment(slot, a, b, x, y);
     }
     let (s, p) = ((x + y) * R2, (y - x) * R2);
     match name {
-        "copper_ingot" | "tin_ingot" | "bronze_ingot" | "iron_ingot" => { let h = metal(match name { "copper_ingot" => "cuivre", "bronze_ingot" => "bronze", "iron_ingot" => "fer", _ => "fer" }); let h = if name == "tin_ingot" { [[0.5, 0.52, 0.55], [0.68, 0.7, 0.73], [0.82, 0.84, 0.86], [0.95, 0.96, 0.97]] } else { h };
+        "copper_ingot" | "tin_ingot" | "bronze_ingot" | "iron_ingot" | "steel_ingot" => { let h = metal(match name { "copper_ingot" => "cuivre", "bronze_ingot" => "bronze", "iron_ingot" => "fer", "steel_ingot" => "acier", _ => "fer" }); let h = if name == "tin_ingot" { [[0.5, 0.52, 0.55], [0.68, 0.7, 0.73], [0.82, 0.84, 0.86], [0.95, 0.96, 0.97]] } else { h };
             let top = y > 0.38 && y < 0.5 && x > 0.24 && x < 0.76; let side = y >= 0.5 && y < 0.66 && x > 0.18 && x < 0.82; if top { return Some((h[3], FAT)); } if side { return Some((h[1 + ((x * 6.0) as usize & 1)], FAT)); } None }
         "coal" | "charcoal" | "flint" => { let (a, b, c): (C, C, C) = match name { "coal" => ([0.07, 0.07, 0.08], [0.16, 0.16, 0.18], [0.3, 0.3, 0.33]), "charcoal" => ([0.1, 0.08, 0.07], [0.2, 0.17, 0.15], [0.32, 0.27, 0.22]), _ => ([0.16, 0.18, 0.22], [0.28, 0.3, 0.35], [0.5, 0.52, 0.58]) };
             let r = disc(x, y, 0.5, 0.52, 0.3 + 0.03 * (y * 13.0).sin(), 0.24 + 0.03 * (x * 11.0).cos()); if r < 1.0 { return Some((if x + y < 0.85 && r > 0.4 { c } else if r < 0.5 { b } else { a }, FAT)); } None }

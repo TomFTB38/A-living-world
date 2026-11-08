@@ -159,9 +159,11 @@ impl Ui {
                 y += 4.0 * k;
                 for n in &rc.need { let have = s.count(n.id); let label = group_label(n.id).or(item(n.id).map(|i| i.label)).unwrap_or(n.id); let t = if n.keep { format!("{label} (outil, conservé)") } else { format!("{} {label}  ·  {have}", n.n) }; self.text(&t, xb, y, 14.5 * k, if have >= n.n { DIM } else { BAD }); y += 19.0 * k; }
                 let here = Session::station_ok(&st6, rc.at); self.text(rc.at.label(), xb, y, 14.5 * k, if here || rc.at == Station::Hand { DIM } else { BAD });
+                // Au-delà du fer : le métier qui sait le faire, et où le trouver.
+                if let Some(a) = rc.artisan { if let Some(c) = alw_core::data::db().craftsmen.iter().find(|c| c.id == a) { y += 19.0 * k; let got = s.creative || s.taught.contains(a); let t = if got { format!("Technique apprise auprès d'un {}", c.name.to_lowercase()) } else { format!("Demande un {} : villages de {}", c.name.to_lowercase(), c.villages.iter().map(|v| v.replace('_', " ")).collect::<Vec<_>>().join(", ")) }; for line in wrap(&t, 14.0 * k, bw) { self.text(&line, xb, y, 14.0 * k, if got { DIM } else { BAD }); y += 18.0 * k; } } }
                 for (hit, r) in l.iter().filter(|x| matches!(x.0, Hit::Craft(_))) { let on = hover == Some(*hit); self.panel(*r, k, if ok { if on { [0.4, 0.58, 0.3, 1.0] } else { [0.28, 0.4, 0.22, 1.0] } } else { [0.12, 0.13, 0.12, 1.0] }); self.centered(if *hit == Hit::Craft(false) { "Fabriquer" } else { "Tout" }, *r, 16.0 * k, if ok { INK } else { DIM }); }
             } else { self.text("Choisissez une recette.", xb, y, 14.5 * k, DIM); y += 20.0 * k; for t in wrap("Clic droit : favori. Les recettes apparaissent dès qu'on a eu en main l'un de leurs ingrédients.", 14.0 * k, bw) { self.text(&t, xb, y, 14.0 * k, DIM); y += 18.0 * k; } }
-            if let Some(Hit::Book(ri)) = hover { let rc = &recipes()[ri]; tip = vec![(item(rc.out).map_or(rc.out, |i| i.label).to_string(), INK), (if s.can_craft(rc, &st6) { "Clic : choisir  ·  double clic : fabriquer  ·  clic droit : favori" } else { "Il manque quelque chose : voir le détail" }.to_string(), DIM)]; }
+            if let Some(Hit::Book(ri)) = hover { let rc = &recipes()[ri]; tip = vec![(item(rc.out).map_or(rc.out, |i| i.label).to_string(), INK), (if s.can_craft(rc, &st6) { "Clic : choisir  ·  clic droit : favori" } else { "Il manque quelque chose : voir le détail" }.to_string(), DIM)]; }
         }
         for (hit, r) in &l {
             let on = hover == Some(*hit);

@@ -120,3 +120,13 @@ iron_hammer 1 | enclume | iron_ingot 2, stick 1, !hammer 1 | outils
 sword 1 | enclume | iron_ingot 3, stick 1, leather 1, !hammer 1 | outils
 iron_helmet 1 | enclume | iron_ingot 4, leather 1, !hammer 1 | habits
 iron_chestplate 1 | enclume | iron_ingot 7, leather 2, !hammer 1 | habits
+
+# --- Chez les artisans des villages (palier 4 et 5) : le cinquième champ nomme le métier ---
+steel_ingot 1 | enclume | iron_ingot 2, fuel 2 | matieres | artisan=forgeron
+steel_pickaxe 1 | enclume | steel_ingot 3, stick 2, !hammer 1 | outils | artisan=forgeron
+steel_axe 1 | enclume | steel_ingot 3, stick 2, !hammer 1 | outils | artisan=forgeron
+steel_sword 1 | enclume | steel_ingot 3, stick 1, leather 1, !hammer 1 | outils | artisan=forgeron
+steel_chestplate 1 | enclume | steel_ingot 6, leather 2, !hammer 1 | habits | artisan=armurier
+master_pickaxe 1 | enclume | steel_ingot 4, stick 2, leather 1 | outils | artisan=maitre_forgeron
+master_axe 1 | enclume | steel_ingot 4, stick 2, leather 1 | outils | artisan=maitre_forgeron
+lined_fur_coat 1 | etabli | fur 6, leather 2, rope 2 | habits | artisan=tanneur

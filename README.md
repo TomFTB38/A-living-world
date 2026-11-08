@@ -32,11 +32,15 @@ Ouvrir `dist/index.html` dans Chrome, Edge ou Firefox, avec une carte graphique 
 
 ## Survie (moteur final)
 
-On commence les mains vides. Au sol traînent des branches et des cailloux, qui se ramassent d'un clic droit (une branche, un bâton ; un caillou, un caillou) ; l'herbe arrachée donne parfois de la fibre et des graines (toujours de la fibre au couteau). Branches, cailloux et fibre font, à la main, le couteau, la hache et la pioche de pierre ; la hache donne le bois, le bois les planches et l'établi, où se font les outils d'acier.
-Les blocs résistent : la terre cède en deux secondes, le bois en sept à mains nues, la pierre en trois à la pioche de pierre et ne donne rien sans pioche. Des fissures montrent où en est le bloc. Les myrtilliers et les sorbiers se cueillent d'un clic droit et retrouvent leurs baies deux jours plus tard.
-Quatre jauges : vie, faim, soif, endurance, et le souffle sous l'eau. Courir, sauter, rouler et chaque coup (dans le vide, un bloc ou un animal) coûtent de l'endurance ; à bout de souffle, on marche et on frappe moins fort. La faim et la soif baissent avec l'effort (la soif deux fois plus vite au désert) ; à zéro, elles blessent. Bien nourri, on guérit.
-Ce qui blesse : les chutes de plus de trois blocs et demi, la noyade, les épines de cactus, les flammes, la faim, la soif, la ruade d'un cerf. À la mort, tout l'inventaire reste dans un sac, là où l'on est tombé ; on réapparaît au point de départ et on le reprend en marchant dessus.
-On chasse cerfs, renards et lièvres (viande crue, cuir) et on boit dans l'eau visée. La viande crue rend malade : elle se cuit près d'un feu de camp. Les recettes sont dans `engine/core/src/survival.rs`.
+**Le cycle.** On part sans rien. Branches et cailloux se ramassent d'un clic droit, l'herbe donne de la fibre, le gravier du silex. À la main : couteau, hache, pioche, pelle, marteau et lance de pierre, corde, torche, bandage, feu de camp, sac de couchage. La hache abat l'arbre (les rondins vont dans le sac), le bois donne les planches et l'établi ; à l'établi, outils de silex, coffre, lit, gourde ; puis four (lingots de cuivre, d'étain, de bronze, de fer), enclume (outils et armures de métal) et banc de taille (pierre taillée). Jusqu'au fer, tout se fait seul ; l'acier et les pièces de maître demandent un artisan de village (forgeron, armurier, tanneur…), qui peut transmettre sa technique.
+
+**Le corps.** Vie, faim, soif, endurance, chaleur ressentie (biome, altitude, heure, météo, vêtements, feu, abri, eau) et fatigue. Pas de jauges : six icônes (cœur, estomac, goutte, poumons, thermomètre, œil) remplies exactement à la valeur du besoin, qui apparaissent quand il change et restent quand il devient dangereux ; Alt les montre toutes. Mode immersif, dynamique ou permanent, animations réduites : menu Échap. Dormir (lit, sac de couchage) fait passer la nuit, soigne et fixe le point de réapparition.
+
+**Le reste.** Usure des outils, charge portée (surchargé, on ralentit), vêtements et armures sur cinq emplacements, coffres de 27 cases, feux qui consomment leur combustible, eau à faire bouillir, cultures de blé, chasse (le couteau dépèce mieux), mort avec dépouille qui garde tout pendant plusieurs jours de jeu. Trois profils : Exploration, Survie standard, Survie exigeante.
+
+**Les données.** Objets (176), recettes (99) et métiers sont dans `engine/core/data/` (`objets.txt`, `recettes.txt`, `artisans.txt`) : on ajoute une ligne, pas de code ; une erreur de saisie fait échouer les tests. Le livre de recettes (E) a ses catégories, une recherche, des favoris (clic droit) et ne montre que ce qu'on a découvert.
+
+**Le scénario de validation** du cahier des charges (ramasser, premier outil, abattre un arbre, établi, meilleure hache, abri, feu, eau, repas, coffre, rechargement à l'identique) est joué de bout en bout par `engine/core/tests/scenario.rs`, avec les vraies actions du joueur.
 
 ## Développer
 
