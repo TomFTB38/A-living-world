@@ -28,7 +28,7 @@ fn spawn_point(seed: i32) -> [f64; 3] {
 }
 fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &hud::Menu, info: &[String]) -> usize {
     let (proj, vm) = (view::perspective(menu.fov(), w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
-    let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let mut draws = s.draws(md, &vm); if menu.title.is_some() { draws.retain(|d| !d.view); } // pas de main tendue derrière l'écran titre let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
+    let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let mut draws = s.draws(md, &vm); if menu.title.is_some() { draws.retain(|d| !d.view); } /* pas de main tendue derrière l'écran titre */ let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
     gpu.lights = s.lights(s.eye, gpu::LIGHTS);
     let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); let night = sky.night.clamp(0.0, 1.0); // la nuit, la direction est celle de la lune : elle ne dit pas l'heure env.flies = s.deep as f32 * (0.55 + 0.9 * night);
     // Taïga : ciel froid, soleil pâle, neige qui tombe à la place de la pluie.
