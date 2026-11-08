@@ -324,7 +324,7 @@ impl Anim {
         if let Some(f) = shield {
             // Au repos, le bord du bouclier en bas à gauche ; en garde, il remonte au milieu et couvre une part de la vue.
             let g = self.guard; let lerp = |a: f64, b: f64| a + (b - a) * g;
-            let m = mul(&v, &trs(lerp(0.36, 0.2) + bx_ * 0.6, lerp(-0.42, -0.2) + by, lerp(0.48, 0.58), lerp(-0.5, -0.18), lerp(0.35, 0.08), 1.0));
+            let m = mul(&v, &trs(lerp(0.36, 0.27) + bx_ * 0.6, lerp(-0.42, -0.24) + by, lerp(0.48, 0.68), lerp(-0.5, -0.32), lerp(0.35, 0.1), 0.92));
             out.push(Draw { m, r: md.parts[format!("wear_fpshield_{f}").as_str()], view: true, local: false, hero: true, dynamic: false });
         }
         out
