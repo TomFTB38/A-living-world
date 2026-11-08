@@ -26,3 +26,4 @@ pub mod outdoors;
 pub mod data;
 pub mod play;
 pub mod icons;
+pub mod village;

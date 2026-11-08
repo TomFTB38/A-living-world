@@ -81,7 +81,7 @@ impl Session {
     }
     /// Combien d'un ingrédient (ou d'un groupe : bois, pierre…) dans le sac.
     pub fn count(&self, need: &str) -> u32 { let m = members(need); self.inv.iter().flatten().filter(|s| m.contains(&s.item)).map(|s| s.n.unwrap_or(1)).sum() }
-    fn take(&mut self, need: &str, mut k: u32) {
+    pub(crate) fn take(&mut self, need: &str, mut k: u32) {
         let m = members(need);
         for s in self.inv.iter_mut() { if k == 0 { break; } let Some(st) = *s else { continue }; if !m.contains(&st.item) { continue; }
             let n = st.n.unwrap_or(1); let used = n.min(k); k -= used; *s = if n == used { None } else { Some(Stack { n: Some(n - used), ..st }) }; }
@@ -217,6 +217,7 @@ impl Session {
     /// labourer, semer, remplir une gourde, manger, boire, se soigner. Vrai si le clic a servi.
     pub(crate) fn interact(&mut self) -> bool {
         if self.outdoor_use() { return true; } // l'arc tire, la canne lance ou ferre
+        if self.greet() { return true; } // on parle aux villageois
         let held = self.inv[self.sel]; let hd = held.and_then(|s| def(s.item));
         if let Some(t) = self.target {
             let h = self.player.eye(); let near = ((t.x as f64 + 0.5 - h[0]).powi(2) + (t.y as f64 + 0.5 - h[1]).powi(2) + (t.z as f64 + 0.5 - h[2]).powi(2)).sqrt() <= 4.5;
@@ -458,6 +459,7 @@ impl Session {
         if let Some(b) = self.bed { s += &format!("bed {} {} {}\n", b[0], b[1], b[2]); }
         let mut seen: Vec<&str> = self.seen.iter().copied().collect(); seen.sort(); s += &format!("seen {}\n", seen.join(" "));
         let mut taught: Vec<&str> = self.taught.iter().copied().collect(); taught.sort(); if !taught.is_empty() { s += &format!("taught {}\n", taught.join(" ")); }
+        s += &self.town_save();
         let mut fav: Vec<&str> = self.fav.iter().copied().collect(); fav.sort(); if !fav.is_empty() { s += &format!("fav {}\n", fav.join(" ")); }
         for (p, at) in &self.regrow { s += &format!("regrow {} {} {} {}\n", p[0], p[1], p[2], at); }
         for (p, at) in &self.crops { s += &format!("crop {} {} {} {}\n", p[0], p[1], p[2], at); }
@@ -489,6 +491,7 @@ impl Session {
                 Some("bed") => self.bed = Some([num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]),
                 Some("seen") => { for id in a { if let Some(d) = def(id) { self.seen.insert(d.id); } } }
                 Some("taught") => { for id in a.by_ref() { if let Some(c) = crate::data::db().craftsmen.iter().find(|c| c.id == id) { self.taught.insert(c.id); } } }
+                Some(k @ ("rep" | "known" | "met" | "marked")) => { let v: Vec<&str> = a.collect(); self.town_load(k, &v); }
                 Some("fav") => { for id in a { if let Some(d) = def(id) { self.fav.insert(d.id); } } }
                 Some("regrow") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; self.regrow.push((p, num(a.next())?)); }
                 Some("crop") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; self.crops.push((p, num(a.next())?)); }

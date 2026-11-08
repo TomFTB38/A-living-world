@@ -47,7 +47,7 @@ impl Station {
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Need { pub id: &'static str, pub n: u32, pub keep: bool }
 #[derive(Clone, Debug)] pub struct Recipe { pub out: &'static str, pub n: u32, pub need: Vec<Need>, pub at: Station, pub cat: &'static str, pub artisan: Option<&'static str> }
 /// Un métier de village : le palier le plus haut qu'il maîtrise, les villages où il vit, ce qu'il propose.
-#[derive(Clone, Debug)] pub struct Craftsman { pub id: &'static str, pub name: &'static str, pub tier: u8, pub villages: Vec<&'static str>, pub services: Vec<&'static str> }
+#[derive(Clone, Debug)] pub struct Craftsman { pub id: &'static str, pub name: &'static str, pub tier: u8, pub villages: Vec<&'static str>, pub services: Vec<&'static str>, pub price: Vec<(&'static str, u32)>, pub works: Vec<(Station, &'static str)> }
 pub struct Db { pub items: Vec<Def>, index: HashMap<&'static str, usize>, pub groups: Vec<(&'static str, &'static str, Vec<&'static str>)>, pub recipes: Vec<Recipe>, pub errors: Vec<String>, pub order: Vec<&'static str>, pub tabs: Vec<(&'static str, Vec<&'static str>)> , pub craftsmen: Vec<Craftsman>}
 /// Onglets du catalogue créatif : clé de catégorie et libellé court.
 pub const CATS: [(&str, &str); 10] = [("terrain", "Terrain"), ("roches", "Roches"), ("bois", "Bois"), ("plantes", "Plantes"), ("batir", "Bâtir"), ("ateliers", "Ateliers"), ("outils", "Outils"), ("matieres", "Matières"), ("vivres", "Vivres"), ("habits", "Habits")];
@@ -102,10 +102,15 @@ impl Db {
         for (ln, line) in ARTISANS.lines().enumerate() {
             let l = line.trim(); if l.is_empty() || l.starts_with('#') { continue; } let f: Vec<&'static str> = l.split('|').map(str::trim).collect();
             let Some(Ok(tier)) = f.get(2).map(|t| t.parse::<u8>()) else { db.errors.push(format!("artisans.txt:{} palier illisible", ln + 1)); continue };
-            if f.len() != 5 { db.errors.push(format!("artisans.txt:{} : 5 champs attendus", ln + 1)); continue; }
+            if f.len() != 7 { db.errors.push(format!("artisans.txt:{} : 7 champs attendus", ln + 1)); continue; }
+            let mut price = Vec::new();
+            for part in f[5].split(',') { let mut w = part.split_whitespace(); match (w.next(), w.next().map(str::parse::<u32>)) { (Some(id), Some(Ok(n))) => price.push((id, n)), _ => db.errors.push(format!("artisans.txt:{} prix « {} » illisible", ln + 1, part.trim())) } }
+            let mut works = Vec::new();
+            for wk in f[6].split_whitespace() { let (st, cat) = wk.split_once('/').unwrap_or((wk, "")); match station_of(st) { Some(at) => works.push((at, cat)), None => db.errors.push(format!("artisans.txt:{} atelier « {st} »", ln + 1)) } }
             for v in f[3].split_whitespace() { if !VILLAGES.contains(&v) { db.errors.push(format!("artisans.txt:{} village « {v} » inconnu", ln + 1)); } }
-            db.craftsmen.push(Craftsman { id: f[0], name: f[1], tier, villages: f[3].split_whitespace().collect(), services: f[4].split_whitespace().collect() });
+            db.craftsmen.push(Craftsman { id: f[0], name: f[1], tier, villages: f[3].split_whitespace().collect(), services: f[4].split_whitespace().collect(), price, works });
         }
+        for c in &db.craftsmen { for (id, _) in &c.price { if !db.index.contains_key(id) { db.errors.push(format!("artisans.txt : prix de {} : objet « {id} » inconnu", c.id)); } } }
         for r in &db.recipes { if let Some(a) = r.artisan { if !db.craftsmen.iter().any(|c| c.id == a) { db.errors.push(format!("recette de {} : métier « {a} » inconnu", r.out)); } } }
         // Tout ce qu'une recette nomme doit exister.
         for r in &db.recipes { if db.get(r.out).is_none() { db.errors.push(format!("recette : sortie « {} » inconnue", r.out)); } for nd in &r.need { if db.members(nd.id).is_empty() { db.errors.push(format!("recette de {} : ingrédient « {} » inconnu", r.out, nd.id)); } } }
@@ -116,4 +121,6 @@ impl Db {
     }
 }
 pub fn db() -> &'static Db { static DB: OnceLock<Db> = OnceLock::new(); DB.get_or_init(Db::parse) }
+/// L'atelier nommé dans les fichiers de données.
+pub fn station_of(n: &str) -> Option<Station> { Some(match n { "main" => Station::Hand, "etabli" => Station::Bench, "feu" => Station::Fire, "four" => Station::Furnace, "enclume" => Station::Anvil, "taille" => Station::Mason, _ => return None }) }
 pub fn def(id: &str) -> Option<&'static Def> { db().get(id) }

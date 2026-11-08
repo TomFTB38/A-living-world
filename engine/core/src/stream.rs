@@ -24,7 +24,7 @@ pub struct Streamer { sh: Arc<Shared>, rx: Receiver<Built>, threads: Vec<JoinHan
 
 fn voxels_of(sh: &Shared, gen: &WorldGen, k: Key) -> Arc<Vec<u8>> {
     if let Some(v) = sh.voxels.lock().unwrap().get(&k) { return v.clone(); }
-    let mut v = gen.gen_chunk(k.0, k.1);
+    let mut v = gen.gen_world(k.0, k.1);
     // Les modifications du joueur priment toujours sur la génération. Même ordre de verrous que `edit`.
     let mut all = sh.voxels.lock().unwrap();
     if let Some(e) = sh.edits.lock().unwrap().get(&k) { for (i, id) in e { v[*i as usize] = *id; } }

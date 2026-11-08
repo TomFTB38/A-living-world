@@ -12,7 +12,7 @@ impl ChunkStore {
     }
     pub fn get(&mut self, cx: i32, cz: i32) -> Arc<Vec<u8>> {
         if let Some(c) = self.cache.get(&(cx, cz)) { return c.clone(); }
-        let mut v = self.gen.gen_chunk(cx, cz);
+        let mut v = self.gen.gen_world(cx, cz);
         if let Some(e) = self.edits.get(&(cx, cz)) { for (i, id) in e { v[*i as usize] = *id; } }
         let c = Arc::new(v); self.cache.insert((cx, cz), c.clone()); self.order.push_back((cx, cz));
         while self.cache.len() > self.limit { if let Some(k) = self.order.pop_front() { self.cache.remove(&k); } }

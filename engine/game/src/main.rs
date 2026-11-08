@@ -101,11 +101,12 @@ impl Game {
         let k = |c: KeyCode| self.keys.contains(&c);
         // Regarder vers +z place +x à gauche de l'écran : la droite vaut -x.
         let ax = |a: bool, b: bool| (a as i32 - b as i32) as f64;
-        let open = self.s.inv_open || self.menu.open; let input = if open { Input::default() } else { Input { x: ax(k(KeyCode::KeyA) || k(KeyCode::KeyQ), k(KeyCode::KeyD)), z: ax(k(KeyCode::KeyW) || k(KeyCode::KeyZ), k(KeyCode::KeyS)), jump: k(KeyCode::Space), sprint: k(KeyCode::ShiftLeft), crouch: k(KeyCode::ControlLeft), roll: k(KeyCode::KeyV) } };
+        let talking = self.s.town.talk.is_some(); let open = self.s.inv_open || self.menu.open || talking; let input = if open { Input::default() } else { Input { x: ax(k(KeyCode::KeyA) || k(KeyCode::KeyQ), k(KeyCode::KeyD)), z: ax(k(KeyCode::KeyW) || k(KeyCode::KeyZ), k(KeyCode::KeyS)), jump: k(KeyCode::Space), sprint: k(KeyCode::ShiftLeft), crouch: k(KeyCode::ControlLeft), roll: k(KeyCode::KeyV) } };
         self.place_t -= dt; let place = self.rmb && self.place_t <= 0.0; if place { self.place_t = 0.22; }
-        self.s.tick(dt, input, Actions { mine: self.lmb, place });
+        self.s.tick(dt, input, if talking { Actions::default() } else { Actions { mine: self.lmb, place } });
         for n in std::mem::take(&mut self.s.notes) { self.say(n); }
-        if (self.s.dead.is_some() || self.s.inv_open) && self.grabbed && !self.menu.open { self.grab(false); } // écran de mort, coffre ouvert d'un clic droit : il faut le pointeur
+        if (self.s.dead.is_some() || self.s.inv_open || self.s.town.talk.is_some()) && self.grabbed && !self.menu.open { self.grab(false); }
+        if talking && self.s.town.talk.is_none() && !self.s.inv_open && !self.menu.open && self.s.dead.is_none() { self.grab(true); } // le villageois s'est éloigné // écran de mort, coffre ouvert d'un clic droit : il faut le pointeur
         let (built, gone) = self.s.sync();
         for b in built { self.gpu.upload(b); }
         for g in gone { self.gpu.forget(g); }
@@ -165,6 +166,8 @@ impl ApplicationHandler for App {
                     return;
                 }
                 if g.s.dead.is_some() { if button == MouseButton::Left && down && hud::death_at(w, h, g.mouse) { g.s.respawn(); g.grab(true); } return; }
+                // Conversation : un clic sur une réponse.
+                if g.s.town.talk.is_some() { if button == MouseButton::Left && down { if let Some(i) = hud::dialog_at(&g.s, w, h, g.mouse) { g.s.choose(i); if g.s.town.talk.is_none() { g.grab(true); } } } return; }
                 if g.s.inv_open {
                     let at = hud::hit_at(&g.s, w, h, g.mouse); let shift = g.keys.contains(&KeyCode::ShiftLeft) || g.keys.contains(&KeyCode::ShiftRight); let slot = if let Some(hud::Hit::Slot(i)) = at { Some(i) } else { None };
                     if down && at != Some(hud::Hit::Search) { g.s.book.typing = false; }
@@ -212,8 +215,11 @@ impl ApplicationHandler for App {
                 }
                 if !event.repeat { match c {
                     KeyCode::Enter | KeyCode::NumpadEnter if g.s.dead.is_some() && !g.menu.open => { g.s.respawn(); g.grab(true); }
-                    KeyCode::Escape => { if g.s.inv_open { g.s.inv_open = false; g.s.drop_slot(None); g.s.close_chest(); g.grab(true); } else if g.menu.open { g.close_menu(); } else { g.menu.open = true; g.grab(false); } }
+                    KeyCode::Escape => { if g.s.town.talk.is_some() { g.s.close_talk(); g.grab(true); } else if g.s.town.journal { g.s.town.journal = false; } else if g.s.inv_open { g.s.inv_open = false; g.s.drop_slot(None); g.s.close_chest(); g.grab(true); } else if g.menu.open { g.close_menu(); } else { g.menu.open = true; g.grab(false); } }
                     _ if g.menu.open || g.s.dead.is_some() => {}
+                    KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::Digit7 | KeyCode::Digit8 | KeyCode::Digit9 if g.s.town.talk.is_some() => { g.s.choose(c as usize - KeyCode::Digit1 as usize); if g.s.town.talk.is_none() { g.grab(true); } }
+                    _ if g.s.town.talk.is_some() => {}
+                    KeyCode::KeyJ => { g.s.town.journal = !g.s.town.journal; }
                     KeyCode::KeyE => { let on = !g.s.inv_open; g.s.inv_open = on; if !on { g.s.drop_slot(None); g.s.close_chest(); } g.grab(!on); }
                     KeyCode::KeyC => { g.s.third = !g.s.third; let m = if g.s.third { "Troisième personne" } else { "Première personne" }; g.say(m.into()); }
                     KeyCode::KeyF => { if g.s.creative { g.s.player.fly = !g.s.player.fly; let m = if g.s.player.fly { "Vol activé" } else { "Vol désactivé" }; g.say(m.into()); } else { g.say("Le vol demande le mode créatif (G)".into()); } }
@@ -223,7 +229,7 @@ impl ApplicationHandler for App {
                     KeyCode::KeyY => g.run_time = !g.run_time,
                     KeyCode::F3 => g.debug = !g.debug,
                     KeyCode::F5 => { g.save(); g.say("Monde sauvegardé".into()); }
-                    KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::Digit7 | KeyCode::Digit8 | KeyCode::Digit9 => g.s.sel = c as usize - KeyCode::Digit1 as usize,
+                    KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::Digit7 | KeyCode::Digit8 | KeyCode::Digit9 => { let n = c as usize - KeyCode::Digit1 as usize; if g.s.town.journal { g.s.mark_nth(n); } else { g.s.sel = n; } }
                     _ => {}
                 } }
                 g.keys.insert(c);
@@ -234,7 +240,7 @@ impl ApplicationHandler for App {
     }
     fn device_event(&mut self, _: &ActiveEventLoop, _: DeviceId, e: DeviceEvent) {
         let Some(g) = self.game.as_mut() else { return };
-        if let (true, DeviceEvent::MouseMotion { delta }) = (g.grabbed && !g.s.inv_open && !g.menu.open, e) { g.s.player.yaw -= delta.0 * 0.0023; g.s.player.pitch = (g.s.player.pitch - delta.1 * 0.0023).clamp(-1.5, 1.5); }
+        if let (true, DeviceEvent::MouseMotion { delta }) = (g.grabbed && !g.s.inv_open && !g.menu.open && g.s.town.talk.is_none(), e) { g.s.player.yaw -= delta.0 * 0.0023; g.s.player.pitch = (g.s.player.pitch - delta.1 * 0.0023).clamp(-1.5, 1.5); }
     }
     fn about_to_wait(&mut self, _: &ActiveEventLoop) { if let Some(g) = &self.game { g.window.request_redraw(); } }
 }
@@ -376,6 +382,20 @@ fn capture(a: &[String]) {
         println!("faune : {} cerfs, {} oiseaux", s.fauna.deer.len(), s.fauna.birds.len());
         let spot = s.fauna.deer.first().map(|d| d.p).or(s.fauna.birds.first().map(|b| b.p));
         if let Some(q) = spot { let (a, r) = ((q[2] - s.player.p[2]).atan2(q[0] - s.player.p[0]), 8.2); let e = [q[0] - a.cos() * r, q[1] + 4.5, q[2] - a.sin() * r]; s.sel = 8; s.player.p = [e[0], e[1] - 1.62, e[2]]; let f = view::norm([q[0] - e[0], q[1] + 0.8 - e[1], q[2] - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
+    }
+    if scene == "village" || scene == "artisan" {
+        // Le village le plus proche du départ, en milieu de matinée : la place vue d'en haut, ou le forgeron à son poste et la conversation.
+        if let Some(v) = s.nearest_village(0.0, 0.0) {
+            let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; s.hour = 10.5; s.sel = 8; s.third = false; s.player.fly = true;
+            let look = |s: &mut Session, e: [f64; 3], q: [f64; 3]| { s.player.p = [e[0], e[1] - 1.62, e[2]]; let f = view::norm([q[0] - e[0], q[1] - e[1], q[2] - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); };
+            look(&mut s, [c[0] - 22.0, c[1] + 14.0, c[2] - 22.0], c); pump(&mut s, &mut g);
+            for _ in 0..1500 { s.tick(1.0 / 60.0, none, Actions::default()); } pump(&mut s, &mut g);
+            println!("village : {} ({}), {} habitants, ateliers {:?}", v.name, v.kind, s.town.folk.len(), v.crafts);
+            if scene == "artisan" { if let Some(k) = s.town.folk.iter().position(|f| f.craft == Some("forgeron")) {
+                let f = s.town.folk[k].clone(); let h = &v.houses[f.house]; let e = [h.inside[0] + (h.inside[0] - f.p[0]) * 0.2, c[1] + 1.62, h.inside[2] + (h.inside[2] - f.p[2]) * 0.2];
+                look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default()); s.talk_to(k); s.add_item("iron_ingot", 2); s.add_item("coal", 8); s.tick(0.0, none, Actions::default());
+            } } else { s.tick(0.0, none, Actions::default()); }
+        }
     }
     if scene == "jeu" {
         // Scénario : casser le bloc visé, puis poser de la pierre, avec les vrais chemins du jeu.

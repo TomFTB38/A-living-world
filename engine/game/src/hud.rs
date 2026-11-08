@@ -82,6 +82,12 @@ pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
 }
 pub fn menu_at(w: f32, h: f32, m: &Menu, p: [f32; 2]) -> Option<M> { menu_layout(w, h, m).into_iter().find(|x| inside(p, x.1)).map(|x| x.0) }
 /// Bouton « Réapparaître » de l'écran de mort.
+/// Fenêtre de dialogue d'un villageois : le cadre, puis une ligne par réponse. Partagé par le dessin et la souris.
+pub fn dialog_layout(n: usize, w: f32, h: f32) -> ([f32; 4], Vec<[f32; 4]>) {
+    let k = scale(h); let pw = (720.0 * k).min(w - 40.0); let rh = 34.0 * k; let ph = 176.0 * k + n as f32 * (rh + 4.0 * k); let (x, y) = ((w - pw) * 0.5, (h - ph).max(20.0) * 0.62);
+    ([x, y, pw, ph], (0..n).map(|i| [x + 18.0 * k, y + 136.0 * k + i as f32 * (rh + 4.0 * k), pw - 36.0 * k, rh]).collect())
+}
+pub fn dialog_at(s: &Session, w: f32, h: f32, m: [f32; 2]) -> Option<usize> { let d = s.dialog()?; dialog_layout(d.options.len(), w, h).1.iter().position(|r| inside(m, *r)) }
 pub fn death_button(w: f32, h: f32) -> [f32; 4] { let k = scale(h); let (bw, bh) = (300.0 * k, 48.0 * k); [(w - bw) * 0.5, h * 0.58, bw, bh] }
 pub fn death_at(w: f32, h: f32, m: [f32; 2]) -> bool { inside(m, death_button(w, h)) }
 /// Coupe un texte en lignes qui tiennent dans une largeur.
@@ -141,7 +147,7 @@ impl Ui {
             let list = book(s, cat_of(s.book.cat), &s.book.search); let pages = list.len().div_ceil(BOOK_COLS * BOOK_ROWS).max(1);
             for (hit, r) in &l { let on = hover == Some(*hit); match hit {
                 Hit::BookCat(i) => { let sel = *i == s.book.cat; self.panel(*r, k, if sel { [0.28, 0.4, 0.22, 1.0] } else if on { [0.2, 0.24, 0.2, 1.0] } else { [0.0, 0.0, 0.0, 0.34] }); self.centered(if *i == 0 { "Tout" } else { BOOK_CATS[i - 1].1 }, *r, 14.0 * k, if sel { INK } else { DIM }); }
-                Hit::Search => { self.panel(*r, k, if s.book.typing { [0.16, 0.2, 0.16, 1.0] } else { [0.0, 0.0, 0.0, 0.4] }); let (t, c) = if s.book.search.is_empty() && !s.book.typing { ("Rechercher…".to_string(), DIM) } else { (format!("{}{}", s.book.search, if s.book.typing && (s.elapsed * 2.0) as i64 % 2 == 0 { "|" } else { "" }), INK) }; self.text(&t, r[0] + 8.0 * k, r[1] + 5.0 * k, 15.0 * k, c); }
+                Hit::Search => { self.panel(*r, k, if s.book.typing { [0.16, 0.2, 0.16, 1.0] } else { [0.0, 0.0, 0.0, 0.4] }); let (t, c) = if s.book.search.is_empty() && !s.book.typing { ("Rechercher...".to_string(), DIM) } else { (format!("{}{}", s.book.search, if s.book.typing && (s.elapsed * 2.0) as i64 % 2 == 0 { "|" } else { "" }), INK) }; self.text(&t, r[0] + 8.0 * k, r[1] + 5.0 * k, 15.0 * k, c); }
                 Hit::Book(ri) => { let rc = &recipes()[*ri]; let ok = s.can_craft(rc, &st6); let sel = s.book.sel == Some(*ri); self.panel(*r, k, if sel { [0.28, 0.4, 0.22, 0.9] } else if on { [1.0, 1.0, 1.0, 0.16] } else { WELL });
                     self.icon(rc.out, r[0] + r[2] * 0.5, r[1] + r[3] * 0.5, r[2] * 0.43); if rc.n > 1 { let t = rc.n.to_string(); let z = 15.0 * k; self.text(&t, r[0] + r[2] - Ui::text_width(&t, z) - 4.0 * k, r[1] + r[3] - z - 4.0 * k, z, [1.0; 4]); }
                     if s.fav.contains(rc.out) { self.rect(r[0] + 4.0 * k, r[1] + 4.0 * k, 7.0 * k, 7.0 * k, GOLD); }
@@ -225,6 +231,38 @@ impl Ui {
         let Some(i) = order().iter().position(|o| *o == id) else { return }; let n = ICON_COLS as usize; let c = 1.0 / n as f32; let (u, v) = ((i % n) as f32 * c, (i / n) as f32 * c);
         self.quad([[cx - r, cy - r], [cx + r, cy - r], [cx + r, cy + r], [cx - r, cy + r]], [[u, v], [u + c, v], [u + c, v + c], [u, v + c]], [1.0; 4], LAYER_ICON);
     }
+    fn dialog(&mut self, s: &Session, w: f32, h: f32, mouse: [f32; 2]) {
+        let Some(d) = s.dialog() else { return }; let k = scale(h); let (r, rows) = dialog_layout(d.options.len(), w, h);
+        self.panel(r, k, PANEL); self.text(&d.title, r[0] + 18.0 * k, r[1] + 14.0 * k, 23.0 * k, INK); self.text(&d.sub, r[0] + 18.0 * k, r[1] + 46.0 * k, 15.0 * k, DIM);
+        for (i, l) in wrap(&format!("« {} »", d.said), 17.0 * k, r[2] - 36.0 * k).iter().take(2).enumerate() { self.text(l, r[0] + 18.0 * k, r[1] + 76.0 * k + i as f32 * 24.0 * k, 17.0 * k, GOLD); }
+        for (i, (row, (t, ok))) in rows.iter().zip(d.options.iter()).enumerate() {
+            let on = inside(mouse, *row); self.panel(*row, k, if on && *ok { [1.0, 1.0, 1.0, 0.16] } else { WELL });
+            let z = 16.0 * k; let mut label = format!("{}. {t}", i + 1); while Ui::text_width(&label, z) > row[2] - 20.0 * k && label.chars().count() > 8 { label.pop(); label.pop(); label.push_str("..."); }
+            self.text(&label, row[0] + 10.0 * k, row[1] + (row[3] - z * 1.35) * 0.5, z, if *ok { INK } else { [0.6, 0.62, 0.58, 0.8] });
+        }
+        let t = "Chiffres ou clic pour répondre · Échap pour partir"; let z = 14.0 * k; self.text(t, r[0] + r[2] - Ui::text_width(t, z) - 16.0 * k, r[1] + r[3] - 24.0 * k, z, DIM);
+    }
+    /// Journal des villages : connus, du plus proche au plus lointain, avec leurs artisans (rencontrés en couleur).
+    fn journal(&mut self, s: &Session, w: f32, h: f32) {
+        let k = scale(h); let l = s.journal(); let lh = 46.0 * k; let pw = (760.0 * k).min(w - 40.0); let ph = 92.0 * k + l.len().clamp(1, 9) as f32 * lh; let (x, y) = ((w - pw) * 0.5, h * 0.12);
+        self.panel([x, y, pw, ph], k, PANEL); self.text("Journal des villages", x + 18.0 * k, y + 14.0 * k, 23.0 * k, INK);
+        self.text("Chiffre : marquer le village sur votre route · J pour fermer", x + 18.0 * k, y + 46.0 * k, 14.0 * k, DIM);
+        if l.is_empty() { self.text("Aucun village connu. Suivez les chemins, ou demandez aux voyageurs.", x + 18.0 * k, y + 80.0 * k, 16.0 * k, DIM); }
+        for (i, (v, at, crafts)) in l.iter().take(9).enumerate() {
+            let yy = y + 78.0 * k + i as f32 * lh; let marked = s.town.marked == Some(v.id);
+            self.text(&format!("{}. {}{} · {} · {}", i + 1, v.name, if marked { " (marqué)" } else { "" }, alw_core::village::kind_label(v.kind), at), x + 18.0 * k, yy, 17.0 * k, if marked { GOLD } else { INK });
+            let mut px = x + 40.0 * k;
+            for (c, met) in crafts { let n = alw_core::village::craftsman(c).map_or(*c, |x| x.name); let z = 14.0 * k; self.text(n, px, yy + 22.0 * k, z, if *met { ACCENT } else { DIM }); px += Ui::text_width(n, z) + 18.0 * k; }
+            let r = format!("réputation {}", s.rep(v.id)); let z = 14.0 * k; self.text(&r, x + pw - Ui::text_width(&r, z) - 18.0 * k, yy + 22.0 * k, z, DIM);
+        }
+    }
+    /// Repère en haut de l'écran : un losange dans la direction d'un point, avec un nom et la distance.
+    fn pin(&mut self, s: &Session, at: [f64; 2], label: &str, c: C, w: f32, k: f32) {
+        let p = s.player.p; let (dx, dz) = (at[0] - p[0], at[1] - p[2]); let dist = dx.hypot(dz); if dist < 12.0 { return; }
+        let mut rel = dx.atan2(dz) - s.player.yaw; while rel > std::f64::consts::PI { rel -= std::f64::consts::TAU; } while rel < -std::f64::consts::PI { rel += std::f64::consts::TAU; }
+        let x = w * 0.5 - (rel / std::f64::consts::FRAC_PI_2).clamp(-1.0, 1.0) as f32 * w * 0.3; let y = 26.0 * k;
+        self.diamond(x, y, 7.0 * k, c); let t = format!("{label} · {:.0} m", dist); self.text(&t, x - Ui::text_width(&t, 14.0 * k) * 0.5, y + 10.0 * k, 14.0 * k, [0.92, 0.92, 0.88, 0.85]);
+    }
     /// Marqueur discret de la dépouille : un losange sur un arc en haut de l'écran, et la distance.
     fn marker(&mut self, s: &Session, w: f32, k: f32) {
         let p = s.player.p; let Some(st) = s.stashes.iter().min_by(|a, b| ((a.p[0] - p[0]).hypot(a.p[2] - p[2])).total_cmp(&(b.p[0] - p[0]).hypot(b.p[2] - p[2]))) else { return };
@@ -260,6 +298,11 @@ impl Ui {
             if menu.marker && s.dead.is_none() && !s.stashes.is_empty() { u.marker(s, w, k); }
         } else { let z = 18.0 * k; u.text("Mode créatif", 18.0 * k, h - 34.0 * k, z, w1); }
         if !info.is_empty() { let z = 16.0 * k; let bw = info.iter().fold(0.0f32, |a, l| a.max(Ui::text_width(l, z))); u.rect(10.0 * k, 10.0 * k, bw + 24.0 * k, info.len() as f32 * 22.0 * k + 14.0 * k, [0.0, 0.0, 0.0, 0.5]); for (i, l) in info.iter().enumerate() { u.text(l, 22.0 * k, 16.0 * k + i as f32 * 22.0 * k, z, INK); } }
+        if let (Some(v), None) = (s.marked_village(), &s.dead) { let c = [v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5]; u.pin(s, c, &v.name, [0.55, 0.75, 0.95, 0.9], w, k); }
+        // Un villageois sous le réticule : on peut lui parler.
+        if s.town.talk.is_none() && !s.inv_open { if let Some(f) = s.aim_folk().and_then(|i| s.town.folk.get(i)) { let t = format!("Clic droit : parler à {}{}", f.name, f.craft.and_then(alw_core::village::craftsman).map_or(String::new(), |c| format!(" ({})", c.name.to_lowercase()))); let z = 17.0 * k; u.text(&t, (w - Ui::text_width(&t, z)) * 0.5, h * 0.5 + 26.0 * k, z, w1); } }
+        if s.town.journal && s.town.talk.is_none() && !s.inv_open { u.journal(s, w, h); }
+        if s.town.talk.is_some() { u.dialog(s, w, h, mouse); }
         if s.inv_open { u.inventory(s, w, h, mouse); }
         if let Some(d) = &s.dead { u.death(s, d, w, h, k, mouse); }
         if menu.open { u.menu(menu, w, h, mouse); }

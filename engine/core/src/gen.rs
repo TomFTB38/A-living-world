@@ -27,12 +27,14 @@ pub struct WorldGen {
     pub climate: Climate,
     ponds: RefCell<HashMap<(i32, i32), Option<Pond>>>,
     stamps: RefCell<HashMap<(u8, i32, i32), Option<Rc<Stamp>>>>,
+    /// Villages déjà tracés, par case de la grille des villages.
+    pub(crate) towns: RefCell<HashMap<(i32, i32), Option<Rc<crate::village::Site>>>>,
 }
 
 impl WorldGen {
     pub fn new(seed: i32) -> Self {
         let s = seed; let n = |k: i32| Noise::new(s.wrapping_add(k));
-        WorldGen { seed: s, n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()) }
+        WorldGen { seed: s, n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()), towns: RefCell::new(HashMap::new()) }
     }
     fn raw_height(&self, x: f64, z: f64) -> Raw {
         let wx = x + 34.0 * self.n_warp.n2(x / 170.0, z / 170.0); let wz = z + 34.0 * self.n_warp.n2(x / 170.0 + 40.0, z / 170.0 + 40.0);

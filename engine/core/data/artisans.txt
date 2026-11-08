@@ -1,11 +1,15 @@
 # A Living World — métiers des villages.
 # Jusqu'au fer, tout se fabrique seul. Au-delà (palier 4 et 5), il faut un artisan : il réalise une commande avec vos
 # matériaux, améliore un objet, ou vous transmet une technique. Les recettes qui le demandent portent « artisan=<métier> ».
-# Une ligne par métier : identifiant | nom | palier le plus haut qu'il maîtrise | villages où on le trouve | services
+# Une ligne par métier : identifiant | nom | palier le plus haut qu'il maîtrise | villages où on le trouve | services | prix | travaux
 #   villages : prairie, taiga, aride, desert, montagne, hautes_terres ; services : commande, amelioration, transmission, reparation
-forgeron | Forgeron | 4 | montagne hautes_terres prairie taiga | commande amelioration reparation transmission
-maitre_forgeron | Maître forgeron | 5 | montagne hautes_terres | commande amelioration transmission
-armurier | Armurier | 4 | montagne prairie hautes_terres | commande amelioration reparation
-maitre_menuisier | Maître menuisier | 4 | taiga prairie | commande transmission
-tailleur_pierre | Tailleur de pierre | 4 | montagne aride hautes_terres | commande transmission
-tanneur | Tanneur et couturier | 4 | taiga aride desert prairie | commande amelioration transmission
+#   prix : ce que l'artisan accepte pour un service, au choix (« objet nombre, objet nombre ») ; la transmission coûte trois fois plus
+#   travaux : les recettes ordinaires qu'il réalise sur commande, en « atelier/catégorie » (en plus des recettes de son métier).
+#   Un maître fait aussi le travail du métier dont il porte le nom (le maître forgeron fait celui du forgeron).
+#   Le maître forgeron ne transmet pas : le travail le plus fin demande toujours l'artisan.
+forgeron | Forgeron | 4 | montagne hautes_terres prairie taiga | commande amelioration reparation transmission | coal 6, iron_ingot 1, cooked_meat 4, bread 3 | enclume/outils four/matieres
+maitre_forgeron | Maître forgeron | 5 | montagne hautes_terres | commande amelioration reparation | iron_ingot 3, steel_ingot 1, jerky 6 | enclume/outils
+armurier | Armurier | 4 | montagne prairie hautes_terres | commande amelioration reparation | iron_ingot 2, leather 3, bread 4 | enclume/habits
+maitre_menuisier | Maître menuisier | 4 | taiga prairie | commande transmission | leather 2, cooked_meat 4, bread 3, iron_ingot 1 | etabli/batir etabli/ateliers
+tailleur_pierre | Tailleur de pierre | 4 | montagne aride desert hautes_terres | commande transmission | coal 4, cooked_meat 3, bread 3, iron_ingot 1 | taille/batir
+tanneur | Tanneur et couturier | 4 | taiga aride desert prairie | commande amelioration reparation transmission | fur 2, raw_hide 3, cooked_meat 4, bread 3 | etabli/habits
