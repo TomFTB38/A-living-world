@@ -210,7 +210,7 @@ impl Site {
 #[derive(Clone, Debug)]
 pub struct Folk { pub v: (i32, i32), pub house: usize, pub craft: Option<&'static str>, pub name: String, pub p: [f64; 3], pub yaw: f64, pub phase: f64, pub moving: bool, pub working: bool, route: Vec<[f64; 3]>, goal: (u8, u32), look: u8,
     /// Effrayé par une arme (secondes qui restent), délai avant de resaluer le joueur.
-    pub scared: f64, greet_t: f64 }
+    pub scared: f64, greet_t: f64, stuck: f64 }
 #[derive(Clone, Copy, Debug, PartialEq)] pub enum Page { Main, Order(usize), Trade }
 #[derive(Clone, Debug)] pub struct Talk { pub who: usize, pub page: Page, pub said: String }
 /// Les villages autour du joueur, leurs habitants, et ce que le joueur en sait.
@@ -249,7 +249,7 @@ impl Town {
     /// Où ce villageois veut être à cette heure : (lieu, numéro qui change quand il doit repartir) et la position.
     fn want(&self, f: &Folk, k: usize, hour: f64) -> ((u8, u32), [f64; 3]) {
         let Some(v) = self.village(f.v) else { return ((0, 0), f.p) }; let h = &v.houses[f.house]; let y = v.c[1] as f64 + 1.0;
-        let plaza = |salt: u32| { let a = hash_float(k as i32, salt as i32, v.id.0, v.id.1) * TAU; let r = 2.6 + 3.2 * hash_float(salt as i32, k as i32, v.id.1, 7); [v.c[0] as f64 + 0.5 + r * a.cos(), y, v.c[2] as f64 + 0.5 + r * a.sin()] };
+        let plaza = |salt: u32| { let a = hash_float(k as i32, salt as i32, v.id.0, v.id.1) * TAU; let r = 2.6 + 2.3 * hash_float(salt as i32, k as i32, v.id.1, 7); [v.c[0] as f64 + 0.5 + r * a.cos(), y, v.c[2] as f64 + 0.5 + r * a.sin()] };
         if !(6.5..21.5).contains(&hour) { return ((0, 0), h.bed); }
         if (8.0..18.0).contains(&hour) { return if f.craft.is_some() { ((1, 0), h.spot) } else { let s = (hour * 0.75) as u32; ((2, s), plaza(s + 40)) }; }
         ((3, 0), plaza(k as u32 + 3))
@@ -265,13 +265,13 @@ impl Town {
         for q in r {
             let (ax, az, bx, bz) = (prev[0] - c[0], prev[2] - c[1], q[0] - c[0], q[2] - c[1]); let (dx, dz) = (bx - ax, bz - az); let l2 = (dx * dx + dz * dz).max(1e-9);
             let t = (-(ax * dx + az * dz) / l2).clamp(0.0, 1.0);
-            if (ax + dx * t).hypot(az + dz * t) < 2.4 { let (mut mx, mut mz) = ((ax + bx) * 0.5, (az + bz) * 0.5); if mx.hypot(mz) < 0.1 { (mx, mz) = (-az, ax); } let l = mx.hypot(mz).max(1e-6); o.push([c[0] + mx / l * 3.4, q[1], c[1] + mz / l * 3.4]); }
+            if (ax + dx * t).hypot(az + dz * t) < 2.8 { let (mut mx, mut mz) = ((ax + bx) * 0.5, (az + bz) * 0.5); if mx.hypot(mz) < 0.1 { (mx, mz) = (-az, ax); } let l = mx.hypot(mz).max(1e-6); o.push([c[0] + mx / l * 3.8, q[1], c[1] + mz / l * 3.8]); }
             o.push(q); prev = q;
         }
         o
     }
     /// La journée des villageois : un pas le long de leur chemin, ou leur travail sur place.
-    pub fn update(&mut self, dt: f64, hour: f64, me: [f64; 3], talking: Option<usize>, armed: bool) {
+    pub fn update(&mut self, dt: f64, hour: f64, me: [f64; 3], talking: Option<usize>, armed: bool, blocked: &dyn Fn(f64, f64, f64) -> bool) {
         for k in 0..self.folk.len() {
             let mut f = self.folk[k].clone(); let near = (f.p[0] - me[0]).hypot(f.p[2] - me[2]); f.greet_t -= dt; f.scared -= dt;
             // Une arme tirée tout près : on recule et on rentre chez soi. Sinon, on salue celui qui passe.
@@ -284,7 +284,12 @@ impl Town {
             f.working = false;
             if let Some(q) = f.route.first().copied() {
                 let (dx, dz) = (q[0] - f.p[0], q[2] - f.p[2]); let d = dx.hypot(dz); let step = if f.scared > 0.0 { 2.6 } else { 1.35 } * dt;
-                if d <= step { f.p = q; f.route.remove(0); } else { f.p = [f.p[0] + dx / d * step, q[1], f.p[2] + dz / d * step]; f.yaw = dx.atan2(dz); }
+                // Un bloc posé en travers du chemin : on le contourne (de biais, puis de côté), sinon on attend ; coincé trop longtemps, on passe.
+                let free = |a: f64| { let (x, z) = (f.p[0] + a.sin() * step.max(0.05) * 3.0, f.p[2] + a.cos() * step.max(0.05) * 3.0); !blocked(x, q[1], z) };
+                let ahead = dx.atan2(dz);
+                if d <= step { f.p = q; f.route.remove(0); f.stuck = 0.0; }
+                else if let Some(o) = [0.0, 0.6, -0.6, 1.2, -1.2, 1.6, -1.6].into_iter().find(|o| free(ahead + o)) { let a = ahead + o; f.p = [f.p[0] + a.sin() * step, q[1], f.p[2] + a.cos() * step]; f.yaw = a; if o == 0.0 { f.stuck = 0.0; } else { f.stuck += dt; } if f.stuck > 4.0 && !blocked(q[0], q[1], q[2]) { f.p = q; f.route.remove(0); f.stuck = 0.0; } }
+                else { f.stuck += dt; if f.stuck > 5.0 && !blocked(q[0], q[1], q[2]) { f.p = q; f.route.remove(0); f.stuck = 0.0; } }
                 f.moving = true; f.phase += dt * 7.0;
             } else {
                 f.moving = false;
@@ -302,7 +307,7 @@ impl Town {
             for j in 0..count {
                 let pick = (hash_float(v.id.0 * 7 + i as i32, v.id.1, j as i32, 92) * FIRST.len() as f64) as usize % FIRST.len();
                 let look = if let Some(c) = h.craft { db().craftsmen.iter().position(|x| x.id == c).unwrap_or(0) as u8 } else { 6 + (hash_float(i as i32, j as i32, v.id.0, v.id.1) * 3.0) as u8 % 3 };
-                self.folk.push(Folk { v: v.id, house: i, craft: if j == 0 { h.craft } else { None }, name: FIRST[pick].to_string(), p: h.spot, yaw: 0.0, phase: n as f64, moving: false, working: false, route: Vec::new(), goal: (9, 0), look, scared: 0.0, greet_t: 0.0 });
+                self.folk.push(Folk { v: v.id, house: i, craft: if j == 0 { h.craft } else { None }, name: FIRST[pick].to_string(), p: h.spot, yaw: 0.0, phase: n as f64, moving: false, working: false, route: Vec::new(), goal: (9, 0), look, scared: 0.0, greet_t: 0.0, stuck: 0.0 });
                 n += 1;
             }
         }
@@ -314,32 +319,60 @@ impl Town {
         for f in &self.folk {
             let base = trs(f.p[0], f.p[1], f.p[2], f.yaw, 0.0, 1.0); let mut put = |n: &str, m| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false });
             let s = if f.moving { f.phase.sin() * 0.6 } else { 0.0 };
-            put(&format!("folk{}", f.look.min(8)), base); put(&format!("folkHead{}", f.look % 3), mul(&base, &trs(0.0, 1.36, 0.0, 0.0, 0.0, 1.0)));
-            put("folkLeg", mul(&base, &trs(-0.1, 0.74, 0.0, 0.0, s, 1.0))); put("folkLeg", mul(&base, &trs(0.1, 0.74, 0.0, 0.0, -s, 1.0)));
+            let l = f.look.min(8); let face = f.name.bytes().map(|b| b as usize).sum::<usize>() % 6; let bob = if f.moving { (f.phase * 2.0).sin().abs() * 0.03 } else { 0.0 };
+            let body = mul(&base, &trs(0.0, bob, 0.0, 0.0, 0.0, 1.0)); put(&format!("folk{l}"), body); put(&format!("folkHead{face}"), mul(&body, &trs(0.0, 1.4, 0.0, 0.0, 0.0, 1.0)));
+            put(&format!("folkLeg{l}"), mul(&base, &trs(-0.125, 0.76, 0.0, 0.0, s, 1.0))); put(&format!("folkLeg{l}"), mul(&base, &trs(0.125, 0.76, 0.0, 0.0, -s, 1.0)));
             let work = if f.working { -1.2 - 0.9 * (f.phase * 1.4).sin().max(0.0) } else { -s };
-            put(&format!("folkArm{}", f.look.min(8)), mul(&base, &trs(-0.29, 1.32, 0.0, 0.0, s, 1.0))); put(&format!("folkArm{}", f.look.min(8)), mul(&base, &trs(0.29, 1.32, 0.0, 0.0, work, 1.0)));
+            put(&format!("folkArm{l}"), mul(&body, &trs(-0.35, 1.34, 0.0, 0.0, s, 1.0))); put(&format!("folkArm{l}"), mul(&body, &trs(0.35, 1.34, 0.0, 0.0, work, 1.0)));
         }
         out
     }
 }
-/// Corps des villageois : une tunique par métier (dans l'ordre d'artisans.txt), trois pour les autres ; trois chevelures.
+/// Corps des villageois, un peu plus étoffés que le joueur d'origine. Une tenue par métier (dans l'ordre d'artisans.txt), trois pour les autres :
+/// tunique ombrée, col, ceinture et boucle, et l'attribut du métier (tablier de forge, gilet de cuir, ceinture à outils, poussière de pierre).
+/// Six têtes : trois chevelures, cheveux courts ou longs, barbe ; yeux avec pupille, sourcils, nez, bouche.
 pub fn parts() -> Vec<(&'static str, VBuf)> {
-    const TUNIC: [[f64; 3]; 9] = [[0.36, 0.27, 0.2], [0.2, 0.17, 0.17], [0.38, 0.42, 0.48], [0.3, 0.42, 0.24], [0.52, 0.52, 0.5], [0.62, 0.45, 0.24], [0.28, 0.36, 0.55], [0.6, 0.25, 0.2], [0.72, 0.66, 0.5]];
+    // (tunique, ombre de la tunique, pantalon)
+    const OUTFIT: [([f64; 3], [f64; 3], [f64; 3]); 9] = [
+        ([0.42, 0.33, 0.25], [0.32, 0.25, 0.19], [0.24, 0.21, 0.19]), ([0.26, 0.22, 0.22], [0.19, 0.16, 0.16], [0.18, 0.16, 0.15]), ([0.36, 0.42, 0.5], [0.27, 0.32, 0.39], [0.22, 0.22, 0.24]),
+        ([0.33, 0.46, 0.27], [0.25, 0.35, 0.2], [0.36, 0.3, 0.22]), ([0.56, 0.55, 0.52], [0.44, 0.43, 0.41], [0.3, 0.29, 0.28]), ([0.6, 0.45, 0.27], [0.48, 0.35, 0.2], [0.3, 0.24, 0.18]),
+        ([0.3, 0.4, 0.58], [0.22, 0.3, 0.45], [0.34, 0.29, 0.22]), ([0.64, 0.3, 0.24], [0.5, 0.22, 0.18], [0.26, 0.24, 0.22]), ([0.76, 0.7, 0.55], [0.62, 0.56, 0.43], [0.36, 0.32, 0.26])];
     const NAMES: [&str; 9] = ["folk0", "folk1", "folk2", "folk3", "folk4", "folk5", "folk6", "folk7", "folk8"];
     const ARMS: [&str; 9] = ["folkArm0", "folkArm1", "folkArm2", "folkArm3", "folkArm4", "folkArm5", "folkArm6", "folkArm7", "folkArm8"];
-    let (skin, pants, belt, apron) = ([0.86, 0.68, 0.55], [0.3, 0.26, 0.22], [0.2, 0.14, 0.09], [0.42, 0.3, 0.2]);
+    const LEGS: [&str; 9] = ["folkLeg0", "folkLeg1", "folkLeg2", "folkLeg3", "folkLeg4", "folkLeg5", "folkLeg6", "folkLeg7", "folkLeg8"];
+    let (skin, skin2, belt, buckle, apron, shoe, linen) = ([0.87, 0.69, 0.56], [0.78, 0.6, 0.48], [0.22, 0.15, 0.1], [0.75, 0.66, 0.4], [0.4, 0.27, 0.16], [0.2, 0.14, 0.1], [0.86, 0.82, 0.72]);
     let mut o = Vec::new();
-    for (i, t) in TUNIC.iter().enumerate() {
-        let mut body = VBuf::new(60); b(&mut body, [-0.22, 0.74, -0.13, 0.22, 1.36, 0.13], *t); b(&mut body, [-0.225, 0.86, -0.135, 0.225, 0.92, 0.135], belt);
-        if i < 3 { b(&mut body, [-0.18, 0.62, 0.13, 0.18, 1.2, 0.16], apron); } // tablier de cuir des forgerons et de l'armurier
+    for (i, (t, t2, pants)) in OUTFIT.iter().enumerate() {
+        let mut body = VBuf::new(200); let q = &mut body;
+        b(q, [-0.26, 0.86, -0.16, 0.26, 1.4, 0.16], *t); b(q, [-0.27, 0.68, -0.17, 0.27, 0.88, 0.17], *t2); // buste, puis pans de la tunique
+        b(q, [-0.13, 1.33, -0.165, 0.13, 1.41, 0.165], linen); b(q, [-0.035, 1.12, 0.16, 0.035, 1.34, 0.168], *t2); // col, fente
+        b(q, [-0.275, 0.86, -0.175, 0.275, 0.93, 0.175], belt); b(q, [-0.05, 0.855, 0.172, 0.05, 0.935, 0.185], buckle);
+        match i {
+            0..=2 => { b(q, [-0.21, 0.6, 0.17, 0.21, 1.26, 0.2], apron); b(q, [-0.2, 1.26, 0.16, -0.14, 1.4, 0.18], apron); b(q, [0.14, 1.26, 0.16, 0.2, 1.4, 0.18], apron); } // tablier de cuir
+            5 => { b(q, [-0.27, 0.92, -0.175, -0.08, 1.38, 0.175], apron); b(q, [0.08, 0.92, -0.175, 0.27, 1.38, 0.175], apron); } // gilet de cuir du tanneur
+            3 => { b(q, [0.12, 0.74, 0.16, 0.24, 0.86, 0.22], [0.5, 0.36, 0.2]); b(q, [-0.24, 0.76, 0.17, -0.16, 0.86, 0.2], [0.6, 0.6, 0.62]); } // bourse et outils du menuisier
+            4 => { b(q, [-0.2, 1.2, 0.165, 0.2, 1.3, 0.17], [0.7, 0.7, 0.68]); } // poussière de pierre
+            _ => { for y in [1.0, 1.1, 1.2] { b(q, [-0.02, y, 0.165, 0.02, y + 0.04, 0.175], *t2); } } // boutons
+        }
         o.push((NAMES[i], body));
-        let mut arm = VBuf::new(60); b(&mut arm, [-0.07, -0.46, -0.07, 0.07, 0.04, 0.07], *t); b(&mut arm, [-0.065, -0.6, -0.065, 0.065, -0.46, 0.065], skin); o.push((ARMS[i], arm));
+        let mut arm = VBuf::new(80); b(&mut arm, [-0.09, -0.42, -0.09, 0.09, 0.04, 0.09], *t); b(&mut arm, [-0.095, -0.44, -0.095, 0.095, -0.38, 0.095], *t2); b(&mut arm, [-0.075, -0.62, -0.08, 0.075, -0.44, 0.08], skin); o.push((ARMS[i], arm));
+        let mut leg = VBuf::new(80); b(&mut leg, [-0.11, -0.6, -0.11, 0.11, 0.0, 0.11], *pants); b(&mut leg, [-0.115, -0.76, -0.12, 0.115, -0.6, 0.17], shoe); b(&mut leg, [-0.117, -0.62, -0.122, 0.117, -0.58, 0.122], belt); o.push((LEGS[i], leg));
     }
-    for (n, hair) in [("folkHead0", [0.3, 0.2, 0.12]), ("folkHead1", [0.12, 0.1, 0.08]), ("folkHead2", [0.7, 0.58, 0.34])] {
-        let mut h = VBuf::new(60); b(&mut h, [-0.16, 0.0, -0.16, 0.16, 0.32, 0.16], skin); b(&mut h, [-0.17, 0.24, -0.17, 0.17, 0.36, 0.17], hair); b(&mut h, [-0.17, 0.08, -0.17, 0.17, 0.26, -0.08], hair);
-        b(&mut h, [-0.09, 0.15, 0.16, -0.04, 0.2, 0.17], [0.1, 0.1, 0.12]); b(&mut h, [0.04, 0.15, 0.16, 0.09, 0.2, 0.17], [0.1, 0.1, 0.12]); o.push((n, h));
+    const HEADS: [&str; 6] = ["folkHead0", "folkHead1", "folkHead2", "folkHead3", "folkHead4", "folkHead5"];
+    let hairs = [[0.32, 0.2, 0.11], [0.13, 0.1, 0.08], [0.72, 0.58, 0.32]];
+    for (k, n) in HEADS.iter().enumerate() {
+        let hair = hairs[k % 3]; let style = k / 3; let sk = if k % 2 == 0 { skin } else { [0.76, 0.58, 0.44] };
+        let mut h = VBuf::new(400); let q = &mut h;
+        b(q, [-0.19, 0.0, -0.19, 0.19, 0.38, 0.19], sk); b(q, [-0.2, 0.3, -0.2, 0.2, 0.42, 0.2], hair); b(q, [-0.2, 0.12, -0.2, 0.2, 0.32, -0.1], hair); // crâne, chevelure, nuque
+        b(q, [-0.2, 0.2, -0.1, -0.17, 0.33, 0.06], hair); b(q, [0.17, 0.2, -0.1, 0.2, 0.33, 0.06], hair); // tempes
+        if style == 1 { b(q, [-0.21, -0.12, -0.21, 0.21, 0.3, -0.12], hair); } // cheveux longs
+        for sx in [-1.0, 1.0] { let x0 = if sx < 0.0 { -0.12 } else { 0.05 };
+            b(q, [x0, 0.17, 0.19, x0 + 0.07, 0.22, 0.195], [0.95, 0.94, 0.9]); b(q, [x0 + if sx < 0.0 { 0.03 } else { 0.01 }, 0.17, 0.195, x0 + if sx < 0.0 { 0.06 } else { 0.04 }, 0.215, 0.2], [0.14, 0.1, 0.08]); // œil et pupille
+            b(q, [x0 - 0.005, 0.245, 0.19, x0 + 0.075, 0.27, 0.2], [hair[0] * 0.8, hair[1] * 0.8, hair[2] * 0.8]); } // sourcils
+        b(q, [-0.03, 0.1, 0.19, 0.03, 0.18, 0.225], skin2); b(q, [-0.06, 0.055, 0.19, 0.06, 0.075, 0.198], [0.55, 0.3, 0.28]); // nez, bouche
+        if k == 1 || k == 4 { b(q, [-0.16, -0.06, 0.1, 0.16, 0.045, 0.205], hair); b(q, [-0.2, -0.02, -0.02, -0.15, 0.2, 0.18], hair); b(q, [0.15, -0.02, -0.02, 0.2, 0.2, 0.18], hair); b(q, [-0.08, 0.08, 0.19, 0.08, 0.1, 0.205], hair); } // barbe, favoris, moustache
+        o.push((n, h));
     }
-    let mut leg = VBuf::new(60); b(&mut leg, [-0.08, -0.62, -0.08, 0.08, 0.0, 0.08], pants); b(&mut leg, [-0.085, -0.74, -0.09, 0.085, -0.62, 0.11], belt); o.push(("folkLeg", leg));
     o
 }
 
@@ -361,7 +394,8 @@ impl Session {
             } }
         }
         let talking = self.town.talk.as_ref().map(|t| t.who); let armed = self.armed();
-        self.town.update(dt, self.hour, me, talking, armed); self.notes.append(&mut self.town.news); self.folk_doors(dt);
+        let world = &self.world; let blocked = |x: f64, y: f64, z: f64| { use crate::player::Voxels; [(0.22, 0.0), (-0.22, 0.0), (0.0, 0.22), (0.0, -0.22)].iter().any(|(ox, oz)| (0..2).any(|h| world.get((x + ox).floor() as i32, y.floor() as i32 + h, (z + oz).floor() as i32).is_some_and(|b| b != 0 && crate::blocks::is_solid(b) && crate::shapes::info(b).is_none_or(|i| i.kind != crate::shapes::Kind::Door)))) };
+        self.town.update(dt, self.hour, me, talking, armed, &blocked); self.notes.append(&mut self.town.news); self.folk_doors(dt);
         if let Some(t) = &self.town.talk { if self.town.folk.get(t.who).is_none_or(|f| (f.p[0] - me[0]).hypot(f.p[2] - me[2]) > 6.0) { self.town.talk = None; } }
     }
     /// Une arme en main : épée, lance ou arc.

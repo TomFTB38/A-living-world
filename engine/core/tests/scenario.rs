@@ -68,7 +68,10 @@ fn de_rien_au_coffre_sauvegarde() {
     let mut walls = 0; for (a, b) in [(-1, 4), (1, 4), (-1, 3), (0, 3), (1, 3)] { if s.count("plank") == 0 { break; } let g = spot(&mut s, a, b); let id = s.inv.iter().position(|t| t.is_some_and(|t| t.item.ends_with("planks"))).unwrap(); let p = place_on(&mut s, id, g); if s.world.get(p[0], p[1], p[2]).is_some_and(is_solid) { walls += 1; } }
     assert!(walls >= 3, "murs posés : {walls}");
     // 8. Le feu de camp : bâtons, cailloux, fibre ; posé, il brûle.
-    craft(&mut s, "campfire", 1); let fire = { let g = spot(&mut s, -2, 0); let i = slot_of(&s, "campfire"); place_on(&mut s, i, g) }; assert_eq!(s.world.get(fire[0], fire[1], fire[2]), Some(B::CAMPFIRE)); assert!(s.stations()[2], "feu à portée");
+    craft(&mut s, "campfire", 1); let fire = { let g = spot(&mut s, -2, 0); let i = slot_of(&s, "campfire"); place_on(&mut s, i, g) }; assert_eq!(s.world.get(fire[0], fire[1], fire[2]), Some(B::CAMPFIRE_OUT), "posé éteint"); assert!(!s.stations()[2], "un feu éteint ne cuit rien");
+    // Il s'allume à l'archet à feu (bâtons et fibre), après quelques essais.
+    s.add_item("stick", 2); s.add_item("fiber", 2); craft(&mut s, "fire_drill", 1); s.sel = slot_of(&s, "fire_drill"); let mut k = 0; while s.world.get(fire[0], fire[1], fire[2]) != Some(B::CAMPFIRE) && k < 60 { right(&mut s, fire); k += 1; }
+    assert_eq!(s.world.get(fire[0], fire[1], fire[2]), Some(B::CAMPFIRE), "le feu prend"); assert!(s.stations()[2], "feu à portée");
     // 9. Trouver de l'eau et boire, les mains libres.
     let w = spot(&mut s, 0, -2); s.world.edit(w[0], w[1], w[2], B::WATER); s.vit[2] = 40.0; s.sel = s.inv.iter().position(|t| t.is_none()).unwrap(); clear_to(&mut s, w); look(&mut s, [w[0] as f64 + 0.5, w[1] as f64 + 0.6, w[2] as f64 + 0.5]); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); idle(&mut s, 0.8); assert!(s.vit[2] > 50.0, "on a bu : {}", s.vit[2]);
     // 10. Premier repas : un lièvre chassé, cuit au feu, mangé.

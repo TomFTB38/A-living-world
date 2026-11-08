@@ -102,6 +102,9 @@ pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
         "dried_berries" => { for (cx, cy) in [(0.4, 0.45), (0.56, 0.42), (0.48, 0.58), (0.62, 0.58), (0.36, 0.62)] { if disc(x, y, cx, cy, 0.07, 0.065) < 1.0 { return Some(([0.3, 0.12, 0.2], FAT)); } } None }
         "pine_nuts" => { for (cx, cy) in [(0.4, 0.44), (0.56, 0.4), (0.48, 0.56), (0.62, 0.56), (0.36, 0.6), (0.52, 0.68)] { if disc(x, y, cx, cy, 0.05, 0.035) < 1.0 { return Some(([0.86, 0.76, 0.56], FAT)); } } None }
         "bread" => { let r = disc(x, y, 0.5, 0.52, 0.32, 0.18); if r < 1.0 { return Some((if r > 0.6 && y < 0.52 { [0.56, 0.32, 0.14] } else if ((x * 10.0).floor() as i64 & 1) != 0 && y < 0.46 { [0.82, 0.62, 0.36] } else { [0.72, 0.48, 0.24] }, FAT)); } None }
+        // Archet à feu : un arc de bois tendu d'une corde, la broche verticale et sa planchette.
+        "fire_drill" => { let (dx, dy) = (x - 0.5, y - 0.32); let r = (dx * dx / 0.13 + dy * dy / 0.02).sqrt(); if (r - 1.0).abs() < 0.12 && dy < 0.02 { return Some((WOOD[1], FAT)); } if (y - 0.34).abs() < 0.008 && dx.abs() < 0.34 { return Some(([0.86, 0.8, 0.62], THIN)); }
+            if (x - 0.5).abs() < 0.025 && y > 0.22 && y < 0.78 { return Some((WOOD[2], FAT)); } if y > 0.76 && y < 0.84 && (x - 0.5).abs() < 0.26 { return Some((WOOD[0], FAT)); } if (x - 0.5).hypot(y - 0.75) < 0.03 { return Some(([0.2, 0.1, 0.06], FAT)); } None }
         "bandage" => { let r = disc(x, y, 0.5, 0.5, 0.24, 0.24); if r < 1.0 { return Some((if r < 0.2 { [0.75, 0.73, 0.66] } else if ((r * 5.0) as i64 & 1) != 0 { [0.95, 0.93, 0.88] } else { [0.85, 0.83, 0.76] }, FAT)); } None }
         _ => { // de quoi ne jamais rester sans image : un petit paquet
             if (x - 0.5).abs() < 0.22 && (y - 0.5).abs() < 0.22 { return Some(([0.6, 0.55, 0.45], FAT)); } None }

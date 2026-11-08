@@ -54,11 +54,13 @@ fn head() -> VBuf {
     o
 }
 const THIGH: f64 = 0.38; const UPPER: f64 = 0.29;
+/// Le personnage un peu plus étoffé : 15 % plus large et plus épais, même taille.
+const BULK: M4 = [1.15, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.15, 0.0, 0.0, 0.0, 0.0, 1.0];
 /// Habits portés, par matière : fourrure, cuir, fer, acier, paille, bois, étoffe. Des coques un peu plus larges que le corps.
 pub const FAMILIES: [&str; 7] = ["fur", "leather", "iron", "steel", "straw", "wooden", "cloth"];
 pub fn family(id: &str) -> &'static str { FAMILIES.iter().find(|f| id.contains(*f)).copied().unwrap_or(if id == "backpack" { "leather" } else { "cloth" }) }
 fn outfit_parts() -> Vec<(&'static str, VBuf)> {
-    const SLOT: [&str; 6] = ["head", "torso", "thigh", "shin", "back", "shield"];
+    const SLOT: [&str; 7] = ["head", "torso", "thigh", "shin", "back", "shield", "fpshield"];
     let mut o = Vec::new();
     for f in FAMILIES {
         let (a, d): (C, C) = match f { "fur" => ([0.6, 0.47, 0.32], [0.76, 0.64, 0.48]), "leather" => ([0.42, 0.26, 0.13], [0.3, 0.18, 0.09]), "iron" => ([0.56, 0.56, 0.58], [0.4, 0.4, 0.42]), "steel" => ([0.42, 0.47, 0.54], [0.3, 0.33, 0.38]), "straw" => ([0.8, 0.68, 0.38], [0.66, 0.54, 0.28]), "wooden" => ([0.52, 0.35, 0.18], [0.36, 0.24, 0.12]), _ => ([0.46, 0.5, 0.36], [0.34, 0.37, 0.26]) };
@@ -73,6 +75,9 @@ fn outfit_parts() -> Vec<(&'static str, VBuf)> {
                 "thigh" => { b(q, [-0.108, -THIGH - 0.02, -0.113, 0.108, 0.01, 0.113], a); if metal { b(q, [-0.112, -0.2, 0.09, 0.112, -0.06, 0.118], d); } }
                 "shin" => { b(q, [-0.112, -0.38, -0.112, 0.112, -0.14, 0.118], a); b(q, [-0.114, -0.38, -0.114, 0.114, -0.34, 0.15], d); }
                 "back" => { b(q, [-0.19, 0.06, -0.38, 0.19, 0.56, -0.13], a); b(q, [-0.15, 0.1, -0.41, 0.15, 0.32, -0.37], d); }
+                // Le bouclier vu de l'arrière, en première personne : planches, cerclage, umbo, poignée.
+                "fpshield" => { b(q, [-0.2, -0.16, -0.015, 0.2, 0.26, 0.015], a); b(q, [-0.14, -0.3, -0.015, 0.14, -0.16, 0.015], a); b(q, [-0.06, -0.38, -0.015, 0.06, -0.3, 0.015], a);
+                    b(q, [-0.21, 0.24, -0.02, 0.21, 0.28, 0.02], d); b(q, [-0.21, -0.16, -0.02, -0.17, 0.26, 0.02], d); b(q, [0.17, -0.16, -0.02, 0.21, 0.26, 0.02], d); b(q, [-0.05, 0.0, -0.035, 0.05, 0.1, -0.015], d); b(q, [-0.02, -0.04, 0.015, 0.02, 0.14, 0.05], [0.3, 0.2, 0.12]); }
                 _ => { b(q, [0.075, -0.26, -0.2, 0.1, 0.14, 0.2], a); b(q, [0.1, -0.08, -0.04, 0.13, -0.04, 0.04], d); b(q, [0.072, -0.27, -0.21, 0.098, -0.24, 0.21], d); b(q, [0.072, 0.11, -0.21, 0.098, 0.14, 0.21], d); }
             }
             o.push((Box::leak(format!("wear_{slot}_{f}").into_boxed_str()) as &'static str, m));
@@ -174,7 +179,9 @@ fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
     if matches!(name, "pickaxe" | "axe" | "sword" | "stick" | "berries" | "rowan_berries" | "raw_meat" | "cooked_meat" | "leather" | "stone_axe" | "stone_pickaxe" | "stone_knife" | "pebble" | "fiber" | "seeds") {
         return shape(name, x, y).map(|k| (PAL[k as usize], if k == STEEL[3] { 0.012 } else if STEEL.contains(&k) { 0.022 } else if k >= BERRY[0] { 0.05 } else { 0.03 }));
     }
-    crate::icons::look(name, x, y)
+    // Les outils, l'arc, la flèche et la canne sont dessinés en diagonale depuis le bas ; tout le reste l'est comme une image, du haut vers le bas.
+    let upright = matches!(name, "bow" | "arrow" | "fishing_rod") || crate::data::def(name).is_some_and(|d| d.tool.is_some());
+    crate::icons::look(name, x, if upright { y } else { 1.0 - y })
 }
 fn tool_mesh(name: &str) -> VBuf {
     let mut o = VBuf::new(8000); const N: usize = 56; let s = 0.86; let px = s / N as f64; let grip = 0.2 * R2 * s;
@@ -245,14 +252,14 @@ impl Models {
 /// Un morceau à dessiner : matrice, plage d'indices, et la façon de le traiter.
 #[derive(Clone, Copy, Debug)] pub struct Draw { pub m: M4, pub r: Range, pub view: bool, pub local: bool, pub hero: bool, pub dynamic: bool }
 fn hold_m(h: Hold) -> M4 { match h { Hold::Tool => mul(&trs(0.0, -0.58, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.0), &roll_z(-std::f64::consts::FRAC_PI_4)), Hold::Block => trs(-0.14, -0.76, -0.14, 0.0, 0.0, 0.28), Hold::Deco => trs(-0.28, -0.72, -0.1, 0.0, 0.0, 0.55) } }
-#[derive(Default, Clone, Copy)] pub struct AnimIn { pub speed: f64, pub ground: bool, pub vy: f64, pub crouch: bool, pub fly: bool, pub mining: bool }
-#[derive(Default)] pub struct Anim { phase: f64, walk: f64, run: f64, low: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64 }
+#[derive(Default, Clone, Copy)] pub struct AnimIn { pub speed: f64, pub ground: bool, pub vy: f64, pub crouch: bool, pub fly: bool, pub mining: bool, pub guard: bool }
+#[derive(Default)] pub struct Anim { phase: f64, walk: f64, run: f64, low: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64, /** garde levée, de 0 à 1 */ pub guard: f64 }
 impl Anim {
     pub fn update(&mut self, dt: f64, s: AnimIn) {
         let ease = |c: f64, t: f64, k: f64| c + (t - c) * (dt * k).min(1.0); let was = self.air;
         self.walk = ease(self.walk, (s.speed / 4.5).min(1.0), 10.0); self.run = ease(self.run, if s.speed > 5.2 { 1.0 } else { 0.0 }, 8.0); self.low = ease(self.low, if s.crouch { 1.0 } else { 0.0 }, 13.0);
         self.air = ease(self.air, if s.ground || s.fly { 0.0 } else { 1.0 }, 12.0); self.rise = ease(self.rise, if s.vy > 0.0 { 1.0 } else { 0.0 }, 12.0);
-        if was > 0.5 && self.air <= 0.5 { self.landed = 1.0; }
+        if was > 0.5 && self.air <= 0.5 { self.landed = 1.0; } self.guard = ease(self.guard, if s.guard { 1.0 } else { 0.0 }, 16.0);
         self.landed = (self.landed - dt * 5.0).max(0.0);
         if s.speed > 0.2 { self.phase += dt * (3.4 + s.speed * 1.35); }
         if s.mining { self.swing = (self.swing + dt * 3.3) % 1.0; } else if self.swing > 0.0 { self.swing += dt * 3.3; if self.swing >= 1.0 { self.swing = 0.0; } }
@@ -274,7 +281,8 @@ impl Anim {
         let mut arm_l = armv + 0.08 - 1.0 * a * (0.5 + 0.5 * rise) - 0.3 * low; let mut elbow_l = -(elbow_rest * ground + 0.8 * a + 0.5 * low);
         let swing_a = if self.swing > 0.0 { -1.5 + cos(self.swing * 6.283) * 0.95 } else { 0.0 }; let punch_a = -sin(self.punch * pi) * 1.05;
         let mut arm_r = (if self.swing > 0.0 { swing_a } else { -0.2 - armv * 0.35 - 0.55 * a }) + punch_a; let mut elbow_r = if self.swing > 0.0 { -0.3 - 0.45 * sin(self.swing * pi) } else { -0.62 - 0.45 * run };
-        let mut hip_y = 0.8 + c.abs() * 0.05 * w * ground - 0.27 * low - 0.15 * land + 0.03 * a; let mut lean = 0.05 * w + 0.26 * run + 0.46 * low + 0.16 * land - 0.08 * a * rise; let mut base = trs(p[0], p[1], p[2], yaw, 0.0, 1.0);
+        let g = self.guard; arm_l += (-1.25 - arm_l) * g; elbow_l += (-1.35 - elbow_l) * g; // garde : l'avant-bras gauche et le bouclier devant la poitrine
+        let mut hip_y = 0.8 + c.abs() * 0.05 * w * ground - 0.27 * low - 0.15 * land + 0.03 * a; let mut lean = 0.05 * w + 0.26 * run + 0.46 * low + 0.16 * land - 0.08 * a * rise; let mut base = mul(&trs(p[0], p[1], p[2], yaw, 0.0, 1.0), &BULK);
         if let Some((t, d)) = roll {
             // Roulade : le corps se ramasse, puis tourne d'un tour complet autour de son centre, dans le sens de la fuite.
             let tuck = (t * 6.0).min(1.0).min((1.0 - t) * 6.0); let e = t * t * (3.0 - 2.0 * t); let mix = |x: f64, y: f64| x + (y - x) * tuck;
@@ -295,7 +303,8 @@ impl Anim {
         out
     }
     /// Première personne : poing si la main est vide, bloc seul s'il y en a un, bras et outil sinon.
-    pub fn first(&self, md: &Models, view: &M4, held: Option<Held>) -> Vec<Draw> {
+    /// `shield` : la matière du bouclier porté au bras gauche (voir `family`), visible en bas à gauche et levé en garde.
+    pub fn first(&self, md: &Models, view: &M4, held: Option<Held>, shield: Option<&'static str>) -> Vec<Draw> {
         let s = sin(self.phase); let c = cos(self.phase * 0.5); let w = self.walk * (1.0 - self.air); let pi = std::f64::consts::PI; let v = mul(&invert(view), &trs(0.0, 0.0, 0.0, pi, 0.0, 1.0));
         let strike = if self.swing > 0.0 { sin(self.swing * pi) } else { 0.0 }; let push = sin(self.punch * pi); let r = md.parts["fist"]; let mut out = Vec::new();
         let bx_ = c * 0.022 * w - 0.05 * self.run; let by = -s.abs() * 0.022 * w - 0.05 * self.low + 0.07 * self.air * (self.rise - 0.5);
@@ -311,6 +320,12 @@ impl Anim {
                 let base = mul(&v, &trs(-0.29 + bx_ + 0.05 * strike, -0.2 + by - 0.1 * strike + 0.03 * push, 0.52 + 0.12 * push + 0.08 * strike, 0.62 + 0.25 * strike, 0.26 + 0.6 * strike - 0.3 * push, sc));
                 out.push(Draw { m: mul(&base, &trs(-0.5, if h.hold == Hold::Block { -0.5 } else { -0.4 }, -0.5, 0.0, 0.0, 1.0)), r: h.r, view: true, local: h.local, hero: true, dynamic: false });
             }
+        }
+        if let Some(f) = shield {
+            // Au repos, le bord du bouclier en bas à gauche ; en garde, il remonte au milieu et couvre une part de la vue.
+            let g = self.guard; let lerp = |a: f64, b: f64| a + (b - a) * g;
+            let m = mul(&v, &trs(lerp(0.36, 0.2) + bx_ * 0.6, lerp(-0.42, -0.2) + by, lerp(0.48, 0.58), lerp(-0.5, -0.18), lerp(0.35, 0.08), 1.0));
+            out.push(Draw { m, r: md.parts[format!("wear_fpshield_{f}").as_str()], view: true, local: false, hero: true, dynamic: false });
         }
         out
     }

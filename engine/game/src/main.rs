@@ -263,7 +263,8 @@ impl ApplicationHandler for App {
                     if down && at != Some(hud::Hit::Search) { g.s.book.typing = false; }
                     match (button, down) {
                         (MouseButton::Left, true) => match at {
-                            Some(hud::Hit::Tab(i)) => g.s.tab = i,
+                            Some(hud::Hit::Tab(i)) => { g.s.tab = i; g.s.cat_row = 0; }
+                            Some(hud::Hit::Scroll(d)) => { let max = hud::cat_rows(&g.s).saturating_sub(hud::CAT_ROWS); g.s.cat_row = (g.s.cat_row as i32 + d).clamp(0, max as i32) as usize; }
                             Some(hud::Hit::Slot(i)) => if shift { g.s.quick_slot(i) } else { g.s.grab_slot(i) },
                             Some(hud::Hit::Catalog(id)) => if shift { g.s.quick_catalog(id) } else if g.s.cursor.is_none() { g.s.grab_catalog(id) },
                             Some(hud::Hit::BookCat(i)) => { g.s.book.cat = i; g.s.book.page = 0; }
@@ -290,7 +291,7 @@ impl ApplicationHandler for App {
             WindowEvent::CursorMoved { position, .. } => { g.mouse = [position.x as f32, position.y as f32]; if let Some(i) = g.drag { g.slide(i); } }
             WindowEvent::MouseWheel { delta, .. } => {
                 let d = match delta { MouseScrollDelta::LineDelta(_, y) => y, MouseScrollDelta::PixelDelta(p) => p.y as f32 };
-                if let Some(t) = g.menu.title.as_mut() { if d != 0.0 && t.page == hud::TPage::Worlds { let max = t.worlds.len().saturating_sub(7); t.scroll = (t.scroll as i32 + if d > 0.0 { -1 } else { 1 }).clamp(0, max as i32) as usize; } } else if d != 0.0 && g.s.map.open { g.s.zoom_map(if d > 0.0 { -1 } else { 1 }); } else if d != 0.0 { g.s.sel = (g.s.sel as i32 + if d > 0.0 { -1 } else { 1 }).rem_euclid(9) as usize; }
+                if let Some(t) = g.menu.title.as_mut() { if d != 0.0 && t.page == hud::TPage::Worlds { let max = t.worlds.len().saturating_sub(7); t.scroll = (t.scroll as i32 + if d > 0.0 { -1 } else { 1 }).clamp(0, max as i32) as usize; } } else if d != 0.0 && g.s.inv_open && g.s.creative { let max = hud::cat_rows(&g.s).saturating_sub(hud::CAT_ROWS); g.s.cat_row = (g.s.cat_row as i32 + if d > 0.0 { -1 } else { 1 }).clamp(0, max as i32) as usize; } else if d != 0.0 && g.s.map.open { g.s.zoom_map(if d > 0.0 { -1 } else { 1 }); } else if d != 0.0 { g.s.sel = (g.s.sel as i32 + if d > 0.0 { -1 } else { 1 }).rem_euclid(9) as usize; }
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 let PhysicalKey::Code(c) = event.physical_key else { return };
@@ -591,7 +592,7 @@ fn capture(a: &[String]) {
             println!("fissure : progression {:.2}, cible {:?}", s.progress(), s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
         }
         if scene != "fissure" { s.tick(0.0, none, Actions::default()); }
-        if scene == "combat" { let (x, z) = at(3.2, 0.3); s.wild.put(alw_core::wild::Kind::Wolf, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.14, false); s.guard_t = 0.12; s.charge = 0.5; s.guide = 99; println!("combat : {} bêtes", s.wild.all.len()); } println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
+        if scene == "combat" { let (x, z) = at(3.2, 0.3); s.wild.put(alw_core::wild::Kind::Wolf, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.14, false); s.guard_t = 0.12; s.anim.guard = 1.0; s.charge = 0.5; s.guide = 99; println!("combat : {} bêtes", s.wild.all.len()); } println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
     }
     let mut menu = hud::Menu { open: scene == "menu" || scene == "commandes", controls: scene == "commandes", weather: 3, quality: 1, hud: 2, ..hud::Menu::new() };
     if scene == "titre" { menu.title = Some(hud::Title::new(vec![hud::WorldInfo { name: "Premier monde".into(), seed: SEED, profile: 1, hours: 130.0, age: "il y a 2 h".into() }], "Premier monde")); }

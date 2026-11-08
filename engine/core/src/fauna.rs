@@ -177,7 +177,7 @@ impl Fauna {
         let mut out = Vec::with_capacity(self.deer.len() * 6 + self.birds.len() * 3);
         let mut put = |n: &str, m: M4| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false });
         for d in &self.deer {
-            let base = trs(d.p[0], d.p[1] + d.hit * 0.5, d.p[2], d.yaw, -d.hit * 0.8, 1.0); let s = if d.speed != 0.0 { sin(d.phase) * 0.75 } else { 0.0 }; const HIP: f64 = 0.72;
+            let fl = crate::wild::flinch(d.hit); let base = trs(d.p[0], d.p[1] + fl * 0.5, d.p[2], d.yaw, -fl * 0.8, 1.0); let s = if d.speed != 0.0 { sin(d.phase) * 0.75 } else { 0.0 }; const HIP: f64 = 0.72;
             put("deerBody", mul(&base, &trs(0.0, HIP, 0.0, 0.0, 0.0, 1.0))); put("deerHead", mul(&base, &trs(0.0, HIP + 0.28, 0.45, 0.0, 0.42 + 1.05 * d.head, 1.0)));
             for (x, z, a) in [(-0.13, 0.44, s), (0.13, 0.44, -s), (-0.13, -0.44, -s), (0.13, -0.44, s)] { put("deerLeg", mul(&base, &trs(x, HIP, z, 0.0, a, 1.0))); }
         }

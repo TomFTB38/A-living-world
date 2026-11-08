@@ -13,13 +13,16 @@ pub const VERT: usize = 36; // octets par sommet : position, uv, couleur, couche
 pub struct Ui { pub data: Vec<f32>, w: f32, h: f32 }
 type C = [f32; 4];
 const LAYER_FLAT: f32 = -1.0; const LAYER_TEXT: f32 = -2.0; const LAYER_ICON: f32 = -3.0;
-const INK: C = [0.95, 0.96, 0.92, 1.0]; const DIM: C = [0.72, 0.76, 0.7, 0.95]; const PANEL: C = [0.09, 0.11, 0.095, 0.95]; const WELL: C = [0.0, 0.0, 0.0, 0.32]; const ACCENT: C = [0.55, 0.78, 0.42, 1.0]; const BAD: C = [1.0, 0.45, 0.38, 1.0]; const GOLD: C = [0.95, 0.78, 0.36, 1.0];
+const INK: C = [0.96, 0.95, 0.9, 1.0]; const DIM: C = [0.74, 0.76, 0.69, 0.95]; const PANEL: C = [0.075, 0.09, 0.08, 0.93]; const WELL: C = [0.0, 0.0, 0.0, 0.32]; const ACCENT: C = [0.55, 0.78, 0.42, 1.0]; const BAD: C = [1.0, 0.45, 0.38, 1.0]; const GOLD: C = [0.95, 0.78, 0.36, 1.0];
 /// Ce que la souris peut viser dans l'inventaire. `Slot` couvre le sac, le coffre ouvert et l'équipement.
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum Hit { Slot(usize), Catalog(&'static str), Tab(usize), Book(usize), BookCat(usize), Page(i32), Search, Craft(bool) }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum Hit { Slot(usize), Catalog(&'static str), Tab(usize), Book(usize), BookCat(usize), Page(i32), Search, Craft(bool), Scroll(i32) }
 fn scale(h: f32) -> f32 { (h / 900.0).clamp(0.8, 2.0) }
 /// Échelle de l'inventaire de survie : assez petite pour que les trois panneaux tiennent en largeur.
 fn inv_scale(w: f32, h: f32) -> f32 { scale(h).min(w / 1300.0).max(0.6) }
 const BOOK_COLS: usize = 5; const BOOK_ROWS: usize = 4;
+/// Rangées visibles du catalogue créatif, et rangées de l'onglet en cours.
+pub const CAT_ROWS: usize = 4;
+pub fn cat_rows(s: &Session) -> usize { tabs()[s.tab.min(tabs().len() - 1)].1.len().div_ceil(9) }
 /// Disposition de l'écran d'inventaire, partagée par le dessin et la souris : [x, y, largeur, hauteur].
 pub fn layout(s: &Session, w: f32, h: f32) -> Vec<(Hit, [f32; 4])> {
     let creative = s.creative; let k = if creative { scale(h) } else { inv_scale(w, h) }; let c = 58.0 * k; let g = 5.0 * k; let cell = c + g; let tw = 9.0 * c + 8.0 * g; let mut o = Vec::new();
@@ -27,7 +30,10 @@ pub fn layout(s: &Session, w: f32, h: f32) -> Vec<(Hit, [f32; 4])> {
         let x0 = (w - tw) * 0.5; let top = h * 0.5 - 300.0 * k; let n = tabs().len() as f32; let tb = (tw - (n - 1.0) * g) / n; let th = 32.0 * k;
         for i in 0..tabs().len() { o.push((Hit::Tab(i), [x0 + i as f32 * (tb + g), top, tb, th])); }
         let y1 = top + th + 10.0 * k;
-        for (i, id) in tabs()[s.tab.min(tabs().len() - 1)].1.iter().take(36).enumerate() { let (r, cl) = (i / 9, i % 9); o.push((Hit::Catalog(id), [x0 + cl as f32 * cell, y1 + r as f32 * cell, c, c])); }
+        // Le catalogue défile par rangées (molette, ou les flèches à droite) : tout l'onglet reste accessible.
+        let list = &tabs()[s.tab.min(tabs().len() - 1)].1; let row0 = s.cat_row.min(cat_rows(s).saturating_sub(CAT_ROWS));
+        for (i, id) in list.iter().skip(row0 * 9).take(CAT_ROWS * 9).enumerate() { let (r, cl) = (i / 9, i % 9); o.push((Hit::Catalog(id), [x0 + cl as f32 * cell, y1 + r as f32 * cell, c, c])); }
+        if cat_rows(s) > CAT_ROWS { let sx = x0 + tw + 10.0 * k; o.push((Hit::Scroll(-1), [sx, y1, 22.0 * k, 26.0 * k])); o.push((Hit::Scroll(1), [sx, y1 + 4.0 * cell - g - 26.0 * k, 22.0 * k, 26.0 * k])); }
         let y = y1 + 4.0 * cell + 16.0 * k; inv_grid(&mut o, x0, y, c, cell, k); return o;
     }
     let (lw, bw, gap) = (250.0 * k, BOOK_COLS as f32 * cell - g, 46.0 * k); let total = lw + gap + tw + gap + bw; let xl = (w - total) * 0.5; let x0 = xl + lw + gap; let xb = x0 + tw + gap;
@@ -119,7 +125,7 @@ pub fn title_at(t: &Title, w: f32, h: f32, p: [f32; 2]) -> Option<T> { title_lay
 /// Ce que change chaque profil, en une ligne.
 pub fn profile_line(i: usize) -> String { let p = &PROFILES[i]; match i { 0 => "Besoins lents, blessures légères, dépouille gardée longtemps".into(), 1 => "Le jeu tel qu'il est pensé".into(), _ => format!("Besoins x{:.1}, blessures x{:.1}, dépouille {:.0} jours", p.needs, p.harm, p.stash_days) } }
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum M { Resume, Weather(usize), Mood(usize), Quality(usize), Vol(usize), Credits, Back, Quit, NewWorld, Profile(usize), Hud(usize), Reduce, Marker, Tips, Controls, Bind(usize, usize), ResetKeys }
-fn menu_panel(w: f32, h: f32) -> ([f32; 4], f32) { let k = scale(h).min(h / 800.0); let (pw, ph) = (680.0 * k, 780.0 * k); ([(w - pw) * 0.5, (h - ph) * 0.5, pw, ph], k) }
+fn menu_panel(w: f32, h: f32) -> ([f32; 4], f32) { let k = scale(h).min(h / 800.0); let (pw, ph) = (680.0 * k, 702.0 * k); ([(w - pw) * 0.5, (h - ph) * 0.5, pw, ph], k) }
 pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
     let (p, k) = menu_panel(w, h); let (x0, tw) = (p[0] + 34.0 * k, p[2] - 68.0 * k); let bh = 40.0 * k; let g = 8.0 * k; let mut o = Vec::new();
     if m.credits { o.push((M::Back, [x0, p[1] + p[3] - 66.0 * k, tw, bh])); return o; }
@@ -155,7 +161,25 @@ pub fn death_at(w: f32, h: f32, m: [f32; 2]) -> bool { inside(m, death_button(w,
 /// Coupe un texte en lignes qui tiennent dans une largeur.
 fn wrap(t: &str, z: f32, width: f32) -> Vec<String> { let mut out = Vec::new(); let mut line = String::new(); for w in t.split_whitespace() { let next = if line.is_empty() { w.to_string() } else { format!("{line} {w}") }; if Ui::text_width(&next, z) > width && !line.is_empty() { out.push(std::mem::replace(&mut line, w.to_string())); } else { line = next; } } if !line.is_empty() { out.push(line); } out }
 impl Ui {
-    fn panel(&mut self, r: [f32; 4], k: f32, c: C) { let e = 2.0 * k; self.rect(r[0] + e, r[1], r[2] - 2.0 * e, r[3], c); self.rect(r[0], r[1] + e, e, r[3] - 2.0 * e, c); self.rect(r[0] + r[2] - e, r[1] + e, e, r[3] - 2.0 * e, c); }
+    /// Un cadre aux coins adoucis. Les grands panneaux ont une ombre portée, un liseré et un filet de couleur en tête ;
+    /// les petits (cases, boutons) un relief discret : clair en haut, sombre en bas.
+    fn panel(&mut self, r: [f32; 4], k: f32, c: C) {
+        let e = 2.0 * k; let big = r[2] > 200.0 * k && r[3] > 140.0 * k;
+        if big { let o = 6.0 * k; self.rect(r[0] + o, r[1] + o + e, r[2] - e, r[3] - e, [0.0, 0.0, 0.0, 0.22 * c[3]]); }
+        self.rect(r[0] + e, r[1], r[2] - 2.0 * e, r[3], c); self.rect(r[0], r[1] + e, e, r[3] - 2.0 * e, c); self.rect(r[0] + r[2] - e, r[1] + e, e, r[3] - 2.0 * e, c);
+        let t = k.max(1.0);
+        if big {
+            let line: C = [0.5, 0.58, 0.44, 0.35 * c[3]];
+            self.rect(r[0] + e, r[1] + r[3] - t, r[2] - 2.0 * e, t, line); self.rect(r[0], r[1] + e, t, r[3] - 2.0 * e, line); self.rect(r[0] + r[2] - t, r[1] + e, t, r[3] - 2.0 * e, line);
+            self.rect(r[0] + e, r[1], r[2] - 2.0 * e, 2.0 * t, [ACCENT[0], ACCENT[1], ACCENT[2], 0.8 * c[3]]);
+            // Bandeau de titre, un peu plus clair, séparé du contenu par un filet.
+            self.rect(r[0] + e, r[1] + 2.0 * t, r[2] - 2.0 * e, 48.0 * k, [1.0, 1.0, 1.0, 0.035 * c[3]]); self.rect(r[0] + 12.0 * k, r[1] + 50.0 * k, r[2] - 24.0 * k, t, [1.0, 1.0, 1.0, 0.07 * c[3]]);
+        } else if c[3] > 0.05 {
+            // Une case sombre est creusée (ombre en haut), un bouton est en relief (lumière en haut).
+            let (hi, lo): (C, C) = ([1.0, 1.0, 1.0, 0.07 + 0.05 * c[3]], [0.0, 0.0, 0.0, 0.3 * c[3].max(0.4)]); let dark = c[0] + c[1] + c[2] < 0.15; let (a, b) = if dark { (lo, [1.0, 1.0, 1.0, 0.06]) } else { (hi, lo) };
+            self.rect(r[0] + e, r[1], r[2] - 2.0 * e, t, a); self.rect(r[0] + e, r[1] + r[3] - t, r[2] - 2.0 * e, t, b);
+        }
+    }
     fn centered(&mut self, t: &str, r: [f32; 4], z: f32, c: C) { self.text(t, r[0] + (r[2] - Ui::text_width(t, z)) * 0.5, r[1] + (r[3] - z * 1.35) * 0.5, z, c); }
     /// Une case avec son objet : icône, nombre, usure d'un outil.
     fn slot_view(&mut self, s: &Session, st: Option<alw_core::session::Stack>, r: [f32; 4], k: f32, on: bool) {
@@ -180,7 +204,8 @@ impl Ui {
         l.push((format!("{:.1} kg", d.mass * st.n.unwrap_or(1) as f64), DIM)); l
     }
     fn inventory(&mut self, s: &Session, w: f32, h: f32, mouse: [f32; 2]) {
-        self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.03, 0.55]);
+        // Le monde s'assombrit, plus fort sur les bords.
+        self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.03, 0.42]); for i in 0..10 { let f = i as f32 / 10.0; let b = w.min(h) * 0.05 * (1.0 - f); let a = [0.0, 0.0, 0.0, 0.05]; self.rect(0.0, 0.0, w, b, a); self.rect(0.0, h - b, w, b, a); self.rect(0.0, b, b, h - 2.0 * b, a); self.rect(w - b, b, b, h - 2.0 * b, a); }
         let k = if s.creative { scale(h) } else { inv_scale(w, h) }; let l = layout(s, w, h); let m = 22.0 * k; let cell = 63.0 * k; let tw = 9.0 * 58.0 * k + 8.0 * 5.0 * k;
         let first = l.iter().find(|r| matches!(r.0, Hit::Slot(i) if (9..INV_SIZE).contains(&i))).map(|r| r.1).unwrap(); let (x0, y0) = (first[0], first[1]); let bottom = y0 + 4.0 * cell + 12.0 * k;
         let top = if s.creative { l[0].1[1] } else if s.chest.is_some() { y0 - 3.0 * cell - 50.0 * k } else { y0 };
@@ -195,6 +220,8 @@ impl Ui {
             // Équipement et état du personnage, à gauche.
             let e0 = l.iter().find(|r| r.0 == Hit::Slot(EQUIP0)).map(|r| r.1).unwrap(); let (xl, lw) = (e0[0], 250.0 * k);
             self.panel([xl - m, y0 - m - 30.0 * k, lw + 2.0 * m, SLOTS.len() as f32 * cell + 100.0 * k + if s.skills.iter().any(|v| *v >= 1.0) { 44.0 * k } else { 0.0 } + 2.0 * m + 30.0 * k], k, PANEL); self.text("Personnage", xl, y0 - 38.0 * k, 22.0 * k, INK);
+            // Emplacements vides : la silhouette de ce qui s'y porte, en sourdine.
+            for (i, ghost) in ["leather_cap", "leather_jacket", "leather_pants", "leather_boots", "backpack", "wooden_shield"].iter().enumerate() { if s.equip[i].is_none() { let c = 58.0 * k; let (gx, gy) = (xl + c * 0.5, y0 + i as f32 * cell + c * 0.5); self.icon(ghost, gx, gy, c * 0.36); self.rect(xl, y0 + i as f32 * cell, c, c, [0.06, 0.07, 0.06, 0.72]); } }
             for (i, (_, name)) in SLOTS.iter().enumerate() { self.text(name, xl + cell + 4.0 * k, y0 + i as f32 * cell + 8.0 * k, 15.5 * k, DIM); if let Some(st) = s.equip[i] { if let Some(d) = def(st.item) { self.text(d.label, xl + cell + 4.0 * k, y0 + i as f32 * cell + 29.0 * k, 13.5 * k, INK); } } }
             let (warm, cool, armor, _, _) = s.worn(); let z = 14.5 * k; let mut y = y0 + SLOTS.len() as f32 * cell + 8.0 * k;
             let lines = [format!("Ressenti {:.0} °C  ·  corps {:.1} °C", s.air_here(), s.body), format!("Fatigue {:.0} %  ·  armure {:.0}", s.fatigue, armor), format!("Chaleur des habits {:+.0}{}", warm, if cool > 0.0 { format!(", fraîcheur {cool:.0}") } else { String::new() }), format!("Survie : {}", PROFILES[s.profile].name)];
@@ -238,6 +265,13 @@ impl Ui {
             match hit {
                 Hit::Tab(i) => { let sel = *i == s.tab; self.panel(*r, k, if sel { [0.28, 0.4, 0.22, 1.0] } else if on { [0.2, 0.24, 0.2, 1.0] } else { [0.0, 0.0, 0.0, 0.34] }); self.centered(tabs()[*i].0, *r, 13.5 * k, if sel { INK } else { DIM }); }
                 Hit::Slot(i) => { let st = s.slot(*i); self.slot_view(s, st, *r, k, on); if on { if let Some(st) = st { tip = Ui::item_lines(s, &st, k); } } }
+                Hit::Scroll(d) => {
+                    // Flèches et ascenseur du catalogue : la barre montre où l'on est dans l'onglet.
+                    self.panel(*r, k, if on { [0.25, 0.32, 0.24, 1.0] } else { [0.0, 0.0, 0.0, 0.4] }); let (cx, cy) = (r[0] + r[2] * 0.5, r[1] + r[3] * 0.5); let a = 6.0 * k * *d as f32;
+                    self.quad([[cx - 6.0 * k, cy - a * 0.5], [cx + 6.0 * k, cy - a * 0.5], [cx, cy + a * 0.5], [cx, cy + a * 0.5]], [[0.0; 2]; 4], INK, LAYER_FLAT);
+                    if *d < 0 { let total = cat_rows(s).max(1); let top = r[1] + r[3] + 6.0 * k; let len = 4.0 * 63.0 * k - 2.0 * r[3] - 22.0 * k; let row0 = s.cat_row.min(total.saturating_sub(CAT_ROWS));
+                        self.rect(cx - 2.0 * k, top, 4.0 * k, len, [0.0, 0.0, 0.0, 0.45]); let th = len * (CAT_ROWS as f32 / total as f32).min(1.0); let ty = top + (len - th) * (row0 as f32 / (total - CAT_ROWS).max(1) as f32); self.rect(cx - 3.0 * k, ty, 6.0 * k, th, ACCENT); }
+                }
                 Hit::Catalog(id) => { self.panel(*r, k, if on { [1.0, 1.0, 1.0, 0.2] } else { WELL }); self.icon(id, r[0] + r[2] * 0.5, r[1] + r[2] * 0.5, r[2] * 0.43); if on { tip = vec![(item(id).map_or(*id, |i| i.label).to_string(), INK)]; } }
                 _ => {}
             }
@@ -248,7 +282,7 @@ impl Ui {
     fn menu(&mut self, m: &Menu, w: f32, h: f32, mouse: [f32; 2]) {
         self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.03, 0.6]);
         let (p, k) = menu_panel(w, h); let (x0, z) = (p[0] + 34.0 * k, 18.0 * k); self.panel(p, k, PANEL); let hover = menu_at(w, h, m, mouse);
-        self.text(if m.credits { "Crédits" } else if m.controls { "Commandes" } else { "A Living World" }, x0, p[1] + 20.0 * k, 28.0 * k, INK);
+        self.text(if m.credits { "Crédits" } else if m.controls { "Commandes" } else { "A Living World" }, x0, p[1] + 10.0 * k, 28.0 * k, INK);
         if m.controls { let t = if m.listen.is_some() { "Appuyez sur une touche · Échap : annuler · Retour arrière : effacer" } else { "Cliquez une case puis appuyez sur la touche voulue" }; self.text(t, x0, p[1] + 58.0 * k, 14.0 * k, if m.listen.is_some() { GOLD } else { DIM }); }
         if m.credits { for (i, l) in CREDITS.iter().enumerate() { let t = i == 2 || i == 7 || i == 10; self.text(l, x0, p[1] + 78.0 * k + i as f32 * 28.0 * k, if t { z } else { 16.0 * k }, if t { ACCENT } else { INK }); } }
         for (a, r) in menu_layout(w, h, m) {
@@ -373,8 +407,8 @@ impl Ui {
     }
     fn dialog(&mut self, s: &Session, w: f32, h: f32, mouse: [f32; 2]) {
         let Some(d) = s.dialog() else { return }; let k = scale(h); let (r, rows) = dialog_layout(d.options.len(), w, h);
-        self.panel(r, k, PANEL); self.text(&d.title, r[0] + 18.0 * k, r[1] + 14.0 * k, 23.0 * k, INK); self.text(&d.sub, r[0] + 18.0 * k, r[1] + 46.0 * k, 15.0 * k, DIM);
-        for (i, l) in wrap(&format!("« {} »", d.said), 17.0 * k, r[2] - 36.0 * k).iter().take(2).enumerate() { self.text(l, r[0] + 18.0 * k, r[1] + 76.0 * k + i as f32 * 24.0 * k, 17.0 * k, GOLD); }
+        self.panel(r, k, PANEL); self.text(&d.title, r[0] + 18.0 * k, r[1] + 14.0 * k, 23.0 * k, INK); self.text(&d.sub, r[0] + 18.0 * k, r[1] + 58.0 * k, 15.0 * k, DIM);
+        for (i, l) in wrap(&format!("« {} »", d.said), 17.0 * k, r[2] - 36.0 * k).iter().take(2).enumerate() { self.text(l, r[0] + 18.0 * k, r[1] + 84.0 * k + i as f32 * 22.0 * k, 17.0 * k, GOLD); }
         for (i, (row, (t, ok))) in rows.iter().zip(d.options.iter()).enumerate() {
             let on = inside(mouse, *row); self.panel(*row, k, if on && *ok { [1.0, 1.0, 1.0, 0.16] } else { WELL });
             let z = 16.0 * k; let mut label = format!("{}. {t}", i + 1); while Ui::text_width(&label, z) > row[2] - 20.0 * k && label.chars().count() > 8 { label.pop(); label.pop(); label.push_str("..."); }
@@ -384,12 +418,12 @@ impl Ui {
     }
     /// Journal des villages : connus, du plus proche au plus lointain, avec leurs artisans (rencontrés en couleur).
     fn journal(&mut self, s: &Session, w: f32, h: f32) {
-        let k = scale(h); let l = s.journal(); let lh = 46.0 * k; let pw = (760.0 * k).min(w - 40.0); let ph = 92.0 * k + l.len().clamp(1, 9) as f32 * lh; let (x, y) = ((w - pw) * 0.5, h * 0.12);
+        let k = scale(h); let l = s.journal(); let lh = 46.0 * k; let pw = (760.0 * k).min(w - 40.0); let ph = 104.0 * k + l.len().clamp(1, 9) as f32 * lh; let (x, y) = ((w - pw) * 0.5, h * 0.12);
         self.panel([x, y, pw, ph], k, PANEL); self.text("Journal des villages", x + 18.0 * k, y + 14.0 * k, 23.0 * k, INK);
-        self.text("Chiffre : marquer le village sur votre route · J pour fermer", x + 18.0 * k, y + 46.0 * k, 14.0 * k, DIM);
+        self.text("Chiffre : marquer le village sur votre route · J pour fermer", x + 18.0 * k, y + 58.0 * k, 14.0 * k, DIM);
         if l.is_empty() { self.text("Aucun village connu. Suivez les chemins, ou demandez aux voyageurs.", x + 18.0 * k, y + 80.0 * k, 16.0 * k, DIM); }
         for (i, (v, at, crafts)) in l.iter().take(9).enumerate() {
-            let yy = y + 78.0 * k + i as f32 * lh; let marked = s.town.marked == Some(v.id);
+            let yy = y + 90.0 * k + i as f32 * lh; let marked = s.town.marked == Some(v.id);
             self.text(&format!("{}. {}{} · {} · {}", i + 1, v.name, if marked { " (marqué)" } else { "" }, alw_core::village::kind_label(v.kind), at), x + 18.0 * k, yy, 17.0 * k, if marked { GOLD } else { INK });
             let mut px = x + 40.0 * k;
             for (c, met) in crafts { let n = alw_core::village::craftsman(c).map_or(*c, |x| x.name); let z = 14.0 * k; self.text(n, px, yy + 22.0 * k, z, if *met { ACCENT } else { DIM }); px += Ui::text_width(n, z) + 18.0 * k; }
@@ -546,7 +580,7 @@ impl Ui {
         for i in 0..9.min(INV_SIZE) {
             let x = x0 + i as f32 * (cell + gap); let on = i == s.sel;
             u.panel([x, y0, cell, cell], k, if on { [1.0, 1.0, 1.0, 0.3] } else { [0.08, 0.1, 0.09, 0.55] });
-            if on { let b = 2.0 * k; u.rect(x - b, y0 - b, cell + 2.0 * b, b, w1); u.rect(x - b, y0 + cell, cell + 2.0 * b, b, w1); u.rect(x - b, y0, b, cell, w1); u.rect(x + cell, y0, b, cell, w1); }
+            if on { let b = 2.0 * k; let g: C = [0.96, 0.84, 0.5, 1.0]; u.rect(x - b, y0 - b, cell + 2.0 * b, b, g); u.rect(x - b, y0 + cell, cell + 2.0 * b, b, g); u.rect(x - b, y0, b, cell, g); u.rect(x + cell, y0, b, cell, g); u.rect(x, y0 + cell - 3.0 * k, cell, 3.0 * k, [0.96, 0.84, 0.5, 0.5]); }
             if let Some(st) = s.inv[i] {
                 u.icon(st.item, x + cell * 0.5, y0 + cell * 0.5, cell * 0.43);
                 if let (Some(n), false) = (st.n, s.creative) { if n > 1 || def(st.item).is_some_and(|d| d.stack > 1) { let t = n.to_string(); let z = 17.0 * k; u.text(&t, x + cell - Ui::text_width(&t, z) - 5.0 * k, y0 + cell - z - 5.0 * k, z, w1); } }

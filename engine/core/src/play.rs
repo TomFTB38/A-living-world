@@ -256,9 +256,17 @@ impl Session {
                 if t.id == B::CHEST && !self.player.crouch { self.chests.entry(p).or_insert_with(|| vec![None; CHEST_SIZE]); self.chest = Some(p); self.inv_open = true; self.sound.place("chest"); return true; }
                 if (t.id == B::BED || t.id == B::BEDROLL) && !self.player.crouch { self.sleep(p, t.id); return true; }
                 // Nourrir un feu : bois, bâtons, charbon ; un feu éteint se rallume.
+                // Allumer : la torche prend à coup sûr, le silex et l'archet à feu au bout de quelques essais ; sans bois, rien ne prend.
+                if t.id == B::CAMPFIRE_OUT && held.is_some_and(|s| matches!(s.item, "torch" | "flint" | "fire_drill")) {
+                    if self.use_t > 0.0 { return true; } let it = held.unwrap().item; self.use_t = if it == "torch" { 0.3 } else { 0.55 }; self.anim.trigger();
+                    if self.fires.get(&p).is_none_or(|f| *f <= 0.0) { self.notes.push("Il n'y a plus de bois : ajoutez-en avant d'allumer".into()); return true; }
+                    let chance = match it { "torch" => 1.0, "flint" => 0.4, _ => 0.3 } * (1.0 - 0.5 * self.weather.state.rain.min(1.0));
+                    self.sound.place("flint"); if !self.creative && hash_float((self.elapsed * 397.0) as i32, p[0] ^ p[2], self.seed, 23) >= chance { self.notes.push(if it == "torch" { "Le feu ne prend pas sous cette pluie" } else { "Des étincelles... encore" }.into()); return true; }
+                    self.world.edit(t.x, t.y, t.z, B::CAMPFIRE); self.sound.place("campfire"); self.notes.push("Le feu prend".into()); self.dirty = true; return true;
+                }
                 if (t.id == B::CAMPFIRE || t.id == B::CAMPFIRE_OUT) && hd.is_some_and(|d| d.fuel > 0.0 && d.block.is_none_or(|b| !is_deco(b))) {
                     if self.use_t > 0.0 { return true; } let d = hd.unwrap(); let add = d.fuel * FUEL_SCALE; *self.fires.entry(p).or_insert(0.0) += add;
-                    if t.id == B::CAMPFIRE_OUT { self.world.edit(t.x, t.y, t.z, B::CAMPFIRE); self.notes.push("Le feu reprend".into()); }
+                    if t.id == B::CAMPFIRE_OUT { self.notes.push("Bois ajouté : allumez le feu (silex, torche ou archet à feu)".into()); }
                     self.consume_held(); self.use_t = 0.3; self.sound.place("campfire"); return true;
                 }
                 // La houe laboure l'herbe et la terre ; les graines se sèment sur la terre labourée.
@@ -305,7 +313,8 @@ impl Session {
     pub fn gain(&mut self, k: usize) { self.last_gain[k] = self.elapsed; }
     /// Ce qui se passe quand un bloc est posé : un feu commence à brûler, un coffre s'ouvre à vide.
     pub(crate) fn on_placed(&mut self, p: [i32; 3], id: u8) {
-        if id == B::CAMPFIRE { self.fires.insert(p, FIRE_START); }
+        // Un feu de camp se pose éteint, avec sa première brassée de bois : il faut l'allumer.
+        if id == B::CAMPFIRE { self.world.edit(p[0], p[1], p[2], B::CAMPFIRE_OUT); self.fires.insert(p, FIRE_START); self.notes.push("Feu de camp posé : allumez-le d'un clic droit avec un silex, une torche ou un archet à feu".into()); }
         if id == B::CHEST { self.chests.insert(p, vec![None; CHEST_SIZE]); }
     }
     /// Un bloc vient d'être cassé : un coffre rend son contenu, un feu s'éteint pour de bon, une culture est arrachée.
@@ -450,7 +459,7 @@ impl Session {
     /// Le monde qui vit sans nous : baies et blé qui repoussent, feux qui se consument, dépouilles qui finissent par disparaître.
     pub(crate) fn world_step(&mut self, dt: f64) {
         // Les feux brûlent leur combustible ; à court, ils s'éteignent.
-        if !self.fires.is_empty() { let mut out = Vec::new(); for (p, t) in self.fires.iter_mut() { *t -= dt; if *t <= 0.0 { out.push(*p); } }
+        if !self.fires.is_empty() { let mut out = Vec::new(); let lit: Vec<[i32; 3]> = self.fires.keys().filter(|p| self.world.get(p[0], p[1], p[2]) == Some(B::CAMPFIRE)).copied().collect(); for p in lit { let t = self.fires.get_mut(&p).unwrap(); *t -= dt; if *t <= 0.0 { out.push(p); } }
             for p in out { self.fires.remove(&p); if self.world.get(p[0], p[1], p[2]) == Some(B::CAMPFIRE) { self.world.edit(p[0], p[1], p[2], B::CAMPFIRE_OUT); self.dirty = true; } } }
         self.grow_t -= dt; if self.grow_t > 0.0 { return; } self.grow_t = 2.0; let now = self.hours;
         if !self.regrow.is_empty() { let mut keep = Vec::new();

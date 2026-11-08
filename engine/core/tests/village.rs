@@ -54,7 +54,7 @@ fn la_journee_des_villageois() {
     let doors: Vec<[i32; 3]> = v.houses.iter().map(|h| { let (dx, dz) = (h.inside[0] - h.door[0], h.inside[2] - h.door[2]); [(h.door[0] + dx * 0.5).floor() as i32, v.c[1] + 1, (h.door[2] + dz * 0.5).floor() as i32] }).collect();
     let open = |s: &Session| doors.iter().filter(|d| s.world.get(d[0], d[1], d[2]).and_then(alw_core::shapes::info).is_some_and(|i| i.open)).count();
     s.hour = 23.0; let mut seen_open = 0; for _ in 0..(60.0 / DT) as usize { s.tick(DT, Input::default(), Actions::default()); seen_open = seen_open.max(open(&s)); }
-    for f in s.town.folk.iter().filter(|f| f.v == v.id) { let h = &v.houses[f.house]; assert!((f.p[0] - h.bed[0]).hypot(f.p[2] - h.bed[2]) < 0.3, "{} n'est pas rentré", f.name); }
+    for f in s.town.folk.iter().filter(|f| f.v == v.id) { let h = &v.houses[f.house]; assert!((f.p[0] - h.bed[0]).hypot(f.p[2] - h.bed[2]) < 0.3, "{} n'est pas rentré : en {:?}, lit {:?}, porte {:?}, dedans {:?}, atelier {:?}", f.name, f.p, h.bed, h.door, h.inside, h.craft); }
     assert!(seen_open > 0, "les portes s'ouvrent au passage"); idle(&mut s, 3.0); assert_eq!(open(&s), 0, "et se referment derrière eux");
 }
 
@@ -118,4 +118,15 @@ fn saluer_echanger_et_ranger_son_arme() {
     s.add_item("berries", 10); s.choose(option(&s, "Échanger")); let i = option(&s, "Donner 10 myrtilles"); assert!(s.dialog().unwrap().options[i].1);
     let r = s.rep(v.id); s.choose(i); assert_eq!(s.count("bread"), 1); assert_eq!(s.count("berries"), 0); assert_eq!(s.rep(v.id), r + 1); assert!(!s.dialog().unwrap().options[option(&s, "Donner 10 myrtilles")].1, "plus de baies");
     s.choose(option(&s, "Retour")); s.choose(option(&s, "Au revoir")); assert!(s.town.talk.is_none());
+}
+
+#[test]
+fn les_villageois_contournent_les_blocs() {
+    // Des piliers de pierre posés sur la place et devant les portes : personne ne passe au travers.
+    let (mut s, v) = in_village(); let y = v.c[1] + 1; let mut e = Vec::new();
+    for (dx, dz) in [(3, 0), (-3, 1), (0, 3), (2, -3), (-2, -3), (4, 2)] { for h in 0..2 { e.push((v.c[0] + dx, y + h, v.c[2] + dz, B::STONE)); } }
+    for h in &v.houses { let q = [h.ring[0].floor() as i32, y, h.ring[2].floor() as i32]; e.push((q[0], y, q[2], B::STONE)); e.push((q[0], y + 1, q[2], B::STONE)); }
+    s.world.edit_many(&e);
+    let solid = |s: &Session, p: [f64; 3]| s.world.get(p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32).is_some_and(|b| b == B::STONE);
+    for hour in [19.0, 23.0, 12.0] { s.hour = hour; for _ in 0..(40.0 / DT) as usize { s.tick(DT, Input::default(), Actions::default()); for f in &s.town.folk { assert!(!solid(&s, f.p), "{} dans un pilier en {:?}", f.name, f.p); } } }
 }

@@ -54,3 +54,18 @@ fn boucliers_a_fabriquer() {
     assert!(recipes().iter().find(|r| r.out == "steel_shield").unwrap().artisan.is_some(), "l'acier passe par l'armurier");
     assert!(block_share(11.0) > block_share(3.0));
 }
+
+#[test]
+fn les_betes_frappees_restent_dans_le_monde() {
+    // Un mur juste derrière la bête : les coups la font reculer, jamais à travers lui ni dans le sol.
+    let (mut s, y) = site(); s.hour = 12.0; let wall: Vec<_> = (-4..=4).flat_map(|x| (0..3).map(move |h| (x, y + h, 4, B::STONE))).collect(); s.world.edit_many(&wall);
+    for kind in [Kind::Boar, Kind::Wolf, Kind::Bear, Kind::Ibex, Kind::Fox] {
+        s.wild.all.clear(); s.wild.put(kind, [0.5, y as f64, 2.8], 0.0, false);
+        for k in 0..40 {
+            if !s.wild.all.is_empty() { if k % 2 == 0 { s.wild.stagger(0, [0.5, y as f64, 0.5], 1.0); } else { s.wild.all[0].hp = 999.0; let _ = s.wild.strike(0, 0.1, [0.5, y as f64, 0.5]); } }
+            for _ in 0..6 { s.tick(DT, none(), Actions::default()); s.wild.all.retain(|c| c.kind == kind); }
+            for c in s.wild.all.iter().filter(|c| c.p[0].abs() < 11.0 && c.p[2].abs() < 11.0) { let b = s.world.get(c.p[0].floor() as i32, (c.p[1] + 0.2).floor() as i32, c.p[2].floor() as i32); assert!(b.is_some_and(|b| !is_solid(b)), "{kind:?} dans un bloc en {:?}", c.p); assert!(c.p[2] < 4.0, "{kind:?} a traversé le mur : {:?}", c.p); assert!((c.p[1] - y as f64).abs() < 1.1, "{kind:?} hors du sol : {:?}", c.p); }
+        }
+    }
+    assert_eq!(alw_core::wild::flinch(0.3), 0.0); assert!(alw_core::wild::flinch(0.15) > 0.25); assert_eq!(alw_core::wild::flinch(0.0), 0.0);
+}

@@ -254,3 +254,4 @@ planks_vslab | Dalle verticale de bois | batir | 0.5 | 64 | Un demi-bloc debout,
 stone_bricks_vslab | Dalle verticale de pierre taillée | batir | 1.0 | 64 | Un demi-bloc debout de pierre taillée. |
 cobblestone_vslab | Dalle verticale de pavé | batir | 1.0 | 64 | Un demi-bloc debout de pavé. |
 shutter | Volet | batir | 1.0 | 16 | Se pose contre une fenêtre ; clic droit pour l'ouvrir ou le fermer. |
+fire_drill | Archet à feu | outils | 0.4 | 1 | Un bâton qu'on fait tourner vite contre un autre : de quoi allumer un feu de camp, avec un peu de patience. |
