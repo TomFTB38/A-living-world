@@ -179,3 +179,14 @@ fn artisans_au_dela_du_fer() {
     let mut o = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, dry()); o.load_text(&s.save_text()).unwrap(); assert!(o.taught.contains("forgeron"), "la technique apprise est gardée");
     assert!(!s.learn("armurier"), "l'armurier ne transmet pas : il faut passer commande");
 }
+
+#[test]
+fn charge_portee() {
+    let mut s = session(); s.inv = [None; INV_SIZE]; s.add_item("stone", 32); s.add_item("planks", 16); s.add_item("oak_log", 4); s.add_item("stone_axe", 1); s.add_item("stone_pickaxe", 1);
+    assert!(s.carried() < s.capacity(), "de quoi bâtir sans ralentir : {:.0} / {:.0} kg", s.carried(), s.capacity());
+    s.add_item("stone", 64); assert!(s.carried() > s.capacity(), "trois piles de pierre, c'est trop");
+    let p = s.player.p; for _ in 0..60 { s.tick(DT, Input { z: 1.0, ..none() }, Actions::default()); } let slow = ((s.player.p[0] - p[0]).powi(2) + (s.player.p[2] - p[2]).powi(2)).sqrt();
+    s.inv = [None; INV_SIZE]; let p = s.player.p; for _ in 0..60 { s.tick(DT, Input { z: 1.0, ..none() }, Actions::default()); } let free = ((s.player.p[0] - p[0]).powi(2) + (s.player.p[2] - p[2]).powi(2)).sqrt();
+    assert!(slow < free * 0.85, "surchargé, on ralentit : {slow:.2} contre {free:.2}");
+    s.equip[4] = Some(Stack::new("backpack", None)); assert!(s.capacity() >= CARRY + 40.0, "le sac à dos ajoute de la charge");
+}

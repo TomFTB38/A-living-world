@@ -66,9 +66,9 @@ fur | Fourrure | matieres | 0.5 | 64 | Chaude et douce : vêtements d'hiver. |
 bone_needle | Aiguille en os | matieres | 0.02 | 16 | Pour coudre le cuir et la fourrure. Elle ne s'use pas. |
 coal | Charbon | matieres | 0.4 | 64 | Brûle longtemps et très chaud : fours et forge. | combustible=80
 charcoal | Charbon de bois | matieres | 0.25 | 64 | Du bois cuit à l'étouffée : un combustible de forge. | combustible=60
-copper_ore | Minerai de cuivre | roches | 2.0 | 64 | Une roche veinée de vert et d'orange. À fondre au four. |
-tin_ore | Minerai d'étain | roches | 2.0 | 64 | Des grains argentés dans la pierre. Allié au cuivre, il donne le bronze. |
-iron_ore | Minerai de fer | roches | 2.2 | 64 | Une roche rouille, dure à extraire : il faut une pioche de bronze au moins. |
+copper_ore | Minerai de cuivre | roches | 1.2 | 64 | Une roche veinée de vert et d'orange. À fondre au four. |
+tin_ore | Minerai d'étain | roches | 1.2 | 64 | Des grains argentés dans la pierre. Allié au cuivre, il donne le bronze. |
+iron_ore | Minerai de fer | roches | 1.3 | 64 | Une roche rouille, dure à extraire : il faut une pioche de bronze au moins. |
 copper_ingot | Lingot de cuivre | matieres | 1.0 | 64 | Coulé au four, à travailler à l'enclume. |
 tin_ingot | Lingot d'étain | matieres | 0.8 | 64 | Coulé au four. |
 bronze_ingot | Lingot de bronze | matieres | 1.0 | 64 | Trois parts de cuivre, une d'étain. |
@@ -106,7 +106,7 @@ leather_boots | Bottes de cuir | habits | 0.8 | 1 | Pour marcher loin. | porte=p
 fur_hat | Toque de fourrure | habits | 0.4 | 1 | Indispensable en taïga. | porte=tete chaud=4
 fur_coat | Manteau de fourrure | habits | 2.4 | 1 | Le froid ne passe plus ; trop chaud au désert. | porte=torse chaud=9 armure=2
 fur_boots | Bottes fourrées | habits | 1.0 | 1 | Les pieds au chaud dans la neige. | porte=pieds chaud=4 armure=1
-backpack | Sac à dos | habits | 1.2 | 1 | Porter vingt kilos de plus sans peine. | porte=dos sac=20
+backpack | Sac à dos | habits | 1.2 | 1 | Porter quarante kilos de plus sans peine. | porte=dos sac=40
 iron_helmet | Casque en fer | habits | 2.0 | 1 | Lourd et froid, mais il arrête les coups. | porte=tete chaud=-1 armure=6
 iron_chestplate | Plastron en fer | habits | 7.0 | 1 | Une protection redoutable, au prix du poids. | porte=torse chaud=-2 armure=12
 
@@ -123,54 +123,54 @@ torch | Torche | ateliers | 0.2 | 64 | Éclaire vivement autour d'elle. |
 lantern | Lanterne | ateliers | 0.6 | 64 | Une lumière douce qui ne s'éteint jamais. |
 
 # --- Construction ---
-planks | Planches | batir | 1.5 | 64 | Planches de bois, pour les sols, les murs et les meubles. | combustible=15
-birch_planks | Planches de bouleau | batir | 1.3 | 64 | Un bois clair. | combustible=15
-spruce_planks | Planches d'épicéa | batir | 1.4 | 64 | Un bois sombre. | combustible=15
-fence | Clôture | batir | 1.2 | 64 | Ferme un enclos ou un jardin. |
-thatch | Chaume | batir | 0.8 | 64 | Un toit de paille, léger et isolant. |
-cobblestone | Pavé | batir | 2.4 | 64 | Pierres assemblées : un sol ou un mur rustique. |
-stone_bricks | Pierre taillée | batir | 2.4 | 64 | Blocs réguliers pour les murs et les fondations. |
-clay_bricks | Mur de briques | batir | 2.2 | 64 | Briques cuites jointoyées. |
-flagstone | Dalle | batir | 1.2 | 64 | Une dalle plate pour les chemins. |
+planks | Planches | batir | 0.9 | 64 | Planches de bois, pour les sols, les murs et les meubles. | combustible=15
+birch_planks | Planches de bouleau | batir | 0.8 | 64 | Un bois clair. | combustible=15
+spruce_planks | Planches d'épicéa | batir | 0.8 | 64 | Un bois sombre. | combustible=15
+fence | Clôture | batir | 0.7 | 64 | Ferme un enclos ou un jardin. |
+thatch | Chaume | batir | 0.5 | 64 | Un toit de paille, léger et isolant. |
+cobblestone | Pavé | batir | 1.4 | 64 | Pierres assemblées : un sol ou un mur rustique. |
+stone_bricks | Pierre taillée | batir | 1.4 | 64 | Blocs réguliers pour les murs et les fondations. |
+clay_bricks | Mur de briques | batir | 1.3 | 64 | Briques cuites jointoyées. |
+flagstone | Dalle | batir | 0.7 | 64 | Une dalle plate pour les chemins. |
 
 # --- Terrain ---
-grass | Herbe | terrain | 2 | 64 | |
-steppe_grass | Herbe sèche | terrain | 2 | 64 | |
-moor_grass | Herbe de lande | terrain | 2 | 64 | |
-dirt | Terre | terrain | 2 | 64 | |
-dry_earth | Terre craquelée | terrain | 2 | 64 | |
-path | Terre de chemin | terrain | 2 | 64 | |
-forest_soil | Humus | terrain | 2 | 64 | |
-gravel | Gravier | terrain | 2.2 | 64 | Casser du gravier donne parfois un silex. |
-sand | Sable | terrain | 2 | 64 | |
-clay | Argile | terrain | 2 | 64 | Au bord de l'eau : se moule en briques. |
-snow | Neige | terrain | 0.5 | 64 | |
+grass | Herbe | terrain | 1.2 | 64 | |
+steppe_grass | Herbe sèche | terrain | 1.2 | 64 | |
+moor_grass | Herbe de lande | terrain | 1.2 | 64 | |
+dirt | Terre | terrain | 1.2 | 64 | |
+dry_earth | Terre craquelée | terrain | 1.2 | 64 | |
+path | Terre de chemin | terrain | 1.2 | 64 | |
+forest_soil | Humus | terrain | 1.2 | 64 | |
+gravel | Gravier | terrain | 1.3 | 64 | Casser du gravier donne parfois un silex. |
+sand | Sable | terrain | 1.2 | 64 | |
+clay | Argile | terrain | 1.2 | 64 | Au bord de l'eau : se moule en briques. |
+snow | Neige | terrain | 0.3 | 64 | |
 snow_layer | Couche de neige | terrain | 0.1 | 64 | |
-ice | Glace | terrain | 1 | 64 | |
-water | Eau | terrain | 1 | 64 | |
+ice | Glace | terrain | 0.6 | 64 | |
+water | Eau | terrain | 0.6 | 64 | |
 
 # --- Roches ---
-stone | Pierre | roches | 2.5 | 64 | |
-mossy_stone | Pierre moussue | roches | 2.5 | 64 | |
-limestone | Calcaire | roches | 2.4 | 64 | |
-granite | Granit | roches | 2.7 | 64 | |
-lichen_stone | Pierre à lichens | roches | 2.5 | 64 | |
-sandstone | Grès | roches | 2.2 | 64 | |
-red_sandstone | Grès rouge | roches | 2.2 | 64 | |
-coal_ore | Veine de charbon | roches | 2.5 | 64 | |
-bone | Os | roches | 0.5 | 64 | Un vieil os blanchi : se taille en aiguille. |
+stone | Pierre | roches | 1.5 | 64 | |
+mossy_stone | Pierre moussue | roches | 1.5 | 64 | |
+limestone | Calcaire | roches | 1.4 | 64 | |
+granite | Granit | roches | 1.6 | 64 | |
+lichen_stone | Pierre à lichens | roches | 1.5 | 64 | |
+sandstone | Grès | roches | 1.3 | 64 | |
+red_sandstone | Grès rouge | roches | 1.3 | 64 | |
+coal_ore | Veine de charbon | roches | 1.5 | 64 | |
+bone | Os | roches | 0.3 | 64 | Un vieil os blanchi : se taille en aiguille. |
 
 # --- Bois ---
-oak_log | Bois de chêne | bois | 4 | 64 | | combustible=30
-birch_log | Bois de bouleau | bois | 3.5 | 64 | | combustible=30
-beech_log | Bois de hêtre | bois | 4 | 64 | | combustible=30
-spruce_log | Bois d'épicéa | bois | 3.5 | 64 | | combustible=30
-acacia_log | Bois d'acacia | bois | 4 | 64 | | combustible=30
-palm_log | Bois de palmier | bois | 3 | 64 | | combustible=25
-dead_log | Bois mort | bois | 2.5 | 64 | Sec : brûle vite et bien. | combustible=40
-oak_hollow | Tronc creux de chêne | bois | 3 | 64 | | combustible=20
-spruce_hollow | Tronc creux d'épicéa | bois | 3 | 64 | | combustible=20
-dead_hollow | Tronc creux de bois mort | bois | 2 | 64 | | combustible=20
+oak_log | Bois de chêne | bois | 2.4 | 64 | | combustible=30
+birch_log | Bois de bouleau | bois | 2.1 | 64 | | combustible=30
+beech_log | Bois de hêtre | bois | 2.4 | 64 | | combustible=30
+spruce_log | Bois d'épicéa | bois | 2.1 | 64 | | combustible=30
+acacia_log | Bois d'acacia | bois | 2.4 | 64 | | combustible=30
+palm_log | Bois de palmier | bois | 1.8 | 64 | | combustible=25
+dead_log | Bois mort | bois | 1.5 | 64 | Sec : brûle vite et bien. | combustible=40
+oak_hollow | Tronc creux de chêne | bois | 1.8 | 64 | | combustible=20
+spruce_hollow | Tronc creux d'épicéa | bois | 1.8 | 64 | | combustible=20
+dead_hollow | Tronc creux de bois mort | bois | 1.2 | 64 | | combustible=20
 
 # --- Plantes ---
 twigs | Branches au sol | plantes | 0.3 | 64 | |

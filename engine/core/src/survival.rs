@@ -55,7 +55,8 @@ pub const AIR_TIME: f64 = 15.0;
 /// Vitesse d'arrivée au sol sans dommage : une chute d'environ trois blocs et demi.
 pub const SAFE_FALL: f64 = 13.5;
 /// Charge portée sans gêne (kg) ; un sac à dos en ajoute.
-pub const CARRY: f64 = 30.0;
+/// Charge portée sans gêne : de quoi construire (une quarantaine de pierres) avant de ralentir ; le sac à dos en ajoute.
+pub const CARRY: f64 = 110.0;
 /// Un feu de camp neuf brûle dix minutes ; le combustible des objets compte dix fois sa valeur.
 pub const FIRE_START: f64 = 600.0; pub const FUEL_SCALE: f64 = 10.0;
 
