@@ -386,12 +386,10 @@ fn capture(a: &[String]) {
         let spot = s.fauna.deer.first().map(|d| d.p).or(s.fauna.birds.first().map(|b| b.p));
         if let Some(q) = spot { let (a, r) = ((q[2] - s.player.p[2]).atan2(q[0] - s.player.p[0]), 8.2); let e = [q[0] - a.cos() * r, q[1] + 4.5, q[2] - a.sin() * r]; s.sel = 8; s.player.p = [e[0], e[1] - 1.62, e[2]]; let f = view::norm([q[0] - e[0], q[1] + 0.8 - e[1], q[2] - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
     }
-    if scene == "carte" || scene == "survol" {
-        // « survol » : un vol pour découvrir du terrain ; « carte » : la grande carte dépliée sur ce qu'on voit du départ.
-        s.player.fly = true; let start = s.player.p;
-        if scene == "survol" { for i in 0..12 { s.player.p[0] = start[0] + i as f64 * 16.0; s.player.p[2] = start[2] - i as f64 * 9.0; pump(&mut s, &mut g); for _ in 0..20 { s.tick(1.0 / 60.0, none, Actions::default()); } } }
-        for _ in 0..60 { s.tick(1.0 / 60.0, none, Actions::default()); }
-        if scene == "carte" { s.toggle_map(); for _ in 0..60 { s.tick(1.0 / 60.0, none, Actions::default()); } }
+    if scene == "carte" {
+        // La grande carte dépliée sur ce qu'on a vu du départ.
+        s.player.fly = true; for _ in 0..60 { s.tick(1.0 / 60.0, none, Actions::default()); }
+        s.toggle_map(); for _ in 0..60 { s.tick(1.0 / 60.0, none, Actions::default()); }
         println!("{scene} : {} pixels explorés, anim {:.2}", s.map.explored(), s.map.anim);
     }
     if scene == "village" || scene == "artisan" {
