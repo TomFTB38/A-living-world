@@ -24,3 +24,10 @@ fn crack(n: u32, a: vec4f) -> L {
   return o;
 }
 @fragment fn fs_line(i: L) -> @location(0) vec4f { return i.c; }
+// Aperçu de pose plein : les boîtes de la forme, translucides (vert si la pose est possible, rouge sinon).
+const CUBE = array<vec3f, 36>(vec3f(0,0,0),vec3f(1,0,0),vec3f(1,1,0),vec3f(0,0,0),vec3f(1,1,0),vec3f(0,1,0),vec3f(0,0,1),vec3f(1,0,1),vec3f(1,1,1),vec3f(0,0,1),vec3f(1,1,1),vec3f(0,1,1),vec3f(0,0,0),vec3f(0,1,0),vec3f(0,1,1),vec3f(0,0,0),vec3f(0,1,1),vec3f(0,0,1),vec3f(1,0,0),vec3f(1,1,0),vec3f(1,1,1),vec3f(1,0,0),vec3f(1,1,1),vec3f(1,0,1),vec3f(0,0,0),vec3f(1,0,0),vec3f(1,0,1),vec3f(0,0,0),vec3f(1,0,1),vec3f(0,0,1),vec3f(0,1,0),vec3f(1,1,0),vec3f(1,1,1),vec3f(0,1,0),vec3f(1,1,1),vec3f(0,1,1));
+@vertex fn vs_fill(@builtin(vertex_index) i: u32, @builtin(instance_index) k: u32) -> L {
+  var f = CUBE; var o: L; let a = u.ghost; var lo = u.gbox[0].xyz; var hi = u.gbox[1].xyz; if (k == 1u) { lo = u.gbox[2].xyz; hi = u.gbox[3].xyz; }
+  let sz = hi - lo; let c = u.vp * vec4f(a.xyz + lo + sz * 0.01 + f[i] * sz * 0.98, 1.0); o.p = vec4f(c.xy + u.jit.xy * c.w, c.z, c.w);
+  o.c = select(vec4f(1.0, 0.25, 0.2, 0.2), vec4f(0.55, 1.0, 0.65, 0.17), a.w > 0.5); return o;
+}

@@ -290,7 +290,7 @@ impl Ui {
                         _ => { let l = match a { T::New => "Nouveau monde", T::Worlds => "Mondes", T::Settings => "Réglages", _ => "Quitter" }; self.text(l, r[0] + 20.0 * k, r[1] + (r[3] - 20.0 * k * 1.35) * 0.5, 20.0 * k, INK); }
                     }
                 }
-                let v = "Version 1 en préparation"; self.text(v, w - Ui::text_width(v, 14.0 * k) - 18.0 * k, h - 30.0 * k, 14.0 * k, [0.85, 0.88, 0.8, 0.7]);
+                let v = &format!("Version {} · V1 en préparation", env!("CARGO_PKG_VERSION")); self.text(v, w - Ui::text_width(v, 14.0 * k) - 18.0 * k, h - 30.0 * k, 14.0 * k, [0.85, 0.88, 0.8, 0.7]);
             }
             TPage::Worlds => {
                 self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.03, 0.55]); let pw = (820.0 * k).min(w - 40.0); let x = (w - pw) * 0.5; let y = h * 0.16; let rh = 60.0 * k;

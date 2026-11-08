@@ -202,7 +202,7 @@ impl Game {
 impl ApplicationHandler for App {
     fn resumed(&mut self, el: &ActiveEventLoop) {
         if self.game.is_some() { return; }
-        let window = Arc::new(el.create_window(Window::default_attributes().with_title("A Living World").with_inner_size(winit::dpi::LogicalSize::new(1600.0, 900.0))).expect("création de la fenêtre"));
+        let window = Arc::new(el.create_window(Window::default_attributes().with_title("A Living World").with_inner_size(winit::dpi::LogicalSize::new(1600.0, 900.0)).with_window_icon(winit::window::Icon::from_rgba(include_bytes!("../assets/icone64.rgba").to_vec(), 64, 64).ok())).expect("création de la fenêtre"));
         let size = window.inner_size(); let md = Models::build(); let menu = read_settings(); let ultra = menu.quality == 1; let preset = if ultra { ULTRA } else { HIGH };
         let gpu = pollster::block_on(gpu::Gpu::new(Some(window.clone()), size.width, size.height, gpu::Options { shadow: if ultra { 6144 } else { 4096 }, fallback: false, hole: (preset.radius as f32 - 0.6) * 32.0, cascades: if ultra { gpu::CASCADES_ULTRA } else { gpu::CASCADES } }, &md));
         let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).saturating_sub(2).clamp(2, 12);
@@ -575,7 +575,7 @@ fn capture(a: &[String]) {
         if scene == "combat" {
             // Un loup qui arrive de face, bouclier de fer au bras et garde levée, épée en main et coup lourd en charge.
             s.equip[5] = Some(alw_core::session::Stack::new("iron_shield", None)); s.inv[0] = Some(alw_core::session::Stack::new("sword", None)); s.sel = 0; s.player.pitch = -0.08;
-            let (x, z) = at(3.2, 0.3); s.wild.put(alw_core::wild::Kind::Wolf, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.14, false); s.tick(0.0, none, Actions::default()); s.guard_t = 0.12; s.charge = 0.5;
+            s.tick(0.0, none, Actions::default());
         }
         if scene == "faune" {
             // Une meute de loups qui approche, un sanglier qui fouille le sol, l'arc en main et une flèche plantée devant soi.
@@ -590,7 +590,8 @@ fn capture(a: &[String]) {
             for _ in 0..600 { s.stamina = 100.0; s.tick(1.0 / 60.0, none, Actions { mine: true, place: false, ..Default::default() }); if s.progress() > 0.62 { break; } }
             println!("fissure : progression {:.2}, cible {:?}", s.progress(), s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
         }
-        if scene != "fissure" { s.tick(0.0, none, Actions::default()); } println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
+        if scene != "fissure" { s.tick(0.0, none, Actions::default()); }
+        if scene == "combat" { let (x, z) = at(3.2, 0.3); s.wild.put(alw_core::wild::Kind::Wolf, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.14, false); s.guard_t = 0.12; s.charge = 0.5; s.guide = 99; println!("combat : {} bêtes", s.wild.all.len()); } println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
     }
     let mut menu = hud::Menu { open: scene == "menu" || scene == "commandes", controls: scene == "commandes", weather: 3, quality: 1, hud: 2, ..hud::Menu::new() };
     if scene == "titre" { menu.title = Some(hud::Title::new(vec![hud::WorldInfo { name: "Premier monde".into(), seed: SEED, profile: 1, hours: 130.0, age: "il y a 2 h".into() }], "Premier monde")); }

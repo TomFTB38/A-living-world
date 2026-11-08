@@ -100,4 +100,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete moteur-dev --yes --cleanup-tag || true
-          gh release create moteur-dev engine/game/target/release/a-living-world.exe --title "Moteur final, version de développement" --notes "Commit ${GITHUB_SHA::7}. Téléchargez a-living-world.exe et lancez-le." --prerelease
+          { echo "Commit ${GITHUB_SHA::7}. Téléchargez a-living-world.exe et lancez-le."; echo; cat NOTES-DE-VERSION.md; } > notes.md
+          gh release create moteur-dev engine/game/target/release/a-living-world.exe NOTES-DE-VERSION.md --title "Moteur final, version de développement" --notes-file notes.md --prerelease

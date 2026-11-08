@@ -16,7 +16,7 @@ struct ChunkGpu { opaque: Option<Part>, deco: Option<Part>, water: Option<Part>,
 struct Far { part: Part, slot: u64 }
 /// Passe plein écran : son pipeline et le groupe de textures à lier.
 struct Full { pipe: wgpu::RenderPipeline, layout: wgpu::BindGroupLayout }
-struct Pipes { rain: wgpu::RenderPipeline, actor: wgpu::RenderPipeline, actor_shadow: wgpu::RenderPipeline, line: wgpu::RenderPipeline, ui: wgpu::RenderPipeline, geom_o: wgpu::RenderPipeline, geom_d: wgpu::RenderPipeline, shadow_o: wgpu::RenderPipeline, shadow_d: wgpu::RenderPipeline, water: wgpu::RenderPipeline, water_layout: wgpu::BindGroupLayout, ssao: Full, blur_h: Full, blur_v: Full, light: Full, clouds: wgpu::RenderPipeline, volume: Full, compose: Full, taa: Full, first: Full, down: Full, up: Full, last: Full }
+struct Pipes { ghost: wgpu::RenderPipeline, rain: wgpu::RenderPipeline, actor: wgpu::RenderPipeline, actor_shadow: wgpu::RenderPipeline, line: wgpu::RenderPipeline, ui: wgpu::RenderPipeline, geom_o: wgpu::RenderPipeline, geom_d: wgpu::RenderPipeline, shadow_o: wgpu::RenderPipeline, shadow_d: wgpu::RenderPipeline, water: wgpu::RenderPipeline, water_layout: wgpu::BindGroupLayout, ssao: Full, blur_h: Full, blur_v: Full, light: Full, clouds: wgpu::RenderPipeline, volume: Full, compose: Full, taa: Full, first: Full, down: Full, up: Full, last: Full }
 struct Rt { tex: wgpu::Texture, view: wgpu::TextureView }
 struct Targets {
     a: Rt, n: Rt, l: Rt, d: Rt, d2: Rt, hdr: Rt, scene: Rt, ao: Rt, ao2: Rt, vol: Rt, cl: Rt, comp: Rt, hist: [Rt; 2], bloom: Vec<Rt>,
@@ -166,6 +166,7 @@ impl Gpu {
         let m_l = module(include_str!("shaders/line.wgsl"));
         let line_pl = d.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[&g0], push_constant_ranges: &[] });
         let line = d.create_render_pipeline(&wgpu::RenderPipelineDescriptor { label: Some("contour"), layout: Some(&line_pl), vertex: wgpu::VertexState { module: &m_l, entry_point: Some("vs_line"), compilation_options: Default::default(), buffers: &[] }, fragment: Some(wgpu::FragmentState { module: &m_l, entry_point: Some("fs_line"), compilation_options: Default::default(), targets: &[Some(HDR.into())] }), primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::LineList, ..Default::default() }, depth_stencil: ds(false, wgpu::CompareFunction::Greater), multisample: Default::default(), multiview: None, cache: None });
+        let ghost = d.create_render_pipeline(&wgpu::RenderPipelineDescriptor { label: Some("aperçu"), layout: Some(&line_pl), vertex: wgpu::VertexState { module: &m_l, entry_point: Some("vs_fill"), compilation_options: Default::default(), buffers: &[] }, fragment: Some(wgpu::FragmentState { module: &m_l, entry_point: Some("fs_line"), compilation_options: Default::default(), targets: &[Some(wgpu::ColorTargetState { format: HDR, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })] }), primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::TriangleList, ..Default::default() }, depth_stencil: ds(false, wgpu::CompareFunction::Greater), multisample: Default::default(), multiview: None, cache: None });
         // Interface
         let font_tex = d.create_texture_with_data(&queue, &wgpu::TextureDescriptor { label: Some("police"), size: wgpu::Extent3d { width: fd::W, height: fd::H, depth_or_array_layers: 1 }, mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2, format: wgpu::TextureFormat::R8Unorm, usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST, view_formats: &[] }, wgpu::util::TextureDataOrder::LayerMajor, include_bytes!("../assets/font.r8"));
         let font_view = font_tex.create_view(&Default::default());
@@ -189,7 +190,7 @@ impl Gpu {
         let m_rain = module(include_str!("shaders/rain.wgsl"));
         let rain = d.create_render_pipeline(&wgpu::RenderPipelineDescriptor { label: Some("pluie"), layout: Some(&line_pl), vertex: wgpu::VertexState { module: &m_rain, entry_point: Some("vs_rain"), compilation_options: Default::default(), buffers: &[] }, fragment: Some(wgpu::FragmentState { module: &m_rain, entry_point: Some("fs_rain"), compilation_options: Default::default(), targets: &[Some(wgpu::ColorTargetState { format, blend: Some(wgpu::BlendState { color: wgpu::BlendComponent { src_factor: wgpu::BlendFactor::SrcAlpha, dst_factor: wgpu::BlendFactor::One, operation: wgpu::BlendOperation::Add }, alpha: wgpu::BlendComponent::OVER }), write_mask: wgpu::ColorWrites::ALL })] }), primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::LineList, ..Default::default() }, depth_stencil: None, multisample: Default::default(), multiview: None, cache: None });
         let clouds = full(include_str!("shaders/clouds.wgsl"), "", "fs_clouds", HDR, None).pipe;
-        let p = Pipes { rain, actor, actor_shadow, line, ui, geom_o, geom_d, shadow_o, shadow_d, water, water_layout,
+        let p = Pipes { ghost, rain, actor, actor_shadow, line, ui, geom_o, geom_d, shadow_o, shadow_d, water, water_layout,
             ssao: full(include_str!("shaders/ssao.wgsl"), "DT", "fs_ssao", LDR, None), blur_h: full(blur, "TD", "fs_h", LDR, None), blur_v: full(blur, "TD", "fs_v", LDR, None),
             light: full(include_str!("shaders/light.wgsl"), "TTTDT", "fs_light", HDR, None), clouds, volume: full(include_str!("shaders/volume.wgsl"), "D", "fs_volume", HDR, None),
             compose: full(include_str!("shaders/compose.wgsl"), "TTTD", "fs_compose", HDR, None), taa: full(include_str!("shaders/taa.wgsl"), "TTDT", "fs_taa", HDR, None),
@@ -320,7 +321,8 @@ impl Gpu {
         }
         if aim.is_some() {
             let mut p = enc.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("contour"), color_attachments: &[clear_color(&t.hdr.view, wgpu::LoadOp::Load)], depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment { view: &t.d.view, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store }), stencil_ops: None }), timestamp_writes: None, occlusion_query_set: None });
-            p.set_pipeline(&self.p.line); p.set_bind_group(0, g0, &[]); p.draw(0..24, 0..if ghost.is_some() { 2 } else { 1 }); if ghost.is_some() && gbox.len() > 1 { p.draw(0..24, 3..4); } // seconde boîte de l'aperçu (marche, haut de porte)
+            p.set_bind_group(0, g0, &[]); if ghost.is_some() { p.set_pipeline(&self.p.ghost); p.draw(0..36, 0..if gbox.len() > 1 { 2 } else { 1 }); } /* l'aperçu plein, translucide, sous ses arêtes */
+            p.set_pipeline(&self.p.line); p.draw(0..24, 0..if ghost.is_some() { 2 } else { 1 }); if ghost.is_some() && gbox.len() > 1 { p.draw(0..24, 3..4); } // seconde boîte de l'aperçu (marche, haut de porte)
             if aim.is_some_and(|a| a.1 > 0.0) { p.draw(0..288, 2..3); } // fissures du bloc qu'on casse
         }
         fullscreen(&mut enc, &self.p.compose.pipe, g0, Some(&t.b_comp), &t.comp.view, BLACK);
