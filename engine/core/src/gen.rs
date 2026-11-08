@@ -277,7 +277,7 @@ impl WorldGen {
             if fr > 0.6 && hash_float(wxi, wzi, s, 7) < 0.012 + 0.02 * deep { id = B::MUSHROOM; }
             if deep > 0.3 && hash_float(wxi, wzi, s, 13) < (0.025 + 0.06 * smooth(0.2, 0.6, nd.n2(wx / 11.0 - 40.0, wz / 11.0 + 7.0))) * deep { id = glowcap_of((hash_int(wxi, y as i32, wzi, 93) % 5) as usize); } // en ronds de sorcière plus denses
             // Forêt tempérée : quelques myrtilliers aussi, pour avoir de quoi manger dès le départ.
-            let l = litter(0.003 + 0.02 * fr, 0.009); if l != 0 { id = l; } else if fr > 0.4 && k < 0.012 + 0.032 * fr { id = B::BLUEBERRY; }
+            let l = litter(0.003 + 0.02 * fr, 0.014); if l != 0 { id = l; } else if fr > 0.4 && k < 0.012 + 0.032 * fr { id = B::BLUEBERRY; }
             if ground == B::MOSSY_STONE && r > 0.5 { id = 0; }
             if path > 0.05 { id = if r < 0.5 { B::TALL_GRASS } else { 0 }; }
             v[idx(x, y, z)] = id;

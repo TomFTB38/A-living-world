@@ -13,7 +13,7 @@ pub fn is_axe(id: Option<&str>) -> bool { matches!(id, Some("axe") | Some("stone
 /// Le son d'un outil de pierre est celui de l'outil d'acier de même forme.
 pub fn voice(id: Option<&'static str>) -> Option<&'static str> { match id { Some("stone_axe") => Some("axe"), Some("stone_pickaxe") => Some("pickaxe"), Some("stone_knife") => Some("sword"), o => o } }
 /// Tout casse plus lentement qu'au prototype : la dureté du registre est multipliée par ce facteur.
-pub const HARD: f64 = 2.5;
+pub const HARD: f64 = 4.0;
 /// Vitesse de casse à mains nues ou avec un outil qui ne convient pas, selon la catégorie du bloc.
 pub fn bare_rate(cat: &str) -> f64 { match cat { "rock" => 0.25, "wood" => 0.45, _ => 1.0 } }
 /// À mains nues, la roche s'effrite sans rien donner : il faut une pioche.
@@ -21,10 +21,10 @@ pub fn needs_tool(cat: &str) -> bool { cat == "rock" }
 /// Ce que l'herbe arrachée laisse parfois : fibre (toujours au couteau), graines.
 pub fn grass_drops(block: &str) -> &'static [(&'static str, f64)] { match block { "tall_grass" | "feather_grass" | "frost_grass" | "cotton_grass" | "fern" | "fern_dry" => &[("fiber", 0.4), ("seeds", 0.15)], _ => &[] } }
 /// Ramassé d'un clic droit : le bloc disparaît et l'objet va dans le sac.
-pub fn pickup(block: &str) -> Option<(&'static str, u32)> { match block { "twigs" => Some(("stick", 2)), "pebbles" => Some(("pebble", 2)), _ => None } }
+pub fn pickup(block: &str) -> Option<(&'static str, u32)> { match block { "twigs" => Some(("stick", 1)), "pebbles" => Some(("pebble", 1)), _ => None } }
 /// Buissons qui se cueillent au clic droit : les baies, et le buisson dépouillé qui les remplace pour une journée.
 pub fn harvest(block: &str) -> Option<(&'static str, u32, &'static str)> { match block { "blueberry" => Some(("berries", 3, "blueberry_picked")), "rowan" => Some(("rowan_berries", 3, "rowan_picked")), _ => None } }
-pub const REGROW_HOURS: f64 = 24.0;
+pub const REGROW_HOURS: f64 = 48.0; // deux jours de jeu
 
 // Rythmes. Une journée dure 1500 s : sans manger, on tient un peu plus d'une journée et demie ; sans boire, un peu plus d'une.
 pub const HUNGER_RATE: f64 = 0.04; pub const THIRST_RATE: f64 = 0.06;
