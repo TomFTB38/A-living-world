@@ -70,13 +70,15 @@ pub struct Session {
     pub town: crate::village::Town,
     /// Le terrain déjà vu, et la grande carte.
     pub map: crate::map::Atlas,
+    /// Premiers pas : étape du guide et temps passé dessus.
+    pub guide: usize, pub(crate) guide_t: f64,
 }
 impl Session {
     pub fn new(seed: i32, p: &Preset, threads: usize, at: [f64; 3]) -> Self {
         let inv = [None; INV_SIZE]; // on commence les mains vides
         Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, deep: 0.0, taiga: 0.0, steppe: 0.0, desert: 0.0, highlands: 0.0, glows: HashMap::new(), scanned: Default::default(), fauna: Fauna::new(seed), wild: crate::wild::Wild::new(seed), branch_t: 10.0, weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None, felling: None, falling: None, fall_serial: 0, flow: Flow::default(),
             stamina: 100.0, air: 100.0, fatigue: 0.0, body: 37.0, exposure: 0.0, winded: false, spent_t: 9.0, dead: None, stashes: Vec::new(), spawn: at, bed: None, notes: Vec::new(), prey: None, cause: "", low_v: 0.0, pain_t: 0.0, use_t: 0.0, hit_t: 0.0, mine_need: 1.0, climate_t: 0.0,
-            hours: 0.0, regrow: Vec::new(), crops: Vec::new(), grow_t: 0.0, equip: [None; 5], chests: HashMap::new(), chest: None, fires: HashMap::new(), profile: 1, skills: [0.0; 5], arrows: Vec::new(), line: None, turn: 0, ray_t: 0.0, taught: HashSet::new(), seen: HashSet::new(), fav: HashSet::new(), last_gain: [-99.0; 6], gauge: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0], book: Default::default(), town: Default::default(), map: Default::default() }
+            hours: 0.0, regrow: Vec::new(), crops: Vec::new(), grow_t: 0.0, equip: [None; 5], chests: HashMap::new(), chest: None, fires: HashMap::new(), profile: 1, skills: [0.0; 5], arrows: Vec::new(), line: None, turn: 0, ray_t: 0.0, taught: HashSet::new(), seen: HashSet::new(), fav: HashSet::new(), last_gain: [-99.0; 6], gauge: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0], book: Default::default(), town: Default::default(), map: Default::default(), guide: 0, guide_t: 0.0 }
     }
     /// L'ancien équipement de départ : outils de fer, lanternes et quelques blocs. Pour les bancs d'essai et les captures.
     pub fn give_kit(&mut self) { for (i, (it, n)) in [("pickaxe", None), ("axe", None), ("sword", None), ("lantern", Some(32)), ("dirt", Some(16)), ("stone", Some(16)), ("planks", Some(16))].into_iter().enumerate() { self.inv[i] = Some(Stack::new(it, n)); self.seen.insert(it); } }
@@ -158,7 +160,7 @@ impl Session {
         self.mine_step(dt, a.mine && !open && !hunting); if a.place && !open && !self.interact() && self.place() { self.anim.trigger(); }
         let mining = a.mine && !open; self.anim.update(dt, AnimIn { speed: self.player.speed, ground: self.player.ground, vy: self.player.v[1], crouch: self.player.crouch, fly: self.player.fly, mining });
         if alive && !self.creative { self.survive(dt, i, jumped, roll_start, mining, was_ground); } else { self.low_v = 0.0; }
-        self.outdoors(dt); self.town_tick(dt); self.map_tick(dt);
+        self.outdoors(dt); self.town_tick(dt); self.map_tick(dt); self.guide_tick(dt);
         self.elapsed += dt; self.weather.update(dt); let t = self.mix().strong(crate::biome::Biome::DeepForest); self.deep += (t - self.deep) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Taiga); self.taiga += (t - self.taiga) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Steppe); self.steppe += (t - self.steppe) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Desert); self.desert += (t - self.desert) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Highlands); self.highlands += (t - self.highlands) * (dt / 2.5).min(1.0);
         self.world_step(dt); // baies, blé, feux, dépouilles
         let changes = self.flow.step(dt, &self.world); if !changes.is_empty() { self.world.edit_many(&changes); self.dirty = true; }

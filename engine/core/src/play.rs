@@ -459,7 +459,7 @@ impl Session {
         if let Some(b) = self.bed { s += &format!("bed {} {} {}\n", b[0], b[1], b[2]); }
         let mut seen: Vec<&str> = self.seen.iter().copied().collect(); seen.sort(); s += &format!("seen {}\n", seen.join(" "));
         let mut taught: Vec<&str> = self.taught.iter().copied().collect(); taught.sort(); if !taught.is_empty() { s += &format!("taught {}\n", taught.join(" ")); }
-        s += &self.town_save(); s += &self.map.save();
+        s += &self.town_save(); s += &self.map.save(); s += &format!("guide {}\n", self.guide);
         let mut fav: Vec<&str> = self.fav.iter().copied().collect(); fav.sort(); if !fav.is_empty() { s += &format!("fav {}\n", fav.join(" ")); }
         for (p, at) in &self.regrow { s += &format!("regrow {} {} {} {}\n", p[0], p[1], p[2], at); }
         for (p, at) in &self.crops { s += &format!("crop {} {} {} {}\n", p[0], p[1], p[2], at); }
@@ -491,6 +491,7 @@ impl Session {
                 Some("bed") => self.bed = Some([num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]),
                 Some("seen") => { for id in a { if let Some(d) = def(id) { self.seen.insert(d.id); } } }
                 Some("taught") => { for id in a.by_ref() { if let Some(c) = crate::data::db().craftsmen.iter().find(|c| c.id == id) { self.taught.insert(c.id); } } }
+                Some("guide") => { self.guide = a.next().and_then(|v| v.parse().ok()).unwrap_or(0); }
                 Some("carte") => { let v: Vec<&str> = a.collect(); self.map.load(&v); }
                 Some(k @ ("rep" | "known" | "met" | "marked")) => { let v: Vec<&str> = a.collect(); self.town_load(k, &v); }
                 Some("fav") => { for id in a { if let Some(d) = def(id) { self.fav.insert(d.id); } } }

@@ -7,6 +7,8 @@ mod needs;
 mod sound;
 use alw_core::{actors::Models, audio::{Mood, SoundScape}, gen::WorldGen, player::Input, session::{Actions, Session}, stream::{Preset, HIGH, ULTRA}, view, weather::{self, Kind, KINDS}};
 use std::collections::HashSet;
+use winit::keyboard::{Key, NamedKey};
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use std::sync::Arc;
 use std::time::Instant;
 use winit::{application::ApplicationHandler, event::{DeviceEvent, DeviceId, ElementState, MouseButton, MouseScrollDelta, WindowEvent}, event_loop::{ActiveEventLoop, ControlFlow, EventLoop}, keyboard::{KeyCode, PhysicalKey}, window::{CursorGrabMode, Window, WindowId}};
@@ -25,7 +27,7 @@ fn spawn_point(seed: i32) -> [f64; 3] {
     best
 }
 fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &hud::Menu, info: &[String]) -> usize {
-    let (proj, vm) = (view::perspective(1.05, w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
+    let (proj, vm) = (view::perspective(menu.fov(), w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
     let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let draws = s.draws(md, &vm); let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
     gpu.lights = s.lights(s.eye, gpu::LIGHTS);
     let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); let night = sky.night.clamp(0.0, 1.0); // la nuit, la direction est celle de la lune : elle ne dit pas l'heure env.flies = s.deep as f32 * (0.55 + 0.9 * night);
@@ -42,13 +44,60 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
     env.bright *= 1.0 - 0.42 * s.deep as f32; env.fog_k += 2.6 * s.deep as f32; env.mist += 0.0035 * s.deep as f32; for v in &mut sky.top { *v *= 1.0 - 0.3 * s.deep as f32; }
     gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], if alw_core::blocks::is_deco(t.id) { 0.0 } else { s.progress() as f32 })) /* fissures sur les blocs pleins seulement */, s.ghost(), &s.ghost_boxes(), &draws, &ui)
 }
+/// Le nom d'une touche telle qu'elle est écrite dessus (disposition du clavier respectée, sans Maj) : c'est ce qu'on attribue aux actions.
+fn key_name(e: &winit::event::KeyEvent) -> String {
+    match e.key_without_modifiers() {
+        Key::Character(c) => c.to_uppercase(),
+        Key::Named(n) => match n { NamedKey::Space => "Espace", NamedKey::Shift => "Maj", NamedKey::Control => "Ctrl", NamedKey::Tab => "Tab", NamedKey::Alt => "Alt", NamedKey::CapsLock => "Verr.Maj",
+            NamedKey::ArrowUp => "Haut", NamedKey::ArrowDown => "Bas", NamedKey::ArrowLeft => "Gauche", NamedKey::ArrowRight => "Droite", NamedKey::Enter => "Entrée", _ => "" }.to_string(),
+        _ => String::new(),
+    }
+}
+/// Les mondes vivent dans le dossier « mondes », un fichier par monde, nommé comme lui.
+fn worlds_dir() -> std::path::PathBuf { beside_exe("mondes") }
+fn world_path(name: &str) -> std::path::PathBuf { worlds_dir().join(format!("{name}.alw")) }
+/// L'ancien monde unique (monde.alw) devient « Premier monde » au premier lancement de cette version.
+fn migrate_worlds() {
+    let _ = std::fs::create_dir_all(worlds_dir()); let old = beside_exe("monde.alw");
+    if old.exists() && !world_path("Premier monde").exists() { let _ = std::fs::rename(&old, world_path("Premier monde")); let _ = std::fs::write(worlds_dir().join("dernier.txt"), "Premier monde"); }
+}
+fn ago(t: std::time::SystemTime) -> String {
+    let s = std::time::SystemTime::now().duration_since(t).map_or(0, |d| d.as_secs());
+    if s < 3600 { format!("il y a {} min", (s / 60).max(1)) } else if s < 86400 { format!("il y a {} h", s / 3600) } else { let d = s / 86400; format!("il y a {d} jour{}", if d > 1 { "s" } else { "" }) }
+}
+/// Les mondes enregistrés, le plus récemment joué en tête.
+fn list_worlds() -> Vec<hud::WorldInfo> {
+    let mut o: Vec<(std::time::SystemTime, hud::WorldInfo)> = Vec::new();
+    for e in std::fs::read_dir(worlds_dir()).into_iter().flatten().flatten() {
+        let p = e.path(); if p.extension().and_then(|x| x.to_str()) != Some("alw") { continue; }
+        let Some(name) = p.file_stem().and_then(|x| x.to_str()).map(str::to_string) else { continue }; let Ok(t) = std::fs::read_to_string(&p) else { continue };
+        let field = |k: &str| t.lines().find_map(|l| l.strip_prefix(k).map(|v| v.trim().to_string()));
+        let when = e.metadata().and_then(|m| m.modified()).unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+        o.push((when, hud::WorldInfo { name, seed: field("seed ").and_then(|v| v.parse().ok()).unwrap_or(SEED), profile: field("profile ").and_then(|v| v.parse().ok()).unwrap_or(1), hours: field("hours ").and_then(|v| v.parse().ok()).unwrap_or(0.0), age: ago(when) }));
+    }
+    o.sort_by(|a, b| b.0.cmp(&a.0)); o.into_iter().map(|x| x.1).collect()
+}
+/// Un nom de fichier sûr, et libre : « Mon monde », « Mon monde 2 »…
+fn fresh_name(want: &str) -> String {
+    let base: String = want.chars().filter(|c| !"/\\:*?\"<>|".contains(*c) && !c.is_control()).collect::<String>().trim().chars().take(32).collect();
+    let base = if base.is_empty() || base == "dernier" { "Mon monde".to_string() } else { base };
+    let mut n = base.clone(); let mut i = 2; while world_path(&n).exists() { n = format!("{base} {i}"); i += 1; } n
+}
+/// La graine d'un nouveau monde : le nombre tapé, sinon le mot tapé haché, sinon le hasard.
+fn seed_of(t: &str) -> i32 {
+    let t = t.trim(); if let Ok(v) = t.parse::<i32>() { return v; }
+    if !t.is_empty() { let mut h: u32 = 2166136261; for b in t.bytes() { h = (h ^ b as u32).wrapping_mul(16777619); } return h as i32; }
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.subsec_nanos() as i32 ^ d.as_secs() as i32)
+}
 /// Réglages enregistrés ; un fichier plus ancien garde ses valeurs et prend les nouvelles par défaut.
 fn read_settings() -> hud::Menu {
-    let mut m = hud::Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 0, confirm: false, profile: 1, hud: 1, reduce: false, marker: true, alt: false };
-    let Ok(t) = std::fs::read_to_string(beside_exe("reglages.alw")) else { return m }; let v: Vec<f32> = t.split_whitespace().filter_map(|x| x.parse().ok()).collect();
-    if v.len() >= 5 { m.vol = [v[0].clamp(0.0, 1.0), v[1].clamp(0.0, 1.0), v[2].clamp(0.0, 1.0), v.get(5).copied().unwrap_or(0.5).clamp(0.0, 1.0)]; m.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); m.mood = (v[4] as usize).min(hud::MOODS.len() - 1); m.quality = v.get(6).map_or(0, |q| (*q as usize).min(1));
+    let mut m = hud::Menu::new();
+    let Ok(t) = std::fs::read_to_string(beside_exe("reglages.alw")) else { return m }; let first = t.lines().next().unwrap_or(""); let v: Vec<f32> = first.split_whitespace().filter_map(|x| x.parse().ok()).collect();
+    // Seconde ligne : les touches, deux par action, « - » pour une case vide.
+    if let Some(l) = t.lines().nth(1) { let k: Vec<&str> = l.split_whitespace().collect(); if k.len() == hud::ACTIONS.len() * 2 { for (i, b) in m.binds.iter_mut().enumerate() { for sl in 0..2 { b[sl] = if k[i * 2 + sl] == "-" { String::new() } else { k[i * 2 + sl].to_string() }; } } } }
+    if v.len() >= 5 { m.vol[0] = v[0].clamp(0.0, 1.0); m.vol[1] = v[1].clamp(0.0, 1.0); m.vol[2] = v[2].clamp(0.0, 1.0); m.vol[3] = v.get(5).copied().unwrap_or(0.5).clamp(0.0, 1.0); m.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); m.mood = (v[4] as usize).min(hud::MOODS.len() - 1); m.quality = v.get(6).map_or(0, |q| (*q as usize).min(1));
         // Indicateurs de survie : mode d'affichage, animations réduites, marqueur de la dépouille.
-        if let Some(x) = v.get(7) { m.hud = (*x as usize).min(needs::MODES.len() - 1); } if let Some(x) = v.get(8) { m.reduce = *x > 0.5; } if let Some(x) = v.get(9) { m.marker = *x > 0.5; } }
+        if let Some(x) = v.get(7) { m.hud = (*x as usize).min(needs::MODES.len() - 1); } if let Some(x) = v.get(8) { m.reduce = *x > 0.5; } if let Some(x) = v.get(9) { m.marker = *x > 0.5; } if let Some(x) = v.get(10) { m.tips = *x > 0.5; } if let Some(x) = v.get(11) { m.vol[4] = x.clamp(0.0, 1.0); } if let Some(x) = v.get(12) { m.vol[5] = x.clamp(0.0, 1.0); } }
     m
 }
 /// Panneau F3 : ce qu'il faut pour comprendre où l'on est et comment tourne le jeu.
@@ -60,19 +109,7 @@ fn debug_lines(s: &Session, fps: f64, tris: usize, quality: &str) -> Vec<String>
         format!("Heure {:02}:{:02}  ·  météo {}", s.hour as u32, (s.hour.fract() * 60.0) as u32, s.weather.kind.name()), format!("Visé : {t}"), format!("Animaux : {} cerfs, {} oiseaux", s.fauna.deer.len(), s.fauna.birds.len()),
         format!("Vie {:.0}  ·  faim {:.0}  ·  soif {:.0}  ·  endurance {:.0}  ·  souffle {:.0}", s.vit[0], s.vit[1], s.vit[2], s.stamina, s.air)]
 }
-/// Graine de la partie : celle de la sauvegarde, sinon celle choisie par « Nouveau monde », sinon celle du monde de départ.
-fn world_seed() -> i32 {
-    let save = std::fs::read_to_string(beside_exe("monde.alw")).ok().and_then(|t| t.lines().find_map(|l| l.strip_prefix("seed ").and_then(|v| v.trim().parse().ok())));
-    save.or_else(|| std::fs::read_to_string(beside_exe("graine.alw")).ok().and_then(|t| t.trim().parse().ok())).unwrap_or(SEED)
-}
-/// Nouveau monde : l'ancien est mis de côté, jamais effacé, puis le jeu repart sur une graine neuve.
-fn new_world() {
-    let _ = std::fs::rename(beside_exe("monde.alw"), beside_exe("monde-ancien.alw"));
-    let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.subsec_nanos() as i32 ^ d.as_secs() as i32);
-    if std::fs::write(beside_exe("graine.alw"), seed.to_string()).is_ok() { if let Ok(e) = std::env::current_exe() { let _ = std::process::Command::new(e).spawn(); } }
-    std::process::exit(0);
-}
-struct Game { debug: bool, fps: f64, menu: hud::Menu, drag: Option<usize>, half: Option<usize>, window: Arc<Window>, gpu: gpu::Gpu, md: Models, mouse: [f32; 2], s: Session, keys: HashSet<KeyCode>, grabbed: bool, time: f64, run_time: bool, lmb: bool, rmb: bool, place_t: f64, msg: Option<(String, f64)>, save_t: f64, last: Instant, frames: u32, fps_t: f64, tris: usize }
+struct Game { held: HashSet<String>, preset: Preset, threads: usize, world: String, debug: bool, fps: f64, menu: hud::Menu, drag: Option<usize>, half: Option<usize>, window: Arc<Window>, gpu: gpu::Gpu, md: Models, mouse: [f32; 2], s: Session, keys: HashSet<KeyCode>, grabbed: bool, time: f64, run_time: bool, lmb: bool, rmb: bool, place_t: f64, msg: Option<(String, f64)>, save_t: f64, last: Instant, frames: u32, fps_t: f64, tris: usize }
 #[derive(Default)]
 struct App { game: Option<Game> }
 impl Game {
@@ -88,25 +125,66 @@ impl Game {
         self.s.weather.forced = if m.weather == 0 { None } else { Some(KINDS[m.weather - 1]) };
         self.s.sound.force(if m.mood == 0 { None } else { Some([Mood::Calme, Mood::Nuit, Mood::Construction, Mood::Suspense, Mood::Danger][m.mood - 1]) });
     }
-    fn write_settings(&self) { let m = &self.menu; let _ = std::fs::write(beside_exe("reglages.alw"), format!("{} {} {} {} {} {} {} {} {} {}\n", m.vol[0], m.vol[1], m.vol[2], m.weather, m.mood, m.vol[3], m.quality, m.hud, m.reduce as u8, m.marker as u8)); }
+    fn write_settings(&self) {
+        let m = &self.menu; let keys: Vec<&str> = m.binds.iter().flat_map(|b| b.iter().map(|x| if x.is_empty() { "-" } else { x.as_str() })).collect();
+        let _ = std::fs::write(beside_exe("reglages.alw"), format!("{} {} {} {} {} {} {} {} {} {} {} {} {}\n{}\n", m.vol[0], m.vol[1], m.vol[2], m.weather, m.mood, m.vol[3], m.quality, m.hud, m.reduce as u8, m.marker as u8, m.tips as u8, m.vol[4], m.vol[5], keys.join(" ")));
+    }
     fn slide(&mut self, i: usize) {
         let sz = self.window.inner_size(); let r = hud::menu_layout(sz.width as f32, sz.height as f32, &self.menu).into_iter().find(|x| x.0 == hud::M::Vol(i)).map(|x| x.1);
         if let Some(r) = r { self.menu.vol[i] = ((self.mouse[0] - r[0]) / r[2]).clamp(0.0, 1.0); self.apply(); }
     }
-    fn close_menu(&mut self) { self.menu.open = false; self.menu.credits = false; self.drag = None; self.write_settings(); self.grab(true); }
-    fn save(&mut self) { if std::fs::write(beside_exe("monde.alw"), self.s.save_text()).is_err() { self.say("Sauvegarde impossible".into()); } self.s.dirty = false; }
+    fn close_menu(&mut self) { self.menu.open = false; self.menu.credits = false; self.menu.controls = false; self.menu.listen = None; self.drag = None; self.write_settings(); if self.menu.title.is_none() { self.grab(true); } }
+    fn save(&mut self) { if self.world.is_empty() { return; } let _ = std::fs::create_dir_all(worlds_dir()); if std::fs::write(world_path(&self.world), self.s.save_text()).is_err() { self.say("Sauvegarde impossible".into()); } self.s.dirty = false; }
+    /// L'écran titre, avec la liste des mondes à jour.
+    fn open_title(&mut self) { self.save(); self.menu.open = false; self.menu.title = Some(hud::Title::new(list_worlds(), &self.world)); self.grab(false); }
+    /// Quitter le monde en cours pour un autre (existant, ou neuf avec sa graine et son profil).
+    fn switch_world(&mut self, name: &str, seed: Option<i32>, profile: Option<usize>) {
+        self.save(); let text = std::fs::read_to_string(world_path(name)).ok();
+        let seed = text.as_ref().and_then(|t| t.lines().find_map(|l| l.strip_prefix("seed ").and_then(|v| v.trim().parse().ok()))).or(seed).unwrap_or(SEED);
+        let mut s = Session::new(seed, &self.preset, self.threads, spawn_point(seed));
+        match &text { Some(t) => if let Err(e) = s.load_text(t) { report(&format!("Sauvegarde illisible : {e}")); }, None => if let Some(p) = profile { s.profile = p; } }
+        std::mem::swap(&mut s.sound, &mut self.s.sound); self.gpu.forget_all(); self.s = s; self.world = name.to_string(); self.menu.profile = self.s.profile; self.apply();
+        if text.is_none() { self.save(); } let _ = std::fs::write(worlds_dir().join("dernier.txt"), name);
+        self.menu.title = None; self.held.clear(); self.keys.clear(); self.grab(true);
+    }
+    fn title_click(&mut self, a: hud::T) {
+        let Some(t) = self.menu.title.as_mut() else { return }; if a != hud::T::Delete { t.confirm = false; }
+        match a {
+            hud::T::Continue => { if self.world.is_empty() { return; } self.menu.title = None; self.grab(true); }
+            hud::T::New => { t.page = hud::TPage::New; t.name.clear(); t.seed.clear(); t.field = 0; t.profile = 1; }
+            hud::T::Worlds => { t.page = hud::TPage::Worlds; t.sel = t.worlds.iter().position(|w| w.name == t.current).unwrap_or(0); }
+            hud::T::Settings => { self.menu.open = true; }
+            hud::T::Quit => { self.save(); self.write_settings(); std::process::exit(0); }
+            hud::T::Row(i) => { if t.sel == i { let n = t.worlds[i].name.clone(); if n == self.world { self.menu.title = None; self.grab(true); } else { self.switch_world(&n, None, None); } } else { t.sel = i; } }
+            hud::T::Play => { if let Some(w) = t.worlds.get(t.sel) { let n = w.name.clone(); if n == self.world { self.menu.title = None; self.grab(true); } else { self.switch_world(&n, None, None); } } }
+            hud::T::Delete => {
+                if t.worlds.is_empty() { return; }
+                if !t.confirm { t.confirm = true; return; }
+                // Rien ne s'efface vraiment : le fichier part dans « mondes/corbeille ».
+                let n = t.worlds[t.sel].name.clone(); let bin = worlds_dir().join("corbeille"); let _ = std::fs::create_dir_all(&bin);
+                let _ = std::fs::rename(world_path(&n), bin.join(format!("{n}.alw"))); if n == self.world { self.world.clear(); }
+                let cur = self.world.clone(); let page = t.page; *t = hud::Title::new(list_worlds(), &cur); t.page = page;
+            }
+            hud::T::Back => { t.page = hud::TPage::Main; }
+            hud::T::Field(f) => { t.field = f; }
+            hud::T::Profile(i) => { t.profile = i; }
+            hud::T::Create => { let (name, seed, p) = (fresh_name(&t.name), seed_of(&t.seed), t.profile); self.switch_world(&name, Some(seed), Some(p)); }
+        }
+    }
     fn frame(&mut self) {
         let now = Instant::now(); let real = (now - self.last).as_secs_f64(); let dt = if self.menu.open { 0.0 } else { real.min(0.05) }; self.last = now; self.time += dt;
         if self.run_time { self.s.pass_hours(dt * 24.0 / 1500.0); }
         let k = |c: KeyCode| self.keys.contains(&c);
         // Regarder vers +z place +x à gauche de l'écran : la droite vaut -x.
         let ax = |a: bool, b: bool| (a as i32 - b as i32) as f64;
-        let talking = self.s.town.talk.is_some() || self.s.map.open; let open = self.s.inv_open || self.menu.open || talking; let input = if open { Input::default() } else { Input { x: ax(k(KeyCode::KeyA) || k(KeyCode::KeyQ), k(KeyCode::KeyD)), z: ax(k(KeyCode::KeyW) || k(KeyCode::KeyZ), k(KeyCode::KeyS)), jump: k(KeyCode::Space), sprint: k(KeyCode::ShiftLeft), crouch: k(KeyCode::ControlLeft), roll: k(KeyCode::KeyV) } };
+        let _ = k; let b = |a: usize| self.menu.binds[a].iter().any(|n| !n.is_empty() && self.held.contains(n));
+        let titled = self.menu.title.is_some(); if titled { self.s.player.yaw += real * 0.035; } // derrière l'écran titre, la vue tourne lentement
+        let talking = self.s.town.talk.is_some() || self.s.map.open || titled; let open = self.s.inv_open || self.menu.open || talking; let input = if open { Input::default() } else { Input { x: ax(b(hud::A_LEFT), b(hud::A_RIGHT)), z: ax(b(hud::A_FWD), b(hud::A_BACK)), jump: b(hud::A_JUMP), sprint: b(hud::A_SPRINT), crouch: b(hud::A_CROUCH), roll: b(hud::A_ROLL) } };
         self.place_t -= dt; let place = self.rmb && self.place_t <= 0.0; if place { self.place_t = 0.22; }
         self.s.tick(dt, input, if talking { Actions::default() } else { Actions { mine: self.lmb, place } });
         for n in std::mem::take(&mut self.s.notes) { self.say(n); }
         if (self.s.dead.is_some() || self.s.inv_open || self.s.town.talk.is_some() || self.s.map.open) && self.grabbed && !self.menu.open { self.grab(false); }
-        if talking && self.s.town.talk.is_none() && !self.s.map.open && !self.s.inv_open && !self.menu.open && self.s.dead.is_none() { self.grab(true); } // le villageois s'est éloigné // écran de mort, coffre ouvert d'un clic droit : il faut le pointeur
+        if talking && !titled && self.s.town.talk.is_none() && !self.s.map.open && !self.s.inv_open && !self.menu.open && self.s.dead.is_none() { self.grab(true); } // le villageois s'est éloigné // écran de mort, coffre ouvert d'un clic droit : il faut le pointeur
         let (built, gone) = self.s.sync();
         for b in built { self.gpu.upload(b); }
         for g in gone { self.gpu.forget(g); }
@@ -128,27 +206,37 @@ impl ApplicationHandler for App {
         let size = window.inner_size(); let md = Models::build(); let menu = read_settings(); let ultra = menu.quality == 1; let preset = if ultra { ULTRA } else { HIGH };
         let gpu = pollster::block_on(gpu::Gpu::new(Some(window.clone()), size.width, size.height, gpu::Options { shadow: if ultra { 6144 } else { 4096 }, fallback: false, hole: (preset.radius as f32 - 0.6) * 32.0, cascades: if ultra { gpu::CASCADES_ULTRA } else { gpu::CASCADES } }, &md));
         let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).saturating_sub(2).clamp(2, 12);
-        let seed = world_seed(); let mut s = Session::new(seed, &preset, threads, spawn_point(seed));
-        if let Ok(t) = std::fs::read_to_string(beside_exe("monde.alw")) { if let Err(e) = s.load_text(&t) { report(&format!("Sauvegarde illisible : {e}")); } }
+        // Le dernier monde joué tourne derrière l'écran titre ; sans monde, celui de départ, qui ne s'enregistre pas.
+        migrate_worlds(); let worlds = list_worlds();
+        let last = std::fs::read_to_string(worlds_dir().join("dernier.txt")).ok().map(|t| t.trim().to_string()).filter(|n| worlds.iter().any(|w| &w.name == n)).or(worlds.first().map(|w| w.name.clone())).unwrap_or_default();
+        let text = if last.is_empty() { None } else { std::fs::read_to_string(world_path(&last)).ok() };
+        let seed = text.as_ref().and_then(|t| t.lines().find_map(|l| l.strip_prefix("seed ").and_then(|v| v.trim().parse().ok()))).unwrap_or(SEED);
+        let mut s = Session::new(seed, &preset, threads, spawn_point(seed));
+        if let Some(t) = &text { if let Err(e) = s.load_text(t) { report(&format!("Sauvegarde illisible : {e}")); } }
         s.sound = SoundScape::new(sound::start());
-        let mut g = Game { debug: false, fps: 0.0, menu, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
-        g.menu.profile = g.s.profile; g.apply(); g.grab(true); self.game = Some(g);
+        let mut menu = menu; menu.title = Some(hud::Title::new(worlds, &last));
+        let mut g = Game { held: HashSet::new(), preset, threads, world: last, debug: false, fps: 0.0, menu, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
+        g.menu.profile = g.s.profile; g.apply(); g.grab(false); self.game = Some(g);
     }
     fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, e: WindowEvent) {
         let Some(g) = self.game.as_mut() else { return };
         match e {
             WindowEvent::CloseRequested => { g.save(); g.write_settings(); std::process::exit(0); }
             WindowEvent::Resized(s) => g.gpu.resize(s.width, s.height),
-            WindowEvent::Focused(false) => { g.keys.clear(); g.grab(false); }
+            WindowEvent::Focused(false) => { g.keys.clear(); g.held.clear(); g.grab(false); }
             WindowEvent::MouseInput { state, button, .. } => {
                 let down = state == ElementState::Pressed;
                 let sz = g.window.inner_size(); let (w, h) = (sz.width as f32, sz.height as f32);
                 if g.menu.open {
                     if button != MouseButton::Left { return; }
                     if !down { g.drag = None; g.write_settings(); return; }
-                    let hit = hud::menu_at(w, h, &g.menu, g.mouse); if hit != Some(hud::M::NewWorld) { g.menu.confirm = false; }
+                    let hit = hud::menu_at(w, h, &g.menu, g.mouse);
                     match hit {
-                        Some(hud::M::NewWorld) => { if g.menu.confirm { g.save(); g.write_settings(); new_world(); } g.menu.confirm = true; g.say("Votre monde actuel sera gardé dans monde-ancien.alw : cliquez à nouveau pour confirmer".into()); }
+                        Some(hud::M::NewWorld) => { g.write_settings(); g.open_title(); if let Some(t) = g.menu.title.as_mut() { t.page = hud::TPage::Worlds; t.sel = t.worlds.iter().position(|x| x.name == t.current).unwrap_or(0); } }
+                        Some(hud::M::Controls) => { g.menu.controls = true; g.menu.listen = None; }
+                        Some(hud::M::Bind(a, sl)) => g.menu.listen = Some((a, sl)),
+                        Some(hud::M::ResetKeys) => { g.menu.binds = hud::default_binds(); g.menu.listen = None; g.write_settings(); }
+                        Some(hud::M::Tips) => g.menu.tips = !g.menu.tips,
                         Some(hud::M::Resume) => g.close_menu(),
                         Some(hud::M::Weather(i)) => { g.menu.weather = i; g.apply(); }
                         Some(hud::M::Mood(i)) => { g.menu.mood = i; g.apply(); }
@@ -159,12 +247,13 @@ impl ApplicationHandler for App {
                         Some(hud::M::Reduce) => g.menu.reduce = !g.menu.reduce,
                         Some(hud::M::Marker) => g.menu.marker = !g.menu.marker,
                         Some(hud::M::Credits) => g.menu.credits = true,
-                        Some(hud::M::Back) => g.menu.credits = false,
+                        Some(hud::M::Back) => { g.menu.credits = false; g.menu.controls = false; g.menu.listen = None; }
                         Some(hud::M::Quit) => { g.save(); g.write_settings(); std::process::exit(0); }
                         None => {}
                     }
                     return;
                 }
+                if g.menu.title.is_some() { if button == MouseButton::Left && down { if let Some(a) = g.menu.title.as_ref().and_then(|t| hud::title_at(t, w, h, g.mouse)) { g.title_click(a); } } return; }
                 if g.s.dead.is_some() { if button == MouseButton::Left && down && hud::death_at(w, h, g.mouse) { g.s.respawn(); g.grab(true); } return; }
                 if g.s.map.open { return; } // la carte se ferme au clavier
                 // Conversation : un clic sur une réponse.
@@ -201,13 +290,33 @@ impl ApplicationHandler for App {
             WindowEvent::CursorMoved { position, .. } => { g.mouse = [position.x as f32, position.y as f32]; if let Some(i) = g.drag { g.slide(i); } }
             WindowEvent::MouseWheel { delta, .. } => {
                 let d = match delta { MouseScrollDelta::LineDelta(_, y) => y, MouseScrollDelta::PixelDelta(p) => p.y as f32 };
-                if d != 0.0 && g.s.map.open { g.s.zoom_map(if d > 0.0 { -1 } else { 1 }); } else if d != 0.0 { g.s.sel = (g.s.sel as i32 + if d > 0.0 { -1 } else { 1 }).rem_euclid(9) as usize; }
+                if let Some(t) = g.menu.title.as_mut() { if d != 0.0 && t.page == hud::TPage::Worlds { let max = t.worlds.len().saturating_sub(7); t.scroll = (t.scroll as i32 + if d > 0.0 { -1 } else { 1 }).clamp(0, max as i32) as usize; } } else if d != 0.0 && g.s.map.open { g.s.zoom_map(if d > 0.0 { -1 } else { 1 }); } else if d != 0.0 { g.s.sel = (g.s.sel as i32 + if d > 0.0 { -1 } else { 1 }).rem_euclid(9) as usize; }
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 let PhysicalKey::Code(c) = event.physical_key else { return };
                 // Alt tenu : tous les besoins s'affichent.
                 if matches!(c, KeyCode::AltLeft | KeyCode::AltRight) { g.menu.alt = event.state == ElementState::Pressed; }
-                if event.state != ElementState::Pressed { g.keys.remove(&c); return; }
+                let name = key_name(&event);
+                if event.state != ElementState::Pressed { g.keys.remove(&c); g.held.remove(&name); return; }
+                // Une touche attendue pour une action : on l'attribue (Échap annule, Retour arrière vide la case).
+                if let Some((a, sl)) = g.menu.listen {
+                    if !event.repeat { match c { KeyCode::Escape => {}, KeyCode::Backspace => g.menu.binds[a][sl].clear(), _ if !name.is_empty() => { for b in g.menu.binds.iter_mut() { for x in b.iter_mut() { if *x == name { x.clear(); } } } g.menu.binds[a][sl] = name.clone(); } _ => { g.say("Cette touche ne peut pas servir".into()); return; } } g.menu.listen = None; g.write_settings(); }
+                    return;
+                }
+                // Écran titre : les champs du nouveau monde, Échap pour revenir.
+                if g.menu.title.is_some() && !g.menu.open {
+                    let t = g.menu.title.as_mut().unwrap();
+                    match c {
+                        KeyCode::Escape => { t.page = hud::TPage::Main; t.confirm = false; }
+                        KeyCode::Tab if t.page == hud::TPage::New => t.field = 1 - t.field,
+                        KeyCode::Enter | KeyCode::NumpadEnter => { let a = match t.page { hud::TPage::New => hud::T::Create, hud::TPage::Worlds => hud::T::Play, hud::TPage::Main => hud::T::Continue }; g.title_click(a); }
+                        KeyCode::Backspace if t.page == hud::TPage::New => { if t.field == 0 { t.name.pop(); } else { t.seed.pop(); } }
+                        _ if t.page == hud::TPage::New => if let Some(txt) = &event.text { for ch in txt.chars().filter(|ch| !ch.is_control()) { let f = if t.field == 0 { &mut t.name } else { &mut t.seed }; if f.chars().count() < 32 { f.push(ch); } } },
+                        _ => {}
+                    }
+                    return;
+                }
+                if !name.is_empty() { g.held.insert(name.clone()); }
                 // Recherche dans le livre de recettes : les touches écrivent au lieu de commander.
                 if g.s.inv_open && g.s.book.typing {
                     match c { KeyCode::Backspace => { g.s.book.search.pop(); } KeyCode::Enter | KeyCode::NumpadEnter | KeyCode::Escape => g.s.book.typing = false,
@@ -216,18 +325,18 @@ impl ApplicationHandler for App {
                 }
                 if !event.repeat { match c {
                     KeyCode::Enter | KeyCode::NumpadEnter if g.s.dead.is_some() && !g.menu.open => { g.s.respawn(); g.grab(true); }
-                    KeyCode::Escape => { if g.s.map.open { g.s.toggle_map(); g.grab(true); } else if g.s.town.talk.is_some() { g.s.close_talk(); g.grab(true); } else if g.s.town.journal { g.s.town.journal = false; } else if g.s.inv_open { g.s.inv_open = false; g.s.drop_slot(None); g.s.close_chest(); g.grab(true); } else if g.menu.open { g.close_menu(); } else { g.menu.open = true; g.grab(false); } }
+                    KeyCode::Escape => { if g.s.map.open { g.s.toggle_map(); g.grab(true); } else if g.s.town.talk.is_some() { g.s.close_talk(); g.grab(true); } else if g.s.town.journal { g.s.town.journal = false; } else if g.s.inv_open { g.s.inv_open = false; g.s.drop_slot(None); g.s.close_chest(); g.grab(true); } else if g.menu.open { if g.menu.controls || g.menu.credits { g.menu.controls = false; g.menu.credits = false; } else { g.close_menu(); } } else { g.menu.open = true; g.grab(false); } }
                     _ if g.menu.open || g.s.dead.is_some() => {}
                     KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::Digit7 | KeyCode::Digit8 | KeyCode::Digit9 if g.s.town.talk.is_some() => { g.s.choose(c as usize - KeyCode::Digit1 as usize); if g.s.town.talk.is_none() { g.grab(true); } }
                     _ if g.s.town.talk.is_some() => {}
-                    KeyCode::KeyM => { g.s.toggle_map(); g.grab(!g.s.map.open); }
+                    _ if g.menu.is(hud::A_MAP, &name) => { g.s.toggle_map(); g.grab(!g.s.map.open); }
                     _ if g.s.map.open => {}
-                    KeyCode::KeyJ => { g.s.town.journal = !g.s.town.journal; }
-                    KeyCode::KeyE => { let on = !g.s.inv_open; g.s.inv_open = on; if !on { g.s.drop_slot(None); g.s.close_chest(); } g.grab(!on); }
-                    KeyCode::KeyC => { g.s.third = !g.s.third; let m = if g.s.third { "Troisième personne" } else { "Première personne" }; g.say(m.into()); }
+                    _ if g.menu.is(hud::A_JOURNAL, &name) => { g.s.town.journal = !g.s.town.journal; }
+                    _ if g.menu.is(hud::A_INV, &name) => { let on = !g.s.inv_open; g.s.inv_open = on; if !on { g.s.drop_slot(None); g.s.close_chest(); } g.grab(!on); }
+                    _ if g.menu.is(hud::A_VIEW, &name) => { g.s.third = !g.s.third; let m = if g.s.third { "Troisième personne" } else { "Première personne" }; g.say(m.into()); }
                     KeyCode::KeyF => { if g.s.creative { g.s.player.fly = !g.s.player.fly; let m = if g.s.player.fly { "Vol activé" } else { "Vol désactivé" }; g.say(m.into()); } else { g.say("Le vol demande le mode créatif (G)".into()); } }
                     KeyCode::KeyG => { let on = !g.s.creative; g.s.set_creative(on); g.say(if on { "Mode créatif : casse instantanée, blocs illimités, vol avec F" } else { "Mode survie" }.into()); }
-                    KeyCode::KeyR => { let m = g.s.rotate(); g.say(m); }
+                    _ if g.menu.is(hud::A_TURN, &name) => { let m = g.s.rotate(); g.say(m); }
                     KeyCode::KeyT => g.s.pass_hours(1.0),
                     KeyCode::KeyY => g.run_time = !g.run_time,
                     KeyCode::F3 => g.debug = !g.debug,
@@ -243,7 +352,7 @@ impl ApplicationHandler for App {
     }
     fn device_event(&mut self, _: &ActiveEventLoop, _: DeviceId, e: DeviceEvent) {
         let Some(g) = self.game.as_mut() else { return };
-        if let (true, DeviceEvent::MouseMotion { delta }) = (g.grabbed && !g.s.inv_open && !g.menu.open && g.s.town.talk.is_none() && !g.s.map.open, e) { g.s.player.yaw -= delta.0 * 0.0023; g.s.player.pitch = (g.s.player.pitch - delta.1 * 0.0023).clamp(-1.5, 1.5); }
+        if let (true, DeviceEvent::MouseMotion { delta }) = (g.grabbed && !g.s.inv_open && !g.menu.open && g.s.town.talk.is_none() && !g.s.map.open && g.menu.title.is_none(), e) { let k = g.menu.sens(); g.s.player.yaw -= delta.0 * k; g.s.player.pitch = (g.s.player.pitch - delta.1 * k).clamp(-1.5, 1.5); }
     }
     fn about_to_wait(&mut self, _: &ActiveEventLoop) { if let Some(g) = &self.game { g.window.request_redraw(); } }
 }
@@ -471,7 +580,8 @@ fn capture(a: &[String]) {
         }
         if scene != "fissure" { s.tick(0.0, none, Actions::default()); } println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
     }
-    let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 1, confirm: false, profile: 1, hud: 2, reduce: false, marker: true, alt: false };
+    let mut menu = hud::Menu { open: scene == "menu" || scene == "commandes", controls: scene == "commandes", weather: 3, quality: 1, hud: 2, ..hud::Menu::new() };
+    if scene == "titre" { menu.title = Some(hud::Title::new(vec![hud::WorldInfo { name: "Premier monde".into(), seed: SEED, profile: 1, hours: 130.0, age: "il y a 2 h".into() }], "Premier monde")); }
     let info = if scene == "f3" || scene == "foret" { debug_lines(&s, 240.0, 5_200_000, "Ultra") } else { Vec::new() };
     let t1 = Instant::now(); let mut tris = 0;
     for k in 0..10 { tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu, &info); g.settle(); }

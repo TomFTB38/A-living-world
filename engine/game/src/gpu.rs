@@ -246,6 +246,8 @@ impl Gpu {
         self.chunks.insert(b.key, ChunkGpu { opaque: part(&self.device, &m.opaque, m.n_o), deco: part(&self.device, &m.deco, m.n_d), water: part(&self.device, &m.water, m.n_w), slot, min: [x - 2.0, m.ymin as f32 - 2.0, z - 2.0], max: [x + 34.0, m.ymax as f32 + 2.0, z + 34.0], c: [x + 16.0, z + 16.0] });
     }
     pub fn forget(&mut self, k: (i32, i32)) { if let Some(c) = self.chunks.remove(&k) { self.free.push(c.slot); } }
+    /// Oublie tous les chunks : on change de monde.
+    pub fn forget_all(&mut self) { let keys: Vec<(i32, i32)> = self.chunks.keys().copied().collect(); for k in keys { self.forget(k); } self.far = None; self.reset = true; }
     /// Une image complète. Rend le nombre de triangles envoyés.
     pub fn render(&mut self, vp: &M4, view_m: &M4, proj: &M4, eye: [f64; 3], time: f64, s: &Sky, env: Env, aim: Option<([i32; 3], f32)>, ghost: Option<([i32; 3], bool)>, gbox: &[[f64; 6]], draws: &[Draw], ui: &hud::Ui) -> usize {
         let frame = match &self.surface { Some(sf) => match sf.get_current_texture() { Ok(f) => Some(f), Err(_) => { sf.configure(&self.device, &self.config); return 0; } }, None => None };

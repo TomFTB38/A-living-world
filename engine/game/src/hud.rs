@@ -58,17 +58,78 @@ pub fn shown(s: &Session, w: f32, h: f32, m: [f32; 2]) -> Option<usize> { match 
 pub const WEATHERS: [&str; 5] = ["Auto", "Clair", "Nuageux", "Pluie", "Brouillard"];
 pub const QUALITIES: [&str; 2] = ["Haut", "Ultra"];
 pub const MOODS: [&str; 6] = ["Auto", "Calme", "Nuit", "Construction", "Suspense", "Danger"];
-const VOLS: [&str; 4] = ["Volume général", "Effets", "Musique", "Luminosité"];
+const VOLS: [&str; 6] = ["Volume général", "Effets", "Musique", "Luminosité", "Sensibilité de la souris", "Champ de vision"];
 /// Curseur de luminosité vers exposition : au milieu, l'image validée, plus sobre que la première version.
 pub fn bright(v: f32) -> f32 { 0.6 + 0.5 * v }
 const CREDITS: [&str; 13] = ["Musique générée par le jeu. Sons retravaillés pour le jeu.", "", "Licence CC BY 3.0", "crack : Benboncan, freesound.org/people/Benboncan/sounds/71823", "splash : AGFX, freesound.org/people/AGFX/packs/1253", "hurt : sonictechtonic, freesound.org/people/sonictechtonic/sounds/241872", "", "Licence CC0", "Kenney (Impact Sounds), worthahep88, lolamadeus, Sheyvan, blukotek, Yuval", "", "Police de l'interface", "Inter, SIL Open Font License 1.1", ""];
 /// Réglages du menu. `profile` reflète le profil de survie de la partie ; `hud` : mode des indicateurs ; `alt` : touche Alt tenue.
-pub struct Menu { pub open: bool, pub credits: bool, pub weather: usize, pub mood: usize, pub vol: [f32; 4], pub quality: usize, pub confirm: bool, pub profile: usize, pub hud: usize, pub reduce: bool, pub marker: bool, pub alt: bool }
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum M { Resume, Weather(usize), Mood(usize), Quality(usize), Vol(usize), Credits, Back, Quit, NewWorld, Profile(usize), Hud(usize), Reduce, Marker }
+pub struct Menu { pub open: bool, pub credits: bool, pub weather: usize, pub mood: usize, pub vol: [f32; 6], pub quality: usize, pub confirm: bool, pub profile: usize, pub hud: usize, pub reduce: bool, pub marker: bool, pub alt: bool,
+    /// Page des commandes, conseils de départ, touches (deux par action, par leur nom), touche attendue pour une action, écran titre.
+    pub controls: bool, pub tips: bool, pub binds: Vec<[String; 2]>, pub listen: Option<(usize, usize)>, pub title: Option<Title> }
+/// Les actions qu'on peut attribuer à une touche, dans l'ordre de `Menu::binds`.
+pub const ACTIONS: [&str; 13] = ["Avancer", "Reculer", "Aller à gauche", "Aller à droite", "Sauter", "Courir", "S'accroupir", "Roulade", "Inventaire et recettes", "Carte", "Journal des villages", "Vue à la troisième personne", "Tourner le bloc"];
+pub const A_FWD: usize = 0; pub const A_BACK: usize = 1; pub const A_LEFT: usize = 2; pub const A_RIGHT: usize = 3; pub const A_JUMP: usize = 4; pub const A_SPRINT: usize = 5; pub const A_CROUCH: usize = 6; pub const A_ROLL: usize = 7;
+pub const A_INV: usize = 8; pub const A_MAP: usize = 9; pub const A_JOURNAL: usize = 10; pub const A_VIEW: usize = 11; pub const A_TURN: usize = 12;
+/// Touches par défaut, par leur nom affiché : ZQSD et WASD marchent toutes deux.
+pub fn default_binds() -> Vec<[String; 2]> {
+    [["Z", "W"], ["S", ""], ["Q", "A"], ["D", ""], ["Espace", ""], ["Maj", ""], ["Ctrl", ""], ["V", ""], ["E", ""], ["M", ""], ["J", ""], ["C", ""], ["R", ""]].iter().map(|b| [b[0].to_string(), b[1].to_string()]).collect()
+}
+impl Menu {
+    pub fn new() -> Menu { Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5, 0.5, 0.5], quality: 0, confirm: false, profile: 1, hud: 1, reduce: false, marker: true, alt: false, controls: false, tips: true, binds: default_binds(), listen: None, title: None } }
+    /// Une touche (par son nom) déclenche-t-elle cette action ?
+    pub fn is(&self, a: usize, key: &str) -> bool { !key.is_empty() && self.binds[a].iter().any(|b| b == key) }
+    /// Sensibilité de la souris en radians par point, champ de vision vertical en radians.
+    pub fn sens(&self) -> f64 { 0.0008 + 0.003 * self.vol[4] as f64 }
+    pub fn fov(&self) -> f64 { (55.0 + 50.0 * self.vol[5] as f64).to_radians() }
+}
+impl Default for Menu { fn default() -> Self { Menu::new() } }
+
+/// Un monde enregistré : nom (celui du fichier), graine, profil, heures jouées, ancienneté de la dernière partie.
+#[derive(Clone, Debug)] pub struct WorldInfo { pub name: String, pub seed: i32, pub profile: usize, pub hours: f64, pub age: String }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum TPage { Main, Worlds, New }
+/// L'écran titre : page, mondes, monde choisi, champs du nouveau monde (nom, graine), profil, champ actif, suppression à confirmer.
+#[derive(Clone, Debug)] pub struct Title { pub page: TPage, pub worlds: Vec<WorldInfo>, pub sel: usize, pub name: String, pub seed: String, pub profile: usize, pub field: usize, pub confirm: bool, pub current: String, pub scroll: usize }
+impl Title { pub fn new(worlds: Vec<WorldInfo>, current: &str) -> Title { Title { page: TPage::Main, sel: 0, name: String::new(), seed: String::new(), profile: 1, field: 0, confirm: false, current: current.to_string(), scroll: 0, worlds } } }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum T { Continue, New, Worlds, Settings, Quit, Row(usize), Play, Delete, Back, Field(usize), Profile(usize), Create }
+const ROWS: usize = 7;
+pub fn title_layout(t: &Title, w: f32, h: f32) -> Vec<(T, [f32; 4])> {
+    let k = scale(h); let mut o = Vec::new();
+    match t.page {
+        TPage::Main => {
+            let (x, bw, bh) = (90.0 * k, 400.0 * k, 52.0 * k); let mut y = h * 0.42;
+            if !t.current.is_empty() { o.push((T::Continue, [x, y, bw, bh + 14.0 * k])); y += bh + 26.0 * k; }
+            for a in [T::New, T::Worlds, T::Settings, T::Quit] { o.push((a, [x, y, bw, bh])); y += bh + 12.0 * k; }
+        }
+        TPage::Worlds => {
+            let (pw, rh) = ((820.0 * k).min(w - 40.0), 60.0 * k); let x = (w - pw) * 0.5; let y = h * 0.16;
+            for (i, _) in t.worlds.iter().enumerate().skip(t.scroll).take(ROWS) { o.push((T::Row(i), [x + 20.0 * k, y + 80.0 * k + (i - t.scroll) as f32 * (rh + 6.0 * k), pw - 40.0 * k, rh])); }
+            let by = y + 80.0 * k + ROWS as f32 * (rh + 6.0 * k) + 16.0 * k; let b = (pw - 40.0 * k - 2.0 * 12.0 * k) / 3.0;
+            for (j, a) in [T::Play, T::Delete, T::Back].into_iter().enumerate() { o.push((a, [x + 20.0 * k + j as f32 * (b + 12.0 * k), by, b, 46.0 * k])); }
+        }
+        TPage::New => {
+            let pw = (820.0 * k).min(w - 40.0); let x = (w - pw) * 0.5 + 20.0 * k; let iw = pw - 40.0 * k; let y = h * 0.16;
+            o.push((T::Field(0), [x, y + 104.0 * k, iw, 44.0 * k])); o.push((T::Field(1), [x, y + 190.0 * k, iw, 44.0 * k]));
+            let b = (iw - 2.0 * 12.0 * k) / 3.0; for i in 0..PROFILES.len() { o.push((T::Profile(i), [x + i as f32 * (b + 12.0 * k), y + 276.0 * k, b, 96.0 * k])); }
+            let b = (iw - 12.0 * k) / 2.0; o.push((T::Create, [x, y + 400.0 * k, b, 50.0 * k])); o.push((T::Back, [x + b + 12.0 * k, y + 400.0 * k, b, 50.0 * k]));
+        }
+    }
+    o
+}
+pub fn title_at(t: &Title, w: f32, h: f32, p: [f32; 2]) -> Option<T> { title_layout(t, w, h).into_iter().find(|x| inside(p, x.1)).map(|x| x.0) }
+/// Ce que change chaque profil, en une ligne.
+pub fn profile_line(i: usize) -> String { let p = &PROFILES[i]; match i { 0 => "Besoins lents, blessures légères, dépouille gardée longtemps".into(), 1 => "Le jeu tel qu'il est pensé".into(), _ => format!("Besoins x{:.1}, blessures x{:.1}, dépouille {:.0} jours", p.needs, p.harm, p.stash_days) } }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum M { Resume, Weather(usize), Mood(usize), Quality(usize), Vol(usize), Credits, Back, Quit, NewWorld, Profile(usize), Hud(usize), Reduce, Marker, Tips, Controls, Bind(usize, usize), ResetKeys }
 fn menu_panel(w: f32, h: f32) -> ([f32; 4], f32) { let k = scale(h).min(h / 800.0); let (pw, ph) = (680.0 * k, 780.0 * k); ([(w - pw) * 0.5, (h - ph) * 0.5, pw, ph], k) }
 pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
     let (p, k) = menu_panel(w, h); let (x0, tw) = (p[0] + 34.0 * k, p[2] - 68.0 * k); let bh = 40.0 * k; let g = 8.0 * k; let mut o = Vec::new();
     if m.credits { o.push((M::Back, [x0, p[1] + p[3] - 66.0 * k, tw, bh])); return o; }
+    if m.controls {
+        // Commandes : deux touches par action, puis sensibilité et champ de vision.
+        let rh = 30.0 * k; let mut y = p[1] + 88.0 * k; let kw = 120.0 * k;
+        for a in 0..ACTIONS.len() { for sl in 0..2 { o.push((M::Bind(a, sl), [x0 + tw - 2.0 * kw - g + sl as f32 * (kw + g), y, kw, rh - 4.0 * k])); } y += rh; }
+        y += 14.0 * k; for i in 4..6 { o.push((M::Vol(i), [x0 + 230.0 * k, y + (i - 4) as f32 * 30.0 * k, tw - 230.0 * k, 22.0 * k])); }
+        y += 72.0 * k; let b = (tw - g) / 2.0; o.push((M::ResetKeys, [x0, y, b, bh])); o.push((M::Back, [x0 + b + g, y, b, bh])); return o;
+    }
     let mut y = p[1] + 70.0 * k; o.push((M::Resume, [x0, y, tw, bh])); y += bh + 32.0 * k;
     let row = |n: usize, y: f32, f: &dyn Fn(usize) -> M, o: &mut Vec<(M, [f32; 4])>| { let b = (tw - (n as f32 - 1.0) * g) / n as f32; for i in 0..n { o.push((f(i), [x0 + i as f32 * (b + g), y, b, 32.0 * k])); } };
     row(WEATHERS.len(), y, &M::Weather, &mut o); y += 64.0 * k;
@@ -76,10 +137,10 @@ pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
     row(QUALITIES.len(), y, &M::Quality, &mut o); y += 64.0 * k;
     row(PROFILES.len(), y, &M::Profile, &mut o); y += 64.0 * k;
     row(needs::MODES.len(), y, &M::Hud, &mut o); y += 40.0 * k;
-    let b = (tw - g) / 2.0; o.push((M::Reduce, [x0, y, b, 32.0 * k])); o.push((M::Marker, [x0 + b + g, y, b, 32.0 * k])); y += 50.0 * k;
+    let b = (tw - 2.0 * g) / 3.0; o.push((M::Reduce, [x0, y, b, 32.0 * k])); o.push((M::Marker, [x0 + b + g, y, b, 32.0 * k])); o.push((M::Tips, [x0 + 2.0 * (b + g), y, b, 32.0 * k])); y += 50.0 * k;
     for i in 0..4 { o.push((M::Vol(i), [x0 + 190.0 * k, y + i as f32 * 30.0 * k, tw - 190.0 * k, 22.0 * k])); }
     y += 4.0 * 30.0 * k + 12.0 * k;
-    let b = (tw - 2.0 * g) / 3.0; o.push((M::Credits, [x0, y, b, bh])); o.push((M::NewWorld, [x0 + b + g, y, b, bh])); o.push((M::Quit, [x0 + 2.0 * (b + g), y, b, bh])); o
+    let b = (tw - 3.0 * g) / 4.0; for (j, a) in [M::Controls, M::Credits, M::NewWorld, M::Quit].into_iter().enumerate() { o.push((a, [x0 + j as f32 * (b + g), y, b, bh])); } o
 }
 pub fn menu_at(w: f32, h: f32, m: &Menu, p: [f32; 2]) -> Option<M> { menu_layout(w, h, m).into_iter().find(|x| inside(p, x.1)).map(|x| x.0) }
 /// Bouton « Réapparaître » de l'écran de mort.
@@ -187,13 +248,21 @@ impl Ui {
     fn menu(&mut self, m: &Menu, w: f32, h: f32, mouse: [f32; 2]) {
         self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.03, 0.6]);
         let (p, k) = menu_panel(w, h); let (x0, z) = (p[0] + 34.0 * k, 18.0 * k); self.panel(p, k, PANEL); let hover = menu_at(w, h, m, mouse);
-        self.text(if m.credits { "Crédits" } else { "A Living World" }, x0, p[1] + 20.0 * k, 28.0 * k, INK);
+        self.text(if m.credits { "Crédits" } else if m.controls { "Commandes" } else { "A Living World" }, x0, p[1] + 20.0 * k, 28.0 * k, INK);
+        if m.controls { let t = if m.listen.is_some() { "Appuyez sur une touche · Échap : annuler · Retour arrière : effacer" } else { "Cliquez une case puis appuyez sur la touche voulue" }; self.text(t, x0, p[1] + 58.0 * k, 14.0 * k, if m.listen.is_some() { GOLD } else { DIM }); }
         if m.credits { for (i, l) in CREDITS.iter().enumerate() { let t = i == 2 || i == 7 || i == 10; self.text(l, x0, p[1] + 78.0 * k + i as f32 * 28.0 * k, if t { z } else { 16.0 * k }, if t { ACCENT } else { INK }); } }
         for (a, r) in menu_layout(w, h, m) {
             let on = hover == Some(a); let plain: C = if on { [0.25, 0.3, 0.24, 1.0] } else { [0.0, 0.0, 0.0, 0.34] }; let sel: C = [0.28, 0.4, 0.22, 1.0];
             let label = |t: &str, u: &mut Ui| u.text(t, x0, r[1] - 24.0 * k, 16.0 * k, DIM);
             match a {
-                M::Resume | M::Credits | M::Back | M::Quit | M::NewWorld => { let warn = a == M::NewWorld && m.confirm; self.panel(r, k, if warn { [0.5, 0.2, 0.14, 1.0] } else { plain }); self.centered(match a { M::Resume => "Reprendre", M::Credits => "Crédits", M::Back => "Retour", M::NewWorld => if m.confirm { "Confirmer ?" } else { "Nouveau monde" }, _ => "Quitter" }, r, 16.0 * k, INK); }
+                M::Resume | M::Credits | M::Back | M::Quit | M::NewWorld | M::Controls | M::ResetKeys => { self.panel(r, k, plain); self.centered(match a { M::Resume => "Reprendre", M::Credits => "Crédits", M::Back => "Retour", M::NewWorld => "Mondes", M::Controls => "Commandes", M::ResetKeys => "Touches par défaut", _ => "Quitter" }, r, 16.0 * k, INK); }
+                M::Tips => { self.panel(r, k, if m.tips { sel } else { plain }); self.centered(if m.tips { "Conseils : oui" } else { "Conseils : non" }, r, 14.5 * k, INK); }
+                M::Bind(i, sl) => {
+                    if sl == 0 { self.text(ACTIONS[i], x0, r[1] + 3.0 * k, 16.0 * k, INK); }
+                    let wait = m.listen == Some((i, sl)); let name = &m.binds[i][sl];
+                    self.panel(r, k, if wait { [0.55, 0.42, 0.15, 1.0] } else if on { [0.25, 0.3, 0.24, 1.0] } else { [0.0, 0.0, 0.0, 0.34] });
+                    self.centered(if wait { "..." } else if name.is_empty() { "-" } else { name }, r, 14.5 * k, if name.is_empty() && !wait { DIM } else { INK });
+                }
                 M::Weather(i) => { if i == 0 { label("Météo", self); } self.panel(r, k, if m.weather == i { sel } else { plain }); self.centered(WEATHERS[i], r, 15.0 * k, INK); }
                 M::Mood(i) => { if i == 0 { label("Ambiance musicale", self); } self.panel(r, k, if m.mood == i { sel } else { plain }); self.centered(MOODS[i], r, 14.0 * k, INK); }
                 M::Quality(i) => { if i == 0 { label("Qualité graphique (au prochain lancement)", self); } self.panel(r, k, if m.quality == i { sel } else { plain }); self.centered(QUALITIES[i], r, 15.0 * k, INK); }
@@ -204,6 +273,76 @@ impl Ui {
                 M::Vol(i) => { self.text(VOLS[i], x0, r[1], 16.0 * k, DIM); let t = 6.0 * k; let y = r[1] + (r[3] - t) * 0.5; self.rect(r[0], y, r[2], t, [0.0, 0.0, 0.0, 0.5]); self.rect(r[0], y, r[2] * m.vol[i], t, ACCENT); let hx = r[0] + r[2] * m.vol[i]; self.panel([hx - 7.0 * k, r[1] + 1.0 * k, 14.0 * k, r[3] - 2.0 * k], k, INK); }
             }
         }
+    }
+    /// L'écran titre, sur le monde qui tourne lentement derrière.
+    fn title(&mut self, t: &Title, w: f32, h: f32, mouse: [f32; 2], menu_open: bool) {
+        let k = scale(h); let hover = if menu_open { None } else { title_at(t, w, h, mouse) };
+        let btn = |u: &mut Ui, r: [f32; 4], on: bool, main: bool| u.panel(r, k, if on { [0.3, 0.42, 0.24, 0.98] } else if main { [0.2, 0.3, 0.17, 0.92] } else { [0.05, 0.07, 0.06, 0.78] });
+        match t.page {
+            TPage::Main => {
+                // Un voile sombre à gauche, qui s'efface vers le monde.
+                for i in 0..24 { let x = i as f32 * w * 0.03; self.rect(x, 0.0, w * 0.03 + 1.0, h, [0.02, 0.03, 0.02, 0.72 * (1.0 - i as f32 / 24.0)]); }
+                self.text("A Living World", 86.0 * k, h * 0.2, 64.0 * k, INK); self.text("Survivre, bâtir, explorer un monde qui vit", 92.0 * k, h * 0.2 + 84.0 * k, 20.0 * k, [0.85, 0.88, 0.8, 0.9]);
+                for (a, r) in title_layout(t, w, h) {
+                    let on = hover == Some(a); btn(self, r, on, a == T::Continue);
+                    match a {
+                        T::Continue => { self.text("Continuer", r[0] + 20.0 * k, r[1] + 9.0 * k, 22.0 * k, INK); self.text(&t.current, r[0] + 20.0 * k, r[1] + 39.0 * k, 15.0 * k, [0.85, 0.9, 0.78, 0.9]); }
+                        _ => { let l = match a { T::New => "Nouveau monde", T::Worlds => "Mondes", T::Settings => "Réglages", _ => "Quitter" }; self.text(l, r[0] + 20.0 * k, r[1] + (r[3] - 20.0 * k * 1.35) * 0.5, 20.0 * k, INK); }
+                    }
+                }
+                let v = "Version 1 en préparation"; self.text(v, w - Ui::text_width(v, 14.0 * k) - 18.0 * k, h - 30.0 * k, 14.0 * k, [0.85, 0.88, 0.8, 0.7]);
+            }
+            TPage::Worlds => {
+                self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.03, 0.55]); let pw = (820.0 * k).min(w - 40.0); let x = (w - pw) * 0.5; let y = h * 0.16; let rh = 60.0 * k;
+                self.panel([x, y, pw, 80.0 * k + ROWS as f32 * (rh + 6.0 * k) + 80.0 * k], k, PANEL); self.text("Mondes", x + 20.0 * k, y + 18.0 * k, 28.0 * k, INK);
+                let n = format!("{} monde{}", t.worlds.len(), if t.worlds.len() > 1 { "s" } else { "" }); self.text(&n, x + pw - Ui::text_width(&n, 15.0 * k) - 20.0 * k, y + 30.0 * k, 15.0 * k, DIM);
+                if t.worlds.is_empty() { self.text("Aucun monde pour l'instant : créez-en un.", x + 20.0 * k, y + 90.0 * k, 17.0 * k, DIM); }
+                for (a, r) in title_layout(t, w, h) {
+                    let on = hover == Some(a);
+                    match a {
+                        T::Row(i) => {
+                            let wi = &t.worlds[i]; let sel = t.sel == i; self.panel(r, k, if sel { [0.24, 0.34, 0.2, 1.0] } else if on { [0.16, 0.2, 0.15, 1.0] } else { WELL });
+                            let cur = if wi.name == t.current { "  (en cours)" } else { "" }; self.text(&format!("{}{cur}", wi.name), r[0] + 14.0 * k, r[1] + 8.0 * k, 19.0 * k, INK);
+                            let days = (wi.hours / 24.0).floor(); let d = format!("{} · {} jour{} de jeu · graine {} · {}", PROFILES[wi.profile.min(PROFILES.len() - 1)].name, days, if days > 1.0 { "s" } else { "" }, wi.seed, wi.age);
+                            self.text(&d, r[0] + 14.0 * k, r[1] + 34.0 * k, 14.0 * k, DIM);
+                        }
+                        T::Delete => { let warn = t.confirm; self.panel(r, k, if warn { [0.5, 0.2, 0.14, 1.0] } else if on { [0.3, 0.16, 0.12, 1.0] } else { [0.0, 0.0, 0.0, 0.34] }); self.centered(if warn { "Confirmer la suppression" } else { "Supprimer" }, r, 17.0 * k, INK); }
+                        _ => { btn(self, r, on, a == T::Play); self.centered(if a == T::Play { "Jouer" } else { "Retour" }, r, 18.0 * k, INK); }
+                    }
+                }
+                if t.worlds.len() > ROWS { let h2 = "Molette : faire défiler"; self.text(h2, x + 20.0 * k, y + 56.0 * k, 13.0 * k, DIM); }
+            }
+            TPage::New => {
+                self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.03, 0.55]); let pw = (820.0 * k).min(w - 40.0); let x = (w - pw) * 0.5; let y = h * 0.16;
+                self.panel([x, y, pw, 480.0 * k], k, PANEL); self.text("Nouveau monde", x + 20.0 * k, y + 18.0 * k, 28.0 * k, INK);
+                for (a, r) in title_layout(t, w, h) {
+                    let on = hover == Some(a);
+                    match a {
+                        T::Field(f) => {
+                            self.text(if f == 0 { "Nom du monde" } else { "Graine (facultative : un nombre ou un mot)" }, r[0], r[1] - 26.0 * k, 16.0 * k, DIM);
+                            let act = t.field == f; self.panel(r, k, if act { [0.12, 0.16, 0.12, 1.0] } else { WELL }); let v = if f == 0 { &t.name } else { &t.seed };
+                            let shown = if v.is_empty() && !act { if f == 0 { "Mon monde".to_string() } else { "au hasard".to_string() } } else { format!("{v}{}", if act { "_" } else { "" }) };
+                            self.text(&shown, r[0] + 14.0 * k, r[1] + 11.0 * k, 18.0 * k, if v.is_empty() && !act { DIM } else { INK });
+                        }
+                        T::Profile(i) => {
+                            if i == 0 { self.text("Survie", r[0], r[1] - 26.0 * k, 16.0 * k, DIM); }
+                            let sel = t.profile == i; self.panel(r, k, if sel { [0.24, 0.36, 0.2, 1.0] } else if on { [0.16, 0.2, 0.15, 1.0] } else { WELL });
+                            self.text(PROFILES[i].name, r[0] + 12.0 * k, r[1] + 10.0 * k, 18.0 * k, INK);
+                            for (j, l) in wrap(&profile_line(i), 13.5 * k, r[2] - 24.0 * k).iter().take(3).enumerate() { self.text(l, r[0] + 12.0 * k, r[1] + 38.0 * k + j as f32 * 18.0 * k, 13.5 * k, DIM); }
+                        }
+                        _ => { btn(self, r, on, a == T::Create); self.centered(if a == T::Create { "Créer et jouer" } else { "Retour" }, r, 18.0 * k, INK); }
+                    }
+                }
+                self.text("Tab : champ suivant · Entrée : créer", x + 20.0 * k, y + 456.0 * k, 13.0 * k, DIM);
+            }
+        }
+    }
+    /// Le conseil de départ en cours, en haut à gauche.
+    fn hint(&mut self, s: &Session, k: f32) {
+        let Some((n, total, t)) = s.hint() else { return }; let z = 16.0 * k; let lines = wrap(&t, z, 400.0 * k); let bw = lines.iter().fold(0.0f32, |a, l| a.max(Ui::text_width(l, z))).max(160.0 * k) + 28.0 * k;
+        let r = [16.0 * k, 16.0 * k, bw, 42.0 * k + lines.len() as f32 * 22.0 * k]; self.panel(r, k, [0.06, 0.08, 0.06, 0.78]); self.rect(r[0], r[1], 3.0 * k, r[3], ACCENT);
+        self.text(&format!("Premiers pas · {n}/{total}"), r[0] + 14.0 * k, r[1] + 9.0 * k, 13.5 * k, ACCENT);
+        for (i, l) in lines.iter().enumerate() { self.text(l, r[0] + 14.0 * k, r[1] + 32.0 * k + i as f32 * 22.0 * k, z, INK); }
     }
     fn death(&mut self, s: &Session, d: &alw_core::survival::Death, w: f32, h: f32, k: f32, mouse: [f32; 2]) {
         self.rect(0.0, 0.0, w, h, [0.16, 0.02, 0.02, 0.72]);
@@ -389,6 +528,7 @@ impl Ui {
     }
     pub fn build(s: &Session, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &Menu, info: &[String]) -> Ui {
         let mut u = Ui { data: Vec::with_capacity(12000), w, h }; let k = scale(h); let w1 = [1.0, 1.0, 1.0, 0.9];
+        if let Some(t) = &menu.title { u.title(t, w, h, mouse, menu.open); if menu.open { u.menu(menu, w, h, mouse); } if let Some(m) = msg { let z = 20.0 * k; u.text(m, (w - Ui::text_width(m, z)) * 0.5, h * 0.08, z, w1); } return u; }
         // Blessure : l'écran rougit un instant ; à bout de forces, les bords restent rouges et battent.
         let fl = s.flash() as f32; if fl > 0.0 { u.rect(0.0, 0.0, w, h, [0.62, 0.04, 0.03, 0.3 * fl]); }
         if !s.creative && s.dead.is_none() && s.vit[0] < 25.0 { let a = (0.16 + 0.1 * if menu.reduce { 0.5 } else { (s.elapsed as f32 * 4.0).sin() }) * (1.0 - s.vit[0] as f32 / 25.0).max(0.35); let e = 60.0 * k; let c = [0.55, 0.03, 0.02, a];
@@ -415,6 +555,7 @@ impl Ui {
         } else { let z = 18.0 * k; u.text("Mode créatif", 18.0 * k, h - 34.0 * k, z, w1); }
         if !info.is_empty() { let z = 16.0 * k; let bw = info.iter().fold(0.0f32, |a, l| a.max(Ui::text_width(l, z))); u.rect(10.0 * k, 10.0 * k, bw + 24.0 * k, info.len() as f32 * 22.0 * k + 14.0 * k, [0.0, 0.0, 0.0, 0.5]); for (i, l) in info.iter().enumerate() { u.text(l, 22.0 * k, 16.0 * k + i as f32 * 22.0 * k, z, INK); } }
         if s.dead.is_none() && !menu.open && s.map.anim <= 0.0 { u.minimap(s, w, k); }
+        if menu.tips && !menu.open && info.is_empty() && s.dead.is_none() && !s.inv_open && s.town.talk.is_none() && s.map.anim <= 0.0 { u.hint(s, k); }
         if let (Some(v), None) = (s.marked_village(), &s.dead) { let c = [v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5]; u.pin(s, c, &v.name, [0.55, 0.75, 0.95, 0.9], w, k); }
         // Un villageois sous le réticule : on peut lui parler.
         if s.town.talk.is_none() && !s.inv_open { if let Some(f) = s.aim_folk().and_then(|i| s.town.folk.get(i)) { let t = format!("Clic droit : parler à {}{}", f.name, f.craft.and_then(alw_core::village::craftsman).map_or(String::new(), |c| format!(" ({})", c.name.to_lowercase()))); let z = 17.0 * k; u.text(&t, (w - Ui::text_width(&t, z)) * 0.5, h * 0.5 + 26.0 * k, z, w1); } }
