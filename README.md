@@ -12,6 +12,8 @@ Ouvrir `dist/index.html` dans Chrome, Edge ou Firefox, avec une carte graphique 
 | Se déplacer | ZQSD ou WASD |
 | Regarder | Souris (clic dans le jeu pour capturer le pointeur) |
 | Casser / poser | Clic gauche maintenu / clic droit |
+| Tourner le bloc à poser | R (un quart de tour ; pour les troncs : mode d'orientation) |
+| Ouvrir une porte, une trappe | Clic droit (accroupi : poser contre elle) |
 | Frapper un animal | Clic gauche en le visant |
 | Ramasser, cueillir | Clic droit sur des branches, des cailloux, un buisson à baies |
 | Manger / boire | Clic droit avec un aliment en main / les mains libres face à l'eau |
@@ -38,7 +40,9 @@ Ouvrir `dist/index.html` dans Chrome, Edge ou Firefox, avec une carte graphique 
 
 **Le reste.** Usure des outils, charge portée (surchargé, on ralentit), vêtements et armures sur cinq emplacements, coffres de 27 cases, feux qui consomment leur combustible, eau à faire bouillir, cultures de blé, chasse (le couteau dépèce mieux), mort avec dépouille qui garde tout pendant plusieurs jours de jeu. Trois profils : Exploration, Survie standard, Survie exigeante.
 
-**Les données.** Objets (176), recettes (99) et métiers sont dans `engine/core/data/` (`objets.txt`, `recettes.txt`, `artisans.txt`) : on ajoute une ligne, pas de code ; une erreur de saisie fait échouer les tests. Le livre de recettes (E) a ses catégories, une recherche, des favoris (clic droit) et ne montre que ce qu'on a découvert.
+**Construire.** Dalles de bois, de pierre taillée et de pavé (en haut ou en bas selon l'endroit visé ; deux font un bloc), escaliers (dans le sens du regard ; ils se montent sans sauter, comme les dalles), pentes de chaume pour les toits, porte sur deux blocs et trappe (clic droit pour ouvrir), échelle (on grimpe en avançant, on redescend accroupi), fenêtre à carreaux de verre (sable cuit au four), poteaux, colonnes et murs fins. R tourne d'un quart de tour avant de poser ; l'aperçu prend la forme exacte du bloc, vert si la pose est possible, rouge sinon. Les collisions suivent la géométrie dessinée (`engine/core/src/shapes.rs`, une seule source pour le dessin, les collisions et l'aperçu).
+
+**Les données.** Objets (191), recettes (114) et métiers sont dans `engine/core/data/` (`objets.txt`, `recettes.txt`, `artisans.txt`) : on ajoute une ligne, pas de code ; une erreur de saisie fait échouer les tests. Le livre de recettes (E) a ses catégories, une recherche, des favoris (clic droit) et ne montre que ce qu'on a découvert.
 
 **Le scénario de validation** du cahier des charges (ramasser, premier outil, abattre un arbre, établi, meilleure hache, abri, feu, eau, repas, coffre, rechargement à l'identique) est joué de bout en bout par `engine/core/tests/scenario.rs`, avec les vraies actions du joueur.
 

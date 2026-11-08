@@ -63,7 +63,7 @@ pub struct Session {
     /// Équipement porté (tête, torse, jambes, pieds, dos), coffres du monde, coffre ouvert, feux qui brûlent (secondes restantes).
     pub equip: [Option<Stack>; 5], pub chests: HashMap<[i32; 3], Vec<Option<Stack>>>, pub chest: Option<[i32; 3]>, pub fires: HashMap<[i32; 3], f64>,
     /// Profil de survie, compétences pratiquées, objets déjà eus en main (ils révèlent les recettes), recettes favorites.
-    pub profile: usize, pub skills: [f64; 5], pub seen: HashSet<&'static str>, pub taught: HashSet<&'static str>, pub fav: HashSet<&'static str>, pub last_gain: [f64; 6],
+    pub turn: u8, pub(crate) ray_t: f64, pub profile: usize, pub skills: [f64; 5], pub seen: HashSet<&'static str>, pub taught: HashSet<&'static str>, pub fav: HashSet<&'static str>, pub last_gain: [f64; 6],
     /// Valeurs affichées des six indicateurs, lissées pour que l'icône se remplisse sans à-coup ; état du livre de recettes.
     pub gauge: [f64; 6], pub book: crate::play::Book,
 }
@@ -72,7 +72,7 @@ impl Session {
         let inv = [None; INV_SIZE]; // on commence les mains vides
         Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, deep: 0.0, taiga: 0.0, steppe: 0.0, desert: 0.0, highlands: 0.0, glows: HashMap::new(), scanned: Default::default(), fauna: Fauna::new(seed), wild: crate::wild::Wild::new(seed), branch_t: 10.0, weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None, felling: None, falling: None, fall_serial: 0, flow: Flow::default(),
             stamina: 100.0, air: 100.0, fatigue: 0.0, body: 37.0, exposure: 0.0, winded: false, spent_t: 9.0, dead: None, stashes: Vec::new(), spawn: at, bed: None, notes: Vec::new(), prey: None, cause: "", low_v: 0.0, pain_t: 0.0, use_t: 0.0, hit_t: 0.0, mine_need: 1.0, climate_t: 0.0,
-            hours: 0.0, regrow: Vec::new(), crops: Vec::new(), grow_t: 0.0, equip: [None; 5], chests: HashMap::new(), chest: None, fires: HashMap::new(), profile: 1, skills: [0.0; 5], taught: HashSet::new(), seen: HashSet::new(), fav: HashSet::new(), last_gain: [-99.0; 6], gauge: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0], book: Default::default() }
+            hours: 0.0, regrow: Vec::new(), crops: Vec::new(), grow_t: 0.0, equip: [None; 5], chests: HashMap::new(), chest: None, fires: HashMap::new(), profile: 1, skills: [0.0; 5], turn: 0, ray_t: 0.0, taught: HashSet::new(), seen: HashSet::new(), fav: HashSet::new(), last_gain: [-99.0; 6], gauge: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0], book: Default::default() }
     }
     /// L'ancien équipement de départ : outils de fer, lanternes et quelques blocs. Pour les bancs d'essai et les captures.
     pub fn give_kit(&mut self) { for (i, (it, n)) in [("pickaxe", None), ("axe", None), ("sword", None), ("lantern", Some(32)), ("dirt", Some(16)), ("stone", Some(16)), ("planks", Some(16))].into_iter().enumerate() { self.inv[i] = Some(Stack::new(it, n)); self.seen.insert(it); } }
@@ -91,19 +91,49 @@ impl Session {
         } }
     }
     fn place_spot(t: &Target) -> [i32; 3] { if is_deco(t.id) && emit(t.id) == 0 && !is_solid(t.id) { [t.x, t.y, t.z] } else { [t.px, t.py, t.pz] } }
-    fn oriented(&mut self, b: u8) -> u8 { let f = self.player.forward(); let a = gaze_axis(f[0], f[1], f[2], self.orient, self.axis); self.axis = Some(a); oriented_block(b, a) }
+    /// Ce que le clic droit poserait, et où : une ou deux cases (une porte en prend deux). `None` : rien de possible ici.
+    /// La pose et l'aperçu passent tous deux par ici, de sorte que l'aperçu montre exactement ce qui sera posé.
+    pub fn plan(&self) -> Option<Vec<([i32; 3], u8)>> {
+        let (t, st) = (self.target?, self.inv[self.sel]?); let block = item(st.item)?.block?;
+        if !self.creative && st.n.unwrap_or(0) == 0 { return None; }
+        if let Some(si) = crate::shapes::info(block) { return self.plan_shape(si, &t); }
+        let [x, y, z] = Self::place_spot(&t); let cur = self.world.get(x, y, z)?; if is_solid(cur) { return None; }
+        let id = if block == B::SNOW_LAYER && snow_level(cur) > 0 { snow_of(snow_level(cur) + 1) } else { let f = self.player.forward(); placed_variant(oriented_block(block, gaze_axis(f[0], f[1], f[2], self.orient, self.axis))) };
+        if self.blocks_player([x, y, z], id) { return None; }
+        Some(vec![([x, y, z], id)])
+    }
+    /// Blocs de forme : sens du regard (plus les quarts de tour de R), dalle haute ou basse selon l'endroit visé, deux dalles
+    /// qui font un bloc plein, porte sur deux cases.
+    fn plan_shape(&self, si: crate::shapes::Info, t: &Target) -> Option<Vec<([i32; 3], u8)>> {
+        use crate::shapes::{facing_of, full_of_slab, info, variant, Kind};
+        let f = self.player.forward(); let face = (facing_of(f[0], f[2]) + self.turn) % 4;
+        if si.kind == Kind::Slab { if let Some(ti) = info(t.id) { if ti.kind == Kind::Slab && ti.base == si.base && ((!ti.top && t.py > t.y) || (ti.top && t.py < t.y)) { return full_of_slab(si.base).map(|b| vec![([t.x, t.y, t.z], b)]); } } }
+        let [x, y, z] = Self::place_spot(t); let cur = self.world.get(x, y, z)?; if is_solid(cur) { return None; }
+        let hit_y = self.eye[1] + self.look[1] * self.ray_t - t.y as f64;
+        let top = si.kind == Kind::Slab && (t.py < t.y || (t.py == t.y && hit_y > 0.5));
+        let mut v = vec![([x, y, z], variant(si.base, face, top, false, false))];
+        if si.kind == Kind::Door { let up = self.world.get(x, y + 1, z)?; if is_solid(up) || is_water(up) { return None; } v.push(([x, y + 1, z], variant(si.base, face, false, false, true))); }
+        if v.iter().any(|(p, id)| self.blocks_player(*p, *id)) { return None; }
+        Some(v)
+    }
+    /// Le bloc posé là rentrerait-il dans le joueur ? (Une dalle au ras du sol, non ; une porte, oui.)
+    fn blocks_player(&self, c: [i32; 3], id: u8) -> bool {
+        let boxes = crate::shapes::boxes(id).unwrap_or_else(|| if is_solid(id) { vec![[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]] } else { Vec::new() }); let p = self.player.p;
+        boxes.iter().any(|b| { let (a, d) = ([c[0] as f64 + b[0], c[1] as f64 + b[1], c[2] as f64 + b[2]], [c[0] as f64 + b[3], c[1] as f64 + b[4], c[2] as f64 + b[5]]); a[0] < p[0] + 0.3 && d[0] > p[0] - 0.3 && a[2] < p[2] + 0.3 && d[2] > p[2] - 0.3 && a[1] < p[1] + 1.8 && d[1] > p[1] + 0.01 })
+    }
     pub fn place(&mut self) -> bool {
-        let (Some(t), Some(st)) = (self.target, self.inv[self.sel]) else { return false };
-        let Some(block) = item(st.item).and_then(|i| i.block) else { return false };
-        if !self.creative && st.n.unwrap_or(0) == 0 { return false; }
-        let [x, y, z] = Self::place_spot(&t); let Some(cur) = self.world.get(x, y, z) else { return false }; if is_solid(cur) { return false; }
-        // Une couche de neige sur une autre l'épaissit d'un dixième ; à dix, c'est un bloc plein.
-        let id = if block == B::SNOW_LAYER && snow_level(cur) > 0 { snow_of(snow_level(cur) + 1) } else { placed_variant(self.oriented(block)) }; let p = self.player.p;
-        if is_solid(id) && x as f64 + 1.0 > p[0] - 0.3 && (x as f64) < p[0] + 0.3 && z as f64 + 1.0 > p[2] - 0.3 && (z as f64) < p[2] + 0.3 && y as f64 + 1.0 > p[1] && (y as f64) < p[1] + 1.8 { return false; }
-        if !self.world.edit(x, y, z, id) { return false; }
-        self.flow.touch(x, y, z); self.on_placed([x, y, z], id);
+        let Some(plan) = self.plan() else { return false }; let Some(st) = self.inv[self.sel] else { return false };
+        if crate::shapes::info(plan[0].1).is_none() { let f = self.player.forward(); self.axis = Some(gaze_axis(f[0], f[1], f[2], self.orient, self.axis)); }
+        let edits: Vec<(i32, i32, i32, u8)> = plan.iter().map(|(p, id)| (p[0], p[1], p[2], *id)).collect();
+        if self.world.edit_many(&edits) == 0 { return false; }
+        for (p, id) in &plan { self.flow.touch(p[0], p[1], p[2]); self.on_placed(*p, *id); }
         if !self.creative { let n = st.n.unwrap_or(0) - 1; self.inv[self.sel] = if n == 0 { None } else { Some(Stack { n: Some(n), ..st }) }; }
-        self.sound.place(BLOCKS[id as usize].name); self.built.push(self.elapsed); self.dirty = true; true
+        self.sound.place(BLOCKS[plan[0].1 as usize].name); self.built.push(self.elapsed); self.dirty = true; true
+    }
+    /// Touche R : un quart de tour pour les blocs de forme, sinon le mode d'orientation des rondins et planches. Le message à afficher.
+    pub fn rotate(&mut self) -> String {
+        if self.inv[self.sel].and_then(|s| item(s.item)).and_then(|i| i.block).is_some_and(|b| crate::shapes::info(b).is_some()) { self.turn = (self.turn + 1) % 4; return format!("Rotation : {} °", self.turn as u32 * 90); }
+        self.orient = (self.orient + 1) % MODES.len() as u8; format!("Orientation : {}", MODES[self.orient as usize])
     }
     /// Une étape de jeu. Le reste (rendu, son) lit l'état.
     pub fn tick(&mut self, dt: f64, i: Input, a: Actions) {
@@ -115,7 +145,7 @@ impl Session {
         let reach = if self.creative { 13.0 } else { 9.5 };
         let (eye, f) = self.camera(dt); self.eye = eye; self.look = f; let (third, head) = (self.third, [self.player.p[0], self.player.p[1] + 1.5, self.player.p[2]]);
         let hit = raycast(&self.world, eye, f, reach, &|x, y, z, _| third && (x as f64 + 0.5 - head[0]) * f[0] + (y as f64 + 0.5 - head[1]) * f[1] + (z as f64 + 0.5 - head[2]) * f[2] < -0.5);
-        self.target = hit.map(|t| t.0); // Herbes et fleurs ne cachent pas le gibier : seul un bloc solide fait écran.
+        self.target = hit.map(|t| t.0); self.ray_t = hit.map_or(0.0, |t| t.1); // Herbes et fleurs ne cachent pas le gibier : seul un bloc solide fait écran.
         self.prey = if alive { self.aim_prey(eye, f, hit.filter(|t| is_solid(t.0.id)).map_or(f64::INFINITY, |t| t.1)) } else { None };
         let open = self.inv_open || self.player.rolling() || !alive; // ni coup ni pose en pleine roulade
         // Un animal visé passe avant le bloc derrière lui : le clic gauche frappe au lieu de creuser.
@@ -218,10 +248,15 @@ impl Session {
         for (k, s) in self.stashes.iter().enumerate() { o.push(Draw { m: crate::view::trs(s.p[0], s.p[1], s.p[2], k as f64 * 2.4 + 0.6, 0.0, 1.0), r: md.part("stash"), view: false, local: false, hero: false, dynamic: false }); } if let Some(f) = &self.falling { o.extend(f.draws(md)); } o
     }
     /// Où irait le bloc tenu, et serait-il accepté ?
+    /// Aperçu de pose : la case, si la pose est possible, et la forme (au plus deux boîtes, relatives à la case).
     pub fn ghost(&self) -> Option<([i32; 3], bool)> {
-        let (t, st) = (self.target?, self.inv[self.sel]?); let id = item(st.item)?.block?; let [x, y, z] = Self::place_spot(&t); let cur = self.world.get(x, y, z)?; let p = self.player.p;
-        let hit = is_solid(id) && x as f64 + 1.0 > p[0] - 0.3 && (x as f64) < p[0] + 0.3 && z as f64 + 1.0 > p[2] - 0.3 && (z as f64) < p[2] + 0.3 && y as f64 + 1.0 > p[1] && (y as f64) < p[1] + 1.8;
-        Some(([x, y, z], (self.creative || st.n.unwrap_or(0) > 0) && !is_solid(cur) && !hit))
+        let (t, st) = (self.target?, self.inv[self.sel]?); item(st.item)?.block?;
+        match self.plan() { Some(v) => Some((v[0].0, true)), None => Some((Self::place_spot(&t), false)) }
+    }
+    pub fn ghost_boxes(&self) -> Vec<[f64; 6]> {
+        let Some(v) = self.plan() else { return Vec::new() }; let o = v[0].0; let mut out = Vec::new();
+        for (p, id) in &v { let d = [(p[0] - o[0]) as f64, (p[1] - o[1]) as f64, (p[2] - o[2]) as f64]; for b in crate::shapes::boxes(*id).unwrap_or_else(|| vec![[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]]) { out.push([b[0] + d[0], b[1] + d[1], b[2] + d[2], b[3] + d[0], b[4] + d[1], b[5] + d[2]]); } }
+        out.truncate(2); out
     }
     pub fn progress(&self) -> f64 { match self.target { Some(_) if self.mine_key.is_some() => (self.mine_t / self.mine_need.max(0.01)).min(1.0), _ => 0.0 } }
     pub fn set_creative(&mut self, on: bool) { self.creative = on; if !on { self.player.fly = false; } }

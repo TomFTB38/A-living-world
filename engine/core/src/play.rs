@@ -224,6 +224,9 @@ impl Session {
                 if self.use_t > 0.0 && (pickup(name).is_some() || harvest(name).is_some()) { return true; }
                 if let Some((id, n)) = pickup(name) { if self.world.edit(t.x, t.y, t.z, 0) { self.add_item(id, n); self.sound.place(name); self.anim.trigger(); self.use_t = 0.3; self.dirty = true; } return true; }
                 if let Some((id, n, bare)) = harvest(name) { if let Some(b) = by_name(bare) { if self.world.edit(t.x, t.y, t.z, b) { self.add_item(id, n); self.regrow.push((p, self.hours)); self.sound.place(name); self.anim.trigger(); self.use_t = 0.4; self.dirty = true; } } return true; }
+                // Porte et trappe : clic droit pour ouvrir ou fermer (accroupi, on pose contre elles).
+                if let Some(si) = crate::shapes::info(t.id).filter(|i| matches!(i.kind, crate::shapes::Kind::Door | crate::shapes::Kind::Trapdoor)) { if !self.player.crouch {
+                    if self.use_t > 0.0 { return true; } self.toggle(p, si); self.use_t = 0.25; return true; } }
                 if t.id == B::CHEST && !self.player.crouch { self.chests.entry(p).or_insert_with(|| vec![None; CHEST_SIZE]); self.chest = Some(p); self.inv_open = true; self.sound.place("chest"); return true; }
                 if (t.id == B::BED || t.id == B::BEDROLL) && !self.player.crouch { self.sleep(p, t.id); return true; }
                 // Nourrir un feu : bois, bâtons, charbon ; un feu éteint se rallume.
@@ -279,7 +282,23 @@ impl Session {
         if id == B::CHEST { self.chests.insert(p, vec![None; CHEST_SIZE]); }
     }
     /// Un bloc vient d'être cassé : un coffre rend son contenu, un feu s'éteint pour de bon, une culture est arrachée.
+    /// Ouvre ou ferme une porte (ses deux moitiés) ou une trappe (qui s'ouvre du côté opposé au joueur).
+    fn toggle(&mut self, p: [i32; 3], si: crate::shapes::Info) {
+        use crate::shapes::{facing_of, variant, Kind};
+        let open = !si.open; let mut edits = Vec::new();
+        if si.kind == Kind::Door {
+            let low = if si.upper { [p[0], p[1] - 1, p[2]] } else { p }; edits.push((low[0], low[1], low[2], variant(si.base, si.facing, false, open, false)));
+            if self.world.get(low[0], low[1] + 1, low[2]).and_then(crate::shapes::info).is_some_and(|i| i.kind == Kind::Door) { edits.push((low[0], low[1] + 1, low[2], variant(si.base, si.facing, false, open, true))); }
+        } else { let f = self.player.forward(); edits.push((p[0], p[1], p[2], variant(si.base, (facing_of(f[0], f[2]) + 2) % 4, false, open, false))); }
+        self.world.edit_many(&edits); self.sound.place("planks"); self.anim.trigger(); self.dirty = true;
+    }
     pub(crate) fn on_broken(&mut self, p: [i32; 3], id: u8) {
+        // Une porte se casse en entier : l'autre moitié part avec, et la porte revient une seule fois dans le sac.
+        if let Some(si) = crate::shapes::info(id).filter(|i| i.kind == crate::shapes::Kind::Door) {
+            let other = if si.upper { [p[0], p[1] - 1, p[2]] } else { [p[0], p[1] + 1, p[2]] };
+            if self.world.get(other[0], other[1], other[2]).and_then(crate::shapes::info).is_some_and(|i| i.kind == crate::shapes::Kind::Door) { self.world.edit(other[0], other[1], other[2], 0); }
+            if si.upper && !self.creative { self.add_item("door", 1); }
+        }
         if id == B::CHEST { if let Some(items) = self.chests.remove(&p) { let mut rest = Vec::new(); for st in items.into_iter().flatten() { if let Some(r) = self.add_stack(st) { rest.push(r); } } if !rest.is_empty() { self.stashes.push(Stash { p: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], items: rest, born: self.hours }); self.notes.push("Le sac est plein : le reste du coffre attend dans un sac posé là".into()); } } if self.chest == Some(p) { self.chest = None; } }
         if id == B::CAMPFIRE || id == B::CAMPFIRE_OUT { self.fires.remove(&p); }
         self.crops.retain(|c| c.0 != p);

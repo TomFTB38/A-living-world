@@ -10,13 +10,22 @@ pub const ROLL_TIME: f64 = 0.62; const ROLL_SPEED: f64 = 5.5; /* trois blocs au 
 pub struct Player { pub p: [f64; 3], pub v: [f64; 3], pub yaw: f64, pub pitch: f64, pub ground: bool, pub crouch: bool, pub in_water: bool, pub speed: f64, pub fly: bool, pub move_yaw: f64, pub roll_t: f64, roll_dir: [f64; 2], pub roll_local: [f64; 2], roll_wait: f64 }
 impl Player {
     pub fn new(x: f64, y: f64, z: f64) -> Self { Player { p: [x, y, z], v: [0.0; 3], yaw: 0.0, pitch: 0.0, ground: false, crouch: false, in_water: false, speed: 0.0, fly: false, move_yaw: 0.0, roll_t: 0.0, roll_dir: [0.0; 2], roll_local: [0.0, 1.0], roll_wait: 0.0 } }
-    fn hits(&self, w: &impl Voxels, x: f64, y: f64, z: f64) -> bool {
-        let h = if self.crouch { 1.45 } else { 1.8 }; let fl = |v: f64| v.floor() as i32;
-        for by in fl(y)..=fl(y + h - 0.001) { for bz in fl(z - HALF)..=fl(z + HALF) { for bx in fl(x - HALF)..=fl(x + HALF) {
-            if w.get(bx, by, bz).is_none_or(is_solid) { return true; }
+    /// Le corps (une boîte de 0,6 × 1,8) rencontre-t-il quelque chose ? Les blocs de forme (dalle, escalier, porte…) arrêtent
+    /// exactement là où ils sont dessinés ; les autres blocs pleins occupent toute leur case.
+    fn hits(&self, w: &impl Voxels, x: f64, y: f64, z: f64) -> bool { self.top_hit(w, x, y, z).is_some() }
+    /// Le haut de la plus haute boîte rencontrée (pour se poser dessus), si le corps en rencontre une.
+    fn top_hit(&self, w: &impl Voxels, x: f64, y: f64, z: f64) -> Option<f64> {
+        let h = if self.crouch { 1.45 } else { 1.8 }; let fl = |v: f64| v.floor() as i32; const E: f64 = 1e-6; let mut top: Option<f64> = None;
+        let (lo, hi) = ([x - HALF, y, z - HALF], [x + HALF, y + h, z + HALF]);
+        for by in fl(y - 0.5)..=fl(y + h - 0.001) { for bz in fl(z - HALF)..=fl(z + HALF) { for bx in fl(x - HALF)..=fl(x + HALF) {
+            let o = [bx as f64, by as f64, bz as f64];
+            let mut test = |b: [f64; 6]| { let (a, c) = ([o[0] + b[0], o[1] + b[1], o[2] + b[2]], [o[0] + b[3], o[1] + b[4], o[2] + b[5]]); if (0..3).all(|k| a[k] < hi[k] - E && c[k] > lo[k] + E) { top = Some(top.map_or(c[1], |t: f64| t.max(c[1]))); } };
+            match w.get(bx, by, bz) { None => test([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]), Some(b) => match crate::shapes::boxes(b) { Some(v) => { for bb in v { test(bb); } } None => if is_solid(b) { test([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]); } } }
         } } }
-        false
+        top
     }
+    /// Sur ou dans une échelle : on grimpe en avançant, on descend doucement sinon.
+    fn on_ladder(&self, w: &impl Voxels) -> bool { let fl = |v: f64| v.floor() as i32; (0..2).any(|k| w.get(fl(self.p[0]), fl(self.p[1] + 0.2 + k as f64), fl(self.p[2])).is_some_and(crate::shapes::is_ladder)) }
     pub fn update(&mut self, w: &impl Voxels, dt: f64, i: Input) {
         let fly = self.fly; let sp = if fly { if i.sprint { 22.0 } else { 11.0 } } else if i.sprint { 7.2 } else if i.crouch { 2.0 } else { 4.5 };
         self.crouch = i.crouch && !fly;
@@ -39,18 +48,21 @@ impl Player {
         }
         if fly { self.v[1] += ((if i.jump { sp } else { 0.0 }) - (if i.crouch { sp } else { 0.0 }) - self.v[1]) * (9.0 * dt).min(1.0); }
         else if self.in_water { self.v[1] += (if i.jump { 3.5 } else { -1.2 - self.v[1] }) * (6.0 * dt).min(1.0); }
+        else if self.on_ladder(w) { self.v[1] = if i.z > 0.1 || i.jump { 3.2 } else if i.crouch { -2.5 } else { (self.v[1] - GRAV * dt).max(-2.0) }; self.ground = false; }
         else { self.v[1] -= GRAV * dt; if i.jump && self.ground { self.v[1] = JUMP; self.ground = false; } }
         if self.v[1] < -40.0 { self.v[1] = -40.0; }
         for a in [0, 2] {
             let mut n = self.p; n[a] += self.v[a] * dt;
-            if !self.hits(w, n[0], n[1], n[2]) { self.p[a] = n[a]; }
-            else if self.ground && !fly && !self.hits(w, n[0], n[1] + 1.05, n[2]) && !self.hits(w, self.p[0], self.p[1] + 1.05, self.p[2]) { self.p[a] = n[a]; self.p[1] += 1.02; }
-            else { self.v[a] = 0.0; }
+            if !self.hits(w, n[0], n[1], n[2]) { self.p[a] = n[a]; continue; }
+            // Une marche se franchit sans sauter : d'abord une demi-hauteur (dalle, escalier), puis un bloc entier.
+            let step = if self.ground && !fly { [0.52, 1.02].into_iter().find(|h| !self.hits(w, n[0], n[1] + h, n[2]) && !self.hits(w, self.p[0], self.p[1] + h, self.p[2])) } else { None };
+            match step { Some(h) => { self.p[a] = n[a]; self.p[1] += h; if let Some(t) = self.top_hit(w, self.p[0], self.p[1] - h, self.p[2]) { if t <= self.p[1] { self.p[1] = t; } } } None => self.v[a] = 0.0 }
         }
         let ny = self.p[1] + self.v[1] * dt;
         if !self.hits(w, self.p[0], ny, self.p[2]) { self.p[1] = ny; self.ground = false; }
         else {
-            if self.v[1] < 0.0 { self.ground = true; self.p[1] = (ny - 0.001).ceil(); if self.hits(w, self.p[0], self.p[1], self.p[2]) { self.p[1] = ny.floor() + 1.0; } }
+            // Se poser sur le dessus de ce qu'on touche : un bloc, une dalle, une marche.
+            if self.v[1] < 0.0 { self.ground = true; if let Some(t) = self.top_hit(w, self.p[0], ny, self.p[2]) { if t <= self.p[1] + 1e-6 && !self.hits(w, self.p[0], t, self.p[2]) { self.p[1] = t; } } }
             self.v[1] = 0.0;
         }
         self.speed = (self.v[0] * self.v[0] + self.v[2] * self.v[2]).sqrt();

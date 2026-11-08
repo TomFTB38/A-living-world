@@ -21,6 +21,7 @@ pub mod biome;
 pub mod felling;
 pub mod wild;
 pub mod survival;
+pub mod shapes;
 pub mod data;
 pub mod play;
 pub mod icons;

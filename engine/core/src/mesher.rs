@@ -238,6 +238,43 @@ impl Mesher {
         let r_ = &mut r; let picked = BLOCKS[b as usize].name.ends_with("_picked"); // buisson cueilli : même forme, sans les baies
         let voxel = |dx: i32, dy: i32, dz: i32| self.vk(at(xi + dx, yi + dy, zi + dz));
         match m {
+            // Construction : la géométrie vient de shapes.rs (la même que les collisions), texturée dans sa matière.
+            "slab" | "stairs" | "pillar" | "wall" => {
+                let Some(i) = crate::shapes::info(b) else { return }; let layer = BLOCKS[crate::shapes::material(b) as usize].faces[0] as f64;
+                for bb in crate::shapes::geometry(i) { tbox(o, x, y, z, bb, layer, s, l, 1.0); }
+                return;
+            }
+            "door" | "trapdoor" => {
+                // Battant de planches plus sombres, deux traverses, une poignée de fer du côté opposé aux gonds.
+                let Some(i) = crate::shapes::info(b) else { return }; let layer = BLOCKS[B::PLANKS as usize].faces[0] as f64;
+                for bb in crate::shapes::geometry(i) {
+                    tbox(o, x, y, z, bb, layer, s, l, 0.72);
+                    let (dx, dz) = (bb[3] - bb[0], bb[5] - bb[2]); let thin_x = dx < dz; let e = 0.012;
+                    if i.kind == crate::shapes::Kind::Door {
+                        for h in [0.18, 0.78] { let (y0, y1) = (y + h, y + h + 0.1); if thin_x { bx3(o, x + bb[0] - e, y0, z + bb[2], x + bb[3] + e, y1, z + bb[5], 0.32, 0.2, 0.1, 0.0, s, l); } else { bx3(o, x + bb[0], y0, z + bb[2] - e, x + bb[3], y1, z + bb[5] + e, 0.32, 0.2, 0.1, 0.0, s, l); } }
+                        if !i.upper { let (hy, hw) = (y + 0.92, 0.05); if thin_x { bx3(o, x + bb[0] - 0.06, hy, z + bb[5] - 0.2, x + bb[3] + 0.06, hy + hw, z + bb[5] - 0.12, 0.2, 0.2, 0.22, 0.0, s, l); } else { bx3(o, x + bb[3] - 0.2, hy, z + bb[2] - 0.06, x + bb[3] - 0.12, hy + hw, z + bb[5] + 0.06, 0.2, 0.2, 0.22, 0.0, s, l); } }
+                    }
+                }
+                return;
+            }
+            "ladder" => {
+                // Deux montants et des barreaux, plaqués contre le mur.
+                let Some(i) = crate::shapes::info(b) else { return }; let bb = crate::shapes::ladder_box(i.facing); let along_x = bb[3] - bb[0] > bb[5] - bb[2];
+                let wood = |o: &mut VBuf, a0: f64, a1: f64, y0: f64, y1: f64, k: f64| { if along_x { bx3(o, x + a0, y + y0, z + bb[2], x + a1, y + y1, z + bb[5], 0.5 * k, 0.34 * k, 0.18 * k, 0.0, s, l); } else { bx3(o, x + bb[0], y + y0, z + a0, x + bb[3], y + y1, z + a1, 0.5 * k, 0.34 * k, 0.18 * k, 0.0, s, l); } };
+                wood(o, 0.12, 0.22, 0.0, 1.0, 0.85); wood(o, 0.78, 0.88, 0.0, 1.0, 0.85);
+                for h in [0.12, 0.37, 0.62, 0.87] { wood(o, 0.22, 0.78, h, h + 0.07, 1.0); }
+                return;
+            }
+            "window" => {
+                // Cadre de bois, croisillon, et quatre carreaux de verre bleuté légèrement en retrait.
+                let Some(i) = crate::shapes::info(b) else { return }; let g = crate::shapes::geometry(i)[0]; let along_x = g[3] - g[0] > g[5] - g[2];
+                let part = |o: &mut VBuf, a0: f64, a1: f64, y0: f64, y1: f64, inset: f64, c: [f64; 3]| { if along_x { bx3(o, x + a0, y + y0, z + g[2] + inset, x + a1, y + y1, z + g[5] - inset, c[0], c[1], c[2], 0.0, s, l); } else { bx3(o, x + g[0] + inset, y + y0, z + a0, x + g[3] - inset, y + y1, z + a1, c[0], c[1], c[2], 0.0, s, l); } };
+                let wood = [0.46, 0.3, 0.16]; let glass = [0.62, 0.78, 0.86];
+                part(o, 0.0, 1.0, 0.0, 0.1, 0.0, wood); part(o, 0.0, 1.0, 0.9, 1.0, 0.0, wood); part(o, 0.0, 0.1, 0.1, 0.9, 0.0, wood); part(o, 0.9, 1.0, 0.1, 0.9, 0.0, wood);
+                part(o, 0.46, 0.54, 0.1, 0.9, 0.01, wood); part(o, 0.1, 0.9, 0.46, 0.54, 0.01, wood);
+                part(o, 0.1, 0.9, 0.1, 0.9, 0.045, glass);
+                return;
+            }
             "lantern" => {
                 bx3(o, x + 0.32, y, z + 0.32, x + 0.68, y + 0.08, z + 0.68, 0.16, 0.1, 0.06, 0.0, s, l);
                 bx(o, x + 0.36, y + 0.08, z + 0.36, x + 0.64, y + 0.54, z + 0.64, 2.0, 1.3, 0.5, 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
@@ -794,4 +831,15 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32) -> (Vec<u8>, usize) {
         } }
     }
     let n = o.n; (o.data, n)
+}
+
+/// Boîte texturée dans le repère du bloc (x, y, z) : six faces, la texture suit la position (comme un bloc plein).
+fn tbox(o: &mut VBuf, x: f64, y: f64, z: f64, bb: [f64; 6], layer: f64, s: f64, l: f64, tone: f64) {
+    let (a, b, f, e, c, d) = (x + bb[0], x + bb[3], y + bb[1], y + bb[4], z + bb[2], z + bb[5]);
+    let faces: [([[f64; 3]; 4], [f64; 3], f64); 6] = [
+        ([[a, e, d], [b, e, d], [b, e, c], [a, e, c]], [0.0, 1.0, 0.0], 255.0), ([[a, f, c], [b, f, c], [b, f, d], [a, f, d]], [0.0, -1.0, 0.0], 170.0),
+        ([[a, f, d], [b, f, d], [b, e, d], [a, e, d]], [0.0, 0.0, 1.0], 225.0), ([[b, f, c], [a, f, c], [a, e, c], [b, e, c]], [0.0, 0.0, -1.0], 225.0),
+        ([[b, f, d], [b, f, c], [b, e, c], [b, e, d]], [1.0, 0.0, 0.0], 215.0), ([[a, f, c], [a, f, d], [a, e, d], [a, e, c]], [-1.0, 0.0, 0.0], 215.0),
+    ];
+    for (p, n, ao) in faces { for v in p { o.v(v[0], v[1], v[2], layer, n[0], n[1], n[2], 0.0, ao, s, l, kind::TEX, tone, tone, tone); } }
 }

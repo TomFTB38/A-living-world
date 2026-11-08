@@ -216,3 +216,20 @@ steel_chestplate | Cuirasse en acier | habits | 6.0 | 1 | Ajustée par un armuri
 master_pickaxe | Pioche de maître | outils | 1.7 | 1 | Une pièce d'exception, équilibrée par un maître forgeron. | outil=pioche mat=maitre
 master_axe | Hache de maître | outils | 1.6 | 1 | Une pièce d'exception, équilibrée par un maître forgeron. | outil=hache mat=maitre
 lined_fur_coat | Manteau de fourrure doublé | habits | 3.0 | 1 | Cousu par un tanneur : tient chaud par grand froid. | porte=torse chaud=9
+
+# --- Construction : formes (la pose suit le regard ; R tourne d'un quart de tour) ---
+glass | Verre | matieres | 0.4 | 64 | Du sable fondu au four : pour les fenêtres. |
+planks_slab | Dalle de bois | batir | 0.5 | 64 | Un demi-bloc : en bas ou en haut selon l'endroit visé ; deux font un bloc. |
+stone_bricks_slab | Dalle de pierre taillée | batir | 0.8 | 64 | Un demi-bloc de pierre : sols, marches basses, corniches. |
+cobblestone_slab | Dalle de pavé | batir | 0.8 | 64 | Un demi-bloc de pavé. |
+planks_stairs | Escalier de bois | batir | 0.8 | 64 | Monte dans le sens du regard ; se franchit sans sauter. Fait aussi un toit. |
+stone_bricks_stairs | Escalier de pierre taillée | batir | 1.2 | 64 | Des marches de pierre, solides et nettes. |
+cobblestone_stairs | Escalier de pavé | batir | 1.2 | 64 | Des marches rustiques. |
+thatch_stairs | Pente de chaume | batir | 0.4 | 64 | Pour les toits de chaume en pente. |
+door | Porte | batir | 3.0 | 8 | Deux blocs de haut. Clic droit pour l'ouvrir ou la fermer. |
+trapdoor | Trappe | batir | 1.5 | 16 | Couvre un trou dans un plancher. Clic droit pour l'ouvrir. |
+ladder | Échelle | batir | 0.8 | 32 | Contre un mur : on y grimpe en avançant, on descend accroupi. |
+window | Fenêtre | batir | 1.0 | 32 | Un cadre de bois et quatre carreaux : la lumière passe. |
+wood_pillar | Poteau de bois | batir | 1.0 | 32 | Un poteau plus fin qu'un bloc, pour les charpentes et les porches. |
+stone_pillar | Colonne de pierre | batir | 1.6 | 32 | Une colonne taillée. |
+stone_wall | Mur fin de pierre | batir | 1.2 | 64 | Un mur d'une demi-épaisseur, posé en travers du regard. |

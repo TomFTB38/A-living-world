@@ -17,7 +17,9 @@ fn crack(n: u32, a: vec4f) -> L {
 @vertex fn vs_line(@builtin(vertex_index) i: u32, @builtin(instance_index) k: u32) -> L {
   if (k == 2u) { return crack(i, u.aim); }
   var e = E; var o: L; let a = select(u.ghost, u.aim, k == 0u); let s = select(0.98, 1.008, k == 0u); let m = a.w;
-  let c = u.vp * vec4f(a.xyz + vec3f((1.0 - s) * 0.5) + e[i] * s, 1.0); o.p = vec4f(c.xy + u.jit.xy * c.w, c.z, c.w);
+  // L'aperçu de pose prend la forme du bloc : ses boîtes (instances 1 et 3), légèrement rentrées.
+  var lo = vec3f(0.0); var hi = vec3f(1.0); if (k == 1u) { lo = u.gbox[0].xyz; hi = u.gbox[1].xyz; } else if (k == 3u) { lo = u.gbox[2].xyz; hi = u.gbox[3].xyz; }
+  let sz = hi - lo; let c = u.vp * vec4f(a.xyz + lo + sz * (1.0 - s) * 0.5 + e[i] * sz * s, 1.0); o.p = vec4f(c.xy + u.jit.xy * c.w, c.z, c.w);
   if (k == 0u) { o.c = vec4f(1.0 + m * 0.6, 1.0 - m * 0.6, 1.0 - m, 1.0); } else if (m > 0.5) { o.c = vec4f(0.6, 1.0, 0.7, 1.0); } else { o.c = vec4f(1.3, 0.2, 0.15, 1.0); }
   return o;
 }

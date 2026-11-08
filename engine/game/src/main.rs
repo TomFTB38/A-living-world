@@ -5,7 +5,7 @@ mod gpu;
 mod hud;
 mod needs;
 mod sound;
-use alw_core::{actors::Models, audio::{Mood, SoundScape}, blocks::MODES, gen::WorldGen, player::Input, session::{Actions, Session}, stream::{Preset, HIGH, ULTRA}, view, weather::{self, Kind, KINDS}};
+use alw_core::{actors::Models, audio::{Mood, SoundScape}, gen::WorldGen, player::Input, session::{Actions, Session}, stream::{Preset, HIGH, ULTRA}, view, weather::{self, Kind, KINDS}};
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
@@ -40,7 +40,7 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
     // Hautes terres : ciel bas et gris-bleu, lumière froide, brume qui traîne sur la lande.
     let hl = s.highlands as f32; if hl > 0.01 { for k in 0..3 { sky.top[k] += ([0.4, 0.5, 0.62][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.3 * hl; sky.hor[k] += ([0.72, 0.76, 0.8][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.35 * hl; sky.col[k] *= 1.0 + ([-0.05, -0.02, 0.03][k]) * hl; } env.mist += 0.003 * hl; env.fog_k += 1.2 * hl; }
     env.bright *= 1.0 - 0.42 * s.deep as f32; env.fog_k += 2.6 * s.deep as f32; env.mist += 0.0035 * s.deep as f32; for v in &mut sky.top { *v *= 1.0 - 0.3 * s.deep as f32; }
-    gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], if alw_core::blocks::is_deco(t.id) { 0.0 } else { s.progress() as f32 })) /* fissures sur les blocs pleins seulement */, s.ghost(), &draws, &ui)
+    gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], if alw_core::blocks::is_deco(t.id) { 0.0 } else { s.progress() as f32 })) /* fissures sur les blocs pleins seulement */, s.ghost(), &s.ghost_boxes(), &draws, &ui)
 }
 /// Réglages enregistrés ; un fichier plus ancien garde ses valeurs et prend les nouvelles par défaut.
 fn read_settings() -> hud::Menu {
@@ -218,7 +218,7 @@ impl ApplicationHandler for App {
                     KeyCode::KeyC => { g.s.third = !g.s.third; let m = if g.s.third { "Troisième personne" } else { "Première personne" }; g.say(m.into()); }
                     KeyCode::KeyF => { if g.s.creative { g.s.player.fly = !g.s.player.fly; let m = if g.s.player.fly { "Vol activé" } else { "Vol désactivé" }; g.say(m.into()); } else { g.say("Le vol demande le mode créatif (G)".into()); } }
                     KeyCode::KeyG => { let on = !g.s.creative; g.s.set_creative(on); g.say(if on { "Mode créatif : casse instantanée, blocs illimités, vol avec F" } else { "Mode survie" }.into()); }
-                    KeyCode::KeyR => { g.s.orient = (g.s.orient + 1) % MODES.len() as u8; g.say(format!("Orientation : {}", MODES[g.s.orient as usize])); }
+                    KeyCode::KeyR => { let m = g.s.rotate(); g.say(m); }
                     KeyCode::KeyT => g.s.pass_hours(1.0),
                     KeyCode::KeyY => g.run_time = !g.run_time,
                     KeyCode::F3 => g.debug = !g.debug,
@@ -384,7 +384,7 @@ fn capture(a: &[String]) {
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
     }
-    if ["survie", "craft", "campement", "mort", "ramassage", "fissure"].contains(&scene.as_str()) {
+    if ["survie", "craft", "campement", "mort", "ramassage", "fissure", "construction"].contains(&scene.as_str()) {
         // Survie : on retombe au sol, un établi et un feu de camp devant soi, des jauges entamées.
         use alw_core::blocks::{is_solid, B}; use alw_core::player::Voxels;
         s.player.fly = false; s.third = false; s.sel = 2; for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.dead.is_some() { s.respawn(); } s.vit = [100.0; 3];
@@ -407,6 +407,25 @@ fn capture(a: &[String]) {
                 if let Some((x, z)) = spot { used.push((x.floor(), z.floor())); edits.push((x.floor() as i32, gy(&s, x, z), z.floor() as i32, b)); }
             }
             s.world.edit_many(&edits); pump(&mut s, &mut g); s.player.pitch = -0.55; s.inv = [None; alw_core::session::INV_SIZE]; for (id, n) in [("stick", 4), ("pebble", 6), ("fiber", 3), ("seeds", 2), ("stone_knife", 1), ("stone_axe", 1), ("stone_pickaxe", 1)] { s.add_item(id, n); } s.sel = 4;
+        }
+        if scene == "construction" {
+            // Une cabane devant la caméra : plancher de dalles, murs de planches, porte entrouverte, deux fenêtres, poteaux d'angle,
+            // toit de chaume en pente, escalier de pierre au seuil, échelle contre le pignon. Tout en blocs du jeu.
+            use alw_core::blocks::by_name; let b = |n: &str| by_name(n).expect(n); let p = s.player.p; let yaw = s.player.yaw;
+            let f = alw_core::shapes::facing_of(yaw.sin(), yaw.cos()); let (fx, fz) = [(0, 1), (1, 0), (0, -1), (-1, 0)][f as usize]; let (sx, sz) = (-fz, fx);
+            let (bx, bz) = (p[0].floor() as i32 + fx * 6, p[2].floor() as i32 + fz * 6); let y0 = gy(&s, bx as f64 + 0.5, bz as f64 + 0.5); let mut e = Vec::new();
+            let at = |k: i32, l: i32| (bx + fx * k + sx * l, bz + fz * k + sz * l); let turn = |n: &str, t: u8| alw_core::shapes::variant(b(n), (f + t) % 4, false, false, false);
+            for k in -1..6 { for l in -4..5 { let (x, z) = at(k, l); e.push((x, y0 - 1, z, B::STONE)); for h in 0..7 { e.push((x, y0 + h, z, 0)); } } }
+            for k in 0..5 { for l in -3..4 { let (x, z) = at(k, l); e.push((x, y0, z, b("planks_slab_top"))); } }
+            for k in 0..5 { for l in -3..4 { let edge = k == 0 || k == 4 || l == -3 || l == 3; if !edge { continue; } let (x, z) = at(k, l); let corner = (k == 0 || k == 4) && (l == -3 || l == 3);
+                for h in 1..4 { let id = if corner { b("wood_pillar") } else if k == 0 && l == 0 && h < 3 { if h == 1 { alw_core::shapes::variant(b("door"), f, false, true, false) } else { alw_core::shapes::variant(b("door"), f, false, true, true) } }
+                    else if h == 2 && k == 0 && (l == -2 || l == 2) { alw_core::shapes::variant(b("window"), f, false, false, false) } else if h == 2 && (l == -3 || l == 3) && k == 2 { alw_core::shapes::variant(b("window"), f + 1, false, false, false) } else { B::PLANKS }; e.push((x, y0 + h, z, id)); } } }
+            // toit : deux pans de chaume qui montent vers le faîte, une rangée de chaume plein au sommet
+            for k in -1..6 { for l in -4..5 { let (x, z) = at(k, l); let side = if l < 0 { 3 } else { 1 }; let h = if l.abs() >= 3 { 4 } else { 5 }; e.push((x, y0 + h, z, if l == 0 { B::THATCH } else { turn("thatch_stairs", side) })); } }
+            for k in [0, 4] { for l in -2..3 { let (x, z) = at(k, l); e.push((x, y0 + 4, z, B::PLANKS)); } } // pignons
+            let (x, z) = at(-1, 0); e.push((x, y0, z, turn("stone_bricks_stairs", 0)));
+            for h in 1..4 { let (x, z) = at(2, 4); e.push((x, y0 + h, z, turn("ladder", 3))); }
+            s.world.edit_many(&e); pump(&mut s, &mut g); s.player.pitch = -0.12; s.sel = 4;
         }
         if scene == "fissure" {
             // Un bloc à moitié cassé à la pioche de pierre : les fissures doivent se voir.

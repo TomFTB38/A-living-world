@@ -130,3 +130,20 @@ steel_chestplate 1 | enclume | steel_ingot 6, leather 2, !hammer 1 | habits | ar
 master_pickaxe 1 | enclume | steel_ingot 4, stick 2, leather 1 | outils | artisan=maitre_forgeron
 master_axe 1 | enclume | steel_ingot 4, stick 2, leather 1 | outils | artisan=maitre_forgeron
 lined_fur_coat 1 | etabli | fur 6, leather 2, rope 2 | habits | artisan=tanneur
+
+# --- Construction ---
+glass 2 | four | sand 4, fuel 1 | matieres
+planks_slab 6 | etabli | plank 3 | batir
+stone_bricks_slab 6 | taille | stone_bricks 3 | batir
+cobblestone_slab 6 | taille | cobblestone 3 | batir
+planks_stairs 4 | etabli | plank 6 | batir
+stone_bricks_stairs 4 | taille | stone_bricks 6 | batir
+cobblestone_stairs 4 | taille | cobblestone 6 | batir
+thatch_stairs 4 | etabli | thatch 6 | batir
+door 1 | etabli | plank 6, stick 2 | batir
+trapdoor 2 | etabli | plank 5, stick 1 | batir
+ladder 3 | etabli | stick 7, fiber 2 | batir
+window 2 | etabli | plank 2, stick 2, glass 2 | batir
+wood_pillar 2 | etabli | log 1 | batir
+stone_pillar 2 | taille | stone_bricks 2 | batir
+stone_wall 4 | taille | stone_bricks 4 | batir
