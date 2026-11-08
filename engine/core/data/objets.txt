@@ -233,3 +233,15 @@ window | Fenêtre | batir | 1.0 | 32 | Un cadre de bois et quatre carreaux : la 
 wood_pillar | Poteau de bois | batir | 1.0 | 32 | Un poteau plus fin qu'un bloc, pour les charpentes et les porches. |
 stone_pillar | Colonne de pierre | batir | 1.6 | 32 | Une colonne taillée. |
 stone_wall | Mur fin de pierre | batir | 1.2 | 64 | Un mur d'une demi-épaisseur, posé en travers du regard. |
+
+# --- Monde vivant : chasse à l'arc, pêche, racines et cultures ---
+bow | Arc | outils | 0.8 | 1 | Clic droit : tire une flèche là où l'on vise. Les flèches plantées se ramassent en marchant dessus. |
+arrow | Flèche | outils | 0.05 | 64 | Une pointe de silex sur une hampe droite. |
+fishing_rod | Canne à pêche | outils | 0.6 | 1 | Clic droit vers l'eau pour lancer ; quand ça mord, clic droit vite. |
+trout | Truite | vivres | 0.4 | 16 | Vit dans l'eau qui court : ruisseaux et rivières. À cuire. | aliment=6:2:-2 garde=1
+perch | Perche | vivres | 0.4 | 16 | Vit dans l'eau calme des lacs et des mares. À cuire. | aliment=6:2:-2 garde=1
+char | Omble | vivres | 0.5 | 16 | Poisson des eaux froides du nord et des montagnes. À cuire. | aliment=7:2:-2 garde=1
+cooked_fish | Poisson grillé | vivres | 0.3 | 16 | Léger et nourrissant. | aliment=24:4:3 garde=2
+carrot | Carotte | vivres | 0.1 | 64 | Se croque crue ou se sème sur une terre labourée. | aliment=8:3:0 garde=8
+potato | Pomme de terre | vivres | 0.2 | 64 | Crue, elle nourrit mal ; cuite, beaucoup mieux. Se sème aussi. | aliment=4:0:0 garde=12
+baked_potato | Pomme de terre cuite | vivres | 0.2 | 32 | Cuite sous la braise. | aliment=22:0:2 garde=3

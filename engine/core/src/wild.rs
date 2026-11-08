@@ -43,17 +43,27 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
         for _ in 0..40 { let (x, y, z) = (r.range(-0.35, 0.35), r.range(-0.35, 0.35), r.range(-0.35, 0.35)); let w = 0.024; b(o, [x - w, y - w, z - w, x + w, y + w, z + w], [0.66, 0.56, 0.4]); }
     }
     let mut print = VBuf::new(60); b(&mut print, [-0.07, 0.0, -0.11, 0.07, 0.012, 0.11], [0.2, 0.24, 0.33]);
-    let [h0, h1, h2, h3] = hares; vec![("fox", fox), ("foxHead", fox_head), ("foxLeg", fox_leg), ("hare0", h0), ("hare1", h1), ("hare2", h2), ("hare3", h3), ("crow", crow), ("crowWing", crow_wing), ("tumble", tumble), ("print", print)]
+    // Loup : la silhouette du renard, plus haute et plus lourde, gris dessus et pâle dessous ; queue droite, oreilles courtes.
+    let mut wolf = VBuf::new(400); { let o = &mut wolf; b(o, [-0.13, 0.0, -0.32, 0.13, 0.26, 0.3], GREY); b(o, [-0.11, -0.02, -0.2, 0.11, 0.05, 0.26], PALE); b(o, [-0.14, 0.12, 0.1, 0.14, 0.3, 0.3], [0.36, 0.35, 0.33]); b(o, [-0.06, 0.04, -0.6, 0.06, 0.16, -0.3], GREY); b(o, [-0.05, 0.05, -0.68, 0.05, 0.14, -0.6], [0.2, 0.2, 0.19]); }
+    let mut wolf_head = VBuf::new(400); { let o = &mut wolf_head; b(o, [-0.11, -0.03, -0.04, 0.11, 0.16, 0.15], GREY); b(o, [-0.06, -0.03, 0.15, 0.06, 0.07, 0.3], PALE); b(o, [-0.03, 0.02, 0.3, 0.03, 0.07, 0.33], BLACK);
+        b(o, [-0.1, 0.16, -0.02, -0.05, 0.24, 0.04], GREY); b(o, [0.05, 0.16, -0.02, 0.1, 0.24, 0.04], GREY); b(o, [-0.075, 0.08, 0.14, -0.04, 0.11, 0.155], [0.85, 0.7, 0.2]); b(o, [0.04, 0.08, 0.14, 0.075, 0.11, 0.155], [0.85, 0.7, 0.2]); }
+    let mut wolf_leg = VBuf::new(120); b(&mut wolf_leg, [-0.035, -0.32, -0.035, 0.035, 0.0, 0.035], [0.32, 0.31, 0.3]);
+    // Sanglier : un corps massif et bas, brun noir, une crête de soies, le groin et deux défenses.
+    let mut boar = VBuf::new(400); { let o = &mut boar; b(o, [-0.18, 0.0, -0.36, 0.18, 0.34, 0.3], BRISTLE); b(o, [-0.05, 0.3, -0.3, 0.05, 0.4, 0.26], [0.15, 0.11, 0.08]); b(o, [-0.02, 0.1, -0.42, 0.02, 0.22, -0.36], [0.15, 0.11, 0.08]); }
+    let mut boar_head = VBuf::new(400); { let o = &mut boar_head; b(o, [-0.14, -0.08, -0.04, 0.14, 0.18, 0.2], BRISTLE); b(o, [-0.07, -0.06, 0.2, 0.07, 0.06, 0.32], [0.32, 0.22, 0.17]); b(o, [-0.05, -0.04, 0.32, 0.05, 0.04, 0.34], [0.5, 0.36, 0.32]);
+        b(o, [-0.1, -0.04, 0.22, -0.07, 0.06, 0.26], TUSK); b(o, [0.07, -0.04, 0.22, 0.1, 0.06, 0.26], TUSK); b(o, [-0.12, 0.16, -0.02, -0.06, 0.24, 0.04], BRISTLE); b(o, [0.06, 0.16, -0.02, 0.12, 0.24, 0.04], BRISTLE); }
+    let mut boar_leg = VBuf::new(120); b(&mut boar_leg, [-0.045, -0.2, -0.045, 0.045, 0.0, 0.045], [0.16, 0.12, 0.09]);
+    let [h0, h1, h2, h3] = hares; vec![("wolf", wolf), ("wolfHead", wolf_head), ("wolfLeg", wolf_leg), ("boar", boar), ("boarHead", boar_head), ("boarLeg", boar_leg), ("fox", fox), ("foxHead", fox_head), ("foxLeg", fox_leg), ("hare0", h0), ("hare1", h1), ("hare2", h2), ("hare3", h3), ("crow", crow), ("crowWing", crow_wing), ("tumble", tumble), ("print", print)]
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum Kind { Fox, Hare, Crow, Tumble }
-#[derive(Clone, Copy, PartialEq, Debug)] enum State { Idle, Walk, Flee, Fly, Gone }
-#[derive(Clone, Debug)] pub struct Critter { pub kind: Kind, pub color: u8, pub p: [f64; 3], gy: f64, pub yaw: f64, state: State, t: f64, phase: f64, speed: f64, v: [f64; 3], spin: f64, axis: [f64; 3], step: f64, foot: bool, life: f64, pub hp: f64, pub hit: f64 }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum Kind { Fox, Hare, Crow, Tumble, Wolf, Boar }
+#[derive(Clone, Copy, PartialEq, Debug)] enum State { Idle, Walk, Flee, Fly, Gone, Chase }
+#[derive(Clone, Debug)] pub struct Critter { pub kind: Kind, pub color: u8, pub p: [f64; 3], gy: f64, pub yaw: f64, state: State, t: f64, phase: f64, speed: f64, v: [f64; 3], spin: f64, axis: [f64; 3], step: f64, foot: bool, life: f64, pub hp: f64, pub hit: f64, cd: f64 }
 /// Ce que cette faune fait entendre.
-#[derive(Clone, Copy, Debug)] pub enum Ev { Caw([f64; 3]), Bark([f64; 3]), Scream([f64; 3]), Thump([f64; 3]), Rustle([f64; 3]) }
+#[derive(Clone, Copy, Debug)] pub enum Ev { Caw([f64; 3]), Bark([f64; 3]), Scream([f64; 3]), Thump([f64; 3]), Rustle([f64; 3]), Bite([f64; 3], f64, &'static str), Howl([f64; 3]), Grunt([f64; 3]) }
 /// Une empreinte posée sur la neige.
 #[derive(Clone, Copy, Debug)] pub struct Print { pub p: [f64; 3], pub yaw: f64, pub age: f64, pub small: bool }
-pub struct Wild { cold: f64, dry: f64, rng: Rng, pub all: Vec<Critter>, pub prints: Vec<Print>, pub ev: Vec<Ev>, pub wind: f64, t: f64, last_print: Option<[f64; 3]>, left: bool }
+pub struct Wild { cold: f64, dry: f64, pub night: bool, rng: Rng, pub all: Vec<Critter>, pub prints: Vec<Print>, pub ev: Vec<Ev>, pub wind: f64, t: f64, last_print: Option<[f64; 3]>, left: bool }
 
 /// Hauteur de la surface de neige à cet endroit, si l'on marche dans la neige.
 /// Dessus du sol le plus haut sous `from` : le premier bloc plein en descendant (feuillage et bois compris). Rien sur l'eau.
@@ -66,18 +76,22 @@ pub fn snow_at(w: &impl Voxels, x: f64, y: f64, z: f64) -> Option<f64> {
     let n = snow_level(w.get(fx, fy, fz)?); if n > 0 { return Some(fy as f64 + n as f64 / 10.0); }
     if w.get(fx, fy - 1, fz)? == B::SNOW { return Some(fy as f64); } None
 }
-fn hp_of(k: Kind) -> f64 { match k { Kind::Fox => crate::survival::FOX_HP, Kind::Hare => crate::survival::HARE_HP, _ => 1.0 } }
+fn hp_of(k: Kind) -> f64 { match k { Kind::Fox => crate::survival::FOX_HP, Kind::Hare => crate::survival::HARE_HP, Kind::Wolf => crate::survival::WOLF_HP, Kind::Boar => crate::survival::BOAR_HP, _ => 1.0 } }
+const WOLF: f64 = 1.75; const BOAR: f64 = 1.25;
+const GREY: [f64; 3] = [0.42, 0.41, 0.39]; const PALE: [f64; 3] = [0.7, 0.68, 0.64]; const BRISTLE: [f64; 3] = [0.24, 0.17, 0.12]; const TUSK: [f64; 3] = [0.92, 0.88, 0.78];
 impl Wild {
     /// Un coup porté à l'animal `i` : il détale, ou tombe. Renvoie son espèce s'il est mort (il disparaît alors).
     pub fn strike(&mut self, i: usize, dmg: f64, from: [f64; 3]) -> Option<Kind> {
         let c = self.all.get_mut(i)?; c.hp -= dmg; c.hit = 0.3; let k = c.kind;
         if c.hp <= 0.0 { self.all.remove(i); return Some(k); }
+        // Frappés, le loup et le sanglier se retournent contre vous (sauf à bout de forces) ; les autres fuient.
+        if matches!(k, Kind::Wolf | Kind::Boar) && c.hp > hp_of(k) * 0.35 { c.state = State::Chase; c.t = 12.0; if k == Kind::Boar { self.ev.push(Ev::Grunt(c.p)); } return None; }
         c.state = State::Flee; c.t = self.rng.range(4.0, 6.0); c.yaw = (c.p[0] - from[0]).atan2(c.p[2] - from[2]);
         if k == Kind::Hare { self.ev.push(Ev::Thump(c.p)); } else { self.ev.push(Ev::Bark(c.p)); } None
     }
-    pub fn new(seed: i32) -> Self { Wild { cold: 0.0, dry: 0.0, rng: Rng::new((seed ^ 0x2f0c) as u32), all: Vec::new(), prints: Vec::new(), ev: Vec::new(), wind: 0.7, t: 0.0, last_print: None, left: false } }
+    pub fn new(seed: i32) -> Self { Wild { cold: 0.0, dry: 0.0, night: false, rng: Rng::new((seed ^ 0x2f0c) as u32), all: Vec::new(), prints: Vec::new(), ev: Vec::new(), wind: 0.7, t: 0.0, last_print: None, left: false } }
     /// Pose un animal ou un virevoltant à un endroit précis (bancs d'essai, captures).
-    pub fn put(&mut self, kind: Kind, p: [f64; 3], yaw: f64, flying: bool) { self.all.push(Critter { kind, color: if kind == Kind::Hare { 2 } else { 0 }, p, gy: p[1], yaw, state: if flying { State::Fly } else { State::Idle }, t: 30.0, phase: 0.6, speed: 0.0, v: [0.0; 3], spin: 0.7, axis: [0.6, 0.0, 0.8], step: 0.0, foot: false, life: 0.0, hp: hp_of(kind), hit: 0.0 }); }
+    pub fn put(&mut self, kind: Kind, p: [f64; 3], yaw: f64, flying: bool) { self.all.push(Critter { kind, color: if kind == Kind::Hare { 2 } else { 0 }, p, gy: p[1], yaw, state: if flying { State::Fly } else { State::Idle }, t: 30.0, phase: 0.6, speed: 0.0, v: [0.0; 3], spin: 0.7, axis: [0.6, 0.0, 0.8], step: 0.0, foot: false, life: 0.0, hp: hp_of(kind), hit: 0.0, cd: 0.0 }); }
     fn count(&self, k: Kind) -> usize { self.all.iter().filter(|c| c.kind == k).count() }
     fn spawn(&mut self, kind: Kind, w: &impl Voxels, p: [f64; 3]) {
         let r = &mut self.rng; let (a, d) = if kind == Kind::Tumble { (self.wind + std::f64::consts::PI + r.range(-0.9, 0.9), r.range(26.0, 44.0)) } else { (r.range(0.0, 6.283), r.range(18.0, 50.0)) };
@@ -86,15 +100,19 @@ impl Wild {
         let y = if kind == Kind::Crow { y + r.range(10.0, 16.0) } else { y };
         let axis = [r.range(-1.0, 1.0), 0.0, r.range(-1.0, 1.0)]; let t = r.range(1.0, 5.0);
         let roll = r.next(); let color = if kind != Kind::Hare { 0 } else if self.cold > 0.5 { if roll < 0.75 { 2 } else { 1 } } else if self.dry > 0.5 { if roll < 0.6 { 0 } else { 1 } } else if roll < 0.5 { 0 } else if roll < 0.8 { 1 } else if roll < 0.9 { 3 } else { 2 };
-        self.all.push(Critter { kind, color, p: [x, y, z], gy: y, yaw, state: if kind == Kind::Crow { State::Fly } else { State::Idle }, t, phase: 0.0, speed: 0.0, v: [0.0; 3], spin: 0.0, axis, step: 0.0, foot: false, life: 0.0, hp: hp_of(kind), hit: 0.0 });
+        self.all.push(Critter { kind, color, p: [x, y, z], gy: y, yaw, state: if kind == Kind::Crow { State::Fly } else { State::Idle }, t, phase: 0.0, speed: 0.0, v: [0.0; 3], spin: 0.0, axis, step: 0.0, foot: false, life: 0.0, hp: hp_of(kind), hit: 0.0, cd: 0.0 });
     }
     /// `taiga` et `steppe` : force du biome autour du joueur, déjà lissée.
     pub fn update(&mut self, dt: f64, w: &impl Voxels, p: [f64; 3], day: f64, taiga: f64, steppe: f64, open: f64, player_ground: bool) {
         self.t += dt; self.cold = taiga; self.dry = steppe; self.wind = 0.7 + 0.6 * sin(self.t * 0.011) + 0.25 * sin(self.t * 0.047);
-        let want = |k: Kind| match k { Kind::Fox => (2.0 * taiga + 1.0 * open).round() as usize, Kind::Hare => (3.0 * taiga + 2.0 * open + 2.0 * steppe).round() as usize, Kind::Crow => if day > 0.2 { (4.0 * taiga).round() as usize } else { 0 }, Kind::Tumble => (4.0 * steppe).round() as usize };
+        let want = |k: Kind| match k { Kind::Fox => (2.0 * taiga + 1.0 * open).round() as usize, Kind::Hare => (3.0 * taiga + 2.0 * open + 2.0 * steppe).round() as usize, Kind::Crow => if day > 0.2 { (4.0 * taiga).round() as usize } else { 0 }, Kind::Tumble => (4.0 * steppe).round() as usize, Kind::Wolf | Kind::Boar => 0 };
+        // Loups : en meute, dans la taïga, et la nuit hors des forêts ; sangliers : dans les prairies et les bois clairs.
+        let night = day < 0.05; self.night = night;
+        let want_pred = |k: Kind| match k { Kind::Wolf => (3.0 * taiga + if night { 2.0 * open } else { 0.0 }).round() as usize, Kind::Boar => (1.6 * open).round() as usize, _ => 0 };
         for k in [Kind::Fox, Kind::Hare, Kind::Crow, Kind::Tumble] { if self.count(k) < want(k) && self.rng.next() < dt * 0.6 { self.spawn(k, w, p); } }
+        for k in [Kind::Wolf, Kind::Boar] { if self.count(k) < want_pred(k) && self.rng.next() < dt * 0.25 { let n = self.all.len(); self.spawn(k, w, p); if k == Kind::Wolf && self.all.len() > n { let q = self.all[n].p; for _ in 0..2 { let o = [q[0] + self.rng.range(-2.0, 2.0), q[1], q[2] + self.rng.range(-2.0, 2.0)]; let yaw = self.rng.range(0.0, 6.28); self.put(Kind::Wolf, o, yaw, false); } self.ev.push(Ev::Howl(q)); } } }
         let mut all = std::mem::take(&mut self.all);
-        for c in all.iter_mut() { c.hit = (c.hit - dt).max(0.0); match c.kind { Kind::Fox | Kind::Hare => self.walker(c, dt, w, p), Kind::Crow => self.crow(c, dt, w, p), Kind::Tumble => self.tumble(c, dt, w) } }
+        for c in all.iter_mut() { c.hit = (c.hit - dt).max(0.0); match c.kind { Kind::Fox | Kind::Hare => self.walker(c, dt, w, p), Kind::Crow => self.crow(c, dt, w, p), Kind::Tumble => self.tumble(c, dt, w), Kind::Wolf | Kind::Boar => self.beast(c, dt, w, p) } }
         all.retain(|c| c.state != State::Gone && hypot2(c.p[0] - p[0], c.p[2] - p[2]) < 90.0 && w.get(c.p[0].floor() as i32, c.p[1].floor() as i32, c.p[2].floor() as i32).is_some()); self.all = all;
         // Les pas du joueur s'impriment dans la neige, en alternant pied gauche et pied droit.
         if player_ground { self.foot(w, p, None, false); } else { self.last_print = None; }
@@ -124,6 +142,29 @@ impl Wild {
         match ground(w, nx, nz, c.gy) { Some(y) if (y - c.gy).abs() <= 1.0 && fits(w, nx, y, nz, c.yaw, 1) => { c.p[0] = nx; c.p[2] = nz; c.gy = y; } _ => { c.yaw += r.range(1.0, 3.0); } }
         c.p[1] += (c.gy - c.p[1]) * (dt * 9.0).min(1.0);
         c.step += dt * sp; if c.step > 0.55 { c.step = 0.0; c.foot = !c.foot; let (q, y) = (c.p, c.yaw); let saved = (self.last_print, self.left); self.last_print = None; self.foot(w, q, Some(y), true); (self.last_print, self.left) = saved; }
+    }
+    /// Loup et sanglier. Le loup rôde, flaire le joueur (plus loin la nuit), le poursuit et mord ; blessé, il renonce et fuit.
+    /// Le sanglier broute et ignore le joueur, mais charge celui qui l'a frappé.
+    fn beast(&mut self, c: &mut Critter, dt: f64, w: &impl Voxels, p: [f64; 3]) {
+        let wolf = c.kind == Kind::Wolf; let dist = hypot2(c.p[0] - p[0], c.p[2] - p[2]); let r = &mut self.rng; c.cd -= dt; c.t -= dt;
+        let weak = c.hp < hp_of(c.kind) * 0.35;
+        if wolf && !weak && c.state != State::Chase && c.state != State::Flee && dist < if self.night { 16.0 } else { 8.0 } { c.state = State::Chase; c.t = 20.0; if r.next() < 0.5 { self.ev.push(Ev::Howl(c.p)); } }
+        if weak && c.state == State::Chase { c.state = State::Flee; c.t = 12.0; }
+        if c.state == State::Chase && (dist > 30.0 || c.t <= 0.0) { c.state = State::Walk; c.t = r.range(2.0, 5.0); }
+        if c.t <= 0.0 { match c.state { State::Idle => { c.state = State::Walk; c.t = r.range(2.0, 6.0); c.yaw += r.range(-1.2, 1.2); } State::Chase => {} _ => { c.state = State::Idle; c.t = r.range(2.0, 7.0); } } }
+        if c.state == State::Chase {
+            c.yaw = (p[0] - c.p[0]).atan2(p[2] - c.p[2]);
+            if dist < 1.7 && c.cd <= 0.0 { c.cd = if wolf { 1.3 } else { 1.8 }; self.ev.push(Ev::Bite(c.p, if wolf { 6.0 } else { 8.0 }, if wolf { "La morsure d'un loup" } else { "La charge d'un sanglier" }));
+                if !wolf { c.state = State::Flee; c.t = 4.0; c.yaw += std::f64::consts::PI; } } // le sanglier charge une fois, puis s'éloigne
+        }
+        if c.state == State::Flee { if dist < 20.0 { c.yaw = (c.p[0] - p[0]).atan2(c.p[2] - p[2]); } if !wolf && c.t <= 0.0 { c.state = State::Idle; } }
+        if !wolf && c.state == State::Idle && r.next() < dt * 0.05 { self.ev.push(Ev::Grunt(c.p)); }
+        let sp = match c.state { State::Chase => if dist < 1.2 { 0.0 } else if wolf { 6.6 } else { 6.2 }, State::Flee => 6.0, State::Walk => if wolf { 1.9 } else { 1.1 }, _ => 0.0 }; c.speed = sp;
+        if sp == 0.0 { c.phase = 0.0; c.p[1] += (c.gy - c.p[1]) * (dt * 9.0).min(1.0); return; }
+        c.phase += dt * (4.0 + sp * 2.0);
+        let (nx, nz) = (c.p[0] + sin(c.yaw) * sp * dt, c.p[2] + cos(c.yaw) * sp * dt);
+        match ground(w, nx, nz, c.gy) { Some(y) if (y - c.gy).abs() <= 1.0 && fits(w, nx, y, nz, c.yaw, 1) => { c.p[0] = nx; c.p[2] = nz; c.gy = y; } _ => { if c.state != State::Chase { c.yaw += r.range(1.0, 3.0); } } }
+        c.p[1] += (c.gy - c.p[1]) * (dt * 9.0).min(1.0);
     }
     fn crow(&mut self, c: &mut Critter, dt: f64, w: &impl Voxels, p: [f64; 3]) {
         let r = &mut self.rng; c.phase += dt * if c.state == State::Fly { 11.0 } else { 0.0 }; c.t -= dt;
@@ -170,6 +211,13 @@ impl Wild {
                 Kind::Crow => {
                     let base = trs(c.p[0], c.p[1] + 0.05, c.p[2], c.yaw, 0.0, 1.0); let f = if c.state == State::Fly { 0.25 + 0.55 * sin(c.phase) } else { -1.25 };
                     put("crow", base); put("crowWing", mul(&base, &mul(&trs(0.06 * CROW, 0.08 * CROW, 0.0, 0.0, 0.0, 1.0), &roll_z(f)))); put("crowWing", mul(&base, &mul(&trs(-0.06 * CROW, 0.08 * CROW, 0.0, 0.0, 0.0, 1.0), &roll_z(std::f64::consts::PI - f))));
+                }
+                Kind::Wolf | Kind::Boar => {
+                    let wolf = c.kind == Kind::Wolf; let (sc, hip, n) = if wolf { (WOLF, 0.32, "wolf") } else { (BOAR, 0.2, "boar") };
+                    let base = trs(c.p[0], c.p[1] + c.hit * 0.3, c.p[2], c.yaw, -c.hit * 0.6, sc); let s = if c.speed > 0.0 { sin(c.phase) * 0.8 } else { 0.0 };
+                    put(n, mul(&base, &trs(0.0, hip, 0.0, 0.0, 0.0, 1.0))); let lunge = if c.cd > 1.0 { 0.25 } else { 0.0 };
+                    put(if wolf { "wolfHead" } else { "boarHead" }, mul(&base, &trs(0.0, hip + if wolf { 0.14 } else { 0.08 }, if wolf { 0.32 } else { 0.32 } + lunge * 0.3, 0.0, if c.state == State::Idle { 0.3 } else { -lunge }, 1.0)));
+                    for (x, z, a) in [(-0.08, 0.22, s), (0.08, 0.22, -s), (-0.08, -0.24, -s), (0.08, -0.24, s)] { put(if wolf { "wolfLeg" } else { "boarLeg" }, mul(&base, &trs(x * if wolf { 1.0 } else { 1.4 }, hip, z, 0.0, a, 1.0))); }
                 }
                 Kind::Tumble => put("tumble", rot_axis([c.p[0], c.p[1] + 0.58, c.p[2]], c.axis, c.spin, 1.0)),
             }

@@ -191,7 +191,7 @@ impl Session {
         let mut consider = |t: Option<f64>, p: Prey| { if let Some(t) = t { let q = [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t]; let r = ((q[0] - head[0]).powi(2) + (q[1] - head[1]).powi(2) + (q[2] - head[2]).powi(2)).sqrt();
             if t < block_t && r <= reach && best.is_none_or(|b| t < b.0) { best = Some((t, p)); } } };
         for (k, dr) in self.fauna.deer.iter().enumerate() { consider(ray_box(o, d, dr.p, 0.55, 1.6), Prey::Deer(k)); }
-        for (k, c) in self.wild.all.iter().enumerate() { let (hw, h) = match c.kind { crate::wild::Kind::Fox => (0.35, 0.7), crate::wild::Kind::Hare => (0.28, 0.5), _ => continue }; consider(ray_box(o, d, c.p, hw, h), Prey::Wild(k)); }
+        for (k, c) in self.wild.all.iter().enumerate() { let (hw, h) = match c.kind { crate::wild::Kind::Fox => (0.35, 0.7), crate::wild::Kind::Hare => (0.28, 0.5), crate::wild::Kind::Wolf => (0.45, 1.0), crate::wild::Kind::Boar => (0.5, 0.85), _ => continue }; consider(ray_box(o, d, c.p, hw, h), Prey::Wild(k)); }
         best.map(|b| b.1)
     }
     /// Un coup porté à l'animal visé, selon l'arme ; épuisé, on frappe moitié moins fort. Au couteau, le dépeçage rend davantage.
@@ -203,7 +203,7 @@ impl Session {
         let (loot, extra): (&[(&str, u32)], &[(&str, u32)]) = match prey {
             Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); let close = (at[0] - me[0]).hypot(at[2] - me[2]) < 2.4;
                 if self.fauna.strike(k, dmg, me) { (DEER_LOOT, DEER_KNIFE) } else { if close && hash_float((self.elapsed * 977.0) as i32, k as i32, self.seed, 13) < 0.3 { self.harm(6.0, "La ruade d'un cerf", true); } (&[], &[]) } }
-            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); match self.wild.strike(k, dmg, me) { Some(crate::wild::Kind::Fox) => (FOX_LOOT, FOX_KNIFE), Some(crate::wild::Kind::Hare) => (HARE_LOOT, HARE_KNIFE), _ => (&[], &[]) } }
+            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); match self.wild.strike(k, dmg, me) { Some(crate::wild::Kind::Fox) => (FOX_LOOT, FOX_KNIFE), Some(crate::wild::Kind::Hare) => (HARE_LOOT, HARE_KNIFE), Some(crate::wild::Kind::Wolf) => (WOLF_LOOT, &[("fur", 1)]), Some(crate::wild::Kind::Boar) => (BOAR_LOOT, &[("raw_meat", 1), ("leather", 1)]), _ => (&[], &[]) } }
         };
         self.wear_tool(1);
         if !loot.is_empty() && !self.creative {
@@ -216,6 +216,7 @@ impl Session {
     /// Tout ce que fait le clic droit avant de poser un bloc : ramasser, cueillir, ouvrir un coffre, dormir, nourrir un feu,
     /// labourer, semer, remplir une gourde, manger, boire, se soigner. Vrai si le clic a servi.
     pub(crate) fn interact(&mut self) -> bool {
+        if self.outdoor_use() { return true; } // l'arc tire, la canne lance ou ferre
         let held = self.inv[self.sel]; let hd = held.and_then(|s| def(s.item));
         if let Some(t) = self.target {
             let h = self.player.eye(); let near = ((t.x as f64 + 0.5 - h[0]).powi(2) + (t.y as f64 + 0.5 - h[1]).powi(2) + (t.z as f64 + 0.5 - h[2]).powi(2)).sqrt() <= 4.5;
@@ -239,8 +240,9 @@ impl Session {
                 if hd.and_then(|d| d.tool).is_some_and(|tl| tl.kind == "houe") && matches!(t.id, B::GRASS | B::GRASS_DEEP | B::DIRT | B::FOREST_SOIL | B::MOOR_GRASS | B::STEPPE_GRASS) && self.world.get(t.x, t.y + 1, t.z).is_some_and(|b| b == 0 || (is_deco(b) && !is_solid(b))) {
                     if self.use_t > 0.0 { return true; } self.world.edit(t.x, t.y + 1, t.z, 0); self.world.edit(t.x, t.y, t.z, B::FARMLAND); self.wear_tool(1); self.use_t = 0.3; self.sound.dig("dirt", Some("pickaxe")); self.anim.trigger(); self.dirty = true; return true;
                 }
-                if held.is_some_and(|s| s.item == "seeds") && t.id == B::FARMLAND && self.world.get(t.x, t.y + 1, t.z) == Some(0) {
-                    if self.use_t > 0.0 { return true; } self.world.edit(t.x, t.y + 1, t.z, B::WHEAT_0); self.crops.push(([t.x, t.y + 1, t.z], self.hours)); self.consume_held(); self.use_t = 0.25; self.sound.place("tall_grass"); self.anim.trigger(); return true;
+                // Semer : graines de blé, carotte ou pomme de terre, sur une terre labourée.
+                if let Some(first) = held.and_then(|s| sow(s.item)).filter(|_| t.id == B::FARMLAND && self.world.get(t.x, t.y + 1, t.z) == Some(0)) {
+                    if self.use_t > 0.0 { return true; } self.world.edit(t.x, t.y + 1, t.z, first); self.crops.push(([t.x, t.y + 1, t.z], self.hours)); self.consume_held(); self.use_t = 0.25; self.sound.place("tall_grass"); self.anim.trigger(); return true;
                 }
             }
         }
@@ -432,9 +434,9 @@ impl Session {
             self.regrow = keep; }
         // Le blé passe d'un stade au suivant ; sur une terre près de l'eau, il pousse plus vite.
         if !self.crops.is_empty() { let mut keep = Vec::new();
-            for (p, at) in std::mem::take(&mut self.crops) { let Some(cur) = self.world.get(p[0], p[1], p[2]) else { keep.push((p, at)); continue }; if !(B::WHEAT_0..=B::WHEAT_3).contains(&cur) { continue; }
+            for (p, at) in std::mem::take(&mut self.crops) { let Some(cur) = self.world.get(p[0], p[1], p[2]) else { keep.push((p, at)); continue }; let Some(first) = crop_first(cur) else { continue };
                 let wet = (-4..=4).any(|dz: i32| (-4..=4).any(|dx: i32| self.world.get(p[0] + dx, p[1] - 1, p[2] + dz).is_some_and(is_water)));
-                let stage = (((now - at) / CROP_STAGE_HOURS) * if wet { 1.5 } else { 1.0 }).floor().min(3.0) as u8; let want = B::WHEAT_0 + stage;
+                let stage = (((now - at) / CROP_STAGE_HOURS) * if wet { 1.5 } else { 1.0 }).floor().min(3.0) as u8; let want = first + stage;
                 if want != cur { self.world.edit(p[0], p[1], p[2], want); self.dirty = true; } if stage < 3 { keep.push((p, at)); } }
             self.crops = keep; }
         let days = PROFILES[self.profile].stash_days; let before = self.stashes.len(); self.stashes.retain(|s| now - s.born < days * 24.0); if self.stashes.len() < before { self.notes.push("Une dépouille oubliée a disparu".into()); }
@@ -524,3 +526,8 @@ pub fn book(s: &Session, cat: Option<&str>, search: &str) -> Vec<usize> {
 /// Toutes les recettes, connues ou non (pour le compte « à découvrir »).
 pub fn unknown(s: &Session) -> usize { recipes().iter().filter(|r| !s.known(r)).count() }
 pub const BOOK_CATS: [(&str, &str); 6] = [("outils", "Outils"), ("matieres", "Matières"), ("batir", "Bâtir"), ("ateliers", "Ateliers"), ("vivres", "Vivres"), ("habits", "Habits")];
+
+/// Ce qu'on sème : le premier stade de la culture.
+pub fn sow(item: &str) -> Option<u8> { match item { "seeds" => Some(B::WHEAT_0), "carrot" => Some(B::CARROT_0), "potato" => Some(B::POTATO_0), _ => None } }
+/// Le premier stade de la culture dont `b` est un stade (les quatre stades se suivent dans le registre).
+pub fn crop_first(b: u8) -> Option<u8> { [B::WHEAT_0, B::CARROT_0, B::POTATO_0].into_iter().find(|f| (*f..=*f + 3).contains(&b)) }

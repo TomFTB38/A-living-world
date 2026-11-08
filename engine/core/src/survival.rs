@@ -32,7 +32,7 @@ pub fn ore_tier(block: &str) -> u8 { match block { "iron_ore" => 2, _ => 1 } }
 /// Ce que l'herbe arrachée laisse parfois : fibre (toujours au couteau ou à la faucille), graines.
 pub fn grass_drops(block: &str) -> &'static [(&'static str, f64)] { match block { "tall_grass" | "feather_grass" | "frost_grass" | "cotton_grass" | "fern" | "fern_dry" | "heather" | "moor_grass" => &[("fiber", 0.4), ("seeds", 0.15)], "gravel" => &[("flint", 0.2)], _ => &[] } }
 /// Ce qu'on récolte en plus du bloc : les baies tombent du buisson, le blé mûr donne aussi ses graines.
-pub fn bonus_drop(block: &str) -> Option<(&'static str, u32)> { match block { "blueberry" => Some(("berries", 3)), "rowan" => Some(("rowan_berries", 3)), "mushroom" => Some(("mushroom", 1)), "wheat_3" => Some(("seeds", 2)), _ => None } }
+pub fn bonus_drop(block: &str) -> Option<(&'static str, u32)> { match block { "blueberry" => Some(("berries", 3)), "rowan" => Some(("rowan_berries", 3)), "mushroom" => Some(("mushroom", 1)), "wheat_3" => Some(("seeds", 2)), "carrot_3" => Some(("carrot", 2)), "potato_3" => Some(("potato", 3)), _ => None } }
 /// Ramassé d'un clic droit : le bloc disparaît et l'objet va dans le sac.
 pub fn pickup(block: &str) -> Option<(&'static str, u32)> { match block { "twigs" => Some(("stick", 1)), "pebbles" => Some(("pebble", 1)), _ => None } }
 /// Buissons qui se cueillent au clic droit : les baies, et le buisson dépouillé qui les remplace pour deux jours.
@@ -88,6 +88,8 @@ pub fn exposure(air: f64, warm: f64, cool: f64) -> f64 {
 }
 
 /// Gibier : points de vie, ce qu'il laisse (et en plus, au couteau), la boîte qui sert à le viser.
+pub const WOLF_HP: f64 = 16.0; pub const BOAR_HP: f64 = 22.0;
+pub const WOLF_LOOT: &[(&str, u32)] = &[("fur", 2), ("raw_meat", 1), ("bone", 1)]; pub const BOAR_LOOT: &[(&str, u32)] = &[("raw_meat", 4), ("leather", 1)];
 pub const DEER_HP: f64 = 14.0; pub const FOX_HP: f64 = 8.0; pub const HARE_HP: f64 = 4.0;
 pub const DEER_LOOT: &[(&str, u32)] = &[("raw_meat", 3), ("raw_hide", 2), ("bone", 1)]; pub const FOX_LOOT: &[(&str, u32)] = &[("fur", 1), ("raw_meat", 1)]; pub const HARE_LOOT: &[(&str, u32)] = &[("raw_meat", 2)];
 pub const DEER_KNIFE: &[(&str, u32)] = &[("raw_meat", 1), ("raw_hide", 1)]; pub const FOX_KNIFE: &[(&str, u32)] = &[("fur", 1)]; pub const HARE_KNIFE: &[(&str, u32)] = &[("fur", 1)];
@@ -112,5 +114,8 @@ pub fn armor_cut(armor: f64) -> f64 { 1.0 - armor / (armor + 20.0) }
 pub fn parts() -> Vec<(&'static str, VBuf)> {
     let mut o = VBuf::new(60); let (bag, flap, strap) = ([0.42, 0.27, 0.15], [0.52, 0.35, 0.2], [0.26, 0.16, 0.09]);
     b(&mut o, [-0.22, 0.0, -0.15, 0.22, 0.36, 0.15], bag); b(&mut o, [-0.23, 0.26, -0.16, 0.23, 0.4, 0.16], flap); b(&mut o, [-0.04, 0.12, 0.15, 0.04, 0.32, 0.18], strap); b(&mut o, [-0.025, 0.4, -0.03, 0.025, 0.5, 0.03], strap);
-    vec![("stash", o)]
+    // Flèche : hampe le long de +z, pointe de silex devant, empennage de fibre derrière. Bouchon rouge et blanc.
+    let mut arrow = VBuf::new(60); b(&mut arrow, [-0.012, -0.012, -0.35, 0.012, 0.012, 0.3], [0.55, 0.4, 0.22]); b(&mut arrow, [-0.025, -0.02, 0.3, 0.025, 0.02, 0.4], [0.3, 0.32, 0.36]); b(&mut arrow, [-0.045, -0.004, -0.35, 0.045, 0.004, -0.22], [0.72, 0.66, 0.38]); b(&mut arrow, [-0.004, -0.045, -0.35, 0.004, 0.045, -0.22], [0.72, 0.66, 0.38]);
+    let mut bobber = VBuf::new(60); b(&mut bobber, [-0.05, 0.0, -0.05, 0.05, 0.06, 0.05], [0.9, 0.12, 0.08]); b(&mut bobber, [-0.05, -0.06, -0.05, 0.05, 0.0, 0.05], [0.95, 0.94, 0.9]); b(&mut bobber, [-0.01, 0.06, -0.01, 0.01, 0.14, 0.01], [0.2, 0.2, 0.2]);
+    vec![("stash", o), ("arrow", arrow), ("bobber", bobber)]
 }

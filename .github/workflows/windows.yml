@@ -75,6 +75,7 @@ jobs:
           shot pluie -62 47 -55 -54 42 -51 16.4 4 1280 720 2048 pluie
           for sc in survie craft mort ramassage fissure construction; do shot $sc -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 $sc; done
           shot campement -38.5 53 0.5 -20 52 -30 20.6 4 1280 720 2048 campement
+          shot faune -38.5 53 0.5 -20 52 -30 19.4 4 1280 720 2048 faune
       - name: Dépose la capture sur la branche captures
         shell: bash
         continue-on-error: true

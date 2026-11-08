@@ -366,6 +366,19 @@ impl Mesher {
                 bx(o, x + 0.44, y + 0.72, z + 0.44, x + 0.56, y + 0.9, z + 0.56, 2.5, 1.3, 0.35, 0.0, s, 255.0, EMIT, false, 0.0, 255.0); bx(o, x + 0.47, y + 0.88, z + 0.47, x + 0.53, y + 0.98, z + 0.53, 2.8, 1.9, 0.7, 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
                 return;
             }
+            "carrot" | "potato" => {
+                // Carotte : des fanes plumeuses, le collet orange qui affleure au dernier stade.
+                // Pomme de terre : une touffe de feuilles larges, des fleurs blanches au dernier stade.
+                let st = BLOCKS[b as usize].name.as_bytes().last().map_or(0, |c| (c - b'0') as usize).min(3); let h = [0.12, 0.25, 0.38, 0.48][st]; let carrot = m == "carrot";
+                let leaf = if carrot { [0.3, 0.58, 0.18] } else { [0.26, 0.48, 0.2] };
+                for _ in 0..if carrot { 7 } else { 5 } { let a = r_.range(0.0, 6.28); let rr = r_.range(0.03, 0.14) * (1.0 + st as f64 * 0.3); let hh = h * r_.range(0.75, 1.1); let k = r_.range(0.85, 1.12);
+                    let (cx, cz) = (x + 0.5 + cos(a) * rr, z + 0.5 + sin(a) * rr);
+                    if carrot { rod(o, [x + 0.5, y, z + 0.5], [cx, y + hh, cz], 0.012, 0.006, [leaf[0] * k, leaf[1] * k, leaf[2] * k], s, l, FOLIAGE, 0.0, 120.0); bx(o, cx - 0.03, y + hh - 0.05, cz - 0.03, cx + 0.03, y + hh + 0.02, cz + 0.03, leaf[0] * k, leaf[1] * k, leaf[2] * k, 120.0, s, l, FOLIAGE, true, 140.0, 255.0); }
+                    else { let w = 0.06 + 0.02 * st as f64; bx(o, cx - w, y + hh * 0.5, cz - w, cx + w, y + hh, cz + w, leaf[0] * k, leaf[1] * k, leaf[2] * k, 120.0, s, l, FOLIAGE, true, 140.0, 255.0); rod(o, [x + 0.5, y, z + 0.5], [cx, y + hh * 0.6, cz], 0.012, 0.008, [0.3, 0.46, 0.2], s, l, FOLIAGE, 0.0, 120.0);
+                        if st == 3 && r_.next() < 0.6 { bx(o, cx - 0.025, y + hh, cz - 0.025, cx + 0.025, y + hh + 0.04, cz + 0.025, 0.95, 0.94, 0.88, 0.0, s, l, FOLIAGE, true, 140.0, 255.0); } } }
+                if carrot && st == 3 { bx3(o, x + 0.45, y, z + 0.45, x + 0.55, y + 0.05, z + 0.55, 0.9, 0.45, 0.12, 0.0, s, l); }
+                return;
+            }
             "wheat" => {
                 // Blé : de jeunes pousses vertes, puis des tiges qui montent et jaunissent, des épis au dernier stade.
                 let st = BLOCKS[b as usize].name.as_bytes().last().map_or(0, |c| (c - b'0') as usize); let h = [0.18, 0.4, 0.7, 0.92][st.min(3)]; let col = [[0.36, 0.6, 0.2], [0.42, 0.62, 0.22], [0.62, 0.66, 0.26], [0.86, 0.72, 0.32]][st.min(3)];

@@ -22,6 +22,7 @@ pub mod felling;
 pub mod wild;
 pub mod survival;
 pub mod shapes;
+pub mod outdoors;
 pub mod data;
 pub mod play;
 pub mod icons;

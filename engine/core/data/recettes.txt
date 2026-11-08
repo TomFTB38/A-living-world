@@ -17,6 +17,7 @@ groupe plank | Planches | planks birch_planks spruce_planks
 groupe knife | Couteau | stone_knife copper_knife bronze_knife iron_knife
 groupe hammer | Marteau | stone_hammer copper_hammer bronze_hammer iron_hammer
 groupe needle | Aiguille | bone_needle
+groupe fish | Poisson | trout perch char
 
 # --- À la main : la survie primitive ---
 stone_knife 1 | main | pebble 2, stick 1, fiber 1 | outils
@@ -147,3 +148,11 @@ window 2 | etabli | plank 2, stick 2, glass 2 | batir
 wood_pillar 2 | etabli | log 1 | batir
 stone_pillar 2 | taille | stone_bricks 2 | batir
 stone_wall 4 | taille | stone_bricks 4 | batir
+
+# --- Monde vivant ---
+bow 1 | etabli | stick 3, rope 2 | outils
+arrow 4 | etabli | stick 2, flint 1, fiber 2 | outils
+fishing_rod 1 | main | stick 3, rope 1 | outils
+cooked_fish 1 | feu | fish 1 | vivres
+baked_potato 1 | feu | potato 1 | vivres
+stew 1 | feu | raw_meat 1, carrot 1, potato 1 | vivres

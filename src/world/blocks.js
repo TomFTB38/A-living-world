@@ -248,6 +248,15 @@ const defs = [
   ['stone_pillar', 'deco', null, 1.6, { model: 'pillar', solid: true, cat: 'rock', drop: 'stone_pillar' }],
   ['stone_wall', 'deco', null, 1.6, { model: 'wall', solid: true, cat: 'rock', drop: 'stone_wall' }],
   ['stone_wall_x', 'deco', null, 1.6, { model: 'wall', solid: true, cat: 'rock', drop: 'stone_wall' }],
+  // Cultures : carottes et pommes de terre, quatre stades comme le blé ; on les trouve aussi à l'état sauvage dans les prairies.
+  ['carrot_0', 'deco', null, 0.02, { model: 'carrot', drop: 'carrot' }],
+  ['carrot_1', 'deco', null, 0.02, { model: 'carrot', drop: 'carrot' }],
+  ['carrot_2', 'deco', null, 0.02, { model: 'carrot', drop: 'carrot' }],
+  ['carrot_3', 'deco', null, 0.02, { model: 'carrot', drop: 'carrot' }],
+  ['potato_0', 'deco', null, 0.02, { model: 'potato', drop: 'potato' }],
+  ['potato_1', 'deco', null, 0.02, { model: 'potato', drop: 'potato' }],
+  ['potato_2', 'deco', null, 0.02, { model: 'potato', drop: 'potato' }],
+  ['potato_3', 'deco', null, 0.02, { model: 'potato', drop: 'potato' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
