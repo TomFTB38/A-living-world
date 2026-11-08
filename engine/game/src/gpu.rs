@@ -317,7 +317,7 @@ impl Gpu {
         if aim.is_some() {
             let mut p = enc.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("contour"), color_attachments: &[clear_color(&t.hdr.view, wgpu::LoadOp::Load)], depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment { view: &t.d.view, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store }), stencil_ops: None }), timestamp_writes: None, occlusion_query_set: None });
             p.set_pipeline(&self.p.line); p.set_bind_group(0, g0, &[]); p.draw(0..24, 0..if ghost.is_some() { 2 } else { 1 });
-            if aim.is_some_and(|a| a.1 > 0.0) { p.draw(0..144, 2..3); } // fissures du bloc qu'on casse
+            if aim.is_some_and(|a| a.1 > 0.0) { p.draw(0..288, 2..3); } // fissures du bloc qu'on casse
         }
         fullscreen(&mut enc, &self.p.compose.pipe, g0, Some(&t.b_comp), &t.comp.view, BLACK);
         let cur = (fr & 1) as usize;

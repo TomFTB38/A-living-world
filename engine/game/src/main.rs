@@ -39,7 +39,7 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
     // Hautes terres : ciel bas et gris-bleu, lumière froide, brume qui traîne sur la lande.
     let hl = s.highlands as f32; if hl > 0.01 { for k in 0..3 { sky.top[k] += ([0.4, 0.5, 0.62][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.3 * hl; sky.hor[k] += ([0.72, 0.76, 0.8][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.35 * hl; sky.col[k] *= 1.0 + ([-0.05, -0.02, 0.03][k]) * hl; } env.mist += 0.003 * hl; env.fog_k += 1.2 * hl; }
     env.bright *= 1.0 - 0.42 * s.deep as f32; env.fog_k += 2.6 * s.deep as f32; env.mist += 0.0035 * s.deep as f32; for v in &mut sky.top { *v *= 1.0 - 0.3 * s.deep as f32; }
-    gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], s.progress() as f32)), s.ghost(), &draws, &ui)
+    gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], if alw_core::blocks::is_deco(t.id) { 0.0 } else { s.progress() as f32 })) /* fissures sur les blocs pleins seulement */, s.ghost(), &draws, &ui)
 }
 /// Réglages enregistrés ; un fichier plus ancien garde ses valeurs et prend les nouvelles par défaut.
 fn read_settings() -> hud::Menu {
@@ -389,6 +389,7 @@ fn capture(a: &[String]) {
         if scene == "fissure" {
             // Un bloc à moitié cassé à la pioche de pierre : les fissures doivent se voir.
             s.inv[0] = Some(alw_core::session::Stack { item: "stone_pickaxe", n: None }); s.sel = 0; s.player.pitch = -0.75; s.tick(0.0, none, Actions::default());
+            for _ in 0..8 { match s.target { Some(t) if alw_core::blocks::is_deco(t.id) => { s.world.edit(t.x, t.y, t.z, 0); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); } _ => break } } // les herbes d'abord : c'est le bloc dessous qu'on veut voir se fendre
             for _ in 0..600 { s.stamina = 100.0; s.tick(1.0 / 60.0, none, Actions { mine: true, place: false }); if s.progress() > 0.62 { break; } }
             println!("fissure : progression {:.2}, cible {:?}", s.progress(), s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
         }
