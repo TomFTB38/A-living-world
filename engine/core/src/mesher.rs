@@ -235,7 +235,7 @@ impl Mesher {
     pub fn deco_model(&self, o: &mut VBuf, b: u8, xi: i32, yi: i32, zi: i32, wx: i32, wz: i32, s: f64, l: f64, lod: u8) {
         let (x, y, z) = (xi as f64, yi as f64, zi as f64);
         let mut r = Rng::new(hash_int(wx, yi, wz, 91)); let m = BLOCKS[b as usize].model.unwrap_or("");
-        let r_ = &mut r;
+        let r_ = &mut r; let picked = BLOCKS[b as usize].name.ends_with("_picked"); // buisson cueilli : même forme, sans les baies
         let voxel = |dx: i32, dy: i32, dz: i32| self.vk(at(xi + dx, yi + dy, zi + dz));
         match m {
             "lantern" => {
@@ -276,6 +276,24 @@ impl Mesher {
                 bx3(o, x + 0.38, y + 0.02, z + 0.38, x + 0.62, y + 0.06, z + 0.62, 0.1, 0.07, 0.05, 0.0, s, l); // braises
                 for (dx, dz, h, w, c) in [(0.0, 0.0, 0.52, 0.11, [2.4, 1.2, 0.3]), (0.09, 0.05, 0.36, 0.08, [2.2, 0.9, 0.2]), (-0.08, -0.06, 0.4, 0.08, [2.3, 1.0, 0.25]), (0.03, -0.1, 0.28, 0.06, [2.6, 1.6, 0.5])] {
                     let (cx, cz) = (x + 0.5 + dx, z + 0.5 + dz); bx(o, cx - w, y + 0.1, cz - w, cx + w, y + 0.1 + h, cz + w, c[0], c[1], c[2], 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
+                }
+                return;
+            }
+            "twigs" => {
+                // Branches tombées : deux ou trois rameaux couchés, écorce grise ou brune, quelques brindilles en épi.
+                for _ in 0..r_.int(2, 3) {
+                    let (a, c) = (x + r_.range(0.2, 0.8), z + r_.range(0.2, 0.8)); let an = r_.range(0.0, 6.28); let len = r_.range(0.32, 0.5); let t = r_.range(0.8, 1.1); let col = if r_.next() < 0.5 { [0.36 * t, 0.27 * t, 0.18 * t] } else { [0.42 * t, 0.39 * t, 0.34 * t] };
+                    let (p0, p1) = ([a - cos(an) * len, y + 0.03, c - sin(an) * len], [a + cos(an) * len, y + 0.025, c + sin(an) * len]); rod(o, p0, p1, 0.028, 0.016, col, s, l, FLAT, 0.0, 0.0);
+                    for _ in 0..r_.int(1, 2) { let f = r_.range(0.2, 0.75); let q = [p0[0] + (p1[0] - p0[0]) * f, y + 0.03, p0[2] + (p1[2] - p0[2]) * f]; let b2 = an + r_.range(0.5, 0.9) * if r_.next() < 0.5 { 1.0 } else { -1.0 }; let ln = r_.range(0.1, 0.18);
+                        rod(o, q, [q[0] + cos(b2) * ln, y + 0.035, q[2] + sin(b2) * ln], 0.012, 0.007, col, s, l, FLAT, 0.0, 0.0); }
+                }
+                return;
+            }
+            "pebbles" => {
+                // Cailloux : quatre à six galets plats, gris et beiges, à demi enfoncés.
+                for _ in 0..r_.int(4, 6) {
+                    let (a, c) = (x + r_.range(0.15, 0.85), z + r_.range(0.15, 0.85)); let (wx, wz) = (r_.range(0.04, 0.09), r_.range(0.035, 0.08)); let h = r_.range(0.03, 0.07); let t = r_.range(0.75, 1.1); let warm = r_.next() * 0.08;
+                    bx3(o, a - wx, y, c - wz, a + wx, y + h, c + wz, (0.52 + warm) * t, (0.5 + warm * 0.6) * t, 0.47 * t, 0.0, s, l); bx3(o, a - wx * 0.6, y + h, c - wz * 0.6, a + wx * 0.6, y + h + 0.015, c + wz * 0.6, (0.58 + warm) * t, (0.56 + warm * 0.6) * t, 0.53 * t, 0.0, s, l);
                 }
                 return;
             }
@@ -551,7 +569,7 @@ impl Mesher {
                     let top = [a + lean.0, y + h, c + lean.1]; rod(o, [a, y, c], top, 0.01, 0.006, [0.3 * t, 0.36 * t, 0.16 * t], s, l, FLAT, 0.0, 30.0);
                     for k in 0..r_.int(5, 8) { let f = r_.range(0.35, 1.0); let (px, py, pz) = (a + lean.0 * f + r_.range(-0.05, 0.05), y + h * f, c + lean.1 * f + r_.range(-0.05, 0.05)); let (wl, wd) = if k % 2 == 0 { (0.035, 0.02) } else { (0.02, 0.035) }; let g = r_.range(0.85, 1.15);
                         bx(o, px - wl, py, pz - wd, px + wl, py + 0.012, pz + wd, 0.26 * t * g, 0.46 * t * g, 0.18 * t * g, 50.0 * f, s, l, FOLIAGE, true, 60.0 * f, 255.0); }
-                    if r_.next() < 0.65 { let f = r_.range(0.3, 0.8); let (px, py, pz) = (a + lean.0 * f + r_.range(-0.03, 0.03), y + h * f - 0.03, c + lean.1 * f + r_.range(-0.03, 0.03)); bx(o, px - 0.022, py, pz - 0.022, px + 0.022, py + 0.042, pz + 0.022, 0.12, 0.15, 0.38, 40.0, s, l, FLAT, true, 50.0, 255.0); }
+                    if r_.next() < 0.65 { let f = r_.range(0.3, 0.8); let (px, py, pz) = (a + lean.0 * f + r_.range(-0.03, 0.03), y + h * f - 0.03, c + lean.1 * f + r_.range(-0.03, 0.03)); if !picked { bx(o, px - 0.022, py, pz - 0.022, px + 0.022, py + 0.042, pz + 0.022, 0.12, 0.15, 0.38, 40.0, s, l, FLAT, true, 50.0, 255.0); } }
                 }
             }
             "rowan" => {
@@ -568,7 +586,7 @@ impl Mesher {
                             bx(o, px - 0.028, my, pz - 0.028, px + 0.028, my + 0.01, pz + 0.028, col[0] * kk, col[1] * kk, col[2] * kk, 70.0, s, l, FOLIAGE, true, 90.0, 255.0); } }
                     }
                     for _ in 0..r_.int(1, 2) { let q = [top[0] + r_.range(-0.1, 0.1), top[1] - r_.range(0.05, 0.2), top[2] + r_.range(-0.1, 0.1)];
-                        for (ox, oy, oz) in [(0.0, 0.0, 0.0), (0.04, -0.03, 0.02), (-0.035, -0.03, -0.02), (0.01, -0.06, -0.035), (-0.02, -0.07, 0.03), (0.03, -0.09, -0.01)] { bx(o, q[0] + ox - 0.022, q[1] + oy, q[2] + oz - 0.022, q[0] + ox + 0.022, q[1] + oy + 0.04, q[2] + oz + 0.022, 0.9, 0.13, 0.08, 60.0, s, l, FLAT, true, 70.0, 255.0); } }
+                        for (ox, oy, oz) in [(0.0, 0.0, 0.0), (0.04, -0.03, 0.02), (-0.035, -0.03, -0.02), (0.01, -0.06, -0.035), (-0.02, -0.07, 0.03), (0.03, -0.09, -0.01)] { if picked { continue; } bx(o, q[0] + ox - 0.022, q[1] + oy, q[2] + oz - 0.022, q[0] + ox + 0.022, q[1] + oy + 0.04, q[2] + oz + 0.022, 0.9, 0.13, 0.08, 60.0, s, l, FLAT, true, 70.0, 255.0); } }
                 }
             }
             "icicle" => {

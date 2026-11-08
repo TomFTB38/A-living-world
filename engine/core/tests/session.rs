@@ -2,7 +2,7 @@ use alw_core::{blocks::*, player::*, session::*, stream::*};
 fn ready(s: &mut Session) { for _ in 0..4000 { let p = s.player.p; s.world.update(p[0], p[2]); if s.world.waiting() == 0 && s.world.loaded() > 0 { return; } std::thread::sleep(std::time::Duration::from_millis(3)); } panic!("trop long"); }
 /// Un départ au sec et sur du plat : le terrain évolue, les tests n'ont pas à dépendre d'un point précis.
 fn dry() -> [f64; 3] { let g = alw_core::gen::WorldGen::new(20261104); for k in 0..400 { let x = -38.5 + k as f64 * 3.0; let z = 0.5 + k as f64; let c = g.column(x, z); let flat = (0..8).all(|a| { let t = a as f64 * 0.785; let o = g.column(x + t.cos() * 8.0, z + t.sin() * 8.0); o.water == 0.0 && (o.h - c.h).abs() < 2.0 }); if c.water == 0.0 && c.bank == 0.0 && flat { return [x, c.h + 8.0, z]; } } panic!("aucun terrain plat") }
-fn session() -> Session { let mut s = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, dry()); ready(&mut s); for _ in 0..500 { s.tick(1.0 / 60.0, Input::default(), Actions::default()); } assert!(s.player.ground); s }
+fn session() -> Session { let mut s = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, dry()); s.give_kit(); ready(&mut s); for _ in 0..500 { s.tick(1.0 / 60.0, Input::default(), Actions::default()); } assert!(s.player.ground); s }
 fn aim_down(s: &mut Session) -> Target { s.player.pitch = -1.5; s.tick(0.0, Input::default(), Actions::default()); s.target.expect("visée du sol") }
 #[test]
 fn casser_poser_sauver() {

@@ -61,10 +61,11 @@ fn fore() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.075, -0.09, -0.078,
 fn fist() -> VBuf { let mut o = VBuf::new(100); b(&mut o, [-0.085, -0.34, -0.085, 0.085, 0.0, 0.085], SHIRT); b(&mut o, [-0.09, -0.38, -0.09, 0.09, -0.33, 0.09], SHIRT2); b(&mut o, [-0.08, -0.66, -0.08, 0.08, -0.38, 0.08], SKIN); o }
 
 // Outils : image 56 × 56 décrite par des formes, puis extrudée en petits voxels. Couleurs : indices de PAL.
-const PAL: [C; 24] = [[0.3, 0.17, 0.08], [0.48, 0.29, 0.14], [0.66, 0.43, 0.22], [0.2, 0.11, 0.06], [0.36, 0.2, 0.1], [0.4, 0.39, 0.38], [0.62, 0.61, 0.6], [0.84, 0.83, 0.82], [1.0, 0.99, 0.97], [0.62, 0.42, 0.1], [0.92, 0.7, 0.2], [0.0; 3],
-    [0.14, 0.17, 0.4], [0.32, 0.4, 0.7], [0.24, 0.44, 0.18], [0.74, 0.14, 0.08], [0.96, 0.4, 0.18], [0.66, 0.16, 0.16], [0.9, 0.62, 0.56], [0.9, 0.86, 0.76], [0.36, 0.17, 0.08], [0.56, 0.3, 0.13], [0.6, 0.4, 0.22], [0.42, 0.26, 0.13]];
+const PAL: [C; 31] = [[0.3, 0.17, 0.08], [0.48, 0.29, 0.14], [0.66, 0.43, 0.22], [0.2, 0.11, 0.06], [0.36, 0.2, 0.1], [0.4, 0.39, 0.38], [0.62, 0.61, 0.6], [0.84, 0.83, 0.82], [1.0, 0.99, 0.97], [0.62, 0.42, 0.1], [0.92, 0.7, 0.2], [0.0; 3],
+    [0.14, 0.17, 0.4], [0.32, 0.4, 0.7], [0.24, 0.44, 0.18], [0.74, 0.14, 0.08], [0.96, 0.4, 0.18], [0.66, 0.16, 0.16], [0.9, 0.62, 0.56], [0.9, 0.86, 0.76], [0.36, 0.17, 0.08], [0.56, 0.3, 0.13], [0.6, 0.4, 0.22], [0.42, 0.26, 0.13],
+    [0.33, 0.32, 0.31], [0.46, 0.45, 0.43], [0.6, 0.59, 0.56], [0.72, 0.7, 0.66], [0.7, 0.64, 0.38], [0.52, 0.5, 0.27], [0.76, 0.64, 0.42]];
 // Survie : baies, gibier, cuir. Des volumes plus épais que les lames.
-const BERRY: [u8; 2] = [12, 13]; const LEAF: u8 = 14; const ROWAN: [u8; 2] = [15, 16]; const MEAT: [u8; 2] = [17, 18]; const BONE: u8 = 19; const COOKED: [u8; 2] = [20, 21]; const HIDE: [u8; 2] = [22, 23];
+const BERRY: [u8; 2] = [12, 13]; const LEAF: u8 = 14; const ROWAN: [u8; 2] = [15, 16]; const MEAT: [u8; 2] = [17, 18]; const BONE: u8 = 19; const COOKED: [u8; 2] = [20, 21]; const HIDE: [u8; 2] = [22, 23]; const FLINT: [u8; 4] = [24, 25, 26, 27]; const FIBER: [u8; 2] = [28, 29]; const SEED: u8 = 30;
 const WOOD: [u8; 3] = [0, 1, 2]; const LEATHER: [u8; 2] = [3, 4]; const STEEL: [u8; 4] = [5, 6, 7, 8]; const GOLD: [u8; 2] = [9, 10];
 const R2: f64 = std::f64::consts::FRAC_1_SQRT_2;
 fn handle(s: f64, p: f64, a: f64, e: f64) -> Option<u8> {
@@ -100,6 +101,33 @@ fn shape(name: &str, x: f64, y: f64) -> Option<u8> {
             if s > 0.28 && s < 0.6 && p.abs() < 0.04 { return Some(BONE); }
             let (ds, dp) = (s - 0.86, p); if ds * ds / 0.08 + dp * dp / 0.042 < 1.0 { return Some(if ds * ds / 0.08 + dp * dp / 0.042 > 0.72 && dp < 0.0 { c[1] } else { c[0] }); } None
         }
+        // Outils de pierre : un manche de bois, une pierre taillée aux arêtes irrégulières, ligaturée de fibre.
+        "stone_axe" => {
+            let (s, p) = ((x + y) * R2, (x - y) * R2); let jag = 0.018 * ((s * 31.0).sin() + (p * 23.0).cos());
+            if p > -0.03 && p < 0.3 { let half = 0.07 + 0.11 * (p / 0.3).max(0.0) + jag; if (s - 0.88).abs() < half { let e = 0.3 - p; return Some(if e < 0.04 { FLINT[3] } else if (s - 0.88) > half * 0.4 { FLINT[2] } else if (s - 0.88) < -half * 0.5 { FLINT[0] } else { FLINT[1] }); } }
+            if p <= -0.03 && p > -0.08 && (s - 0.88).abs() < 0.1 { return Some(if ((s * 60.0).floor() as i64) & 1 != 0 { FIBER[0] } else { FIBER[1] }); }
+            if s > 0.08 && s < 1.0 && p.abs() < 0.036 { return Some(if p > 0.012 { WOOD[2] } else if p < -0.012 { WOOD[0] } else { WOOD[1] }); } None
+        }
+        "stone_pickaxe" => {
+            let (dx, dy) = (x - 0.34, y - 0.34); let r = crate::det::hypot2(dx, dy); let t = (dy.atan2(dx) - std::f64::consts::FRAC_PI_4) / 0.95; let jag = 0.014 * ((t * 17.0).sin() + (r * 40.0).cos());
+            if t.abs() < 1.0 { let w = 0.02 + 0.07 * (1.0 - t * t) + jag; let d = r - 0.62; if d.abs() < w { return Some(if t.abs() > 0.75 { FLINT[3] } else if d > w * 0.35 { FLINT[2] } else if d < -w * 0.4 { FLINT[0] } else { FLINT[1] }); } }
+            let (s, p) = ((x + y) * R2, (y - x) * R2);
+            if s > 0.82 && s < 0.96 && p.abs() < 0.06 { return Some(if ((p * 70.0).floor() as i64) & 1 != 0 { FIBER[0] } else { FIBER[1] }); }
+            if s > 0.08 && s < 0.9 && p.abs() < 0.036 { return Some(if p > 0.012 { WOOD[2] } else if p < -0.012 { WOOD[0] } else { WOOD[1] }); } None
+        }
+        "stone_knife" => {
+            let (s, p) = ((x + y) * R2, (y - x) * R2);
+            if s > 0.52 && s < 1.12 { let w = 0.07 * ((1.12 - s) / 0.6).powf(0.7) + 0.008; if p > -w * 0.5 && p < w { return Some(if p > w * 0.55 { FLINT[3] } else if ((s * 26.0).floor() as i64) & 1 != 0 { FLINT[1] } else { FLINT[2] }); } }
+            if s > 0.12 && s <= 0.52 && p.abs() < 0.038 { return Some(if s > 0.4 || ((s * 50.0).floor() as i64) & 1 != 0 { FIBER[0] } else { WOOD[1] }); } None
+        }
+        "pebble" => { let (dx, dy) = ((x - 0.5) / 0.3, (y - 0.52) / 0.22); let d = dx * dx + dy * dy; if d < 1.0 { return Some(if dx + dy < -0.6 { FLINT[3] } else if dx + dy > 0.7 { FLINT[0] } else if d < 0.5 { FLINT[2] } else { FLINT[1] }); } None }
+        "fiber" => {
+            // Une botte de longues fibres ondulées, liée au milieu.
+            if (y - 0.5).abs() < 0.035 && (x - 0.5).abs() < 0.13 { return Some(WOOD[0]); }
+            for k in 0..6 { let c = 0.36 + k as f64 * 0.055 + 0.05 * ((y * 9.0 + k as f64).sin()) * ((y - 0.5).abs() * 2.0); if (x - c).abs() < 0.016 && y > 0.12 + 0.03 * (k % 2) as f64 && y < 0.88 - 0.04 * (k % 3) as f64 { return Some(FIBER[k % 2]); } }
+            None
+        }
+        "seeds" => { for (cx, cy) in [(0.38, 0.42), (0.55, 0.36), (0.62, 0.55), (0.44, 0.6), (0.52, 0.5), (0.34, 0.58)] { let (dx, dy) = ((x - cx) / 0.06, (y - cy) / 0.04); if dx * dx + dy * dy < 1.0 { return Some(if dx < -0.3 { FIBER[0] } else { SEED }); } } None }
         "leather" => {
             let (dx, dy) = ((x - 0.5).abs(), (y - 0.5).abs()); if dx > 0.34 || dy > 0.28 { return None; }
             if dx > 0.26 && dy > 0.2 { return None; } if (dx > 0.3 && dy < 0.06) || (dy > 0.24 && dx < 0.07) { return None; } // coins et pattes de la peau

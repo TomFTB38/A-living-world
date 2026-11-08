@@ -15,13 +15,13 @@ use std::collections::HashMap;
 pub const INV_SIZE: usize = 36; pub const STACK: u32 = 99;
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Item { pub id: &'static str, pub label: &'static str, pub block: Option<u8>, pub tool: Option<&'static str> }
-const LABELS: [(&str, &str); 68] = [("campfire", "Feu de camp"), ("workbench", "Établi"), ("grass", "Herbe"), ("dirt", "Terre"), ("path", "Terre de chemin"), ("forest_soil", "Humus"), ("gravel", "Gravier"), ("sand", "Sable"), ("stone", "Pierre"), ("mossy_stone", "Pierre moussue"), ("limestone", "Calcaire"), ("granite", "Granit"),
+const LABELS: [(&str, &str); 70] = [("campfire", "Feu de camp"), ("workbench", "Établi"), ("twigs", "Branches au sol"), ("pebbles", "Cailloux au sol"), ("grass", "Herbe"), ("dirt", "Terre"), ("path", "Terre de chemin"), ("forest_soil", "Humus"), ("gravel", "Gravier"), ("sand", "Sable"), ("stone", "Pierre"), ("mossy_stone", "Pierre moussue"), ("limestone", "Calcaire"), ("granite", "Granit"),
     ("oak_log", "Bois de chêne"), ("birch_log", "Bois de bouleau"), ("beech_log", "Bois de hêtre"), ("planks", "Planches"), ("fence", "Clôture"), ("oak_leaves", "Feuilles de chêne"), ("birch_leaves", "Feuilles de bouleau"), ("beech_leaves", "Feuilles de hêtre"),
     ("tall_grass", "Herbes hautes"), ("fern", "Fougère"), ("daisy", "Marguerite"), ("lupine", "Lupin"), ("pink_flower", "Fleur rose"), ("yellow_flower", "Fleur jaune"), ("mushroom", "Champignon"), ("shelf_fungus", "Polypore"), ("lily_pad", "Nénuphar"), ("vine", "Liane"), ("flagstone", "Dalle"), ("lantern", "Lanterne"), ("water", "Eau"), ("glowcap", "Champignon lumineux vert"), ("glowcap_blue", "Champignon lumineux bleu"), ("glowcap_pink", "Champignon lumineux rose"), ("glowcap_violet", "Champignon lumineux violet"), ("glowcap_cyan", "Champignon lumineux turquoise"), ("snow", "Neige"), ("ice", "Glace"), ("spruce_log", "Bois d'épicéa"), ("spruce_leaves", "Aiguilles d'épicéa"), ("pinecone", "Pomme de pin"), ("snow_layer", "Couche de neige"), ("steppe_grass", "Herbe sèche"), ("dry_earth", "Terre craquelée"), ("feather_grass", "Stipe plumeuse"), ("sagebrush", "Armoise"), ("dead_bush", "Buisson mort"), ("dead_log", "Bois mort"), ("lichen_stone", "Pierre à lichens"), ("blueberry", "Myrtillier"), ("rowan", "Sorbier"), ("fern_dry", "Fougère rousse"), ("acacia_log", "Bois d'acacia"), ("acacia_leaves", "Feuilles d'acacia"), ("bone", "Os"), ("oak_hollow", "Tronc creux de chêne"), ("spruce_hollow", "Tronc creux d'épicéa"), ("dead_hollow", "Tronc creux de bois mort"), ("sandstone", "Grès"), ("red_sandstone", "Grès rouge"), ("cactus", "Cactus"), ("palm_log", "Bois de palmier"), ("palm_leaves", "Palmes"), ("moor_grass", "Herbe de lande"), ("heather", "Bruyère"), ("cotton_grass", "Linaigrette")];
 /// Tous les objets : outils d'abord, puis l'ordre du catalogue.
-pub const ORDER: [&str; 77] = ["pickaxe", "axe", "sword", "grass", "steppe_grass", "moor_grass", "dirt", "dry_earth", "path", "forest_soil", "gravel", "sand", "snow", "snow_layer", "ice", "stone", "mossy_stone", "limestone", "granite", "lichen_stone", "sandstone", "red_sandstone", "bone", "oak_log", "birch_log", "beech_log", "spruce_log", "acacia_log", "palm_log", "dead_log", "oak_hollow", "spruce_hollow", "dead_hollow", "planks", "fence", "oak_leaves", "birch_leaves", "beech_leaves", "spruce_leaves", "acacia_leaves", "palm_leaves", "tall_grass", "fern", "daisy", "lupine", "pink_flower", "yellow_flower", "feather_grass", "heather", "cotton_grass", "sagebrush", "dead_bush", "cactus", "blueberry", "rowan", "fern_dry", "mushroom", "glowcap", "glowcap_blue", "glowcap_pink", "glowcap_violet", "glowcap_cyan", "pinecone", "shelf_fungus", "lily_pad", "vine", "flagstone", "lantern", "campfire", "workbench", "stick", "berries", "rowan_berries", "raw_meat", "cooked_meat", "leather", "water"];
+pub const ORDER: [&str; 85] = ["pickaxe", "axe", "sword", "stone_knife", "stone_axe", "stone_pickaxe", "grass", "steppe_grass", "moor_grass", "dirt", "dry_earth", "path", "forest_soil", "gravel", "sand", "snow", "snow_layer", "ice", "stone", "mossy_stone", "limestone", "granite", "lichen_stone", "sandstone", "red_sandstone", "bone", "oak_log", "birch_log", "beech_log", "spruce_log", "acacia_log", "palm_log", "dead_log", "oak_hollow", "spruce_hollow", "dead_hollow", "planks", "fence", "oak_leaves", "birch_leaves", "beech_leaves", "spruce_leaves", "acacia_leaves", "palm_leaves", "tall_grass", "fern", "daisy", "lupine", "pink_flower", "yellow_flower", "feather_grass", "heather", "cotton_grass", "sagebrush", "dead_bush", "cactus", "blueberry", "rowan", "fern_dry", "mushroom", "glowcap", "glowcap_blue", "glowcap_pink", "glowcap_violet", "glowcap_cyan", "pinecone", "shelf_fungus", "lily_pad", "vine", "flagstone", "lantern", "campfire", "workbench", "twigs", "pebbles", "stick", "pebble", "fiber", "seeds", "berries", "rowan_berries", "raw_meat", "cooked_meat", "leather", "water"];
 /// Onglets du catalogue créatif ; le premier montre tout.
-pub const TABS: [(&str, &[&str]); 6] = [("Terrain", &["grass", "steppe_grass", "moor_grass", "dirt", "dry_earth", "path", "forest_soil", "gravel", "sand", "snow", "snow_layer", "ice", "water"]), ("Roches", &["stone", "mossy_stone", "limestone", "granite", "lichen_stone", "sandstone", "red_sandstone", "bone", "flagstone"]), ("Bois", &["oak_log", "birch_log", "beech_log", "spruce_log", "acacia_log", "palm_log", "dead_log", "oak_hollow", "spruce_hollow", "dead_hollow", "planks", "fence"]), ("Feuillages", &["oak_leaves", "birch_leaves", "beech_leaves", "spruce_leaves", "acacia_leaves", "palm_leaves", "vine"]), ("Plantes", &["tall_grass", "fern", "heather", "cotton_grass", "daisy", "lupine", "pink_flower", "yellow_flower", "feather_grass", "sagebrush", "dead_bush", "cactus", "blueberry", "rowan", "fern_dry", "mushroom", "glowcap", "glowcap_blue", "glowcap_pink", "glowcap_violet", "glowcap_cyan", "pinecone", "shelf_fungus", "lily_pad"]), ("Objets", &["pickaxe", "axe", "sword", "lantern", "campfire", "workbench", "stick", "berries", "rowan_berries", "raw_meat", "cooked_meat", "leather"])];
+pub const TABS: [(&str, &[&str]); 6] = [("Terrain", &["grass", "steppe_grass", "moor_grass", "dirt", "dry_earth", "path", "forest_soil", "gravel", "sand", "snow", "snow_layer", "ice", "water"]), ("Roches", &["stone", "mossy_stone", "limestone", "granite", "lichen_stone", "sandstone", "red_sandstone", "bone", "flagstone"]), ("Bois", &["oak_log", "birch_log", "beech_log", "spruce_log", "acacia_log", "palm_log", "dead_log", "oak_hollow", "spruce_hollow", "dead_hollow", "planks", "fence"]), ("Feuillages", &["oak_leaves", "birch_leaves", "beech_leaves", "spruce_leaves", "acacia_leaves", "palm_leaves", "vine"]), ("Plantes", &["tall_grass", "fern", "heather", "cotton_grass", "daisy", "lupine", "pink_flower", "yellow_flower", "feather_grass", "sagebrush", "dead_bush", "cactus", "blueberry", "rowan", "fern_dry", "mushroom", "glowcap", "glowcap_blue", "glowcap_pink", "glowcap_violet", "glowcap_cyan", "pinecone", "shelf_fungus", "lily_pad"]), ("Objets", &["stone_knife", "stone_axe", "stone_pickaxe", "pickaxe", "axe", "sword", "lantern", "campfire", "workbench", "twigs", "pebbles", "stick", "pebble", "fiber", "seeds", "berries", "rowan_berries", "raw_meat", "cooked_meat", "leather"])];
 pub fn item(id: &str) -> Option<Item> {
     match id { "pickaxe" => return Some(Item { id: "pickaxe", label: "Pioche", block: None, tool: Some("rock") }), "axe" => return Some(Item { id: "axe", label: "Hache", block: None, tool: Some("wood") }), "sword" => return Some(Item { id: "sword", label: "Épée", block: None, tool: None }), _ => {} }
     if let Some(l) = crate::survival::EXTRA.iter().find(|l| l.0 == id) { return Some(Item { id: l.0, label: l.1, block: None, tool: None }); }
@@ -58,15 +58,20 @@ pub struct Session {
     pub deep: f64, pub taiga: f64, pub steppe: f64, pub desert: f64, pub highlands: f64, glows: HashMap<(i32, i32), Vec<[i32; 4]>>, scanned: std::collections::HashSet<(i32, i32)>, pub fauna: Fauna, pub wild: crate::wild::Wild, branch_t: f64, pub weather: Weather, pub sound: SoundScape, gen: WorldGen, pub elapsed: f64, pub hurt_at: f64, built: Vec<f64>, swing_t: f64, dig_t: f64, step_t: f64, water_t: f64, env_t: f64, was_wet: bool, was_ground: bool, fall_v: f64, brook: Option<[f64; 3]>, fall: Option<[f64; 3]>, felling: Option<Tree>, pub falling: Option<Fall>, pub fall_serial: u64, pub flow: Flow,
     /// Survie : endurance et souffle sur 100, mort en cours, sacs laissés, point de réapparition, messages pour l'écran.
     pub stamina: f64, pub air: f64, pub winded: bool, spent_t: f64, pub dead: Option<Death>, pub stashes: Vec<Stash>, pub spawn: [f64; 3], pub notes: Vec<String>, pub prey: Option<Prey>, pub cause: &'static str,
-    low_v: f64, pain_t: f64, use_t: f64, hit_t: f64,
+    low_v: f64, pain_t: f64, use_t: f64, hit_t: f64, mine_need: f64,
+    /// Heures de jeu écoulées depuis le début, et buissons cueillis en attente de leurs baies (position, heure de la cueillette).
+    pub hours: f64, pub regrow: Vec<([i32; 3], f64)>, regrow_t: f64,
 }
 impl Session {
     pub fn new(seed: i32, p: &Preset, threads: usize, at: [f64; 3]) -> Self {
-        let mut inv = [None; INV_SIZE];
-        for (i, (it, n)) in [("pickaxe", None), ("axe", None), ("sword", None), ("lantern", Some(32)), ("dirt", Some(64)), ("stone", Some(32)), ("planks", Some(16))].into_iter().enumerate() { inv[i] = Some(Stack { item: it, n }); }
+        let inv = [None; INV_SIZE]; // on commence les mains vides
         Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, deep: 0.0, taiga: 0.0, steppe: 0.0, desert: 0.0, highlands: 0.0, glows: HashMap::new(), scanned: Default::default(), fauna: Fauna::new(seed), wild: crate::wild::Wild::new(seed), branch_t: 10.0, weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None, felling: None, falling: None, fall_serial: 0, flow: Flow::default(),
-            stamina: 100.0, air: 100.0, winded: false, spent_t: 9.0, dead: None, stashes: Vec::new(), spawn: at, notes: Vec::new(), prey: None, cause: "", low_v: 0.0, pain_t: 0.0, use_t: 0.0, hit_t: 0.0 }
+            stamina: 100.0, air: 100.0, winded: false, spent_t: 9.0, dead: None, stashes: Vec::new(), spawn: at, notes: Vec::new(), prey: None, cause: "", low_v: 0.0, pain_t: 0.0, use_t: 0.0, hit_t: 0.0, mine_need: 1.0, hours: 0.0, regrow: Vec::new(), regrow_t: 0.0 }
     }
+    /// L'ancien équipement de départ : outils d'acier, lanternes et quelques blocs. Pour les bancs d'essai et les captures.
+    pub fn give_kit(&mut self) { for (i, (it, n)) in [("pickaxe", None), ("axe", None), ("sword", None), ("lantern", Some(32)), ("dirt", Some(64)), ("stone", Some(32)), ("planks", Some(16))].into_iter().enumerate() { self.inv[i] = Some(Stack { item: it, n }); } }
+    /// Le temps passe : l'heure du jour tourne, le compte des heures avance (les baies repoussent sur ce compte).
+    pub fn pass_hours(&mut self, h: f64) { self.hour = (self.hour + h).rem_euclid(24.0); self.hours += h; }
     pub fn held(&self) -> Option<Item> { self.inv[self.sel].and_then(|s| item(s.item)) }
     /// Range des objets ; renvoie ce qui n'a pas trouvé de place.
     pub fn add_item(&mut self, id: &str, n: u32) -> u32 {
@@ -105,25 +110,38 @@ impl Session {
     /// L'objet tenu s'il s'agit d'un outil : c'est lui qui donne sa voix au coup.
     fn tool_id(&self) -> Option<&'static str> { self.held().filter(|i| i.block.is_none()).map(|i| i.id) }
     fn mine_step(&mut self, dt: f64, go: bool) {
-        let tool = self.tool_id(); self.swing_t -= dt;
-        // Dans le vide, on frappe quand même, avec n'importe quoi.
-        if go && self.target.is_none() && self.swing_t <= 0.0 { self.swing_t = 0.3; self.sound.swing(tool, 1.0); }
+        let tool = self.tool_id(); let v = voice(tool); self.swing_t -= dt;
+        // Dans le vide, on frappe quand même, avec n'importe quoi ; chaque coup coûte un peu d'endurance.
+        if go && self.target.is_none() && self.swing_t <= 0.0 { self.swing_t = 0.3; self.sound.swing(v, 1.0); if !self.creative { self.spend(STAMINA_SWING); } }
         let Some(t) = self.target.filter(|_| go) else { self.mine_key = None; self.mine_t = 0.0; return };
-        let key = (t.x, t.y, t.z); if self.mine_key != Some(key) { self.mine_key = Some(key); self.mine_t = 0.0; self.felling = if tool == Some("axe") { find_tree(&self.world, t.x, t.y, t.z) } else { None }; }
-        // La hache sur un arbre : pas de bloc à bloc, on entaille jusqu'à ce que tout l'arbre tombe.
+        let key = (t.x, t.y, t.z); if self.mine_key != Some(key) { self.mine_key = Some(key); self.mine_t = 0.0; self.felling = if is_axe(tool) { find_tree(&self.world, t.x, t.y, t.z) } else { None }; }
+        let tired = if self.winded && !self.creative { 0.5 } else { 1.0 }; // essoufflé, les coups portent moitié moins
+        let mut struck = false;
+        // La hache sur un arbre : pas de bloc à bloc, on entaille jusqu'à ce que tout l'arbre tombe. Celle de pierre est plus lente.
         if self.felling.is_some() {
-            self.mine_t += dt; self.dig_t -= dt; if self.dig_t <= 0.0 { self.dig_t = 0.3; self.sound.dig(BLOCKS[t.id as usize].name, tool); }
-            if self.mine_t >= FELL_TIME { self.fell(t); self.mine_key = None; self.mine_t = 0.0; }
+            self.mine_need = if tool == Some("axe") { FELL_TIME } else { FELL_TIME * 1.6 };
+            self.mine_t += dt * tired; self.dig_t -= dt; if self.dig_t <= 0.0 { self.dig_t = 0.3; self.sound.dig(BLOCKS[t.id as usize].name, v); struck = true; }
+            if struck && !self.creative { self.spend(STAMINA_SWING); }
+            if self.mine_t >= self.mine_need { self.fell(t); self.mine_key = None; self.mine_t = 0.0; }
             return;
         }
-        let b = BLOCKS[t.id as usize]; let kind = self.held().and_then(|i| i.tool);
-        let rate = if kind.is_some() && kind == Some(b.cat) { 3.0 } else if b.cat == "terrain" { 1.6 } else { 1.0 };
+        let b = BLOCKS[t.id as usize]; let fit = tool.and_then(tool_kind).filter(|k| k.0 == b.cat);
+        let rate = fit.map_or(bare_rate(b.cat), |k| k.1) * tired; self.mine_need = b.hardness * HARD;
         if self.creative { self.cool -= dt; if self.cool > 0.0 { return; } self.cool = 0.2; self.mine_t = 1e9; }
         self.mine_t += dt * rate; self.dig_t -= dt;
-        if self.dig_t <= 0.0 && !self.creative { self.dig_t = 0.3; self.sound.dig(b.name, tool); }
-        if self.mine_t >= b.hardness {
-            if self.world.edit(t.x, t.y, t.z, 0) { self.flow.touch(t.x, t.y, t.z); self.sound.break_block(b.name, tool); self.drop_attached(t.x, t.y, t.z); if !self.creative { if let Some(d) = b.drop { self.add_item(d, 1); } if let Some((d, n)) = bonus_drop(b.name) { self.add_item(d, n); } } self.dirty = true; }
+        if self.dig_t <= 0.0 && !self.creative { self.dig_t = 0.3; self.sound.dig(b.name, v); if self.mine_need > 0.25 { self.spend(STAMINA_SWING); } }
+        if self.mine_t >= self.mine_need {
+            if self.world.edit(t.x, t.y, t.z, 0) { self.flow.touch(t.x, t.y, t.z); self.sound.break_block(b.name, v); self.drop_attached(t.x, t.y, t.z); if !self.creative { self.drops(b, t, fit.is_some(), tool); } self.dirty = true; }
             self.mine_key = None; self.mine_t = 0.0;
+        }
+    }
+    /// Ce que rend un bloc cassé : son objet (la roche, seulement à la pioche), les baies du buisson, parfois fibre et graines dans l'herbe.
+    fn drops(&mut self, b: Block, t: Target, fit: bool, tool: Option<&str>) {
+        if needs_tool(b.cat) && !fit { self.notes.push("Sans pioche, la pierre s'effrite sans rien donner".into()); return; }
+        if let Some(d) = b.drop { self.add_item(d, 1); } if let Some((d, n)) = bonus_drop(b.name) { self.add_item(d, n); }
+        for (k, (d, p)) in grass_drops(b.name).iter().enumerate() {
+            let p = if *d == "fiber" && tool == Some("stone_knife") { 1.0 } else { *p }; // au couteau, l'herbe donne toujours sa fibre
+            if crate::noise::hash_float(t.x * 7 + k as i32, t.y, t.z * 13 + (self.elapsed * 61.0) as i32, 77) < p { self.add_item(d, 1); }
         }
     }
     /// Le tronc au-dessus de l'entaille tombe, le feuillage disparaît, le pied de l'arbre reste en place.
@@ -157,6 +175,11 @@ impl Session {
         let mining = a.mine && !open; self.anim.update(dt, AnimIn { speed: self.player.speed, ground: self.player.ground, vy: self.player.v[1], crouch: self.player.crouch, fly: self.player.fly, mining });
         if alive && !self.creative { self.survive(dt, i, jumped, roll_start, mining, was_ground); } else { self.low_v = 0.0; }
         self.elapsed += dt; self.weather.update(dt); let t = self.mix().strong(crate::biome::Biome::DeepForest); self.deep += (t - self.deep) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Taiga); self.taiga += (t - self.taiga) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Steppe); self.steppe += (t - self.steppe) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Desert); self.desert += (t - self.desert) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Highlands); self.highlands += (t - self.highlands) * (dt / 2.5).min(1.0);
+        // Les buissons cueillis retrouvent leurs baies au bout d'un jour, une fois leur chunk chargé.
+        self.regrow_t -= dt; if self.regrow_t <= 0.0 && !self.regrow.is_empty() { self.regrow_t = 2.0; let now = self.hours; let mut keep = Vec::new();
+            for (p, at) in std::mem::take(&mut self.regrow) { let cur = self.world.get(p[0], p[1], p[2]); let full = cur.and_then(|b| BLOCKS[b as usize].name.strip_suffix("_picked")).and_then(by_name);
+                match (cur, full) { (None, _) => keep.push((p, at)), (Some(_), Some(f)) => { if now - at >= REGROW_HOURS { self.world.edit(p[0], p[1], p[2], f); self.dirty = true; } else { keep.push((p, at)); } } _ => {} } }
+            self.regrow = keep; }
         let changes = self.flow.step(dt, &self.world); if !changes.is_empty() { self.world.edit_many(&changes); self.dirty = true; }
         if let Some(mut f) = self.falling.take() { if f.step(dt, &self.world) { self.sound.tree_land(); } if !f.done() { self.falling = Some(f); } }
         if self.world.loaded() > 0 {
@@ -261,6 +284,16 @@ impl Session {
     }
     /// Clic droit : manger ce qu'on tient, ou boire l'eau visée les mains libres. Vrai si le clic a servi.
     fn consume(&mut self) -> bool {
+        // Ce qui traîne au sol se ramasse, les buissons se cueillent : avant de manger ou de poser quoi que ce soit.
+        if let Some(t) = self.target {
+            let h = self.player.eye(); let near = ((t.x as f64 + 0.5 - h[0]).powi(2) + (t.y as f64 + 0.5 - h[1]).powi(2) + (t.z as f64 + 0.5 - h[2]).powi(2)).sqrt() <= 4.5;
+            let name = BLOCKS[t.id as usize].name;
+            if near && self.use_t <= 0.0 {
+                if let Some((id, n)) = pickup(name) { if self.world.edit(t.x, t.y, t.z, 0) { self.add_item(id, n); self.sound.place(name); self.anim.trigger(); self.use_t = 0.3; self.dirty = true; } return true; }
+                if let Some((id, n, bare)) = harvest(name) { if let Some(b) = by_name(bare) { if self.world.edit(t.x, t.y, t.z, b) { self.add_item(id, n); self.regrow.push(([t.x, t.y, t.z], self.hours)); self.sound.place(name); self.anim.trigger(); self.use_t = 0.4; self.dirty = true; } } return true; }
+            }
+            if near && (pickup(name).is_some() || harvest(name).is_some()) { return true; }
+        }
         let held = self.inv[self.sel]; let it = held.and_then(|s| item(s.item));
         if let (Some(st), Some(f)) = (held, it.and_then(|i| food(i.id))) {
             let block = it.and_then(|i| i.block).is_some();
@@ -293,7 +326,7 @@ impl Session {
     fn attack(&mut self) {
         let Some(prey) = self.prey.take() else { return }; let tool = self.tool_id(); let (mut dmg, wait) = weapon(tool); self.hit_t = wait;
         if !self.creative { if self.stamina < STAMINA_HIT { dmg *= 0.5; } self.spend(STAMINA_HIT); }
-        self.sound.swing(tool, 1.0); let me = self.player.p;
+        self.sound.swing(voice(tool), 1.0); let me = self.player.p;
         let loot: &[(&str, u32)] = match prey {
             Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); let close = (at[0] - me[0]).hypot(at[2] - me[2]) < 2.4;
                 if self.fauna.strike(k, dmg, me) { DEER_LOOT } else { if close && crate::noise::hash_float((self.elapsed * 977.0) as i32, k as i32, self.seed, 13) < 0.3 { self.harm(6.0, "La ruade d'un cerf", true); } &[] } }
@@ -426,13 +459,14 @@ impl Session {
         if let Some(k) = range.clone().find(|k| self.inv[*k].is_none()) { self.inv[k] = Some(s); self.inv[i] = None; } else { self.inv[i] = Some(s); }
         self.dirty = true;
     }
-    pub fn progress(&self) -> f64 { match self.target { Some(t) if self.mine_key.is_some() => (self.mine_t / if self.felling.is_some() { FELL_TIME } else { BLOCKS[t.id as usize].hardness.max(0.01) }).min(1.0), _ => 0.0 } }
+    pub fn progress(&self) -> f64 { match self.target { Some(_) if self.mine_key.is_some() => (self.mine_t / self.mine_need.max(0.01)).min(1.0), _ => 0.0 } }
     pub fn set_creative(&mut self, on: bool) { self.creative = on; if !on { self.player.fly = false; } }
     /// Sauvegarde lisible : l'état du joueur, puis seulement ce qui diffère du monde généré.
     pub fn save_text(&self) -> String {
         let p = &self.player; let mut s = format!("A Living World 1\npalette {}\nseed {}\nplayer {} {} {} {} {}\nhour {}\ncreative {}\nsel {}\nvit {} {} {}\nweather {}\n", BLOCKS.iter().map(|b| b.name).collect::<Vec<_>>().join(" "), self.seed, p.p[0], p.p[1], p.p[2], p.yaw, p.pitch, self.hour, self.creative as u8, self.sel, self.vit[0], self.vit[1], self.vit[2], self.weather.t);
         for (i, it) in self.inv.iter().enumerate() { if let Some(v) = it { s += &format!("inv {} {} {}\n", i, v.item, v.n.map_or(-1, |n| n as i64)); } }
-        s += &format!("spawn {} {} {}\n", self.spawn[0], self.spawn[1], self.spawn[2]);
+        s += &format!("spawn {} {} {}\nhours {}\n", self.spawn[0], self.spawn[1], self.spawn[2], self.hours);
+        for (p, at) in &self.regrow { s += &format!("regrow {} {} {} {}\n", p[0], p[1], p[2], at); }
         for st in &self.stashes { s += &format!("stash {} {} {}", st.p[0], st.p[1], st.p[2]); for v in &st.items { s += &format!(" {}:{}", v.item, v.n.map_or(-1, |n| n as i64)); } s.push('\n'); }
         for (k, e) in self.world.edits() { s += &format!("chunk {} {}", k.0, k.1); let mut l: Vec<_> = e.into_iter().collect(); l.sort(); for (i, id) in l { s += &format!(" {i}:{id}"); } s.push('\n'); }
         s
@@ -448,6 +482,8 @@ impl Session {
                 Some("hour") => self.hour = num(a.next())?, Some("creative") => self.creative = num(a.next())? != 0.0, Some("sel") => self.sel = (num(a.next())? as usize).min(INV_SIZE - 1),
                 Some("weather") => self.weather.t = num(a.next())?,
                 Some("vit") => { for k in 0..3 { self.vit[k] = num(a.next())?; } }
+                Some("hours") => self.hours = num(a.next())?,
+                Some("regrow") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; self.regrow.push((p, num(a.next())?)); }
                 Some("spawn") => { for k in 0..3 { self.spawn[k] = num(a.next())?; } }
                 Some("stash") => { let p = [num(a.next())?, num(a.next())?, num(a.next())?]; let items: Vec<Stack> = a.filter_map(|c| { let (id, n) = c.split_once(':')?; let n: i64 = n.parse().ok()?; item(id).map(|it| Stack { item: it.id, n: if n < 0 { None } else { Some(n as u32) } }) }).collect(); if !items.is_empty() { stashes.push(Stash { p, items }); } }
                 Some("inv") => { let i = num(a.next())? as usize; let id = a.next().unwrap_or(""); let n = num(a.next())?; if let (Some(it), true) = (item(id), i < INV_SIZE) { inv[i] = Some(Stack { item: it.id, n: if n < 0.0 { None } else { Some(n as u32) } }); } }

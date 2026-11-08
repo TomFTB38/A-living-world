@@ -5,7 +5,7 @@ fn dry() -> [f64; 3] { let g = alw_core::gen::WorldGen::new(20261104); for k in 
 const DT: f64 = 1.0 / 60.0;
 fn none() -> Input { Input::default() }
 fn idle(s: &mut Session, sec: f64) { for _ in 0..(sec / DT) as usize { s.tick(DT, none(), Actions::default()); } }
-fn session() -> Session { let mut s = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, dry()); ready(&mut s); idle(&mut s, 3.0); assert!(s.player.ground); s.vit = [100.0; 3]; s }
+fn session() -> Session { let mut s = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, dry()); s.give_kit(); ready(&mut s); idle(&mut s, 3.0); assert!(s.player.ground); s.vit = [100.0; 3]; s }
 fn ground_y(s: &Session, x: f64, z: f64) -> f64 { let mut y = s.player.p[1] as i32 + 3; while y > 2 && !s.world.get(x.floor() as i32, y, z.floor() as i32).is_some_and(is_solid) { y -= 1; } y as f64 + 1.0 }
 
 #[test]
@@ -15,8 +15,8 @@ fn fabriquer_de_l_arbre_a_la_pioche() {
     assert_eq!(s.count("log"), 2, "deux essences, un seul ingrédient « bois »");
     s.craft(i("planks")).unwrap(); s.craft(i("planks")).unwrap(); assert_eq!(s.count("planks"), 8); assert_eq!(s.count("log"), 0);
     assert_eq!(s.craft(i("planks")), Err("Il manque des ingrédients"));
-    s.craft(i("stick")).unwrap(); assert_eq!(s.count("stick"), 4); s.craft(i("workbench")).unwrap(); assert_eq!(s.count("workbench"), 1); assert_eq!(s.count("planks"), 2);
-    s.add_item("stone", 2); s.add_item("granite", 1);
+    s.craft(i("stick")).unwrap(); assert_eq!(s.count("stick"), 2); s.craft(i("workbench")).unwrap(); assert_eq!(s.count("workbench"), 1); assert_eq!(s.count("planks"), 3);
+    s.add_item("stone", 2); s.add_item("granite", 1); s.add_item("fiber", 2);
     assert_eq!(s.craft(i("pickaxe")), Err("Il faut un établi à portée"));
     let p = s.player.p; let (x, z) = (p[0].floor() as i32 + 2, p[2].floor() as i32); let y = ground_y(&s, x as f64, z as f64) as i32; assert!(s.world.edit(x, y, z, B::WORKBENCH));
     assert!(s.stations().0); s.craft(i("pickaxe")).unwrap(); assert_eq!(s.count("rock"), 0, "pierre et granite comptent tous deux");
@@ -109,4 +109,44 @@ fn feu_de_camp_et_etabli() {
     s.world.edit(x + 1, y, z, B::CAMPFIRE); s.player.p = [x as f64 + 0.5, p[1], z as f64 + 0.5]; idle(&mut s, 2.0); assert_eq!(s.vit[0], 100.0, "à côté du feu");
     assert!(s.stations().1); s.inv = [None; INV_SIZE]; s.add_item("raw_meat", 1); let i = RECIPES.iter().position(|r| r.out == "cooked_meat").unwrap(); s.craft(i).unwrap(); assert_eq!(s.count("cooked_meat"), 1);
     s.player.p = [x as f64 + 1.5, p[1], z as f64 + 0.5]; idle(&mut s, 1.0); assert!(s.vit[0] < 100.0 && s.cause == "Les flammes", "dans le feu");
+}
+
+#[test]
+fn depart_mains_vides_et_ramassage() {
+    let o = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, dry()); assert!(o.inv.iter().all(|x| x.is_none()), "on commence sans rien");
+    let mut s = session(); s.inv = [None; INV_SIZE]; s.third = false; s.player.pitch = -0.7; s.player.yaw = 0.0; idle(&mut s, 0.2);
+    let put = |s: &mut Session, b: u8| -> Target { s.player.pitch = -0.7; s.tick(0.0, none(), Actions::default()); let t = s.target.expect("sol visé"); let (x, y, z) = (t.x, t.y + 1, t.z); s.world.edit(x, y, z, b); s.tick(0.0, none(), Actions::default()); let t = s.target.unwrap(); assert_eq!(t.id, b, "on vise ce qu'on vient de poser"); t };
+    let t = put(&mut s, B::TWIGS); s.tick(DT, none(), Actions { mine: false, place: true }); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0)); assert_eq!(s.count("stick"), 2, "branches ramassées");
+    idle(&mut s, 0.5); let t = put(&mut s, B::PEBBLES); s.tick(DT, none(), Actions { mine: false, place: true }); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0)); assert_eq!(s.count("pebble"), 2);
+    // myrtillier : cueilli au clic droit, dépouillé un jour, puis ses baies reviennent
+    idle(&mut s, 0.5); let t = put(&mut s, B::BLUEBERRY); s.tick(DT, none(), Actions { mine: false, place: true }); assert_eq!(s.count("berries"), 3); assert_eq!(s.world.get(t.x, t.y, t.z), Some(B::BLUEBERRY_PICKED));
+    idle(&mut s, 1.0); s.tick(DT, none(), Actions { mine: false, place: true }); assert_eq!(s.count("berries"), 3, "rien à cueillir sur un buisson dépouillé");
+    s.pass_hours(10.0); idle(&mut s, 2.5); assert_eq!(s.world.get(t.x, t.y, t.z), Some(B::BLUEBERRY_PICKED), "pas encore");
+    let txt = s.save_text(); assert!(txt.contains("regrow "));
+    s.pass_hours(15.0); idle(&mut s, 2.5); assert_eq!(s.world.get(t.x, t.y, t.z), Some(B::BLUEBERRY), "un jour plus tard, les baies sont revenues"); assert!(s.regrow.is_empty());
+}
+
+#[test]
+fn durete_outils_de_pierre_fibre() {
+    let mut s = session(); s.inv = [None; INV_SIZE]; s.third = false;
+    // outils de pierre : à la main, avec branches, cailloux et fibre
+    let i = |id: &str| RECIPES.iter().position(|r| r.out == id).unwrap();
+    s.add_item("stick", 5); s.add_item("pebble", 8); s.add_item("fiber", 7); for t in ["stone_knife", "stone_axe", "stone_pickaxe"] { s.craft(i(t)).unwrap(); }
+    assert_eq!(s.count("fiber"), 0); assert_eq!(s.count("pebble"), 0); assert_eq!(s.count("stick"), 0);
+    let time = |s: &mut Session, b: u8, sel: Option<usize>| -> (f64, bool) {
+        s.player.pitch = -0.7; s.player.yaw = 0.0; s.tick(0.0, none(), Actions::default()); let g = s.target.unwrap(); let (x, y, z) = (g.x, g.y + 1, g.z); s.world.edit(x, y, z, b); s.stamina = 100.0;
+        s.sel = sel.unwrap_or(30); let before = s.inv.iter().flatten().map(|t| t.n.unwrap_or(1)).sum::<u32>(); let mut k = 0;
+        while s.world.get(x, y, z) == Some(b) && k < 2000 { s.stamina = 100.0; s.tick(DT, none(), Actions { mine: true, place: false }); k += 1; }
+        let after = s.inv.iter().flatten().map(|t| t.n.unwrap_or(1)).sum::<u32>(); idle(s, 0.4); (k as f64 * DT, after > before)
+    };
+    let pick = s.inv.iter().position(|t| t.is_some_and(|t| t.item == "stone_pickaxe")); let axe = s.inv.iter().position(|t| t.is_some_and(|t| t.item == "stone_axe")); let knife = s.inv.iter().position(|t| t.is_some_and(|t| t.item == "stone_knife"));
+    let (hand_stone, got) = time(&mut s, B::STONE, None); assert!(hand_stone > 10.0 && !got, "la pierre à mains nues : {hand_stone:.1} s, rien");
+    let (pick_stone, got) = time(&mut s, B::STONE, pick); assert!(pick_stone < 2.2 && pick_stone > 1.2 && got, "à la pioche de pierre : {pick_stone:.1} s");
+    let (hand_dirt, _) = time(&mut s, B::DIRT, None); assert!(hand_dirt > 0.9 && hand_dirt < 1.5, "la terre à la main : {hand_dirt:.1} s");
+    let (hand_wood, got) = time(&mut s, B::PLANKS, None); let (axe_wood, _) = time(&mut s, B::PLANKS, axe); assert!(got && hand_wood > 4.0 && axe_wood < hand_wood / 3.0, "bois : {hand_wood:.1} s à la main, {axe_wood:.1} s à la hache");
+    // l'herbe donne parfois fibre et graines, toujours de la fibre au couteau
+    let f0 = s.count("fiber"); for _ in 0..6 { time(&mut s, B::TALL_GRASS, knife); } assert_eq!(s.count("fiber"), f0 + 6);
+    let (f1, g1) = (s.count("fiber"), s.count("seeds")); for _ in 0..40 { time(&mut s, B::TALL_GRASS, None); } let (df, dg) = (s.count("fiber") - f1, s.count("seeds") - g1); assert!(df > 6 && df < 30 && dg > 0 && dg < 15, "fibre {df}, graines {dg} sur 40 touffes");
+    // frapper dans le vide fatigue
+    s.player.fly = true; s.player.p[1] += 30.0; s.player.pitch = 0.6; s.stamina = 100.0; for _ in 0..30 { s.tick(DT, none(), Actions { mine: true, place: false }); } assert!(s.target.is_none() && s.stamina < 100.0, "coups dans le vide : {}", s.stamina);
 }

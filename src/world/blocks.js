@@ -158,6 +158,11 @@ const defs = [
   // Survie : stations de fabrication
   ['campfire', 'deco', null, 0.4, { model: 'campfire', light: 13, cat: 'light', drop: 'campfire' }], // cuit la viande, brûle qui marche dedans
   ['workbench', 'deco', null, 0.8, { model: 'workbench', solid: true, cat: 'wood', drop: 'workbench' }],
+  // Survie : ce qui traîne au sol et se ramasse à la main ; buissons cueillis, qui repoussent en un jour
+  ['twigs', 'deco', null, 0.05, { model: 'twigs', drop: 'stick' }],
+  ['pebbles', 'deco', null, 0.05, { model: 'pebbles', drop: 'pebble' }],
+  ['blueberry_picked', 'deco', null, 0.03, { model: 'blueberry', drop: 'blueberry' }],
+  ['rowan_picked', 'deco', null, 0.06, { model: 'rowan', drop: 'rowan' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({

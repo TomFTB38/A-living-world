@@ -13,6 +13,7 @@ Ouvrir `dist/index.html` dans Chrome, Edge ou Firefox, avec une carte graphique 
 | Regarder | Souris (clic dans le jeu pour capturer le pointeur) |
 | Casser / poser | Clic gauche maintenu / clic droit |
 | Frapper un animal | Clic gauche en le visant |
+| Ramasser, cueillir | Clic droit sur des branches, des cailloux, un buisson à baies |
 | Manger / boire | Clic droit avec un aliment en main / les mains libres face à l'eau |
 | Fabriquer | E, puis clic sur une recette (Maj + clic : autant que possible) |
 | Réapparaître | Entrée ou le bouton de l'écran de mort |
@@ -31,10 +32,11 @@ Ouvrir `dist/index.html` dans Chrome, Edge ou Firefox, avec une carte graphique 
 
 ## Survie (moteur final)
 
-Quatre jauges : vie, faim, soif, endurance, et le souffle sous l'eau. Courir, sauter, rouler et frapper coûtent de l'endurance ; à bout de souffle, on marche. La faim et la soif baissent avec l'effort (la soif deux fois plus vite au désert) ; à zéro, elles blessent. Bien nourri, on guérit.
+On commence les mains vides. Au sol traînent des branches et des cailloux, qui se ramassent d'un clic droit ; l'herbe arrachée donne parfois de la fibre et des graines (toujours de la fibre au couteau). Branches, cailloux et fibre font, à la main, le couteau, la hache et la pioche de pierre ; la hache donne le bois, le bois les planches et l'établi, où se font les outils d'acier.
+Les blocs résistent : la terre cède en une seconde, le bois en cinq à mains nues et la pierre ne donne rien sans pioche. Des fissures montrent où en est le bloc. Les myrtilliers et les sorbiers se cueillent d'un clic droit et retrouvent leurs baies un jour plus tard.
+Quatre jauges : vie, faim, soif, endurance, et le souffle sous l'eau. Courir, sauter, rouler et chaque coup (dans le vide, un bloc ou un animal) coûtent de l'endurance ; à bout de souffle, on marche et on frappe moins fort. La faim et la soif baissent avec l'effort (la soif deux fois plus vite au désert) ; à zéro, elles blessent. Bien nourri, on guérit.
 Ce qui blesse : les chutes de plus de trois blocs et demi, la noyade, les épines de cactus, les flammes, la faim, la soif, la ruade d'un cerf. À la mort, tout l'inventaire reste dans un sac, là où l'on est tombé ; on réapparaît au point de départ et on le reprend en marchant dessus.
-On chasse cerfs, renards et lièvres (viande crue, cuir), on cueille myrtilles et baies de sorbier, on boit dans l'eau visée. La viande crue rend malade : elle se cuit près d'un feu de camp.
-Fabrication : bois → planches → bâtons → établi et feu de camp ; à l'établi, outils de pierre, clôtures, dalles, lanternes. Les recettes sont dans `engine/core/src/survival.rs`.
+On chasse cerfs, renards et lièvres (viande crue, cuir) et on boit dans l'eau visée. La viande crue rend malade : elle se cuit près d'un feu de camp. Les recettes sont dans `engine/core/src/survival.rs`.
 
 ## Développer
 

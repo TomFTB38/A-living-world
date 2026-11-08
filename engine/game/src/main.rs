@@ -94,7 +94,7 @@ impl Game {
     fn save(&mut self) { if std::fs::write(beside_exe("monde.alw"), self.s.save_text()).is_err() { self.say("Sauvegarde impossible".into()); } self.s.dirty = false; }
     fn frame(&mut self) {
         let now = Instant::now(); let real = (now - self.last).as_secs_f64(); let dt = if self.menu.open { 0.0 } else { real.min(0.05) }; self.last = now; self.time += dt;
-        if self.run_time { self.s.hour = (self.s.hour + dt * 24.0 / 1500.0) % 24.0; }
+        if self.run_time { self.s.pass_hours(dt * 24.0 / 1500.0); }
         let k = |c: KeyCode| self.keys.contains(&c);
         // Regarder vers +z place +x à gauche de l'écran : la droite vaut -x.
         let ax = |a: bool, b: bool| (a as i32 - b as i32) as f64;
@@ -197,7 +197,7 @@ impl ApplicationHandler for App {
                     KeyCode::KeyF => { if g.s.creative { g.s.player.fly = !g.s.player.fly; let m = if g.s.player.fly { "Vol activé" } else { "Vol désactivé" }; g.say(m.into()); } else { g.say("Le vol demande le mode créatif (G)".into()); } }
                     KeyCode::KeyG => { let on = !g.s.creative; g.s.set_creative(on); g.say(if on { "Mode créatif : casse instantanée, blocs illimités, vol avec F" } else { "Mode survie" }.into()); }
                     KeyCode::KeyR => { g.s.orient = (g.s.orient + 1) % MODES.len() as u8; g.say(format!("Orientation : {}", MODES[g.s.orient as usize])); }
-                    KeyCode::KeyT => g.s.hour = (g.s.hour + 1.0) % 24.0,
+                    KeyCode::KeyT => g.s.pass_hours(1.0),
                     KeyCode::KeyY => g.run_time = !g.run_time,
                     KeyCode::F3 => g.debug = !g.debug,
                     KeyCode::F5 => { g.save(); g.say("Monde sauvegardé".into()); }
@@ -224,7 +224,7 @@ fn capture(a: &[String]) {
     let (radius, w, h, shadow) = (n(8, 6.0) as i32, n(9, 1280.0) as u32, n(10, 720.0) as u32, n(11, 2048.0) as u32);
     let md = Models::build(); let scene = a.get(12).cloned().unwrap_or_default();
     let mut g = pollster::block_on(gpu::Gpu::new(None, w, h, gpu::Options { shadow, fallback: true, hole: (radius as f32 - 0.6) * 32.0, cascades: if scene == "ultra" { gpu::CASCADES_ULTRA } else { gpu::CASCADES } }, &md));
-    let mut s = Session::new(SEED, &(if scene == "ultra" { Preset { radius, ..ULTRA } } else { Preset { radius, lod1: 2.3, lod2: 4.6 } }), 4, [eye[0], eye[1] - 1.62, eye[2]]); s.hour = n(7, 16.4); s.player.fly = true;
+    let mut s = Session::new(SEED, &(if scene == "ultra" { Preset { radius, ..ULTRA } } else { Preset { radius, lod1: 2.3, lod2: 4.6 } }), 4, [eye[0], eye[1] - 1.62, eye[2]]); s.hour = n(7, 16.4); s.player.fly = true; s.give_kit(); // les captures gardent l'ancien équipement
     let pump = |s: &mut Session, g: &mut gpu::Gpu| loop { let (b, f) = s.sync(); for c in b { g.upload(c); } for k in f { g.forget(k); } if s.world.waiting() == 0 { break; } std::thread::sleep(std::time::Duration::from_millis(5)); };
     let t0 = Instant::now(); pump(&mut s, &mut g); println!("{} chunks chargés en {:.1} s", s.world.loaded(), t0.elapsed().as_secs_f64());
     let f = view::norm([look[0] - eye[0], look[1] - eye[1], look[2] - eye[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
@@ -362,7 +362,7 @@ fn capture(a: &[String]) {
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
     }
-    if ["survie", "craft", "campement", "mort"].contains(&scene.as_str()) {
+    if ["survie", "craft", "campement", "mort", "ramassage", "fissure"].contains(&scene.as_str()) {
         // Survie : on retombe au sol, un établi et un feu de camp devant soi, des jauges entamées.
         use alw_core::blocks::{is_solid, B}; use alw_core::player::Voxels;
         s.player.fly = false; s.third = false; s.sel = 2; for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.dead.is_some() { s.respawn(); } s.vit = [100.0; 3];
@@ -377,7 +377,22 @@ fn capture(a: &[String]) {
         if scene == "survie" { let (dx, dz) = at(5.5, -2.6); s.fauna.put([dx, gy(&s, dx, dz) as f64, dz], s.player.yaw + 2.0); s.air = 55.0; s.tick(0.0, none, Actions::default()); s.hurt_at = s.elapsed - 0.25; }
         if scene == "craft" { s.inv = [None; alw_core::session::INV_SIZE]; for (id, n) in [("oak_log", 3), ("planks", 6), ("stick", 5), ("stone", 4), ("raw_meat", 2), ("berries", 7), ("leather", 1), ("glowcap", 2), ("pickaxe", 1)] { s.add_item(id, n); } s.inv_open = true; }
         if scene == "mort" { s.harm(500.0, "Une chute", false); }
-        s.tick(0.0, none, Actions::default()); println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
+        if scene == "ramassage" {
+            // Ce qui se ramasse : branches, cailloux, un myrtillier chargé et un autre déjà cueilli, posés sur le sol sec devant soi.
+            let mut used = vec![(cx.floor(), cz.floor()), (wx.floor(), wz.floor())]; let mut edits = Vec::new();
+            for (b, k, l) in [(B::TWIGS, 2.0, -0.8), (B::PEBBLES, 2.2, 0.3), (B::BLUEBERRY, 2.6, -1.6), (B::BLUEBERRY_PICKED, 2.8, 1.2), (B::TWIGS, 3.0, -0.2)] {
+                let spot = (0..30).map(|i| (k + (i / 6) as f64 * 0.4, l + ((i % 6) as f64 - 2.5) * 0.35)).map(|(a, c)| at(a, c)).find(|q| dry(&s, q.0, q.1) && !used.contains(&(q.0.floor(), q.1.floor())));
+                if let Some((x, z)) = spot { used.push((x.floor(), z.floor())); edits.push((x.floor() as i32, gy(&s, x, z), z.floor() as i32, b)); }
+            }
+            s.world.edit_many(&edits); pump(&mut s, &mut g); s.player.pitch = -0.55; s.inv = [None; alw_core::session::INV_SIZE]; for (id, n) in [("stick", 4), ("pebble", 6), ("fiber", 3), ("seeds", 2), ("stone_knife", 1), ("stone_axe", 1), ("stone_pickaxe", 1)] { s.add_item(id, n); } s.sel = 4;
+        }
+        if scene == "fissure" {
+            // Un bloc à moitié cassé à la pioche de pierre : les fissures doivent se voir.
+            s.inv[0] = Some(alw_core::session::Stack { item: "stone_pickaxe", n: None }); s.sel = 0; s.player.pitch = -0.75; s.tick(0.0, none, Actions::default());
+            for _ in 0..600 { s.stamina = 100.0; s.tick(1.0 / 60.0, none, Actions { mine: true, place: false }); if s.progress() > 0.62 { break; } }
+            println!("fissure : progression {:.2}, cible {:?}", s.progress(), s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
+        }
+        if scene != "fissure" { s.tick(0.0, none, Actions::default()); } println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
     }
     let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 1, confirm: false };
     let info = if scene == "f3" || scene == "foret" { debug_lines(&s, 240.0, 5_200_000, "Ultra") } else { Vec::new() };

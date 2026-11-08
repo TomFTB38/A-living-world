@@ -232,27 +232,29 @@ impl WorldGen {
             }
             if here != 0 { continue; }
             let r = hash_float(wxi, wzi, s, 3);
+            // Ce qui traîne au sol et se ramasse : branches tombées (plus sous les arbres), cailloux.
+            let k = hash_float(wxi, wzi, s, 61); let litter = |tw: f64, pb: f64| if k < tw { B::TWIGS } else if k < tw + pb { B::PEBBLES } else { 0 };
             // Au froid, sous la future pellicule de neige : quelques herbes givrées et des pommes de pin, rien d'autre.
             if hash_float(wxi, wzi, s, 42) < smooth(0.3, 0.7, self.climate.at(wx, wz).strong(Biome::Taiga)) { if is_opaque(ground) && ground != B::ICE {
                 // Sous-bois : myrtilliers en tapis, fougères rousses, quelques sorbiers à baies rouges, herbes givrées et pommes de pin.
                 let patch = smooth(-0.1, 0.5, nd.n2(wx / 12.0 - 31.0, wz / 12.0 + 17.0)); let t = hash_float(wxi, wzi, s, 47);
-                v[idx(x, y, z)] = if r < 0.05 { B::FROST_GRASS } else if r < 0.062 { B::PINECONE } else if r < 0.062 + 0.22 * patch { if t < 0.75 { B::BLUEBERRY } else { B::FERN_DRY } } else if r < 0.075 + 0.22 * patch { B::FERN_DRY } else if r < 0.081 + 0.22 * patch { B::ROWAN } else { 0 };
+                v[idx(x, y, z)] = if r < 0.05 { B::FROST_GRASS } else if r < 0.062 { B::PINECONE } else if r < 0.062 + 0.22 * patch { if t < 0.75 { B::BLUEBERRY } else { B::FERN_DRY } } else if r < 0.075 + 0.22 * patch { B::FERN_DRY } else if r < 0.081 + 0.22 * patch { B::ROWAN } else { litter(0.012, 0.005) };
             } continue; } let (fr, path, meadow, deep, _) = info[x + z * CX];
             if ground == B::PATH { if r < 0.055 { v[idx(x, y, z)] = B::FLAGSTONE; } continue; }
             // Hautes terres : bruyère en nappes, linaigrettes près de l'eau, herbe rase et quelques fleurs.
             if ground == B::MOOR_GRASS || (ground == B::FOREST_SOIL && info[x + z * CX].4 < 0.5 && self.climate.at(wx, wz).strong(Biome::Highlands) > 0.5) {
                 let patch = smooth(-0.2, 0.45, nd.n2(wx / 13.0 + 21.0, wz / 13.0 - 9.0)); let wet = ground == B::FOREST_SOIL;
-                v[idx(x, y, z)] = if wet { if r < 0.35 { B::COTTON_GRASS } else if r < 0.5 { B::TALL_GRASS } else { 0 } } else if r < 0.08 + 0.55 * patch { B::HEATHER } else if r < 0.2 + 0.55 * patch { B::TALL_GRASS } else if r < 0.21 + 0.55 * patch { B::YELLOW_FLOWER } else { 0 };
+                v[idx(x, y, z)] = if wet { if r < 0.35 { B::COTTON_GRASS } else if r < 0.5 { B::TALL_GRASS } else { 0 } } else if r < 0.08 + 0.55 * patch { B::HEATHER } else if r < 0.2 + 0.55 * patch { B::TALL_GRASS } else if r < 0.21 + 0.55 * patch { B::YELLOW_FLOWER } else { litter(0.002, 0.02) };
                 continue;
             }
             // Désert : presque nu ; quelques touffes d'herbe dure sur les dunes et des buissons morts.
-            if ground == B::SAND { v[idx(x, y, z)] = if r < 0.01 { B::DEAD_BUSH } else if r < 0.028 { B::FEATHER_GRASS } else { 0 }; continue; }
+            if ground == B::SAND { v[idx(x, y, z)] = if r < 0.01 { B::DEAD_BUSH } else if r < 0.028 { B::FEATHER_GRASS } else { litter(0.002, 0.006) }; continue; }
             // Steppe : touffes de stipe en vagues, armoises éparses, quelques buissons morts et de rares fleurs.
             if ground == B::STEPPE_GRASS || ground == B::DRY_EARTH {
                 let clump = smooth(-0.35, 0.55, nd.n2(wx / 9.0 + 13.0, wz / 9.0 - 21.0)); let t = hash_float(wxi, wzi, s, 45);
-                v[idx(x, y, z)] = if ground == B::DRY_EARTH { if r < 0.04 { B::FEATHER_GRASS } else if r < 0.065 { B::DEAD_BUSH } else { 0 } }
+                v[idx(x, y, z)] = if ground == B::DRY_EARTH { if r < 0.04 { B::FEATHER_GRASS } else if r < 0.065 { B::DEAD_BUSH } else { litter(0.002, 0.012) } }
                     else if r < 0.08 + 0.42 * clump { B::FEATHER_GRASS } else if r < 0.12 + 0.42 * clump + 0.05 * (1.0 - clump) { B::SAGEBRUSH }
-                    else if r < 0.135 + 0.42 * clump + 0.05 * (1.0 - clump) { B::DEAD_BUSH } else if r < 0.155 + 0.42 * clump + 0.05 * (1.0 - clump) { if t < 0.6 { B::YELLOW_FLOWER } else { B::LUPINE } } else { 0 };
+                    else if r < 0.135 + 0.42 * clump + 0.05 * (1.0 - clump) { B::DEAD_BUSH } else if r < 0.155 + 0.42 * clump + 0.05 * (1.0 - clump) { if t < 0.6 { B::YELLOW_FLOWER } else { B::LUPINE } } else { litter(0.003, 0.008) };
                 continue;
             }
             if !is_grass(ground) && ground != B::FOREST_SOIL && ground != B::MOSSY_STONE { continue; }
@@ -274,6 +276,8 @@ impl WorldGen {
             else if r < 0.985 { id = B::TALL_GRASS; }
             if fr > 0.6 && hash_float(wxi, wzi, s, 7) < 0.012 + 0.02 * deep { id = B::MUSHROOM; }
             if deep > 0.3 && hash_float(wxi, wzi, s, 13) < (0.025 + 0.06 * smooth(0.2, 0.6, nd.n2(wx / 11.0 - 40.0, wz / 11.0 + 7.0))) * deep { id = glowcap_of((hash_int(wxi, y as i32, wzi, 93) % 5) as usize); } // en ronds de sorcière plus denses
+            // Forêt tempérée : quelques myrtilliers aussi, pour avoir de quoi manger dès le départ.
+            let l = litter(0.003 + 0.02 * fr, 0.009); if l != 0 { id = l; } else if fr > 0.4 && k < 0.012 + 0.032 * fr { id = B::BLUEBERRY; }
             if ground == B::MOSSY_STONE && r > 0.5 { id = 0; }
             if path > 0.05 { id = if r < 0.5 { B::TALL_GRASS } else { 0 }; }
             v[idx(x, y, z)] = id;

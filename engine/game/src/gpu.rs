@@ -8,7 +8,7 @@ use winit::window::Window;
 use crate::{font_data as fd, hud};
 
 const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; pub const LIGHTS: usize = 48; const FLOATS: usize = 200 + LIGHTS * 8; const MAX_ACTORS: u64 = 512; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 60_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 52.0;
-pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 9;
+pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 10; // 100 icônes au plus
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32, pub cascades: [f64; 3] }
 struct Part { buf: wgpu::Buffer, indices: u32 }
@@ -317,6 +317,7 @@ impl Gpu {
         if aim.is_some() {
             let mut p = enc.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("contour"), color_attachments: &[clear_color(&t.hdr.view, wgpu::LoadOp::Load)], depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment { view: &t.d.view, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store }), stencil_ops: None }), timestamp_writes: None, occlusion_query_set: None });
             p.set_pipeline(&self.p.line); p.set_bind_group(0, g0, &[]); p.draw(0..24, 0..if ghost.is_some() { 2 } else { 1 });
+            if aim.is_some_and(|a| a.1 > 0.0) { p.draw(0..144, 2..3); } // fissures du bloc qu'on casse
         }
         fullscreen(&mut enc, &self.p.compose.pipe, g0, Some(&t.b_comp), &t.comp.view, BLACK);
         let cur = (fr & 1) as usize;
