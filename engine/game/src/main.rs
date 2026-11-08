@@ -3,6 +3,7 @@
 mod font_data;
 mod gpu;
 mod hud;
+mod needs;
 mod sound;
 use alw_core::{actors::Models, audio::{Mood, SoundScape}, blocks::MODES, gen::WorldGen, player::Input, session::{Actions, Session}, stream::{Preset, HIGH, ULTRA}, view, weather::{self, Kind, KINDS}};
 use std::collections::HashSet;
@@ -43,9 +44,11 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
 }
 /// Réglages enregistrés ; un fichier plus ancien garde ses valeurs et prend les nouvelles par défaut.
 fn read_settings() -> hud::Menu {
-    let mut m = hud::Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 0, confirm: false };
+    let mut m = hud::Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 0, confirm: false, profile: 1, hud: 1, reduce: false, marker: true, alt: false };
     let Ok(t) = std::fs::read_to_string(beside_exe("reglages.alw")) else { return m }; let v: Vec<f32> = t.split_whitespace().filter_map(|x| x.parse().ok()).collect();
-    if v.len() >= 5 { m.vol = [v[0].clamp(0.0, 1.0), v[1].clamp(0.0, 1.0), v[2].clamp(0.0, 1.0), v.get(5).copied().unwrap_or(0.5).clamp(0.0, 1.0)]; m.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); m.mood = (v[4] as usize).min(hud::MOODS.len() - 1); m.quality = v.get(6).map_or(0, |q| (*q as usize).min(1)); }
+    if v.len() >= 5 { m.vol = [v[0].clamp(0.0, 1.0), v[1].clamp(0.0, 1.0), v[2].clamp(0.0, 1.0), v.get(5).copied().unwrap_or(0.5).clamp(0.0, 1.0)]; m.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); m.mood = (v[4] as usize).min(hud::MOODS.len() - 1); m.quality = v.get(6).map_or(0, |q| (*q as usize).min(1));
+        // Indicateurs de survie : mode d'affichage, animations réduites, marqueur de la dépouille.
+        if let Some(x) = v.get(7) { m.hud = (*x as usize).min(needs::MODES.len() - 1); } if let Some(x) = v.get(8) { m.reduce = *x > 0.5; } if let Some(x) = v.get(9) { m.marker = *x > 0.5; } }
     m
 }
 /// Panneau F3 : ce qu'il faut pour comprendre où l'on est et comment tourne le jeu.
@@ -85,7 +88,7 @@ impl Game {
         self.s.weather.forced = if m.weather == 0 { None } else { Some(KINDS[m.weather - 1]) };
         self.s.sound.force(if m.mood == 0 { None } else { Some([Mood::Calme, Mood::Nuit, Mood::Construction, Mood::Suspense, Mood::Danger][m.mood - 1]) });
     }
-    fn write_settings(&self) { let m = &self.menu; let _ = std::fs::write(beside_exe("reglages.alw"), format!("{} {} {} {} {} {} {}\n", m.vol[0], m.vol[1], m.vol[2], m.weather, m.mood, m.vol[3], m.quality)); }
+    fn write_settings(&self) { let m = &self.menu; let _ = std::fs::write(beside_exe("reglages.alw"), format!("{} {} {} {} {} {} {} {} {} {}\n", m.vol[0], m.vol[1], m.vol[2], m.weather, m.mood, m.vol[3], m.quality, m.hud, m.reduce as u8, m.marker as u8)); }
     fn slide(&mut self, i: usize) {
         let sz = self.window.inner_size(); let r = hud::menu_layout(sz.width as f32, sz.height as f32, &self.menu).into_iter().find(|x| x.0 == hud::M::Vol(i)).map(|x| x.1);
         if let Some(r) = r { self.menu.vol[i] = ((self.mouse[0] - r[0]) / r[2]).clamp(0.0, 1.0); self.apply(); }
@@ -102,7 +105,7 @@ impl Game {
         self.place_t -= dt; let place = self.rmb && self.place_t <= 0.0; if place { self.place_t = 0.22; }
         self.s.tick(dt, input, Actions { mine: self.lmb, place });
         for n in std::mem::take(&mut self.s.notes) { self.say(n); }
-        if self.s.dead.is_some() && self.grabbed { self.grab(false); } // l'écran de mort a besoin du pointeur
+        if (self.s.dead.is_some() || self.s.inv_open) && self.grabbed && !self.menu.open { self.grab(false); } // écran de mort, coffre ouvert d'un clic droit : il faut le pointeur
         let (built, gone) = self.s.sync();
         for b in built { self.gpu.upload(b); }
         for g in gone { self.gpu.forget(g); }
@@ -128,7 +131,7 @@ impl ApplicationHandler for App {
         if let Ok(t) = std::fs::read_to_string(beside_exe("monde.alw")) { if let Err(e) = s.load_text(&t) { report(&format!("Sauvegarde illisible : {e}")); } }
         s.sound = SoundScape::new(sound::start());
         let mut g = Game { debug: false, fps: 0.0, menu, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
-        g.apply(); g.grab(true); self.game = Some(g);
+        g.menu.profile = g.s.profile; g.apply(); g.grab(true); self.game = Some(g);
     }
     fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, e: WindowEvent) {
         let Some(g) = self.game.as_mut() else { return };
@@ -150,6 +153,10 @@ impl ApplicationHandler for App {
                         Some(hud::M::Mood(i)) => { g.menu.mood = i; g.apply(); }
                         Some(hud::M::Quality(i)) => { g.menu.quality = i; g.say("Qualité appliquée au prochain lancement".into()); }
                         Some(hud::M::Vol(i)) => { g.drag = Some(i); g.slide(i); }
+                        Some(hud::M::Profile(i)) => { g.s.profile = i; g.menu.profile = i; g.say(format!("Profil de survie : {}", alw_core::survival::PROFILES[i].name)); }
+                        Some(hud::M::Hud(i)) => g.menu.hud = i,
+                        Some(hud::M::Reduce) => g.menu.reduce = !g.menu.reduce,
+                        Some(hud::M::Marker) => g.menu.marker = !g.menu.marker,
                         Some(hud::M::Credits) => g.menu.credits = true,
                         Some(hud::M::Back) => g.menu.credits = false,
                         Some(hud::M::Quit) => { g.save(); g.write_settings(); std::process::exit(0); }
@@ -159,17 +166,24 @@ impl ApplicationHandler for App {
                 }
                 if g.s.dead.is_some() { if button == MouseButton::Left && down && hud::death_at(w, h, g.mouse) { g.s.respawn(); g.grab(true); } return; }
                 if g.s.inv_open {
-                    let at = hud::hit_at(g.s.creative, g.s.tab, w, h, g.mouse); let shift = g.keys.contains(&KeyCode::ShiftLeft) || g.keys.contains(&KeyCode::ShiftRight); let slot = if let Some(hud::Hit::Slot(i)) = at { Some(i) } else { None };
+                    let at = hud::hit_at(&g.s, w, h, g.mouse); let shift = g.keys.contains(&KeyCode::ShiftLeft) || g.keys.contains(&KeyCode::ShiftRight); let slot = if let Some(hud::Hit::Slot(i)) = at { Some(i) } else { None };
+                    if down && at != Some(hud::Hit::Search) { g.s.book.typing = false; }
                     match (button, down) {
                         (MouseButton::Left, true) => match at {
                             Some(hud::Hit::Tab(i)) => g.s.tab = i,
                             Some(hud::Hit::Slot(i)) => if shift { g.s.quick_slot(i) } else { g.s.grab_slot(i) },
                             Some(hud::Hit::Catalog(id)) => if shift { g.s.quick_catalog(id) } else if g.s.cursor.is_none() { g.s.grab_catalog(id) },
-                            // Maj + clic fabrique tant que les ingrédients suivent.
-                            Some(hud::Hit::Recipe(i)) => { let mut made = 0; loop { match g.s.craft(i) { Ok(()) => { made += 1; if !shift || made >= 64 { break; } } Err(e) => { if made == 0 { g.say(e.into()); } break; } } } }
+                            Some(hud::Hit::BookCat(i)) => { g.s.book.cat = i; g.s.book.page = 0; }
+                            Some(hud::Hit::Book(r)) => g.s.book.sel = Some(r),
+                            Some(hud::Hit::Page(d)) => g.s.book.page = (g.s.book.page as i32 + d).max(0) as usize,
+                            Some(hud::Hit::Search) => g.s.book.typing = true,
+                            // « Fabriquer » une fois, ou « Tout » : autant que les ingrédients le permettent.
+                            Some(hud::Hit::Craft(all)) => if let Some(r) = g.s.book.sel { let mut made = 0; loop { match g.s.craft(r) { Ok(()) => { made += 1; if !(all || shift) || made >= 64 { break; } } Err(e) => { if made == 0 { g.say(e.into()); } break; } } } },
                             None => {}
                         },
                         (MouseButton::Left, false) => g.s.drop_slot(slot),
+                        // Clic droit sur une recette : favorite ou non (les favorites passent en tête du livre).
+                        (MouseButton::Right, true) if matches!(at, Some(hud::Hit::Book(_))) => if let Some(hud::Hit::Book(r)) = at { let out = alw_core::survival::recipes()[r].out; if !g.s.fav.remove(out) { g.s.fav.insert(out); } },
                         (MouseButton::Right, true) => if let Some(i) = slot { if g.s.cursor.is_some() { g.s.put_one(i) } else { g.s.take_half(i); g.half = Some(i); } },
                         // Un clic droit laisse la moitié en main ; un glisser la dépose là où on relâche.
                         (MouseButton::Right, false) => if let (Some(f), Some(i)) = (g.half.take(), slot) { if f != i { g.s.drop_slot(Some(i)); } },
@@ -187,12 +201,20 @@ impl ApplicationHandler for App {
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 let PhysicalKey::Code(c) = event.physical_key else { return };
+                // Alt tenu : tous les besoins s'affichent.
+                if matches!(c, KeyCode::AltLeft | KeyCode::AltRight) { g.menu.alt = event.state == ElementState::Pressed; }
                 if event.state != ElementState::Pressed { g.keys.remove(&c); return; }
+                // Recherche dans le livre de recettes : les touches écrivent au lieu de commander.
+                if g.s.inv_open && g.s.book.typing {
+                    match c { KeyCode::Backspace => { g.s.book.search.pop(); } KeyCode::Enter | KeyCode::NumpadEnter | KeyCode::Escape => g.s.book.typing = false,
+                        _ => if let Some(t) = &event.text { for ch in t.chars().filter(|ch| !ch.is_control()) { if g.s.book.search.chars().count() < 24 { g.s.book.search.push(ch); } } } }
+                    g.s.book.page = 0; return;
+                }
                 if !event.repeat { match c {
                     KeyCode::Enter | KeyCode::NumpadEnter if g.s.dead.is_some() && !g.menu.open => { g.s.respawn(); g.grab(true); }
-                    KeyCode::Escape => { if g.s.inv_open { g.s.inv_open = false; g.s.drop_slot(None); g.grab(true); } else if g.menu.open { g.close_menu(); } else { g.menu.open = true; g.grab(false); } }
+                    KeyCode::Escape => { if g.s.inv_open { g.s.inv_open = false; g.s.drop_slot(None); g.s.close_chest(); g.grab(true); } else if g.menu.open { g.close_menu(); } else { g.menu.open = true; g.grab(false); } }
                     _ if g.menu.open || g.s.dead.is_some() => {}
-                    KeyCode::KeyE => { let on = !g.s.inv_open; g.s.inv_open = on; if !on { g.s.drop_slot(None); } g.grab(!on); }
+                    KeyCode::KeyE => { let on = !g.s.inv_open; g.s.inv_open = on; if !on { g.s.drop_slot(None); g.s.close_chest(); } g.grab(!on); }
                     KeyCode::KeyC => { g.s.third = !g.s.third; let m = if g.s.third { "Troisième personne" } else { "Première personne" }; g.say(m.into()); }
                     KeyCode::KeyF => { if g.s.creative { g.s.player.fly = !g.s.player.fly; let m = if g.s.player.fly { "Vol activé" } else { "Vol désactivé" }; g.say(m.into()); } else { g.say("Le vol demande le mode créatif (G)".into()); } }
                     KeyCode::KeyG => { let on = !g.s.creative; g.s.set_creative(on); g.say(if on { "Mode créatif : casse instantanée, blocs illimités, vol avec F" } else { "Mode survie" }.into()); }
@@ -388,14 +410,14 @@ fn capture(a: &[String]) {
         }
         if scene == "fissure" {
             // Un bloc à moitié cassé à la pioche de pierre : les fissures doivent se voir.
-            s.inv[0] = Some(alw_core::session::Stack { item: "stone_pickaxe", n: None }); s.sel = 0; s.player.pitch = -0.75; s.tick(0.0, none, Actions::default());
+            s.inv[0] = Some(alw_core::session::Stack::new("stone_pickaxe", None)); s.sel = 0; s.player.pitch = -0.75; s.tick(0.0, none, Actions::default());
             for _ in 0..8 { match s.target { Some(t) if alw_core::blocks::is_deco(t.id) => { s.world.edit(t.x, t.y, t.z, 0); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); } _ => break } } // les herbes d'abord : c'est le bloc dessous qu'on veut voir se fendre
             for _ in 0..600 { s.stamina = 100.0; s.tick(1.0 / 60.0, none, Actions { mine: true, place: false }); if s.progress() > 0.62 { break; } }
             println!("fissure : progression {:.2}, cible {:?}", s.progress(), s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
         }
         if scene != "fissure" { s.tick(0.0, none, Actions::default()); } println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
     }
-    let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 1, confirm: false };
+    let menu = hud::Menu { open: scene == "menu", credits: false, weather: 3, mood: 0, vol: [0.7, 0.7, 0.5, 0.5], quality: 1, confirm: false, profile: 1, hud: 2, reduce: false, marker: true, alt: false };
     let info = if scene == "f3" || scene == "foret" { debug_lines(&s, 240.0, 5_200_000, "Ultra") } else { Vec::new() };
     let t1 = Instant::now(); let mut tris = 0;
     for k in 0..10 { tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu, &info); g.settle(); }

@@ -1,6 +1,6 @@
 //! Pipeline d'image : ombres en cascades, G-buffer, SSAO, lumière, nuages, brume, eau, composition, TAA, bloom, sortie.
 //! Tout ce qui touche à wgpu est ici ; le reste du jeu n'en dépend pas.
-use alw_core::{actors::{Draw, Models}, mesher::VSIZE, session::ORDER, stream::{Built, FAR}, textures, view::{self, Sky, M4}, weather::Env};
+use alw_core::{actors::{Draw, Models}, mesher::VSIZE, session::order, stream::{Built, FAR}, textures, view::{self, Sky, M4}, weather::Env};
 use std::collections::HashMap;
 use std::sync::Arc;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -8,7 +8,7 @@ use winit::window::Window;
 use crate::{font_data as fd, hud};
 
 const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; pub const LIGHTS: usize = 48; const FLOATS: usize = 200 + LIGHTS * 8; const MAX_ACTORS: u64 = 512; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 60_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 52.0;
-pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 10; // 100 icônes au plus
+pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 16; // 256 icônes au plus (atlas 2048 × 2048)
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32, pub cascades: [f64; 3] }
 struct Part { buf: wgpu::Buffer, indices: u32 }
@@ -208,13 +208,13 @@ impl Gpu {
             let ia = [wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 0, shader_location: 5 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 16, shader_location: 6 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 32, shader_location: 7 }, wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 48, shader_location: 8 }];
             let vb = [wgpu::VertexBufferLayout { array_stride: VSIZE as u64, step_mode: wgpu::VertexStepMode::Vertex, attributes: &vattrs }, wgpu::VertexBufferLayout { array_stride: 64, step_mode: wgpu::VertexStepMode::Instance, attributes: &ia }];
             let pipe = d.create_render_pipeline(&wgpu::RenderPipelineDescriptor { label: Some("icônes"), layout: Some(&pl), vertex: wgpu::VertexState { module: &m, entry_point: Some("vs_icon"), compilation_options: Default::default(), buffers: &vb }, fragment: Some(wgpu::FragmentState { module: &m, entry_point: Some("fs_icon"), compilation_options: Default::default(), targets: &[Some(LDR.into())] }), primitive: prim(None), depth_stencil: ds(true, wgpu::CompareFunction::Less), multisample: wgpu::MultisampleState { count: 4, ..Default::default() }, multiview: None, cache: None });
-            let mats: Vec<f32> = ORDER.iter().flat_map(|id| models.icon_matrix(id)).collect();
+            let mats: Vec<f32> = order().iter().flat_map(|id| models.icon_matrix(id)).collect();
             let ib = d.create_buffer_init(&BufferInitDescriptor { label: None, contents: &bytes_f32(&mats), usage: wgpu::BufferUsages::VERTEX });
             let mut enc = d.create_command_encoder(&Default::default());
             {
                 let mut p = enc.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("icônes"), color_attachments: &[Some(wgpu::RenderPassColorAttachment { view: &msaa, resolve_target: Some(&icon_view), ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT), store: wgpu::StoreOp::Store } })], depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment { view: &depth, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(1.0), store: wgpu::StoreOp::Store }), stencil_ops: None }), timestamp_writes: None, occlusion_query_set: None });
                 p.set_pipeline(&pipe); p.set_bind_group(0, &bg, &[]); p.set_index_buffer(ibuf.slice(..), wgpu::IndexFormat::Uint32); p.set_vertex_buffer(0, actor_vb.slice(..)); p.set_vertex_buffer(1, ib.slice(..));
-                for (i, id) in ORDER.iter().enumerate() {
+                for (i, id) in order().iter().enumerate() {
                     let (cx, cy) = (i as u32 % ICON_COLS, i as u32 / ICON_COLS); let r = models.held(id).expect("objet").r; let c = ICON_CELL as f32;
                     p.set_viewport(cx as f32 * c, cy as f32 * c, c, c, 0.0, 1.0); p.draw_indexed(r.first..r.first + r.count, 0, i as u32..i as u32 + 1);
                 }
