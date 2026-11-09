@@ -76,8 +76,19 @@ fn outfit_parts() -> Vec<(&'static str, VBuf)> {
                 "shin" => { b(q, [-0.112, -0.38, -0.112, 0.112, -0.14, 0.118], a); b(q, [-0.114, -0.38, -0.114, 0.114, -0.34, 0.15], d); }
                 "back" => { b(q, [-0.19, 0.06, -0.38, 0.19, 0.56, -0.13], a); b(q, [-0.15, 0.1, -0.41, 0.15, 0.32, -0.37], d); }
                 // Le bouclier vu de l'arrière, en première personne : planches, cerclage, umbo, poignée.
-                "fpshield" => { b(q, [-0.2, -0.16, -0.015, 0.2, 0.26, 0.015], a); b(q, [-0.14, -0.3, -0.015, 0.14, -0.16, 0.015], a); b(q, [-0.06, -0.38, -0.015, 0.06, -0.3, 0.015], a);
-                    b(q, [-0.21, 0.24, -0.02, 0.21, 0.28, 0.02], d); b(q, [-0.21, -0.16, -0.02, -0.17, 0.26, 0.02], d); b(q, [0.17, -0.16, -0.02, 0.21, 0.26, 0.02], d); b(q, [-0.05, 0.0, -0.035, 0.05, 0.1, -0.015], d); b(q, [-0.02, -0.04, 0.015, 0.02, 0.14, 0.05], [0.3, 0.2, 0.12]); }
+                "fpshield" => {
+                    // Le bouclier vu de l'arrière : des planches de teintes un peu différentes, joints sombres, cerclage riveté, umbo, sangle et poignée.
+                    let rows: [(f64, f64, f64); 3] = [(-0.16, 0.26, 0.2), (-0.3, -0.16, 0.14), (-0.38, -0.3, 0.06)];
+                    b(q, [-0.196, -0.156, -0.008, 0.196, 0.256, 0.008], d); b(q, [-0.136, -0.296, -0.008, 0.136, -0.16, 0.008], d); b(q, [-0.056, -0.376, -0.008, 0.056, -0.3, 0.008], d);
+                    for k in 0..5 { let (x0, x1) = (-0.2 + k as f64 * 0.08 + 0.0035, -0.2 + (k + 1) as f64 * 0.08 - 0.0035); let t = [1.0, 0.88, 1.07, 0.93, 1.03][k]; let c = [a[0] * t, a[1] * t, a[2] * t];
+                        for (y0, y1, w) in rows { let (l, r) = (x0.max(-w), x1.min(w)); if r > l { b(q, [l, y0, -0.015, r, y1, 0.015], c); } } }
+                    let rim = [d[0] * 0.8, d[1] * 0.8, d[2] * 0.8]; let rv = [d[0] * 1.5, d[1] * 1.5, d[2] * 1.5];
+                    b(q, [-0.21, 0.245, -0.022, 0.21, 0.275, 0.022], rim); b(q, [-0.21, -0.16, -0.022, -0.18, 0.26, 0.022], rim); b(q, [0.18, -0.16, -0.022, 0.21, 0.26, 0.022], rim);
+                    b(q, [-0.15, -0.3, -0.022, -0.12, -0.16, 0.022], rim); b(q, [0.12, -0.3, -0.022, 0.15, -0.16, 0.022], rim); b(q, [-0.07, -0.39, -0.022, 0.07, -0.36, 0.022], rim);
+                    for (x, y) in [(-0.195, 0.2), (-0.195, 0.05), (-0.195, -0.1), (0.195, 0.2), (0.195, 0.05), (0.195, -0.1), (-0.1, 0.26), (0.0, 0.26), (0.1, 0.26), (-0.135, -0.24), (0.135, -0.24)] { b(q, [x - 0.009, y - 0.009, -0.027, x + 0.009, y + 0.009, -0.02], rv); }
+                    b(q, [-0.06, 0.0, -0.032, 0.06, 0.11, -0.015], rim); b(q, [-0.18, 0.13, -0.03, 0.18, 0.16, -0.014], [0.32, 0.2, 0.11]); // umbo vu de dos, sangle
+                    b(q, [-0.022, -0.05, 0.015, 0.022, 0.15, 0.045], [0.3, 0.19, 0.11]); b(q, [-0.026, -0.03, 0.015, 0.026, -0.01, 0.05], [0.2, 0.13, 0.08]); b(q, [-0.026, 0.11, 0.015, 0.026, 0.13, 0.05], [0.2, 0.13, 0.08]);
+                }
                 _ => { b(q, [0.075, -0.26, -0.2, 0.1, 0.14, 0.2], a); b(q, [0.1, -0.08, -0.04, 0.13, -0.04, 0.04], d); b(q, [0.072, -0.27, -0.21, 0.098, -0.24, 0.21], d); b(q, [0.072, 0.11, -0.21, 0.098, 0.14, 0.21], d); }
             }
             o.push((Box::leak(format!("wear_{slot}_{f}").into_boxed_str()) as &'static str, m));
@@ -89,9 +100,20 @@ fn thigh() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.1, -THIGH - 0.03, 
 fn shin() -> VBuf { let mut o = VBuf::new(100); b(&mut o, [-0.09, -0.18, -0.09, 0.09, 0.02, 0.095], PANTS); b(&mut o, [-0.105, -0.22, -0.105, 0.105, -0.13, 0.11], BOOT); b(&mut o, [-0.098, -0.37, -0.1, 0.098, -0.2, 0.105], BOOT); b(&mut o, [-0.098, -0.4, -0.11, 0.098, -0.32, 0.2], BOOT); b(&mut o, [-0.102, -0.42, -0.115, 0.102, -0.395, 0.205], SOLE); o }
 fn upper() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.082, -UPPER - 0.03, -0.085, 0.082, 0.03, 0.085], TUNIC); b(&mut o, [-0.09, -0.03, -0.095, 0.09, 0.05, 0.095], STRAP); o }
 fn fore() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.075, -0.09, -0.078, 0.075, 0.03, 0.078], TUNIC2); b(&mut o, [-0.062, -0.21, -0.065, 0.062, -0.09, 0.065], SKIN); b(&mut o, [-0.072, -0.235, -0.074, 0.072, -0.185, 0.074], LEATHER2); b(&mut o, [-0.066, -0.295, -0.07, 0.066, -0.23, 0.07], SKIN); o }
-fn fist() -> VBuf { let mut o = VBuf::new(100); b(&mut o, [-0.085, -0.34, -0.085, 0.085, 0.0, 0.085], SHIRT); b(&mut o, [-0.09, -0.38, -0.09, 0.09, -0.33, 0.09], SHIRT2); b(&mut o, [-0.08, -0.66, -0.08, 0.08, -0.38, 0.08], SKIN); o }
+fn fist() -> VBuf {
+    // Le bras vu en première personne : manche à revers, brassard de cuir sanglé, poignet, main serrée (phalanges, pouce).
+    let mut o = VBuf::new(400); let q = &mut o;
+    b(q, [-0.072, -0.3, -0.072, 0.072, 0.0, 0.072], SHIRT); b(q, [-0.074, -0.12, -0.074, 0.074, -0.1, 0.074], SHIRT2); b(q, [-0.078, -0.33, -0.078, 0.078, -0.29, 0.078], SHIRT2);
+    b(q, [-0.064, -0.46, -0.066, 0.064, -0.33, 0.066], LEATHER2); for y in [-0.36, -0.43] { b(q, [-0.067, y - 0.012, -0.069, 0.067, y + 0.012, 0.069], BELT); } b(q, [0.062, -0.442, -0.016, 0.071, -0.418, 0.016], BUCKLE);
+    b(q, [-0.05, -0.5, -0.053, 0.05, -0.46, 0.053], SKIN2);
+    b(q, [-0.058, -0.6, -0.056, 0.058, -0.5, 0.056], SKIN);
+    for k in 0..4 { let x = -0.052 + k as f64 * 0.027; let t = if k % 2 == 0 { SKIN } else { SKIN2 };
+        b(q, [x, -0.655, -0.04, x + 0.024, -0.585, 0.064], t); b(q, [x + 0.002, -0.6, 0.056, x + 0.022, -0.58, 0.068], SKIN2); }
+    b(q, [0.054, -0.6, 0.0, 0.08, -0.52, 0.05], SKIN2); b(q, [0.046, -0.62, 0.03, 0.074, -0.58, 0.07], SKIN);
+    o
+}
 
-// Outils : image 56 × 56 décrite par des formes, puis extrudée en petits voxels. Couleurs : indices de PAL.
+// Outils : image 84 × 84 décrite par des formes, puis extrudée en petits voxels. Couleurs : indices de PAL.
 const PAL: [C; 31] = [[0.3, 0.17, 0.08], [0.48, 0.29, 0.14], [0.66, 0.43, 0.22], [0.2, 0.11, 0.06], [0.36, 0.2, 0.1], [0.4, 0.39, 0.38], [0.62, 0.61, 0.6], [0.84, 0.83, 0.82], [1.0, 0.99, 0.97], [0.62, 0.42, 0.1], [0.92, 0.7, 0.2], [0.0; 3],
     [0.14, 0.17, 0.4], [0.32, 0.4, 0.7], [0.24, 0.44, 0.18], [0.74, 0.14, 0.08], [0.96, 0.4, 0.18], [0.66, 0.16, 0.16], [0.9, 0.62, 0.56], [0.9, 0.86, 0.76], [0.36, 0.17, 0.08], [0.56, 0.3, 0.13], [0.6, 0.4, 0.22], [0.42, 0.26, 0.13],
     [0.33, 0.32, 0.31], [0.46, 0.45, 0.43], [0.6, 0.59, 0.56], [0.72, 0.7, 0.66], [0.7, 0.64, 0.38], [0.52, 0.5, 0.27], [0.76, 0.64, 0.42]];
@@ -184,19 +206,29 @@ fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
     crate::icons::look(name, x, if upright { y } else { 1.0 - y })
 }
 fn tool_mesh(name: &str) -> VBuf {
-    let mut o = VBuf::new(8000); const N: usize = 56; let s = 0.86; let px = s / N as f64; let grip = 0.2 * R2 * s;
-    for j in 0..N {
+    // L'image est relue sur une grille tournée de 45° : les outils sont dessinés en diagonale, leurs lames et manches
+    // tombent ainsi le long des rangées et gardent des bords droits, sans marches d'escalier. Puis le tout est retourné.
+    let mut o = VBuf::new(8000); o.scale = 2048.0; const N: usize = 84; const E: f64 = 0.0032; /* un léger recouvrement : les arrondis ne laissent pas de fentes */ let s = 0.86; let px = s / N as f64; let grip = 0.2 * R2 * s;
+    let (ns, np) = ((N as f64 * 1.4143).ceil() as usize, (N as f64 * 1.4143).ceil() as usize);
+    let at = |i: usize, j: usize| { let (u, v) = ((i as f64 + 0.5) / N as f64, (j as f64 + 0.5) / N as f64 - 0.7072); look(name, (u - v) * R2, (u + v) * R2) };
+    for j in 0..np {
         let mut run: Option<(usize, (C, f64))> = None;
-        for i in 0..=N {
-            let c = if i < N { look(name, (i as f64 + 0.5) / N as f64, (j as f64 + 0.5) / N as f64) } else { None };
+        for i in 0..=ns {
+            let c = if i < ns { at(i, j) } else { None };
             if let Some((a, (col, th))) = run { if c != Some((col, th)) {
-                bx(&mut o, a as f64 * px - grip, j as f64 * px - grip, -th, i as f64 * px - grip, (j + 1) as f64 * px - grip, th, col[0], col[1], col[2], 0.0, 255.0, 0.0, kind::FLAT, true, 0.0, 255.0);
+                bx(&mut o, a as f64 * px - E, j as f64 * px - 0.7072 * s - E, -th, i as f64 * px + E, (j + 1) as f64 * px - 0.7072 * s + E, th, col[0], col[1], col[2], 0.0, 255.0, 0.0, kind::FLAT, true, 0.0, 255.0);
                 run = None;
             } }
             if let (Some(k), None) = (c, run) { run = Some((i, k)); }
         }
     }
-    o
+    for v in o.data.chunks_exact_mut(VSIZE) {
+        let g = |k: usize| i16::from_le_bytes([v[k], v[k + 1]]) as f64 / 2048.0; let (u, w, z) = (g(0), g(2), g(4));
+        let (x, y) = ((u - w) * R2 - grip, (u + w) * R2 - grip);
+        for (k, val) in [(0, x), (2, y), (4, z)] { v[k..k + 2].copy_from_slice(&((val * 128.0).round() as i16).to_le_bytes()); }
+        let (nx, ny) = (v[8] as i8 as f64, v[9] as i8 as f64); v[8] = ((nx - ny) * R2).round() as i8 as u8; v[9] = ((nx + ny) * R2).round() as i8 as u8;
+    }
+    o.scale = 128.0; o
 }
 fn cube_mesh(id: u8) -> VBuf { let mut o = VBuf::new(32); cube_at(&mut o, id, [0.0; 3]); o }
 /// Un bloc complet, posé à `at` : le mode « tenu » lit la texture dans ces coordonnées, sans dépendre du monde.
@@ -312,8 +344,8 @@ impl Anim {
         match held {
             None => { let hit = strike.max(push); out.push(hand(mul(&v, &trs(-0.27 + bx_ + 0.08 * hit, -0.33 + by + 0.05 * hit, 0.2 + 0.2 * hit, 0.34 - 0.16 * hit, -2.06 - 0.3 * hit, 0.46)))); }
             Some(h) if h.hold == Hold::Tool => {
-                let arm = mul(&v, &trs(-0.235 + bx_, -0.25 + by - 0.06 * strike, 0.1 + 0.2 * push + 0.12 * strike, 0.22 + 0.3 * strike, -1.72 + 0.22 * self.run + 0.85 * strike - 0.3 * push, 0.46));
-                out.push(hand(arm)); out.push(Draw { m: mul(&arm, &hold_m(Hold::Tool)), r: h.r, view: true, local: h.local, hero: true, dynamic: false });
+                let arm = mul(&v, &trs(-0.25 + bx_, -0.27 + by - 0.06 * strike, 0.1 + 0.2 * push + 0.12 * strike, 0.22 + 0.3 * strike, -1.72 + 0.22 * self.run + 0.85 * strike - 0.3 * push, 0.46));
+                out.push(hand(arm)); out.push(Draw { m: mul(&arm, &mul(&hold_m(Hold::Tool), &trs(0.0, 0.0, 0.0, 0.0, 0.0, 0.8))), r: h.r, view: true, local: h.local, hero: true, dynamic: false });
             }
             Some(h) => {
                 let sc = if h.hold == Hold::Block { 0.26 } else { 0.46 };

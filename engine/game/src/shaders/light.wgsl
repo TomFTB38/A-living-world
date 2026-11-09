@@ -17,13 +17,13 @@
   let dist = length(wp - u.cam.xyz); let ss = textureSampleLevel(t_ao, s_clamp, i.uv, 0.0).r;
   let sh = shadow_at(wp, n, dist, i.pos.xy, 8) * cloud_shade(wp);
   let nol = dot(n, u.sun.xyz); let wrp = select(sat(nol), sat((nol + 0.45) / 1.45), trans > 0.0);
-  let direct = u.sun_col.rgb * wrp * sh;
+  let direct = u.sun_col.rgb * wrp * sh * 1.08;
   let back = pow(sat(dot(vv, u.sun.xyz)), 5.0) * trans;
   let bl = u.sun_col.rgb * alb * vec3f(1.1, 1.3, 0.7) * back * sh * 0.55;
-  let sky2 = sky_l * sky_l * (3.0 - 2.0 * sky_l); let vis = vao * mix(1.0, ss, 0.9);
+  let sky2 = sky_l * sky_l * (3.0 - 2.0 * sky_l); let vis = vao * ss * mix(0.85, 1.0, vao);
   let sky_amb = mix(u.ground.rgb * 0.9, mix(u.hor.rgb, u.top.rgb, 0.4) * vec3f(1.0, 0.95, 0.82) * 0.78, n.y * 0.5 + 0.5);
   let canopy = vec3f(0.27, 0.36, 0.13) * mix(1.0, 0.5, n.y * 0.5 + 0.5);
-  let amb = mix(canopy * 1.75, sky_amb, sky2 * 0.8 + 0.2) * (0.6 + 0.4 * sky_l) * vis;
+  let amb = mix(canopy * 1.75, sky_amb, sky2 * 0.8 + 0.2) * (0.6 + 0.4 * sky_l) * vis * 0.82; /* moins d'ambiance : les ombres ont du corps */
   let blkc = vec3f(1.0, 0.62, 0.28) * pow(blk, 2.1) * 2.2 * vao;
   // Champignons lumineux : une lueur fluorescente de leur couleur, sans ombre, qui meurt en quelques blocs.
   var glow = vec3f(0.0);
@@ -34,6 +34,8 @@
   }
   var c = alb * (direct + amb + blkc + glow * 3.2 * vao) + bl;
   let hv = normalize(u.sun.xyz - vv); let nh = sat(dot(n, hv));
-  c += u.sun_col.rgb * pow(nh, mix(90.0, 10.0, rough)) * (1.0 - rough) * 0.9 * sh * sat(nol) * 0.5;
+  let fres = 0.04 + 0.96 * pow(1.0 - sat(dot(n, -vv)), 5.0);
+  c += u.sun_col.rgb * pow(nh, mix(140.0, 10.0, rough)) * (1.0 - rough) * (1.0 - rough) * 1.6 * sh * sat(nol) * (0.4 + fres);
+  c += sky_amb * fres * (1.0 - rough) * 0.35 * vis * sky2; /* reflet du ciel sur ce qui est lisse, aux angles rasants */
   return vec4f(c, 1.0);
 }

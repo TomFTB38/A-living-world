@@ -148,7 +148,7 @@ impl WorldGen {
             for u in 0..w { for ww in 0..d { for y in y0 - 3..y0 { put(u, y, ww, m.found); } put(u, y0, ww, m.floor); } }
             for y in y0 + 1..=y0 + 3 { for u in 0..w { for ww in 0..d {
                 let edge = u == 0 || ww == 0 || u == w - 1 || ww == d - 1; if !edge { continue; }
-                let corner = (u == 0 || u == w - 1) && (ww == 0 || ww == d - 1); put(u, y, ww, if corner { m.corner } else { m.wall });
+                let corner = (u == 0 || u == w - 1) && (ww == 0 || ww == d - 1); put(u, y, ww, if corner || y == y0 + 3 { m.corner } else if y == y0 + 1 && m.wall != m.found { m.found } else { m.wall }); // soubassement de pierre, sablière de bois
             } } }
             // Toit à deux pans, faîte du devant vers le fond ; pignons pleins.
             let yr = y0 + 4; let (mut k, mut lu, mut ru) = (0, -1, w);
@@ -167,7 +167,11 @@ impl WorldGen {
             // Le mobilier : le poste de l'artisan au fond, un lit, un coffre, une lanterne.
             let back = d - 2; put(1, y0 + 1, back, id("bed")); put(w - 2, y0 + 1, 1, lantern);
             match craft {
-                Some("forgeron") | Some("maitre_forgeron") | Some("armurier") => { put(du, y0 + 1, back, id("anvil")); put(du + 1, y0 + 1, back, id("furnace")); }
+                Some("forgeron") | Some("maitre_forgeron") | Some("armurier") => {
+                    put(du, y0 + 1, back, id("anvil")); put(du + 1, y0 + 1, back, id("furnace"));
+                    // La cheminée de la forge, en pierre, perce le pan du toit au-dessus du fourneau.
+                    for y in y0 + 2..y0 + 6 + w / 2 { put(du + 1, y, d - 1, cob); }
+                }
                 Some("tailleur_pierre") => { put(du, y0 + 1, back, id("mason_bench")); put(du + 1, y0 + 1, back, cob); }
                 Some("tanneur") => { put(du, y0 + 1, back, id("workbench")); put(du + 1, y0 + 1, back, id("chest")); }
                 Some(_) => { put(du, y0 + 1, back, id("workbench")); put(du + 1, y0 + 1, back, id("planks")); }

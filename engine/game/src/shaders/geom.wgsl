@@ -63,6 +63,11 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
     }
     let d = m.xy * 2.0 - 1.0; if (!held) { nn = normalize(n + (tt * d.x + bb * d.y) * 0.9); } rough = m.b;
     if (kind == 1) { trans = 1.0; rough = 0.5; alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.8) * vec3f(0.74, 0.8, 0.74); } // feuillage au soleil : vert profond, pas jaune fluo
+    if ((layer0 < 4 || kind == 1 || (layer0 < 8 && n.y < 0.5)) && !held) { /* herbe et feuillage : grandes taches de teinte, comme une vraie prairie, et un vert olive plutôt que citron */
+      let mv = noise(i.w * 0.043) * 0.62 + noise(i.w * 0.16 + vec3f(5.3)) * 0.38;
+      let gl = dot(alb, vec3f(0.3, 0.6, 0.1)); let olive = vec3f(gl * 1.02, gl, gl * 0.62);
+      alb = mix(alb, olive, 0.22 + 0.34 * mv) * (0.8 + 0.32 * mv) * vec3f(0.96, 0.95, 1.0);
+    }
     // mousse en petits pixels sur les pierres et l'écorce
     let mossy_rock = layer0 >= MOSSY0 && layer0 < MOSSY0 + 4;
     let mossable = mossy_rock || (layer0 >= BARK0 && layer0 < BARK0 + 4) || (layer0 >= BEECH0 && layer0 < BEECH0 + 4);
@@ -72,7 +77,15 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
       alb = mix(alb, vec3f(0.13, 0.22, 0.045) * (0.75 + 0.7 * hash13(g + vec3f(3.0))), mm); rough = mix(rough, 0.95, mm);
     }
   } else {
-    let k = 0.92 + 0.16 * hash13(floor(i.w * 7.0)); alb *= alb * k * 1.25;
+    /* Personnages, bêtes, outils : un grain fin attaché au modèle (toile, cuir, fourrure, métal), pas aux cases du monde. */
+    let q = i.local * select(9.0, 34.0, i.flags.z > 0.5 || i.flags.x > 0.5);
+    let gr = noise(q) * 0.55 + noise(q * 2.9 + vec3f(1.7)) * 0.3 + noise(q * 8.3 + vec3f(4.1)) * 0.15;
+    alb *= alb * (0.86 + 0.26 * gr) * 1.2;
+    let hi = max(alb.r, max(alb.g, alb.b)); let lo = min(alb.r, min(alb.g, alb.b));
+    rough = 0.82 - 0.18 * gr;
+    if (hi - lo < 0.05 * hi + 0.01 && hi > 0.12) { rough = 0.22 + 0.2 * gr; } /* acier : gris et lisse, il prend le soleil */
+    else if (alb.r > alb.g * 1.25 && alb.g > alb.b * 1.9 && hi > 0.3) { rough = 0.3 + 0.15 * gr; } /* laiton, or */
+    if (kind != 3) { nn = normalize(n + (vec3f(noise(q * 1.9), noise(q * 1.9 + vec3f(3.1)), noise(q * 1.9 + vec3f(7.7))) - vec3f(0.5)) * 0.22); }
     if (kind == 3) { trans = 0.45; alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.72); }
     if (kind == 4) { emis = 1.0; }
   }
