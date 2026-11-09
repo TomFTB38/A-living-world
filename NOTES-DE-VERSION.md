@@ -11,7 +11,9 @@
 - Villages selon le biome, artisans (commande, amélioration, réparation, transmission), réputation, rumeurs, journal ; villageois qui vivent leur journée, ouvrent les portes, saluent, échangent.
 - Rendu plus réaliste : étalonnage filmique (verts olive plutôt que citron, contraste, vignetage), ombres plus denses, reflets du ciel et éclat du soleil sur le métal, prairies tachetées de teintes différentes, grain fin sur les personnages, les bêtes et les outils.
 - Outils aux lames et manches droits (fini les marches d'escalier), tenus plus petits en première personne ; bras et main détaillés (manche, brassard sanglé, phalanges) ; bouclier en planches cerclées et rivetées.
-- Maisons de village : soubassement de pierre, sablière de bois, cheminée sur la forge.
+- Villages médiévaux : maisons à colombages à étage (rez-de-chaussée de pierre, encorbellement sur consoles, jardinières, volets peints), chaumières, auberge à l'enseigne, forges de pierre couvertes d'ardoise, église à clocher et flèche, moulin à vent, puits couvert, place pavée et étals du marché à auvents rayés.
+- Toits en vraie pente à 45° (plus d'escaliers), avec rives, pignons fermés, faîtage et rangs de tuiles en relief. Le décor fin (poutres, enseignes, tonneaux, caisses, massifs fleuris) est plus petit qu'un bloc ; il tient à son bloc d'appui et disparaît si on casse celui-ci.
+- Nouveaux blocs : torchis blanchi, poutre de chêne, tuiles, ardoise, tonneau.
 - Carte : boussole en haut à droite, grande carte qui se déplie sur ce qu'on a exploré.
 - Combat : coup lourd, garde et parade au bouclier ; ours, bouquetins, lézards.
 - Habits et bouclier visibles sur le personnage ; escaliers renversés, dalles verticales, volets ; aperçu de pose translucide.

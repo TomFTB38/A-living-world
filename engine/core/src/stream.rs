@@ -41,8 +41,9 @@ fn worker(sh: Arc<Shared>, tx: Sender<Built>, seed: i32) {
             if tx.send(Built { key, lod, mesh: Mesh { opaque, n_o, ..Default::default() }, voxels: Arc::new(Vec::new()), ms: t.elapsed().as_secs_f64() * 1000.0 }).is_err() { return; }
             continue;
         }
-        let mesh = m.mesh_chunk(&mut |x, z| voxels_of(&sh, &gen, (x, z)), key.0, key.1, lod);
+        let mut mesh = m.mesh_chunk(&mut |x, z| voxels_of(&sh, &gen, (x, z)), key.0, key.1, lod);
         let voxels = voxels_of(&sh, &gen, key);
+        if lod < 2 { crate::batisse::dress(&gen, key.0, key.1, &voxels, &mut mesh); }
         if tx.send(Built { key, lod, mesh, voxels, ms: t.elapsed().as_secs_f64() * 1000.0 }).is_err() { return; }
     }
 }

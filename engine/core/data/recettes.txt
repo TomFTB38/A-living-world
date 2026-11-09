@@ -165,5 +165,10 @@ planks_vslab 1 | main | planks_slab 1 | batir
 stone_bricks_vslab 1 | main | stone_bricks_slab 1 | batir
 cobblestone_vslab 1 | main | cobblestone_slab 1 | batir
 shutter 2 | etabli | plank 3, stick 2 | batir
+plaster 4 | etabli | clay 2, sand 1, fiber 2 | batir
+timber 2 | etabli | plank 4 | batir
+roof_tiles 4 | four | clay 3, fuel 1 | batir
+slate 4 | taille | cut 2, !hammer 1 | batir
+barrel 1 | etabli | plank 6, iron_ingot 1 | batir
 # Allumer le feu
 fire_drill 1 | main | stick 2, fiber 2 | outils

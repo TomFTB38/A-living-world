@@ -4,6 +4,7 @@
 //! du terrain (`gen_world`), si bien que le terrain lui-même reste celui du prototype.
 //! Les villageois suivent leur journée : à l'atelier ou aux champs le jour, sur la place le soir, chez eux la nuit.
 use crate::actors::{b, Draw, Models};
+use crate::batisse::{raise, style, Lot, Plan, Prop, Work};
 use crate::biome::Biome;
 use crate::blocks::{by_name, idx, CH, CX};
 use crate::data::{db, def, Craftsman, Recipe, Station};
@@ -41,7 +42,8 @@ pub struct House {
 #[derive(Clone, Debug)]
 pub struct Village { pub id: (i32, i32), pub kind: &'static str, pub name: String, pub c: [i32; 3], pub r: i32, pub crafts: Vec<&'static str>, pub houses: Vec<House> }
 /// Un village tracé, avec les blocs à poser.
-pub struct Site { pub v: Village, blocks: Vec<(i32, i32, i32, u8)> }
+pub struct Site { pub v: Village, blocks: Vec<(i32, i32, i32, u8)>, props: Vec<Prop> }
+impl Site { /** Le décor fin du village. */ pub fn props(&self) -> &[Prop] { &self.props } }
 
 pub fn kind_label(k: &str) -> &'static str { match k { "prairie" => "prairie", "taiga" => "taïga", "aride" => "steppe", "desert" => "désert", "montagne" => "montagne", _ => "hautes terres" } }
 fn id(n: &str) -> u8 { by_name(n).unwrap_or_else(|| panic!("bloc inconnu : {n}")) }
@@ -49,18 +51,6 @@ fn dir(f: u8) -> (i32, i32) { [(0, 1), (1, 0), (0, -1), (-1, 0)][f as usize % 4]
 const NAME_A: [&str; 16] = ["Haut", "Bel", "Clair", "Roche", "Val", "Mont", "Pré", "Bois", "Fond", "Gué", "Saule", "Brune", "Vieux", "Grand", "Pierre", "Chêne"];
 const NAME_B: [&str; 12] = ["val", "fort", "mont", "bourg", "lieu", "ville", "champ", "roche", "font", "court", "mesnil", "lande"];
 const FIRST: [&str; 24] = ["Anselme", "Berthe", "Colin", "Denise", "Étienne", "Fanchon", "Gaspard", "Hélène", "Isidore", "Jeanne", "Léon", "Margot", "Nicolas", "Odile", "Pierre", "Rosalie", "Simon", "Thérèse", "Urbain", "Victor", "Agathe", "Basile", "Clémence", "Firmin"];
-
-struct Mats { wall: u8, corner: u8, floor: u8, roof: u8, ridge: u8, found: u8 }
-fn mats(kind: &str) -> Mats {
-    let m = |w: &str, c: &str, f: &str, r: &str, g: &str, o: &str| Mats { wall: id(w), corner: id(c), floor: id(f), roof: id(r), ridge: id(g), found: id(o) };
-    match kind {
-        "taiga" => m("spruce_planks", "spruce_log", "spruce_planks", "planks_stairs", "planks", "cobblestone"),
-        "aride" => m("cobblestone", "acacia_log", "planks", "thatch_stairs", "thatch", "cobblestone"),
-        "desert" => m("sandstone", "red_sandstone", "sandstone", "thatch_stairs", "thatch", "sandstone"),
-        "montagne" | "hautes_terres" => m("stone_bricks", "spruce_log", "planks", "cobblestone_stairs", "cobblestone", "cobblestone"),
-        _ => m("planks", "oak_log", "planks", "thatch_stairs", "thatch", "cobblestone"),
-    }
-}
 
 impl WorldGen {
     /// Le village de cette case de la grille, s'il y en a un.
@@ -116,76 +106,77 @@ impl WorldGen {
         crafts.truncate(4);
         let homes = 2 + (h(10) * 3.0) as usize; let name = format!("{}{}", NAME_A[(h(11) * 16.0) as usize % 16], NAME_B[(h(12) * 12.0) as usize % 12]);
         let mut v = Village { id: (gx, gz), kind, name, c: [x, y0, z], r: 8, crafts: crafts.clone(), houses: Vec::new() };
-        let m = mats(kind); let mut out: Vec<(i32, i32, i32, u8)> = Vec::new();
-        // La place : un puits au milieu, des lanternes aux quatre coins.
-        let path = id("path"); let cob = id("cobblestone"); let water = id("water"); let fence = id("fence"); let lantern = id("lantern");
-        for dx in -5i32..=5 { for dz in -5i32..=5 { if dx * dx + dz * dz <= 26 { out.push((x + dx, y0, z + dz, path)); } } }
-        for dx in -1..=1 { for dz in -1..=1 { let edge = dx != 0 || dz != 0; out.push((x + dx, y0, z + dz, if edge { cob } else { water })); out.push((x + dx, y0 - 1, z + dz, if edge { cob } else { water })); out.push((x + dx, y0 - 2, z + dz, cob)); if edge { out.push((x + dx, y0 + 1, z + dz, cob)); } } }
-        for (dx, dz) in [(4, 4), (-4, 4), (4, -4), (-4, -4)] { out.push((x + dx, y0 + 1, z + dz, fence)); out.push((x + dx, y0 + 2, z + dz, lantern)); }
-        let n = crafts.len() + homes; let a0 = h(13) * TAU; let mut taken: Vec<[i32; 4]> = Vec::new();
-        for i in 0..n {
-            let craft = crafts.get(i).copied(); let (w, d) = if craft.is_some() { (7, 7) } else { (5, 6) };
+        let st = style(kind); let mut plaza = Work::default(); let mut lanes = Work::default(); let mut works = Work::default();
+        // La place pavée : un puits couvert au milieu, des lanternes aux quatre coins.
+        let pave = st.pave; let water = id("water"); let fence = id("fence"); let lantern = id("lantern"); let cob = id("cobblestone");
+        for dx in -6i32..=6 { for dz in -6i32..=6 { if dx * dx + dz * dz <= 40 { plaza.put([x + dx, y0, z + dz], pave); } } }
+        for dx in -1..=1 { for dz in -1..=1 { let edge = dx != 0 || dz != 0; for (y, b) in [(y0, if edge { cob } else { water }), (y0 - 1, if edge { cob } else { water }), (y0 - 2, cob)] { plaza.put([x + dx, y, z + dz], b); } if edge { plaza.put([x + dx, y0 + 1, z + dz], cob); } } }
+        crate::batisse::well(&mut plaza, [x, y0, z], st.tiles);
+        for (dx, dz) in [(4, 4), (-4, 4), (4, -4), (-4, -4)] { plaza.put([x + dx, y0 + 1, z + dz], fence); plaza.put([x + dx, y0 + 2, z + dz], lantern); }
+        // Ce que l'on bâtit : les ateliers (la forge en pierre), une auberge, des maisons de ville et des chaumières, une église, un moulin.
+        let mut plans: Vec<Plan> = crafts.iter().map(|c| if matches!(*c, "forgeron" | "maitre_forgeron" | "armurier") { Plan::Forge(c) } else { Plan::Shop(c) }).collect();
+        for i in 0..homes { plans.push(match i { 0 => Plan::Tavern, i if i % 2 == 1 => Plan::Cottage, _ => Plan::Town }); }
+        if h(14) < 0.8 { plans.insert(plans.len() / 2, Plan::Church); }
+        if matches!(kind, "prairie" | "aride" | "hautes_terres" | "taiga") && h(15) < 0.75 { plans.push(Plan::Mill); }
+        let n = plans.len(); let a0 = h(13) * TAU; let mut taken: Vec<[i32; 4]> = Vec::new(); let mut angles = Vec::new();
+        for (i, plan) in plans.iter().copied().enumerate() {
+            let (w, d) = plan.size(); let (pw, pd) = if plan == Plan::Mill { (5, 5) } else { (w, d + if plan == Plan::Church { 2 } else { 0 }) };
             let a = a0 + TAU * i as f64 / n as f64 + (h(20 + i as i32) - 0.5) * 0.4;
             let (ox, oz) = (a.cos(), a.sin()); let f = crate::shapes::facing_of(ox, oz); let (wx, wz) = dir(f); let (ux, uz) = dir(f + 1);
-            let mut rad = 10.0 + n as f64 * 1.1; let mut placed = None;
+            let mut rad = 10.0 + n as f64 * 1.0; let mut placed = None;
             for _ in 0..8 {
-                let (px, pz) = (x + (ox * (rad + d as f64 * 0.5)).round() as i32, z + (oz * (rad + d as f64 * 0.5)).round() as i32);
+                let (px, pz) = (x + (ox * (rad + pd as f64 * 0.5)).round() as i32, z + (oz * (rad + pd as f64 * 0.5)).round() as i32);
                 let o = (px - (w - 1) / 2 * ux - (d - 1) / 2 * wx, pz - (w - 1) / 2 * uz - (d - 1) / 2 * wz);
-                let cells = [(-1, -1), (w, -1), (-1, d), (w, d)].map(|(u, ww)| (o.0 + u * ux + ww * wx, o.1 + u * uz + ww * wz));
+                let (lo, hi) = (if plan == Plan::Church { -3 } else if plan == Plan::Mill { -2 } else { -1 }, if plan == Plan::Mill { d + 1 } else { d });
+                let cells = [(-1 - (pw - w) / 2, lo), (w + (pw - w) / 2, lo), (-1 - (pw - w) / 2, hi), (w + (pw - w) / 2, hi)].map(|(u, ww)| (o.0 + u * ux + ww * wx, o.1 + u * uz + ww * wz));
                 let area = [cells.iter().map(|c| c.0).min().unwrap(), cells.iter().map(|c| c.1).min().unwrap(), cells.iter().map(|c| c.0).max().unwrap(), cells.iter().map(|c| c.1).max().unwrap()];
                 let clash = taken.iter().any(|t| area[0] <= t[2] + 2 && area[2] + 2 >= t[0] && area[1] <= t[3] + 2 && area[3] + 2 >= t[1]);
-                let far = cells.iter().map(|c| ((c.0 - x) as f64).hypot((c.1 - z) as f64)).fold(0.0, f64::max);
-                let plaza = (0..=d).any(|ww| (0..=w).any(|u| { let c = (o.0 + u * ux + ww * wx, o.1 + u * uz + ww * wz); ((c.0 - x) as f64).hypot((c.1 - z) as f64) < 7.0 }));
-                if !clash && !plaza && far + (BLEND as f64) + 2.0 < SPAN as f64 { placed = Some((o, area, far)); break; }
+                let far = cells.iter().map(|c| ((c.0 - x) as f64).hypot((c.1 - z) as f64)).fold(0.0, f64::max) + if plan == Plan::Mill { 3.0 } else { 0.0 };
+                let plaza_hit = (lo..=hi).any(|ww| (-1..=w).any(|u| { let c = (o.0 + u * ux + ww * wx, o.1 + u * uz + ww * wz); ((c.0 - x) as f64).hypot((c.1 - z) as f64) < 7.5 }));
+                if !clash && !plaza_hit && far + (BLEND as f64) + 2.0 < SPAN as f64 { placed = Some((o, area, far)); break; }
                 rad += 3.0;
             }
-            let Some((o, area, far)) = placed else { continue }; taken.push(area); v.r = v.r.max(far.ceil() as i32 + 2);
-            let at = |u: i32, ww: i32| (o.0 + u * ux + ww * wx, o.1 + u * uz + ww * wz);
-            let mid = |u: i32, ww: i32, y: i32| { let c = at(u, ww); [c.0 as f64 + 0.5, y as f64, c.1 as f64 + 0.5] };
-            let mut put = |u: i32, y: i32, ww: i32, b: u8| { let c = at(u, ww); out.push((c.0, y, c.1, b)); };
-            // Fondations, plancher, murs avec poteaux d'angle, intérieur vide jusque sous le faîte.
-            for u in -1..=w { for ww in -1..=d { for y in y0 + 1..y0 + 4 + w / 2 + 2 { put(u, y, ww, 0); } } }
-            for u in 0..w { for ww in 0..d { for y in y0 - 3..y0 { put(u, y, ww, m.found); } put(u, y0, ww, m.floor); } }
-            for y in y0 + 1..=y0 + 3 { for u in 0..w { for ww in 0..d {
-                let edge = u == 0 || ww == 0 || u == w - 1 || ww == d - 1; if !edge { continue; }
-                let corner = (u == 0 || u == w - 1) && (ww == 0 || ww == d - 1); put(u, y, ww, if corner || y == y0 + 3 { m.corner } else if y == y0 + 1 && m.wall != m.found { m.found } else { m.wall }); // soubassement de pierre, sablière de bois
-            } } }
-            // Toit à deux pans, faîte du devant vers le fond ; pignons pleins.
-            let yr = y0 + 4; let (mut k, mut lu, mut ru) = (0, -1, w);
-            while lu <= ru {
-                if lu == ru { for ww in -1..=d { put(lu, yr + k, ww, m.ridge); } break; }
-                for ww in -1..=d { put(lu, yr + k, ww, variant(m.roof, (1 + f) % 4, false, false, false)); put(ru, yr + k, ww, variant(m.roof, (3 + f) % 4, false, false, false)); }
-                for u in lu + 1..ru { put(u, yr + k, 0, m.wall); put(u, yr + k, d - 1, m.wall); }
-                k += 1; lu += 1; ru -= 1;
-            }
-            // Porte au milieu de la façade, fenêtres sur les côtés et au fond.
-            let du = w / 2; let door = id("door"); let window = id("window");
-            put(du, y0 + 1, 0, variant(door, f, false, false, false)); put(du, y0 + 2, 0, variant(door, f, false, false, true));
-            put(0, y0 + 2, d / 2, variant(window, (1 + f) % 4, false, false, false)); put(w - 1, y0 + 2, d / 2, variant(window, (1 + f) % 4, false, false, false));
-            put(du, y0 + 2, d - 1, variant(window, f, false, false, false));
-            if craft.is_some() { put(du - 2, y0 + 2, 0, variant(window, f, false, false, false)); put(du + 2, y0 + 2, 0, variant(window, f, false, false, false)); }
-            // Le mobilier : le poste de l'artisan au fond, un lit, un coffre, une lanterne.
-            let back = d - 2; put(1, y0 + 1, back, id("bed")); put(w - 2, y0 + 1, 1, lantern);
-            match craft {
-                Some("forgeron") | Some("maitre_forgeron") | Some("armurier") => {
-                    put(du, y0 + 1, back, id("anvil")); put(du + 1, y0 + 1, back, id("furnace"));
-                    // La cheminée de la forge, en pierre, perce le pan du toit au-dessus du fourneau.
-                    for y in y0 + 2..y0 + 6 + w / 2 { put(du + 1, y, d - 1, cob); }
-                }
-                Some("tailleur_pierre") => { put(du, y0 + 1, back, id("mason_bench")); put(du + 1, y0 + 1, back, cob); }
-                Some("tanneur") => { put(du, y0 + 1, back, id("workbench")); put(du + 1, y0 + 1, back, id("chest")); }
-                Some(_) => { put(du, y0 + 1, back, id("workbench")); put(du + 1, y0 + 1, back, id("planks")); }
-                None => { put(w - 2, y0 + 1, back, id("chest")); }
-            }
-            // Un chemin de terre de la place à la porte.
-            let door_out = mid(du, -1, y0 + 1); let dist = (door_out[0] - x as f64 - 0.5).hypot(door_out[2] - z as f64 - 0.5);
+            let Some((o, area, far)) = placed else { continue }; taken.push(area); v.r = v.r.max(far.ceil() as i32 + 2); angles.push(a);
+            let lot = Lot { o, u: (ux, uz), w: (wx, wz) };
+            let mid = |u: i32, ww: i32, y: i32| { let c = lot.cell(u, y, ww); [c[0] as f64 + 0.5, y as f64, c[2] as f64 + 0.5] };
+            let (du, back) = raise(&mut works, lot, plan, y0, st, h(40 + i as i32));
+            let front = match plan { Plan::Church => -3, _ => -1 };
+            // Une rue pavée de la place à la porte.
+            let door_out = mid(du, front, y0 + 1); let dist = (door_out[0] - x as f64 - 0.5).hypot(door_out[2] - z as f64 - 0.5);
             let (ex, ez) = ((door_out[0] - x as f64 - 0.5) / dist, (door_out[2] - z as f64 - 0.5) / dist); let ring = [x as f64 + 0.5 + ex * 6.5, (y0 + 1) as f64, z as f64 + 0.5 + ez * 6.5];
-            let mut t = 5.0; while t < dist + 0.6 { let q = (x as f64 + 0.5 + ex * t, z as f64 + 0.5 + ez * t); out.push((q.0.floor() as i32, y0, q.1.floor() as i32, path)); t += 0.5; }
-            out.push((door_out[0].floor() as i32, y0, door_out[2].floor() as i32, path));
-            v.houses.push(House { craft, area, door: door_out, inside: mid(du, 1, y0 + 1), spot: mid(du, back - 1, y0 + 1), bed: mid(2, back, y0 + 1), ring, back: f });
+            let mut t = 5.0; while t < dist + 0.6 { let q = (x as f64 + 0.5 + ex * t, z as f64 + 0.5 + ez * t); for (sx, sz) in [(0.0, 0.0), (-ez * 0.7, ex * 0.7)] { lanes.put([(q.0 + sx).floor() as i32, y0, (q.1 + sz).floor() as i32], pave); } t += 0.5; }
+            lanes.put([door_out[0].floor() as i32, y0, door_out[2].floor() as i32], pave);
+            if !plan.dwelling() { continue; }
+            let craft = plan.craft();
+            // Le mobilier : le poste de l'artisan au fond, un lit, un coffre, une lanterne.
+            let mut put = |u: i32, ww: i32, b: u8| works.put(lot.cell(u, y0 + 1, ww), b);
+            let w = plan.size().0; put(1, back, id("bed")); put(w - 2, 1, lantern);
+            match craft {
+                Some("forgeron") | Some("maitre_forgeron") | Some("armurier") => { put(du, back, id("anvil")); put(du + 1, back, id("furnace")); }
+                Some("tailleur_pierre") => { put(du, back, id("mason_bench")); put(du + 1, back, cob); }
+                Some("tanneur") => { put(du, back, id("workbench")); put(du + 1, back, id("chest")); }
+                Some(_) => { put(du, back, id("workbench")); put(du + 1, back, id("planks")); }
+                None => { put(w - 2, back, id("chest")); if plan == Plan::Tavern { put(du + 1, 2, id("barrel")); put(du - 1, back - 1, id("barrel")); } }
+            }
+            let fd = crate::shapes::facing_of(wx as f64, wz as f64);
+            v.houses.push(House { craft, area, door: door_out, inside: mid(du, 1, y0 + 1), spot: mid(du, back - 1, y0 + 1), bed: mid(2, back, y0 + 1), ring, back: fd });
         }
-        // Les blocs du sol des maisons ne doivent pas recevoir de chemin : on repose les planchers en dernier.
-        Site { v, blocks: out }
+        // Le marché : des étals entre les rues, face au puits, à l'écart des lanternes.
+        let stripes = [[[0.62, 0.14, 0.12], [0.9, 0.86, 0.78]], [[0.18, 0.28, 0.5], [0.9, 0.86, 0.78]], [[0.28, 0.42, 0.22], [0.88, 0.82, 0.64]], [[0.7, 0.48, 0.15], [0.38, 0.24, 0.13]]];
+        let mut sorted = angles.clone(); sorted.sort_by(|a, b| a.rem_euclid(TAU).total_cmp(&b.rem_euclid(TAU)));
+        let mut placed = 0;
+        for i in 0..sorted.len() { if placed >= 3 { break; }
+            let (a, b2) = (sorted[i].rem_euclid(TAU), sorted[(i + 1) % sorted.len()].rem_euclid(TAU) + if i + 1 == sorted.len() { TAU } else { 0.0 });
+            let m = (a + b2) * 0.5; if b2 - a < 0.7 { continue; }
+            let diag = (0..4).any(|k| { let q = (m - (0.785 + k as f64 * 1.5708)).rem_euclid(TAU); q < 0.32 || q > TAU - 0.32 }); if diag { continue; }
+            let c = [x as f64 + 0.5 + m.cos() * 6.0, (y0 + 1) as f64, z as f64 + 0.5 + m.sin() * 6.0]; let at = [c[0].floor() as i32, y0, c[2].floor() as i32];
+            crate::batisse::stall(&mut plaza, at, c, [-m.cos(), 0.0, -m.sin()], stripes[(placed + (h(16) * 4.0) as usize) % 4], h(50 + i as i32)); placed += 1;
+        }
+        let mut out = plaza.blocks; out.extend(lanes.blocks); out.extend(works.blocks);
+        // Le puits et les lanternes, posés en dernier : aucune rue ne les recouvre.
+        for dx in -1..=1 { for dz in -1..=1 { let edge = dx != 0 || dz != 0; if edge { out.push((x + dx, y0 + 1, z + dz, cob)); } out.push((x + dx, y0, z + dz, if edge { cob } else { water })); } }
+        let mut props = plaza.props; props.extend(works.props);
+        Site { v, blocks: out, props }
     }
 }
 impl Site {

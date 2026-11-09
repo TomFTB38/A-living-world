@@ -242,6 +242,42 @@ fn cobble(t: &Tile, x: f64, y: f64) -> S {
     let (d1, d2, id) = t.vor(x, y, 4); let gap = smooth(0.0, 0.16, d2 - d1); let n = t.fbm(x, y, 8, 3); let tone = 0.3 + 0.45 * t.pi(id) + 0.3 * (n - 0.5);
     S { c: mul(pal(&STONE, tone), 0.35 + 0.65 * gap), h: 0.15 + 0.7 * gap * (0.7 + 0.3 * n), r: 0.85 }
 }
+// ------------------------------------------------------------------ village médiéval
+const PLASTER: [C; 4] = pl!("#b9ad94", "#d3c8b0", "#e3dac6", "#efe8d8"); const TIMBER: [C; 4] = pl!("#241710", "#352217", "#4a3020", "#5e3f29");
+const TILE: [C; 4] = pl!("#5a2a1e", "#743a29", "#8c4d38", "#a2634c"); const SLATE: [C; 4] = pl!("#2c3138", "#3b424b", "#4d555f", "#636b74");
+/// Torchis chaulé : une surface claire, un peu bosselée, des taches d'humidité et quelques fissures fines.
+fn plaster(t: &Tile, x: f64, y: f64) -> S {
+    let n = t.fbm(x, y, 4, 4); let fine = t.val(x, y, 64); let stain = smooth(0.58, 0.78, t.fbm(x + 31.0, y * 0.6 + 7.0, 3, 3));
+    let (d1, d2, _) = t.vor(x + 3.0 * t.fbm(x, y, 8, 2), y, 3); let crack = 1.0 - smooth(0.0, 0.025, d2 - d1) * 1.0; let crack = crack * smooth(0.62, 0.75, t.val(x, y, 6));
+    let c = mul(pal(&PLASTER, 0.45 + 0.45 * n + 0.12 * (fine - 0.5)), 1.0 - 0.07 * stain - 0.16 * crack);
+    S { c: [c[0], c[1] * (1.0 - 0.03 * stain), c[2] * (1.0 - 0.08 * stain)], h: 0.45 + 0.35 * n + 0.1 * fine - 0.3 * crack, r: 0.93 }
+}
+/// Chêne équarri et vieilli : fil serré, fentes de séchage, traces d'herminette.
+fn dark_timber(t: &Tile, x: f64, y: f64) -> S {
+    let g = t.val(x * 4.0, y * 0.18, 64); let g2 = t.val(x * 1.3 + 9.0, y * 0.1, 32); let check = smooth(0.92, 0.97, t.val(x * 2.5, y * 0.08, 32));
+    let adze = 0.5 + 0.5 * sin((y + 6.0 * t.val(x, y, 4)) * 0.45); let tone = 0.25 + 0.45 * g2 + 0.25 * (g - 0.5) + 0.1 * adze;
+    S { c: mul(pal(&TIMBER, tone), 1.0 - 0.55 * check), h: 0.5 + 0.25 * g + 0.15 * adze - 0.5 * check, r: 0.8 }
+}
+/// Tuiles plates de terre cuite, en rangs décalés : bas arrondi, ombre du rang du dessus, teintes de cuisson inégales, un peu de mousse.
+fn roof_tiles(t: &Tile, x: f64, y: f64) -> S {
+    let (h, w) = (16.0, 16.0); let row = (y / h).floor(); let xo = x + if row as i64 % 2 == 0 { 0.0 } else { w * 0.5 }; let col = (xo / w).floor();
+    let (fx, fy) = ((xo - col * w) / w, (y - row * h) / h); let id = row as i64 * 17 + col as i64;
+    let round = 1.0 - (2.0 * fx - 1.0).powi(2); let bottom = 0.78 + 0.2 * round; let gap = smooth(0.0, 0.06, fx.min(1.0 - fx));
+    let n = t.fbm(x, y, 8, 3); let tone = 0.2 + 0.55 * t.pi(id) + 0.25 * (n - 0.5);
+    let shade = 0.55 + 0.45 * smooth(0.0, 0.35, fy); let lip = if fy > bottom { 0.45 } else { 1.0 };
+    let moss = smooth(0.7, 0.85, t.fbm(x + 13.0, y + 5.0, 4, 3)) * smooth(0.5, 0.0, fy);
+    let mut c = mul(pal(&TILE, tone), shade * lip * (0.55 + 0.45 * gap));
+    c = [lerp(c[0], 0.24, moss * 0.6), lerp(c[1], 0.28, moss * 0.6), lerp(c[2], 0.12, moss * 0.6)];
+    S { c, h: (0.25 + 0.65 * fy) * gap * lip, r: 0.72 }
+}
+/// Ardoises en écailles fines, posées en rangs serrés, bords ébréchés, reflets bleutés.
+fn slate(t: &Tile, x: f64, y: f64) -> S {
+    let h = 12.8; let row = (y / h).floor(); let w = 11.0 + 5.0 * t.pi(row as i64 * 7 + 3); let xo = x + t.pi(row as i64 * 13) * w; let col = (xo / w).floor();
+    let (fx, fy) = ((xo - col * w) / w, (y - row * h) / h); let id = row as i64 * 23 + col as i64; let chip = 0.06 * t.val(x, y, 32);
+    let gap = smooth(0.0, 0.05 + chip, fx.min(1.0 - fx)); let n = t.fbm(x, y, 16, 2); let tone = 0.2 + 0.6 * t.pi(id) + 0.2 * (n - 0.5);
+    let shade = 0.6 + 0.4 * smooth(0.0, 0.3, fy);
+    S { c: mul(pal(&SLATE, tone), shade * (0.5 + 0.5 * gap)), h: (0.3 + 0.6 * fy) * gap, r: 0.55 }
+}
 fn farmland(t: &Tile, x: f64, y: f64) -> S {
     let furrow = 0.5 + 0.5 * (y / 64.0 * std::f64::consts::TAU * 4.0).cos(); let n = t.fbm(x, y, 5, 3); let d = dirt(t, x, y, &DIRT);
     S { c: mul(d.c, 0.62 + 0.3 * furrow + 0.08 * (n - 0.5)), h: 0.2 + 0.6 * furrow, r: 0.9 }
@@ -275,6 +311,7 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "ore_copper" => ore(t, x, y, [0.32, 0.62, 0.48], [0.78, 0.46, 0.24]), "ore_tin" => ore(t, x, y, [0.8, 0.82, 0.84], [0.58, 0.6, 0.62]), "ore_iron" => ore(t, x, y, [0.7, 0.42, 0.28], [0.52, 0.28, 0.18]), "ore_coal" => ore(t, x, y, [0.07, 0.07, 0.08], [0.16, 0.16, 0.17]),
         "clay" => clay(t, x, y), "stone_bricks" => bricks(t, x, y, 16.0, 32.0, &CUT_STONE, [0.36, 0.34, 0.31]), "bricks" => bricks(t, x, y, 8.0, 16.0, &BRICK, [0.74, 0.7, 0.62]),
         "thatch" => thatch(t, x, y), "cobble" => cobble(t, x, y), "farmland_top" => farmland(t, x, y),
+        "plaster" => plaster(t, x, y), "dark_timber" => dark_timber(t, x, y), "roof_tiles" => roof_tiles(t, x, y), "slate" => slate(t, x, y),
         "snow" => snow(t, x, y), "snow_side" => snow_side(t, x, y), "ice" => ice(t, x, y),
         "bark_spruce" => bark(t, x, y, &SPRUCE, 0.7), "end_spruce" => wood_end(t, x, y, &SPRUCE_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &SPRUCE, 0.7)),
         "leaf_spruce" => needles(t, x, y), "leaf_snow" => leaf_snow(t, x, y),

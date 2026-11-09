@@ -275,6 +275,18 @@ impl Mesher {
                 part(o, 0.1, 0.9, 0.1, 0.9, 0.045, glass);
                 return;
             }
+            "barrel" => {
+                // Douze douelles bombées sur trois hauteurs, deux cercles de fer, un fond de planches.
+                let (cx, cz) = (x + 0.5, z + 0.5); let wood = [0.5, 0.33, 0.18];
+                for k in 0..12 { let a = k as f64 * std::f64::consts::TAU / 12.0; let (ca, sa) = (cos(a), sin(a)); let t = 0.85 + 0.25 * r_.next();
+                    for (y0, y1, rr) in [(0.0, 0.3, 0.36), (0.3, 0.7, 0.41), (0.7, 1.0, 0.36)] {
+                        obox(o, [cx + ca * rr, y + (y0 + y1) * 0.5, cz + sa * rr], [[sa * 0.1, 0.0, -ca * 0.1], [0.0, (y1 - y0) * 0.5, 0.0], [ca * 0.03, 0.0, sa * 0.03]], [wood[0] * t, wood[1] * t, wood[2] * t], -1.0, s, l);
+                    } }
+                for (hy, rr) in [(0.2, 0.39), (0.8, 0.39)] { for k in 0..12 { let a = (k as f64 + 0.5) * std::f64::consts::TAU / 12.0; let (ca, sa) = (cos(a), sin(a));
+                    obox(o, [cx + ca * rr, y + hy, cz + sa * rr], [[sa * 0.11, 0.0, -ca * 0.11], [0.0, 0.035, 0.0], [ca * 0.02, 0.0, sa * 0.02]], [0.2, 0.2, 0.22], -1.0, s, l); } }
+                bx3(o, cx - 0.3, y + 0.94, cz - 0.3, cx + 0.3, y + 0.97, cz + 0.3, 0.42, 0.28, 0.15, 0.0, s, l);
+                return;
+            }
             "lantern" => {
                 bx3(o, x + 0.32, y, z + 0.32, x + 0.68, y + 0.08, z + 0.68, 0.16, 0.1, 0.06, 0.0, s, l);
                 bx(o, x + 0.36, y + 0.08, z + 0.36, x + 0.64, y + 0.54, z + 0.64, 2.0, 1.3, 0.5, 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
@@ -847,6 +859,20 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32) -> (Vec<u8>, usize) {
 }
 
 /// Boîte texturée dans le repère du bloc (x, y, z) : six faces, la texture suit la position (comme un bloc plein).
+/// Boîte orientée : centre `c`, trois demi-axes `a` (le repère doit être direct). `layer` < 0 : couleur unie `col` ;
+/// sinon la texture de cette couche, teintée par `col`. Pour les toits en pente, les jambes de force, les ailes du moulin.
+#[allow(clippy::too_many_arguments)]
+pub fn obox(o: &mut VBuf, c: [f64; 3], a: [[f64; 3]; 3], col: [f64; 3], layer: f64, s: f64, l: f64) {
+    let p = |i: f64, j: f64, k: f64| [c[0] + a[0][0] * i + a[1][0] * j + a[2][0] * k, c[1] + a[0][1] * i + a[1][1] * j + a[2][1] * k, c[2] + a[0][2] * i + a[1][2] * j + a[2][2] * k];
+    let nrm = |v: [f64; 3], sg: f64| { let m = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-9); [v[0] / m * sg, v[1] / m * sg, v[2] / m * sg] };
+    let (kd, ly) = if layer < 0.0 { (FLAT, 0.0) } else { (kind::TEX, layer) };
+    let faces: [([[f64; 3]; 4], [f64; 3], f64); 6] = [
+        ([p(-1., 1., 1.), p(1., 1., 1.), p(1., 1., -1.), p(-1., 1., -1.)], nrm(a[1], 1.0), 255.0), ([p(-1., -1., -1.), p(1., -1., -1.), p(1., -1., 1.), p(-1., -1., 1.)], nrm(a[1], -1.0), 170.0),
+        ([p(-1., -1., 1.), p(1., -1., 1.), p(1., 1., 1.), p(-1., 1., 1.)], nrm(a[2], 1.0), 225.0), ([p(1., -1., -1.), p(-1., -1., -1.), p(-1., 1., -1.), p(1., 1., -1.)], nrm(a[2], -1.0), 225.0),
+        ([p(1., -1., 1.), p(1., -1., -1.), p(1., 1., -1.), p(1., 1., 1.)], nrm(a[0], 1.0), 215.0), ([p(-1., -1., -1.), p(-1., -1., 1.), p(-1., 1., 1.), p(-1., 1., -1.)], nrm(a[0], -1.0), 215.0),
+    ];
+    for (q, n, ao) in faces { let k = if layer < 0.0 { 0.86 + 0.14 * n[1] + 0.05 * n[0] } else { 1.0 }; for v in q { o.v(v[0], v[1], v[2], ly, n[0], n[1], n[2], 0.0, ao, s, l, kd, col[0] * k, col[1] * k, col[2] * k); } }
+}
 fn tbox(o: &mut VBuf, x: f64, y: f64, z: f64, bb: [f64; 6], layer: f64, s: f64, l: f64, tone: f64) {
     let (a, b, f, e, c, d) = (x + bb[0], x + bb[3], y + bb[1], y + bb[4], z + bb[2], z + bb[5]);
     let faces: [([[f64; 3]; 4], [f64; 3], f64); 6] = [

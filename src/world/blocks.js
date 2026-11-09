@@ -12,7 +12,9 @@ export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'm
   'grass_dry_top', 'grass_dry_side', 'dry_earth', 'bark_dead', 'end_dead', 'lichen', 'bark_acacia', 'end_acacia', 'leaf_acacia', 'bone', 'wood_inner',
   'sandstone', 'sandstone_top', 'red_sandstone', 'cactus_side', 'cactus_top', 'bark_palm', 'end_palm', 'leaf_palm',
   // Survie : minerais, argile, matériaux de construction, terre labourée (moteur final)
-  'ore_copper', 'ore_tin', 'ore_iron', 'ore_coal', 'clay', 'stone_bricks', 'bricks', 'thatch', 'planks_birch', 'planks_spruce', 'cobble', 'farmland_top'];
+  'ore_copper', 'ore_tin', 'ore_iron', 'ore_coal', 'clay', 'stone_bricks', 'bricks', 'thatch', 'planks_birch', 'planks_spruce', 'cobble', 'farmland_top',
+  // Village médiéval : torchis blanc, poutres sombres, tuiles de terre cuite, ardoise (quatre de plus : le tableau de textures est plein à 256 couches).
+  'plaster', 'dark_timber', 'roof_tiles', 'slate'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -294,6 +296,12 @@ const defs = [
   ['shutter_open_1', 'deco', null, 0.5, { model: 'trapdoor', solid: true, cat: 'wood', drop: 'shutter' }],
   ['shutter_open_2', 'deco', null, 0.5, { model: 'trapdoor', solid: true, cat: 'wood', drop: 'shutter' }],
   ['shutter_open_3', 'deco', null, 0.5, { model: 'trapdoor', solid: true, cat: 'wood', drop: 'shutter' }],
+  // Village médiéval. Les identifiants s'arrêtent à 255 : ce sont les derniers.
+  ['plaster', 'cube', ['plaster', 'plaster', 'plaster'], 0.7, { cat: 'rock' }],
+  ['timber', 'cube', ['dark_timber', 'dark_timber', 'dark_timber'], 0.9, { cat: 'wood' }],
+  ['roof_tiles', 'cube', ['roof_tiles', 'roof_tiles', 'roof_tiles'], 0.9, { cat: 'rock' }],
+  ['slate', 'cube', ['slate', 'slate', 'slate'], 1.1, { cat: 'rock' }],
+  ['barrel', 'deco', null, 0.8, { model: 'barrel', solid: true, cat: 'wood' }],
 ];
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({

@@ -27,5 +27,6 @@ pub mod data;
 pub mod play;
 pub mod icons;
 pub mod village;
+pub mod batisse;
 pub mod map;
 pub mod guide;

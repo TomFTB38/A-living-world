@@ -254,4 +254,10 @@ planks_vslab | Dalle verticale de bois | batir | 0.5 | 64 | Un demi-bloc debout,
 stone_bricks_vslab | Dalle verticale de pierre taillée | batir | 1.0 | 64 | Un demi-bloc debout de pierre taillée. |
 cobblestone_vslab | Dalle verticale de pavé | batir | 1.0 | 64 | Un demi-bloc debout de pavé. |
 shutter | Volet | batir | 1.0 | 16 | Se pose contre une fenêtre ; clic droit pour l'ouvrir ou le fermer. |
+# Village médiéval
+plaster | Torchis blanchi | batir | 1.0 | 64 | Argile, paille et chaux : le remplissage clair des maisons à colombages. |
+timber | Poutre de chêne | batir | 1.2 | 64 | Du chêne équarri et noirci : poteaux, sablières et colombages. |
+roof_tiles | Tuiles | batir | 1.0 | 64 | De la terre cuite rouge, pour des toits qui durent un siècle. |
+slate | Ardoise | batir | 1.2 | 64 | Des feuilles de pierre bleu-gris, pour les toits des riches et des églises. |
+barrel | Tonneau | batir | 3.0 | 16 | Douelles cerclées de fer : vin, bière, salaisons. |
 fire_drill | Archet à feu | outils | 0.4 | 1 | Un bâton qu'on fait tourner vite contre un autre : de quoi allumer un feu de camp, avec un peu de patience. |
