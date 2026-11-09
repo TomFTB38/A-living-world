@@ -502,7 +502,7 @@ fn capture(a: &[String]) {
         s.toggle_map(); for _ in 0..60 { s.tick(1.0 / 60.0, none, Actions::default()); }
         println!("{scene} : {} pixels explorés, anim {:.2}", s.map.explored(), s.map.anim);
     }
-    if scene == "village" || scene == "artisan" {
+    if scene == "village" || scene == "artisan" || scene == "bourg" {
         // Le village le plus proche du départ, en milieu de matinée : la place vue d'en haut, ou le forgeron à son poste et la conversation.
         if let Some(v) = s.nearest_village(0.0, 0.0) {
             let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; s.hour = 10.5; s.sel = 8; s.third = false; s.player.fly = true;
@@ -513,6 +513,10 @@ fn capture(a: &[String]) {
             if scene == "artisan" { if let Some(k) = s.town.folk.iter().position(|f| f.craft == Some("forgeron")) {
                 let f = s.town.folk[k].clone(); let h = &v.houses[f.house]; let e = [h.inside[0] + (h.inside[0] - f.p[0]) * 0.2, c[1] + 1.62, h.inside[2] + (h.inside[2] - f.p[2]) * 0.2];
                 look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default()); s.talk_to(k); s.add_item("iron_ingot", 2); s.add_item("coal", 8); s.tick(0.0, none, Actions::default());
+            } } else if scene == "bourg" { if let Some(h) = v.houses.iter().find(|h| h.craft.is_none()) {
+                // À hauteur d'homme sur la place, face à l'auberge.
+                let (dx, dz) = (h.ring[0] - c[0], h.ring[2] - c[2]); let l = dx.hypot(dz).max(0.01); let e = [c[0] + dx / l * 2.5 - dz / l * 2.0, c[1] + 1.7, c[2] + dz / l * 2.5 + dx / l * 2.0];
+                look(&mut s, e, [h.door[0], h.door[1] + 3.2, h.door[2]]); s.player.fly = true; s.tick(0.0, none, Actions::default());
             } } else { s.tick(0.0, none, Actions::default()); }
         }
     }
