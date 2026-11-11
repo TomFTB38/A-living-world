@@ -36,7 +36,7 @@ fn les_batiments_sont_dans_le_monde() {
         let station = match h.craft { Some("forgeron") | Some("armurier") | Some("maitre_forgeron") => Some("anvil"), Some("tailleur_pierre") => Some("mason_bench"), Some(_) => Some("workbench"), None => None };
         if let Some(name) = station { let (bx, bz) = [(0, 1), (1, 0), (0, -1), (-1, 0)][h.back as usize]; let p = [(h.spot[0] + bx as f64).floor() as i32, v.c[1] + 1, (h.spot[2] + bz as f64).floor() as i32]; assert_eq!(BLOCKS[st.block(p[0], p[1], p[2]) as usize].name, name, "poste de {:?}", h.craft); }
         // Dedans, de quoi se tenir debout ; dehors devant la porte, de l'air.
-        for p in [h.inside, h.spot, h.door] { assert_eq!(st.block(p[0].floor() as i32, v.c[1] + 1, p[2].floor() as i32), 0, "passage libre en {p:?}"); assert!(is_solid(st.block(p[0].floor() as i32, v.c[1], p[2].floor() as i32)), "sol sous {p:?}"); }
+        for p in [h.inside, h.spot, h.door] { assert!(!is_solid(st.block(p[0].floor() as i32, v.c[1] + 1, p[2].floor() as i32)), "passage libre en {p:?}"); /* un tapis ne gêne pas */ assert!(is_solid(st.block(p[0].floor() as i32, v.c[1], p[2].floor() as i32)), "sol sous {p:?}"); }
     }
     assert_eq!(BLOCKS[st.block(v.c[0], v.c[1], v.c[2]) as usize].name, "water", "le puits au milieu de la place");
 }
