@@ -27,14 +27,18 @@ impl Session {
     }
     /// Case de l'écran : sac, coffre ouvert ou équipement.
     pub fn slot(&self, i: usize) -> Option<Stack> {
-        if i < INV_SIZE { self.inv[i] } else if i < EQUIP0 { self.chest.and_then(|c| self.chests.get(&c)).and_then(|v| v.get(i - CHEST0).copied().flatten()) } else { self.equip.get(i - EQUIP0).copied().flatten() }
+        if i < INV_SIZE { self.inv[i] } else if i < EQUIP0 { self.chest_cell(i).and_then(|(c, k)| self.chests.get(&c).and_then(|v| v.get(k).copied().flatten())) } else { self.equip.get(i - EQUIP0).copied().flatten() }
     }
+    /// Une case du coffre à l'écran : quel coffre (le premier, ou son voisin pour la seconde moitié), et quelle case.
+    fn chest_cell(&self, i: usize) -> Option<([i32; 3], usize)> { let k = i.checked_sub(CHEST0)?; if k < CHEST_SIZE { self.chest.map(|c| (c, k)) } else if k < CHEST_VIEW { self.chest2.map(|c| (c, k - CHEST_SIZE)) } else { None } }
+    /// Combien de cases de coffre sont ouvertes : aucune, un coffre, ou deux côte à côte.
+    pub fn chest_cells(&self) -> usize { if self.chest.is_none() { 0 } else if self.chest2.is_some() { CHEST_VIEW } else { CHEST_SIZE } }
     fn set_slot(&mut self, i: usize, v: Option<Stack>) {
-        if i < INV_SIZE { self.inv[i] = v; } else if i < EQUIP0 { if let Some(c) = self.chest { if let Some(s) = self.chests.get_mut(&c).and_then(|x| x.get_mut(i - CHEST0)) { *s = v; } } } else if let Some(s) = self.equip.get_mut(i - EQUIP0) { *s = v; }
+        if i < INV_SIZE { self.inv[i] = v; } else if i < EQUIP0 { if let Some((c, k)) = self.chest_cell(i) { if let Some(s) = self.chests.get_mut(&c).and_then(|x| x.get_mut(k)) { *s = v; } } } else if let Some(s) = self.equip.get_mut(i - EQUIP0) { *s = v; }
         if let Some(s) = v { self.seen.insert(s.item); } self.dirty = true;
     }
     /// Une case d'équipement n'accepte que ce qui se porte à cet endroit.
-    pub fn accepts(&self, i: usize, st: Stack) -> bool { if i < EQUIP0 { return i < INV_SIZE || self.chest.is_some(); } def(st.item).and_then(|d| d.wear).is_some_and(|w| w.slot == SLOTS[i - EQUIP0].0) }
+    pub fn accepts(&self, i: usize, st: Stack) -> bool { if i < EQUIP0 { return i < INV_SIZE || self.chest_cell(i).is_some(); } def(st.item).and_then(|d| d.wear).is_some_and(|w| w.slot == SLOTS[i - EQUIP0].0) }
     /// Inventaire : prend ce qu'il y a dans une case. En créatif, le catalogue donne un tas plein.
     pub fn grab_slot(&mut self, i: usize) { if self.cursor.is_none() { if let Some(s) = self.slot(i) { self.set_slot(i, None); self.cursor = Some(s); self.from = Some(i); } } }
     pub fn grab_catalog(&mut self, id: &'static str) { if let Some(it) = item(id) { self.cursor = Some(Stack::new(it.id, if stackable(it.id) { Some(max_stack(it.id)) } else { None })); self.from = None; } }
@@ -72,7 +76,7 @@ impl Session {
     /// Maj+clic sur une case : du coffre vers le sac et inversement ; un vêtement va se porter ; sinon de la barre au sac.
     pub fn quick_slot(&mut self, i: usize) {
         let Some(s) = self.slot(i) else { return };
-        let mut range: Vec<usize> = if i >= EQUIP0 { (9..INV_SIZE).chain(0..9).collect() } else if i >= CHEST0 { (0..INV_SIZE).collect() } else if self.chest.is_some() { (CHEST0..EQUIP0).collect() } else if i < 9 { (9..INV_SIZE).collect() } else { (0..9).collect() };
+        let mut range: Vec<usize> = if i >= EQUIP0 { (9..INV_SIZE).chain(0..9).collect() } else if i >= CHEST0 { (0..INV_SIZE).collect() } else if self.chest.is_some() { (CHEST0..CHEST0 + self.chest_cells()).collect() } else if i < 9 { (9..INV_SIZE).collect() } else { (0..9).collect() };
         if i < CHEST0 && self.chest.is_none() { if let Some(w) = def(s.item).and_then(|d| d.wear) { let e = EQUIP0 + SLOTS.iter().position(|x| x.0 == w.slot).unwrap_or(0); if self.slot(e).is_none() { range = vec![e]; } } }
         let mut s = s; let max = max_stack(s.item);
         for k in range.clone() { if let (Some(o), Some(n)) = (self.slot(k), s.n) { if o.item == s.item { if let Some(c) = o.n { let m = n.min(max.saturating_sub(c)); self.set_slot(k, Some(Stack { n: Some(c + m), ..o })); s.n = Some(n - m); } } } }
@@ -96,13 +100,57 @@ impl Session {
     /// Les ateliers à portée de main (quatre blocs), dans l'ordre de Station::ALL ; un feu éteint ne cuit rien.
     pub fn stations(&self) -> [bool; 6] {
         let p = self.player.p; let (bx, by, bz) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32); let mut o = [true, false, false, false, false, false];
-        for y in by - 2..=by + 3 { for z in bz - 4..=bz + 4 { for x in bx - 4..=bx + 4 { match self.world.get(x, y, z) { Some(B::WORKBENCH) => o[1] = true, Some(B::CAMPFIRE) => o[2] = true, Some(B::FURNACE) => o[3] = true, Some(B::ANVIL) => o[4] = true, Some(B::MASON_BENCH) => o[5] = true, _ => {} } } } }
+        for y in by - 2..=by + 3 { for z in bz - 4..=bz + 4 { for x in bx - 4..=bx + 4 { match self.world.get(x, y, z) { Some(B::WORKBENCH) => o[1] = true, Some(B::CAMPFIRE) => o[2] = true, Some(B::FURNACE) | Some(B::FURNACE_LIT) => o[3] = true, Some(B::ANVIL) => o[4] = true, Some(B::MASON_BENCH) => o[5] = true, _ => {} } } } }
         o
     }
     pub fn station_ok(st: &[bool; 6], at: Station) -> bool { st[Station::ALL.iter().position(|s| *s == at).unwrap_or(0)] }
     /// Une recette est connue dès qu'on a eu en main l'un de ses ingrédients ou ce qu'elle produit.
     pub fn known(&self, r: &Recipe) -> bool { self.creative || self.seen.contains(r.out) || r.need.iter().any(|n| members(n.id).iter().any(|m| self.seen.contains(m))) }
     pub fn can_craft(&self, r: &Recipe, st: &[bool; 6]) -> bool { r.artisan.is_none_or(|a| self.creative || self.taught.contains(a)) && Self::station_ok(st, r.at) && r.need.iter().all(|n| self.count(n.id) >= n.n) }
+    /// Ce qui empêche de fabriquer la recette `r` maintenant, s'il y a quelque chose.
+    pub fn craft_check(&self, r: &Recipe) -> Result<(), &'static str> {
+        let st = self.stations();
+        if !Self::station_ok(&st, r.at) { return Err(match r.at { Station::Bench => "Il faut un établi à portée", Station::Fire => "Il faut un feu de camp allumé à portée", Station::Furnace => "Il faut un four à portée", Station::Anvil => "Il faut une enclume à portée", Station::Mason => "Il faut un établi de tailleur de pierre à portée", Station::Hand => "" }); }
+        if let Some(a) = r.artisan { if !self.creative && !self.taught.contains(a) { return Err("Demande un artisan de village"); } }
+        if !r.need.iter().all(|n| self.count(n.id) >= n.n) { return Err("Il manque des ingrédients"); } Ok(())
+    }
+    /// « Fabriquer » (ou « Tout ») : à la main, tout de suite ; à un atelier, l'ouvrage prend le temps de son geste
+    /// (scier et clouer à l'établi, battre le métal à l'enclume, souffler le four, tailler la pierre, surveiller la cuisson).
+    pub fn order_craft(&mut self, i: usize, all: bool) -> Result<u32, &'static str> {
+        let r = recipes().get(i).ok_or("Recette inconnue")?.clone(); self.craft_check(&r)?;
+        if self.creative || r.at == Station::Hand {
+            let mut made = 0; loop { match self.craft(i) { Ok(()) => { made += 1; if !all || made >= 64 { break; } } Err(e) => { if made == 0 { return Err(e); } break; } } } return Ok(made);
+        }
+        if self.job.is_some() { return Err("Un ouvrage est déjà en cours"); }
+        self.job = Some(Job { r: i, all, t: 0.0, dur: Job::time(r.at), beats: Job::beats(r.at), at: r.at, made: 0 }); Ok(0)
+    }
+    /// L'ouvrage avance : un coup, un trait de scie, un souffle de soufflet à chaque temps ; au bout, l'objet.
+    pub(crate) fn job_tick(&mut self, dt: f64) {
+        if !self.inv_open { self.at_station = None; }
+        let Some(mut j) = self.job else { return };
+        if !self.inv_open || self.dead.is_some() { self.job = None; self.notes.push("Ouvrage interrompu".into()); return; }
+        let beat = j.dur / j.beats as f64; let (a, b) = ((j.t / beat).floor() as i64, ((j.t + dt) / beat).floor() as i64);
+        if j.t == 0.0 || b > a { self.sound.work(j.at as u8, b.max(0) as u32); self.anim.trigger(); if j.at == Station::Furnace { self.light_furnace(); } }
+        j.t += dt; self.anim.work = Some((j.at as u8, (j.t / beat).fract()));
+        if j.t < j.dur { self.job = Some(j); return; }
+        self.anim.work = None;
+        match self.craft(j.r) {
+            Ok(()) => { j.made += 1; let r = &recipes()[j.r]; self.notes.push(format!("+{} {}", r.n, item(r.out).map_or(r.out, |i| i.label)));
+                if j.all && j.made < 64 && self.craft_check(r).is_ok() { j.t = 0.0; self.job = Some(j); } else { self.job = None; } }
+            Err(e) => { self.notes.push(e.into()); self.job = None; }
+        }
+    }
+    /// Le four le plus proche s'embrase pendant la fonte, puis refroidit.
+    fn light_furnace(&mut self) {
+        let p = self.player.p; let (bx, by, bz) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32); let mut best: Option<([i32; 3], i32)> = None;
+        for y in by - 2..=by + 3 { for z in bz - 4..=bz + 4 { for x in bx - 4..=bx + 4 { if matches!(self.world.get(x, y, z), Some(B::FURNACE) | Some(B::FURNACE_LIT)) { let d = (x - bx).abs() + (y - by).abs() + (z - bz).abs(); if best.is_none_or(|b| d < b.1) { best = Some(([x, y, z], d)); } } } } }
+        let Some((c, _)) = best else { return }; if self.world.get(c[0], c[1], c[2]) == Some(B::FURNACE) { self.world.edit(c[0], c[1], c[2], B::FURNACE_LIT); }
+        if let Some(l) = self.lit.iter_mut().find(|l| l.0 == c) { l.1 = 8.0; } else { self.lit.push((c, 8.0)); }
+    }
+    pub(crate) fn cool_furnaces(&mut self, dt: f64) {
+        for l in self.lit.iter_mut() { l.1 -= dt; } let done: Vec<[i32; 3]> = self.lit.iter().filter(|l| l.1 <= 0.0).map(|l| l.0).collect();
+        for c in &done { if self.world.get(c[0], c[1], c[2]) == Some(B::FURNACE_LIT) { self.world.edit(c[0], c[1], c[2], B::FURNACE); } } self.lit.retain(|l| l.1 > 0.0);
+    }
     /// Fabrique la recette `i` une fois. L'erreur dit ce qui manque.
     pub fn craft(&mut self, i: usize) -> Result<(), &'static str> {
         let r = recipes().get(i).ok_or("Recette inconnue")?.clone(); let st = self.stations();
@@ -270,7 +318,10 @@ impl Session {
                 // Porte et trappe : clic droit pour ouvrir ou fermer (accroupi, on pose contre elles).
                 if let Some(si) = crate::shapes::info(t.id).filter(|i| matches!(i.kind, crate::shapes::Kind::Door | crate::shapes::Kind::Trapdoor | crate::shapes::Kind::Shutter)) { if !self.player.crouch {
                     if self.use_t > 0.0 { return true; } self.toggle(p, si); self.use_t = 0.25; return true; } }
-                if t.id == B::CHEST && !self.player.crouch { if !self.chests.contains_key(&p) { let l = self.village_loot(p); self.chests.insert(p, l); } self.chest = Some(p); self.inv_open = true; self.sound.place("chest"); return true; }
+                if (t.id == B::CHEST || t.id == B::CHEST_OPEN) && !self.player.crouch { self.open_chest(p); return true; }
+                // Un atelier : son interface, ses recettes, son geste.
+                if let Some(st) = station_of(t.id) { if !self.player.crouch && (st != Station::Fire || !held.is_some_and(|s| matches!(s.item, "torch" | "flint" | "fire_drill") || hd.is_some_and(|d| d.fuel > 0.0))) {
+                    self.at_station = Some((st, p)); self.inv_open = true; self.chest = None; self.chest2 = None; self.book.page = 0; self.book.cat = 0; self.sound.place(BLOCKS[t.id as usize].name); return true; } }
                 if (crate::shapes::is_bed(t.id) || t.id == B::BEDROLL) && !self.player.crouch { self.sleep(p, t.id); return true; }
                 // Nourrir un feu : bois, bâtons, charbon ; un feu éteint se rallume.
                 // Allumer : la torche prend à coup sûr, le silex et l'archet à feu au bout de quelques essais ; sans bois, rien ne prend.
@@ -333,6 +384,7 @@ impl Session {
         // Un feu de camp se pose éteint, avec sa première brassée de bois : il faut l'allumer.
         if id == B::CAMPFIRE { self.world.edit(p[0], p[1], p[2], B::CAMPFIRE_OUT); self.fires.insert(p, FIRE_START); self.notes.push("Feu de camp posé : allumez-le d'un clic droit avec un silex, une torche ou un archet à feu".into()); }
         if id == B::CHEST { self.chests.insert(p, vec![None; CHEST_SIZE]); }
+        if id == B::CHEST && self.chest_pair(p).is_some() { self.notes.push("Deux coffres côte à côte : un grand coffre".into()); }
     }
     /// Un bloc vient d'être cassé : un coffre rend son contenu, un feu s'éteint pour de bon, une culture est arrachée.
     /// Ouvre ou ferme une porte (ses deux moitiés) ou une trappe (qui s'ouvre du côté opposé au joueur).
@@ -354,13 +406,30 @@ impl Session {
             if self.world.get(other[0], other[1], other[2]).and_then(crate::shapes::info).is_some_and(|i| i.kind == crate::shapes::Kind::Door) { self.world.edit(other[0], other[1], other[2], 0); }
             if si.upper && !self.creative { self.add_item("door", 1); }
         }
-        if id == B::CHEST { if let Some(items) = self.chests.remove(&p) { let mut rest = Vec::new(); for st in items.into_iter().flatten() { if let Some(r) = self.add_stack(st) { rest.push(r); } } if !rest.is_empty() { self.stashes.push(Stash { p: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], items: rest, born: self.hours }); self.notes.push("Le sac est plein : le reste du coffre attend dans un sac posé là".into()); } } if self.chest == Some(p) { self.chest = None; } }
+        if self.chest == Some(p) || self.chest2 == Some(p) { self.close_chest(); }
+        if id == B::CHEST || id == B::CHEST_OPEN { if let Some(items) = self.chests.remove(&p) { let mut rest = Vec::new(); for st in items.into_iter().flatten() { if let Some(r) = self.add_stack(st) { rest.push(r); } } if !rest.is_empty() { self.stashes.push(Stash { p: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], items: rest, born: self.hours }); self.notes.push("Le sac est plein : le reste du coffre attend dans un sac posé là".into()); } } if self.chest == Some(p) { self.chest = None; } }
         if id == B::CAMPFIRE || id == B::CAMPFIRE_OUT { self.fires.remove(&p); }
         self.crops.retain(|c| c.0 != p);
         if self.bed == Some(p) { self.bed = None; self.notes.push("Votre lit est détruit : vous réapparaîtrez au point de départ".into()); }
     }
     /// Fermer le coffre (ou l'inventaire).
-    pub fn close_chest(&mut self) { self.chest = None; }
+    pub fn close_chest(&mut self) { self.chest = None; self.chest2 = None; self.at_station = None; }
+    /// Le coffre voisin (sur les côtés, même hauteur), s'il y en a un.
+    fn chest_pair(&self, p: [i32; 3]) -> Option<[i32; 3]> { [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().map(|(dx, dz)| [p[0] + dx, p[1], p[2] + dz]).find(|q| self.world.get(q[0], q[1], q[2]).is_some_and(|b| b == B::CHEST || b == B::CHEST_OPEN)) }
+    /// Ouvre un coffre (et son voisin : un grand coffre) ; les couvercles se lèvent.
+    pub fn open_chest(&mut self, p: [i32; 3]) {
+        let pair = self.chest_pair(p); let (a, b) = match pair { Some(q) if q < p => (q, Some(p)), Some(q) => (p, Some(q)), None => (p, None) };
+        for c in [Some(a), b].into_iter().flatten() { if !self.chests.contains_key(&c) { let l = self.village_loot(c); self.chests.insert(c, l); }
+            if self.world.get(c[0], c[1], c[2]) == Some(B::CHEST) && self.world.edit(c[0], c[1], c[2], B::CHEST_OPEN) { self.lids.push(c); } }
+        self.chest = Some(a); self.chest2 = b; self.at_station = None; self.inv_open = true; self.sound.place("chest"); self.sound.creak();
+    }
+    /// Les couvercles retombent quand on referme.
+    pub(crate) fn lids_tick(&mut self, _dt: f64) {
+        if self.lids.is_empty() { return; } let open: Vec<[i32; 3]> = if self.inv_open { [self.chest, self.chest2].into_iter().flatten().collect() } else { Vec::new() };
+        let shut: Vec<[i32; 3]> = self.lids.iter().copied().filter(|c| !open.contains(c)).collect(); if shut.is_empty() { return; }
+        for c in &shut { if self.world.get(c[0], c[1], c[2]) == Some(B::CHEST_OPEN) { self.world.edit(c[0], c[1], c[2], B::CHEST); } }
+        self.lids.retain(|c| !shut.contains(c)); self.sound.place("chest"); if !self.inv_open { self.chest = None; self.chest2 = None; }
+    }
     /// Un artisan transmet sa technique : ses recettes deviennent faisables (aux ateliers voulus). Pour les villages.
     pub fn learn(&mut self, craftsman: &str) -> bool { match crate::data::db().craftsmen.iter().find(|c| c.id == craftsman) { Some(c) if c.services.contains(&"transmission") => { self.taught.insert(c.id); self.dirty = true; true } _ => false } }
 
@@ -424,7 +493,7 @@ impl Session {
     fn fire_heat(&self) -> f64 {
         let p = self.player.p; let (bx, by, bz) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32); let mut best = 0.0f64;
         for y in by - 2..=by + 2 { for z in bz - 5..=bz + 5 { for x in bx - 5..=bx + 5 { let b = self.world.get(x, y, z).unwrap_or(0);
-            let k = if b == B::CAMPFIRE { 20.0 } else if b == B::FURNACE { 14.0 } else if b == B::TORCH { 4.0 } else { continue };
+            let k = if b == B::CAMPFIRE { 20.0 } else if b == B::FURNACE || b == B::FURNACE_LIT { 14.0 } else if b == B::TORCH { 4.0 } else { continue };
             let d = ((x as f64 + 0.5 - p[0]).powi(2) + (z as f64 + 0.5 - p[2]).powi(2)).sqrt(); best = best.max(k * (1.0 - d / 6.0).max(0.0)); } } }
         best
     }
@@ -579,7 +648,7 @@ impl Session {
 /// Liste des recettes du livre, dans l'ordre : favorites d'abord, puis faisables, puis le reste ; seulement celles qu'on connaît.
 pub fn book(s: &Session, cat: Option<&str>, search: &str) -> Vec<usize> {
     let st = s.stations(); let q = search.to_lowercase();
-    let mut v: Vec<usize> = recipes().iter().enumerate().filter(|(_, r)| s.known(r) && cat.is_none_or(|c| r.cat == c) && (q.is_empty() || item(r.out).is_some_and(|i| i.label.to_lowercase().contains(&q)))).map(|(i, _)| i).collect();
+    let mut v: Vec<usize> = recipes().iter().enumerate().filter(|(_, r)| s.known(r) && s.at_station.is_none_or(|(st, _)| r.at == st) && cat.is_none_or(|c| r.cat == c) && (q.is_empty() || item(r.out).is_some_and(|i| i.label.to_lowercase().contains(&q)))).map(|(i, _)| i).collect();
     v.sort_by_key(|i| { let r = &recipes()[*i]; (!s.fav.contains(r.out), !s.can_craft(r, &st), *i) }); v
 }
 /// Toutes les recettes, connues ou non (pour le compte « à découvrir »).
@@ -590,3 +659,17 @@ pub const BOOK_CATS: [(&str, &str); 8] = [("outils", "Outils"), ("matieres", "Ma
 pub fn sow(item: &str) -> Option<Id> { match item { "seeds" => Some(B::WHEAT_0), "carrot" => Some(B::CARROT_0), "potato" => Some(B::POTATO_0), _ => None } }
 /// Le premier stade de la culture dont `b` est un stade (les quatre stades se suivent dans le registre).
 pub fn crop_first(b: Id) -> Option<Id> { [B::WHEAT_0, B::CARROT_0, B::POTATO_0].into_iter().find(|f| (*f..=*f + 3).contains(&b)) }
+
+/// Un ouvrage à l'atelier : la recette, « tout » ou une fois, le temps passé et sa durée, ses temps (coups, traits de scie…).
+#[derive(Clone, Copy, Debug)]
+pub struct Job { pub r: usize, pub all: bool, pub t: f64, pub dur: f64, pub beats: u32, pub at: Station, pub made: u32 }
+impl Job {
+    pub fn time(at: Station) -> f64 { match at { Station::Bench => 1.4, Station::Anvil => 2.2, Station::Furnace => 3.0, Station::Mason => 1.8, Station::Fire => 2.4, Station::Hand => 0.0 } }
+    pub fn beats(at: Station) -> u32 { match at { Station::Bench => 4, Station::Anvil => 5, Station::Furnace => 3, Station::Mason => 6, Station::Fire => 3, Station::Hand => 1 } }
+    /// L'avancement, de 0 à 1.
+    pub fn progress(&self) -> f64 { (self.t / self.dur.max(0.01)).clamp(0.0, 1.0) }
+    /// Le geste fait balancer le bras en troisième personne (marteau, ciseau, scie).
+    pub fn swings(&self) -> bool { matches!(self.at, Station::Anvil | Station::Mason | Station::Bench) }
+}
+/// L'atelier qu'est ce bloc, s'il en est un (le feu de camp seulement allumé).
+pub fn station_of(b: Id) -> Option<Station> { match b { B::WORKBENCH => Some(Station::Bench), B::FURNACE | B::FURNACE_LIT => Some(Station::Furnace), B::ANVIL => Some(Station::Anvil), B::MASON_BENCH => Some(Station::Mason), B::CAMPFIRE => Some(Station::Fire), _ => None } }

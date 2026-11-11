@@ -9,7 +9,7 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 45] = ["bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 46] = ["chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
@@ -53,6 +53,18 @@ pub fn draw(o: &mut VBuf, model: &str, name: &str, x: f64, y: f64, z: f64, s: f6
 
 fn build(k: &mut K, m: &str, r: &mut Rng) {
     match m {
+        // Le coffre ouvert : la caisse cerclée, l'intérieur sombre, le couvercle levé sur ses charnières, vers l'arrière.
+        "chest_open" => {
+            const CW: C = [0.55, 0.37, 0.2]; const CW2: C = [0.6, 0.41, 0.22]; const BAND: C = [0.24, 0.24, 0.25];
+            k.b([0.08, 0.0, 0.14, 0.92, 0.08, 0.86], CW); k.b([0.08, 0.08, 0.14, 0.92, 0.56, 0.2], CW); k.b([0.08, 0.08, 0.8, 0.92, 0.56, 0.86], CW); k.b([0.08, 0.08, 0.2, 0.14, 0.56, 0.8], CW); k.b([0.86, 0.08, 0.2, 0.92, 0.56, 0.8], CW);
+            k.b([0.14, 0.08, 0.2, 0.86, 0.1, 0.8], [0.16, 0.1, 0.06]);
+            for a in [0.16, 0.8] { k.b([a, 0.0, 0.13, a + 0.05, 0.565, 0.87], BAND); }
+            let th = 1.75f64; let (dz, dy) = ([0.0, th.sin(), th.cos()], [0.0, th.cos(), -th.sin()]); let hinge = [0.5, 0.56, 0.13];
+            let c = [hinge[0], hinge[1] + dz[1] * 0.37 + dy[1] * 0.11, hinge[2] + dz[2] * 0.37 + dy[2] * 0.11];
+            k.r(c, [[0.43, 0.0, 0.0], [0.0, dy[1] * 0.11, dy[2] * 0.11], [0.0, dz[1] * 0.37, dz[2] * 0.37]], CW2);
+            for a in [0.185, 0.825] { let cc = [a, c[1] + dy[1] * 0.005, c[2] + dy[2] * 0.005]; k.r(cc, [[0.026, 0.0, 0.0], [0.0, dy[1] * 0.115, dy[2] * 0.115], [0.0, dz[1] * 0.372, dz[2] * 0.372]], BAND); }
+            k.b([0.44, 0.42, 0.86, 0.56, 0.54, 0.89], [0.7, 0.58, 0.3]);
+        }
         // Le lit, deux blocs de long : la tête contre le mur (+z), le pied vers la pièce. Cadre de chêne, matelas de paille, drap, couverture de laine, oreiller.
         "bed" | "bed_foot" => {
             let head = m == "bed"; const SHEET: C = [0.86, 0.83, 0.74]; const WOOL: C = [0.5, 0.14, 0.12]; const WOOL2: C = [0.62, 0.22, 0.16];

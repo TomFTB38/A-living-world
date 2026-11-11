@@ -273,7 +273,8 @@ impl ApplicationHandler for App {
                             Some(hud::Hit::Page(d)) => g.s.book.page = (g.s.book.page as i32 + d).max(0) as usize,
                             Some(hud::Hit::Search) => g.s.book.typing = true,
                             // « Fabriquer » une fois, ou « Tout » : autant que les ingrédients le permettent.
-                            Some(hud::Hit::Craft(all)) => if let Some(r) = g.s.book.sel { let mut made = 0; loop { match g.s.craft(r) { Ok(()) => { made += 1; if !(all || shift) || made >= 64 { break; } } Err(e) => { if made == 0 { g.say(e.into()); } break; } } } },
+                            // À la main, tout de suite ; à un atelier, l'ouvrage prend le temps de son geste.
+                            Some(hud::Hit::Craft(all)) => if let Some(r) = g.s.book.sel { if let Err(e) = g.s.order_craft(r, all || shift) { g.say(e.into()); } },
                             None => {}
                         },
                         (MouseButton::Left, false) => if slot.is_none() && g.s.cursor.is_some() && hud::outside_panel(&g.s, w, h, g.mouse) { g.s.throw_cursor() } else { g.s.drop_slot(slot) },

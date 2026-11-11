@@ -350,6 +350,9 @@ turner('torch_wall', 0.05, 'light', { light: 13, drop: 'torch' });
 // Le lit fait deux blocs de long : la tête (le bloc « bed » d'origine, désormais orientable) et le pied.
 for (const f of ['@1', '@2', '@3']) defs.push([`bed${f}`, 'deco', null, 0.8, { model: 'bed', solid: true, cat: 'wood', drop: 'bed' }]);
 turner('bed_foot', 0.8, 'wood', { solid: true, drop: 'bed' });
+// Le coffre ouvert (couvercle levé, le temps qu'on y fouille) et le four allumé (pendant une fonte, puis il refroidit).
+defs.push(['chest_open', 'deco', null, 0.8, { model: 'chest_open', solid: true, cat: 'wood', drop: 'chest' }]);
+defs.push(['furnace_lit', 'deco', null, 1.4, { model: 'furnace', solid: true, light: 14, cat: 'rock', drop: 'furnace' }]);
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,

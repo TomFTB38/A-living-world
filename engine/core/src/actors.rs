@@ -337,7 +337,7 @@ impl Models {
 #[derive(Clone, Copy, Debug)] pub struct Draw { pub m: M4, pub r: Range, pub view: bool, pub local: bool, pub hero: bool, pub dynamic: bool, /** coup reçu, de 0 à 1 : la bête rougit */ pub hurt: f32 }
 pub(crate) fn hold_m(h: Hold) -> M4 { match h { Hold::Tool => mul(&trs(0.0, -0.58, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.0), &roll_z(-std::f64::consts::FRAC_PI_4)), Hold::Block => trs(-0.14, -0.76, -0.14, 0.0, 0.0, 0.28), Hold::Deco => trs(-0.28, -0.72, -0.1, 0.0, 0.0, 0.55) } }
 #[derive(Default, Clone, Copy)] pub struct AnimIn { pub speed: f64, pub ground: bool, pub vy: f64, pub crouch: bool, pub fly: bool, pub mining: bool, pub guard: bool }
-#[derive(Default)] pub struct Anim { /** arc bandé, de 0 à 1 */ pub bow: f64, phase: f64, walk: f64, run: f64, low: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64, /** garde levée, de 0 à 1 */ pub guard: f64 }
+#[derive(Default)] pub struct Anim { /** ouvrage à l'atelier : (atelier, temps du geste de 0 à 1) */ pub work: Option<(u8, f64)>, /** arc bandé, de 0 à 1 */ pub bow: f64, phase: f64, walk: f64, run: f64, low: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64, /** garde levée, de 0 à 1 */ pub guard: f64 }
 impl Anim {
     pub fn update(&mut self, dt: f64, s: AnimIn) {
         let ease = |c: f64, t: f64, k: f64| c + (t - c) * (dt * k).min(1.0); let was = self.air;
@@ -390,7 +390,11 @@ impl Anim {
     /// `shield` : la matière du bouclier porté au bras gauche (voir `family`), visible en bas à gauche et levé en garde.
     pub fn first(&self, md: &Models, view: &M4, held: Option<Held>, shield: Option<&'static str>) -> Vec<Draw> {
         let s = sin(self.phase); let c = cos(self.phase * 0.5); let w = self.walk * (1.0 - self.air); let pi = std::f64::consts::PI; let v = mul(&invert(view), &trs(0.0, 0.0, 0.0, pi, 0.0, 1.0));
-        let strike = if self.swing > 0.0 { sin(self.swing * pi) } else { 0.0 }; let push = sin(self.punch * pi); let r = md.parts["fist"]; let mut out = Vec::new();
+        let (mut strike, mut push) = (if self.swing > 0.0 { sin(self.swing * pi) } else { 0.0 }, sin(self.punch * pi)); let r = md.parts["fist"]; let mut out = Vec::new();
+        // À l'atelier, le geste du métier : le marteau qui monte et s'abat, la scie qui va et vient, le ciseau à petits coups,
+        // le soufflet qu'on pompe, la cuiller qui tourne.
+        if let Some((k, c)) = self.work { let up = if c < 0.7 { let e = c / 0.7; e * e * (3.0 - 2.0 * e) } else { 1.0 - (c - 0.7) / 0.3 };
+            (strike, push) = match k { 4 => (up, 0.0), 1 => (0.25, 0.5 + 0.5 * sin(c * 6.283)), 5 => (0.35 * sin(c * pi), 0.15), 3 => (0.0, 0.5 - 0.5 * cos(c * 6.283)), _ => (0.3 + 0.2 * sin(c * 6.283), 0.3 + 0.2 * cos(c * 6.283)) }; }
         let bx_ = c * 0.022 * w - 0.05 * self.run; let by = -s.abs() * 0.022 * w - 0.05 * self.low + 0.07 * self.air * (self.rise - 0.5);
         let hand = |m: M4| Draw { m, r, view: true, local: false, hero: true, dynamic: false, hurt: 0.0 };
         match held {

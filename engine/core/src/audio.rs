@@ -282,6 +282,19 @@ impl SoundScape {
     pub fn creak(&self) { self.send(Cmd::Play { l: L { lp: 1400.0, ..l("plankdry", 0.55, 0.22) }, k: 1.0, pan: 0.0, delay: 0.0 }); }
     /// Un objet ramassé : petit claquement clair.
     pub fn pickup(&self) { self.send(Cmd::Tone { f: 820.0, to: 1240.0, dur: 0.06, vol: 0.1, pan: 0.0, delay: 0.0, saw: false, lp: 0.0 }); self.send(Cmd::Play { l: l("leaf", 1.7, 0.18), k: 1.0, pan: 0.0, delay: 0.0 }); }
+    /// Un temps de l'ouvrage, selon l'atelier (dans l'ordre de `Station`) : scie et marteau à l'établi, feu qui crépite,
+    /// soufflet et ronflement du four, marteau sur l'enclume qui sonne, ciseau sur la pierre.
+    pub fn work(&self, at: u8, beat: u32) {
+        let p = |s: &Self, l: L, k: f32, d: f32| s.send(Cmd::Play { l, k, pan: 0.0, delay: d });
+        match at {
+            1 => if beat % 2 == 0 { p(self, L { lp: 2600.0, ..l("plankdry", 1.35, 0.45) }, 1.0, 0.0); p(self, L { lp: 2600.0, ..l("plankdry", 1.5, 0.35) }, 1.0, 0.12); } else { p(self, l("knock", 1.25, 0.55), 1.0, 0.0); },
+            2 => { p(self, l("crack", 1.3, 0.25), 1.0, 0.0); p(self, l("soft", 0.8, 0.3), 1.0, 0.1); }
+            3 => { p(self, L { lp: 700.0, ..l("puff", 0.55, 0.7) }, 1.0, 0.0); p(self, l("crack", 1.5, 0.18), 1.0, 0.2); }
+            4 => { p(self, l("metal", 1.3, 0.75), 1.0, 0.0); self.send(Cmd::Tone { f: 1760.0, to: 1720.0, dur: 0.5, vol: 0.05, pan: 0.0, delay: 0.0, saw: false, lp: 0.0 }); self.send(Cmd::Tone { f: 2640.0, to: 2600.0, dur: 0.3, vol: 0.025, pan: 0.0, delay: 0.0, saw: false, lp: 0.0 }); }
+            5 => { p(self, l("metal", 1.8, 0.3), 1.0, 0.0); p(self, l("crumble", 1.7, 0.35), 1.0, 0.02); }
+            _ => p(self, l("puff", 1.0, 0.3), 1.0, 0.0),
+        }
+    }
     pub fn hurt(&self) { self.send(Cmd::Play { l: l("hurt", 1.0, 0.6), k: 1.0, pan: 0.0, delay: 0.0 }); }
     pub fn bird(&mut self, pos: [f64; 3], voice: usize) {
         let Some((v, pan)) = self.at(pos, 22.0) else { return }; let r = &mut self.rnd;

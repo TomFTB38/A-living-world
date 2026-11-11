@@ -44,10 +44,12 @@ pub fn layout(s: &Session, w: f32, h: f32) -> Vec<(Hit, [f32; 4])> {
         let y = y1 + 4.0 * cell + 16.0 * k; inv_grid(&mut o, x0, y, c, cell, k); return o;
     }
     let (lw, bw, gap) = (250.0 * k, BOOK_COLS as f32 * cell - g, 46.0 * k); let total = lw + gap + tw + gap + bw; let xl = (w - total) * 0.5; let x0 = xl + lw + gap; let xb = x0 + tw + gap;
-    let chest = s.chest.is_some(); let y = h * 0.5 - 110.0 * k + if chest { 115.0 * k } else { 0.0 };
-    if chest { let yc = y - 3.0 * cell - 50.0 * k; for i in 0..CHEST_SIZE { o.push((Hit::Slot(CHEST0 + i), [x0 + (i % 9) as f32 * cell, yc + (i / 9) as f32 * cell, c, c])); } }
+    // Un coffre : trois rangées au-dessus du sac ; deux coffres côte à côte : six rangées, le tout remonte.
+    let cells = s.chest_cells(); let rows = (cells / 9) as f32; let y = h * 0.5 - 110.0 * k + if cells > 0 { 115.0 * k + (rows - 3.0) * 30.0 * k } else { 0.0 };
+    if cells > 0 { let yc = y - rows * cell - 50.0 * k; for i in 0..cells { o.push((Hit::Slot(CHEST0 + i), [x0 + (i % 9) as f32 * cell, yc + (i / 9) as f32 * cell + if i >= CHEST_SIZE { 6.0 * k } else { 0.0 }, c, c])); } }
     inv_grid(&mut o, x0, y, c, cell, k);
-    for i in 0..SLOTS.len() { o.push((Hit::Slot(EQUIP0 + i), [xl, y + i as f32 * cell, c, c])); }
+    // L'équipement ne remonte pas avec un grand coffre : il resterait sinon coupé en bas de l'écran.
+    let ye = y.min(h * 0.5 - 70.0 * k); for i in 0..SLOTS.len() { o.push((Hit::Slot(EQUIP0 + i), [xl, ye + i as f32 * cell, c, c])); }
     // Livre de recettes : deux rangées d'onglets, la recherche, la grille, les pages, le détail et ses boutons.
     let yb = h * 0.5 - 300.0 * k; let th = 26.0 * k; let names = 1 + BOOK_CATS.len(); let per = names.div_ceil(2);
     for i in 0..names { let (r, cl) = (i / per, i % per); let n = if r == 0 { per } else { names - per }; let tbw = (bw - (n as f32 - 1.0) * g) / n as f32; o.push((Hit::BookCat(i), [xb + cl as f32 * (tbw + g), yb + r as f32 * (th + g), tbw, th])); }
@@ -215,9 +217,9 @@ impl Ui {
         self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.03, 0.42]); for i in 0..10 { let f = i as f32 / 10.0; let b = w.min(h) * 0.05 * (1.0 - f); let a = [0.0, 0.0, 0.0, 0.05]; self.rect(0.0, 0.0, w, b, a); self.rect(0.0, h - b, w, b, a); self.rect(0.0, b, b, h - 2.0 * b, a); self.rect(w - b, b, b, h - 2.0 * b, a); }
         let k = if s.creative { scale(h) } else { inv_scale(w, h) }; let l = layout(s, w, h); let m = 22.0 * k; let cell = 63.0 * k; let tw = 9.0 * 58.0 * k + 8.0 * 5.0 * k;
         let first = l.iter().find(|r| matches!(r.0, Hit::Slot(i) if (9..INV_SIZE).contains(&i))).map(|r| r.1).unwrap(); let (x0, y0) = (first[0], first[1]); let bottom = y0 + 4.0 * cell + 12.0 * k;
-        let top = if s.creative { l[0].1[1] } else if s.chest.is_some() { y0 - 3.0 * cell - 50.0 * k } else { y0 };
+        let rows = (s.chest_cells() / 9) as f32; let top = if s.creative { l[0].1[1] } else if s.chest.is_some() { y0 - rows * cell - 50.0 * k } else { y0 };
         self.panel([x0 - m, top - m - 30.0 * k, tw + 2.0 * m, bottom - top + 2.0 * m + 30.0 * k], k, PANEL);
-        self.text(if s.creative { "Catalogue" } else if s.chest.is_some() { "Coffre" } else { "Inventaire" }, x0, top - 38.0 * k, 22.0 * k, INK);
+        self.text(if s.creative { "Catalogue" } else if s.chest2.is_some() { "Grand coffre" } else if s.chest.is_some() { "Coffre" } else { "Inventaire" }, x0, top - 38.0 * k, 22.0 * k, INK);
         if s.chest.is_some() { self.text("Inventaire", x0, y0 - 30.0 * k, 17.0 * k, DIM); }
         if s.creative { let t = "Maj + clic : vers la barre  ·  clic droit : moitié du tas"; let z = 15.0 * k; self.text(t, x0 + tw - Ui::text_width(t, z), top - 33.0 * k, z, DIM); }
         else { let (c, cap) = (s.carried(), s.capacity()); let t = format!("{c:.1} / {cap:.0} kg"); let z = 15.0 * k; self.text(&t, x0 + tw - Ui::text_width(&t, z), top - 33.0 * k, z, if c > cap { BAD } else { DIM }); }
@@ -225,7 +227,7 @@ impl Ui {
         let st6 = if s.creative { [true; 6] } else { s.stations() };
         if !s.creative {
             // Équipement et état du personnage, à gauche.
-            let e0 = l.iter().find(|r| r.0 == Hit::Slot(EQUIP0)).map(|r| r.1).unwrap(); let (xl, lw) = (e0[0], 250.0 * k);
+            let e0 = l.iter().find(|r| r.0 == Hit::Slot(EQUIP0)).map(|r| r.1).unwrap(); let (xl, lw) = (e0[0], 250.0 * k); let y0 = e0[1];
             self.panel([xl - m, y0 - m - 30.0 * k, lw + 2.0 * m, SLOTS.len() as f32 * cell + 100.0 * k + if s.skills.iter().any(|v| *v >= 1.0) { 44.0 * k } else { 0.0 } + 2.0 * m + 30.0 * k], k, PANEL); self.text("Personnage", xl, y0 - 38.0 * k, 22.0 * k, INK);
             // Emplacements vides : la silhouette de ce qui s'y porte, en sourdine.
             for (i, ghost) in ["leather_cap", "leather_jacket", "leather_pants", "leather_boots", "backpack", "wooden_shield"].iter().enumerate() { if s.equip[i].is_none() { let c = 58.0 * k; let (gx, gy) = (xl + c * 0.5, y0 + i as f32 * cell + c * 0.5); self.icon(ghost, gx, gy, c * 0.36); self.rect(xl, y0 + i as f32 * cell, c, c, [0.06, 0.07, 0.06, 0.72]); } }
@@ -238,7 +240,13 @@ impl Ui {
             // Livre de recettes, à droite.
             let c0 = l.iter().find(|r| r.0 == Hit::BookCat(0)).map(|r| r.1).unwrap(); let bw = BOOK_COLS as f32 * cell - 5.0 * k; let xb = c0[0];
             let craft = l.iter().find(|r| r.0 == Hit::Craft(false)).map(|r| r.1).unwrap();
-            self.panel([xb - m, c0[1] - m - 30.0 * k, bw + 2.0 * m, craft[1] + craft[3] - c0[1] + 2.0 * m + 30.0 * k], k, PANEL); self.text("Recettes", xb, c0[1] - 38.0 * k, 22.0 * k, INK);
+            // À un atelier, le livre devient son interface : son nom, sa teinte, son image, ses seuls ouvrages, son geste et sa jauge.
+            let station = s.at_station.map(|a| a.0); let theme = station.map_or(PANEL, station_tint);
+            let box_ = [xb - m, c0[1] - m - 30.0 * k, bw + 2.0 * m, craft[1] + craft[3] - c0[1] + 2.0 * m + 30.0 * k + if s.job.is_some() { 44.0 * k } else { 0.0 }]; self.panel(box_, k, theme);
+            if let Some(st) = station { let (name, icon, ..) = station_look(st); self.text(name, xb + 34.0 * k, c0[1] - 38.0 * k, 22.0 * k, INK);
+                if st == Station::Furnace || st == Station::Fire { for i in 0..6 { let f = i as f32 / 6.0; self.rect(xb - 4.0 * k + f * 10.0 * k, c0[1] - 46.0 * k + f * 10.0 * k, 36.0 * k - f * 20.0 * k, 36.0 * k - f * 20.0 * k, [1.0, 0.45 + 0.3 * f, 0.1, 0.06 + 0.04 * f]); } }
+                self.icon(icon, xb + 14.0 * k, c0[1] - 28.0 * k, 16.0 * k); }
+            else { self.text("Recettes", xb, c0[1] - 38.0 * k, 22.0 * k, INK); }
             let left = unknown(s); if left > 0 { let t = format!("{left} à découvrir"); let z = 14.0 * k; self.text(&t, xb + bw - Ui::text_width(&t, z), c0[1] - 32.0 * k, z, DIM); }
             let list = book(s, cat_of(s.book.cat), &s.book.search); let pages = list.len().div_ceil(BOOK_COLS * BOOK_ROWS).max(1);
             for (hit, r) in &l { let on = hover == Some(*hit); match hit {
@@ -263,7 +271,13 @@ impl Ui {
                 let here = Session::station_ok(&st6, rc.at); self.text(rc.at.label(), xb, y, 14.5 * k, if here || rc.at == Station::Hand { DIM } else { BAD });
                 // Au-delà du fer : le métier qui sait le faire, et où le trouver.
                 if let Some(a) = rc.artisan { if let Some(c) = alw_core::data::db().craftsmen.iter().find(|c| c.id == a) { y += 19.0 * k; let got = s.creative || s.taught.contains(a); let t = if got { format!("Technique apprise auprès d'un {}", c.name.to_lowercase()) } else { format!("Demande un {} : villages de {}", c.name.to_lowercase(), c.villages.iter().map(|v| v.replace('_', " ")).collect::<Vec<_>>().join(", ")) }; for line in wrap(&t, 14.0 * k, bw) { self.text(&line, xb, y, 14.0 * k, if got { DIM } else { BAD }); y += 18.0 * k; } } }
-                for (hit, r) in l.iter().filter(|x| matches!(x.0, Hit::Craft(_))) { let on = hover == Some(*hit); self.panel(*r, k, if ok { if on { [0.4, 0.58, 0.3, 1.0] } else { [0.28, 0.4, 0.22, 1.0] } } else { [0.12, 0.13, 0.12, 1.0] }); self.centered(if *hit == Hit::Craft(false) { "Fabriquer" } else { "Tout" }, *r, 16.0 * k, if ok { INK } else { DIM }); }
+                let verb = station.map_or("Fabriquer", |st| station_look(st).2); let busy = s.job.is_some();
+                for (hit, r) in l.iter().filter(|x| matches!(x.0, Hit::Craft(_))) { let on = hover == Some(*hit) && !busy; self.panel(*r, k, if ok && !busy { if on { [0.4, 0.58, 0.3, 1.0] } else { [0.28, 0.4, 0.22, 1.0] } } else { [0.12, 0.13, 0.12, 1.0] }); self.centered(if *hit == Hit::Craft(false) { verb } else { "Tout" }, *r, 16.0 * k, if ok && !busy { INK } else { DIM }); }
+                // L'ouvrage en cours : ce qu'on fait, et la jauge qui avance au rythme du geste.
+                if let Some(j) = s.job { let cr = l.iter().find(|r| r.0 == Hit::Craft(false)).map(|r| r.1).unwrap(); let (by, bh) = (cr[1] + cr[3] + 10.0 * k, 12.0 * k);
+                    let what = format!("{} : {}", station_look(j.at).3, item(recipes()[j.r].out).map_or("", |i| i.label).to_lowercase()); self.text(&what, xb, by, 14.0 * k, DIM);
+                    self.rect(xb, by + 20.0 * k, bw, bh, [0.0, 0.0, 0.0, 0.5]); let p = j.progress() as f32; let fill = station_look(j.at).4; self.rect(xb + 2.0 * k, by + 22.0 * k, (bw - 4.0 * k) * p, bh - 4.0 * k, fill);
+                    if j.all && j.made > 0 { let t = format!("{} faits", j.made); let z = 13.0 * k; self.text(&t, xb + bw - Ui::text_width(&t, z), by, z, DIM); } }
             } else { self.text("Choisissez une recette.", xb, y, 14.5 * k, DIM); y += 20.0 * k; for t in wrap("Clic droit : favori. Les recettes apparaissent dès qu'on a eu en main l'un de leurs ingrédients.", 14.0 * k, bw) { self.text(&t, xb, y, 14.0 * k, DIM); y += 18.0 * k; } }
             if let Some(Hit::Book(ri)) = hover { let rc = &recipes()[ri]; tip = vec![(item(rc.out).map_or(rc.out, |i| i.label).to_string(), INK), (if s.can_craft(rc, &st6) { "Clic : choisir  ·  clic droit : favori" } else { "Il manque quelque chose : voir le détail" }.to_string(), DIM)]; }
         }
@@ -617,3 +631,17 @@ impl Ui {
         let _ = (u.w, u.h); u
     }
 }
+
+/// L'allure de chaque atelier : son nom, son image, le verbe de son bouton, ce qu'on y fait, la couleur de sa jauge.
+fn station_look(st: Station) -> (&'static str, &'static str, &'static str, &'static str, C) {
+    match st {
+        Station::Bench => ("Établi", "workbench", "Assembler", "On scie, on cloue", [0.78, 0.58, 0.32, 1.0]),
+        Station::Anvil => ("Enclume", "anvil", "Forger", "On bat le métal", [0.85, 0.85, 0.9, 1.0]),
+        Station::Furnace => ("Four", "furnace", "Fondre", "Le four ronfle", [1.0, 0.55, 0.15, 1.0]),
+        Station::Mason => ("Établi de tailleur", "mason_bench", "Tailler", "On taille la pierre", [0.72, 0.72, 0.68, 1.0]),
+        Station::Fire => ("Feu de camp", "campfire", "Cuire", "Ça cuit doucement", [0.95, 0.42, 0.12, 1.0]),
+        Station::Hand => ("Recettes", "workbench", "Fabriquer", "On fabrique", ACCENT),
+    }
+}
+/// La teinte du panneau d'un atelier : le bois de l'établi, le fer de l'enclume, la braise du four, la pierre du tailleur.
+fn station_tint(st: Station) -> C { match st { Station::Bench => [0.13, 0.095, 0.06, 0.95], Station::Anvil => [0.07, 0.075, 0.085, 0.95], Station::Furnace => [0.14, 0.07, 0.04, 0.95], Station::Mason => [0.1, 0.1, 0.095, 0.95], Station::Fire => [0.13, 0.07, 0.045, 0.95], Station::Hand => PANEL } }

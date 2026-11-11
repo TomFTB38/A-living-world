@@ -15,8 +15,10 @@ use crate::weather::Weather;
 use std::collections::{HashMap, HashSet};
 
 pub const INV_SIZE: usize = 36; pub const STACK: u32 = 99; pub const CHEST_SIZE: usize = 27;
-/// Cases de l'écran d'inventaire : le sac (0 à 35), le coffre ouvert (36 à 62), l'équipement (63 à 67).
-pub const CHEST0: usize = INV_SIZE; pub const EQUIP0: usize = INV_SIZE + CHEST_SIZE; pub const SLOTS_ALL: usize = EQUIP0 + 6;
+/// Cases de l'écran d'inventaire : le sac (0 à 35), le coffre ouvert (36 à 89, la seconde moitié pour le coffre voisin), l'équipement (90 à 95).
+/// Deux coffres côte à côte s'ouvrent ensemble : un grand coffre de deux fois vingt-sept cases.
+pub const CHEST_VIEW: usize = 2 * CHEST_SIZE;
+pub const CHEST0: usize = INV_SIZE; pub const EQUIP0: usize = INV_SIZE + CHEST_VIEW; pub const SLOTS_ALL: usize = EQUIP0 + 6;
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Item { pub id: &'static str, pub label: &'static str, pub block: Option<crate::blocks::Id>, pub tool: Option<&'static str> }
 /// Tous les objets, dans l'ordre du fichier de données (c'est aussi l'ordre des icônes).
@@ -61,7 +63,7 @@ pub struct Session {
     /// Heures de jeu écoulées depuis le début ; buissons cueillis et blé semé, avec l'heure où ils l'ont été.
     pub hours: f64, pub regrow: Vec<([i32; 3], f64)>, pub crops: Vec<([i32; 3], f64)>, pub(crate) grow_t: f64,
     /// Équipement porté (tête, torse, jambes, pieds, dos), coffres du monde, coffre ouvert, feux qui brûlent (secondes restantes).
-    pub equip: [Option<Stack>; 6], pub chests: HashMap<[i32; 3], Vec<Option<Stack>>>, pub chest: Option<[i32; 3]>, pub fires: HashMap<[i32; 3], f64>,
+    pub equip: [Option<Stack>; 6], pub chests: HashMap<[i32; 3], Vec<Option<Stack>>>, pub chest: Option<[i32; 3]>, /** le coffre voisin, ouvert avec lui */ pub chest2: Option<[i32; 3]>, pub(crate) lids: Vec<[i32; 3]>, /** l'atelier dont l'interface est ouverte */ pub at_station: Option<(crate::data::Station, [i32; 3])>, /** l'ouvrage en cours à l'atelier */ pub job: Option<crate::play::Job>, pub(crate) lit: Vec<([i32; 3], f64)>, pub fires: HashMap<[i32; 3], f64>,
     /// Profil de survie, compétences pratiquées, objets déjà eus en main (ils révèlent les recettes), recettes favorites.
     /// Objets posés au sol (jetés, ou rendus par un bloc cassé, une bête tuée).
     pub loose: Vec<crate::loose::Loose>,
@@ -82,7 +84,7 @@ impl Session {
         let inv = [None; INV_SIZE]; // on commence les mains vides
         Session { world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, cat_row: 0, deep: 0.0, taiga: 0.0, steppe: 0.0, desert: 0.0, highlands: 0.0, glows: HashMap::new(), scanned: Default::default(), fauna: Fauna::new(seed), wild: crate::wild::Wild::new(seed), branch_t: 10.0, weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None, felling: None, falling: None, fall_serial: 0, flow: Flow::default(),
             stamina: 100.0, air: 100.0, fatigue: 0.0, body: 37.0, exposure: 0.0, winded: false, spent_t: 9.0, dead: None, stashes: Vec::new(), spawn: at, bed: None, notes: Vec::new(), prey: None, cause: "", low_v: 0.0, pain_t: 0.0, use_t: 0.0, hit_t: 0.0, mine_need: 1.0, climate_t: 0.0,
-            hours: 0.0, regrow: Vec::new(), crops: Vec::new(), grow_t: 0.0, equip: [None; 6], chests: HashMap::new(), chest: None, fires: HashMap::new(), profile: 1, skills: [0.0; 5], bow_t: 0.0, loose: Vec::new(), arrows: Vec::new(), line: None, turn: 0, ray_t: 0.0, taught: HashSet::new(), seen: HashSet::new(), fav: HashSet::new(), last_gain: [-99.0; 6], gauge: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0], book: Default::default(), town: Default::default(), map: Default::default(), guide: 0, guide_t: 0.0, charge: -1.0, guard_t: -1.0, guard_cd: 0.0 }
+            hours: 0.0, regrow: Vec::new(), crops: Vec::new(), grow_t: 0.0, equip: [None; 6], chests: HashMap::new(), chest2: None, lids: Vec::new(), at_station: None, job: None, lit: Vec::new(), chest: None, fires: HashMap::new(), profile: 1, skills: [0.0; 5], bow_t: 0.0, loose: Vec::new(), arrows: Vec::new(), line: None, turn: 0, ray_t: 0.0, taught: HashSet::new(), seen: HashSet::new(), fav: HashSet::new(), last_gain: [-99.0; 6], gauge: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0], book: Default::default(), town: Default::default(), map: Default::default(), guide: 0, guide_t: 0.0, charge: -1.0, guard_t: -1.0, guard_cd: 0.0 }
     }
     /// L'ancien équipement de départ : outils de fer, lanternes et quelques blocs. Pour les bancs d'essai et les captures.
     pub fn give_kit(&mut self) { for (i, (it, n)) in [("pickaxe", None), ("axe", None), ("sword", None), ("lantern", Some(32)), ("dirt", Some(16)), ("stone", Some(16)), ("planks", Some(16))].into_iter().enumerate() { self.inv[i] = Some(Stack::new(it, n)); self.seen.insert(it); } }
@@ -177,7 +179,8 @@ impl Session {
         // Baissée, la garde ne se relève qu'après un court instant : on ne pare pas en tapotant.
         self.guard_cd -= dt; if guarding && (self.guard_t >= 0.0 || self.guard_cd <= 0.0) { self.guard_t = self.guard_t.max(0.0) + dt; } else { if self.guard_t >= 0.0 { self.guard_cd = 0.6; } self.guard_t = -1.0; }
         self.mine_step(dt, a.mine && !open && !hunting); if a.place && !open && !self.interact() && self.place() { self.anim.trigger(); }
-        let mining = a.mine && !open; self.anim.update(dt, AnimIn { speed: self.player.speed, ground: self.player.ground, vy: self.player.v[1], crouch: self.player.crouch, fly: self.player.fly, mining, guard: self.guard_t >= 0.0 });
+        self.job_tick(dt); self.lids_tick(dt); self.cool_furnaces(dt);
+        let mining = (a.mine && !open) || self.job.is_some_and(|j| j.swings()); self.anim.update(dt, AnimIn { speed: self.player.speed, ground: self.player.ground, vy: self.player.v[1], crouch: self.player.crouch, fly: self.player.fly, mining, guard: self.guard_t >= 0.0 });
         if alive && !self.creative { self.survive(dt, i, jumped, roll_start, mining, was_ground); } else { self.low_v = 0.0; }
         self.outdoors(dt); self.loose_tick(dt); self.town_tick(dt); self.map_tick(dt); self.guide_tick(dt);
         self.elapsed += dt; self.weather.update(dt); let t = self.mix().strong(crate::biome::Biome::DeepForest); self.deep += (t - self.deep) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Taiga); self.taiga += (t - self.taiga) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Steppe); self.steppe += (t - self.steppe) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Desert); self.desert += (t - self.desert) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Highlands); self.highlands += (t - self.highlands) * (dt / 2.5).min(1.0);
