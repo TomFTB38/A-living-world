@@ -160,7 +160,7 @@ impl Fauna {
         let (dx, dz) = (b.tg[0] - b.p[0], b.tg[2] - b.p[2]); let h = hypot2(dx, dz); let sp = (1.6 + h * 1.4).min(6.5); let cruise = (b.surf.unwrap() + 3.5).max(b.tg[1] + if h > 7.0 { 3.5 } else { 0.0 });
         let k = (dt * 3.2).min(1.0); let want = if h < 2.5 { b.tg[1] + 0.1 - b.p[1] } else { cruise - b.p[1] }; let hh = if h != 0.0 { h } else { 1.0 };
         b.v[0] += (dx / hh * sp - b.v[0]) * k; b.v[2] += (dz / hh * sp - b.v[2]) * k; b.v[1] += ((want * 1.8).min(4.5).max(-4.0) - b.v[1]) * k;
-        let (nx, ny, nz) = (b.p[0] + b.v[0] * dt, b.p[1] + b.v[1] * dt, b.p[2] + b.v[2] * dt); let solid = |c: Option<u8>| c.is_some_and(|c| c > 0 && is_solid(c));
+        let (nx, ny, nz) = (b.p[0] + b.v[0] * dt, b.p[1] + b.v[1] * dt, b.p[2] + b.v[2] * dt); let solid = |c: Option<crate::blocks::Id>| c.is_some_and(|c| c > 0 && is_solid(c));
         // Un obstacle devant : l'oiseau monte au lieu de traverser.
         if solid(w.get(nx.floor() as i32, (ny + 0.1).floor() as i32, nz.floor() as i32)) {
             if solid(w.get(b.p[0].floor() as i32, (b.p[1] + 0.1 + 5.0 * dt).floor() as i32, b.p[2].floor() as i32)) { b.v[0] *= -1.0; b.v[2] *= -1.0; b.surf = Some(b.p[1]); } else { b.v[1] = 5.0; b.p[1] += 5.0 * dt; }

@@ -14,7 +14,11 @@ export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'm
   // Survie : minerais, argile, matériaux de construction, terre labourée (moteur final)
   'ore_copper', 'ore_tin', 'ore_iron', 'ore_coal', 'clay', 'stone_bricks', 'bricks', 'thatch', 'planks_birch', 'planks_spruce', 'cobble', 'farmland_top',
   // Village médiéval : torchis blanc, poutres sombres, tuiles de terre cuite, ardoise (quatre de plus : le tableau de textures est plein à 256 couches).
-  'plaster', 'dark_timber', 'roof_tiles', 'slate'];
+  'plaster', 'dark_timber', 'roof_tiles', 'slate',
+  // Richesse (au-delà de 256 couches : le moteur demande à la carte graphique la limite qu'elle offre) : pierres taillées, sols,
+  // toits, tissus, pans de bois, mobilier.
+  'marble', 'ashlar', 'fieldstone', 'setts', 'polished_stone', 'checker', 'terracotta', 'parquet', 'shingles', 'wool', 'rug',
+  'frame_square', 'frame_cross', 'frame_diag', 'wattle', 'books', 'hay', 'crate', 'chiseled', 'stained_glass', 'iron_plate', 'verdigris'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -303,6 +307,43 @@ const defs = [
   ['slate', 'cube', ['slate', 'slate', 'slate'], 1.1, { cat: 'rock' }],
   ['barrel', 'deco', null, 0.8, { model: 'barrel', solid: true, cat: 'wood' }],
 ];
+
+// ---------------------------------------------------------------- richesse : identifiants 256 et au-delà (16 bits)
+const cube = (n, m, h, cat, p = {}) => defs.push([n, 'cube', Array.isArray(m) ? m : [m, m, m], h, { cat, ...p }]);
+// Escaliers (quatre sens, haut ou bas), dalles (basse, haute), dalles verticales (quatre sens) d'une matière.
+const forms = (n, h, cat) => {
+  for (const top of ['', '_top']) for (const f of ['', '_1', '_2', '_3']) defs.push([`${n}_stairs${top}${f}`, 'deco', null, h, { model: 'stairs', solid: true, cat, drop: `${n}_stairs` }]);
+  defs.push([`${n}_slab`, 'deco', null, h * 0.6, { model: 'slab', solid: true, cat, drop: `${n}_slab` }], [`${n}_slab_top`, 'deco', null, h * 0.6, { model: 'slab', solid: true, cat, drop: `${n}_slab` }]);
+  for (const f of ['', '_1', '_2', '_3']) defs.push([`${n}_vslab${f}`, 'deco', null, h * 0.6, { model: 'slab', solid: true, cat, drop: `${n}_vslab` }]);
+};
+// Meuble orientable : quatre sens, « nom », « nom@1 » à « nom@3 ».
+const turner = (n, h, cat, p = {}) => { for (const f of ['', '@1', '@2', '@3']) defs.push([`${n}${f}`, 'deco', null, h, { model: n, cat, drop: n, ...p }]); };
+const deco = (n, h, cat, p = {}) => defs.push([n, 'deco', null, h, { model: n, cat, ...p }]);
+
+// Pierres taillées, sols, toits.
+for (const [n, m, h] of [['marble', 'marble', 1.8], ['ashlar', 'ashlar', 1.6], ['fieldstone', 'fieldstone', 1.5], ['setts', 'setts', 1.5], ['polished_stone', 'polished_stone', 1.6], ['shingles', 'shingles', 0.8], ['copper_roof', 'verdigris', 1.4]]) cube(n, m, h, n === 'shingles' ? 'wood' : 'rock');
+cube('checker_floor', 'checker', 1.6, 'rock'); cube('terracotta_floor', 'terracotta', 1.0, 'rock'); cube('parquet', 'parquet', 0.8, 'wood');
+cube('chiseled_stone', 'chiseled', 1.6, 'rock'); cube('stained_glass', 'stained_glass', 0.5, 'rock'); cube('iron_block', 'iron_plate', 2.5, 'rock');
+cube('marble_black', 'marble', 1.8, 'rock', { tint: [0.3, 0.3, 0.32] }); cube('bricks_dark', 'bricks', 1.5, 'rock', { tint: [0.55, 0.5, 0.48] }); cube('stone_bricks_dark', 'stone_bricks', 1.6, 'rock', { tint: [0.62, 0.62, 0.66] });
+// Pans de bois et matériaux de maison.
+cube('timber_frame', 'frame_square', 0.9, 'wood'); cube('timber_cross', 'frame_cross', 0.9, 'wood'); cube('timber_brace', 'frame_diag', 0.9, 'wood'); cube('wattle', 'wattle', 0.5, 'wood');
+cube('bookshelf', ['planks', 'books', 'planks'], 0.8, 'wood'); cube('hay_bale', 'hay', 0.4, 'foliage'); cube('crate', 'crate', 0.7, 'wood');
+// Bois peints et enduits colorés, laines teintes : une texture, une teinte.
+for (const [n, t] of [['planks_dark', [0.55, 0.45, 0.4]], ['planks_red', [0.95, 0.5, 0.42]], ['planks_white', [1.45, 1.4, 1.3]], ['planks_blue', [0.6, 0.78, 1.0]], ['planks_green', [0.62, 0.85, 0.58]]]) cube(n, 'planks', 0.8, 'wood', { tint: t });
+for (const [n, t] of [['plaster_ochre', [1.0, 0.82, 0.55]], ['plaster_rose', [1.0, 0.8, 0.76]], ['plaster_blue', [0.82, 0.9, 1.02]]]) cube(n, 'plaster', 0.7, 'rock', { tint: t });
+for (const [n, t] of [['white', [1, 1, 1]], ['red', [0.75, 0.2, 0.18]], ['blue', [0.28, 0.4, 0.8]], ['green', [0.35, 0.6, 0.3]], ['yellow', [1.0, 0.85, 0.3]], ['black', [0.22, 0.22, 0.24]], ['brown', [0.55, 0.38, 0.25]], ['purple', [0.55, 0.3, 0.65]], ['orange', [1.0, 0.55, 0.22]]]) cube(`wool_${n}`, 'wool', 0.3, 'foliage', { tint: t });
+// Formes (escaliers, dalles, dalles verticales) des matières qui en ont besoin.
+for (const [n, h, c] of [['marble', 1.8, 'rock'], ['ashlar', 1.6, 'rock'], ['fieldstone', 1.5, 'rock'], ['setts', 1.5, 'rock'], ['polished_stone', 1.6, 'rock'], ['shingles', 0.8, 'wood'], ['roof_tiles', 0.9, 'rock'], ['slate', 1.1, 'rock'], ['copper_roof', 1.4, 'rock'], ['plaster', 0.7, 'rock'], ['timber', 0.9, 'wood']]) forms(n, h, c);
+// Mobilier : orientable vers celui qui le pose.
+for (const [n, h, p] of [['chair', 0.5, { solid: true }], ['bench', 0.6, { solid: true }], ['armchair', 0.6, { solid: true }], ['throne', 1.2, { solid: true }], ['cupboard', 0.9, { solid: true }],
+  ['fireplace', 1.6, { solid: true, light: 13 }], ['loom', 0.8, { solid: true }], ['spinning_wheel', 0.6, { solid: true }], ['grindstone', 1.2, { solid: true }], ['signpost', 0.5, { solid: true }],
+  ['painting', 0.3, {}], ['banner_red', 0.2, {}], ['banner_blue', 0.2, {}], ['banner_green', 0.2, {}], ['banner_gold', 0.2, {}], ['weapon_rack', 0.6, {}], ['wall_sconce', 0.3, { light: 11 }],
+  ['curtain', 0.2, {}], ['wall_shelf', 0.4, {}]]) turner(n, h, 'wood', p);
+// Objets posés.
+for (const [n, h, p] of [['table', 0.8, { solid: true }], ['round_table', 0.8, { solid: true }], ['stool', 0.4, {}], ['candle', 0.1, { light: 9 }], ['candelabra', 0.4, { light: 12 }],
+  ['chandelier', 0.5, { light: 14 }], ['brazier', 0.8, { light: 14, solid: true }], ['sack', 0.3, {}], ['amphora', 0.5, {}], ['flower_pot', 0.3, {}], ['potted_fern', 0.3, {}],
+  ['cauldron', 1.2, { solid: true }], ['bucket', 0.3, {}], ['log_pile', 0.8, { solid: true }], ['carpet_red', 0.1, {}], ['carpet_blue', 0.1, {}], ['carpet_green', 0.1, {}],
+  ['iron_bars', 1.5, { solid: true }], ['books_pile', 0.2, {}], ['bottles', 0.2, {}], ['beehive', 0.5, {}], ['cheese', 0.2, {}], ['bread_basket', 0.2, {}]]) deco(n, h, 'wood', p);
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,

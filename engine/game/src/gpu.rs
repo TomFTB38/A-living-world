@@ -8,7 +8,7 @@ use winit::window::Window;
 use crate::{font_data as fd, hud};
 
 const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; pub const LIGHTS: usize = 48; const FLOATS: usize = 200 + LIGHTS * 8 + 16; /* + les boîtes de l'aperçu de pose */ const MAX_ACTORS: u64 = 512; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 400_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 72.0;
-pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 16; // 256 icônes au plus (atlas 2048 × 2048)
+pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 24; // 576 icônes au plus (atlas 3072 × 3072)
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32, pub cascades: [f64; 3] }
 struct Part { buf: wgpu::Buffer, indices: u32 }
@@ -87,7 +87,7 @@ impl Gpu {
         let surface = window.map(|w| instance.create_surface(w).expect("surface de rendu"));
         let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, compatible_surface: surface.as_ref(), force_fallback_adapter: o.fallback }).await.expect("aucune carte graphique compatible");
         println!("Carte : {:?}", adapter.get_info());
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor { label: None, required_features: wgpu::Features::empty(), required_limits: wgpu::Limits::default(), memory_hints: wgpu::MemoryHints::Performance }, None).await.expect("ouverture de la carte graphique");
+        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor { label: None, required_features: wgpu::Features::empty(), required_limits: wgpu::Limits { max_texture_array_layers: adapter.limits().max_texture_array_layers.max(256), ..wgpu::Limits::default() } /* plus de 256 couches de matériaux */, memory_hints: wgpu::MemoryHints::Performance }, None).await.expect("ouverture de la carte graphique");
         device.on_uncaptured_error(Box::new(|e: wgpu::Error| crate::report(&format!("Erreur graphique : {e}"))));
         // Le shader fait lui-même sa correction gamma, comme le prototype.
         let format = surface.as_ref().map(|s| { let f = s.get_capabilities(&adapter).formats; f.iter().copied().find(|x| !x.is_srgb()).unwrap_or(f[0]) }).unwrap_or(LDR);

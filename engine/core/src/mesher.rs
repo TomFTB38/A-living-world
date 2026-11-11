@@ -39,15 +39,22 @@ impl VBuf {
 pub struct Mesh { pub opaque: Vec<u8>, pub deco: Vec<u8>, pub water: Vec<u8>, pub n_o: usize, pub n_d: usize, pub n_w: usize, pub ymin: i32, pub ymax: i32 }
 
 /// Espace de travail réutilisable : un par fil.
-pub struct Mesher { vol: Vec<u8>, sky: Vec<u8>, blk: Vec<u8>, m1: Vec<i32>, m2: Vec<i32> }
+/// Teintes des blocs pleins (une couleur de peinture, de laine, de bois teint posée sur une texture partagée) :
+/// pour chaque bloc, l'indice de sa teinte dans une petite table sans doublons.
+fn tints() -> &'static (Vec<u16>, Vec<[f64; 3]>) {
+    static T: std::sync::OnceLock<(Vec<u16>, Vec<[f64; 3]>)> = std::sync::OnceLock::new();
+    T.get_or_init(|| { let mut list: Vec<[f64; 3]> = vec![[1.0; 3]]; let idx = BLOCKS.iter().map(|b| { if b.shape == Shape::Leaf { return 0; } match list.iter().position(|t| *t == b.tint) { Some(i) => i as u16, None => { list.push(b.tint); (list.len() - 1) as u16 } } }).collect(); (idx, list) })
+}
+#[inline(always)] fn tint_index(b: Id) -> u16 { tints().0[b as usize] }
+pub struct Mesher { vol: Vec<Id>, sky: Vec<u8>, blk: Vec<u8>, m1: Vec<i64>, m2: Vec<i32> }
 #[inline(always)] fn at(x: i32, y: i32, z: i32) -> i32 { x + PAD + (z + PAD) * W + y * WW }
 
 impl Default for Mesher { fn default() -> Self { Self::new() } }
 impl Mesher {
     pub fn new() -> Self { let n = (WW * CHI) as usize; Mesher { vol: vec![0; n], sky: vec![0; n], blk: vec![0; n], m1: vec![0; CX * CH], m2: vec![0; CX * CH] } }
-    #[inline(always)] fn vk(&self, k: i32) -> u8 { *self.vol.get(k as usize).unwrap_or(&0) }
+    #[inline(always)] fn vk(&self, k: i32) -> Id { *self.vol.get(k as usize).unwrap_or(&0) }
 
-    fn fill_volume(&mut self, get: &mut dyn FnMut(i32, i32) -> std::sync::Arc<Vec<u8>>, cx: i32, cz: i32) -> (i32, Vec<i32>) {
+    fn fill_volume(&mut self, get: &mut dyn FnMut(i32, i32) -> std::sync::Arc<Vec<Id>>, cx: i32, cz: i32) -> (i32, Vec<i32>) {
         let (cxi, pad) = (CX as i32, PAD);
         for dz in -1..=1 { for dx in -1..=1 {
             let c = get(cx + dx, cz + dz);
@@ -108,7 +115,7 @@ impl Mesher {
     }
     fn greedy(&mut self, out: &mut VBuf, ymin: i32, ymax: i32, lod: u8) {
         let solid_leaf = lod == 2;
-        let tall = |b: u8| is_opaque(b) || (solid_leaf && is_leaf(b));
+        let tall = |b: Id| is_opaque(b) || (solid_leaf && is_leaf(b));
         for d in 0..3usize {
             let (u, v) = ((d + 1) % 3, (d + 2) % 3);
             let dims = [CX as i32, ymax - ymin + 1, CX as i32]; let off = [0, ymin, 0];
@@ -146,7 +153,7 @@ impl Mesher {
                         }
                         let pos = (i + j * nu) as usize;
                         let tn = if di != 2 && snow_level(self.vk(k + WW)) > 0 { 2 } else { tone(b) }; // neige posée dessus : le bloc en reçoit un peu
-                        self.m1[pos] = (face << 8) | ao | (if is_leaf(b) { 1 << 24 } else { 0 }) | (grain << 25) | (tn << 28);
+                        self.m1[pos] = ((face << 8) | ao | (if is_leaf(b) { 1 << 24 } else { 0 }) | (grain << 25) | (tn << 28)) as i64 | (tint_index(b) as i64) << 32;
                         self.m2[pos] = skyn | (blkn << 16); any = true;
                     } }
                     if !any { continue; }
@@ -166,7 +173,7 @@ impl Mesher {
                             let px = [q[0], q[0] + du[0], q[0] + du[0] + dv[0], q[0] + dv[0]];
                             let py = [q[1], q[1] + du[1], q[1] + du[1] + dv[1], q[1] + dv[1]];
                             let pz = [q[2], q[2] + du[2], q[2] + du[2] + dv[2], q[2] + dv[2]];
-                            out.rot = ((c1 >> 25) & 7) as u8; let tn = TONES[((c1 >> 28) & 7) as usize];
+                            out.rot = ((c1 >> 25) & 7) as u8; let t0 = TONES[((c1 >> 28) & 7) as usize]; let t1 = tints().1[((c1 >> 32) & 0xffff) as usize]; let tn = [t0[0] * t1[0], t0[1] * t1[1], t0[2] * t1[2]];
                             let (a0, a1, a2, a3) = (c1 & 3, (c1 >> 2) & 3, (c1 >> 4) & 3, (c1 >> 6) & 3);
                             let flip = if a0 + a2 < a1 + a3 { 1 } else { 0 }; let layer = ((c1 >> 8) & 0xffff) as f64; let kd = if c1 & (1 << 24) != 0 { LEAF } else { TEX };
                             for c in 0..4 {
@@ -183,7 +190,7 @@ impl Mesher {
     }
 
     /// lod 0 : proche, tout le décor ; 1 : moyen, décor simplifié ; 2 : loin, blocs seuls.
-    pub fn mesh_chunk(&mut self, get: &mut dyn FnMut(i32, i32) -> std::sync::Arc<Vec<u8>>, cx: i32, cz: i32, lod: u8) -> Mesh {
+    pub fn mesh_chunk(&mut self, get: &mut dyn FnMut(i32, i32) -> std::sync::Arc<Vec<Id>>, cx: i32, cz: i32, lod: u8) -> Mesh {
         let (ymax, top) = self.fill_volume(get, cx, cz);
         self.compute_light(&top, ymax);
         let mut ymin = 1;
@@ -232,12 +239,14 @@ impl Mesher {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn deco_model(&self, o: &mut VBuf, b: u8, xi: i32, yi: i32, zi: i32, wx: i32, wz: i32, s: f64, l: f64, lod: u8) {
+    pub fn deco_model(&self, o: &mut VBuf, b: Id, xi: i32, yi: i32, zi: i32, wx: i32, wz: i32, s: f64, l: f64, lod: u8) {
         let (x, y, z) = (xi as f64, yi as f64, zi as f64);
         let mut r = Rng::new(hash_int(wx, yi, wz, 91)); let m = BLOCKS[b as usize].model.unwrap_or("");
         let r_ = &mut r; let picked = BLOCKS[b as usize].name.ends_with("_picked"); // buisson cueilli : même forme, sans les baies
         let voxel = |dx: i32, dy: i32, dz: i32| self.vk(at(xi + dx, yi + dy, zi + dz));
         match m {
+            // Meubles et objets de décor : meubles.rs, tournés vers celui qui les a posés.
+            _ if crate::meubles::has(m) => { crate::meubles::draw(o, m, BLOCKS[b as usize].name, x, y, z, s, l, r_); return; }
             // Construction : la géométrie vient de shapes.rs (la même que les collisions), texturée dans sa matière.
             "slab" | "stairs" | "pillar" | "wall" => {
                 let Some(i) = crate::shapes::info(b) else { return }; let layer = BLOCKS[crate::shapes::material(b) as usize].faces[0] as f64;
@@ -431,7 +440,7 @@ impl Mesher {
                 let wood =|o: &mut VBuf, a: f64, e: f64, c: f64, a1: f64, e1: f64, c1: f64, k: f64| bx3(o, a, e, c, a1, e1, c1, 0.46 * k, 0.31 * k, 0.18 * k, 0.0, s, l);
                 wood(o, x + 0.39, y, z + 0.39, x + 0.61, y + 1.0, z + 0.61, 1.0);
                 wood(o, x + 0.35, y + 0.97, z + 0.35, x + 0.65, y + 1.04, z + 0.65, 1.12);
-                let con = |b2: u8| b2 == B::FENCE || BLOCKS[b2 as usize].opaque;
+                let con = |b2: Id| b2 == B::FENCE || BLOCKS[b2 as usize].opaque;
                 if voxel(0, -1, 0) == B::FENCE || (voxel(0, 1, 0) == B::FENCE && voxel(0, 2, 0) == B::FENCE) { return; }
                 for yy in [0.34, 0.72] {
                     if con(voxel(1, 0, 0)) { wood(o, x + 0.66, y + yy, z + 0.42, x + 1.34, y + yy + 0.13, z + 0.58, 0.92); }
@@ -448,7 +457,7 @@ impl Mesher {
                 // Tronc creux : quatre parois d'écorce autour d'un cœur vide, ouvert dans le sens du fil, cernes visibles sur la tranche.
                 let name = BLOCKS[b as usize].name; let ax = if name.ends_with("_x") { 0 } else if name.ends_with("_z") { 2 } else { 1 };
                 let log = by_name(&format!("{}_log{}", species(b), ["_x", "", "_z"][ax])).unwrap_or(B::OAK_LOG); let lb = BLOCKS[log as usize];
-                let same = |b2: u8| b2 == b; let d = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+                let same = |b2: Id| b2 == b; let d = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
                 let (fwd, back) = (voxel(d[ax][0], d[ax][1], d[ax][2]), voxel(-d[ax][0], -d[ax][1], -d[ax][2]));
                 const T: f64 = 0.22; let (u, v) = ([0, 1, 2].into_iter().filter(|k| *k != ax).collect::<Vec<_>>()[0], [0, 1, 2].into_iter().filter(|k| *k != ax).collect::<Vec<_>>()[1]);
                 // (u0, u1, v0, v1) de chaque paroi, dans la section ; la longueur va de 0 à 1 le long du fil.
@@ -474,7 +483,7 @@ impl Mesher {
                 // Branche fine : un nœud central et un bras vers chaque bois ou feuillage voisin, comme une clôture.
                 let col = match species(b) { "birch" => [0.86, 0.84, 0.8], "beech" => [0.5, 0.48, 0.44], "spruce" => [0.32, 0.23, 0.16], "dead" => [0.56, 0.53, 0.49], "acacia" => [0.36, 0.3, 0.25], _ => [0.42, 0.29, 0.17] };
                 let k = r_.range(0.88, 1.08); let w = r_.range(0.13, 0.18); let (c0, c1) = (0.5 - w, 0.5 + w); let col = [col[0] * k, col[1] * k, col[2] * k];
-                let joins = |b2: u8| is_log(b2) || is_branch(b2) || is_leaf(b2);
+                let joins = |b2: Id| is_log(b2) || is_branch(b2) || is_leaf(b2);
                 let mut any = false; let arm = |o: &mut VBuf, a: [f64; 6]| { bx3(o, x + a[0], y + a[1], z + a[2], x + a[3], y + a[4], z + a[5], col[0], col[1], col[2], 0.0, s, l); };
                 arm(o, [c0, c0, c0, c1, c1, c1]);
                 if joins(voxel(1, 0, 0)) { arm(o, [c1, c0, c0, 1.0, c1, c1]); any = true; } if joins(voxel(-1, 0, 0)) { arm(o, [0.0, c0, c0, c0, c1, c1]); any = true; }
@@ -592,7 +601,7 @@ impl Mesher {
                 let mut q = |p: [[f64; 3]; 4], n: [f64; 3], ao: f64| { for v in p { o.v(v[0], v[1], v[2], layer, n[0], n[1], n[2], 0.0, ao, s, l, TEX, 1.0, 1.0, 1.0); } };
                 q([[a, e, d], [b, e, d], [b, e, c], [a, e, c]], [0.0, 1.0, 0.0], 255.0);
                 // Le bord se dessine depuis le haut de la pellicule voisine, s'il y en a une plus basse.
-                let low = |v: u8| if is_opaque(v) { e } else { y + snow_level(v) as f64 / 10.0 };
+                let low = |v: Id| if is_opaque(v) { e } else { y + snow_level(v) as f64 / 10.0 };
                 let f = low(voxel(0, 0, 1)); if f < e { q([[a, f, d], [b, f, d], [b, e, d], [a, e, d]], [0.0, 0.0, 1.0], 220.0); }
                 let f = low(voxel(0, 0, -1)); if f < e { q([[b, f, c], [a, f, c], [a, e, c], [b, e, c]], [0.0, 0.0, -1.0], 220.0); }
                 let f = low(voxel(1, 0, 0)); if f < e { q([[b, f, d], [b, f, c], [b, e, c], [b, e, d]], [1.0, 0.0, 0.0], 220.0); }
@@ -796,7 +805,7 @@ fn blade(o: &mut VBuf, x: f64, y: f64, z: f64, a: f64, w: f64, h: f64, lean: f64
 fn stem(o: &mut VBuf, x: f64, y: f64, z: f64, h: f64, s: f64, l: f64) { bx(o, x - 0.016, y, z - 0.016, x + 0.016, y + h, z + 0.016, 0.25, 0.42, 0.13, 0.0, s, l, FOLIAGE, false, 90.0, 255.0) }
 
 #[allow(clippy::too_many_arguments)]
-fn leaf_cubes(o: &mut VBuf, b: u8, x: f64, y: f64, z: f64, wx: i32, yi: i32, wz: i32, s: f64, l: f64, lod: u8) {
+fn leaf_cubes(o: &mut VBuf, b: Id, x: f64, y: f64, z: f64, wx: i32, yi: i32, wz: i32, s: f64, l: f64, lod: u8) {
     let layer = BLOCKS[b as usize].faces[0] as f64; let t = BLOCKS[b as usize].tint;
     let mut r = Rng::new(hash_int(wx, yi, wz, 77)); let zone = hash_int(wx >> 3, yi >> 2, wz >> 3, 7) as f64 / 4294967296.0; let lit = 0.74 + 0.4 * (s / 255.0);
     // Épicéa : un étage net d'un bloc, dessus et côtés distincts (neige sur le dessus quand il y en a).

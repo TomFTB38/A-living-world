@@ -98,7 +98,7 @@ fn arbre_abattu_a_la_hache() {
 #[test]
 fn l_eau_posee_coule() {
     use alw_core::flow::*; use std::collections::HashMap;
-    struct W(HashMap<(i32, i32, i32), u8>); impl Voxels for W { fn get(&self, x: i32, y: i32, z: i32) -> Option<u8> { if y < 10 { return Some(B::STONE); } Some(*self.0.get(&(x, y, z)).unwrap_or(&0)) } }
+    struct W(HashMap<(i32, i32, i32), u16>); impl Voxels for W { fn get(&self, x: i32, y: i32, z: i32) -> Option<u16> { if y < 10 { return Some(B::STONE); } Some(*self.0.get(&(x, y, z)).unwrap_or(&0)) } }
     let mut w = W(HashMap::new()); w.0.insert((0, 14, 0), B::WATER); let mut f = Flow::default(); f.touch(0, 14, 0); let run = |w: &mut W, f: &mut Flow, n: usize| for _ in 0..n { for (x, y, z, b) in f.step(STEP, &*w) { if b == 0 { w.0.remove(&(x, y, z)); } else { w.0.insert((x, y, z), b); } } };
     run(&mut w, &mut f, 80); assert!(!f.busy(), "l'eau se stabilise");
     assert_eq!(w.0.get(&(0, 13, 0)).copied().map(water_level), Some(7), "elle tombe"); assert_eq!(w.0.get(&(0, 10, 0)).copied().map(water_level), Some(7));

@@ -278,6 +278,153 @@ fn slate(t: &Tile, x: f64, y: f64) -> S {
     let shade = 0.6 + 0.4 * smooth(0.0, 0.3, fy);
     S { c: mul(pal(&SLATE, tone), shade * (0.5 + 0.5 * gap)), h: (0.3 + 0.6 * fy) * gap, r: 0.55 }
 }
+// ------------------------------------------------------------------ richesse : pierres taillées, sols, toits, tissus, mobilier
+const MARBLE: [C; 4] = pl!("#b9b5ae", "#d6d2ca", "#e8e5de", "#f6f4ef"); const ASHLAR: [C; 4] = pl!("#a99a7c", "#bfb194", "#d2c6aa", "#e2d8c0");
+const FIELD: [C; 4] = pl!("#5a554d", "#79726a", "#968e83", "#b3ab9e"); const SETT: [C; 4] = pl!("#4c4a48", "#625f5b", "#7a7671", "#928d86");
+const TERRA: [C; 4] = pl!("#8a4429", "#a2563a", "#b86b4b", "#c9825f"); const PARQ: [C; 4] = pl!("#6b4322", "#8a5a30", "#a87344", "#c18e5c");
+const SHINGLE: [C; 4] = pl!("#4c3624", "#634732", "#7c5a40", "#94704f"); const WOOL: [C; 4] = pl!("#cfc8bb", "#ded8cc", "#ebe6dc", "#f6f2ea");
+const IRON: [C; 4] = pl!("#2c2d30", "#3c3e42", "#4f5156", "#64676c"); const VERD: [C; 4] = pl!("#3f7466", "#4f8a78", "#64a08b", "#86b9a2");
+const STRAW: [C; 4] = pl!("#9c7f3c", "#b8994c", "#d0b25e", "#e3c977");
+/// Un cadre de poutres sombres au bord du bloc ; `w` largeur en pixels de la texture (64 de côté).
+fn border(x: f64, y: f64, w: f64) -> f64 { 1.0 - smooth(w - 0.8, w + 0.8, x.min(63.99 - x).min(y).min(63.99 - y)) }
+fn beam_px(t: &Tile, x: f64, y: f64) -> S { let s = dark_timber(t, x, y); S { c: s.c, h: s.h * 0.4 + 0.6, r: s.r } }
+/// Marbre : fond blanc crème, veines grises sinueuses.
+fn marble(t: &Tile, x: f64, y: f64) -> S {
+    let w = t.fbm(x, y, 4, 4); let vein = (((x + y * 0.6) * 0.09 + 6.0 * w).sin()).abs(); let v = 1.0 - smooth(0.0, 0.08, vein);
+    let v2 = 1.0 - smooth(0.0, 0.05, (((x * 0.7 - y) * 0.13 + 5.0 * t.fbm(x + 9.0, y, 4, 3)).sin()).abs());
+    S { c: mul(pal(&MARBLE, 0.55 + 0.4 * t.fbm(x, y, 8, 2)), 1.0 - 0.35 * v - 0.15 * v2), h: 0.6, r: 0.25 }
+}
+/// Pierre de taille : deux assises de grands blocs, joints fins, layage du ciseau.
+fn ashlar(t: &Tile, x: f64, y: f64) -> S {
+    let (h, w) = (32.0, 48.0); let row = (y / h).floor(); let xo = x + if row as i64 % 2 == 0 { 0.0 } else { 24.0 }; let col = (xo / w).floor(); let (fx, fy) = (xo - col * w, y - row * h);
+    let j = fx.min(w - fx).min(fy.min(h - fy)); let m = smooth(0.4, 1.2, j); let id = row as i64 * 7 + col as i64; let tool = 0.04 * ((x * 1.7 + y * 0.4).sin());
+    let n = t.fbm(x, y, 8, 3); let tone = 0.3 + 0.4 * t.pi(id) + 0.25 * (n - 0.5) + tool;
+    S { c: mul(pal(&ASHLAR, tone), 0.55 + 0.45 * m), h: 0.2 + 0.7 * m, r: 0.85 }
+}
+/// Moellons : pierres des champs arrondies, hourdées à la chaux.
+fn fieldstone(t: &Tile, x: f64, y: f64) -> S {
+    let (d1, d2, id) = t.vor(x * 1.0, y * 1.35, 5); let gap = smooth(0.02, 0.2, d2 - d1); let n = t.fbm(x, y, 8, 3);
+    if gap < 0.35 { return S { c: mul([0.72, 0.68, 0.6], 0.85 + 0.2 * n), h: 0.15, r: 0.95 }; }
+    let tone = 0.15 + 0.6 * t.pi(id) + 0.3 * (n - 0.5); let warm = t.pi(id + 77);
+    let c = pal(&FIELD, tone); S { c: [c[0] * (0.95 + 0.12 * warm), c[1], c[2] * (1.02 - 0.1 * warm)], h: 0.3 + 0.6 * gap * (0.6 + 0.4 * n), r: 0.82 }
+}
+/// Pavés de granit, rectangulaires, en rangs décalés : la chaussée des villes.
+fn setts(t: &Tile, x: f64, y: f64) -> S {
+    let (h, w) = (12.8, 21.33); let row = (y / h).floor(); let xo = x + t.pi(row as i64 * 5) * w; let col = (xo / w).floor(); let (fx, fy) = (xo - col * w, y - row * h);
+    let j = fx.min(w - fx).min(fy.min(h - fy)); let m = smooth(0.4, 2.2, j); let id = row as i64 * 13 + col as i64; let n = t.fbm(x, y, 16, 2);
+    S { c: mul(pal(&SETT, 0.2 + 0.6 * t.pi(id) + 0.2 * (n - 0.5)), 0.3 + 0.7 * m), h: 0.1 + 0.85 * m * (0.8 + 0.2 * n), r: 0.7 }
+}
+/// Pierre polie : grande dalle lisse, filet gravé au bord.
+fn polished(t: &Tile, x: f64, y: f64) -> S {
+    let e = x.min(63.99 - x).min(y).min(63.99 - y); let groove = 1.0 - smooth(0.4, 1.4, (e - 3.0).abs()); let n = t.fbm(x, y, 4, 3);
+    S { c: mul(pal(&STONE, 0.62 + 0.18 * n + 0.05 * t.val(x, y, 32)), 1.0 - 0.3 * groove - 0.15 * (1.0 - smooth(0.0, 1.2, e))), h: 0.7 - 0.4 * groove, r: 0.35 }
+}
+/// Damier de marbre noir et blanc, quatre carreaux par bloc.
+fn checker(t: &Tile, x: f64, y: f64) -> S {
+    let (cx, cy) = ((x / 32.0).floor() as i64, (y / 32.0).floor() as i64); let dark = (cx + cy) % 2 == 1; let m = marble(t, x, y);
+    let j = (x % 32.0).min(32.0 - x % 32.0).min((y % 32.0).min(32.0 - y % 32.0)); let g = smooth(0.0, 0.8, j);
+    let c = if dark { [0.16 + m.c[0] * 0.12, 0.16 + m.c[1] * 0.12, 0.17 + m.c[2] * 0.13] } else { m.c }; S { c: mul(c, 0.7 + 0.3 * g), h: 0.5 + 0.2 * g, r: 0.2 }
+}
+/// Tomettes de terre cuite, carrées, joints de chaux.
+fn terracotta(t: &Tile, x: f64, y: f64) -> S {
+    let (cx, cy) = ((x / 32.0).floor(), (y / 32.0).floor()); let j = (x - cx * 32.0).min(32.0 - (x - cx * 32.0)).min((y - cy * 32.0).min(32.0 - (y - cy * 32.0))); let m = smooth(0.6, 1.6, j);
+    if m < 0.4 { return S { c: [0.66, 0.6, 0.5], h: 0.2, r: 0.95 }; }
+    let id = cx as i64 * 3 + cy as i64 * 7; let n = t.fbm(x, y, 8, 3); let wear = smooth(0.5, 0.8, t.fbm(x + 5.0, y, 4, 2));
+    S { c: mul(pal(&TERRA, 0.3 + 0.4 * t.pi(id) + 0.25 * (n - 0.5) + 0.15 * wear), 0.85 + 0.15 * m), h: 0.5 + 0.3 * m, r: 0.6 }
+}
+/// Parquet à bâtons rompus de chêne ciré.
+fn parquet(t: &Tile, x: f64, y: f64) -> S {
+    let (u, v) = (x + y, y - x); let (bw, bl) = (8.0, 32.0); let col = (u / bw).floor(); let flip = col as i64 % 2 == 0;
+    let along = if flip { v } else { -v } + col * 8.0; let k = (along / bl).floor(); let fa = along - k * bl; let fu = u - col * bw;
+    let j = fu.min(bw - fu).min(fa.min(bl - fa)); let m = smooth(0.2, 0.9, j); let id = col as i64 * 17 + k as i64;
+    let grain = t.val(fa * 0.3 + col * 13.0, fu * 2.0, 32); let tone = 0.3 + 0.45 * t.pi(id) + 0.2 * (grain - 0.5);
+    S { c: mul(pal(&PARQ, tone), 0.55 + 0.45 * m), h: 0.5 + 0.3 * m, r: 0.45 }
+}
+/// Bardeaux de châtaignier fendus, en rangs décalés, bouts usés.
+fn shingles(t: &Tile, x: f64, y: f64) -> S {
+    let h = 16.0; let row = (y / h).floor(); let w = 9.0 + 5.0 * t.pi(row as i64 * 3); let xo = x + t.pi(row as i64 * 11) * w; let col = (xo / w).floor();
+    let (fx, fy) = ((xo - col * w) / w, (y - row * h) / h); let id = row as i64 * 19 + col as i64; let gap = smooth(0.0, 0.1, fx.min(1.0 - fx));
+    let grain = t.val(x * 3.0, y * 0.3, 64); let shade = 0.55 + 0.45 * smooth(0.0, 0.4, fy); let tone = 0.2 + 0.6 * t.pi(id) + 0.2 * (grain - 0.5);
+    S { c: mul(pal(&SHINGLE, tone), shade * (0.4 + 0.6 * gap)), h: (0.2 + 0.7 * fy) * gap, r: 0.85 }
+}
+/// Drap de laine foulée : trame et chaîne fines, un peu de bourre. Blanc cassé, teint par le bloc.
+fn wool(t: &Tile, x: f64, y: f64) -> S {
+    let weave = 0.5 + 0.25 * ((x * 1.6).sin() * (y * 1.6).cos()); let fuzz = t.fbm(x, y, 16, 3);
+    S { c: mul(pal(&WOOL, 0.35 + 0.4 * fuzz + 0.2 * (weave - 0.5)), 1.0), h: 0.4 + 0.3 * weave + 0.2 * fuzz, r: 0.98 }
+}
+/// Tapis d'Orient : bordure, galons, médaillon losangé, motifs répétés.
+fn rug(t: &Tile, x: f64, y: f64) -> S {
+    let red = [0.5, 0.1, 0.09]; let blue = [0.12, 0.17, 0.36]; let gold = [0.78, 0.6, 0.28]; let cream = [0.85, 0.78, 0.62];
+    let e = x.min(63.99 - x).min(y).min(63.99 - y); let (cx, cy) = ((x - 32.0).abs(), (y - 32.0).abs()); let d = cx + cy;
+    let c = if e < 3.0 { blue } else if e < 4.5 { gold } else if e < 8.0 { if ((x + y) * 0.5).sin() > 0.3 { cream } else { blue } } else if e < 9.5 { gold }
+        else if d < 9.0 { if d < 5.0 { gold } else { blue } } else if d < 11.0 { cream } else if ((x * 0.6).sin() * (y * 0.6).sin()) > 0.55 { gold } else { red };
+    let fuzz = t.fbm(x, y, 16, 2); S { c: mul(c, 0.85 + 0.25 * fuzz), h: 0.5 + 0.2 * fuzz, r: 0.98 }
+}
+/// Pan de bois : torchis dans un cadre de poutres, avec ou sans écharpes.
+fn frame(t: &Tile, x: f64, y: f64, kind: u8) -> S {
+    let b = border(x, y, 5.0); let d1 = (x - y).abs() / std::f64::consts::SQRT_2; let d2 = (x + y - 63.99).abs() / std::f64::consts::SQRT_2;
+    let brace = match kind { 1 => 1.0 - smooth(3.0, 4.2, d1.min(d2)), 2 => 1.0 - smooth(3.0, 4.2, d2), _ => 0.0 };
+    if b.max(brace) > 0.5 { return beam_px(t, x * 0.5 + if brace > b { 13.0 } else { 0.0 }, y); }
+    let p = plaster(t, x, y); S { c: p.c, h: p.h * 0.7, r: p.r }
+}
+/// Clayonnage : branches de noisetier tressées entre des piquets.
+fn wattle(t: &Tile, x: f64, y: f64) -> S {
+    let stake = (x % 16.0 - 8.0).abs(); let row = (y / 8.0).floor(); let over = ((x / 16.0).floor() as i64 + row as i64) % 2 == 0;
+    let wav = ((x / 16.0 * std::f64::consts::PI).sin() * if over { 1.0 } else { -1.0 }) * 1.2; let fy = (y - row * 8.0 - 4.0 + wav).abs();
+    let rod = 1.0 - smooth(2.6, 3.8, fy); let g = t.val(x * 2.0, y * 4.0, 64); let bark = [0.38 + 0.1 * g, 0.28 + 0.07 * g, 0.17 + 0.04 * g];
+    if stake < 1.6 && !over { return S { c: mul(bark, 0.8), h: 0.9, r: 0.9 }; }
+    S { c: mul(bark, 0.25 + 0.75 * rod * (0.7 + 0.3 * (1.0 - fy / 4.0))), h: 0.2 + 0.7 * rod, r: 0.9 }
+}
+/// Rayonnage de livres : deux étagères, dos colorés de hauteurs inégales.
+fn books(t: &Tile, x: f64, y: f64) -> S {
+    let shelf = (y % 32.0) < 4.0 || (y % 32.0) > 30.0; if shelf || x < 3.0 || x > 61.0 { let p = planks(t, x, y, &OAK_W); return S { c: mul(p.c, 0.75), h: 0.9, r: 0.8 }; }
+    let row = (y / 32.0).floor() as i64; let mut acc = 3.0; let mut k = 0i64; let mut wdt = 4.0;
+    while acc < 61.0 { wdt = 3.0 + (t.pi(row * 97 + k) * 4.0).floor(); if x < acc + wdt { break; } acc += wdt; k += 1; }
+    let id = row * 97 + k; let top = 4.0 + 4.0 * t.pi(id + 5); let fy = y % 32.0; if fy < top { return S { c: [0.06, 0.05, 0.04], h: 0.1, r: 1.0 }; }
+    let cols: [C; 7] = [[0.42, 0.1, 0.08], [0.12, 0.2, 0.36], [0.16, 0.3, 0.14], [0.45, 0.3, 0.14], [0.3, 0.12, 0.25], [0.55, 0.45, 0.28], [0.2, 0.16, 0.12]];
+    let c = cols[(t.pi(id + 9) * 7.0) as usize % 7]; let edge = smooth(0.0, 0.8, (x - acc).min(acc + wdt - x)); let band = ((fy - top - 5.0).abs() < 1.0) as i32 as f64;
+    S { c: mul(if band > 0.0 { [0.75, 0.6, 0.3] } else { c }, 0.6 + 0.4 * edge), h: 0.6 + 0.3 * edge, r: 0.8 }
+}
+/// Botte de paille pressée, deux liens de chanvre.
+fn hay(t: &Tile, x: f64, y: f64) -> S {
+    let strand = t.val(x * 0.3, y * 3.0, 64); let n = t.fbm(x, y, 8, 3); let tie = ((x - 16.0).abs() < 2.0 || (x - 48.0).abs() < 2.0) as i32 as f64;
+    let c = if tie > 0.0 { [0.42, 0.32, 0.18] } else { pal(&STRAW, 0.3 + 0.5 * strand + 0.2 * (n - 0.5)) }; S { c, h: 0.4 + 0.5 * strand, r: 0.95 }
+}
+/// Caisse : cadre de planches et écharpe, clous.
+fn crate_tex(t: &Tile, x: f64, y: f64) -> S {
+    let b = border(x, y, 7.0); let brace = 1.0 - smooth(3.5, 4.5, (x - y).abs() / std::f64::consts::SQRT_2);
+    let p = planks(t, x, y, &OAK_W); let nail = ((x - 3.5).abs() < 1.2 || (x - 60.5).abs() < 1.2) && ((y - 3.5).abs() < 1.2 || (y - 60.5).abs() < 1.2);
+    if nail { return S { c: [0.15, 0.15, 0.16], h: 1.0, r: 0.4 }; }
+    if b.max(brace) > 0.5 { return S { c: mul(p.c, 0.85), h: 0.9, r: 0.85 }; } S { c: mul(p.c, 0.62), h: 0.45, r: 0.9 }
+}
+/// Pierre sculptée : panneau à moulures et rosace.
+fn chiseled(t: &Tile, x: f64, y: f64) -> S {
+    let e = x.min(63.99 - x).min(y).min(63.99 - y); let r = ((x - 32.0).powi(2) + (y - 32.0).powi(2)).sqrt(); let a = (y - 32.0).atan2(x - 32.0);
+    let petal = (r - 9.0 - 4.0 * (a * 6.0).cos()).abs(); let carve = (1.0 - smooth(0.6, 1.6, (e - 6.0).abs())).max(1.0 - smooth(0.6, 1.6, petal)).max(1.0 - smooth(0.5, 1.5, (r - 3.0).abs()));
+    let s = ashlar(t, x * 0.5, y * 0.5); S { c: mul(pal(&ASHLAR, 0.45 + 0.3 * t.fbm(x, y, 8, 3)), 1.0 - 0.4 * carve - 0.2 * (1.0 - smooth(0.0, 1.5, e))), h: 0.7 - 0.5 * carve + 0.0 * s.h, r: 0.85 }
+}
+/// Vitrail : verres de couleur sertis de plomb, en losanges.
+fn stained(t: &Tile, x: f64, y: f64) -> S {
+    let (u, v) = ((x + y) / 16.0, (y - x) / 16.0); let (iu, iv) = (u.floor() as i64, v.floor() as i64); let (fu, fv) = (u - u.floor(), v - v.floor());
+    let lead = 1.0 - smooth(0.05, 0.1, fu.min(1.0 - fu).min(fv.min(1.0 - fv))); let e = x.min(63.99 - x).min(y).min(63.99 - y);
+    if lead > 0.5 || e < 2.5 { return S { c: [0.12, 0.12, 0.13], h: 0.9, r: 0.5 }; }
+    let cols: [C; 5] = [[0.75, 0.12, 0.1], [0.12, 0.25, 0.7], [0.85, 0.65, 0.15], [0.15, 0.5, 0.25], [0.5, 0.18, 0.55]];
+    let c = cols[(t.pi(iu * 7 + iv * 13 + 300) * 5.0) as usize % 5]; let n = t.fbm(x, y, 8, 2); S { c: mul(c, 0.8 + 0.4 * n), h: 0.4, r: 0.15 }
+}
+/// Tôle de fer forgé, plaques rivetées.
+fn iron_plate(t: &Tile, x: f64, y: f64) -> S {
+    let (fx, fy) = (x % 32.0, y % 32.0); let seam = 1.0 - smooth(0.4, 1.2, fx.min(32.0 - fx).min(fy.min(32.0 - fy)));
+    let rivet = [(4.0, 4.0), (28.0, 4.0), (4.0, 28.0), (28.0, 28.0), (16.0, 4.0), (16.0, 28.0)].iter().any(|(a, b)| (fx - a).powi(2) + (fy - b).powi(2) < 3.2);
+    let n = t.fbm(x, y, 8, 3); let rust = smooth(0.6, 0.85, t.fbm(x + 3.0, y + 8.0, 4, 3));
+    let c = pal(&IRON, 0.35 + 0.35 * n); let c = [lerp(c[0], 0.4, rust * 0.5), lerp(c[1], 0.2, rust * 0.5), lerp(c[2], 0.1, rust * 0.5)];
+    S { c: mul(c, if rivet { 1.5 } else { 1.0 - 0.4 * seam }), h: if rivet { 1.0 } else { 0.6 - 0.4 * seam }, r: if rivet { 0.3 } else { 0.55 } }
+}
+/// Cuivre vert-de-grisé : feuilles à joints debout.
+fn verdigris(t: &Tile, x: f64, y: f64) -> S {
+    let seam = 1.0 - smooth(0.6, 1.6, (x % 16.0).min(16.0 - x % 16.0)); let n = t.fbm(x, y, 8, 3); let streak = t.val(x * 2.0, y * 0.2, 32);
+    let c = pal(&VERD, 0.3 + 0.45 * n + 0.2 * (streak - 0.5)); let copper = smooth(0.75, 0.9, t.fbm(x + 7.0, y, 4, 3));
+    let c = [lerp(c[0], 0.6, copper * 0.6), lerp(c[1], 0.35, copper * 0.6), lerp(c[2], 0.2, copper * 0.6)]; S { c: mul(c, 1.0 + 0.25 * seam), h: 0.5 + 0.4 * seam, r: 0.45 }
+}
 fn farmland(t: &Tile, x: f64, y: f64) -> S {
     let furrow = 0.5 + 0.5 * (y / 64.0 * std::f64::consts::TAU * 4.0).cos(); let n = t.fbm(x, y, 5, 3); let d = dirt(t, x, y, &DIRT);
     S { c: mul(d.c, 0.62 + 0.3 * furrow + 0.08 * (n - 0.5)), h: 0.2 + 0.6 * furrow, r: 0.9 }
@@ -312,6 +459,11 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "clay" => clay(t, x, y), "stone_bricks" => bricks(t, x, y, 16.0, 32.0, &CUT_STONE, [0.36, 0.34, 0.31]), "bricks" => bricks(t, x, y, 8.0, 16.0, &BRICK, [0.74, 0.7, 0.62]),
         "thatch" => thatch(t, x, y), "cobble" => cobble(t, x, y), "farmland_top" => farmland(t, x, y),
         "plaster" => plaster(t, x, y), "dark_timber" => dark_timber(t, x, y), "roof_tiles" => roof_tiles(t, x, y), "slate" => slate(t, x, y),
+        "marble" => marble(t, x, y), "ashlar" => ashlar(t, x, y), "fieldstone" => fieldstone(t, x, y), "setts" => setts(t, x, y), "polished_stone" => polished(t, x, y),
+        "checker" => checker(t, x, y), "terracotta" => terracotta(t, x, y), "parquet" => parquet(t, x, y), "shingles" => shingles(t, x, y), "wool" => wool(t, x, y),
+        "rug" => rug(t, x, y), "frame_square" => frame(t, x, y, 0), "frame_cross" => frame(t, x, y, 1), "frame_diag" => frame(t, x, y, 2),
+        "wattle" => wattle(t, x, y), "books" => books(t, x, y), "hay" => hay(t, x, y), "crate" => crate_tex(t, x, y), "chiseled" => chiseled(t, x, y),
+        "stained_glass" => stained(t, x, y), "iron_plate" => iron_plate(t, x, y), "verdigris" => verdigris(t, x, y),
         "snow" => snow(t, x, y), "snow_side" => snow_side(t, x, y), "ice" => ice(t, x, y),
         "bark_spruce" => bark(t, x, y, &SPRUCE, 0.7), "end_spruce" => wood_end(t, x, y, &SPRUCE_W, 0.8, &|a: &Tile, b: f64, c: f64| bark(a, b, c, &SPRUCE, 0.7)),
         "leaf_spruce" => needles(t, x, y), "leaf_snow" => leaf_snow(t, x, y),

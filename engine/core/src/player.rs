@@ -1,9 +1,9 @@
 //! Déplacement à collisions voxel : marche, sprint, saut, nage, vol.
-use crate::blocks::{is_solid, is_water};
+use crate::blocks::{Id, is_solid, is_water};
 const HALF: f64 = 0.3; const GRAV: f64 = 26.0; const JUMP: f64 = 9.2;
 
 /// Accès au monde. `None` : zone pas encore chargée, traitée comme un mur pour ne jamais tomber dans le vide.
-pub trait Voxels { fn get(&self, x: i32, y: i32, z: i32) -> Option<u8>; }
+pub trait Voxels { fn get(&self, x: i32, y: i32, z: i32) -> Option<Id>; }
 #[derive(Default, Clone, Copy)]
 pub struct Input { pub x: f64, pub z: f64, pub jump: bool, pub sprint: bool, pub crouch: bool, pub roll: bool }
 pub const ROLL_TIME: f64 = 0.62; const ROLL_SPEED: f64 = 5.5; /* trois blocs au plus */ const ROLL_WAIT: f64 = 0.3;

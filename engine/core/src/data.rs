@@ -37,7 +37,7 @@ impl Tool {
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Wear { pub slot: Slot, pub warm: f64, pub cool: f64, pub armor: f64, pub bag: f64 }
 /// Un objet : tout ce que l'interface, le sac, le craft et la survie ont besoin d'en savoir.
 #[derive(Clone, Debug)] pub struct Def {
-    pub id: &'static str, pub label: &'static str, pub cat: &'static str, pub mass: f64, pub stack: u32, pub desc: &'static str, pub block: Option<u8>,
+    pub id: &'static str, pub label: &'static str, pub cat: &'static str, pub mass: f64, pub stack: u32, pub desc: &'static str, pub block: Option<crate::blocks::Id>,
     pub tool: Option<Tool>, pub food: Option<Food>, pub keep: f64, pub risk: f64, pub wear: Option<Wear>, pub fuel: f64, pub drink: Option<(f64, bool)>, pub heal: f64,
 }
 #[derive(Clone, Copy, Debug, PartialEq)] pub enum Station { Hand, Bench, Fire, Furnace, Anvil, Mason }
@@ -53,7 +53,7 @@ impl Station {
 #[derive(Clone, Debug)] pub struct Craftsman { pub id: &'static str, pub name: &'static str, pub tier: u8, pub villages: Vec<&'static str>, pub services: Vec<&'static str>, pub price: Vec<(&'static str, u32)>, pub works: Vec<(Station, &'static str)> }
 pub struct Db { pub items: Vec<Def>, index: HashMap<&'static str, usize>, pub groups: Vec<(&'static str, &'static str, Vec<&'static str>)>, pub recipes: Vec<Recipe>, pub errors: Vec<String>, pub order: Vec<&'static str>, pub tabs: Vec<(&'static str, Vec<&'static str>)> , pub craftsmen: Vec<Craftsman>, pub trades: Vec<Trade> }
 /// Onglets du catalogue créatif : clé de catégorie et libellé court.
-pub const CATS: [(&str, &str); 10] = [("terrain", "Terrain"), ("roches", "Roches"), ("bois", "Bois"), ("plantes", "Plantes"), ("batir", "Bâtir"), ("ateliers", "Ateliers"), ("outils", "Outils"), ("matieres", "Matières"), ("vivres", "Vivres"), ("habits", "Habits")];
+pub const CATS: [(&str, &str); 12] = [("terrain", "Terrain"), ("roches", "Roches"), ("bois", "Bois"), ("plantes", "Plantes"), ("batir", "Bâtir"), ("mobilier", "Mobilier"), ("decor", "Décor"), ("ateliers", "Ateliers"), ("outils", "Outils"), ("matieres", "Matières"), ("vivres", "Vivres"), ("habits", "Habits")];
 
 impl Db {
     pub fn get(&self, id: &str) -> Option<&Def> { self.index.get(id).map(|i| &self.items[*i]) }

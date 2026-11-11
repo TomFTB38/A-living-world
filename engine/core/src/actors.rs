@@ -230,9 +230,9 @@ fn tool_mesh(name: &str) -> VBuf {
     }
     o.scale = 128.0; o
 }
-fn cube_mesh(id: u8) -> VBuf { let mut o = VBuf::new(32); cube_at(&mut o, id, [0.0; 3]); o }
+fn cube_mesh(id: crate::blocks::Id) -> VBuf { let mut o = VBuf::new(32); cube_at(&mut o, id, [0.0; 3]); o }
 /// Un bloc complet, posé à `at` : le mode « tenu » lit la texture dans ces coordonnées, sans dépendre du monde.
-pub fn cube_at(o: &mut VBuf, id: u8, at: [f64; 3]) {
+pub fn cube_at(o: &mut VBuf, id: crate::blocks::Id, at: [f64; 3]) {
     let bk = BLOCKS[id as usize];
     if id == B::WATER { bx(o, 0.0, 0.0, 0.0, 1.0, 0.9, 1.0, 0.3, 0.55, 0.75, 0.0, 255.0, 0.0, kind::FLAT, true, 0.0, 255.0); return; }
     let kd = if bk.shape == Shape::Leaf { kind::LEAF } else { kind::TEX }; let t = bk.tint;

@@ -1,5 +1,5 @@
 //! Chargement du monde en arrière-plan : des fils génèrent et maillent les chunks autour du joueur, les plus proches d'abord.
-use crate::blocks::{idx, CH, CX};
+use crate::blocks::{Id, idx, CH, CX};
 use crate::gen::WorldGen;
 use crate::mesher::{far_mesh, Mesh, Mesher};
 use crate::player::Voxels;
@@ -12,17 +12,17 @@ use std::thread::JoinHandle;
 type Key = (i32, i32);
 /// Niveau spécial : l'anneau de relief lointain, centré sur ce chunk.
 pub const FAR: u8 = 255;
-pub struct Built { pub key: Key, pub lod: u8, pub mesh: Mesh, pub voxels: Arc<Vec<u8>>, pub ms: f64 }
-struct Shared { queue: Mutex<Vec<(Key, u8)>>, wake: Condvar, voxels: Mutex<HashMap<Key, Arc<Vec<u8>>>>, edits: Mutex<HashMap<Key, HashMap<u32, u8>>>, stop: AtomicBool }
+pub struct Built { pub key: Key, pub lod: u8, pub mesh: Mesh, pub voxels: Arc<Vec<Id>>, pub ms: f64 }
+struct Shared { queue: Mutex<Vec<(Key, u8)>>, wake: Condvar, voxels: Mutex<HashMap<Key, Arc<Vec<Id>>>>, edits: Mutex<HashMap<Key, HashMap<u32, Id>>>, stop: AtomicBool }
 pub struct Preset { pub radius: i32, pub lod1: f64, pub lod2: f64 }
 /// Réglages du PC : plus loin que le Haut du prototype, puisque la marge est là.
 pub const HIGH: Preset = Preset { radius: 10, lod1: 2.3, lod2: 4.6 };
 /// Pour les cartes puissantes : 512 blocs de terrain détaillé autour du joueur.
 pub const ULTRA: Preset = Preset { radius: 16, lod1: 3.5, lod2: 8.0 };
 
-pub struct Streamer { sh: Arc<Shared>, rx: Receiver<Built>, threads: Vec<JoinHandle<()>>, pub radius: i32, lods: (f64, f64), loaded: HashMap<Key, u8>, pending: HashSet<(Key, u8)>, vox: HashMap<Key, Arc<Vec<u8>>>, last: Option<Key>, far_at: Option<Key> }
+pub struct Streamer { sh: Arc<Shared>, rx: Receiver<Built>, threads: Vec<JoinHandle<()>>, pub radius: i32, lods: (f64, f64), loaded: HashMap<Key, u8>, pending: HashSet<(Key, u8)>, vox: HashMap<Key, Arc<Vec<Id>>>, last: Option<Key>, far_at: Option<Key> }
 
-fn voxels_of(sh: &Shared, gen: &WorldGen, k: Key) -> Arc<Vec<u8>> {
+fn voxels_of(sh: &Shared, gen: &WorldGen, k: Key) -> Arc<Vec<Id>> {
     if let Some(v) = sh.voxels.lock().unwrap().get(&k) { return v.clone(); }
     let mut v = gen.gen_world(k.0, k.1);
     // Les modifications du joueur priment toujours sur la génération. Même ordre de verrous que `edit`.
@@ -90,9 +90,9 @@ impl Streamer {
         (out, gone)
     }
     /// Pose un bloc. La modification survit au déchargement, et les chunks touchés sont remaillés aussitôt.
-    pub fn edit(&mut self, x: i32, y: i32, z: i32, id: u8) -> bool { self.edit_many(&[(x, y, z, id)]) == 1 }
+    pub fn edit(&mut self, x: i32, y: i32, z: i32, id: Id) -> bool { self.edit_many(&[(x, y, z, id)]) == 1 }
     /// Plusieurs blocs d'un coup, chaque chunk touché n'étant remaillé qu'une fois. Rend le nombre de blocs changés.
-    pub fn edit_many(&mut self, list: &[(i32, i32, i32, u8)]) -> usize {
+    pub fn edit_many(&mut self, list: &[(i32, i32, i32, Id)]) -> usize {
         let n = CX as i32; let mut done = 0; let mut near = HashSet::new(); let mut main = HashSet::new();
         {
             let mut all = self.sh.voxels.lock().unwrap(); let mut edits = self.sh.edits.lock().unwrap();
@@ -120,15 +120,15 @@ impl Streamer {
         }
         drop(q); self.sh.wake.notify_all(); done
     }
-    pub fn edits(&self) -> HashMap<Key, HashMap<u32, u8>> { self.sh.edits.lock().unwrap().clone() }
-    pub fn set_edits(&mut self, e: HashMap<Key, HashMap<u32, u8>>) { *self.sh.edits.lock().unwrap() = e; }
+    pub fn edits(&self) -> HashMap<Key, HashMap<u32, Id>> { self.sh.edits.lock().unwrap().clone() }
+    pub fn set_edits(&mut self, e: HashMap<Key, HashMap<u32, Id>>) { *self.sh.edits.lock().unwrap() = e; }
     /// Le chunk de ce point est-il prêt ?
     pub fn voxel_ready(&self, x: f64, z: f64) -> bool { let n = CX as f64; self.vox.contains_key(&((x / n).floor() as i32, (z / n).floor() as i32)) }
     pub fn waiting(&self) -> usize { self.pending.len() }
     pub fn loaded(&self) -> usize { self.loaded.len() }
 }
 impl Voxels for Streamer {
-    fn get(&self, x: i32, y: i32, z: i32) -> Option<u8> {
+    fn get(&self, x: i32, y: i32, z: i32) -> Option<Id> {
         if !(0..CH as i32).contains(&y) { return Some(0); }
         let n = CX as i32; let v = self.vox.get(&(x.div_euclid(n), z.div_euclid(n)))?;
         Some(v[idx(x.rem_euclid(n) as usize, y as usize, z.rem_euclid(n) as usize)])

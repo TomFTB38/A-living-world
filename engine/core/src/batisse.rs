@@ -1,7 +1,7 @@
 //! Bâtisse : le décor fin des villages, plus petit qu'un bloc. Toits en pente, colombages, enseignes, auvents, ailes de
 //! moulin : des boîtes orientées (ou des faces) posées au dixième de bloc, maillées avec le chunk de leur bloc d'appui.
 //! Si l'on casse ce bloc, le décor qu'il porte s'en va avec lui.
-use crate::blocks::{by_name, idx, BLOCKS, CH, CX};
+use crate::blocks::{Id, by_name, idx, BLOCKS, CH, CX};
 use crate::gen::WorldGen;
 use crate::mesher::{obox, Mesh, VBuf};
 
@@ -11,9 +11,9 @@ pub type C3 = [f64; 3];
 #[derive(Clone, Debug)]
 pub struct Prop { pub at: [i32; 3], pub c: C3, pub a: [C3; 3], pub col: C3, pub layer: f64, pub rot: u8, pub quad: bool }
 
-pub(crate) fn id(n: &str) -> u8 { by_name(n).unwrap_or_else(|| panic!("bloc inconnu : {n}")) }
+pub(crate) fn id(n: &str) -> Id { by_name(n).unwrap_or_else(|| panic!("bloc inconnu : {n}")) }
 /// La couche de texture d'un bloc plein, pour habiller le décor de la même matière.
-pub fn layer(b: u8) -> f64 { BLOCKS[b as usize].faces[0] as f64 }
+pub fn layer(b: Id) -> f64 { BLOCKS[b as usize].faces[0] as f64 }
 fn add(a: C3, b: C3) -> C3 { [a[0] + b[0], a[1] + b[1], a[2] + b[2]] }
 fn sub(a: C3, b: C3) -> C3 { [a[0] - b[0], a[1] - b[1], a[2] - b[2]] }
 fn mulv(a: C3, k: f64) -> C3 { [a[0] * k, a[1] * k, a[2] * k] }
@@ -38,9 +38,9 @@ impl Lot {
 
 /// Ce que l'on pose : des blocs, et le décor fin.
 #[derive(Default)]
-pub struct Work { pub blocks: Vec<(i32, i32, i32, u8)>, pub props: Vec<Prop> }
+pub struct Work { pub blocks: Vec<(i32, i32, i32, Id)>, pub props: Vec<Prop> }
 impl Work {
-    pub fn put(&mut self, p: [i32; 3], b: u8) { self.blocks.push((p[0], p[1], p[2], b)); }
+    pub fn put(&mut self, p: [i32; 3], b: Id) { self.blocks.push((p[0], p[1], p[2], b)); }
     /// Boîte orientée (le repère est remis dans le sens direct s'il le faut : la boîte est symétrique).
     pub fn solid(&mut self, at: [i32; 3], c: C3, mut a: [C3; 3], col: C3, layer: f64, rot: u8) {
         if dot(cross(a[0], a[1]), a[2]) < 0.0 { a[2] = mulv(a[2], -1.0); }
@@ -62,7 +62,7 @@ impl Work {
 }
 
 /// Habille un chunk maillé du décor des villages proches dont le bloc d'appui est dans ce chunk et tient encore.
-pub fn dress(gen: &WorldGen, cx: i32, cz: i32, vox: &[u8], mesh: &mut Mesh) {
+pub fn dress(gen: &WorldGen, cx: i32, cz: i32, vox: &[Id], mesh: &mut Mesh) {
     let (ox, oz) = (cx * CX as i32, cz * CX as i32); let span = crate::village::SPAN; let cell = crate::village::CELL;
     let mut o = VBuf { data: std::mem::take(&mut mesh.deco), n: mesh.n_d, scale: crate::mesher::POSK, rot: 0 }; let mut top = mesh.ymax;
     for gx in (ox - span).div_euclid(cell)..=(ox + CX as i32 + span).div_euclid(cell) { for gz in (oz - span).div_euclid(cell)..=(oz + CX as i32 + span).div_euclid(cell) {
@@ -89,7 +89,7 @@ pub fn dress(gen: &WorldGen, cx: i32, cz: i32, vox: &[u8], mesh: &mut Mesh) {
 // ------------------------------------------------------------------------------------------------ styles et plans
 /// Les matières d'un village : soubassement, rez-de-chaussée, étage, poteaux, sol, âme des toits, couvertures.
 #[derive(Clone, Copy)]
-pub struct Style { pub found: u8, pub ground: u8, pub upper: u8, pub frame: bool, pub post: u8, pub floor: u8, pub core: u8, pub tiles: u8, pub thatch: u8, pub noble: u8, pub chimney: u8, pub pave: u8, pub beam: C3 }
+pub struct Style { pub found: Id, pub ground: Id, pub upper: Id, pub frame: bool, pub post: Id, pub floor: Id, pub core: Id, pub tiles: Id, pub thatch: Id, pub noble: Id, pub chimney: Id, pub pave: Id, pub beam: C3 }
 pub fn style(kind: &str) -> Style {
     let (found, cob, plaster, timber, planks, tiles, slate, thatch) = (id("cobblestone"), id("cobblestone"), id("plaster"), id("timber"), id("planks"), id("roof_tiles"), id("slate"), id("thatch"));
     let dark = [0.25, 0.16, 0.1];
@@ -116,7 +116,7 @@ impl Plan {
 
 struct B<'a> { k: &'a mut Work, lot: Lot, w: i32, d: i32, s: Style, gaps: Vec<Gap>, paint: C3, h: f64 }
 impl B<'_> {
-    fn put(&mut self, u: i32, y: i32, ww: i32, b: u8) { let c = self.lot.cell(u, y, ww); self.k.put(c, b); }
+    fn put(&mut self, u: i32, y: i32, ww: i32, b: Id) { let c = self.lot.cell(u, y, ww); self.k.put(c, b); }
     fn len(&self, side: u8) -> i32 { if side % 2 == 0 { self.w } else { self.d } }
     /// Le point (t, y) d'un mur vu de dehors, décollé de `out` de sa face.
     fn on(&self, side: u8, t: f64, y: f64, out: f64) -> C3 {
@@ -134,7 +134,7 @@ impl B<'_> {
     fn cell_of(&self, side: u8, t: i32) -> (i32, i32) { match side { 0 => (t, 0), 1 => (self.w - 1, t), 2 => (self.w - 1 - t, self.d - 1), _ => (0, self.d - 1 - t) } }
 
     /// Murs pleins : une bande de `low` sur la première rangée, `mat` au-dessus, poteaux aux angles.
-    fn walls(&mut self, y0: i32, y1: i32, low: u8, mat: u8, post: u8) {
+    fn walls(&mut self, y0: i32, y1: i32, low: Id, mat: Id, post: Id) {
         for y in y0..=y1 { for u in 0..self.w { for ww in 0..self.d {
             let edge = u == 0 || ww == 0 || u == self.w - 1 || ww == self.d - 1; if !edge { continue; }
             let corner = (u == 0 || u == self.w - 1) && (ww == 0 || ww == self.d - 1);
@@ -212,7 +212,7 @@ impl B<'_> {
 
     /// Toit à deux pans au-dessus de `yr` : âme en gradins (les blocs, pour l'intérieur et les collisions), pans inclinés
     /// à 45° posés dessus, faîtage, rives, pignons fermés, rangs de tuiles en relief.
-    fn roof(&mut self, yr: i32, cover: u8, gable: u8, thick: f64) {
+    fn roof(&mut self, yr: i32, cover: Id, gable: Id, thick: f64) {
         let (w, d) = (self.w, self.d); let core = if cover == self.s.thatch { cover } else { self.s.core };
         // L'âme en gradins reste à l'aplomb des murs : les débords du toit ne sont que le pan incliné, sans blocs dessous.
         // Au premier gradin, une sablière (poutre ou mur) ferme le haut des longs pans.
@@ -335,9 +335,12 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
             pyramid(b.k, at, lot.p(cu, (tt + 1) as f64, cw), lot, 1.75, 1.75, 6.5, s.noble);
             b.k.cube(at, add(lot.p(cu, (tt - 2) as f64 + 0.1, cw), [-0.3, 0.0, -0.3]), add(lot.p(cu, (tt - 1) as f64 + 0.5, cw), [0.3, 0.0, 0.3]), [0.62, 0.48, 0.2], -1.0); // la cloche
             let cross = lot.p(cu, (tt + 1) as f64 + 6.5, cw); b.k.cube(at, add(cross, [-0.04, 0.0, -0.04]), add(cross, [0.04, 0.9, 0.04]), [0.3, 0.28, 0.24], -1.0); b.k.bar(at, add(cross, [0.0, 0.62, 0.0]), add(add(cross, [0.0, 0.62, 0.0]), lot.v(0.3, 0.0, 0.0)), [0.0, 0.0, 1.0], 0.035, 0.035, [0.3, 0.28, 0.24], -1.0); b.k.bar(at, add(cross, [0.0, 0.62, 0.0]), add(add(cross, [0.0, 0.62, 0.0]), lot.v(-0.3, 0.0, 0.0)), [0.0, 0.0, 1.0], 0.035, 0.035, [0.3, 0.28, 0.24], -1.0);
-            // Bancs de la nef.
-            for ww in (4..d - 2).step_by(2) { for u in [1, w - 2] { b.put(u, y0 + 1, ww, crate::shapes::variant(id("planks_slab"), 0, false, false, false)); } }
-            b.put(du, y0 + 1, d - 2, id("stone_bricks"));
+            // La nef : bancs tournés vers l'autel, tapis rouge dans l'allée, chandeliers, bannières aux murs.
+            let f = b.lot_face(); let (left, right) = (crate::shapes::facing_of(-lot.u.0 as f64, -lot.u.1 as f64), crate::shapes::facing_of(lot.u.0 as f64, lot.u.1 as f64));
+            for ww in (3..d - 2).step_by(2) { for u in [1, 2, w - 3, w - 2] { b.put(u, y0 + 1, ww, turned("bench", f + 2)); } }
+            for ww in 1..d - 1 { b.put(du, y0 + 1, ww, id("carpet_red")); }
+            b.put(du, y0 + 1, d - 2, id("chiseled_stone")); b.put(du, y0 + 2, d - 2, id("candle")); for u in [du - 1, du + 1] { b.put(u, y0 + 1, d - 2, id("candelabra")); }
+            for ww in [2, 5, 8] { b.put(1, y0 + 4, ww, turned("banner_red", left)); b.put(w - 2, y0 + 4, ww, turned("banner_red", right)); }
             return (du, d - 2);
         }
         Plan::Mill => {
@@ -395,11 +398,12 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
         Plan::Cottage => { hay(b.k, lot, w, y0, d); }
         _ => { crates(b.k, lot, w as f64 + 1.4, y0, 2.0, h); }
     }
+    furnish(&mut b, plan, y0);
     let _ = craft; (du, d - 2)
 }
 fn cross_dir(n: C3) -> C3 { [-n[2], 0.0, n[0]] }
 /// Pyramide à base rectangulaire (flèche, toit conique du moulin) : quatre faces texturées.
-fn pyramid(k: &mut Work, at: [i32; 3], base: C3, lot: Lot, hu: f64, hw: f64, h: f64, cover: u8) {
+fn pyramid(k: &mut Work, at: [i32; 3], base: C3, lot: Lot, hu: f64, hw: f64, h: f64, cover: Id) {
     let c = [add(base, add(lot.v(-hu, 0.0, -hw), [0.0; 3])), add(base, lot.v(hu, 0.0, -hw)), add(base, lot.v(hu, 0.0, hw)), add(base, lot.v(-hu, 0.0, hw))];
     let apex = add(base, [0.0, h, 0.0]);
     for i in 0..4 { k.quad(at, [c[i], c[(i + 1) % 4], apex, apex], [1.0, 1.0, 1.0], layer(cover), 0); }
@@ -444,7 +448,7 @@ fn hay(k: &mut Work, lot: Lot, w: i32, y0: i32, d: i32) {
 }
 
 /// Le puits : margelle de pierre (blocs), deux montants, traverse, treuil, petit toit, seau pendu.
-pub fn well(k: &mut Work, c: [i32; 3], tiles: u8) {
+pub fn well(k: &mut Work, c: [i32; 3], tiles: Id) {
     let (x, y, z) = (c[0] as f64 + 0.5, c[1] as f64 + 2.0, c[2] as f64 + 0.5); let wood = [0.4, 0.27, 0.15];
     for sx in [-1.0, 1.0] { let at = [c[0] + sx as i32, c[1] + 1, c[2]]; k.cube(at, [x + sx * 1.1 - 0.09, y, z - 0.09], [x + sx * 1.1 + 0.09, y + 2.3, z + 0.09], wood, -1.0); }
     let at = [c[0] - 1, c[1] + 1, c[2]];
@@ -493,4 +497,28 @@ fn garden(k: &mut Work, lot: Lot, w: i32, _d: i32, du: i32, y0: i32, h: f64) {
     if w >= 7 { let at = lot.cell(1, y0, 0); let wood = [0.42, 0.28, 0.15];
         k.solid(at, lot.p(du as f64 - 1.4, y0 as f64 + 1.45, -0.3), [lot.v(0.55, 0.0, 0.0), [0.0, 0.04, 0.0], lot.v(0.0, 0.0, 0.16)], wood, -1.0, 0);
         for du2 in [-0.45, 0.45] { k.solid(at, lot.p(du as f64 - 1.4 + du2, y0 as f64 + 1.21, -0.3), [lot.v(0.04, 0.0, 0.0), [0.0, 0.21, 0.0], lot.v(0.0, 0.0, 0.13)], wood, -1.0, 0); } }
+}
+
+/// Un meuble orientable dans le sens `f` (son dos vers cette direction).
+fn turned(n: &str, f: u8) -> Id { crate::shapes::variant(id(n), f % 4, false, false, false) }
+/// L'intérieur : table et bougie, chaise, armoire, tapis ; à l'auberge des tables rondes, des tabourets, un lustre ;
+/// chez l'artisan ses outils. Le mobilier du village (lit, coffre, poste) se pose ensuite et a priorité.
+fn furnish(b: &mut B, plan: Plan, y0: i32) {
+    let (w, d) = (b.w, b.d); let du = w / 2; let f = b.lot_face(); let lot = b.lot;
+    let right = crate::shapes::facing_of(lot.u.0 as f64, lot.u.1 as f64);
+    match plan {
+        Plan::Tavern => {
+            for (u, ww) in [(1, 2), (w - 2, 4)] { b.put(u, y0 + 1, ww, id("round_table")); b.put(u, y0 + 2, ww, id(if ww == 2 { "candle" } else { "bottles" })); for dw in [-1, 1] { b.put(u, y0 + 1, ww + dw, id("stool")); } }
+            b.put(du, y0 + 3, 3, id("chandelier")); for ww in 2..d - 2 { b.put(du, y0 + 1, ww, id("carpet_red")); }
+            b.put(1, y0 + 1, d - 3, turned("fireplace", crate::shapes::facing_of(-lot.u.0 as f64, -lot.u.1 as f64))); b.put(w - 2, y0 + 3, 2, turned("wall_shelf", right));
+        }
+        Plan::Forge(_) => { b.put(1, y0 + 1, 2, turned("grindstone", f)); b.put(w - 2, y0 + 1, 3, id("cauldron")); b.put(1, y0 + 1, 3, id("bucket")); b.put(w - 2, y0 + 3, 2, turned("weapon_rack", right)); }
+        Plan::Shop(_) => { b.put(1, y0 + 1, 2, id("crate")); b.put(1, y0 + 2, 2, id("sack")); b.put(w - 2, y0 + 1, 2, id("table")); b.put(w - 2, y0 + 2, 2, id("books_pile")); b.put(w - 2, y0 + 1, 3, turned("chair", f)); b.put(du, y0 + 1, 2, id("carpet_blue")); }
+        Plan::Cottage | Plan::Town => {
+            b.put(1, y0 + 1, 2, id("table")); b.put(1, y0 + 2, 2, id(if b.h > 0.5 { "candle" } else { "bread_basket" })); b.put(1, y0 + 1, 3, turned("chair", f)); b.put(1, y0 + 1, 1, turned("chair", f + 2));
+            b.put(w - 2, y0 + 1, 2, turned("cupboard", right)); b.put(du, y0 + 1, 2, id(if b.h > 0.5 { "carpet_red" } else { "carpet_green" }));
+            b.put(w - 2, y0 + 3, 3, turned("wall_shelf", right)); if plan == Plan::Cottage { b.put(w - 2, y0 + 1, 3, id("flower_pot")); }
+        }
+        _ => {}
+    }
 }

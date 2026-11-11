@@ -47,7 +47,7 @@ fn c_strong(t: &[f64; alw_core::biome::COUNT], b: alw_core::biome::Biome) -> f64
 #[test]
 fn la_foret_profonde_se_distingue() {
     use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::DeepForest) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
-    let (cx, cz) = spot.expect("une forêt profonde"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    let (cx, cz) = spot.expect("une forêt profonde"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u16| *n.get(&b).unwrap_or(&0);
     println!("feuilles sombres {}, claires {}, lianes {}, champignons lumineux {}", c(B::OAK_LEAVES_DEEP) + c(B::BEECH_LEAVES_DEEP), c(B::OAK_LEAVES) + c(B::BEECH_LEAVES), c(B::VINE), c(B::GLOWCAP));
     assert!(c(B::OAK_LEAVES_DEEP) + c(B::BEECH_LEAVES_DEEP) > 4 * (c(B::OAK_LEAVES) + c(B::BEECH_LEAVES) + 1)); assert!(c(B::GLOWCAP) + c(B::GLOWCAP_BLUE) + c(B::GLOWCAP_PINK) + c(B::GLOWCAP_VIOLET) + c(B::GLOWCAP_CYAN) > 8 && c(B::VINE) > 50); assert!(c(B::GLOWCAP_PINK) > 0 && c(B::GLOWCAP_BLUE) > 0, "plusieurs couleurs");
 }
@@ -60,7 +60,7 @@ fn chaque_champignon_lumineux_a_sa_couleur() {
 #[test]
 fn la_taiga_est_enneigee() {
     use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Taiga) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
-    let (cx, cz) = spot.expect("une taïga"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    let (cx, cz) = spot.expect("une taïga"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u16| *n.get(&b).unwrap_or(&0);
     let (mut sn, mut gr) = (0, 0); for x in 0..64 { for z in 0..64 { let (wx, wz) = (cx * 32 - 16 + x, cz * 32 - 16 + z); if g.column(wx as f64, wz as f64).mix.strong(Biome::Taiga) < 0.97 { continue; } let v = g.gen_chunk(wx.div_euclid(32), wz.div_euclid(32)); let mut y = 126; while y > 1 && v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)] == 0 { y -= 1; } let b = v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]; if b == B::SNOW_LAYER || is_leaf(b) || is_water(b) || b == B::ICE || is_deco(b) { sn += 1; } else if b == B::GRASS || is_opaque(b) { gr += 1; } } } println!("cœur : {sn} colonnes enneigées, {gr} herbe");
     println!("pellicule {}, roche {}, terre {}, pommes de pin {}, givre {}, neige {}, herbe {}, épicéa {}, aiguilles enneigées {}, glaçons {}, glace {}", c(B::SNOW_LAYER), c(B::STONE) + c(B::GRANITE) + c(B::LIMESTONE), c(B::DIRT), c(B::PINECONE), c(B::FROST_GRASS), c(B::SNOW), c(B::GRASS), c(B::SPRUCE_LOG), c(B::SPRUCE_LEAVES_SNOW), c(B::ICICLE), c(B::ICE));
     assert!(sn > 20 * (gr + 1), "cœur de taïga enneigé"); assert!(c(B::SPRUCE_LOG) > 20 && c(B::SPRUCE_LEAVES_SNOW) > 50 && c(B::PINECONE) > 10);
@@ -69,7 +69,7 @@ fn la_taiga_est_enneigee() {
 #[test]
 fn la_steppe_est_seche_et_ouverte() {
     use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Steppe) > 0.93 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
-    let (cx, cz) = spot.expect("une steppe"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    let (cx, cz) = spot.expect("une steppe"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u16| *n.get(&b).unwrap_or(&0);
     let logs = c(B::OAK_LOG) + c(B::BIRCH_LOG) + c(B::BEECH_LOG) + c(B::SPRUCE_LOG);
     println!("acacias {} (feuilles {}), bois mort {}", c(B::ACACIA_LOG), c(B::ACACIA_LEAVES), c(B::DEAD_LOG));
     println!("steppe {cx},{cz} : herbe sèche {}, terre craquelée {}, herbe verte {}, stipe {}, armoise {}, buissons morts {}, fleurs {}, troncs {}, mousse {}", c(B::STEPPE_GRASS), c(B::DRY_EARTH), c(B::GRASS), c(B::FEATHER_GRASS), c(B::SAGEBRUSH), c(B::DEAD_BUSH), c(B::YELLOW_FLOWER) + c(B::LUPINE), logs, c(B::MOSSY_STONE));
@@ -90,7 +90,7 @@ fn la_steppe_garde_des_ossements() {
 #[test]
 fn la_taiga_a_son_sous_bois() {
     use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Taiga) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
-    let (cx, cz) = spot.unwrap(); let mut n = std::collections::HashMap::new(); for a in -3..3 { for b in -3..3 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    let (cx, cz) = spot.unwrap(); let mut n = std::collections::HashMap::new(); for a in -3..3 { for b in -3..3 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u16| *n.get(&b).unwrap_or(&0);
     println!("myrtilles {}, sorbiers {}, fougères rousses {}, lichens {}, bois mort {}, bouleaux {}, troncs couchés {}", c(B::BLUEBERRY), c(B::ROWAN), c(B::FERN_DRY), c(B::LICHEN_STONE), c(B::DEAD_LOG) + c(B::DEAD_LOG_X) + c(B::DEAD_LOG_Z), c(B::BIRCH_LOG), c(B::SPRUCE_LOG_X) + c(B::SPRUCE_LOG_Z) + c(B::DEAD_LOG_X) + c(B::DEAD_LOG_Z));
     assert!(c(B::BLUEBERRY) > 30 && c(B::ROWAN) > 3 && c(B::FERN_DRY) > 20 && c(B::LICHEN_STONE) > 30); assert!(c(B::DEAD_LOG) + c(B::DEAD_LOG_X) + c(B::DEAD_LOG_Z) + c(B::DEAD_BRANCH) > 5 && c(B::BIRCH_LOG) > 5);
 }
@@ -100,7 +100,7 @@ fn aucun_bloc_d_arbre_ne_flotte() {
     use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104);
     // Un bout de chaque biome : chaque tronc et chaque feuille touche, par une face, un autre bloc plein ou du feuillage.
     let mut spots = vec![]; for b in [Biome::Temperate, Biome::DeepForest, Biome::Taiga, Biome::Steppe, Biome::Meadow] { 'f: for r in 0..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if r == 0 && b != Biome::Temperate { continue; } if g.column(x, z).mix.strong(b) > 0.9 { spots.push(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } } }
-    let tree = |b: u8| is_log(b) || is_leaf(b) || is_branch(b); let (mut bad, mut total) = (0, 0);
+    let tree = |b: u16| is_log(b) || is_leaf(b) || is_branch(b); let (mut bad, mut total) = (0, 0);
     for (cx, cz) in spots { for a in 0..2 { for c in 0..2 {
         let v = g.gen_chunk(cx + a, cz + c);
         for y in 1..CH - 1 { for z in 1..CX - 1 { for x in 1..CX - 1 { let b = v[idx(x, y, z)]; if !tree(b) { continue; } total += 1;
@@ -122,7 +122,7 @@ fn troncs_et_souches_creux() {
 #[test]
 fn le_desert_est_de_sable_et_de_gres() {
     use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Desert) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'f; } } r += 1; }
-    let (cx, cz) = spot.expect("un désert"); let mut n = std::collections::HashMap::new(); for a in -3..3 { for b in -3..3 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    let (cx, cz) = spot.expect("un désert"); let mut n = std::collections::HashMap::new(); for a in -3..3 { for b in -3..3 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u16| *n.get(&b).unwrap_or(&0);
     let mut hs = vec![]; for i in 0..64 { let col = g.column((cx * 32 + i * 3) as f64, (cz * 32) as f64); if col.mix.strong(Biome::Desert) > 0.9 { hs.push(col.h); } } let relief = hs.iter().cloned().fold(f64::MIN, f64::max) - hs.iter().cloned().fold(f64::MAX, f64::min);
     println!("désert {cx},{cz} : sable {}, grès {}, grès rouge {}, cactus {}, palmiers {}, herbe {}, os {}, relief {relief:.1}", c(B::SAND), c(B::SANDSTONE), c(B::RED_SANDSTONE), c(B::CACTUS), c(B::PALM_LOG), c(B::GRASS), c(B::BONE));
     assert!(c(B::SAND) > 20 * (c(B::GRASS) + 1)); assert!(c(B::CACTUS) > 10); assert!(relief > 2.0 && relief < 14.0, "des dunes, pas de montagnes : {relief}"); let mut rock = 0; let mut tops = 0; for x in 0..96 { for z in 0..96 { let (wx, wz) = (cx * 32 - 64 + x, cz * 32 - 64 + z); let col = g.column(wx as f64, wz as f64); if col.mix.strong(Biome::Desert) < 0.97 || col.water != 0.0 { continue; } let v = g.gen_chunk(wx.div_euclid(32), wz.div_euclid(32)); let mut y = 126; while y > 1 && !is_opaque(v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]) { y -= 1; } let b = v[idx(wx.rem_euclid(32) as usize, y, wz.rem_euclid(32) as usize)]; tops += 1; if b != B::SAND { rock += 1; } } }
@@ -139,7 +139,7 @@ fn les_oasis_ont_des_palmiers() {
 #[test]
 fn les_hautes_terres_sont_une_lande_rocheuse() {
     use alw_core::{gen::WorldGen, biome::*, blocks::*}; let g = WorldGen::new(20261104); let (mut spot, mut r) = (None, 8); 'f: while r < 700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if g.column(x, z).mix.strong(Biome::Highlands) > 0.97 { spot = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32, x, z)); break 'f; } } r += 1; }
-    let (cx, cz, x0, z0) = spot.expect("des hautes terres"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u8| *n.get(&b).unwrap_or(&0);
+    let (cx, cz, x0, z0) = spot.expect("des hautes terres"); let mut n = std::collections::HashMap::new(); for a in -2..2 { for b in -2..2 { for id in g.gen_chunk(cx + a, cz + b) { *n.entry(id).or_insert(0usize) += 1; } } } let c = |b: u16| *n.get(&b).unwrap_or(&0);
     let logs = c(B::OAK_LOG) + c(B::BIRCH_LOG) + c(B::BEECH_LOG) + c(B::SPRUCE_LOG); let h = g.column(x0, z0).h;
     println!("hautes terres {cx},{cz} (altitude {h:.0}) : lande {}, herbe {}, bruyère {}, linaigrette {}, éboulis {}, troncs {}", c(B::MOOR_GRASS), c(B::GRASS), c(B::HEATHER), c(B::COTTON_GRASS), c(B::GRAVEL), logs);
     assert!(c(B::MOOR_GRASS) > 5 * (c(B::GRASS) + 1) && c(B::HEATHER) > 100 && logs < 400, "une lande presque sans arbres");

@@ -3,7 +3,7 @@ use alw_core::{det, gen::WorldGen, mesher::{far_mesh, Mesher}, noise::*, store::
 fn fnv(b: &[u8]) -> u32 { let mut h = 0x811c9dc5u32; for v in b { h ^= *v as u32; h = h.wrapping_mul(0x01000193); } h }
 fn bits(v: f64) -> String { format!("{:x}", v.to_bits()) }
 struct Little;
-impl alw_core::player::Voxels for Little { fn get(&self, x: i32, y: i32, z: i32) -> Option<u8> { use alw_core::blocks::B; if x.abs() > 300 || z.abs() > 300 || y < 0 { return None; } let h = 40 + (((x >> 3) * 7 + (z >> 3) * 13) & 3); if y < h { return Some(B::DIRT); } if (x & 63) == 5 && (z & 63) == 9 && y < h + 5 { return Some(B::STONE); } Some(0) } }
+impl alw_core::player::Voxels for Little { fn get(&self, x: i32, y: i32, z: i32) -> Option<u16> { use alw_core::blocks::B; if x.abs() > 300 || z.abs() > 300 || y < 0 { return None; } let h = 40 + (((x >> 3) * 7 + (z >> 3) * 13) & 3); if y < h { return Some(B::DIRT); } if (x & 63) == 5 && (z & 63) == 9 && y < h + 5 { return Some(B::STONE); } Some(0) } }
 fn fauna_trace() -> Vec<(u32, usize, usize, usize, f64)> {
     let (mut f, mut o, mut ev) = (alw_core::fauna::Fauna::new(20261104), Vec::new(), 0);
     for k in 0..3600u32 {
@@ -25,7 +25,7 @@ fn parite_avec_le_prototype() {
             "noise" => { let n = Noise::new(77); assert_eq!(bits(n.n2(12.5, -3.25)), a[1]); assert_eq!(bits(n.n3(1.2, 2.3, -3.4)), a[2]); assert_eq!(bits(n.fbm(0.7, 0.2, 3)), a[3]); }
             // Monde : depuis M4, le moteur Rust est seul à jour ; le prototype reste figé et le test de déterminisme prend le relais.
             "chunk" | "mesh" | "far" => continue,
-            "chunk-ancien" => { let g = WorldGen::new(a[1].parse().unwrap()); let v = g.gen_chunk(a[2].parse().unwrap(), a[3].parse().unwrap()); assert_eq!(fnv(&v).to_string(), a[4], "chunk {} {} {}", a[1], a[2], a[3]); chunks += 1; }
+            "chunk-ancien" => { let g = WorldGen::new(a[1].parse().unwrap()); let v = g.gen_chunk(a[2].parse().unwrap(), a[3].parse().unwrap()); let v: Vec<u8> = v.iter().map(|x| *x as u8).collect(); assert_eq!(fnv(&v).to_string(), a[4], "chunk {} {} {}", a[1], a[2], a[3]); chunks += 1; }
             "mesh-ancien" => {
                 let mut st = ChunkStore::new(a[1].parse().unwrap(), 200); let mut m = Mesher::new();
                 let (cx, cz, lod): (i32, i32, u8) = (a[2].parse().unwrap(), a[3].parse().unwrap(), a[4].parse().unwrap());

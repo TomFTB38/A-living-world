@@ -18,7 +18,7 @@ pub const INV_SIZE: usize = 36; pub const STACK: u32 = 99; pub const CHEST_SIZE:
 /// Cases de l'écran d'inventaire : le sac (0 à 35), le coffre ouvert (36 à 62), l'équipement (63 à 67).
 pub const CHEST0: usize = INV_SIZE; pub const EQUIP0: usize = INV_SIZE + CHEST_SIZE; pub const SLOTS_ALL: usize = EQUIP0 + 6;
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub struct Item { pub id: &'static str, pub label: &'static str, pub block: Option<u8>, pub tool: Option<&'static str> }
+pub struct Item { pub id: &'static str, pub label: &'static str, pub block: Option<crate::blocks::Id>, pub tool: Option<&'static str> }
 /// Tous les objets, dans l'ordre du fichier de données (c'est aussi l'ordre des icônes).
 pub fn order() -> &'static [&'static str] { &crate::data::db().order }
 /// Onglets du catalogue créatif, un par catégorie d'objets.
@@ -29,9 +29,9 @@ pub fn item(id: &str) -> Option<Item> { def(id).map(|d| Item { id: d.id, label: 
 pub struct Stack { pub item: &'static str, pub n: Option<u32>, pub wear: u32 }
 impl Stack { pub fn new(item: &'static str, n: Option<u32>) -> Stack { Stack { item, n, wear: 0 } } }
 #[derive(Clone, Copy, Debug)]
-pub struct Target { pub x: i32, pub y: i32, pub z: i32, pub px: i32, pub py: i32, pub pz: i32, pub id: u8 }
+pub struct Target { pub x: i32, pub y: i32, pub z: i32, pub px: i32, pub py: i32, pub pz: i32, pub id: Id }
 /// Parcours de grille : premier bloc ciblable et case d'avant.
-pub fn raycast(w: &impl Voxels, o: [f64; 3], d: [f64; 3], max: f64, skip: &dyn Fn(i32, i32, i32, u8) -> bool) -> Option<(Target, f64)> {
+pub fn raycast(w: &impl Voxels, o: [f64; 3], d: [f64; 3], max: f64, skip: &dyn Fn(i32, i32, i32, Id) -> bool) -> Option<(Target, f64)> {
     let (mut x, mut y, mut z) = (o[0].floor() as i32, o[1].floor() as i32, o[2].floor() as i32);
     let sg = |v: f64| if v > 0.0 { 1 } else if v < 0.0 { -1 } else { 0 };
     let (sx, sy, sz) = (sg(d[0]), sg(d[1]), sg(d[2])); let (tdx, tdy, tdz) = ((1.0 / d[0]).abs(), (1.0 / d[1]).abs(), (1.0 / d[2]).abs());
@@ -101,7 +101,7 @@ impl Session {
     fn place_spot(t: &Target) -> [i32; 3] { if is_deco(t.id) && emit(t.id) == 0 && !is_solid(t.id) { [t.x, t.y, t.z] } else { [t.px, t.py, t.pz] } }
     /// Ce que le clic droit poserait, et où : une ou deux cases (une porte en prend deux). `None` : rien de possible ici.
     /// La pose et l'aperçu passent tous deux par ici, de sorte que l'aperçu montre exactement ce qui sera posé.
-    pub fn plan(&self) -> Option<Vec<([i32; 3], u8)>> {
+    pub fn plan(&self) -> Option<Vec<([i32; 3], crate::blocks::Id)>> {
         let (t, st) = (self.target?, self.inv[self.sel]?); let block = item(st.item)?.block?;
         if !self.creative && st.n.unwrap_or(0) == 0 { return None; }
         if let Some(si) = crate::shapes::info(block) { return self.plan_shape(si, &t); }
@@ -112,7 +112,7 @@ impl Session {
     }
     /// Blocs de forme : sens du regard (plus les quarts de tour de R), dalle haute ou basse selon l'endroit visé, deux dalles
     /// qui font un bloc plein, porte sur deux cases.
-    fn plan_shape(&self, si: crate::shapes::Info, t: &Target) -> Option<Vec<([i32; 3], u8)>> {
+    fn plan_shape(&self, si: crate::shapes::Info, t: &Target) -> Option<Vec<([i32; 3], crate::blocks::Id)>> {
         use crate::shapes::{facing_of, full_of_slab, info, variant, Kind};
         let f = self.player.forward(); let face = (facing_of(f[0], f[2]) + self.turn) % 4;
         if si.kind == Kind::Slab { if let Some(ti) = info(t.id) { if ti.kind == Kind::Slab && ti.base == si.base && ((!ti.top && t.py > t.y) || (ti.top && t.py < t.y)) { return full_of_slab(si.base).map(|b| vec![([t.x, t.y, t.z], b)]); } } }
@@ -125,14 +125,14 @@ impl Session {
         Some(v)
     }
     /// Le bloc posé là rentrerait-il dans le joueur ? (Une dalle au ras du sol, non ; une porte, oui.)
-    fn blocks_player(&self, c: [i32; 3], id: u8) -> bool {
+    fn blocks_player(&self, c: [i32; 3], id: Id) -> bool {
         let boxes = crate::shapes::boxes(id).unwrap_or_else(|| if is_solid(id) { vec![[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]] } else { Vec::new() }); let p = self.player.p;
         boxes.iter().any(|b| { let (a, d) = ([c[0] as f64 + b[0], c[1] as f64 + b[1], c[2] as f64 + b[2]], [c[0] as f64 + b[3], c[1] as f64 + b[4], c[2] as f64 + b[5]]); a[0] < p[0] + 0.3 && d[0] > p[0] - 0.3 && a[2] < p[2] + 0.3 && d[2] > p[2] - 0.3 && a[1] < p[1] + 1.8 && d[1] > p[1] + 0.01 })
     }
     pub fn place(&mut self) -> bool {
         let Some(plan) = self.plan() else { return false }; let Some(st) = self.inv[self.sel] else { return false };
         if crate::shapes::info(plan[0].1).is_none() { let f = self.player.forward(); self.axis = Some(gaze_axis(f[0], f[1], f[2], self.orient, self.axis)); }
-        let edits: Vec<(i32, i32, i32, u8)> = plan.iter().map(|(p, id)| (p[0], p[1], p[2], *id)).collect();
+        let edits: Vec<(i32, i32, i32, Id)> = plan.iter().map(|(p, id)| (p[0], p[1], p[2], *id)).collect();
         if self.world.edit_many(&edits) == 0 { return false; }
         for (p, id) in &plan { self.flow.touch(p[0], p[1], p[2]); self.on_placed(*p, *id); }
         if !self.creative { let n = st.n.unwrap_or(0) - 1; self.inv[self.sel] = if n == 0 { None } else { Some(Stack { n: Some(n), ..st }) }; }
@@ -228,7 +228,7 @@ impl Session {
         self.water_t -= dt; if self.water_t <= 0.0 { self.water_t = 0.5; self.scan_water(); }
         let at = |s: &Self, q: [f64; 3]| s.world.get(q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32);
         let wet = self.player.in_water; if wet && !self.was_wet && self.player.v[1] < -2.0 { self.sound.splash((-self.player.v[1] as f32 / 7.0).min(1.2)); } self.was_wet = wet;
-        let below = at(self, [p[0], p[1] - 0.1, p[2]]).unwrap_or(0); let feet = at(self, [p[0], p[1] + 0.1, p[2]]).unwrap_or(0); let name = |b: u8| BLOCKS[b as usize].name; let pl = &self.player;
+        let below = at(self, [p[0], p[1] - 0.1, p[2]]).unwrap_or(0); let feet = at(self, [p[0], p[1] + 0.1, p[2]]).unwrap_or(0); let name = |b: Id| BLOCKS[b as usize].name; let pl = &self.player;
         if pl.ground && pl.speed > 1.0 {
             self.step_t -= dt * pl.speed;
             if self.step_t <= 0.0 { self.step_t = 2.1; if snow_level(feet) > 0 { self.sound.step(name(feet), None); } else if below > 0 { self.sound.step(name(below), if feet != below && feet > 0 { Some(name(feet)) } else { None }); } } // dans la neige, c'est elle qui craque

@@ -129,7 +129,7 @@ fn feu_de_camp_et_etabli() {
 fn depart_mains_vides_et_ramassage() {
     let o = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, dry()); assert!(o.inv.iter().all(|x| x.is_none()), "on commence sans rien");
     let mut s = session(); s.inv = [None; INV_SIZE]; s.third = false; s.player.pitch = -0.7; s.player.yaw = 0.0; idle(&mut s, 0.2);
-    let put = |s: &mut Session, b: u8| -> Target { s.player.pitch = -0.7; s.tick(0.0, none(), Actions::default()); let t = s.target.expect("sol visé"); let (x, y, z) = (t.x, t.y + 1, t.z); s.world.edit(x, y, z, b); s.tick(0.0, none(), Actions::default()); let t = s.target.unwrap(); assert_eq!(t.id, b, "on vise ce qu'on vient de poser"); t };
+    let put = |s: &mut Session, b: u16| -> Target { s.player.pitch = -0.7; s.tick(0.0, none(), Actions::default()); let t = s.target.expect("sol visé"); let (x, y, z) = (t.x, t.y + 1, t.z); s.world.edit(x, y, z, b); s.tick(0.0, none(), Actions::default()); let t = s.target.unwrap(); assert_eq!(t.id, b, "on vise ce qu'on vient de poser"); t };
     let t = put(&mut s, B::TWIGS); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0)); assert_eq!(s.count("stick"), 1, "une branche, un bâton");
     idle(&mut s, 0.5); let t = put(&mut s, B::PEBBLES); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); assert_eq!(s.world.get(t.x, t.y, t.z), Some(0)); assert_eq!(s.count("pebble"), 1, "un caillou");
     // myrtillier : cueilli au clic droit, dépouillé un jour, puis ses baies reviennent
@@ -147,7 +147,7 @@ fn durete_outils_de_pierre_fibre() {
     let i = |id: &str| recipes().iter().position(|r| r.out == id).unwrap();
     s.add_item("stick", 5); s.add_item("pebble", 8); s.add_item("fiber", 7); for t in ["stone_knife", "stone_axe", "stone_pickaxe"] { s.craft(i(t)).unwrap(); }
     assert_eq!(s.count("fiber"), 0); assert_eq!(s.count("pebble"), 0); assert_eq!(s.count("stick"), 0);
-    let time = |s: &mut Session, b: u8, sel: Option<usize>| -> (f64, bool) {
+    let time = |s: &mut Session, b: u16, sel: Option<usize>| -> (f64, bool) {
         s.player.pitch = -0.7; s.player.yaw = 0.0; s.tick(0.0, none(), Actions::default()); let g = s.target.unwrap(); let (x, y, z) = (g.x, g.y + 1, g.z); s.world.edit(x, y, z, b); s.stamina = 100.0;
         s.sel = sel.unwrap_or(30); let before = s.inv.iter().flatten().map(|t| t.n.unwrap_or(1)).sum::<u32>(); let mut k = 0;
         while s.world.get(x, y, z) == Some(b) && k < 2000 { s.stamina = 100.0; s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); k += 1; }

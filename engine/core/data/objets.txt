@@ -1,6 +1,6 @@
 # A Living World — base des objets.
 # Une ligne par objet : identifiant | nom | catégorie | masse (kg) | pile | description | propriétés
-# Catégories (onglets du catalogue) : terrain, roches, bois, plantes, batir, ateliers, outils, matieres, vivres, habits.
+# Catégories (onglets du catalogue) : terrain, roches, bois, plantes, batir, mobilier, decor, ateliers, outils, matieres, vivres, habits.
 # Un objet dont l'identifiant est un nom de bloc se pose comme ce bloc.
 # Propriétés :
 #   outil=<hache|pioche|pelle|couteau|faucille|houe|marteau|epee|lance> mat=<pierre|silex|cuivre|bronze|fer>  (vitesse, usure, palier : table des matières ci-dessous)
@@ -261,3 +261,121 @@ roof_tiles | Tuiles | batir | 1.0 | 64 | De la terre cuite rouge, pour des toits
 slate | Ardoise | batir | 1.2 | 64 | Des feuilles de pierre bleu-gris, pour les toits des riches et des églises. |
 barrel | Tonneau | batir | 3.0 | 16 | Douelles cerclées de fer : vin, bière, salaisons. |
 fire_drill | Archet à feu | outils | 0.4 | 1 | Un bâton qu'on fait tourner vite contre un autre : de quoi allumer un feu de camp, avec un peu de patience. |
+# --- Richesse : pierres et sols, pans de bois, bois peints, étoffes, formes ---
+marble | Marbre | batir | 1.2 | 64 | Une pierre blanche veinée de gris, pour les colonnes et les dallages des riches. |
+marble_black | Marbre noir | batir | 1.2 | 64 | Le marbre sombre des damiers et des tombeaux. |
+ashlar | Pierre de taille | batir | 1.2 | 64 | De grands blocs équarris au ciseau : remparts, églises, demeures. |
+fieldstone | Moellons | batir | 1.2 | 64 | Des pierres des champs liées à la chaux : murs de ferme et de clôture. |
+setts | Pavés | batir | 1.2 | 64 | Des pavés de granit en rangs : la chaussée des villes. |
+polished_stone | Pierre polie | batir | 1.2 | 64 | Une dalle lisse au filet gravé. |
+chiseled_stone | Pierre sculptée | batir | 1.2 | 64 | Un panneau à rosace, pour les portails et les cheminées. |
+checker_floor | Damier de marbre | batir | 1.2 | 64 | Carreaux noirs et blancs, le sol des grandes salles. |
+parquet | Parquet | batir | 1.0 | 64 | Des bâtons rompus de chêne ciré : le sol des belles chambres. |
+terracotta_floor | Tomettes | batir | 1.2 | 64 | Carreaux de terre cuite : le sol des cuisines. |
+stone_bricks_dark | Pierre de taille sombre | batir | 1.2 | 64 | La pierre des donjons. |
+bricks_dark | Briques brunes | batir | 1.2 | 64 | Des briques cuites longtemps, presque noires. |
+stained_glass | Vitrail | batir | 1.2 | 64 | Des verres colorés sertis de plomb : la lumière des chapelles. |
+iron_block | Tôle de fer | batir | 1.2 | 64 | Des plaques rivetées : portes de coffre-fort, armureries. |
+copper_roof | Toit de cuivre | batir | 1.2 | 64 | Des feuilles de cuivre vert-de-grisé, pour les clochers et les tours. |
+shingles | Bardeaux | batir | 1.2 | 64 | Des tuiles de bois fendu : toits de montagne et de forêt. |
+timber_frame | Pan de bois | batir | 1.0 | 64 | Du torchis dans un cadre de chêne : le mur des maisons à colombages. |
+timber_cross | Pan de bois en croix | batir | 1.0 | 64 | Le même, avec une croix de Saint-André. |
+timber_brace | Pan de bois à écharpe | batir | 1.0 | 64 | Le même, avec une écharpe en diagonale. |
+wattle | Clayonnage | batir | 1.0 | 64 | Des branches tressées : clôtures, cloisons, paniers. |
+bookshelf | Bibliothèque | batir | 1.0 | 64 | Des rayons chargés de livres reliés. |
+hay_bale | Botte de paille | batir | 1.0 | 64 | Pressée et liée : granges, écuries, cibles. |
+crate | Caisse | batir | 1.0 | 64 | Des planches clouées, pour ranger ou décorer. |
+planks_dark | Planches teintées sombre | batir | 1.0 | 64 | Du chêne passé au brou de noix. |
+planks_red | Planches peintes en rouge | batir | 1.0 | 64 | La peinture des granges et des portes. |
+planks_white | Planches chaulées | batir | 1.0 | 64 | Blanchies à la chaux. |
+planks_blue | Planches peintes en bleu | batir | 1.0 | 64 | Le bleu des volets et des barques. |
+planks_green | Planches peintes en vert | batir | 1.0 | 64 | Le vert des portes de jardin. |
+plaster_ochre | Enduit ocre | batir | 1.0 | 64 | Un badigeon couleur de blé mûr. |
+plaster_rose | Enduit rose | batir | 1.0 | 64 | Un badigeon tiède, des maisons du sud. |
+plaster_blue | Enduit bleuté | batir | 1.0 | 64 | Un badigeon frais, couleur de ciel pâle. |
+wool_white | Étoffe blanche | batir | 0.3 | 64 | Un drap de fibre foulée, teint dans la masse : tentures, lits, pavillons. |
+wool_red | Étoffe rouge | batir | 0.3 | 64 | Un drap de fibre foulée, teint dans la masse : tentures, lits, pavillons. |
+wool_blue | Étoffe bleue | batir | 0.3 | 64 | Un drap de fibre foulée, teint dans la masse : tentures, lits, pavillons. |
+wool_green | Étoffe verte | batir | 0.3 | 64 | Un drap de fibre foulée, teint dans la masse : tentures, lits, pavillons. |
+wool_yellow | Étoffe jaune | batir | 0.3 | 64 | Un drap de fibre foulée, teint dans la masse : tentures, lits, pavillons. |
+wool_black | Étoffe noire | batir | 0.3 | 64 | Un drap de fibre foulée, teint dans la masse : tentures, lits, pavillons. |
+wool_brown | Étoffe brune | batir | 0.3 | 64 | Un drap de fibre foulée, teint dans la masse : tentures, lits, pavillons. |
+wool_purple | Étoffe violette | batir | 0.3 | 64 | Un drap de fibre foulée, teint dans la masse : tentures, lits, pavillons. |
+wool_orange | Étoffe orangée | batir | 0.3 | 64 | Un drap de fibre foulée, teint dans la masse : tentures, lits, pavillons. |
+marble_stairs | Escalier de marbre | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+marble_slab | Dalle de marbre | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+marble_vslab | Dalle verticale de marbre | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+ashlar_stairs | Escalier de pierre de taille | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+ashlar_slab | Dalle de pierre de taille | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+ashlar_vslab | Dalle verticale de pierre de taille | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+fieldstone_stairs | Escalier de moellons | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+fieldstone_slab | Dalle de moellons | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+fieldstone_vslab | Dalle verticale de moellons | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+setts_stairs | Escalier de pavés | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+setts_slab | Dalle de pavés | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+setts_vslab | Dalle verticale de pavés | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+polished_stone_stairs | Escalier de pierre polie | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+polished_stone_slab | Dalle de pierre polie | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+polished_stone_vslab | Dalle verticale de pierre polie | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+shingles_stairs | Escalier de bardeaux | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+shingles_slab | Dalle de bardeaux | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+shingles_vslab | Dalle verticale de bardeaux | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+roof_tiles_stairs | Escalier de tuiles | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+roof_tiles_slab | Dalle de tuiles | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+roof_tiles_vslab | Dalle verticale de tuiles | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+slate_stairs | Escalier d'ardoise | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+slate_slab | Dalle d'ardoise | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+slate_vslab | Dalle verticale d'ardoise | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+copper_roof_stairs | Escalier de cuivre | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+copper_roof_slab | Dalle de cuivre | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+copper_roof_vslab | Dalle verticale de cuivre | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+plaster_stairs | Escalier de torchis | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+plaster_slab | Dalle de torchis | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+plaster_vslab | Dalle verticale de torchis | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+timber_stairs | Escalier de chêne | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+timber_slab | Dalle de chêne | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+timber_vslab | Dalle verticale de chêne | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+# --- Mobilier ---
+chair | Chaise | mobilier | 1.5 | 16 | Quatre pieds, un dossier à barreaux. |
+bench | Banc | mobilier | 1.5 | 16 | Une planche sur deux tréteaux. |
+armchair | Fauteuil | mobilier | 1.5 | 16 | Garni de drap rouge, pour la veillée. |
+throne | Trône | mobilier | 4.0 | 16 | Doré et capitonné : pour un seigneur, ou qui s'en croit un. |
+table | Table | mobilier | 1.5 | 16 | Un plateau épais sur quatre pieds. |
+round_table | Table ronde | mobilier | 1.5 | 16 | Sur un pied central : la table des tavernes. |
+stool | Tabouret | mobilier | 1.5 | 16 | Trois pieds, ne boite jamais. |
+cupboard | Armoire | mobilier | 4.0 | 16 | Deux battants, une corniche : le trésor des ménages. |
+fireplace | Cheminée | mobilier | 4.0 | 16 | Un âtre de pierre, un manteau de chêne, un feu qui ne s'éteint pas. |
+loom | Métier à tisser | mobilier | 4.0 | 16 | Pour l'étoffe, fil après fil. |
+spinning_wheel | Rouet | mobilier | 1.5 | 16 | La roue qui file la fibre. |
+grindstone | Meule à aiguiser | mobilier | 1.5 | 16 | Une roue de grès sur son bâti, une manivelle. |
+signpost | Poteau indicateur | mobilier | 1.5 | 16 | Deux flèches de bois au carrefour. |
+# --- Décor ---
+painting | Tableau | decor | 1.0 | 16 | Un paysage dans un cadre doré, à pendre au mur. |
+banner_red | Bannière rouge | decor | 1.0 | 16 | Une bannière à pendre au mur, brodée d'or. |
+banner_blue | Bannière bleue | decor | 1.0 | 16 | Une bannière à pendre au mur, brodée d'or. |
+banner_green | Bannière verte | decor | 1.0 | 16 | Une bannière à pendre au mur, brodée d'or. |
+banner_gold | Bannière d'or | decor | 1.0 | 16 | Une bannière à pendre au mur, brodée de pourpre. |
+weapon_rack | Râtelier d'armes | decor | 1.0 | 16 | Épée, lance et hache, au mur. |
+wall_sconce | Applique | decor | 1.0 | 16 | Un bras de fer et sa bougie, contre le mur. |
+curtain | Tenture | decor | 1.0 | 16 | Un rideau de drap rouge sur sa tringle. |
+wall_shelf | Étagère murale | decor | 1.0 | 16 | Une planche sur deux équerres, quelques pots, quelques livres. |
+candle | Bougie | decor | 1.0 | 16 | Une chandelle de cire de myrte dans son bougeoir. |
+candelabra | Chandelier | decor | 1.0 | 16 | Trois bougies sur un pied de laiton. |
+chandelier | Lustre | decor | 1.0 | 16 | Une couronne de bois et de fer, huit bougies, pendue au plafond. |
+brazier | Brasero | decor | 1.0 | 16 | Une coupe de fer sur trois pieds, des braises qui rougeoient. |
+sack | Sac de grain | decor | 1.0 | 16 | Une toile de jute bien pleine. |
+amphora | Amphore | decor | 1.0 | 16 | Une jarre de terre à deux anses. |
+flower_pot | Pot de fleurs | decor | 1.0 | 16 | Un pot de terre et ses fleurs. |
+potted_fern | Fougère en pot | decor | 1.0 | 16 | Du vert dans la maison. |
+cauldron | Chaudron | decor | 1.0 | 16 | Un pot de fonte noire sur trois pieds. |
+bucket | Seau de bois | decor | 1.0 | 16 | Cerclé de fer, une anse. |
+log_pile | Tas de bûches | decor | 1.0 | 16 | Le bois de l'hiver, bien rangé. |
+carpet_red | Tapis rouge | decor | 1.0 | 16 | Un tapis d'Orient, galons et médaillon. |
+carpet_blue | Tapis bleu | decor | 1.0 | 16 | Un tapis d'Orient, galons et médaillon. |
+carpet_green | Tapis vert | decor | 1.0 | 16 | Un tapis d'Orient, galons et médaillon. |
+iron_bars | Barreaux de fer | decor | 1.0 | 16 | Pour les fenêtres des prisons et des trésors. |
+books_pile | Pile de livres | decor | 1.0 | 16 | Quelques volumes posés en vrac. |
+bottles | Bouteilles | decor | 1.0 | 16 | Verre vert et brun, bouchons de liège. |
+beehive | Ruche de paille | decor | 1.0 | 16 | Une ruche tressée en cloche. |
+cheese | Meules de fromage | decor | 1.0 | 16 | Deux meules à croûte dorée, pour l'étal. |
+bread_basket | Corbeille de pains | decor | 1.0 | 16 | Un panier d'osier et trois miches. |

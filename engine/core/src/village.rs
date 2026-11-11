@@ -6,7 +6,7 @@
 use crate::actors::{b, Draw, Models};
 use crate::batisse::{raise, style, Lot, Plan, Prop, Work};
 use crate::biome::Biome;
-use crate::blocks::{by_name, idx, CH, CX};
+use crate::blocks::{Id, by_name, idx, CH, CX};
 use crate::data::{db, def, Craftsman, Recipe, Station};
 use crate::gen::WorldGen;
 use crate::mesher::VBuf;
@@ -42,11 +42,11 @@ pub struct House {
 #[derive(Clone, Debug)]
 pub struct Village { pub id: (i32, i32), pub kind: &'static str, pub name: String, pub c: [i32; 3], pub r: i32, pub crafts: Vec<&'static str>, pub houses: Vec<House> }
 /// Un village tracé, avec les blocs à poser.
-pub struct Site { pub v: Village, blocks: Vec<(i32, i32, i32, u8)>, props: Vec<Prop> }
+pub struct Site { pub v: Village, blocks: Vec<(i32, i32, i32, Id)>, props: Vec<Prop> }
 impl Site { /** Le décor fin du village. */ pub fn props(&self) -> &[Prop] { &self.props } }
 
 pub fn kind_label(k: &str) -> &'static str { match k { "prairie" => "prairie", "taiga" => "taïga", "aride" => "steppe", "desert" => "désert", "montagne" => "montagne", _ => "hautes terres" } }
-fn id(n: &str) -> u8 { by_name(n).unwrap_or_else(|| panic!("bloc inconnu : {n}")) }
+fn id(n: &str) -> Id { by_name(n).unwrap_or_else(|| panic!("bloc inconnu : {n}")) }
 fn dir(f: u8) -> (i32, i32) { [(0, 1), (1, 0), (0, -1), (-1, 0)][f as usize % 4] }
 const NAME_A: [&str; 16] = ["Haut", "Bel", "Clair", "Roche", "Val", "Mont", "Pré", "Bois", "Fond", "Gué", "Saule", "Brune", "Vieux", "Grand", "Pierre", "Chêne"];
 const NAME_B: [&str; 12] = ["val", "fort", "mont", "bourg", "lieu", "ville", "champ", "roche", "font", "court", "mesnil", "lande"];
@@ -59,7 +59,7 @@ impl WorldGen {
         let s = self.trace(gx, gz).map(Rc::new); self.towns.borrow_mut().insert((gx, gz), s.clone()); s
     }
     /// Un chunk complet : le terrain du prototype, puis les villages qui le touchent.
-    pub fn gen_world(&self, cx: i32, cz: i32) -> Vec<u8> {
+    pub fn gen_world(&self, cx: i32, cz: i32) -> Vec<Id> {
         let mut v = self.gen_chunk(cx, cz); let (ox, oz) = (cx * CX as i32, cz * CX as i32);
         for gx in (ox - SPAN).div_euclid(CELL)..=(ox + CX as i32 + SPAN).div_euclid(CELL) { for gz in (oz - SPAN).div_euclid(CELL)..=(oz + CX as i32 + SPAN).div_euclid(CELL) {
             if let Some(s) = self.site(gx, gz) { s.stamp(self, cx, cz, &mut v); }
@@ -149,7 +149,7 @@ impl WorldGen {
             if !plan.dwelling() { continue; }
             let craft = plan.craft();
             // Le mobilier : le poste de l'artisan au fond, un lit, un coffre, une lanterne.
-            let mut put = |u: i32, ww: i32, b: u8| works.put(lot.cell(u, y0 + 1, ww), b);
+            let mut put = |u: i32, ww: i32, b: Id| works.put(lot.cell(u, y0 + 1, ww), b);
             let w = plan.size().0; put(1, back, id("bed")); put(w - 2, 1, lantern);
             match craft {
                 Some("forgeron") | Some("maitre_forgeron") | Some("armurier") => { put(du, back, id("anvil")); put(du + 1, back, id("furnace")); }
@@ -181,7 +181,7 @@ impl WorldGen {
 }
 impl Site {
     /// Pose ce village dans un chunk : le sol aplani d'abord (fondu vers le terrain sur les bords), puis les bâtiments.
-    fn stamp(&self, gen: &WorldGen, cx: i32, cz: i32, v: &mut [u8]) {
+    fn stamp(&self, gen: &WorldGen, cx: i32, cz: i32, v: &mut [Id]) {
         let (ox, oz) = (cx * CX as i32, cz * CX as i32); let c = self.v.c; let reach = self.v.r + BLEND;
         if c[0] + reach < ox || c[0] - reach >= ox + CX as i32 || c[2] + reach < oz || c[2] - reach >= oz + CX as i32 { return; }
         let dirt = id("dirt");

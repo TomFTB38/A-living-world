@@ -172,3 +172,119 @@ slate 4 | taille | cut 2, !hammer 1 | batir
 barrel 1 | etabli | plank 6, iron_ingot 1 | batir
 # Allumer le feu
 fire_drill 1 | main | stick 2, fiber 2 | outils
+# --- Richesse : construction, mobilier, décor ---
+marble 2 | taille | cut 2, sand 1, !hammer 1 | batir
+marble_black 2 | taille | cut 2, coal 1, !hammer 1 | batir
+ashlar 2 | taille | cut 2, !hammer 1 | batir
+fieldstone 2 | main | rock 3, clay 1 | batir
+setts 4 | taille | cut 2, !hammer 1 | batir
+polished_stone 2 | taille | cut 2, sand 1, !hammer 1 | batir
+chiseled_stone 1 | taille | cut 2, !hammer 1 | batir
+checker_floor 2 | taille | marble 1, marble_black 1 | batir
+parquet 4 | etabli | plank 3 | batir
+terracotta_floor 4 | four | clay 2, fuel 1 | batir
+stone_bricks_dark 2 | taille | cut 2, coal 1, !hammer 1 | batir
+bricks_dark 2 | four | clay 3, fuel 2 | batir
+stained_glass 2 | four | glass 2, berries 1, glowcap_blue 1 | batir
+iron_block 1 | enclume | iron_ingot 4, !hammer 1 | batir
+copper_roof 4 | enclume | copper_ingot 2, !hammer 1 | batir
+shingles 4 | etabli | plank 2, !knife 1 | batir
+timber_frame 3 | etabli | timber 1, plaster 2 | batir
+timber_cross 3 | etabli | timber 2, plaster 2 | batir
+timber_brace 3 | etabli | timber 1, plaster 2 | batir
+wattle 2 | etabli | stick 6 | batir
+bookshelf 1 | etabli | plank 6, leather 2 | batir
+hay_bale 1 | etabli | fiber 9 | batir
+crate 2 | etabli | plank 4, stick 2 | batir
+planks_dark 4 | etabli | plank 4, coal 1 | batir
+planks_red 4 | etabli | plank 4, berries 1 | batir
+planks_white 4 | etabli | plank 4, sand 1 | batir
+planks_blue 4 | etabli | plank 4, glowcap_blue 1 | batir
+planks_green 4 | etabli | plank 4, fiber 2 | batir
+plaster_ochre 4 | etabli | plaster 4, clay 1 | batir
+plaster_rose 4 | etabli | plaster 4, berries 1 | batir
+plaster_blue 4 | etabli | plaster 4, glowcap_blue 1 | batir
+wool_white 1 | etabli | fiber 6 | batir
+wool_red 1 | etabli | wool_white 1, berries 1 | batir
+wool_blue 1 | etabli | wool_white 1, glowcap_blue 1 | batir
+wool_green 1 | etabli | wool_white 1, fiber 2 | batir
+wool_yellow 1 | etabli | wool_white 1, sand 1 | batir
+wool_black 1 | etabli | wool_white 1, coal 1 | batir
+wool_brown 1 | etabli | wool_white 1, dirt 1 | batir
+wool_purple 1 | etabli | wool_white 1, glowcap_violet 1 | batir
+wool_orange 1 | etabli | wool_white 1, clay 1 | batir
+marble_stairs 4 | taille | marble 3, !hammer 1 | batir
+marble_slab 4 | taille | marble 2, !hammer 1 | batir
+marble_vslab 4 | taille | marble 2, !hammer 1 | batir
+ashlar_stairs 4 | taille | ashlar 3, !hammer 1 | batir
+ashlar_slab 4 | taille | ashlar 2, !hammer 1 | batir
+ashlar_vslab 4 | taille | ashlar 2, !hammer 1 | batir
+fieldstone_stairs 4 | taille | fieldstone 3, !hammer 1 | batir
+fieldstone_slab 4 | taille | fieldstone 2, !hammer 1 | batir
+fieldstone_vslab 4 | taille | fieldstone 2, !hammer 1 | batir
+setts_stairs 4 | taille | setts 3, !hammer 1 | batir
+setts_slab 4 | taille | setts 2, !hammer 1 | batir
+setts_vslab 4 | taille | setts 2, !hammer 1 | batir
+polished_stone_stairs 4 | taille | polished_stone 3, !hammer 1 | batir
+polished_stone_slab 4 | taille | polished_stone 2, !hammer 1 | batir
+polished_stone_vslab 4 | taille | polished_stone 2, !hammer 1 | batir
+shingles_stairs 4 | etabli | shingles 3 | batir
+shingles_slab 4 | etabli | shingles 2 | batir
+shingles_vslab 4 | etabli | shingles 2 | batir
+roof_tiles_stairs 4 | taille | roof_tiles 3, !hammer 1 | batir
+roof_tiles_slab 4 | taille | roof_tiles 2, !hammer 1 | batir
+roof_tiles_vslab 4 | taille | roof_tiles 2, !hammer 1 | batir
+slate_stairs 4 | taille | slate 3, !hammer 1 | batir
+slate_slab 4 | taille | slate 2, !hammer 1 | batir
+slate_vslab 4 | taille | slate 2, !hammer 1 | batir
+copper_roof_stairs 4 | taille | copper_roof 3, !hammer 1 | batir
+copper_roof_slab 4 | taille | copper_roof 2, !hammer 1 | batir
+copper_roof_vslab 4 | taille | copper_roof 2, !hammer 1 | batir
+plaster_stairs 4 | etabli | plaster 3 | batir
+plaster_slab 4 | etabli | plaster 2 | batir
+plaster_vslab 4 | etabli | plaster 2 | batir
+timber_stairs 4 | etabli | timber 3 | batir
+timber_slab 4 | etabli | timber 2 | batir
+timber_vslab 4 | etabli | timber 2 | batir
+chair 1 | etabli | plank 2, stick 2 | mobilier
+bench 1 | etabli | plank 3 | mobilier
+armchair 1 | etabli | plank 3, wool_red 2 | mobilier
+throne 1 | enclume | plank 4, wool_red 3, iron_ingot 2, !hammer 1 | mobilier
+table 1 | etabli | plank 4, stick 2 | mobilier
+round_table 1 | etabli | plank 4 | mobilier
+stool 1 | etabli | plank 1, stick 3 | mobilier
+cupboard 1 | etabli | plank 8, iron_ingot 1 | mobilier
+fireplace 1 | taille | cut 6, plank 1, fuel 2 | mobilier
+loom 1 | etabli | plank 6, rope 4 | mobilier
+spinning_wheel 1 | etabli | plank 4, rope 2 | mobilier
+grindstone 1 | taille | cut 3, plank 2 | mobilier
+signpost 1 | etabli | plank 2, stick 2 | mobilier
+painting 1 | etabli | plank 1, wool_white 1, berries 1 | decor
+banner_red 1 | etabli | wool_red 3, stick 1 | decor
+banner_blue 1 | etabli | wool_blue 3, stick 1 | decor
+banner_green 1 | etabli | wool_green 3, stick 1 | decor
+banner_gold 1 | etabli | wool_yellow 3, stick 1 | decor
+weapon_rack 1 | etabli | plank 3, iron_ingot 1 | decor
+wall_sconce 1 | enclume | iron_ingot 1, candle 1 | decor
+curtain 1 | etabli | wool_red 3, stick 1 | decor
+wall_shelf 1 | etabli | plank 2, iron_ingot 1 | decor
+candle 2 | etabli | berries 4, fiber 1 | decor
+candelabra 1 | enclume | bronze_ingot 1, candle 3 | decor
+chandelier 1 | enclume | iron_ingot 2, plank 2, candle 4 | decor
+brazier 1 | enclume | iron_ingot 3, fuel 2 | decor
+sack 1 | etabli | fiber 6 | decor
+amphora 1 | four | clay 4, fuel 1 | decor
+flower_pot 1 | four | clay 2, fiber 1, fuel 1 | decor
+potted_fern 1 | four | clay 2, fiber 2, fuel 1 | decor
+cauldron 1 | enclume | iron_ingot 4, !hammer 1 | decor
+bucket 1 | etabli | plank 2, iron_ingot 1 | decor
+log_pile 1 | main | log 3 | decor
+carpet_red 2 | etabli | wool_red 2, wool_yellow 1 | decor
+carpet_blue 2 | etabli | wool_blue 2, wool_yellow 1 | decor
+carpet_green 2 | etabli | wool_green 2, wool_yellow 1 | decor
+iron_bars 4 | enclume | iron_ingot 2, !hammer 1 | decor
+books_pile 1 | etabli | leather 1, fiber 3 | decor
+bottles 1 | four | glass 2, fuel 1 | decor
+beehive 1 | etabli | hay_bale 1, stick 2 | decor
+cheese 1 | main | fiber 1, berries 2 | decor
+bread_basket 1 | etabli | wattle 1, berries 1 | decor

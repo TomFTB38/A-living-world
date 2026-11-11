@@ -22,10 +22,10 @@ pub struct Atlas {
     last: Option<(i32, i32)>, pending: bool,
 }
 /// Couleur moyenne du dessus de chaque bloc, tirée des textures du jeu.
-pub fn palette() -> &'static [[u8; 3]; 256] {
-    static P: OnceLock<[[u8; 3]; 256]> = OnceLock::new();
+pub fn palette() -> &'static [[u8; 3]; BLOCKS.len()] {
+    static P: OnceLock<[[u8; 3]; BLOCKS.len()]> = OnceLock::new();
     P.get_or_init(|| {
-        let t = crate::textures::build_textures(8); let n = 64usize; let mut p = [[0u8; 3]; 256];
+        let t = crate::textures::build_textures(8); let n = 64usize; let mut p = [[0u8; 3]; BLOCKS.len()];
         for b in BLOCKS.iter() {
             let src = if crate::shapes::info(b.id).is_some() { crate::shapes::material(b.id) } else { b.id };
             let l = BLOCKS[src as usize].faces[0] as usize; if (l + 1) * n * 4 > t.albedo.len() { continue; }

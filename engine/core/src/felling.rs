@@ -40,7 +40,7 @@ struct Flutter { p: [f64; 3], v: [f64; 3], spin: f64, life: f64 }
 pub struct Fall { pub data: Vec<u8>, pub n: usize, pivot: [f64; 3], axis: [f64; 3], dir: [f64; 3], reach: f64, t: f64, angle: f64, speed: f64, rest: f64, flutter: Vec<Flutter>, leaf: &'static str, pub landed: bool }
 const GRAVITY_TURN: f64 = 1.25; const REST: f64 = 0.9; const FADE: f64 = 0.7;
 impl Fall {
-    pub fn new(logs: &[(P, u8)], leaves: &[P], leaf_id: u8, cut: P, from: [f64; 3], seed: u32) -> Self {
+    pub fn new(logs: &[(P, crate::blocks::Id)], leaves: &[P], leaf_id: crate::blocks::Id, cut: P, from: [f64; 3], seed: u32) -> Self {
         let pivot = [cut.0 as f64 + 0.5, cut.1 as f64, cut.2 as f64 + 0.5]; let mut o = VBuf::new(logs.len() * 24 + 24); let mut top = 1.0f64;
         for ((x, y, z), id) in logs { cube_at(&mut o, *id, [*x as f64 - pivot[0], *y as f64 - pivot[1], *z as f64 - pivot[2]]); top = top.max((*y - cut.1 + 1) as f64); }
         let (dx, dz) = (pivot[0] - from[0], pivot[2] - from[2]); let l = hypot2(dx, dz); let dir = if l > 0.01 { [dx / l, 0.0, dz / l] } else { [1.0, 0.0, 0.0] };

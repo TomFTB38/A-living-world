@@ -183,7 +183,7 @@ impl Session {
     /// Le tronc au-dessus de l'entaille tombe, le feuillage disparaît, le pied de l'arbre reste en place ; des branches tombent avec.
     pub(crate) fn fell(&mut self, t: Target) {
         let Some(tree) = self.felling.take() else { return }; let at = |s: &Self, p: (i32, i32, i32)| s.world.get(p.0, p.1, p.2).unwrap_or(0);
-        let logs: Vec<((i32, i32, i32), u8)> = tree.logs.iter().filter(|p| p.1 >= t.y).map(|p| (*p, log_of(at(self, *p)))).collect();
+        let logs: Vec<((i32, i32, i32), crate::blocks::Id)> = tree.logs.iter().filter(|p| p.1 >= t.y).map(|p| (*p, log_of(at(self, *p)))).collect();
         let leaf_id = tree.leaves.first().map_or(0, |p| at(self, *p)); let drop = BLOCKS[t.id as usize].drop.unwrap_or("oak_log");
         let edits: Vec<_> = logs.iter().map(|(p, _)| (p.0, p.1, p.2, 0)).chain(tree.leaves.iter().map(|p| (p.0, p.1, p.2, 0))).collect(); self.world.edit_many(&edits);
         self.falling = Some(Fall::new(&logs, &tree.leaves, leaf_id, (t.x, t.y, t.z), self.player.p, (t.x * 31 + t.z) as u32)); self.fall_serial += 1;
@@ -312,7 +312,7 @@ impl Session {
     /// Un besoin vient de changer : son icône se montre un moment (0 vie, 1 faim, 2 soif, 3 endurance, 4 chaleur, 5 fatigue).
     pub fn gain(&mut self, k: usize) { self.last_gain[k] = self.elapsed; }
     /// Ce qui se passe quand un bloc est posé : un feu commence à brûler, un coffre s'ouvre à vide.
-    pub(crate) fn on_placed(&mut self, p: [i32; 3], id: u8) {
+    pub(crate) fn on_placed(&mut self, p: [i32; 3], id: Id) {
         // Un feu de camp se pose éteint, avec sa première brassée de bois : il faut l'allumer.
         if id == B::CAMPFIRE { self.world.edit(p[0], p[1], p[2], B::CAMPFIRE_OUT); self.fires.insert(p, FIRE_START); self.notes.push("Feu de camp posé : allumez-le d'un clic droit avec un silex, une torche ou un archet à feu".into()); }
         if id == B::CHEST { self.chests.insert(p, vec![None; CHEST_SIZE]); }
@@ -328,7 +328,7 @@ impl Session {
         } else if si.kind == Kind::Shutter { edits.push((p[0], p[1], p[2], variant(si.base, si.facing, false, open, false))); } else { let f = self.player.forward(); edits.push((p[0], p[1], p[2], variant(si.base, (facing_of(f[0], f[2]) + 2) % 4, false, open, false))); }
         self.world.edit_many(&edits); self.sound.place("planks"); self.anim.trigger(); self.dirty = true;
     }
-    pub(crate) fn on_broken(&mut self, p: [i32; 3], id: u8) {
+    pub(crate) fn on_broken(&mut self, p: [i32; 3], id: Id) {
         // Une porte se casse en entier : l'autre moitié part avec, et la porte revient une seule fois dans le sac.
         if let Some(si) = crate::shapes::info(id).filter(|i| i.kind == crate::shapes::Kind::Door) {
             let other = if si.upper { [p[0], p[1] - 1, p[2]] } else { [p[0], p[1] + 1, p[2]] };
@@ -347,7 +347,7 @@ impl Session {
 
     // ------------------------------------------------------------------ sommeil
     /// Dormir jusqu'au matin : la fatigue tombe selon la qualité du lieu (lit, abri, chaleur), on guérit, le temps passe ; on réapparaîtra ici.
-    pub fn sleep(&mut self, p: [i32; 3], id: u8) {
+    pub fn sleep(&mut self, p: [i32; 3], id: Id) {
         if self.creative { return; }
         if self.vit[1] < 10.0 || self.vit[2] < 10.0 { self.notes.push("Trop faim ou trop soif pour dormir".into()); return; }
         if self.sun_height() > 0.0 && self.fatigue < 25.0 { self.notes.push("Vous n'avez pas sommeil".into()); self.bed = Some(p); self.spawn = [p[0] as f64 + 0.5, p[1] as f64 + 0.6, p[2] as f64 + 0.5]; return; }
@@ -395,7 +395,7 @@ impl Session {
     }
     pub(crate) fn spend(&mut self, n: f64) { let k = if self.carried() > self.capacity() { 1.5 } else { 1.0 }; self.stamina = (self.stamina - n * k).max(0.0); self.spent_t = 0.0; if n > 2.0 { self.gain(3); } }
     /// Ce qui pique ou brûle au contact : un cactus frôlé, un feu de camp sous les pieds.
-    fn touching(&self) -> Option<u8> {
+    fn touching(&self) -> Option<Id> {
         let p = self.player.p; let fl = |v: f64| v.floor() as i32; let get = |x, y, z| self.world.get(x, y, z).unwrap_or(0);
         for y in fl(p[1] + 0.05)..=fl(p[1] + 0.5) { for z in fl(p[2] - 0.22)..=fl(p[2] + 0.22) { for x in fl(p[0] - 0.22)..=fl(p[0] + 0.22) { if get(x, y, z) == B::CAMPFIRE { return Some(B::CAMPFIRE); } } } }
         for y in fl(p[1] + 0.05)..=fl(p[1] + 1.7) { for z in fl(p[2] - 0.38)..=fl(p[2] + 0.38) { for x in fl(p[0] - 0.38)..=fl(p[0] + 0.38) { if get(x, y, z) == B::CACTUS { return Some(B::CACTUS); } } } }
@@ -470,7 +470,7 @@ impl Session {
         if !self.crops.is_empty() { let mut keep = Vec::new();
             for (p, at) in std::mem::take(&mut self.crops) { let Some(cur) = self.world.get(p[0], p[1], p[2]) else { keep.push((p, at)); continue }; let Some(first) = crop_first(cur) else { continue };
                 let wet = (-4..=4).any(|dz: i32| (-4..=4).any(|dx: i32| self.world.get(p[0] + dx, p[1] - 1, p[2] + dz).is_some_and(is_water)));
-                let stage = (((now - at) / CROP_STAGE_HOURS) * if wet { 1.5 } else { 1.0 }).floor().min(3.0) as u8; let want = first + stage;
+                let stage = (((now - at) / CROP_STAGE_HOURS) * if wet { 1.5 } else { 1.0 }).floor().min(3.0) as Id; let want = first + stage;
                 if want != cur { self.world.edit(p[0], p[1], p[2], want); self.dirty = true; } if stage < 3 { keep.push((p, at)); } }
             self.crops = keep; }
         let days = PROFILES[self.profile].stash_days; let before = self.stashes.len(); self.stashes.retain(|s| now - s.born < days * 24.0); if self.stashes.len() < before { self.notes.push("Une dépouille oubliée a disparu".into()); }
@@ -505,7 +505,7 @@ impl Session {
     }
     pub fn load_text(&mut self, t: &str) -> Result<(), String> {
         let mut lines = t.lines(); if lines.next() != Some("A Living World 1") { return Err("format inconnu".into()); }
-        let mut edits: HashMap<(i32, i32), HashMap<u32, u8>> = HashMap::new(); let mut remap: Option<Vec<u8>> = None; let mut inv = [None; INV_SIZE]; let mut stashes = Vec::new(); let mut stash_v1 = false;
+        let mut edits: HashMap<(i32, i32), HashMap<u32, Id>> = HashMap::new(); let mut remap: Option<Vec<Id>> = None; let mut inv = [None; INV_SIZE]; let mut stashes = Vec::new(); let mut stash_v1 = false;
         let num = |v: Option<&str>| v.and_then(|x| x.parse::<f64>().ok()).ok_or("nombre illisible");
         let stack = |id: &str, n: f64, w: f64| item(id).map(|it| Stack { item: it.id, n: if n < 0.0 { None } else { Some(n as u32) }, wear: w.max(0.0) as u32 });
         for l in lines {
@@ -541,7 +541,7 @@ impl Session {
                     let items: Vec<Stack> = list.iter().filter_map(|c| { let f: Vec<&str> = c.split(':').collect(); let n: f64 = f.get(1)?.parse().ok()?; let w: f64 = f.get(2).and_then(|x| x.parse().ok()).unwrap_or(0.0); stack(f[0], n, w) }).collect(); if !items.is_empty() { stashes.push(Stash { p, items, born }); } }
                 // Les blocs sont sauvegardés par numéro ; la palette les retrouve par leur nom si la liste a changé.
                 Some("palette") => remap = Some(a.map(|n| by_name(n).unwrap_or(0)).collect()),
-                Some("chunk") => { let k = (num(a.next())? as i32, num(a.next())? as i32); let e = edits.entry(k).or_default(); for c in a { if let Some((i, id)) = c.split_once(':') { if let (Ok(i), Ok(id)) = (i.parse::<u32>(), id.parse::<u8>()) { e.insert(i, remap.as_ref().map_or(id, |r| r.get(id as usize).copied().unwrap_or(0))); } } } }
+                Some("chunk") => { let k = (num(a.next())? as i32, num(a.next())? as i32); let e = edits.entry(k).or_default(); for c in a { if let Some((i, id)) = c.split_once(':') { if let (Ok(i), Ok(id)) = (i.parse::<u32>(), id.parse::<Id>()) { e.insert(i, remap.as_ref().map_or(id, |r| r.get(id as usize).copied().unwrap_or(0))); } } } }
                 _ => {}
             }
         }
@@ -563,9 +563,9 @@ pub fn book(s: &Session, cat: Option<&str>, search: &str) -> Vec<usize> {
 }
 /// Toutes les recettes, connues ou non (pour le compte « à découvrir »).
 pub fn unknown(s: &Session) -> usize { recipes().iter().filter(|r| !s.known(r)).count() }
-pub const BOOK_CATS: [(&str, &str); 6] = [("outils", "Outils"), ("matieres", "Matières"), ("batir", "Bâtir"), ("ateliers", "Ateliers"), ("vivres", "Vivres"), ("habits", "Habits")];
+pub const BOOK_CATS: [(&str, &str); 8] = [("outils", "Outils"), ("matieres", "Matières"), ("batir", "Bâtir"), ("mobilier", "Mobilier"), ("decor", "Décor"), ("ateliers", "Ateliers"), ("vivres", "Vivres"), ("habits", "Habits")];
 
 /// Ce qu'on sème : le premier stade de la culture.
-pub fn sow(item: &str) -> Option<u8> { match item { "seeds" => Some(B::WHEAT_0), "carrot" => Some(B::CARROT_0), "potato" => Some(B::POTATO_0), _ => None } }
+pub fn sow(item: &str) -> Option<Id> { match item { "seeds" => Some(B::WHEAT_0), "carrot" => Some(B::CARROT_0), "potato" => Some(B::POTATO_0), _ => None } }
 /// Le premier stade de la culture dont `b` est un stade (les quatre stades se suivent dans le registre).
-pub fn crop_first(b: u8) -> Option<u8> { [B::WHEAT_0, B::CARROT_0, B::POTATO_0].into_iter().find(|f| (*f..=*f + 3).contains(&b)) }
+pub fn crop_first(b: Id) -> Option<Id> { [B::WHEAT_0, B::CARROT_0, B::POTATO_0].into_iter().find(|f| (*f..=*f + 3).contains(&b)) }

@@ -8,7 +8,7 @@ fn main() {
     let g = WorldGen::new(seed); let want = a.get(7).cloned(); let v = g.villages_near(0.0, 0.0, 4000.0).into_iter().find(|v| want.as_deref().is_none_or(|k| v.kind == k)).expect("un village"); eprintln!("{} ({}) {:?} r {}", v.name, v.kind, v.c, v.r);
     let t = build_textures(16); let n = 16 * 16; let mut avg = vec![[0.5f64; 3]; t.layers as usize];
     for l in 0..t.layers as usize { let mut c = [0.0; 3]; for p in t.albedo[l * n * 4..(l + 1) * n * 4].chunks(4) { for k in 0..3 { c[k] += (p[k] as f64 / 255.0).powi(2); } } avg[l] = c.map(|x| x / n as f64); }
-    let mut cache: HashMap<(i32, i32), std::sync::Arc<Vec<u8>>> = HashMap::new(); let mut m = Mesher::new();
+    let mut cache: HashMap<(i32, i32), std::sync::Arc<Vec<u16>>> = HashMap::new(); let mut m = Mesher::new();
     let (w, h) = (1280usize, 720usize); let mut img = vec![[0f64; 3]; w * h]; let mut zb = vec![f64::MAX; w * h];
     for p in img.iter_mut() { *p = [0.55, 0.7, 0.9]; }
     let c = match a.get(6).and_then(|s| s.parse::<usize>().ok()) { Some(i) => { let d = v.houses[i].door; eprintln!("maison {i} : {:?}", v.houses[i].craft); [d[0], d[1] + 3.0, d[2]] } None => [v.c[0] as f64 + 0.5, v.c[1] as f64 + 2.0, v.c[2] as f64 + 0.5] }; let eye = [c[0] + dist * yaw.cos() * pitch.cos(), c[1] + dist * pitch.sin(), c[2] + dist * yaw.sin() * pitch.cos()];

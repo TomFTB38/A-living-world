@@ -21,7 +21,7 @@ fn formes_et_orientations() {
         for bb in shapes::geometry(i) { for k in 0..3 { assert!(bb[k] >= 0.0 && bb[k + 3] <= 1.0 && bb[k] < bb[k + 3], "{} : boîte {bb:?}", b.name); } }
         assert!(item(BLOCKS[i.base as usize].name).is_some(), "{} : l'objet de base existe", b.name); }
     // un quart de tour : la marche haute passe de +z à +x
-    let up = |id: u8| shapes::geometry(shapes::info(id).unwrap())[1]; let st = by_name("planks_stairs").unwrap();
+    let up = |id: u16| shapes::geometry(shapes::info(id).unwrap())[1]; let st = by_name("planks_stairs").unwrap();
     assert_eq!(up(st), [0.0, 0.5, 0.5, 1.0, 1.0, 1.0]); assert_eq!(up(shapes::variant(st, 1, false, false, false)), [0.5, 0.5, 0.0, 1.0, 1.0, 1.0]); assert_eq!(up(shapes::variant(st, 2, false, false, false)), [0.0, 0.5, 0.0, 1.0, 1.0, 0.5]);
     assert_eq!(shapes::facing_of(0.1, 0.9), 0); assert_eq!(shapes::facing_of(0.9, 0.1), 1); assert_eq!(shapes::facing_of(-0.1, -0.9), 2); assert_eq!(shapes::facing_of(-0.9, 0.2), 3);
     assert!(recipes().iter().any(|r| r.out == "door") && recipes().iter().any(|r| r.out == "planks_stairs") && recipes().iter().any(|r| r.out == "window"));
@@ -109,4 +109,16 @@ fn escalier_renverse_dalle_verticale_et_volet() {
     let f0 = shapes::info(s.world.get(at[0], at[1], at[2]).unwrap()).unwrap(); assert!(!f0.open);
     let bb = shapes::geometry(f0)[0]; s.sel = 3; s.player.p = [0.5, y as f64, -1.0]; idle(&mut s, 0.2); look_at(&mut s, [at[0] as f64 + (bb[0] + bb[3]) * 0.5, at[1] as f64 + 0.5, at[2] as f64 + (bb[2] + bb[5]) * 0.5]); put(&mut s);
     let f1 = shapes::info(s.world.get(at[0], at[1], at[2]).unwrap()).unwrap(); assert!(f1.open, "le volet s'ouvre"); assert_eq!(f1.facing, f0.facing);
+}
+
+#[test]
+fn meubles_orientables() {
+    use alw_core::shapes::{info, variant, Kind};
+    let chair = by_name("chair").unwrap();
+    for f in 0..4u8 { let v = variant(chair, f, false, false, false); let i = info(v).expect("forme"); assert_eq!((i.kind, i.facing, i.base), (Kind::Turn, f, chair)); }
+    assert_eq!(BLOCKS[variant(chair, 3, false, false, false) as usize].name, "chair@3");
+    // Les nouveaux blocs dépassent 255 : les identifiants tiennent sur 16 bits.
+    assert!(BLOCKS.len() > 256 && by_name("bread_basket").unwrap() as usize > 255);
+    // Les formes des nouvelles matières se texturent dans leur matière.
+    assert_eq!(alw_core::shapes::material(by_name("marble_stairs_top_2").unwrap()), by_name("marble").unwrap());
 }

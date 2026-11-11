@@ -144,20 +144,20 @@ impl WorldGen {
         let f = f - 1.1 * mix.strong(Biome::Meadow) + 0.7 * mix.strong(Biome::DeepForest) - 1.6 * steppe - 1.8 * desert - 1.5 * high;
         Column { mix, wet, h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path, bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
     }
-    fn stone_at(&self, x: f64, y: f64, z: f64) -> u8 {
+    fn stone_at(&self, x: f64, y: f64, z: f64) -> Id {
         // Surtout de la pierre ordinaire ; le granit et le calcaire ne forment que de rares poches.
         let n = self.n_cliff.n3(x / 38.0, y / 14.0, z / 38.0);
         if n > 0.58 { B::GRANITE } else if n < -0.62 { B::LIMESTONE } else { B::STONE }
     }
     /// Grès du désert : des lits horizontaux beige et rouge, de quelques blocs d'épaisseur, légèrement ondulés.
-    fn sandstone_at(&self, x: f64, y: f64, z: f64) -> u8 { let b = ((y + 2.0 * self.n_cliff.n2(x / 50.0, z / 50.0)) / 3.0).floor() as i64; if b.rem_euclid(4) == 1 { B::RED_SANDSTONE } else { B::SANDSTONE } }
+    fn sandstone_at(&self, x: f64, y: f64, z: f64) -> Id { let b = ((y + 2.0 * self.n_cliff.n2(x / 50.0, z / 50.0)) / 3.0).floor() as i64; if b.rem_euclid(4) == 1 { B::RED_SANDSTONE } else { B::SANDSTONE } }
     fn is_cave(&self, x: f64, y: f64, z: f64) -> bool {
         let a = self.n_cave.n3(x / 30.0, y / 18.0, z / 30.0); let b = self.n_cave.n3(x / 30.0 + 50.0, y / 18.0 - 20.0, z / 30.0 + 90.0);
         a * a + b * b < 0.0065
     }
     /// Terrain, décor et empreintes, sans aucune dépendance à l'ordre de chargement.
-    pub fn gen_chunk(&self, cx: i32, cz: i32) -> Vec<u8> {
-        let mut v = vec![0u8; CA]; let (ox, oz) = (cx * CX as i32, cz * CX as i32);
+    pub fn gen_chunk(&self, cx: i32, cz: i32) -> Vec<Id> {
+        let mut v: Vec<Id> = vec![0; CA]; let (ox, oz) = (cx * CX as i32, cz * CX as i32);
         let mut heights = vec![0i32; CX * CX]; let mut waters = vec![0i32; CX * CX]; let mut info = vec![(0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64); CX * CX];
         for z in 0..CX { for x in 0..CX {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
@@ -225,7 +225,7 @@ impl WorldGen {
         self.hang_vines(&mut v, ox, oz); self.snow_cover(&mut v, ox, oz);
         v
     }
-    fn scatter_deco(&self, v: &mut [u8], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64, f64, f64, f64)]) {
+    fn scatter_deco(&self, v: &mut [Id], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64, f64, f64, f64)]) {
         let s = self.seed; let nd = &self.n_deco;
         for z in 0..CX { for x in 0..CX {
             let y = (heights[x + z * CX] + 1) as usize;
@@ -271,7 +271,7 @@ impl WorldGen {
                 continue;
             }
             let patch = nd.n2(wx / 23.0, wz / 23.0); let patch2 = nd.n2(wx / 17.0 + 60.0, wz / 17.0 - 30.0);
-            let open = 1.0 - fr; let mut id = 0u8;
+            let open = 1.0 - fr; let mut id: Id = 0;
             let flower_p = 0.14 + 0.62 * smooth(0.05 - 0.5 * meadow, 0.6, patch) * (0.65 + open * 0.5) * (1.0 - 0.85 * deep) + 0.1 * meadow; // la prairie fleurit partout, pas seulement en taches
             if r < flower_p {
                 let t = hash_float(wxi, wzi, s, 4);
@@ -291,7 +291,7 @@ impl WorldGen {
         } }
     }
     /// Pellicule de neige sur tout ce qui est exposé au ciel froid : sol, rochers, troncs coupés, pas l'eau gelée ni le feuillage.
-    fn snow_cover(&self, v: &mut [u8], ox: i32, oz: i32) {
+    fn snow_cover(&self, v: &mut [Id], ox: i32, oz: i32) {
         for z in 0..CX { for x in 0..CX {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let mut y = CH - 2; while y > 1 && v[idx(x, y, z)] == 0 { y -= 1; } let b = v[idx(x, y, z)]; if !is_opaque(b) || b == B::ICE { continue; }
@@ -302,7 +302,7 @@ impl WorldGen {
             if cold || peak { v[idx(x, y + 1, z)] = snow_of((1.0 + drift * (2.0 + 4.0 * deep.min(1.0))).floor().min(6.0) as u8); }
         } }
     }
-    fn hang_vines(&self, v: &mut [u8], ox: i32, oz: i32) {
+    fn hang_vines(&self, v: &mut [Id], ox: i32, oz: i32) {
         let s = self.seed;
         for z in 0..CX { for x in 0..CX {
             let (wx, wz) = (ox + x as i32, oz + z as i32);
@@ -321,9 +321,9 @@ impl WorldGen {
             }
         } }
     }
-    fn apply(st: &Stamp, v: &mut [u8], ox: i32, oz: i32, heights: &mut [i32]) {
+    fn apply(st: &Stamp, v: &mut [Id], ox: i32, oz: i32, heights: &mut [i32]) {
         for d in &st.data {
-            let (x, y, z, id) = (d[0] - ox, d[1], d[2] - oz, d[3] as u8);
+            let (x, y, z, id) = (d[0] - ox, d[1], d[2] - oz, d[3] as Id);
             if x < 0 || z < 0 || x >= CX as i32 || z >= CX as i32 || y < 0 || y >= CH as i32 { continue; }
             let k = idx(x as usize, y as usize, z as usize); let cur = v[k];
             // Ce qui gît au sol (troncs couchés, souches) ne se pose que sur du plein : jamais au-dessus d'un creux.
@@ -332,7 +332,7 @@ impl WorldGen {
             if st.force && is_solid(id) && y > heights[x as usize + z as usize * CX] { heights[x as usize + z as usize * CX] = y; }
         }
     }
-    fn stamp_all(&self, v: &mut [u8], cx: i32, cz: i32, heights: &mut [i32]) {
+    fn stamp_all(&self, v: &mut [Id], cx: i32, cz: i32, heights: &mut [i32]) {
         let (ox, oz) = (cx * CX as i32, cz * CX as i32);
         let (x0, z0, x1, z1) = (ox - STAMP_REACH, oz - STAMP_REACH, ox + CX as i32 + STAMP_REACH, oz + CX as i32 + STAMP_REACH);
         for gz in fdiv(z0, ROCK_CELL)..=fdiv(z1, ROCK_CELL) { for gx in fdiv(x0, ROCK_CELL)..=fdiv(x1, ROCK_CELL) {
@@ -382,7 +382,7 @@ impl WorldGen {
         Some(Stamp { data, force: true, ground: false })
     }
     /// Tronc mort couché et creux : une file de blocs de tronc creux, posée à plat, ouverte aux deux bouts.
-    fn hollow_log(&self, x: f64, z: f64, r: &mut Rng, wood: u8) -> Option<Stamp> {
+    fn hollow_log(&self, x: f64, z: f64, r: &mut Rng, wood: Id) -> Option<Stamp> {
         let len = r.int(3, 7); let a0 = r.int(0, 1); let h0 = self.column(x, z).h.floor();
         let dir = |a: i32| if a == 0 { (1.0, 0.0) } else { (0.0, 1.0) };
         // Le sol peut varier d'un bloc : le tronc repose sur le point bas et s'enfonce dans la bosse, jamais au-dessus du vide.
@@ -392,7 +392,7 @@ impl WorldGen {
         Some(Stamp { data: (0..n).map(|k| [ri(x + dx * k as f64), h0 as i32 + 1, ri(z + dz * k as f64), id as i32]).collect(), force: true, ground: true })
     }
     /// Souche creuse : un ou deux blocs de tronc creux debout, le cœur vide ouvert vers le ciel.
-    fn hollow_stump(&self, x: f64, z: f64, r: &mut Rng, wood: u8) -> Option<Stamp> {
+    fn hollow_stump(&self, x: f64, z: f64, r: &mut Rng, wood: Id) -> Option<Stamp> {
         let h0 = self.column(x, z).h.floor(); let id = hollow_of(wood);
         Some(Stamp { data: (1..=r.int(1, 2)).map(|y| [ri(x), h0 as i32 + y, ri(z), id as i32]).collect(), force: false, ground: true })
     }
@@ -462,9 +462,9 @@ impl WorldGen {
 /* ---- Croissance des arbres : troncs, branches, couronne, racines. ---- */
 type Key = (i32, i32, i32);
 #[derive(Default)]
-struct Grower { wood: BTreeMap<Key, u8>, leaf: BTreeMap<Key, u8>, extra: Vec<[i32; 4]> }
+struct Grower { wood: BTreeMap<Key, Id>, leaf: BTreeMap<Key, Id>, extra: Vec<[i32; 4]> }
 impl Grower {
-    fn sphere_wood(&mut self, cx: f64, cy: f64, cz: f64, r: f64, id: u8) {
+    fn sphere_wood(&mut self, cx: f64, cy: f64, cz: f64, r: f64, id: Id) {
         let rr = (r + 1.0).ceil() as i32; let (rx, ry, rz) = (round(cx), round(cy), round(cz));
         for dy in -rr..=rr { for dz in -rr..=rr { for dx in -rr..=rr {
             let (xx, zz, y2) = (rx + dx as f64 - cx, rz + dz as f64 - cz, ry + dy as f64 - cy);
@@ -472,7 +472,7 @@ impl Grower {
         } } }
     }
     #[allow(clippy::too_many_arguments)]
-    fn limb(&mut self, p: &[f64], dir: [f64; 3], len: f64, r0: f64, r1: f64, id: u8, rng: &mut Rng, curl: f64, up: f64) -> Vec<[f64; 6]> {
+    fn limb(&mut self, p: &[f64], dir: [f64; 3], len: f64, r0: f64, r1: f64, id: Id, rng: &mut Rng, curl: f64, up: f64) -> Vec<[f64; 6]> {
         let n = len.ceil() as i32; let mut pts = Vec::with_capacity(n as usize + 1);
         let (mut x, mut y, mut z) = (p[0], p[1], p[2]); let [mut dx, mut dy, mut dz] = dir; let mut prev: Option<Key> = None;
         for i in 0..=n {
@@ -491,7 +491,7 @@ impl Grower {
         }
         pts
     }
-    fn blob(&mut self, cx: f64, cy: f64, cz: f64, rx: f64, ry: f64, id: u8, rng: &mut Rng) {
+    fn blob(&mut self, cx: f64, cy: f64, cz: f64, rx: f64, ry: f64, id: Id, rng: &mut Rng) {
         let xr = (rx + 1.0).ceil() as i32; let yr = (ry + 1.0).ceil() as i32; let seed = rng.next() * 100.0;
         let (qx, qy, qz) = (round(cx) as i32, round(cy) as i32, round(cz) as i32);
         for dyi in -yr..=yr { for dzi in -xr..=xr { for dxi in -xr..=xr {
@@ -596,7 +596,7 @@ fn grow_dead_fir(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
     g.finish()
 }
 /// Souche : un court morceau de tronc coupé net.
-fn stump(x: f64, y: f64, z: f64, r: &mut Rng, id: u8) -> Stamp {
+fn stump(x: f64, y: f64, z: f64, r: &mut Rng, id: Id) -> Stamp {
     let mut g = Grower::default(); let h = r.range(0.5, 2.0); g.limb(&[x, y - 1.0, z], [0.0, 1.0, 0.0], h, r.range(0.42, 0.95), 0.42, id, r, 0.0, 0.0); g.finish()
 }
 /// Acacia : un tronc penché qui se divise en bras obliques, chacun portant une ombrelle de feuillage plate et large.

@@ -1,7 +1,7 @@
 use alw_core::{blocks::*, player::Voxels, wild::*};
 /// Un sol plat de pierre à y = 9, couvert d'une pellicule de neige de 3 dixièmes en y = 10.
 struct Flat;
-impl Voxels for Flat { fn get(&self, _x: i32, y: i32, _z: i32) -> Option<u8> { Some(if y <= 9 { B::STONE } else if y == 10 { snow_of(3) } else { 0 }) } }
+impl Voxels for Flat { fn get(&self, _x: i32, y: i32, _z: i32) -> Option<u16> { Some(if y <= 9 { B::STONE } else if y == 10 { snow_of(3) } else { 0 }) } }
 
 #[test]
 fn les_pas_s_impriment_dans_la_neige() {
@@ -28,7 +28,7 @@ fn le_virevoltant_suit_le_vent_et_le_renard_fuit() {
 
 /// Sol plat à y = 9, et un mur de 6 blocs de haut à partir de x = 8.
 struct Wall;
-impl Voxels for Wall { fn get(&self, x: i32, y: i32, _z: i32) -> Option<u8> { Some(if y <= 9 || (x >= 8 && y <= 15) { B::STONE } else { 0 }) } }
+impl Voxels for Wall { fn get(&self, x: i32, y: i32, _z: i32) -> Option<u16> { Some(if y <= 9 || (x >= 8 && y <= 15) { B::STONE } else { 0 }) } }
 #[test]
 fn le_virevoltant_ne_grimpe_pas_aux_murs() {
     let mut w = Wild::new(3); w.put(Kind::Tumble, [0.0, 10.0, 0.0], 0.0, false); let p = [0.0, 10.0, -30.0]; let mut top = 0.0f64;

@@ -1,7 +1,7 @@
 use alw_core::{blocks::*, felling::find_tree, player::Voxels};
 use std::collections::HashMap;
-struct W(HashMap<(i32, i32, i32), u8>);
-impl Voxels for W { fn get(&self, x: i32, y: i32, z: i32) -> Option<u8> { Some(if y < 10 { B::DIRT } else { *self.0.get(&(x, y, z)).unwrap_or(&0) }) } }
+struct W(HashMap<(i32, i32, i32), u16>);
+impl Voxels for W { fn get(&self, x: i32, y: i32, z: i32) -> Option<u16> { Some(if y < 10 { B::DIRT } else { *self.0.get(&(x, y, z)).unwrap_or(&0) }) } }
 #[test]
 fn abattre_un_arbre_n_emporte_pas_son_voisin() {
     // Deux chênes à 6 blocs l'un de l'autre, reliés par une grosse branche et un feuillage commun.
