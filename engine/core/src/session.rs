@@ -127,6 +127,10 @@ impl Session {
         let hit_y = self.eye[1] + self.look[1] * self.ray_t - t.y as f64;
         let top = matches!(si.kind, Kind::Slab | Kind::Stairs) && (t.py < t.y || (t.py == t.y && hit_y > 0.5)); // sous un plafond ou sur le haut d'un mur : dalle haute, escalier renversé
         let mut v = vec![([x, y, z], variant(si.base, face, top, false, false))];
+        // Un lit : la tête là où l'on vise, le pied vers soi.
+        if crate::shapes::is_bed(si.base) { let (dx, dz) = [(0, 1), (1, 0), (0, -1), (-1, 0)][face as usize % 4]; let q = [x - dx, y, z - dz];
+            let c = self.world.get(q[0], q[1], q[2])?; if is_solid(c) || is_water(c) { return None; } if !self.world.get(q[0], q[1] - 1, q[2]).is_some_and(is_solid) { return None; }
+            v.push((q, variant(crate::blocks::by_name("bed_foot")?, face, false, false, false))); }
         if si.kind == Kind::Door { let up = self.world.get(x, y + 1, z)?; if is_solid(up) || is_water(up) { return None; } v.push(([x, y + 1, z], variant(si.base, face, false, false, true))); }
         if v.iter().any(|(p, id)| self.blocks_player(*p, *id)) { return None; }
         Some(v)

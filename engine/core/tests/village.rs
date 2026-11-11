@@ -30,13 +30,15 @@ fn des_villages_partout_et_aucun_artisan_unique() {
 fn les_batiments_sont_dans_le_monde() {
     let mut st = alw_core::store::ChunkStore::new(SEED, 64); let v = st.gen.villages_near(0.0, 0.0, 2000.0).remove(0);
     for h in &v.houses {
-        let (dx, dz) = (h.inside[0] - h.door[0], h.inside[2] - h.door[2]); let d = [(h.door[0] + dx * 0.5).floor() as i32, v.c[1] + 1, (h.door[2] + dz * 0.5).floor() as i32];
+        // Chaque bâtiment est assis à sa propre hauteur, selon le relief : on lit le niveau de son sol à la porte.
+        let fy = h.door[1].floor() as i32; let (dx, dz) = (h.inside[0] - h.door[0], h.inside[2] - h.door[2]); let d = [(h.door[0] + dx * 0.5).floor() as i32, fy, (h.door[2] + dz * 0.5).floor() as i32];
         assert!(BLOCKS[st.block(d[0], d[1], d[2]) as usize].name.starts_with("door"), "{} : porte attendue en {d:?}", v.name);
         assert!(BLOCKS[st.block(d[0], d[1] + 1, d[2]) as usize].name.starts_with("door"), "haut de porte");
         let station = match h.craft { Some("forgeron") | Some("armurier") | Some("maitre_forgeron") => Some("anvil"), Some("tailleur_pierre") => Some("mason_bench"), Some(_) => Some("workbench"), None => None };
-        if let Some(name) = station { let (bx, bz) = [(0, 1), (1, 0), (0, -1), (-1, 0)][h.back as usize]; let p = [(h.spot[0] + bx as f64).floor() as i32, v.c[1] + 1, (h.spot[2] + bz as f64).floor() as i32]; assert_eq!(BLOCKS[st.block(p[0], p[1], p[2]) as usize].name, name, "poste de {:?}", h.craft); }
+        if let Some(name) = station { let (bx, bz) = [(0, 1), (1, 0), (0, -1), (-1, 0)][h.back as usize]; let p = [(h.spot[0] + bx as f64).floor() as i32, fy, (h.spot[2] + bz as f64).floor() as i32]; assert_eq!(BLOCKS[st.block(p[0], p[1], p[2]) as usize].name, name, "poste de {:?}", h.craft); }
         // Dedans, de quoi se tenir debout ; dehors devant la porte, de l'air.
-        for p in [h.inside, h.spot, h.door] { assert!(!is_solid(st.block(p[0].floor() as i32, v.c[1] + 1, p[2].floor() as i32)), "passage libre en {p:?}"); /* un tapis ne gêne pas */ assert!(is_solid(st.block(p[0].floor() as i32, v.c[1], p[2].floor() as i32)), "sol sous {p:?}"); }
+        for p in [h.inside, h.spot, h.door] { assert!(!is_solid(st.block(p[0].floor() as i32, fy, p[2].floor() as i32)), "passage libre en {p:?}"); /* un tapis ne gêne pas */ assert!(is_solid(st.block(p[0].floor() as i32, fy - 1, p[2].floor() as i32)), "sol sous {p:?}"); }
+        assert!((fy - v.c[1] - 1).abs() <= 5, "pas plus de cinq blocs d'écart avec la place");
     }
     assert_eq!(BLOCKS[st.block(v.c[0], v.c[1], v.c[2]) as usize].name, "water", "le puits au milieu de la place");
 }
@@ -49,9 +51,11 @@ fn la_journee_des_villageois() {
     // À midi, chaque artisan est à son poste et travaille.
     idle(&mut s, 40.0); for f in s.town.folk.iter().filter(|f| f.v == v.id && f.craft.is_some()) { let h = &v.houses[f.house]; assert!((f.p[0] - h.spot[0]).hypot(f.p[2] - h.spot[2]) < 0.3 && f.working, "{} pas à son poste", f.name); }
     // Le soir sur la place, la nuit chez soi : le chemin passe par la porte.
-    s.hour = 19.0; idle(&mut s, 60.0); for f in s.town.folk.iter().filter(|f| f.v == v.id) { assert!((f.p[0] - v.c[0] as f64).hypot(f.p[2] - v.c[2] as f64) < 7.0, "{} n'est pas sur la place le soir", f.name); }
+    // Le soir, une partie du village se retrouve sur la place ; les autres restent chez eux ou passent chez un voisin.
+    s.hour = 19.0; idle(&mut s, 60.0); let on_plaza = s.town.folk.iter().filter(|f| f.v == v.id && (f.p[0] - v.c[0] as f64).hypot(f.p[2] - v.c[2] as f64) < 7.0).count();
+    assert!(on_plaza >= 1, "personne sur la place le soir");
     // La nuit, chacun rentre : il ouvre sa porte en passant et la referme derrière lui.
-    let doors: Vec<[i32; 3]> = v.houses.iter().map(|h| { let (dx, dz) = (h.inside[0] - h.door[0], h.inside[2] - h.door[2]); [(h.door[0] + dx * 0.5).floor() as i32, v.c[1] + 1, (h.door[2] + dz * 0.5).floor() as i32] }).collect();
+    let doors: Vec<[i32; 3]> = v.houses.iter().map(|h| { let (dx, dz) = (h.inside[0] - h.door[0], h.inside[2] - h.door[2]); [(h.door[0] + dx * 0.5).floor() as i32, h.door[1].floor() as i32, (h.door[2] + dz * 0.5).floor() as i32] }).collect();
     let open = |s: &Session| doors.iter().filter(|d| s.world.get(d[0], d[1], d[2]).and_then(alw_core::shapes::info).is_some_and(|i| i.open)).count();
     s.hour = 23.0; let mut seen_open = 0; for _ in 0..(60.0 / DT) as usize { s.tick(DT, Input::default(), Actions::default()); seen_open = seen_open.max(open(&s)); }
     for f in s.town.folk.iter().filter(|f| f.v == v.id) { let h = &v.houses[f.house]; assert!((f.p[0] - h.bed[0]).hypot(f.p[2] - h.bed[2]) < 0.3, "{} n'est pas rentré : en {:?}, lit {:?}, porte {:?}, dedans {:?}, atelier {:?}", f.name, f.p, h.bed, h.door, h.inside, h.craft); }
@@ -108,11 +112,12 @@ fn le_travail_le_plus_fin_reste_aux_maitres() {
 fn saluer_echanger_et_ranger_son_arme() {
     let (mut s, v) = in_village(); s.hour = 19.0; idle(&mut s, 30.0); s.notes.clear();
     // Un villageois (pas un artisan) sur la place : on s'approche, il salue.
-    let k = s.town.folk.iter().position(|f| f.v == v.id && f.craft.is_none()).expect("un villageois"); let p = s.town.folk[k].p; s.player.p = [p[0] + 1.6, p[1], p[2]]; idle(&mut s, 0.5);
+    // (celui qui est le plus loin de nous : il ne nous a pas encore salués)
+    let me = s.player.p; let k = (0..s.town.folk.len()).filter(|i| s.town.folk[*i].v == v.id && s.town.folk[*i].craft.is_none()).max_by(|a, b| { let d = |i: usize| (s.town.folk[i].p[0] - me[0]).hypot(s.town.folk[i].p[2] - me[2]); d(*a).total_cmp(&d(*b)) }).expect("un villageois"); let p = s.town.folk[k].p; s.player.p = [p[0] + 1.6, p[1], p[2]]; idle(&mut s, 0.5);
     assert!(s.notes.iter().any(|n| n.contains("Bonsoir") || n.contains("Bonjour")), "il salue : {:?}", s.notes);
     // L'épée à la main : il recule, et ne parle pas tant qu'elle n'est pas rangée.
     s.inv[3] = Some(Stack::new("sword", None)); s.sel = 3; s.notes.clear(); idle(&mut s, 0.3); assert!(s.notes.iter().any(|n| n.contains("Rangez cette arme")), "{:?}", s.notes);
-    let k = s.town.folk.iter().position(|f| f.v == v.id && f.craft.is_none()).unwrap(); assert!(s.town.folk[k].scared > 0.0);
+    assert!(s.town.folk[k].scared > 0.0);
     s.talk_to(k); assert_eq!(s.dialog().unwrap().options.len(), 2); s.choose(option(&s, "Ranger")); assert!(!s.armed(), "l'arme est rangée"); assert!(s.dialog().unwrap().options.len() > 2);
     // Échanger : dix baies contre un pain.
     s.add_item("berries", 10); s.choose(option(&s, "Échanger")); let i = option(&s, "Donner 10 myrtilles"); assert!(s.dialog().unwrap().options[i].1);

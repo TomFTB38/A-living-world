@@ -21,7 +21,7 @@ use std::rc::Rc;
 /// Taille d'une case de la grille des villages, en blocs.
 pub const CELL: i32 = 640;
 /// Aucun village ne déborde de ce rayon autour de son centre, terrain aplani compris.
-pub const SPAN: i32 = 64;
+pub const SPAN: i32 = 76;
 /// Distance où les villageois apparaissent, et où ils s'effacent.
 const NEAR: f64 = 150.0; const FAR: f64 = 210.0;
 /// Réputation demandée pour qu'un artisan transmette sa technique.
@@ -42,7 +42,20 @@ pub struct House {
 #[derive(Clone, Debug)]
 pub struct Village { pub id: (i32, i32), pub kind: &'static str, pub name: String, pub c: [i32; 3], pub r: i32, pub crafts: Vec<&'static str>, pub houses: Vec<House> }
 /// Un village tracé, avec les blocs à poser.
-pub struct Site { pub v: Village, blocks: Vec<(i32, i32, i32, Id)>, props: Vec<Prop> }
+pub struct Site { pub v: Village, blocks: Vec<(i32, i32, i32, Id)>, props: Vec<Prop>, pads: Vec<Pad>, paths: Vec<[i32; 3]> }
+/// Une assise aplanie : la place (ronde) ou le terrain d'un bâtiment (rectangle), à sa hauteur, fondue dans le relief alentour.
+#[derive(Clone, Copy, Debug)]
+struct Pad { c: [f64; 2], half: [f64; 2], round: bool, h: i32 }
+impl Pad { fn dist(&self, x: f64, z: f64) -> f64 { let (dx, dz) = ((x - self.c[0]).abs(), (z - self.c[1]).abs()); if self.round { (dx.hypot(dz) - self.half[0]).max(0.0) } else { (dx - self.half[0]).max(0.0).hypot((dz - self.half[1]).max(0.0)) } } }
+/// La hauteur du sol en ce point : le relief naturel, tiré vers chaque assise proche (la plus proche l'emporte), et la distance à l'assise la plus proche.
+fn shape(pads: &[Pad], nat: i32, x: f64, z: f64) -> (i32, f64) {
+    let mut near: Vec<(f64, i32)> = pads.iter().map(|p| (p.dist(x, z), p.h)).filter(|(d, _)| *d < BLEND as f64).collect();
+    near.sort_by(|a, b| b.0.total_cmp(&a.0)); let mut g = nat as f64;
+    for (d, h) in &near { let t = d / BLEND as f64; let t = t * t * (3.0 - 2.0 * t); g = *h as f64 + (g - *h as f64) * t; }
+    (g.round() as i32, pads.iter().map(|p| p.dist(x, z)).fold(f64::MAX, f64::min))
+}
+/// Les arbres et les plantes : on les enlève là où l'on bâtit, pour ne laisser ni troncs coupés ni couronnes en l'air.
+fn wild(b: Id) -> bool { let k = &crate::blocks::BLOCKS[b as usize]; k.shape == crate::blocks::Shape::Leaf || k.name.contains("_log") || k.name == "cactus" || k.name == "vine" || k.name == "shelf_fungus" || (k.shape == crate::blocks::Shape::Deco && !k.solid && (k.cat == "terrain" || k.cat == "decor") && k.light == 0) }
 impl Site { /** Le décor fin du village. */ pub fn props(&self) -> &[Prop] { &self.props } }
 
 pub fn kind_label(k: &str) -> &'static str { match k { "prairie" => "prairie", "taiga" => "taïga", "aride" => "steppe", "desert" => "désert", "montagne" => "montagne", _ => "hautes terres" } }
@@ -106,6 +119,8 @@ impl WorldGen {
         crafts.truncate(4);
         let homes = 2 + (h(10) * 3.0) as usize; let name = format!("{}{}", NAME_A[(h(11) * 16.0) as usize % 16], NAME_B[(h(12) * 12.0) as usize % 12]);
         let mut v = Village { id: (gx, gz), kind, name, c: [x, y0, z], r: 8, crafts: crafts.clone(), houses: Vec::new() };
+        let nat = |x: i32, z: i32| self.column(x as f64 + 0.5, z as f64 + 0.5).h.ceil() as i32 - 1;
+        let mut pads = vec![Pad { c: [x as f64 + 0.5, z as f64 + 0.5], half: [7.5, 7.5], round: true, h: y0 }]; let mut paths: Vec<[i32; 3]> = Vec::new();
         let st = style(kind); let mut plaza = Work::default(); let mut lanes = Work::default(); let mut works = Work::default();
         // La place pavée : un puits couvert au milieu, des lanternes aux quatre coins.
         let pave = st.pave; let water = id("water"); let fence = id("fence"); let lantern = id("lantern"); let cob = id("cobblestone");
@@ -124,7 +139,7 @@ impl WorldGen {
             let a = a0 + TAU * i as f64 / n as f64 + (h(20 + i as i32) - 0.5) * 0.4;
             let (ox, oz) = (a.cos(), a.sin()); let f = crate::shapes::facing_of(ox, oz); let (wx, wz) = dir(f); let (ux, uz) = dir(f + 1);
             let mut rad = 10.0 + n as f64 * 1.0; let mut placed = None;
-            for _ in 0..8 {
+            for _ in 0..14 {
                 let (px, pz) = (x + (ox * (rad + pd as f64 * 0.5)).round() as i32, z + (oz * (rad + pd as f64 * 0.5)).round() as i32);
                 let o = (px - (w - 1) / 2 * ux - (d - 1) / 2 * wx, pz - (w - 1) / 2 * uz - (d - 1) / 2 * wz);
                 let (lo, hi) = (if plan == Plan::Church { -3 } else if plan == Plan::Mill { -2 } else { -1 }, if plan == Plan::Mill { d + 1 } else { d });
@@ -133,24 +148,33 @@ impl WorldGen {
                 let clash = taken.iter().any(|t| area[0] <= t[2] + 2 && area[2] + 2 >= t[0] && area[1] <= t[3] + 2 && area[3] + 2 >= t[1]);
                 let far = cells.iter().map(|c| ((c.0 - x) as f64).hypot((c.1 - z) as f64)).fold(0.0, f64::max) + if plan == Plan::Mill { 3.0 } else { 0.0 };
                 let plaza_hit = (lo..=hi).any(|ww| (-1..=w).any(|u| { let c = (o.0 + u * ux + ww * wx, o.1 + u * uz + ww * wz); ((c.0 - x) as f64).hypot((c.1 - z) as f64) < 7.5 }));
-                if !clash && !plaza_hit && far + (BLEND as f64) + 2.0 < SPAN as f64 { placed = Some((o, area, far)); break; }
+                // Chaque bâtiment s'assied à la hauteur médiane de son terrain : pas d'eau dessous, pas plus de quatre blocs d'écart avec la place.
+                let mut hs = Vec::new(); let mut wet = false;
+                for ax in area[0]..=area[2] { for az in area[1]..=area[3] { if (ax + az) % 2 == 0 { let c = self.column(ax as f64 + 0.5, az as f64 + 0.5); wet |= c.water != 0.0; hs.push(c.h.ceil() as i32 - 1); } } }
+                hs.sort(); let by = hs.get(hs.len() / 2).copied().unwrap_or(y0);
+                if !clash && !plaza_hit && !wet && (by - y0).abs() <= 5 && far + (BLEND as f64) + 8.0 < SPAN as f64 { placed = Some((o, area, far, by)); break; }
                 rad += 3.0;
             }
-            let Some((o, area, far)) = placed else { continue }; taken.push(area); v.r = v.r.max(far.ceil() as i32 + 2); angles.push(a);
+            let Some((o, area, far, by)) = placed else { continue }; taken.push(area);
+            pads.push(Pad { c: [(area[0] + area[2] + 1) as f64 * 0.5, (area[1] + area[3] + 1) as f64 * 0.5], half: [(area[2] - area[0] + 1) as f64 * 0.5 + 2.0, (area[3] - area[1] + 1) as f64 * 0.5 + 2.0], round: false, h: by }); v.r = v.r.max(far.ceil() as i32 + 2); angles.push(a);
             let lot = Lot { o, u: (ux, uz), w: (wx, wz) };
             let mid = |u: i32, ww: i32, y: i32| { let c = lot.cell(u, y, ww); [c[0] as f64 + 0.5, y as f64, c[2] as f64 + 0.5] };
-            let (du, back) = raise(&mut works, lot, plan, y0, st, h(40 + i as i32));
+            let (du, back) = raise(&mut works, lot, plan, by, st, h(40 + i as i32));
             let front = match plan { Plan::Church => -3, _ => -1 };
-            // Une rue pavée de la place à la porte.
-            let door_out = mid(du, front, y0 + 1); let dist = (door_out[0] - x as f64 - 0.5).hypot(door_out[2] - z as f64 - 0.5);
+            // Une rue pavée de la place à la porte, qui suit le relief.
+            let door_out = mid(du, front, by + 1); let dist = (door_out[0] - x as f64 - 0.5).hypot(door_out[2] - z as f64 - 0.5);
             let (ex, ez) = ((door_out[0] - x as f64 - 0.5) / dist, (door_out[2] - z as f64 - 0.5) / dist); let ring = [x as f64 + 0.5 + ex * 6.5, (y0 + 1) as f64, z as f64 + 0.5 + ez * 6.5];
-            let mut t = 5.0; while t < dist + 0.6 { let q = (x as f64 + 0.5 + ex * t, z as f64 + 0.5 + ez * t); for (sx, sz) in [(0.0, 0.0), (-ez * 0.7, ex * 0.7)] { lanes.put([(q.0 + sx).floor() as i32, y0, (q.1 + sz).floor() as i32], pave); } t += 0.5; }
-            lanes.put([door_out[0].floor() as i32, y0, door_out[2].floor() as i32], pave);
+            let mut t = 5.0; while t < dist + 0.6 { let q = (x as f64 + 0.5 + ex * t, z as f64 + 0.5 + ez * t); for (sx, sz) in [(0.0, 0.0), (-ez * 0.7, ex * 0.7)] {
+                let (cx, cz) = ((q.0 + sx).floor() as i32, (q.1 + sz).floor() as i32); let gy = shape(&pads, nat(cx, cz), cx as f64 + 0.5, cz as f64 + 0.5).0;
+                if !paths.iter().any(|p| p[0] == cx && p[2] == cz) { paths.push([cx, gy, cz]); lanes.put([cx, gy, cz], pave); } } t += 0.5; }
+            let (dx0, dz0) = (door_out[0].floor() as i32, door_out[2].floor() as i32); lanes.put([dx0, by, dz0], pave); paths.retain(|p| p[0] != dx0 || p[2] != dz0); paths.push([dx0, by, dz0]);
             if !plan.dwelling() { continue; }
             let craft = plan.craft();
             // Le mobilier : le poste de l'artisan au fond, un lit, un coffre, une lanterne.
-            let mut put = |u: i32, ww: i32, b: Id| works.put(lot.cell(u, y0 + 1, ww), b);
-            let w = plan.size().0; put(1, back, id("bed")); put(w - 2, 1, lantern);
+            let mut put = |u: i32, ww: i32, b: Id| works.put(lot.cell(u, by + 1, ww), b);
+            // Le lit, deux blocs de long, tête au mur du fond ; la lanterne près de la porte, sauf là où l'escalier monte.
+            let w = plan.size().0; let fb = crate::shapes::facing_of(wx as f64, wz as f64); put(1, back, variant(id("bed"), fb, false, false, false)); put(1, back - 1, variant(id("bed_foot"), fb, false, false, false));
+            match plan { Plan::Town | Plan::Tavern => {} Plan::Shop(_) => put(1, 1, lantern), _ => put(w - 2, 1, lantern) }
             match craft {
                 Some("forgeron") | Some("maitre_forgeron") | Some("armurier") => { put(du, back, id("anvil")); put(du + 1, back, id("furnace")); }
                 Some("tailleur_pierre") => { put(du, back, id("mason_bench")); put(du + 1, back, cob); }
@@ -159,7 +183,31 @@ impl WorldGen {
                 None => { put(w - 2, back, id("chest")); if plan == Plan::Tavern { put(du + 1, 2, id("barrel")); put(du - 1, back - 1, id("barrel")); } }
             }
             let fd = crate::shapes::facing_of(wx as f64, wz as f64);
-            v.houses.push(House { craft, area, door: door_out, inside: mid(du, 1, y0 + 1), spot: mid(du, back - 1, y0 + 1), bed: mid(2, back, y0 + 1), ring, back: fd });
+            v.houses.push(House { craft, area, door: door_out, inside: mid(du, 1, by + 1), spot: mid(du, back - 1, by + 1), bed: mid(2, back, by + 1), ring, back: fd });
+        }
+        // Les champs, à la lisière : une terre labourée, des rangs de blé, de carottes ou de pommes de terre, une rigole d'eau
+        // au milieu, une clôture avec son entrée. Les récoltes mûres sont à prendre.
+        let fields = if kind == "desert" { 0 } else { 1 + (h(60) * 2.4) as usize };
+        let fence_g = id("fence"); let farmland = id("farmland"); let mut made = 0;
+        for k in 0..24 { if made >= fields { break; }
+            let a = h(61 + k) * TAU; let rr = v.r as f64 + 5.0; let (fx, fz) = (x + (a.cos() * rr).round() as i32, z + (a.sin() * rr).round() as i32);
+            let along_x = a.sin().abs() > a.cos().abs(); let (hx, hz) = if along_x { (4, 3) } else { (3, 4) };
+            let area = [fx - hx, fz - hz, fx + hx, fz + hz];
+            if taken.iter().any(|t| area[0] <= t[2] + 3 && area[2] + 3 >= t[0] && area[1] <= t[3] + 3 && area[3] + 3 >= t[1]) { continue; }
+            if rr + 6.0 + BLEND as f64 + 8.0 >= SPAN as f64 { continue; }
+            let mut hs = Vec::new(); let mut wet = false; for ax in area[0]..=area[2] { for az in area[1]..=area[3] { let c = self.column(ax as f64 + 0.5, az as f64 + 0.5); wet |= c.water != 0.0; hs.push(c.h.ceil() as i32 - 1); } }
+            hs.sort(); let fy = hs[hs.len() / 2]; if wet || hs[hs.len() - 1] - hs[0] > 6 || (fy - y0).abs() > 5 { continue; }
+            taken.push(area); pads.push(Pad { c: [(area[0] + area[2] + 1) as f64 * 0.5, (area[1] + area[3] + 1) as f64 * 0.5], half: [(hx + 1) as f64 + 0.5, (hz + 1) as f64 + 0.5], round: false, h: fy });
+            v.r = v.r.max((rr + 6.0).ceil() as i32);
+            let crop = ["wheat_3", "carrot_3", "potato_3"][(h(70 + k) * 3.0) as usize % 3]; let crop = id(crop);
+            let gate = if (fx - x).abs() > (fz - z).abs() { (if fx > x { area[0] } else { area[2] }, fz) } else { (fx, if fz > z { area[1] } else { area[3] }) };
+            for ax in area[0]..=area[2] { for az in area[1]..=area[3] {
+                let edge = ax == area[0] || ax == area[2] || az == area[1] || az == area[3];
+                if edge { works.put([ax, fy, az], id("dirt")); if (ax, az) != gate { works.put([ax, fy + 1, az], fence_g); } continue; }
+                let mid = if along_x { az == fz } else { ax == fx };
+                if mid { works.put([ax, fy, az], water); works.put([ax, fy - 1, az], id("dirt")); } else { works.put([ax, fy, az], farmland); works.put([ax, fy + 1, az], crop); }
+            } }
+            made += 1;
         }
         // Le marché : des étals entre les rues, face au puits, à l'écart des lanternes.
         let stripes = [[[0.62, 0.14, 0.12], [0.9, 0.86, 0.78]], [[0.18, 0.28, 0.5], [0.9, 0.86, 0.78]], [[0.28, 0.42, 0.22], [0.88, 0.82, 0.64]], [[0.7, 0.48, 0.15], [0.38, 0.24, 0.13]]];
@@ -176,28 +224,39 @@ impl WorldGen {
         // Le puits et les lanternes, posés en dernier : aucune rue ne les recouvre.
         for dx in -1..=1 { for dz in -1..=1 { let edge = dx != 0 || dz != 0; if edge { out.push((x + dx, y0 + 1, z + dz, cob)); } out.push((x + dx, y0, z + dz, if edge { cob } else { water })); } }
         let mut props = plaza.props; props.extend(works.props);
-        Site { v, blocks: out, props }
+        Site { v, blocks: out, props, pads, paths }
     }
 }
 impl Site {
     /// Pose ce village dans un chunk : le sol aplani d'abord (fondu vers le terrain sur les bords), puis les bâtiments.
     fn stamp(&self, gen: &WorldGen, cx: i32, cz: i32, v: &mut [Id]) {
-        let (ox, oz) = (cx * CX as i32, cz * CX as i32); let c = self.v.c; let reach = self.v.r + BLEND;
+        let (ox, oz) = (cx * CX as i32, cz * CX as i32); let c = self.v.c; let reach = self.v.r + BLEND + 8;
         if c[0] + reach < ox || c[0] - reach >= ox + CX as i32 || c[2] + reach < oz || c[2] - reach >= oz + CX as i32 { return; }
-        let dirt = id("dirt");
+        let dirt = id("dirt"); let ch = CH as i32;
         for z in 0..CX { for x in 0..CX {
             let (wx, wz) = (ox + x as i32, oz + z as i32); let d = ((wx - c[0]) as f64).hypot((wz - c[2]) as f64); if d > reach as f64 { continue; }
-            let nat = gen.column(wx as f64, wz as f64).h.ceil() as i32 - 1; if nat < 2 || nat >= CH as i32 - 2 { continue; }
-            let t = ((d - self.v.r as f64) / BLEND as f64).clamp(0.0, 1.0); let goal = (c[1] as f64 + (nat - c[1]) as f64 * t).round() as i32;
-            let surf = match v[idx(x, nat as usize, z)] { 0 => dirt, b => b }; let sub = match v[idx(x, (nat - 1) as usize, z)] { 0 => dirt, b => b };
-            for y in nat.min(goal)..goal { v[idx(x, y as usize, z)] = sub; }
-            v[idx(x, goal as usize, z)] = surf;
-            for y in goal + 1..(nat.max(goal) + 22).min(CH as i32) { v[idx(x, y as usize, z)] = 0; }
+            let nat = gen.column(wx as f64 + 0.5, wz as f64 + 0.5).h.ceil() as i32 - 1; if nat < 2 || nat >= ch - 2 { continue; }
+            let (goal, dpad) = shape(&self.pads, nat, wx as f64 + 0.5, wz as f64 + 0.5); let goal = goal.clamp(2, ch - 3);
+            let dpath = self.paths.iter().map(|p| ((p[0] - wx) as f64).hypot((p[2] - wz) as f64)).fold(f64::MAX, f64::min);
+            // Sur une assise et sur ses bords : le sol remonté ou creusé, et rien au-dessus.
+            if dpad < BLEND as f64 {
+                let surf = match v[idx(x, nat as usize, z)] { 0 => dirt, b if crate::blocks::is_solid(b) => b, _ => dirt }; let sub = match v[idx(x, (nat - 1) as usize, z)] { 0 => dirt, b => b };
+                for y in nat.min(goal)..goal { v[idx(x, y as usize, z)] = sub; }
+                v[idx(x, goal as usize, z)] = surf;
+                for y in goal + 1..(nat.max(goal) + 6).min(ch) { v[idx(x, y as usize, z)] = 0; }
+            }
+            // Autour, et le long des rues : les arbres et les plantes partent en entier ; le relief, lui, reste.
+            if dpad < BLEND as f64 + 6.0 || dpath < 4.5 {
+                for y in (goal.min(nat) + 1).max(1)..(nat.max(goal) + 34).min(ch) { let k = idx(x, y as usize, z); if v[k] != 0 && wild(v[k]) { v[k] = 0; } }
+            }
         } }
         for &(x, y, z, b) in &self.blocks {
-            if x < ox || z < oz || x >= ox + CX as i32 || z >= oz + CX as i32 || y < 0 || y >= CH as i32 { continue; }
+            if x < ox || z < oz || x >= ox + CX as i32 || z >= oz + CX as i32 || y < 0 || y >= ch { continue; }
             v[idx((x - ox) as usize, y as usize, (z - oz) as usize)] = b;
         }
+        // Une rue taillée dans une pente : deux blocs de passage dégagés au-dessus des pavés.
+        for p in &self.paths { let (x, z) = (p[0] - ox, p[2] - oz); if x < 0 || z < 0 || x >= CX as i32 || z >= CX as i32 { continue; }
+            for y in p[1] + 1..(p[1] + 3).min(ch) { let k = idx(x as usize, y as usize, z as usize); if v[k] != 0 && !self.blocks.iter().any(|b| b.0 == p[0] && b.1 == y && b.2 == p[2]) { v[k] = 0; } } }
     }
 }
 
@@ -242,12 +301,23 @@ fn inside(h: &House, p: [f64; 3]) -> bool { p[0] > h.area[0] as f64 + 1.0 && p[0
 impl Town {
     fn village(&self, id: (i32, i32)) -> Option<&Village> { self.here.iter().find(|v| v.id == id).or_else(|| self.atlas.get(&id)) }
     /// Où ce villageois veut être à cette heure : (lieu, numéro qui change quand il doit repartir) et la position.
+    /// La nuit au lit. Les artisans à l'atelier, avec une pause à midi. Les autres vont et viennent : chez eux, devant chez un voisin,
+    /// le long d'une rue, au marché ; le puits n'est qu'une étape parmi d'autres. Le soir, une partie se retrouve sur la place.
     fn want(&self, f: &Folk, k: usize, hour: f64) -> ((u8, u32), [f64; 3]) {
         let Some(v) = self.village(f.v) else { return ((0, 0), f.p) }; let h = &v.houses[f.house]; let y = v.c[1] as f64 + 1.0;
-        let plaza = |salt: u32| { let a = hash_float(k as i32, salt as i32, v.id.0, v.id.1) * TAU; let r = 2.6 + 2.3 * hash_float(salt as i32, k as i32, v.id.1, 7); [v.c[0] as f64 + 0.5 + r * a.cos(), y, v.c[2] as f64 + 0.5 + r * a.sin()] };
+        let rnd = |salt: u32, q: i32| hash_float(k as i32 * 7 + q, salt as i32, v.id.0, v.id.1);
+        let plaza = |salt: u32| { let a = rnd(salt, 1) * TAU; let r = 2.6 + 2.3 * rnd(salt, 2); [v.c[0] as f64 + 0.5 + r * a.cos(), y, v.c[2] as f64 + 0.5 + r * a.sin()] };
+        // Un point de la rue qui mène à une maison : entre le bord de la place et sa porte.
+        let street = |salt: u32| { let o = &v.houses[(rnd(salt, 3) * v.houses.len() as f64) as usize % v.houses.len()]; let t = 0.25 + 0.6 * rnd(salt, 4); [o.ring[0] + (o.door[0] - o.ring[0]) * t, o.ring[1] + (o.door[1] - o.ring[1]) * t, o.ring[2] + (o.door[2] - o.ring[2]) * t] };
+        let neighbour = |salt: u32| { let o = &v.houses[(rnd(salt, 5) * v.houses.len() as f64) as usize % v.houses.len()]; let side = (rnd(salt, 6) - 0.5) * 1.6; let (ex, ez) = (o.door[0] - o.ring[0], o.door[2] - o.ring[2]); let l = ex.hypot(ez).max(0.1); [o.door[0] - ex / l * 1.2 - ez / l * side, o.door[1], o.door[2] - ez / l * 1.2 + ex / l * side] };
         if !(6.5..21.5).contains(&hour) { return ((0, 0), h.bed); }
-        if (8.0..18.0).contains(&hour) { return if f.craft.is_some() { ((1, 0), h.spot) } else { let s = (hour * 0.75) as u32; ((2, s), plaza(s + 40)) }; }
-        ((3, 0), plaza(k as u32 + 3))
+        let slot = (hour * 0.9 + rnd(9, 7) * 2.0) as u32;
+        if (8.0..18.0).contains(&hour) {
+            if f.craft.is_some() { return if (12.5..13.5).contains(&hour) { ((6, 0), h.inside) } else { ((1, 0), h.spot) }; }
+            return match (rnd(slot, 8) * 10.0) as u32 { 0..=2 => ((6, slot), h.inside), 3..=4 => ((2, slot), neighbour(slot)), 5..=7 => ((2, slot), street(slot)), 8 => ((2, slot), plaza(slot + 40)), _ => ((2, slot), [h.door[0], h.door[1], h.door[2]]) };
+        }
+        // Le soir : un sur deux sur la place, les autres devant chez eux ou chez un voisin.
+        match (rnd(slot, 10) * 4.0) as u32 { 0 | 1 => ((3, slot), plaza(k as u32 + 3 + slot)), 2 => ((3, slot), neighbour(slot + 90)), _ => ((6, slot), h.inside) }
     }
     fn route(&self, f: &Folk, to: [f64; 3], dest_house: Option<usize>) -> Vec<[f64; 3]> {
         let Some(v) = self.village(f.v) else { return vec![to] }; let mut r = Vec::new();
@@ -266,26 +336,28 @@ impl Town {
         o
     }
     /// La journée des villageois : un pas le long de leur chemin, ou leur travail sur place.
-    pub fn update(&mut self, dt: f64, hour: f64, me: [f64; 3], talking: Option<usize>, armed: bool, blocked: &dyn Fn(f64, f64, f64) -> bool) {
+    pub fn update(&mut self, dt: f64, hour: f64, me: [f64; 3], talking: Option<usize>, armed: bool, blocked: &dyn Fn(f64, f64, f64) -> bool, ground: &dyn Fn(f64, f64, f64) -> Option<f64>) {
         for k in 0..self.folk.len() {
             let mut f = self.folk[k].clone(); let near = (f.p[0] - me[0]).hypot(f.p[2] - me[2]); f.greet_t -= dt; f.scared -= dt;
             // Une arme tirée tout près : on recule et on rentre chez soi. Sinon, on salue celui qui passe.
             if armed && near < 2.4 && f.scared <= 0.0 && talking != Some(k) { f.scared = 7.0; self.news.push(format!("{} recule : « Rangez cette arme ! »", f.name)); }
             else if !armed && near < 3.0 && f.greet_t <= 0.0 && f.scared <= 0.0 && talking != Some(k) { f.greet_t = 150.0; self.news.push(format!("{} : « {} ! »", f.name, if hour >= 18.0 || hour < 5.0 { "Bonsoir" } else { "Bonjour" })); }
             let (goal, at) = if f.scared > 0.0 { let Some(v) = self.village(f.v) else { continue }; ((5, 0), v.houses[f.house].inside) } else { self.want(&f, k, hour) };
-            let dest = if goal.0 <= 1 || goal.0 == 5 { Some(f.house) } else { None };
+            let dest = if goal.0 <= 1 || goal.0 == 5 || goal.0 == 6 { Some(f.house) } else { None };
             if goal != f.goal { f.route = self.route(&f, at, dest); f.goal = goal; }
             if talking == Some(k) { f.moving = false; f.working = false; f.yaw = (me[0] - f.p[0]).atan2(me[2] - f.p[2]); self.folk[k] = f; continue; }
             f.working = false;
             if let Some(q) = f.route.first().copied() {
                 let (dx, dz) = (q[0] - f.p[0], q[2] - f.p[2]); let d = dx.hypot(dz); let step = if f.scared > 0.0 { 2.6 } else { 1.35 } * dt;
                 // Un bloc posé en travers du chemin : on le contourne (de biais, puis de côté), sinon on attend ; coincé trop longtemps, on passe.
-                let free = |a: f64| { let (x, z) = (f.p[0] + a.sin() * step.max(0.05) * 3.0, f.p[2] + a.cos() * step.max(0.05) * 3.0); !blocked(x, q[1], z) };
+                let free = |a: f64| { let (x, z) = (f.p[0] + a.sin() * step.max(0.05) * 3.0, f.p[2] + a.cos() * step.max(0.05) * 3.0); !blocked(x, f.p[1] + 1.0, z) };
                 let ahead = dx.atan2(dz);
-                if d <= step { f.p = q; f.route.remove(0); f.stuck = 0.0; }
-                else if let Some(o) = [0.0, 0.6, -0.6, 1.2, -1.2, 1.6, -1.6].into_iter().find(|o| free(ahead + o)) { let a = ahead + o; f.p = [f.p[0] + a.sin() * step, q[1], f.p[2] + a.cos() * step]; f.yaw = a; if o == 0.0 { f.stuck = 0.0; } else { f.stuck += dt; } if f.stuck > 4.0 && !blocked(q[0], q[1], q[2]) { f.p = q; f.route.remove(0); f.stuck = 0.0; } }
+                if d <= step { f.p = [q[0], f.p[1], q[2]]; f.route.remove(0); f.stuck = 0.0; }
+                else if let Some(o) = [0.0, 0.6, -0.6, 1.2, -1.2, 1.6, -1.6].into_iter().find(|o| free(ahead + o)) { let a = ahead + o; f.p = [f.p[0] + a.sin() * step, f.p[1], f.p[2] + a.cos() * step]; f.yaw = a; if o == 0.0 { f.stuck = 0.0; } else { f.stuck += dt; } if f.stuck > 4.0 && !blocked(q[0], q[1], q[2]) { f.p = q; f.route.remove(0); f.stuck = 0.0; } }
                 else { f.stuck += dt; if f.stuck > 5.0 && !blocked(q[0], q[1], q[2]) { f.p = q; f.route.remove(0); f.stuck = 0.0; } }
                 f.moving = true; f.phase += dt * 7.0;
+                // On monte et descend avec le sol (rues en pente, marches, escalier), sans à-coup ; sol inconnu : l'altitude du chemin.
+                let gy = ground(f.p[0], f.p[1], f.p[2]).unwrap_or(q[1]); f.p[1] += (gy - f.p[1]).clamp(-dt * 6.0, dt * 6.0);
             } else {
                 f.moving = false;
                 if goal.0 == 1 { let Some(v) = self.village(f.v) else { continue }; let (bx, bz) = dir(v.houses[f.house].back); f.yaw = (bx as f64).atan2(bz as f64); f.working = true; f.phase += dt * 5.0; }
@@ -390,8 +462,35 @@ impl Session {
         }
         let talking = self.town.talk.as_ref().map(|t| t.who); let armed = self.armed();
         let world = &self.world; let blocked = |x: f64, y: f64, z: f64| { use crate::player::Voxels; [(0.22, 0.0), (-0.22, 0.0), (0.0, 0.22), (0.0, -0.22)].iter().any(|(ox, oz)| (0..2).any(|h| world.get((x + ox).floor() as i32, y.floor() as i32 + h, (z + oz).floor() as i32).is_some_and(|b| b != 0 && crate::blocks::is_solid(b) && crate::shapes::info(b).is_none_or(|i| i.kind != crate::shapes::Kind::Door)))) };
-        self.town.update(dt, self.hour, me, talking, armed, &blocked); self.notes.append(&mut self.town.news); self.folk_doors(dt);
+        let ground = |x: f64, y: f64, z: f64| -> Option<f64> { use crate::player::Voxels; let (bx, bz, y0) = (x.floor() as i32, z.floor() as i32, y.round() as i32);
+            let hard = |yy: i32| world.get(bx, yy, bz).map(|b| b != 0 && crate::blocks::is_solid(b));
+            (y0 - 3..=y0).rev().find_map(|yy| match (hard(yy), hard(yy + 1)) { (Some(true), Some(false)) => Some((yy + 1) as f64), _ => None }) };
+        self.town.update(dt, self.hour, me, talking, armed, &blocked, &ground); self.notes.append(&mut self.town.news); self.folk_doors(dt);
         if let Some(t) = &self.town.talk { if self.town.folk.get(t.who).is_none_or(|f| (f.p[0] - me[0]).hypot(f.p[2] - me[2]) > 6.0) { self.town.talk = None; } }
+    }
+    /// Ce qu'on trouve dans un coffre de village la première fois qu'on l'ouvre : selon le métier de la maison, tiré au sort
+    /// une fois pour toutes (la graine et la place du coffre). Un coffre hors des villages est vide.
+    pub(crate) fn village_loot(&self, p: [i32; 3]) -> Vec<Option<Stack>> {
+        let mut out = vec![None; crate::session::CHEST_SIZE];
+        let Some((v, h)) = self.town.here.iter().find_map(|v| v.houses.iter().find(|h| p[0] >= h.area[0] && p[0] <= h.area[2] && p[2] >= h.area[1] && p[2] <= h.area[3] && (p[1] - v.c[1]).abs() < 14).map(|h| (v, h))) else { return out };
+        let table: &[(&str, u32, u32, f64)] = match h.craft {
+            Some("forgeron") | Some("maitre_forgeron") => &[("coal", 3, 9, 0.9), ("iron_ore", 2, 5, 0.6), ("iron_ingot", 1, 3, 0.5), ("copper_ingot", 1, 3, 0.4), ("iron_hammer", 1, 1, 0.2), ("iron_knife", 1, 1, 0.25), ("charcoal", 2, 6, 0.4), ("bread", 1, 2, 0.5)],
+            Some("armurier") => &[("iron_ingot", 1, 3, 0.6), ("leather", 2, 4, 0.6), ("iron_helmet", 1, 1, 0.15), ("wooden_shield", 1, 1, 0.3), ("rope", 1, 3, 0.4), ("coal", 2, 5, 0.6), ("cooked_meat", 1, 2, 0.4)],
+            Some("tailleur_pierre") => &[("cobblestone", 6, 16, 0.9), ("stone_bricks", 4, 12, 0.7), ("chiseled_stone", 1, 4, 0.4), ("flint", 2, 5, 0.6), ("stone_hammer", 1, 1, 0.3), ("pebble", 3, 8, 0.5), ("bread", 1, 2, 0.4)],
+            Some("tanneur") => &[("leather", 2, 6, 0.9), ("raw_hide", 1, 4, 0.6), ("fur", 1, 3, 0.5), ("rope", 1, 4, 0.6), ("bone_needle", 1, 1, 0.4), ("fiber", 4, 12, 0.7), ("leather_cap", 1, 1, 0.15), ("wool_white", 1, 4, 0.4)],
+            Some("maitre_menuisier") => &[("planks", 6, 16, 0.9), ("stick", 4, 12, 0.8), ("rope", 1, 3, 0.4), ("axe", 1, 1, 0.2), ("crate", 1, 2, 0.3), ("barrel", 1, 1, 0.2), ("bread", 1, 2, 0.4)],
+            Some(_) => &[("planks", 3, 8, 0.6), ("rope", 1, 3, 0.5), ("bread", 1, 2, 0.5), ("coal", 1, 4, 0.4)],
+            None => &[("bread", 1, 3, 0.7), ("berries", 2, 6, 0.5), ("jerky", 1, 3, 0.4), ("carrot", 2, 5, 0.45), ("potato", 2, 5, 0.45), ("seeds", 3, 8, 0.5), ("candle", 1, 2, 0.35), ("torch", 2, 4, 0.5), ("wool_white", 1, 3, 0.3), ("bandage", 1, 2, 0.3), ("bowl", 1, 2, 0.3), ("cheese", 1, 1, 0.25)],
+        };
+        let mut r = crate::noise::Rng::new((p[0].wrapping_mul(73856093) ^ p[1].wrapping_mul(19349663) ^ p[2].wrapping_mul(83492791) ^ self.seed ^ v.id.0) as u32);
+        let mut slot = 0;
+        for &(id, lo, hi, pr) in table { if r.next() >= pr { continue; } let Some(it) = item(id) else { continue }; let n = lo + (r.next() * (hi - lo + 1) as f64) as u32;
+            let one = def(it.id).is_some_and(|d| d.stack <= 1);
+            // Un peu éparpillé dans le coffre, comme on range chez soi.
+            slot = (slot + 1 + (r.next() * 3.0) as usize) % out.len(); while out[slot].is_some() { slot = (slot + 1) % out.len(); }
+            out[slot] = Some(Stack { item: it.id, n: if one { None } else { Some(n.min(hi)) }, wear: 0 });
+        }
+        out
     }
     /// Une arme en main : épée, lance ou arc.
     pub fn armed(&self) -> bool { self.inv[self.sel].is_some_and(|st| st.item == "bow" || def(st.item).and_then(|d| d.tool).is_some_and(|t| t.kind == "epee" || t.kind == "lance")) }

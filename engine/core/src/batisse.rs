@@ -399,6 +399,7 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
         _ => { crates(b.k, lot, w as f64 + 1.4, y0, 2.0, h); }
     }
     furnish(&mut b, plan, y0);
+    if floors == 2 { upstairs(&mut b, plan, y0); }
     let _ = craft; (du, d - 2)
 }
 fn cross_dir(n: C3) -> C3 { [-n[2], 0.0, n[0]] }
@@ -423,29 +424,15 @@ fn sails(k: &mut Work, at: [i32; 3], lot: Lot, hub: C3, h: f64) {
         let c = add(add(add(front, mulv(dir, 2.9)), mulv(perp, 0.55)), mulv(fwd, -0.03)); k.solid(at, c, [mulv(dir, 1.65), mulv(perp, 0.3), mulv(fwd, 0.01)], cloth, -1.0, 0);
     }
 }
-/// Bûcher contre le flanc gauche : rondins empilés, bouts clairs.
-fn woodpile(k: &mut Work, lot: Lot, _w: i32, y0: i32) {
-    let at = lot.cell(0, y0, 2); let along = lot.v(0.0, 0.0, 1.0);
-    for row in 0..4 { for i in 0..(5 - row) { let p = lot.p(-0.55, y0 as f64 + 1.12 + row as f64 * 0.21, 1.3 + i as f64 * 0.22 + row as f64 * 0.11);
-        k.solid(at, p, [mulv(lot.v(1.0, 0.0, 0.0), 0.4), [0.0, 0.1, 0.0], mulv(along, 0.1)], [0.42, 0.3, 0.18], -1.0, 0);
-        k.solid(at, add(p, mulv(lot.v(-1.0, 0.0, 0.0), 0.405)), [mulv(lot.v(1.0, 0.0, 0.0), 0.004), [0.0, 0.085, 0.0], mulv(along, 0.085)], [0.8, 0.66, 0.44], -1.0, 0); } }
-}
-/// Caisses de planches à claire-voie, avec ce qu'elles contiennent.
+/// Bûcher contre le flanc gauche : des piles de bûches (de vrais blocs, qu'on peut prendre).
+fn woodpile(k: &mut Work, lot: Lot, _w: i32, y0: i32) { let lp = id("log_pile"); for ww in 1..=3 { k.put(lot.cell(-1, y0 + 1, ww), lp); } k.put(lot.cell(-1, y0 + 2, 2), lp); }
+/// Caisses de planches et sacs à côté de la porte (de vrais blocs).
 fn crates(k: &mut Work, lot: Lot, u: f64, y0: i32, ww: f64, h: f64) {
-    let at = lot.cell(u.floor() as i32, y0, ww.floor() as i32); let pl = layer(id("planks"));
-    let goods = [[0.62, 0.12, 0.1], [0.38, 0.55, 0.2], [0.8, 0.5, 0.15], [0.7, 0.55, 0.3]];
-    for (i, (du, dw, dy)) in [(0.0, 0.0, 0.0), (0.0, 0.7, 0.0), (0.0, 0.35, 0.62)].iter().enumerate() {
-        let c = lot.p(u + du, y0 as f64 + 1.3 + dy, ww + dw); k.solid(at, c, [lot.v(0.3, 0.0, 0.0), [0.0, 0.3, 0.0], lot.v(0.0, 0.0, 0.3)], [0.9, 0.9, 0.9], pl, 0);
-        for s in [-0.31, 0.31] { k.solid(at, add(c, lot.v(s, 0.0, 0.0)), [lot.v(0.012, 0.0, 0.0), [0.0, 0.3, 0.0], lot.v(0.0, 0.0, 0.31)], [0.3, 0.2, 0.11], -1.0, 0); }
-        let g = goods[(i + (h * 4.0) as usize) % 4]; for j in 0..5 { let o = lot.v(-0.18 + (j % 3) as f64 * 0.18, 0.0, -0.12 + (j / 3) as f64 * 0.22); k.solid(at, add(add(c, o), [0.0, 0.33, 0.0]), [lot.v(0.08, 0.0, 0.0), [0.0, 0.07, 0.0], lot.v(0.0, 0.0, 0.08)], g, -1.0, 0); }
-    }
+    let (u, ww) = (u.floor() as i32, ww.floor() as i32); let cr = id("crate");
+    k.put(lot.cell(u, y0 + 1, ww), cr); k.put(lot.cell(u, y0 + 1, ww + 1), if h > 0.5 { cr } else { id("sack") }); if h > 0.3 { k.put(lot.cell(u, y0 + 2, ww), id(if h > 0.65 { "sack" } else { "crate" })); }
 }
-/// Meules de foin rondes contre le pignon d'une chaumière.
-fn hay(k: &mut Work, lot: Lot, w: i32, y0: i32, d: i32) {
-    let at = lot.cell(w - 1, y0, d - 1); let th = layer(id("thatch"));
-    for (du, dw) in [(0.4, 0.0), (0.4, 1.1)] { let c = lot.p(w as f64 + du + 0.5, y0 as f64 + 1.45, d as f64 - 1.5 + dw);
-        for r in 0..3 { let a = r as f64 * 0.5236; let (ca, sa) = (a.cos(), a.sin()); k.solid(at, c, [lot.v(0.42, 0.0, 0.0), add([0.0, 0.45 * ca, 0.0], lot.v(0.0, 0.0, 0.45 * sa)), add([0.0, -0.45 * sa, 0.0], lot.v(0.0, 0.0, 0.45 * ca))], [1.0, 0.95, 0.85], th, 0); } }
-}
+/// Bottes de foin contre le pignon d'une chaumière (de vrais blocs).
+fn hay(k: &mut Work, lot: Lot, w: i32, y0: i32, d: i32) { let hb = id("hay_bale"); for ww in [d - 3, d - 2] { k.put(lot.cell(w, y0 + 1, ww), hb); } k.put(lot.cell(w, y0 + 2, d - 2), hb); }
 
 /// Le puits : margelle de pierre (blocs), deux montants, traverse, treuil, petit toit, seau pendu.
 pub fn well(k: &mut Work, c: [i32; 3], tiles: Id) {
@@ -503,21 +490,42 @@ fn garden(k: &mut Work, lot: Lot, w: i32, _d: i32, du: i32, y0: i32, h: f64) {
 fn turned(n: &str, f: u8) -> Id { crate::shapes::variant(id(n), f % 4, false, false, false) }
 /// L'intérieur : table et bougie, chaise, armoire, tapis ; à l'auberge des tables rondes, des tabourets, un lustre ;
 /// chez l'artisan ses outils. Le mobilier du village (lit, coffre, poste) se pose ensuite et a priorité.
+/// L'escalier le long du mur de droite, du devant vers le fond (quatre marches, la dernière au niveau du plancher), la trémie ouverte
+/// au-dessus ; puis la chambre de l'étage.
+fn upstairs(b: &mut B, plan: Plan, y0: i32) {
+    let (w, d) = (b.w, b.d); let du = w / 2; let f = b.lot_face(); let su = w - 2;
+    let fname = BLOCKS[b.s.floor as usize].name; let stairs = by_name(&format!("{fname}_stairs")).or_else(|| by_name("planks_stairs")).unwrap_or(b.s.floor);
+    for k in 0..4 { b.put(su, y0 + 1 + k, 2 + k, crate::shapes::variant(stairs, f, false, false, false)); if k < 3 { b.put(su, y0 + 4, 2 + k, 0); } }
+    for k in 0..2 { b.put(su, y0 + 1 + k, 4 + k, 0); }
+    let y = y0 + 5; let left = crate::shapes::facing_of(-b.lot.u.0 as f64, -b.lot.u.1 as f64);
+    // La chambre : lit contre le mur du fond, coffre, une lanterne au bout de la trémie, une étagère.
+    b.put(1, y, d - 2, turned("bed", f)); b.put(1, y, d - 3, turned("bed_foot", f)); b.put(su, y, 1, id("lantern"));
+    b.put(1, y + 2, 2, turned("wall_shelf", left));
+    match plan {
+        Plan::Tavern => { b.put(3, y, d - 2, turned("bed", f)); b.put(3, y, d - 3, turned("bed_foot", f)); b.put(2, y, d - 2, id("chest")); b.put(1, y, 1, id("table")); b.put(1, y + 1, 1, id("candle")); b.put(2, y, 1, id("stool")); }
+        Plan::Shop(_) => { b.put(2, y, d - 2, id("chest")); b.put(1, y, 1, id("table")); b.put(1, y + 1, 1, id("candle")); b.put(1, y, 2, turned("chair", f)); b.put(du, y, d - 2, turned("cupboard", f)); b.put(du, y, 3, id("carpet_blue")); }
+        _ => { b.put(1, y, 1, id("chest")); b.put(2, y, 2, id(if b.h > 0.5 { "carpet_red" } else { "carpet_green" })); }
+    }
+}
 fn furnish(b: &mut B, plan: Plan, y0: i32) {
     let (w, d) = (b.w, b.d); let du = w / 2; let f = b.lot_face(); let lot = b.lot;
     let right = crate::shapes::facing_of(lot.u.0 as f64, lot.u.1 as f64);
     match plan {
         Plan::Tavern => {
-            for (u, ww) in [(1, 2), (w - 2, 4)] { b.put(u, y0 + 1, ww, id("round_table")); b.put(u, y0 + 2, ww, id(if ww == 2 { "candle" } else { "bottles" })); for dw in [-1, 1] { b.put(u, y0 + 1, ww + dw, id("stool")); } }
+            for (u, ww) in [(1, 2), (w - 3, 4)] { b.put(u, y0 + 1, ww, id("round_table")); b.put(u, y0 + 2, ww, id(if ww == 2 { "candle" } else { "bottles" })); for dw in [-1, 1] { b.put(u, y0 + 1, ww + dw, id("stool")); } }
             b.put(du, y0 + 3, 3, id("chandelier")); for ww in 2..d - 2 { b.put(du, y0 + 1, ww, id("carpet_red")); }
-            b.put(1, y0 + 1, d - 3, turned("fireplace", crate::shapes::facing_of(-lot.u.0 as f64, -lot.u.1 as f64))); b.put(w - 2, y0 + 3, 2, turned("wall_shelf", right));
+            b.put(1, y0 + 1, d - 4, turned("fireplace", crate::shapes::facing_of(-lot.u.0 as f64, -lot.u.1 as f64))); b.put(1, y0 + 3, 2, turned("wall_shelf", crate::shapes::facing_of(-lot.u.0 as f64, -lot.u.1 as f64))); let _ = right;
         }
         Plan::Forge(_) => { b.put(1, y0 + 1, 2, turned("grindstone", f)); b.put(w - 2, y0 + 1, 3, id("cauldron")); b.put(1, y0 + 1, 3, id("bucket")); b.put(w - 2, y0 + 3, 2, turned("weapon_rack", right)); }
-        Plan::Shop(_) => { b.put(1, y0 + 1, 2, id("crate")); b.put(1, y0 + 2, 2, id("sack")); b.put(w - 2, y0 + 1, 2, id("table")); b.put(w - 2, y0 + 2, 2, id("books_pile")); b.put(w - 2, y0 + 1, 3, turned("chair", f)); b.put(du, y0 + 1, 2, id("carpet_blue")); }
-        Plan::Cottage | Plan::Town => {
+        Plan::Shop(_) => { b.put(1, y0 + 1, 2, id("crate")); b.put(1, y0 + 2, 2, id("sack")); b.put(w - 3, y0 + 1, 2, id("table")); b.put(w - 3, y0 + 2, 2, id("books_pile")); b.put(w - 3, y0 + 1, 3, turned("chair", f)); b.put(du - 1, y0 + 1, 2, id("carpet_blue")); }
+        // La chaumière : la table à droite, le lit (deux blocs) à gauche. La maison de ville : la table à gauche, l'armoire au fond, l'escalier à droite.
+        Plan::Cottage => {
+            b.put(w - 2, y0 + 1, 2, id("table")); b.put(w - 2, y0 + 2, 2, id(if b.h > 0.5 { "candle" } else { "bread_basket" })); b.put(w - 2, y0 + 1, 3, turned("chair", f));
+            b.put(du, y0 + 1, 2, id(if b.h > 0.5 { "carpet_red" } else { "carpet_green" })); b.put(w - 2, y0 + 3, 3, turned("wall_shelf", right)); b.put(1, y0 + 1, 1, id("flower_pot"));
+        }
+        Plan::Town => {
             b.put(1, y0 + 1, 2, id("table")); b.put(1, y0 + 2, 2, id(if b.h > 0.5 { "candle" } else { "bread_basket" })); b.put(1, y0 + 1, 3, turned("chair", f)); b.put(1, y0 + 1, 1, turned("chair", f + 2));
-            b.put(w - 2, y0 + 1, 2, turned("cupboard", right)); b.put(du, y0 + 1, 2, id(if b.h > 0.5 { "carpet_red" } else { "carpet_green" }));
-            b.put(w - 2, y0 + 3, 3, turned("wall_shelf", right)); if plan == Plan::Cottage { b.put(w - 2, y0 + 1, 3, id("flower_pot")); }
+            b.put(du, y0 + 1, 2, id(if b.h > 0.5 { "carpet_red" } else { "carpet_green" }));
         }
         _ => {}
     }

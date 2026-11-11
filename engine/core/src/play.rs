@@ -270,8 +270,8 @@ impl Session {
                 // Porte et trappe : clic droit pour ouvrir ou fermer (accroupi, on pose contre elles).
                 if let Some(si) = crate::shapes::info(t.id).filter(|i| matches!(i.kind, crate::shapes::Kind::Door | crate::shapes::Kind::Trapdoor | crate::shapes::Kind::Shutter)) { if !self.player.crouch {
                     if self.use_t > 0.0 { return true; } self.toggle(p, si); self.use_t = 0.25; return true; } }
-                if t.id == B::CHEST && !self.player.crouch { self.chests.entry(p).or_insert_with(|| vec![None; CHEST_SIZE]); self.chest = Some(p); self.inv_open = true; self.sound.place("chest"); return true; }
-                if (t.id == B::BED || t.id == B::BEDROLL) && !self.player.crouch { self.sleep(p, t.id); return true; }
+                if t.id == B::CHEST && !self.player.crouch { if !self.chests.contains_key(&p) { let l = self.village_loot(p); self.chests.insert(p, l); } self.chest = Some(p); self.inv_open = true; self.sound.place("chest"); return true; }
+                if (crate::shapes::is_bed(t.id) || t.id == B::BEDROLL) && !self.player.crouch { self.sleep(p, t.id); return true; }
                 // Nourrir un feu : bois, bâtons, charbon ; un feu éteint se rallume.
                 // Allumer : la torche prend à coup sûr, le silex et l'archet à feu au bout de quelques essais ; sans bois, rien ne prend.
                 if t.id == B::CAMPFIRE_OUT && held.is_some_and(|s| matches!(s.item, "torch" | "flint" | "fire_drill")) {
@@ -346,6 +346,8 @@ impl Session {
         self.world.edit_many(&edits); self.sound.place("planks"); self.anim.trigger(); self.dirty = true;
     }
     pub(crate) fn on_broken(&mut self, p: [i32; 3], id: Id) {
+        // Un lit se casse en entier : l'autre moitié part avec, sans rendre un second lit.
+        if let Some(q) = crate::shapes::bed_partner(p, id) { if self.world.get(q[0], q[1], q[2]).is_some_and(crate::shapes::is_bed) { self.world.edit(q[0], q[1], q[2], 0); if self.bed == Some(q) { self.bed = Some(p); } } }
         // Une porte se casse en entier : l'autre moitié part avec, et la porte revient une seule fois dans le sac.
         if let Some(si) = crate::shapes::info(id).filter(|i| i.kind == crate::shapes::Kind::Door) {
             let other = if si.upper { [p[0], p[1] - 1, p[2]] } else { [p[0], p[1] + 1, p[2]] };
@@ -369,7 +371,7 @@ impl Session {
         if self.vit[1] < 10.0 || self.vit[2] < 10.0 { self.notes.push("Trop faim ou trop soif pour dormir".into()); return; }
         if self.sun_height() > 0.0 && self.fatigue < 25.0 { self.notes.push("Vous n'avez pas sommeil".into()); self.bed = Some(p); self.spawn = [p[0] as f64 + 0.5, p[1] as f64 + 0.6, p[2] as f64 + 0.5]; return; }
         if self.exposure.abs() > 12.0 { self.notes.push(if self.exposure < 0.0 { "Il fait trop froid pour dormir : un feu, un abri ou des vêtements" } else { "Il fait trop chaud pour dormir" }.into()); return; }
-        let wake = 7.0; let h = (wake - self.hour).rem_euclid(24.0).clamp(1.0, 10.0); let mut q = if id == B::BED { 1.0 } else { 0.7 };
+        let wake = 7.0; let h = (wake - self.hour).rem_euclid(24.0).clamp(1.0, 10.0); let mut q = if crate::shapes::is_bed(id) { 1.0 } else { 0.7 };
         if self.covered(self.player.eye()) { q += 0.15; } if self.exposure.abs() > 4.0 { q -= 0.25; }
         self.pass_hours(h); self.fatigue = (self.fatigue - h * 14.0 * q).max(0.0); self.vit[0] = (self.vit[0] + h * 4.0 * q).min(100.0);
         self.vit[1] = (self.vit[1] - h * 1.2 * PROFILES[self.profile].needs).max(0.0); self.vit[2] = (self.vit[2] - h * 1.6 * PROFILES[self.profile].needs).max(0.0); self.stamina = 100.0;
@@ -398,7 +400,7 @@ impl Session {
     /// Retour au lit, s'il existe encore, sinon au point de départ, en pleine forme ; le sac attend là où l'on est mort.
     pub fn respawn(&mut self) {
         if self.dead.take().is_none() { return; }
-        if let Some(b) = self.bed { if !self.world.get(b[0], b[1], b[2]).is_none_or(|x| x == B::BED || x == B::BEDROLL) { self.bed = None; } }
+        if let Some(b) = self.bed { if !self.world.get(b[0], b[1], b[2]).is_none_or(|x| crate::shapes::is_bed(x) || x == B::BEDROLL) { self.bed = None; } }
         let s = self.spawn; let (yaw, pitch) = (self.player.yaw, self.player.pitch); self.player = Player::new(s[0], s[1], s[2]); self.player.yaw = yaw; self.player.pitch = pitch;
         self.vit = [100.0, 80.0, 80.0]; self.stamina = 100.0; self.air = 100.0; self.body = 37.0; self.fatigue = self.fatigue.min(30.0); self.winded = false; self.low_v = 0.0; self.pain_t = 1.0; self.hurt_at = -99.0; self.dirty = true;
         if !self.stashes.is_empty() { self.notes.push("Vos affaires vous attendent là où vous êtes tombé".into()); }

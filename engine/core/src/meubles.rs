@@ -9,7 +9,7 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 43] = ["torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 45] = ["bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
@@ -53,6 +53,18 @@ pub fn draw(o: &mut VBuf, model: &str, name: &str, x: f64, y: f64, z: f64, s: f6
 
 fn build(k: &mut K, m: &str, r: &mut Rng) {
     match m {
+        // Le lit, deux blocs de long : la tête contre le mur (+z), le pied vers la pièce. Cadre de chêne, matelas de paille, drap, couverture de laine, oreiller.
+        "bed" | "bed_foot" => {
+            let head = m == "bed"; const SHEET: C = [0.86, 0.83, 0.74]; const WOOL: C = [0.5, 0.14, 0.12]; const WOOL2: C = [0.62, 0.22, 0.16];
+            let (z0, z1) = if head { (0.0, 0.98) } else { (0.02, 1.0) };
+            for x in [0.02, 0.9] { k.b([x, 0.18, z0, x + 0.08, 0.32, z1], WOOD); }
+            for (x, z) in [(0.02, if head { 0.88 } else { 0.02 }), (0.9, if head { 0.88 } else { 0.02 })] { k.b([x, 0.0, z, x + 0.08, if head { 0.95 } else { 0.62 }, z + 0.1], DARK); }
+            if head { k.t([0.1, 0.3, 0.9, 0.9, 0.86, 0.96], "planks", [1.0; 3]); k.b([0.04, 0.86, 0.88, 0.96, 0.92, 0.98], DARK); }
+            else { k.t([0.1, 0.24, 0.03, 0.9, 0.56, 0.09], "planks", [1.0; 3]); k.b([0.04, 0.56, 0.02, 0.96, 0.62, 0.1], DARK); }
+            k.b([0.08, 0.3, if head { 0.0 } else { 0.09 }, 0.92, 0.42, if head { 0.9 } else { 1.0 }], [0.78, 0.68, 0.44]);
+            if head { k.b([0.07, 0.42, 0.0, 0.93, 0.45, 0.88], SHEET); k.b([0.16, 0.45, 0.56, 0.84, 0.56, 0.86], [0.93, 0.91, 0.86]); k.b([0.06, 0.45, 0.0, 0.94, 0.5, 0.36], WOOL); k.b([0.06, 0.5, 0.3, 0.94, 0.52, 0.38], SHEET); }
+            else { k.b([0.06, 0.42, 0.09, 0.94, 0.5, 1.0], WOOL); for x in [0.05, 0.93] { k.b([x, 0.28, 0.1, x + 0.02, 0.5, 1.0], WOOL2); } k.b([0.06, 0.28, 0.09, 0.94, 0.5, 0.11], WOOL2); }
+        }
         "torch_wall" => {
             // Une patte de fer scellée au mur, la torche penchée de 30° vers la pièce, la tête de fibres, la flamme.
             k.b([0.44, 0.34, 0.9, 0.56, 0.5, 1.0], IRON); k.b([0.46, 0.4, 0.74, 0.54, 0.44, 0.92], IRON);

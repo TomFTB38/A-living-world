@@ -339,13 +339,17 @@ for (const [n, h, p] of [['chair', 0.5, { solid: true }], ['bench', 0.6, { solid
   ['fireplace', 1.6, { solid: true, light: 13 }], ['loom', 0.8, { solid: true }], ['spinning_wheel', 0.6, { solid: true }], ['grindstone', 1.2, { solid: true }], ['signpost', 0.5, { solid: true }],
   ['painting', 0.3, {}], ['banner_red', 0.2, {}], ['banner_blue', 0.2, {}], ['banner_green', 0.2, {}], ['banner_gold', 0.2, {}], ['weapon_rack', 0.6, {}], ['wall_sconce', 0.3, { light: 11 }],
   ['curtain', 0.2, {}], ['wall_shelf', 0.4, {}]]) turner(n, h, 'wood', p);
-// Torche fixée au mur, penchée hors du mur : quatre sens.
-turner('torch_wall', 0.05, 'light', { light: 13, drop: 'torch' });
 // Objets posés.
 for (const [n, h, p] of [['table', 0.8, { solid: true }], ['round_table', 0.8, { solid: true }], ['stool', 0.4, {}], ['candle', 0.1, { light: 9 }], ['candelabra', 0.4, { light: 12 }],
   ['chandelier', 0.5, { light: 14 }], ['brazier', 0.8, { light: 14, solid: true }], ['sack', 0.3, {}], ['amphora', 0.5, {}], ['flower_pot', 0.3, {}], ['potted_fern', 0.3, {}],
   ['cauldron', 1.2, { solid: true }], ['bucket', 0.3, {}], ['log_pile', 0.8, { solid: true }], ['carpet_red', 0.1, {}], ['carpet_blue', 0.1, {}], ['carpet_green', 0.1, {}],
   ['iron_bars', 1.5, { solid: true }], ['books_pile', 0.2, {}], ['bottles', 0.2, {}], ['beehive', 0.5, {}], ['cheese', 0.2, {}], ['bread_basket', 0.2, {}]]) deco(n, h, 'wood', p);
+// Les blocs ajoutés ensuite vont toujours en fin de liste : les numéros des blocs déjà sauvegardés ne bougent pas.
+// Torche fixée au mur, penchée hors du mur : quatre sens.
+turner('torch_wall', 0.05, 'light', { light: 13, drop: 'torch' });
+// Le lit fait deux blocs de long : la tête (le bloc « bed » d'origine, désormais orientable) et le pied.
+for (const f of ['@1', '@2', '@3']) defs.push([`bed${f}`, 'deco', null, 0.8, { model: 'bed', solid: true, cat: 'wood', drop: 'bed' }]);
+turner('bed_foot', 0.8, 'wood', { solid: true, drop: 'bed' });
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,

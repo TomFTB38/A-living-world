@@ -69,10 +69,14 @@ fn turn_boxes(n: &str) -> Vec<Bx> {
         "chair" => vec![[0.14, 0.0, 0.14, 0.86, 0.52, 0.86], [0.18, 0.52, 0.76, 0.82, 1.0, 0.82]], "bench" => vec![[0.02, 0.0, 0.22, 0.98, 0.5, 0.78]],
         "armchair" | "throne" => vec![[0.1, 0.0, 0.1, 0.9, 0.56, 0.9], [0.1, 0.56, 0.8, 0.9, 1.0, 0.92]], "cupboard" => vec![[0.04, 0.0, 0.16, 0.96, 1.0, 0.98]],
         "spinning_wheel" => vec![[0.1, 0.0, 0.25, 0.9, 0.6, 0.75]], "grindstone" => vec![[0.15, 0.0, 0.2, 0.85, 0.9, 0.8]], "signpost" => vec![[0.42, 0.0, 0.42, 0.58, 1.0, 0.58]],
-        "fireplace" | "loom" => vec![[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]],
+        "fireplace" | "loom" => vec![[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]], "bed" | "bed_foot" => vec![[0.0, 0.0, 0.0, 1.0, 0.56, 1.0]], "torch_wall" => Vec::new(),
         _ => vec![[0.0, 0.0, 0.84, 1.0, 1.0, 1.0]],
     }
 }
+/// Une moitié de lit (tête ou pied, dans n'importe quel sens).
+pub fn is_bed(id: Id) -> bool { let n = BLOCKS[id as usize].name; n == "bed" || n.starts_with("bed@") || n.starts_with("bed_foot") }
+/// L'autre moitié d'un lit : le pied est devant la tête, du côté opposé au mur.
+pub fn bed_partner(p: [i32; 3], id: Id) -> Option<[i32; 3]> { if !is_bed(id) { return None; } let i = info(id)?; let (dx, dz) = [(0, 1), (1, 0), (0, -1), (-1, 0)][i.facing as usize % 4]; let k = if BLOCKS[id as usize].name.starts_with("bed_foot") { 1 } else { -1 }; Some([p[0] + dx * k, p[1], p[2] + dz * k]) }
 /// Boîtes de collision d'un bloc : `None` pour un bloc ordinaire (cube plein ou rien, selon `is_solid`).
 pub fn boxes(id: Id) -> Option<Vec<Bx>> { info(id).map(geometry) }
 /// Les montants de l'échelle, contre le mur (+z dans le sens de base).
