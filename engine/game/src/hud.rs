@@ -27,9 +27,10 @@ pub fn cat_rows(s: &Session) -> usize { tabs()[s.tab.min(tabs().len() - 1)].1.le
 pub fn layout(s: &Session, w: f32, h: f32) -> Vec<(Hit, [f32; 4])> {
     let creative = s.creative; let k = if creative { scale(h) } else { inv_scale(w, h) }; let c = 58.0 * k; let g = 5.0 * k; let cell = c + g; let tw = 9.0 * c + 8.0 * g; let mut o = Vec::new();
     if creative {
-        let x0 = (w - tw) * 0.5; let top = h * 0.5 - 300.0 * k; let n = tabs().len() as f32; let tb = (tw - (n - 1.0) * g) / n; let th = 32.0 * k;
-        for i in 0..tabs().len() { o.push((Hit::Tab(i), [x0 + i as f32 * (tb + g), top, tb, th])); }
-        let y1 = top + th + 10.0 * k;
+        // Les onglets sur deux rangées : avec Mobilier et Décor, une seule rangée serait illisible.
+        let x0 = (w - tw) * 0.5; let top = h * 0.5 - 300.0 * k; let per = tabs().len().div_ceil(2); let tb = (tw - (per as f32 - 1.0) * g) / per as f32; let th = 28.0 * k; let half = (th + g) * 0.5;
+        for i in 0..tabs().len() { let (r, cl) = (i / per, i % per); o.push((Hit::Tab(i), [x0 + cl as f32 * (tb + g), top - half + r as f32 * (th + g), tb, th])); }
+        let y1 = top + th + half + 10.0 * k;
         // Le catalogue défile par rangées (molette, ou les flèches à droite) : tout l'onglet reste accessible.
         let list = &tabs()[s.tab.min(tabs().len() - 1)].1; let row0 = s.cat_row.min(cat_rows(s).saturating_sub(CAT_ROWS));
         for (i, id) in list.iter().skip(row0 * 9).take(CAT_ROWS * 9).enumerate() { let (r, cl) = (i / 9, i % 9); o.push((Hit::Catalog(id), [x0 + cl as f32 * cell, y1 + r as f32 * cell, c, c])); }

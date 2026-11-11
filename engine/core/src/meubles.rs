@@ -13,7 +13,11 @@ pub const MODELS: [&str; 42] = ["chair", "bench", "armchair", "cupboard", "firep
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
-fn layer(n: &str) -> f64 { by_name(n).map_or(0.0, |b| BLOCKS[b as usize].faces[0] as f64) }
+/// La couche de texture d'une matière (« rug », « hay »…) ou, à défaut, de la face d'un bloc du même nom.
+fn layer(n: &str) -> f64 {
+    if let Some(m) = crate::blocks::MATERIALS.iter().position(|x| *x == n) { return (m * crate::blocks::VARIANTS as usize) as f64; }
+    by_name(n).map_or(0.0, |b| BLOCKS[b as usize].faces[0] as f64)
+}
 
 /// Un atelier de modèle : des boîtes dans le cube unité, en couleur unie, en matière, ou lumineuses.
 struct K { o: VBuf, s: f64, l: f64 }
