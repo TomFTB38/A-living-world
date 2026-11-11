@@ -46,3 +46,11 @@ fn chaque_atelier_a_son_interface_et_son_geste() {
     // Refermer en cours de route interrompt l'ouvrage.
     s.order_craft(r, false).unwrap(); s.inv_open = false; s.tick(DT, none(), Actions::default()); assert!(s.job.is_none() && s.at_station.is_none());
 }
+
+#[test]
+fn le_bati_et_le_mobilier_ont_leurs_sons() {
+    use alw_core::audio::sound_of;
+    for (b, m) in [("glass", "hard"), ("iron_bars", "metal"), ("anvil", "metal"), ("wool_red", "plant"), ("carpet_blue", "plant"), ("thatch_stairs", "plant"), ("clay_bricks", "hard"), ("marble_slab", "hard"), ("chair@2", "wood"), ("door", "wood"), ("planks_stairs", "wood"), ("chest", "wood"), ("oak_log", "wood")] {
+        assert_eq!(sound_of(b).m, m, "{b}"); }
+    assert!(!std::ptr::eq(sound_of("clay_bricks"), sound_of("dirt")) && !std::ptr::eq(sound_of("table"), sound_of("dirt")), "plus de bruit de terre pour le bâti");
+}

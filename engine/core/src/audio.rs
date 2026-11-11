@@ -14,7 +14,27 @@ pub fn sound_of(name: &str) -> &'static Mat {
     let n = if n.starts_with("water") { "water" } else { n.strip_suffix("_deep").unwrap_or(n) };
     if n == "snow" || n.starts_with("snow_layer") { return &SNOW; }
     let n = match n { "frost_grass" | "feather_grass" | "sagebrush" | "dead_bush" | "blueberry" | "rowan" | "fern_dry" | "blueberry_picked" | "rowan_picked" | "twigs" => "tall_grass", "pebbles" => "gravel", "dead_log" | "acacia_log" | "campfire" => "oak_log", "workbench" | "leather" => "planks", "acacia_leaves" => "oak_leaves", "birch_leaves_gold" => "birch_leaves", "lichen_stone" | "bone" | "sandstone" | "red_sandstone" => "stone", "cactus" | "palm_leaves" => "oak_leaves", "palm_log" => "oak_log", "steppe_grass" | "moor_grass" => "grass", "heather" | "cotton_grass" => "tall_grass", "ice" | "icicle" => "stone", "spruce_log" => "oak_log", "spruce_leaves" | "spruce_leaves_snow" => "oak_leaves", _ => n };
-    SOUNDS.iter().find(|s| s.0 == n).map(|s| &s.1).unwrap_or_else(|| &SOUNDS.iter().find(|s| s.0 == "dirt").unwrap().1)
+    let get = |k: &str| SOUNDS.iter().find(|s| s.0 == k).map(|s| &s.1);
+    get(n).or_else(|| get(family(n))).unwrap_or_else(|| get("dirt").unwrap())
+}
+/// La famille sonore d'un bloc sans son propre jeu de sons : selon sa matière (une dalle, un escalier sonnent comme leur bloc),
+/// son nom, puis sa catégorie. Le bâti et le mobilier ne retombent plus sur le bruit de la terre.
+fn family(n: &str) -> &'static str {
+    if n == "flint" { return "granite"; }
+    let Some(id) = crate::blocks::by_name(n) else { return "dirt" };
+    if crate::shapes::info(id).is_some() { let m = crate::shapes::material(id); if m != id { let mn = crate::blocks::BLOCKS[m as usize].name; if SOUNDS.iter().any(|s| s.0 == mn) { return SOUNDS.iter().find(|s| s.0 == mn).map(|s| s.0).unwrap_or("dirt"); } let f = family(mn); if f != "dirt" { return f; } } }
+    let has = |k: &[&str]| k.iter().any(|w| n.contains(w));
+    if has(&["glass", "window", "bottles"]) { return "glass"; }
+    if has(&["iron", "anvil", "lantern", "cauldron", "bars", "copper", "chandelier", "candelabra", "bucket", "brazier", "sconce", "steel"]) { return "metal"; }
+    if has(&["wool", "carpet", "curtain", "banner", "bed", "sack", "painting", "loom"]) { return "cloth"; }
+    if has(&["thatch", "hay", "straw", "wattle", "beehive"]) { return "straw"; }
+    if has(&["brick", "terracotta", "roof_tiles", "clay", "amphora", "flower_pot", "potted"]) { return "brick"; }
+    if has(&["marble", "polished", "ashlar", "setts", "chiseled", "checker"]) { return "flagstone"; }
+    if has(&["slate"]) { return "limestone"; }
+    if has(&["_log", "log_pile"]) { return "oak_log"; }
+    if has(&["leaves"]) { return "oak_leaves"; }
+    if has(&["chair", "bench", "table", "stool", "cupboard", "shelf", "rack", "crate", "barrel", "chest", "door", "trapdoor", "shutter", "throne", "signpost", "mason", "workbench", "spinning", "books", "bookshelf"]) { return "furniture"; }
+    match crate::blocks::BLOCKS[id as usize].cat { "wood" => "planks", "rock" => "stone", "foliage" => "oak_leaves", "light" => "metal", _ => "dirt" }
 }
 /// Neige : un crissement feutré, grave, avec le grain fin des cristaux qui s'écrasent.
 static SNOW: Mat = Mat { m: "earth",

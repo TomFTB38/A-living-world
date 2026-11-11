@@ -559,7 +559,8 @@ impl Ui {
         // Les rouleaux de chaque côté pendant le déroulé.
         if t1 < 1.0 { for x in [r[0] - edge * 1.8, r[0] + r[2] - edge * 0.2] { self.rect(x, r[1] - edge * 2.0, edge * 2.0, r[3] + edge * 4.0, [0.45, 0.33, 0.2, 1.0]); } }
         if t2 <= 0.0 { return; }
-        let cell = ZOOMS[s.map.zoom]; let px = 6.0 * k; let me = [s.player.p[0], s.player.p[2]]; let inner = [r[0] + 10.0 * k, r[1] + 54.0 * k, r[2] - 20.0 * k, r[3] - 84.0 * k];
+        // La carte est centrée sur soi, décalée de ce qu'on l'a fait glisser à la souris.
+        let cell = ZOOMS[s.map.zoom]; let px = map_px(h); let me = [s.player.p[0] + s.map.pan[0], s.player.p[2] + s.map.pan[1]]; let you = [s.player.p[0], s.player.p[2]]; let inner = [r[0] + 10.0 * k, r[1] + 54.0 * k, r[2] - 20.0 * k, r[3] - 84.0 * k];
         self.terrain(&s.map, inner, me, cell, px, 0.9 * t2);
         for i in 1..4 { let x = r[0] + r[2] * i as f32 / 4.0; self.rect(x - k, r[1], 2.0 * k, r[3], [0.3, 0.22, 0.12, 0.12 + 0.45 * (1.0 - t2)]); }
         self.rect(r[0], r[1] + r[3] * 0.5 - k, r[2], 2.0 * k, [0.3, 0.22, 0.12, 0.12 + 0.45 * (1.0 - t2)]);
@@ -569,10 +570,10 @@ impl Ui {
             self.text(&v.name, p[0] - Ui::text_width(&v.name, z) * 0.5, p[1] + 9.0 * k, z, ink);
         } }
         for st in &s.stashes { if let Some(p) = Ui::on_map(inner, me, cell, px, [st.p[0], st.p[2]]) { self.diamond(p[0], p[1], 6.0 * k, [0.75, 0.15, 0.1, t2]); self.text("Dépouille", p[0] + 8.0 * k, p[1] - 8.0 * k, z, ink); } }
-        let c = [inner[0] + inner[2] * 0.5, inner[1] + inner[3] * 0.5]; self.arrow(c, s.player.yaw, 13.0 * k, [0.22, 0.15, 0.08, t2]); self.arrow(c, s.player.yaw, 9.0 * k, [1.0, 1.0, 1.0, t2]);
+        if let Some(c) = Ui::on_map(inner, me, cell, px, you) { self.arrow(c, s.player.yaw, 13.0 * k, [0.22, 0.15, 0.08, t2]); self.arrow(c, s.player.yaw, 9.0 * k, [1.0, 1.0, 1.0, t2]); }
         self.text("Carte", r[0] + 18.0 * k, r[1] + 14.0 * k, 24.0 * k, ink);
         let ha = s.map.explored() as f64 * (STEP * STEP) as f64 / 1e4; let info = format!("1 case = {cell} blocs · exploré : {ha:.0} hectares · nord en haut"); self.text(&info, r[0] + 110.0 * k, r[1] + 22.0 * k, z, [0.3, 0.22, 0.12, t2]);
-        let help = "Molette : échelle · M ou Échap : fermer"; self.text(help, r[0] + r[2] - Ui::text_width(help, z) - 18.0 * k, r[1] + r[3] - 24.0 * k, z, [0.3, 0.22, 0.12, t2]);
+        let help = "Glisser : déplacer · clic droit : recentrer · molette : échelle · M ou Échap : fermer"; self.text(help, r[0] + r[2] - Ui::text_width(help, z) - 18.0 * k, r[1] + r[3] - 24.0 * k, z, [0.3, 0.22, 0.12, t2]);
     }
     /// Marqueur discret de la dépouille : un losange sur un arc en haut de l'écran, et la distance.
     fn marker(&mut self, s: &Session, w: f32, k: f32) {
@@ -645,3 +646,6 @@ fn station_look(st: Station) -> (&'static str, &'static str, &'static str, &'sta
 }
 /// La teinte du panneau d'un atelier : le bois de l'établi, le fer de l'enclume, la braise du four, la pierre du tailleur.
 fn station_tint(st: Station) -> C { match st { Station::Bench => [0.13, 0.095, 0.06, 0.95], Station::Anvil => [0.07, 0.075, 0.085, 0.95], Station::Furnace => [0.14, 0.07, 0.04, 0.95], Station::Mason => [0.1, 0.1, 0.095, 0.95], Station::Fire => [0.13, 0.07, 0.045, 0.95], Station::Hand => PANEL } }
+
+/// La taille d'une case de la grande carte à l'écran, en pixels (pour faire glisser la carte à la souris).
+pub fn map_px(h: f32) -> f32 { 6.0 * scale(h) }

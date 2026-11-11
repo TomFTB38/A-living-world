@@ -19,6 +19,8 @@ pub struct Atlas {
     pub regions: HashMap<(i32, i32), Vec<u32>>,
     /// Grande carte ouverte, et son animation (0 fermée, 1 dépliée) ; échelle choisie (indice dans ZOOMS).
     pub open: bool, pub anim: f64, pub zoom: usize,
+    /// Décalage de la grande carte (en blocs) quand on la fait glisser à la souris ; recentrée à chaque ouverture.
+    pub pan: [f64; 2],
     last: Option<(i32, i32)>, pending: bool,
 }
 /// Couleur moyenne du dessus de chaque bloc, tirée des textures du jeu.
@@ -70,7 +72,12 @@ impl Atlas {
 
 impl Session {
     /// Ouvre ou ferme la grande carte.
-    pub fn toggle_map(&mut self) { self.map.open = !self.map.open; if self.map.open { self.inv_open = false; } }
+    pub fn toggle_map(&mut self) { self.map.open = !self.map.open; if self.map.open { self.inv_open = false; self.map.pan = [0.0; 2]; } }
+    /// Faire glisser la grande carte : `d` en pixels à l'écran, `px` la taille d'une case à l'écran. La carte suit la souris.
+    pub fn pan_map(&mut self, d: [f64; 2], px: f64) { let cell = ZOOMS[self.map.zoom] as f64; let k = cell / px.max(0.1); self.map.pan[0] -= d[0] * k; self.map.pan[1] -= d[1] * k;
+        let lim = 4000.0; self.map.pan = self.map.pan.map(|v| v.clamp(-lim, lim)); }
+    /// Recentrer la grande carte sur soi.
+    pub fn center_map(&mut self) { self.map.pan = [0.0; 2]; }
     pub fn zoom_map(&mut self, d: i32) { self.map.zoom = (self.map.zoom as i32 + d).clamp(0, ZOOMS.len() as i32 - 1) as usize; }
     /// L'animation de la carte, et la découverte du terrain autour du joueur.
     pub(crate) fn map_tick(&mut self, dt: f64) {

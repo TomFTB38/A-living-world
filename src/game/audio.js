@@ -39,6 +39,13 @@ export const SOUNDS = {
   lantern: mat('metal', [L('metal', 1.2, 0.2)], [L('glass', 1, 0.3), L('metal', 1.2, 0.22)], [L('glass', 0.92, 0.46), L('metal', 1, 0.3)]),
   shelf_fungus: mat('plant', [L('leaf', 0.66, 0.16)], [L('leaf', 0.62, 0.3)], [L('leaf', 0.56, 0.4)]),
   fence: mat('wood', [L('wood', 1.1, 0.4)], [L('plank', 1.14, 0.44)], [L('plank', 1.04, 0.56), L('woodl', 1.2, 0.3)]),
+  // Les matières du bâti et du mobilier : verre, métal, étoffe, paille, terre cuite, bois sombre et creux.
+  glass: mat('hard', [L('stepstone', 1.25, 0.38)], [L('glass', 1.1, 0.42)], [L('glass', 0.95, 0.72), L('glass', 1.28, 0.4, 0, 0.05), L('crumble', 1.6, 0.16, 0, 0.03)], [L('glass', 1.3, 0.3)]),
+  metal: mat('metal', [L('metal', 0.85, 0.2, 2500), L('stepstone', 0.9, 0.3)], [L('metal', 0.92, 0.42, 3000), L('knock', 1.2, 0.2)], [L('metal', 0.75, 0.56, 2600), L('crumble', 0.9, 0.2)], [L('metal', 1, 0.34, 3000), L('knock', 1.1, 0.2)]),
+  cloth: mat('plant', [L('sand', 0.6, 0.26, 1500)], [L('leaf', 0.55, 0.3, 1800), L('sand', 0.6, 0.2, 1500)], [L('leaf', 0.5, 0.44, 1800), L('sand', 0.55, 0.3, 1500)], [L('sand', 0.65, 0.3, 1500), L('leaf', 0.6, 0.16, 1800)]),
+  straw: mat('plant', [L('stepgrass', 0.85, 0.42), L('leaf', 0.7, 0.2)], [L('leaf', 0.75, 0.42), L('stepgrass', 0.8, 0.3)], [L('leaf', 0.7, 0.58), L('stepgrass', 0.75, 0.4)]),
+  brick: mat('hard', [L('stepstone', 1.08, 0.48), L('crack', 1.3, 0.06)], [L('crack', 0.9, 0.46, 2600), L('rockhi', 0.8, 0.28, 2100), L('crumble', 1, 0.24)], stoneBreak(0.9), stonePut(0.9)),
+  furniture: mat('wood', [L('wood', 0.92, 0.5)], [L('plank', 0.92, 0.5), L('knock', 0.85, 0.3)], [L('plank', 0.82, 0.62), L('woodl', 0.9, 0.46), L('crack', 0.9, 0.2, 0, 0.04)], [L('plank', 0.95, 0.46), L('knock', 0.9, 0.3)]),
 };
 // L'outil se devine sous la matière : le métal tinte sur la roche, s'étouffe dans la terre, mord le bois.
 export const TOOL = {

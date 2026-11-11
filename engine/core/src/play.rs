@@ -571,8 +571,8 @@ impl Session {
     // ------------------------------------------------------------------ sauvegarde
     /// Sauvegarde lisible : l'état du joueur, puis seulement ce qui diffère du monde généré.
     pub fn save_text(&self) -> String {
-        let p = &self.player; let st = |v: &Stack| format!("{} {} {}", v.item, v.n.map_or(-1, |n| n as i64), v.wear);
-        let mut s = format!("A Living World 1\npalette {}\nseed {}\nplayer {} {} {} {} {}\nhour {}\ncreative {}\nsel {}\nvit {} {} {}\nweather {}\n", BLOCKS.iter().map(|b| b.name).collect::<Vec<_>>().join(" "), self.seed, p.p[0], p.p[1], p.p[2], p.yaw, p.pitch, self.hour, self.creative as u8, self.sel, self.vit[0], self.vit[1], self.vit[2], self.weather.t);
+        let hm = self.home(); let st = |v: &Stack| format!("{} {} {}", v.item, v.n.map_or(-1, |n| n as i64), v.wear);
+        let mut s = format!("A Living World 1\npalette {}\nseed {}\nplayer {} {} {} {} {}\nhour {}\ncreative {}\nsel {}\nvit {} {} {}\nweather {}\n", BLOCKS.iter().map(|b| b.name).collect::<Vec<_>>().join(" "), self.seed, hm.p[0], hm.p[1], hm.p[2], hm.yaw, hm.pitch, self.hour, hm.creative as u8, self.sel, self.vit[0], self.vit[1], self.vit[2], self.weather.t);
         s += &format!("body {} {} {} {}\nprofile {}\nskills {}\n", self.stamina, self.fatigue, self.body, self.air, self.profile, self.skills.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(" "));
         for (i, it) in self.inv.iter().enumerate() { if let Some(v) = it { s += &format!("inv {} {}\n", i, st(v)); } }
         for (i, it) in self.equip.iter().enumerate() { if let Some(v) = it { s += &format!("equip {} {}\n", i, st(v)); } }

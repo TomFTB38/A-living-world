@@ -109,7 +109,7 @@ fn debug_lines(s: &Session, fps: f64, tris: usize, quality: &str) -> Vec<String>
         format!("Heure {:02}:{:02}  ·  météo {}", s.hour as u32, (s.hour.fract() * 60.0) as u32, s.weather.kind.name()), format!("Visé : {t}"), format!("Animaux : {} cerfs, {} oiseaux", s.fauna.deer.len(), s.fauna.birds.len()),
         format!("Vie {:.0}  ·  faim {:.0}  ·  soif {:.0}  ·  endurance {:.0}  ·  souffle {:.0}", s.vit[0], s.vit[1], s.vit[2], s.stamina, s.air)]
 }
-struct Game { held: HashSet<String>, preset: Preset, threads: usize, world: String, debug: bool, fps: f64, menu: hud::Menu, drag: Option<usize>, half: Option<usize>, window: Arc<Window>, gpu: gpu::Gpu, md: Models, mouse: [f32; 2], s: Session, keys: HashSet<KeyCode>, grabbed: bool, time: f64, run_time: bool, lmb: bool, rmb: bool, place_t: f64, msg: Option<(String, f64)>, save_t: f64, last: Instant, frames: u32, fps_t: f64, tris: usize }
+struct Game { /** la grande carte qu'on fait glisser : dernière position de la souris */ map_drag: Option<[f32; 2]>, held: HashSet<String>, preset: Preset, threads: usize, world: String, debug: bool, fps: f64, menu: hud::Menu, drag: Option<usize>, half: Option<usize>, window: Arc<Window>, gpu: gpu::Gpu, md: Models, mouse: [f32; 2], s: Session, keys: HashSet<KeyCode>, grabbed: bool, time: f64, run_time: bool, lmb: bool, rmb: bool, place_t: f64, msg: Option<(String, f64)>, save_t: f64, last: Instant, frames: u32, fps_t: f64, tris: usize }
 #[derive(Default)]
 struct App { game: Option<Game> }
 impl Game {
@@ -150,13 +150,13 @@ impl Game {
     fn title_click(&mut self, a: hud::T) {
         let Some(t) = self.menu.title.as_mut() else { return }; if a != hud::T::Delete { t.confirm = false; }
         match a {
-            hud::T::Continue => { if self.world.is_empty() { return; } self.menu.title = None; self.grab(true); }
+            hud::T::Continue => { if self.world.is_empty() { return; } self.menu.title = None; self.s.tour_end(); self.grab(true); }
             hud::T::New => { t.page = hud::TPage::New; t.name.clear(); t.seed.clear(); t.field = 0; t.profile = 1; }
             hud::T::Worlds => { t.page = hud::TPage::Worlds; t.sel = t.worlds.iter().position(|w| w.name == t.current).unwrap_or(0); }
             hud::T::Settings => { self.menu.open = true; }
             hud::T::Quit => { self.save(); self.write_settings(); std::process::exit(0); }
-            hud::T::Row(i) => { if t.sel == i { let n = t.worlds[i].name.clone(); if n == self.world { self.menu.title = None; self.grab(true); } else { self.switch_world(&n, None, None); } } else { t.sel = i; } }
-            hud::T::Play => { if let Some(w) = t.worlds.get(t.sel) { let n = w.name.clone(); if n == self.world { self.menu.title = None; self.grab(true); } else { self.switch_world(&n, None, None); } } }
+            hud::T::Row(i) => { if t.sel == i { let n = t.worlds[i].name.clone(); if n == self.world { self.menu.title = None; self.s.tour_end(); self.grab(true); } else { self.switch_world(&n, None, None); } } else { t.sel = i; } }
+            hud::T::Play => { if let Some(w) = t.worlds.get(t.sel) { let n = w.name.clone(); if n == self.world { self.menu.title = None; self.s.tour_end(); self.grab(true); } else { self.switch_world(&n, None, None); } } }
             hud::T::Delete => {
                 if t.worlds.is_empty() { return; }
                 if !t.confirm { t.confirm = true; return; }
@@ -178,7 +178,7 @@ impl Game {
         // Regarder vers +z place +x à gauche de l'écran : la droite vaut -x.
         let ax = |a: bool, b: bool| (a as i32 - b as i32) as f64;
         let _ = k; let b = |a: usize| self.menu.binds[a].iter().any(|n| !n.is_empty() && self.held.contains(n));
-        let titled = self.menu.title.is_some(); if titled { self.s.player.yaw += real * 0.035; } // derrière l'écran titre, la vue tourne lentement
+        let titled = self.menu.title.is_some(); if titled { self.s.tour_step(real); } // derrière l'écran titre, un survol du monde : villages, biomes
         let talking = self.s.town.talk.is_some() || self.s.map.open || titled; let open = self.s.inv_open || self.menu.open || talking; let input = if open { Input::default() } else { Input { x: ax(b(hud::A_LEFT), b(hud::A_RIGHT)), z: ax(b(hud::A_FWD), b(hud::A_BACK)), jump: b(hud::A_JUMP), sprint: b(hud::A_SPRINT), crouch: b(hud::A_CROUCH), roll: b(hud::A_ROLL) } };
         self.place_t -= dt; let place = self.rmb && self.place_t <= 0.0; if place { self.place_t = 0.22; }
         self.s.player.autostep = self.menu.autostep; self.s.tick(dt, input, if talking { Actions::default() } else { Actions { mine: self.lmb, place, guard: self.rmb } });
@@ -215,7 +215,7 @@ impl ApplicationHandler for App {
         if let Some(t) = &text { if let Err(e) = s.load_text(t) { report(&format!("Sauvegarde illisible : {e}")); } }
         s.sound = SoundScape::new(sound::start());
         let mut menu = menu; menu.title = Some(hud::Title::new(worlds, &last));
-        let mut g = Game { held: HashSet::new(), preset, threads, world: last, debug: false, fps: 0.0, menu, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
+        let mut g = Game { map_drag: None, held: HashSet::new(), preset, threads, world: last, debug: false, fps: 0.0, menu, drag: None, half: None, window, gpu, md, mouse: [0.0; 2], s, keys: HashSet::new(), grabbed: false, time: 0.0, run_time: true, lmb: false, rmb: false, place_t: 0.0, msg: None, save_t: 0.0, last: Instant::now(), frames: 0, fps_t: 0.0, tris: 0 };
         g.menu.profile = g.s.profile; g.apply(); g.grab(false); self.game = Some(g);
     }
     fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, e: WindowEvent) {
@@ -256,7 +256,8 @@ impl ApplicationHandler for App {
                 }
                 if g.menu.title.is_some() { if button == MouseButton::Left && down { if let Some(a) = g.menu.title.as_ref().and_then(|t| hud::title_at(t, w, h, g.mouse)) { g.title_click(a); } } return; }
                 if g.s.dead.is_some() { if button == MouseButton::Left && down && hud::death_at(w, h, g.mouse) { g.s.respawn(); g.grab(true); } return; }
-                if g.s.map.open { return; } // la carte se ferme au clavier
+                // La grande carte : on la fait glisser au clic gauche, le clic droit la recentre ; elle se ferme au clavier.
+                if g.s.map.open { if button == MouseButton::Left { g.map_drag = if down { Some(g.mouse) } else { None }; } else if button == MouseButton::Right && down { g.s.center_map(); } return; }
                 // Conversation : un clic sur une réponse.
                 if g.s.town.talk.is_some() { if button == MouseButton::Left && down { if let Some(i) = hud::dialog_at(&g.s, w, h, g.mouse) { g.s.choose(i); if g.s.town.talk.is_none() { g.grab(true); } } } return; }
                 if g.s.inv_open {
@@ -290,7 +291,8 @@ impl ApplicationHandler for App {
                 if !g.grabbed { if down { g.grab(true); } return; }
                 match button { MouseButton::Left => g.lmb = down, MouseButton::Right => { g.rmb = down; if down { g.place_t = 0.0; } } _ => {} }
             }
-            WindowEvent::CursorMoved { position, .. } => { g.mouse = [position.x as f32, position.y as f32]; if let Some(i) = g.drag { g.slide(i); } }
+            WindowEvent::CursorMoved { position, .. } => { let m0 = g.mouse; g.mouse = [position.x as f32, position.y as f32]; if let Some(i) = g.drag { g.slide(i); }
+                if g.map_drag.is_some() { if g.s.map.open { let hh = g.window.inner_size().height.max(1) as f32; g.s.pan_map([(g.mouse[0] - m0[0]) as f64, (g.mouse[1] - m0[1]) as f64], hud::map_px(hh) as f64); } else { g.map_drag = None; } } }
             WindowEvent::MouseWheel { delta, .. } => {
                 let d = match delta { MouseScrollDelta::LineDelta(_, y) => y, MouseScrollDelta::PixelDelta(p) => p.y as f32 };
                 if let Some(t) = g.menu.title.as_mut() { if d != 0.0 && t.page == hud::TPage::Worlds { let max = t.worlds.len().saturating_sub(7); t.scroll = (t.scroll as i32 + if d > 0.0 { -1 } else { 1 }).clamp(0, max as i32) as usize; } } else if d != 0.0 && g.s.inv_open && g.s.creative { let max = hud::cat_rows(&g.s).saturating_sub(hud::CAT_ROWS); g.s.cat_row = (g.s.cat_row as i32 + if d > 0.0 { -1 } else { 1 }).clamp(0, max as i32) as usize; } else if d != 0.0 && g.s.map.open { g.s.zoom_map(if d > 0.0 { -1 } else { 1 }); } else if d != 0.0 { g.s.sel = (g.s.sel as i32 + if d > 0.0 { -1 } else { 1 }).rem_euclid(9) as usize; }
@@ -602,6 +604,8 @@ fn capture(a: &[String]) {
             for _ in 0..600 { s.stamina = 100.0; s.tick(1.0 / 60.0, none, Actions { mine: true, place: false, ..Default::default() }); if s.progress() > 0.62 { break; } }
             println!("fissure : progression {:.2}, cible {:?}", s.progress(), s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
         }
+        // L'écran titre : trente secondes de survol, le temps de quitter le départ et d'approcher le premier village.
+        if scene == "titre" { for i in 0..900 { s.tour_step(1.0 / 30.0); s.tick(1.0 / 30.0, none, Actions::default()); if i % 60 == 59 { pump(&mut s, &mut g); } } pump(&mut s, &mut g); println!("titre : survol en {:?}", s.player.p); }
         if scene != "fissure" { s.tick(0.0, none, Actions::default()); }
         if scene == "combat" { let (x, z) = at(3.2, 0.3); s.wild.put(alw_core::wild::Kind::Wolf, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.14, false); s.guard_t = 0.12; s.anim.guard = 1.0; s.charge = 0.5; s.guide = 99; println!("combat : {} bêtes", s.wild.all.len()); } println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
     }
