@@ -53,9 +53,10 @@ pub const STAMINA_SWING: f64 = 1.5;
 /// Coup lourd : temps de charge, dégâts multipliés, endurance multipliée.
 pub const HEAVY_T: f64 = 0.75; pub const HEAVY_MUL: f64 = 2.2; pub const HEAVY_COST: f64 = 2.5;
 /// Garde : une parade dans ce délai après avoir levé le bouclier pare tout et fait reculer la bête.
-pub const PARRY_T: f64 = 0.3;
+pub const PARRY_T: f64 = 0.4;
 /// Part d'une attaque de face qu'arrête un bouclier, selon son armure.
-pub fn block_share(armor: f64) -> f64 { (0.35 + armor / 40.0).min(0.85) }
+/// Part des dégâts qu'arrête un bouclier levé face au coup : l'essentiel, davantage avec un bon bouclier.
+pub fn block_share(armor: f64) -> f64 { (0.7 + armor / 50.0).min(0.95) }
 /// Combien de coups encaisse un bouclier avant de se fendre.
 pub fn shield_life(armor: f64, profile: usize) -> u32 { ((40.0 + armor * 15.0) / PROFILES[profile].wear).round() as u32 }
 /// Quinze secondes de souffle sous l'eau, puis la noyade.

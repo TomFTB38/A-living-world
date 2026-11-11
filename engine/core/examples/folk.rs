@@ -33,7 +33,7 @@ fn main() {
     // le joueur, à droite
     let anim = alw_core::actors::Anim::default(); let d = anim.third(&md, [0.0; 3], 0.4, 0.0, None, None, [None; 6]);
     let l: Vec<(M4, Range)> = d.iter().map(|x| (x.m, x.r)).collect(); draw(&mut img, &mut zb, w, h, &md, &l, 0.0, 480.0);
-    let d = anim.third(&md, [0.0; 3], 2.8, 0.0, None, None, [Some("iron"), Some("iron"), Some("leather"), Some("leather"), Some("leather"), Some("iron")]);
+    let d = anim.third(&md, [0.0; 3], 0.9, 0.0, None, None, [Some("iron"), Some("iron"), Some("leather"), Some("leather"), Some("leather"), Some("iron")]);
     let l: Vec<(M4, Range)> = d.iter().map(|x| (x.m, x.r)).collect(); draw(&mut img, &mut zb, w, h, &md, &l, 0.0, 640.0);
     let mut out = format!("P6 {w} {h} 255\n").into_bytes(); for p in &img { out.extend_from_slice(p); } std::fs::write(std::env::args().nth(1).unwrap(), out).unwrap();
 }

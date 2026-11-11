@@ -227,7 +227,7 @@ impl Session {
     pub(crate) fn block(&mut self, from: [f64; 3], n: f64) -> f64 {
         let Some(sh) = self.shield() else { return n }; if self.guard_t < 0.0 { return n; }
         let (dx, dz) = (from[0] - self.player.p[0], from[2] - self.player.p[2]); let d = dx.hypot(dz).max(0.01);
-        if (dx * self.look[0] + dz * self.look[2]) / d / self.look[0].hypot(self.look[2]).max(0.01) < 0.35 { return n; } // de côté ou de dos : la garde ne couvre pas
+        if (dx * self.look[0] + dz * self.look[2]) / d / self.look[0].hypot(self.look[2]).max(0.01) < 0.05 { return n; } // de côté ou de dos : la garde ne couvre pas
         let armor = def(sh.item).and_then(|d| d.wear).map_or(0.0, |w| w.armor); self.wear_equip(SLOTS.iter().position(|s| s.0 == crate::data::Slot::Hand).unwrap_or(5), 1);
         if self.guard_t <= PARRY_T { if let Some(k) = self.wild.nearest(from) { self.wild.stagger(k, self.player.p, 2.0); } self.notes.push("Parade !".into()); self.sound.thump(from); self.skills[2] += 0.5; return 0.0; }
         let stop = block_share(armor); let cost = n * stop * 0.8; let ok = self.creative || self.stamina >= cost; if !self.creative { self.spend(cost); }

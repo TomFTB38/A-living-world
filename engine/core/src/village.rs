@@ -359,7 +359,7 @@ impl Town {
                 // On monte et descend avec le sol (rues en pente, marches, escalier), sans à-coup ; sol inconnu : l'altitude du chemin.
                 let gy = ground(f.p[0], f.p[1], f.p[2]).unwrap_or(q[1]); f.p[1] += (gy - f.p[1]).clamp(-dt * 6.0, dt * 6.0);
             } else {
-                f.moving = false;
+                f.moving = false; if !f.working { f.phase += dt; }
                 if goal.0 == 1 { let Some(v) = self.village(f.v) else { continue }; let (bx, bz) = dir(v.houses[f.house].back); f.yaw = (bx as f64).atan2(bz as f64); f.working = true; f.phase += dt * 5.0; }
                 // Arrêté près du joueur, on se tourne vers lui.
                 if !f.working && near < 4.0 && f.scared <= 0.0 { f.yaw = (me[0] - f.p[0]).atan2(me[2] - f.p[2]); }
@@ -381,16 +381,49 @@ impl Town {
         // Chacun commence là où sa journée le veut.
         for k in base..self.folk.len() { let (g, at) = self.want(&self.folk[k], k, hour); self.folk[k].p = at; self.folk[k].goal = g; }
     }
+    /// Les villageois ont leurs propres gestes : une démarche balancée (épaules et hanches en opposition, tête qui suit),
+    /// au repos une respiration, un regard qui fait le tour, une posture à eux (bras ballants, mains dans le dos, bras croisés) ;
+    /// en conversation, ils hochent la tête et parlent avec les mains ; au travail, le geste de leur métier, l'outil à la main.
     pub fn draws(&self, md: &Models) -> Vec<Draw> {
-        let mut out = Vec::with_capacity(self.folk.len() * 6);
-        for f in &self.folk {
+        let mut out = Vec::with_capacity(self.folk.len() * 7);
+        let talking = self.talk.as_ref().map(|t| t.who);
+        for (i, f) in self.folk.iter().enumerate() {
             let base = trs(f.p[0], f.p[1], f.p[2], f.yaw, 0.0, 1.0); let mut put = |n: &str, m| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 });
-            let s = if f.moving { f.phase.sin() * 0.6 } else { 0.0 };
-            let l = f.look.min(8); let face = f.name.bytes().map(|b| b as usize).sum::<usize>() % 6; let bob = if f.moving { (f.phase * 2.0).sin().abs() * 0.03 } else { 0.0 };
-            let body = mul(&base, &trs(0.0, bob, 0.0, 0.0, 0.0, 1.0)); put(&format!("folk{l}"), body); put(&format!("folkHead{face}"), mul(&body, &trs(0.0, 1.4, 0.0, 0.0, 0.0, 1.0)));
-            put(&format!("folkLeg{l}"), mul(&base, &trs(-0.125, 0.76, 0.0, 0.0, s, 1.0))); put(&format!("folkLeg{l}"), mul(&base, &trs(0.125, 0.76, 0.0, 0.0, -s, 1.0)));
-            let work = if f.working { -1.2 - 0.9 * (f.phase * 1.4).sin().max(0.0) } else { -s };
-            put(&format!("folkArm{l}"), mul(&body, &trs(-0.35, 1.34, 0.0, 0.0, s, 1.0))); put(&format!("folkArm{l}"), mul(&body, &trs(0.35, 1.34, 0.0, 0.0, work, 1.0)));
+            let l = f.look.min(8); let seed = f.name.bytes().map(|b| b as usize).sum::<usize>(); let face = seed % 6; let t = f.phase; let k = (seed % 7) as f64;
+            #[allow(unused_assignments)] let (mut leg_l, mut leg_r, mut arm_l, mut arm_r, mut yaw_l, mut yaw_r) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+            let (mut lean, mut bob, mut head_yaw, mut head_pitch) = (0.0, 0.0, 0.0, 0.0); let mut tool: Option<&str> = None;
+            if f.moving {
+                // La marche : grandes enjambées, bras opposés aux jambes, un léger rebond, le buste un peu en avant.
+                let s = t.sin(); let fast = f.scared > 0.0; let amp = if fast { 0.85 } else { 0.55 };
+                leg_l = s * amp; leg_r = -s * amp; arm_l = -s * amp * 0.75; arm_r = s * amp * 0.75; bob = (t * 2.0).sin().abs() * 0.035; lean = if fast { 0.18 } else { 0.05 }; head_yaw = (t * 0.5).sin() * 0.08;
+            } else if f.working {
+                // Le geste du métier, dans son rythme.
+                match f.craft {
+                    Some("forgeron") | Some("maitre_forgeron") | Some("armurier") => {
+                        let c = (t * 0.28).fract(); let up = if c < 0.62 { let e = c / 0.62; e * e * (3.0 - 2.0 * e) } else { 1.0 - ((c - 0.62) / 0.38).powf(0.6) };
+                        arm_r = -0.75 - 1.75 * up; arm_l = -0.95; yaw_l = 0.35; lean = 0.12 + 0.06 * (1.0 - up); head_pitch = 0.25; tool = Some("iron_hammer");
+                    }
+                    Some("tailleur_pierre") => { arm_l = -1.05; yaw_l = 0.3; arm_r = -1.0 - 0.32 * (t * 1.1).sin().abs(); yaw_r = -0.25; lean = 0.2; head_pitch = 0.35; tool = Some("stone_hammer"); }
+                    Some("tanneur") => { let sw = (t * 0.32).sin(); arm_l = -1.05 + 0.28 * sw; arm_r = -1.05 + 0.28 * sw; yaw_l = 0.25; yaw_r = -0.25; lean = 0.28 + 0.06 * sw; head_pitch = 0.3; tool = Some("iron_knife"); }
+                    Some("maitre_menuisier") => { let sw = (t * 0.45).sin(); arm_r = -1.0 + 0.4 * sw; arm_l = -0.7; yaw_l = 0.3; lean = 0.18 + 0.04 * sw; head_pitch = 0.3; tool = Some("axe"); }
+                    _ => { arm_r = -1.2 - 0.9 * (t * 1.4).sin().max(0.0); }
+                }
+            } else if talking == Some(i) {
+                // En conversation : il hoche la tête et accompagne ses mots de la main.
+                head_pitch = 0.06 * (t * 2.6).sin(); arm_r = -0.55 - 0.3 * (t * 1.7).sin().max(0.0); yaw_r = -0.25; arm_l = 0.05 * (t * 0.9).sin();
+                if seed % 2 == 0 { arm_l = -0.4 - 0.2 * (t * 1.3 + 1.0).sin().max(0.0); yaw_l = 0.2; }
+            } else {
+                // Au repos : il respire, regarde autour de lui de temps en temps, garde sa posture.
+                bob = 0.008 * (t * 0.9).sin(); let look = (t * 0.11 + k).sin(); head_yaw = if look.abs() > 0.55 { look.signum() * (look.abs() - 0.55) * 1.6 } else { 0.0 }; head_pitch = 0.04 * (t * 0.07 + k).sin();
+                match seed % 3 { 0 => { arm_l = 0.04 * (t * 0.6).sin(); arm_r = -0.04 * (t * 0.6).sin(); } 1 => { arm_l = 0.38; arm_r = 0.38; yaw_l = -0.3; yaw_r = 0.3; } _ => { arm_l = -0.95; arm_r = -0.95; yaw_l = 0.75; yaw_r = -0.75; } }
+                if seed % 5 == 0 { leg_l = 0.06; leg_r = -0.04; }
+            }
+            let hip = 0.76; let body = mul(&base, &mul(&trs(0.0, hip + bob, 0.0, 0.0, lean, 1.0), &trs(0.0, -hip, 0.0, 0.0, 0.0, 1.0)));
+            put(&format!("folk{l}"), body); put(&format!("folkHead{face}"), mul(&body, &trs(0.0, 1.4, 0.0, head_yaw, head_pitch, 1.0)));
+            put(&format!("folkLeg{l}"), mul(&base, &trs(-0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_l, 1.0))); put(&format!("folkLeg{l}"), mul(&base, &trs(0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_r, 1.0)));
+            let al = mul(&body, &trs(-0.35, 1.34, 0.0, yaw_l, arm_l, 1.0)); let ar = mul(&body, &trs(0.35, 1.34, 0.0, yaw_r, arm_r, 1.0));
+            put(&format!("folkArm{l}"), al); put(&format!("folkArm{l}"), ar);
+            if let Some(h) = tool.and_then(|n| md.held(n)) { out.push(Draw { m: mul(&ar, &mul(&trs(0.0, 0.0, 0.0, 0.0, 0.0, 1.0), &crate::actors::hold_m(h.hold))), r: h.r, view: false, local: h.local, hero: false, dynamic: false, hurt: 0.0 }); }
         }
         out
     }

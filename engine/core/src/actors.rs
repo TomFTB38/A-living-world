@@ -59,37 +59,57 @@ const BULK: M4 = [1.15, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.15, 0.0, 
 /// Habits portés, par matière : fourrure, cuir, fer, acier, paille, bois, étoffe. Des coques un peu plus larges que le corps.
 pub const FAMILIES: [&str; 7] = ["fur", "leather", "iron", "steel", "straw", "wooden", "cloth"];
 pub fn family(id: &str) -> &'static str { FAMILIES.iter().find(|f| id.contains(*f)).copied().unwrap_or(if id == "backpack" { "leather" } else { "cloth" }) }
+/// Le bouclier dans son repère : `u` en largeur, `v` en hauteur, `w` en épaisseur (la face peinte vers -w, la poignée vers +w).
+/// Des planches de teintes un peu différentes, joints sombres, cerclage riveté, umbo bombé, sangle et poignée ; un écu à la pointe arrondie.
+/// `map` place chaque boîte dans le repère du modèle (de dos en première personne, au bras en troisième).
+fn shield_mesh(q: &mut VBuf, a: C, d: C, metal: bool, map: &dyn Fn([f64; 6]) -> [f64; 6]) {
+    let k = 1.22; let mut bx_ = |bb: [f64; 6], c: C| { let t = map([bb[0] * k, bb[1] * k, bb[2], bb[3] * k, bb[4] * k, bb[5]]); b(q, t, c); };
+    let rows: [(f64, f64, f64); 3] = [(-0.16, 0.26, 0.2), (-0.3, -0.16, 0.14), (-0.38, -0.3, 0.06)];
+    bx_([-0.196, -0.156, -0.008, 0.196, 0.256, 0.008], d); bx_([-0.136, -0.296, -0.008, 0.136, -0.16, 0.008], d); bx_([-0.056, -0.376, -0.008, 0.056, -0.3, 0.008], d);
+    for i in 0..5 { let (x0, x1) = (-0.2 + i as f64 * 0.08 + 0.0035, -0.2 + (i + 1) as f64 * 0.08 - 0.0035); let t = [1.0, 0.88, 1.07, 0.93, 1.03][i]; let c = if metal { [a[0] * (0.96 + 0.04 * t), a[1] * (0.96 + 0.04 * t), a[2] * (0.96 + 0.04 * t)] } else { [a[0] * t, a[1] * t, a[2] * t] };
+        for (y0, y1, w) in rows { let (l, r) = (x0.max(-w), x1.min(w)); if r > l { bx_([l, y0, -0.015, r, y1, 0.015], c); } } }
+    let rim = [d[0] * 0.8, d[1] * 0.8, d[2] * 0.8]; let rv = [d[0] * 1.5, d[1] * 1.5, d[2] * 1.5];
+    bx_([-0.21, 0.245, -0.022, 0.21, 0.275, 0.022], rim); bx_([-0.21, -0.16, -0.022, -0.18, 0.26, 0.022], rim); bx_([0.18, -0.16, -0.022, 0.21, 0.26, 0.022], rim);
+    bx_([-0.15, -0.3, -0.022, -0.12, -0.16, 0.022], rim); bx_([0.12, -0.3, -0.022, 0.15, -0.16, 0.022], rim); bx_([-0.07, -0.39, -0.022, 0.07, -0.36, 0.022], rim);
+    for (x, y) in [(-0.195, 0.2), (-0.195, 0.05), (-0.195, -0.1), (0.195, 0.2), (0.195, 0.05), (0.195, -0.1), (-0.1, 0.26), (0.0, 0.26), (0.1, 0.26), (-0.135, -0.24), (0.135, -0.24)] { bx_([x - 0.009, y - 0.009, -0.027, x + 0.009, y + 0.009, 0.027], rv); }
+    // Face avant : l'umbo de métal bombé ; au dos, la sangle et la poignée.
+    bx_([-0.07, -0.02, -0.05, 0.07, 0.12, -0.015], rv); bx_([-0.045, 0.005, -0.065, 0.045, 0.095, -0.05], [rv[0] * 1.1, rv[1] * 1.1, rv[2] * 1.1]);
+    bx_([-0.18, 0.13, 0.015, 0.18, 0.16, 0.03], [0.32, 0.2, 0.11]);
+    bx_([-0.022, -0.05, 0.015, 0.022, 0.15, 0.045], [0.3, 0.19, 0.11]); bx_([-0.026, -0.03, 0.015, 0.026, -0.01, 0.05], [0.2, 0.13, 0.08]); bx_([-0.026, 0.11, 0.015, 0.026, 0.13, 0.05], [0.2, 0.13, 0.08]);
+}
 fn outfit_parts() -> Vec<(&'static str, VBuf)> {
-    const SLOT: [&str; 7] = ["head", "torso", "thigh", "shin", "back", "shield", "fpshield"];
+    const SLOT: [&str; 8] = ["head", "torso", "arm", "thigh", "shin", "back", "shield", "fpshield"];
     let mut o = Vec::new();
     for f in FAMILIES {
-        let (a, d): (C, C) = match f { "fur" => ([0.6, 0.47, 0.32], [0.76, 0.64, 0.48]), "leather" => ([0.42, 0.26, 0.13], [0.3, 0.18, 0.09]), "iron" => ([0.56, 0.56, 0.58], [0.4, 0.4, 0.42]), "steel" => ([0.42, 0.47, 0.54], [0.3, 0.33, 0.38]), "straw" => ([0.8, 0.68, 0.38], [0.66, 0.54, 0.28]), "wooden" => ([0.52, 0.35, 0.18], [0.36, 0.24, 0.12]), _ => ([0.46, 0.5, 0.36], [0.34, 0.37, 0.26]) };
-        let metal = f == "iron" || f == "steel";
+        let (a, d): (C, C) = match f { "fur" => ([0.6, 0.47, 0.32], [0.78, 0.68, 0.52]), "leather" => ([0.44, 0.27, 0.14], [0.3, 0.18, 0.09]), "iron" => ([0.6, 0.6, 0.62], [0.4, 0.4, 0.42]), "steel" => ([0.5, 0.55, 0.62], [0.32, 0.35, 0.4]), "straw" => ([0.82, 0.7, 0.4], [0.68, 0.56, 0.3]), "wooden" => ([0.55, 0.37, 0.19], [0.32, 0.22, 0.12]), _ => ([0.5, 0.52, 0.38], [0.36, 0.38, 0.27]) };
+        let metal = f == "iron" || f == "steel"; let hi = [(a[0] * 1.18).min(1.0), (a[1] * 1.18).min(1.0), (a[2] * 1.18).min(1.0)]; let dark = [d[0] * 0.7, d[1] * 0.7, d[2] * 0.7];
         for slot in SLOT {
-            let mut m = VBuf::new(200); let q = &mut m;
+            let mut m = VBuf::new(300); let q = &mut m;
             match slot {
-                "head" => if f == "straw" { b(q, [-0.18, 0.3, -0.19, 0.18, 0.46, 0.19], a); b(q, [-0.3, 0.3, -0.3, 0.3, 0.33, 0.3], d); }
-                    else if metal { b(q, [-0.19, 0.2, -0.2, 0.19, 0.42, 0.2], a); b(q, [-0.2, 0.18, -0.21, 0.2, 0.23, 0.21], d); b(q, [-0.02, 0.06, 0.19, 0.02, 0.22, 0.215], d); }
-                    else { b(q, [-0.19, 0.26, -0.2, 0.19, 0.42, 0.2], a); b(q, [-0.195, 0.24, -0.205, 0.195, 0.28, 0.205], d); },
-                "torso" => { b(q, [-0.24, 0.02, -0.14, 0.24, 0.6, 0.14], a); b(q, [-0.215, -0.16, -0.135, 0.215, 0.02, 0.135], d); if metal { b(q, [-0.26, 0.48, -0.15, 0.26, 0.62, 0.15], d); } if f == "fur" { b(q, [-0.25, 0.52, -0.15, 0.25, 0.64, 0.15], d); } }
-                "thigh" => { b(q, [-0.108, -THIGH - 0.02, -0.113, 0.108, 0.01, 0.113], a); if metal { b(q, [-0.112, -0.2, 0.09, 0.112, -0.06, 0.118], d); } }
-                "shin" => { b(q, [-0.112, -0.38, -0.112, 0.112, -0.14, 0.118], a); b(q, [-0.114, -0.38, -0.114, 0.114, -0.34, 0.15], d); }
-                "back" => { b(q, [-0.19, 0.06, -0.38, 0.19, 0.56, -0.13], a); b(q, [-0.15, 0.1, -0.41, 0.15, 0.32, -0.37], d); }
-                // Le bouclier vu de l'arrière, en première personne : planches, cerclage, umbo, poignée.
-                "fpshield" => {
-                    // Le bouclier vu de l'arrière : des planches de teintes un peu différentes, joints sombres, cerclage riveté, umbo, sangle et poignée.
-                    let rows: [(f64, f64, f64); 3] = [(-0.16, 0.26, 0.2), (-0.3, -0.16, 0.14), (-0.38, -0.3, 0.06)];
-                    b(q, [-0.196, -0.156, -0.008, 0.196, 0.256, 0.008], d); b(q, [-0.136, -0.296, -0.008, 0.136, -0.16, 0.008], d); b(q, [-0.056, -0.376, -0.008, 0.056, -0.3, 0.008], d);
-                    for k in 0..5 { let (x0, x1) = (-0.2 + k as f64 * 0.08 + 0.0035, -0.2 + (k + 1) as f64 * 0.08 - 0.0035); let t = [1.0, 0.88, 1.07, 0.93, 1.03][k]; let c = [a[0] * t, a[1] * t, a[2] * t];
-                        for (y0, y1, w) in rows { let (l, r) = (x0.max(-w), x1.min(w)); if r > l { b(q, [l, y0, -0.015, r, y1, 0.015], c); } } }
-                    let rim = [d[0] * 0.8, d[1] * 0.8, d[2] * 0.8]; let rv = [d[0] * 1.5, d[1] * 1.5, d[2] * 1.5];
-                    b(q, [-0.21, 0.245, -0.022, 0.21, 0.275, 0.022], rim); b(q, [-0.21, -0.16, -0.022, -0.18, 0.26, 0.022], rim); b(q, [0.18, -0.16, -0.022, 0.21, 0.26, 0.022], rim);
-                    b(q, [-0.15, -0.3, -0.022, -0.12, -0.16, 0.022], rim); b(q, [0.12, -0.3, -0.022, 0.15, -0.16, 0.022], rim); b(q, [-0.07, -0.39, -0.022, 0.07, -0.36, 0.022], rim);
-                    for (x, y) in [(-0.195, 0.2), (-0.195, 0.05), (-0.195, -0.1), (0.195, 0.2), (0.195, 0.05), (0.195, -0.1), (-0.1, 0.26), (0.0, 0.26), (0.1, 0.26), (-0.135, -0.24), (0.135, -0.24)] { b(q, [x - 0.009, y - 0.009, -0.027, x + 0.009, y + 0.009, -0.02], rv); }
-                    b(q, [-0.06, 0.0, -0.032, 0.06, 0.11, -0.015], rim); b(q, [-0.18, 0.13, -0.03, 0.18, 0.16, -0.014], [0.32, 0.2, 0.11]); // umbo vu de dos, sangle
-                    b(q, [-0.022, -0.05, 0.015, 0.022, 0.15, 0.045], [0.3, 0.19, 0.11]); b(q, [-0.026, -0.03, 0.015, 0.026, -0.01, 0.05], [0.2, 0.13, 0.08]); b(q, [-0.026, 0.11, 0.015, 0.026, 0.13, 0.05], [0.2, 0.13, 0.08]);
+                // Tous les couvre-chefs enveloppent la chevelure (qui monte à 0,5 et déborde de 0,215 devant et derrière).
+                "head" => if f == "straw" { b(q, [-0.2, 0.3, -0.21, 0.2, 0.52, 0.22], a); b(q, [-0.34, 0.3, -0.35, 0.34, 0.335, 0.36], d); b(q, [-0.205, 0.335, -0.215, 0.205, 0.375, 0.225], [0.36, 0.18, 0.12]); }
+                    else if metal { b(q, [-0.21, 0.2, -0.225, 0.21, 0.47, 0.232], a); b(q, [-0.17, 0.47, -0.185, 0.17, 0.53, 0.195], hi); b(q, [-0.215, 0.18, -0.23, 0.215, 0.24, 0.237], d);
+                        b(q, [-0.022, 0.05, 0.232, 0.022, 0.24, 0.25], d); for sx in [-1.0, 1.0] { let (x0, x1) = if sx < 0.0 { (-0.222, -0.195) } else { (0.195, 0.222) }; b(q, [x0, 0.03, -0.06, x1, 0.2, 0.17], a); } b(q, [-0.205, 0.06, -0.245, 0.205, 0.22, -0.215], d);
+                        b(q, [-0.012, 0.47, -0.19, 0.012, 0.545, 0.2], d); }
+                    else if f == "fur" { b(q, [-0.22, 0.27, -0.235, 0.22, 0.53, 0.245], a); b(q, [-0.228, 0.23, -0.243, 0.228, 0.33, 0.253], d); b(q, [-0.24, 0.02, -0.12, -0.2, 0.28, 0.12], d); b(q, [0.2, 0.02, -0.12, 0.24, 0.28, 0.12], d); }
+                    else { b(q, [-0.205, 0.25, -0.222, 0.205, 0.47, 0.23], a); b(q, [-0.165, 0.47, -0.18, 0.165, 0.515, 0.19], a); b(q, [-0.21, 0.23, -0.226, 0.21, 0.285, 0.234], d); for x in [-0.08, 0.0, 0.08] { b(q, [x - 0.008, 0.29, 0.23, x + 0.008, 0.46, 0.236], d); } },
+                "torso" => {
+                    b(q, [-0.238, -0.02, -0.148, 0.238, 0.6, 0.148], a); b(q, [-0.225, -0.2, -0.142, 0.225, -0.0, 0.142], d); b(q, [-0.242, -0.02, -0.152, 0.242, 0.04, 0.152], dark);
+                    if metal { b(q, [-0.19, 0.18, 0.148, 0.19, 0.56, 0.168], hi); b(q, [-0.012, 0.18, 0.168, 0.012, 0.56, 0.174], d); for sx in [-1.0, 1.0] { let (x0, x1) = if sx < 0.0 { (-0.36, -0.19) } else { (0.19, 0.36) }; b(q, [x0, 0.48, -0.165, x1, 0.62, 0.165], a); b(q, [x0, 0.44, -0.168, x1, 0.49, 0.168], d); }
+                        for y in [-0.16, -0.1, -0.04] { b(q, [-0.228, y, -0.146, 0.228, y + 0.035, 0.146], a); } for (x, y) in [(-0.15, 0.53), (0.15, 0.53), (-0.15, 0.22), (0.15, 0.22)] { b(q, [x - 0.012, y - 0.012, 0.168, x + 0.012, y + 0.012, 0.176], dark); } }
+                    else if f == "fur" { b(q, [-0.26, 0.5, -0.17, 0.26, 0.66, 0.17], d); b(q, [-0.24, -0.22, -0.155, 0.24, -0.14, 0.155], d); b(q, [-0.06, 0.04, 0.148, 0.06, 0.5, 0.156], d); }
+                    else if f == "leather" { b(q, [-0.018, 0.08, 0.148, 0.018, 0.56, 0.155], dark); for y in [0.14, 0.24, 0.34, 0.44] { b(q, [-0.045, y, 0.148, 0.045, y + 0.015, 0.156], [0.62, 0.52, 0.36]); } b(q, [-0.2, 0.52, -0.155, 0.2, 0.61, 0.155], d); }
+                    else { b(q, [-0.1, 0.42, 0.148, 0.1, 0.6, 0.154], d); }
                 }
-                _ => { b(q, [0.075, -0.26, -0.2, 0.1, 0.14, 0.2], a); b(q, [0.1, -0.08, -0.04, 0.13, -0.04, 0.04], d); b(q, [0.072, -0.27, -0.21, 0.098, -0.24, 0.21], d); b(q, [0.072, 0.11, -0.21, 0.098, 0.14, 0.21], d); }
+                // Manches ou spalières sur le haut du bras, au-dessus de la bretelle.
+                "arm" => { b(q, [-0.096, -UPPER - 0.02, -0.1, 0.096, 0.062, 0.1], a); if metal { b(q, [-0.104, -UPPER - 0.04, -0.106, 0.104, -UPPER + 0.03, 0.106], d); b(q, [-0.1, -0.08, -0.104, 0.1, -0.05, 0.104], d); } else if f == "fur" { b(q, [-0.1, -UPPER - 0.035, -0.104, 0.1, -UPPER + 0.02, 0.104], d); } else { b(q, [-0.099, -UPPER - 0.03, -0.103, 0.099, -UPPER + 0.0, 0.103], d); } }
+                "thigh" => { b(q, [-0.112, -THIGH - 0.03, -0.117, 0.112, 0.035, 0.117], a); if metal { b(q, [-0.106, -0.32, 0.117, 0.106, -0.04, 0.132], hi); b(q, [-0.118, -THIGH - 0.06, -0.06, 0.118, -THIGH + 0.04, 0.135], d); } else { b(q, [-0.116, -0.02, -0.12, 0.116, 0.035, 0.12], d); } }
+                "shin" => { b(q, [-0.112, -0.43, -0.12, 0.112, -0.12, 0.124], a); b(q, [-0.106, -0.43, 0.1, 0.106, -0.31, 0.218], a); b(q, [-0.11, -0.445, -0.125, 0.11, -0.415, 0.223], dark); b(q, [-0.117, -0.17, -0.126, 0.117, -0.11, 0.13], d);
+                    if metal { b(q, [-0.09, -0.38, 0.124, 0.09, -0.16, 0.138], hi); } }
+                "back" => { b(q, [-0.19, 0.06, -0.38, 0.19, 0.56, -0.13], a); b(q, [-0.15, 0.1, -0.41, 0.15, 0.32, -0.37], d); }
+                "fpshield" => shield_mesh(q, a, d, metal, &|bb| bb),
+                // Au bras, la face peinte vers l'extérieur (+x), la poignée contre l'avant-bras.
+                _ => shield_mesh(q, a, d, metal, &|bb| [0.13 - bb[5], bb[1] - 0.06, bb[0], 0.13 - bb[2], bb[4] - 0.06, bb[3]]),
             }
             o.push((Box::leak(format!("wear_{slot}_{f}").into_boxed_str()) as &'static str, m));
         }
@@ -99,7 +119,10 @@ fn outfit_parts() -> Vec<(&'static str, VBuf)> {
 fn thigh() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.1, -THIGH - 0.03, -0.105, 0.1, 0.02, 0.105], PANTS); b(&mut o, [-0.103, -0.26, -0.03, 0.103, -0.13, 0.108], PANTS2); o }
 fn shin() -> VBuf { let mut o = VBuf::new(100); b(&mut o, [-0.09, -0.18, -0.09, 0.09, 0.02, 0.095], PANTS); b(&mut o, [-0.105, -0.22, -0.105, 0.105, -0.13, 0.11], BOOT); b(&mut o, [-0.098, -0.37, -0.1, 0.098, -0.2, 0.105], BOOT); b(&mut o, [-0.098, -0.4, -0.11, 0.098, -0.32, 0.2], BOOT); b(&mut o, [-0.102, -0.42, -0.115, 0.102, -0.395, 0.205], SOLE); o }
 fn upper() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.082, -UPPER - 0.03, -0.085, 0.082, 0.03, 0.085], TUNIC); b(&mut o, [-0.09, -0.03, -0.095, 0.09, 0.05, 0.095], STRAP); o }
-fn fore() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.075, -0.09, -0.078, 0.075, 0.03, 0.078], TUNIC2); b(&mut o, [-0.062, -0.21, -0.065, 0.062, -0.09, 0.065], SKIN); b(&mut o, [-0.072, -0.235, -0.074, 0.072, -0.185, 0.074], LEATHER2); b(&mut o, [-0.066, -0.295, -0.07, 0.066, -0.23, 0.07], SKIN); o }
+fn fore() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.075, -0.09, -0.078, 0.075, 0.03, 0.078], TUNIC2); b(&mut o, [-0.062, -0.21, -0.065, 0.062, -0.09, 0.065], SKIN); b(&mut o, [-0.072, -0.235, -0.074, 0.072, -0.185, 0.074], LEATHER2); b(&mut o, [-0.066, -0.295, -0.07, 0.066, -0.23, 0.07], SKIN);
+    // Les doigts, un peu repliés vers l'avant, et le pouce.
+    for k in 0..4 { let x = -0.058 + k as f64 * 0.03; b(&mut o, [x, -0.355, -0.03, x + 0.026, -0.29, 0.06], if k % 2 == 0 { SKIN } else { SKIN2 }); b(&mut o, [x + 0.002, -0.37, 0.02, x + 0.024, -0.345, 0.07], SKIN2); }
+    b(&mut o, [-0.02, -0.3, 0.065, 0.024, -0.24, 0.095], SKIN2); b(&mut o, [-0.016, -0.33, 0.07, 0.02, -0.29, 0.1], SKIN); o }
 fn fist() -> VBuf {
     // Le bras vu en première personne : manche à revers, brassard de cuir sanglé, poignet, main serrée (phalanges, pouce).
     let mut o = VBuf::new(400); let q = &mut o;
@@ -241,14 +264,43 @@ pub fn cube_at(o: &mut VBuf, id: crate::blocks::Id, at: [f64; 3]) {
     q(3, [[0., 0., 1.], [1., 0., 1.], [1., 1., 1.], [0., 1., 1.]], [0., 0., 1.]); q(3, [[1., 0., 0.], [0., 0., 0.], [0., 1., 0.], [1., 1., 0.]], [0., 0., -1.]);
     q(0, [[1., 0., 1.], [1., 0., 0.], [1., 1., 0.], [1., 1., 1.]], [1., 0., 0.]); q(0, [[0., 0., 0.], [0., 0., 1.], [0., 1., 1.], [0., 1., 0.]], [-1., 0., 0.]);
 }
+/// Une icône d'équipement tirée de ce que l'on porte vraiment : le casque, la cuirasse et ses manches, deux jambières, deux bottes,
+/// le sac, le bouclier de face. Ramenée dans le cube unité, posée au sol, comme un objet décoratif.
+fn wear_icon(parts: &[(&'static str, VBuf)], slot: crate::data::Slot, f: &str) -> Option<VBuf> {
+    use crate::data::Slot;
+    let get = |n: &str| parts.iter().find(|(k, _)| *k == format!("wear_{n}_{f}")).map(|(_, v)| v);
+    let pieces: Vec<(&VBuf, [f64; 3])> = match slot {
+        Slot::Head => vec![(get("head")?, [0.0; 3])],
+        Slot::Torso => vec![(get("torso")?, [0.0; 3]), (get("arm")?, [0.31, 0.56, 0.0]), (get("arm")?, [-0.31, 0.56, 0.0])],
+        Slot::Legs => vec![(get("thigh")?, [0.14, 0.0, 0.0]), (get("thigh")?, [-0.14, 0.0, 0.0])],
+        Slot::Feet => vec![(get("shin")?, [0.15, 0.0, 0.0]), (get("shin")?, [-0.15, 0.0, 0.0])],
+        Slot::Back => vec![(get("back")?, [0.0; 3])],
+        Slot::Hand => vec![(get("fpshield")?, [0.0; 3])],
+    };
+    let rd = |v: &[u8], k: usize| i16::from_le_bytes([v[k], v[k + 1]]) as f64 / 128.0;
+    let (mut lo, mut hi) = ([f64::MAX; 3], [f64::MIN; 3]);
+    for (m, d) in &pieces { for v in m.data.chunks_exact(VSIZE) { for k in 0..3 { let x = rd(v, k * 2) + d[k]; lo[k] = lo[k].min(x); hi[k] = hi[k].max(x); } } }
+    let sc = 0.86 / (hi[0] - lo[0]).max(hi[1] - lo[1]).max(hi[2] - lo[2]).max(0.01); let c = [(lo[0] + hi[0]) * 0.5, lo[1], (lo[2] + hi[2]) * 0.5];
+    let mut o = VBuf::new(0);
+    for (m, d) in &pieces { let mut data = m.data.clone();
+        // Le bouclier tourne d'un demi-tour : on voit sa face peinte et son umbo.
+        let turn = slot == Slot::Hand;
+        for v in data.chunks_exact_mut(VSIZE) { for k in 0..3 { let mut x = (rd(v, k * 2) + d[k] - c[k]) * sc; if turn && k != 1 { x = -x; } x += if k == 1 { 0.02 } else { 0.5 }; let q = ((x * 128.0).round() as i16).to_le_bytes(); v[k * 2] = q[0]; v[k * 2 + 1] = q[1]; }
+            if turn { for k in [8usize, 10] { v[k] = (v[k] as i8).wrapping_neg() as u8; } } }
+        o.data.extend_from_slice(&data); o.n += m.n; }
+    Some(o)
+}
 impl Models {
     pub fn build() -> Self {
         let mut all = VBuf::new(5000); let mut parts = HashMap::new();
         for (n, m) in [("torso", torso()), ("head", head()), ("thigh", thigh()), ("shin", shin()), ("upper", upper()), ("fore", fore()), ("fist", fist())] { let r = take(&mut all, m); parts.insert(n, r); }
-        for (n, m) in outfit_parts() { let r = take(&mut all, m); parts.insert(n, r); }
+        let outfits = outfit_parts(); let mut icons: HashMap<&'static str, VBuf> = HashMap::new();
+        for name in order() { if let Some(w) = crate::data::def(name).and_then(|d| d.wear) { if let Some(o) = wear_icon(&outfits, w.slot, family(name)) { icons.insert(name, o); } } }
+        for (n, m) in outfits { let r = take(&mut all, m); parts.insert(n, r); }
         let char_verts = all.n; let mut items = HashMap::new(); let mv = Mesher::new();
         for name in order() {
             let it = item(name).unwrap(); let (o, hold) = match it.block {
+                None if icons.contains_key(name) => (icons.remove(name).unwrap(), Hold::Deco),
                 None => (tool_mesh(name), Hold::Tool),
                 // Dans le monde, le polypore se dessine contre son arbre : tenu ou en icône, il n'a pas de support.
                 Some(id) if id == B::SHELF_FUNGUS => { let mut o = VBuf::new(60); for (y, w, t) in [(0.12, 0.42, 1.0), (0.38, 0.33, 1.08), (0.62, 0.24, 0.94)] { b(&mut o, [0.5 - w, y, 0.5 - w, 0.5 + w, y + 0.09, 0.5 + w], [0.82 * t, 0.68 * t, 0.5 * t]); } (o, Hold::Deco) }
@@ -283,7 +335,7 @@ impl Models {
 }
 /// Un morceau à dessiner : matrice, plage d'indices, et la façon de le traiter.
 #[derive(Clone, Copy, Debug)] pub struct Draw { pub m: M4, pub r: Range, pub view: bool, pub local: bool, pub hero: bool, pub dynamic: bool, /** coup reçu, de 0 à 1 : la bête rougit */ pub hurt: f32 }
-fn hold_m(h: Hold) -> M4 { match h { Hold::Tool => mul(&trs(0.0, -0.58, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.0), &roll_z(-std::f64::consts::FRAC_PI_4)), Hold::Block => trs(-0.14, -0.76, -0.14, 0.0, 0.0, 0.28), Hold::Deco => trs(-0.28, -0.72, -0.1, 0.0, 0.0, 0.55) } }
+pub(crate) fn hold_m(h: Hold) -> M4 { match h { Hold::Tool => mul(&trs(0.0, -0.58, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.0), &roll_z(-std::f64::consts::FRAC_PI_4)), Hold::Block => trs(-0.14, -0.76, -0.14, 0.0, 0.0, 0.28), Hold::Deco => trs(-0.28, -0.72, -0.1, 0.0, 0.0, 0.55) } }
 #[derive(Default, Clone, Copy)] pub struct AnimIn { pub speed: f64, pub ground: bool, pub vy: f64, pub crouch: bool, pub fly: bool, pub mining: bool, pub guard: bool }
 #[derive(Default)] pub struct Anim { /** arc bandé, de 0 à 1 */ pub bow: f64, phase: f64, walk: f64, run: f64, low: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64, /** garde levée, de 0 à 1 */ pub guard: f64 }
 impl Anim {
@@ -329,8 +381,8 @@ impl Anim {
         if let Some(n) = wear(0, "head") { put(&n, hd); } if let Some(n) = wear(1, "torso") { put(&n, t); } if let Some(n) = wear(4, "back") { put(&n, t); }
         for (x, h, k) in [(0.105, hip_l, knee_l), (-0.105, hip_r, knee_r)] { let m = mul(&base, &trs(x, hip_y, 0.0, 0.0, h, 1.0)); put("thigh", m); let sh = mul(&m, &trs(0.0, -THIGH, 0.0, 0.0, k, 1.0)); put("shin", sh);
             if let Some(n) = wear(2, "thigh") { put(&n, m); } if let Some(n) = wear(3, "shin") { put(&n, sh); } }
-        let ul = mul(&t, &trs(0.3, up_y, 0.0, 0.0, arm_l, 1.0)); put("upper", ul); let fl = mul(&ul, &trs(0.0, -UPPER, 0.0, 0.0, elbow_l, 1.0)); put("fore", fl); if let Some(n) = wear(5, "shield") { put(&n, fl); }
-        let ur = mul(&t, &trs(-0.3, up_y, 0.02, 0.0, arm_r, 1.0)); put("upper", ur); let fr = mul(&ur, &trs(0.0, -UPPER, 0.0, 0.0, elbow_r, 1.0)); put("fore", fr);
+        let ul = mul(&t, &trs(0.3, up_y, 0.0, 0.0, arm_l, 1.0)); put("upper", ul); if let Some(n) = wear(1, "arm") { put(&n, ul); } let fl = mul(&ul, &trs(0.0, -UPPER, 0.0, 0.0, elbow_l, 1.0)); put("fore", fl); if let Some(n) = wear(5, "shield") { put(&n, fl); }
+        let ur = mul(&t, &trs(-0.3, up_y, 0.02, 0.0, arm_r, 1.0)); put("upper", ur); if let Some(n) = wear(1, "arm") { put(&n, ur); } let fr = mul(&ur, &trs(0.0, -UPPER, 0.0, 0.0, elbow_r, 1.0)); put("fore", fr);
         if let Some(h) = held { out.push(Draw { m: mul(&mul(&fr, &trs(0.0, UPPER, 0.0, 0.0, 0.0, 1.0)), &hold_m(h.hold)), r: h.r, view: false, local: h.local, hero: true, dynamic: false, hurt: 0.0 }); }
         out
     }
@@ -363,7 +415,8 @@ impl Anim {
         if let Some(f) = shield {
             // Au repos, le bord du bouclier en bas à gauche ; en garde, il remonte au milieu et couvre une part de la vue.
             let g = self.guard; let lerp = |a: f64, b: f64| a + (b - a) * g;
-            let m = mul(&v, &trs(lerp(0.36, 0.27) + bx_ * 0.6, lerp(-0.42, -0.24) + by, lerp(0.48, 0.68), lerp(-0.5, -0.32), lerp(0.35, 0.1), 0.92));
+            // Au repos, sur la gauche, à moitié dans le champ ; en garde, il passe devant soi, un peu à gauche, et couvre le buste.
+            let m = mul(&v, &trs(lerp(0.46, 0.15) + bx_ * 0.6, lerp(-0.47, -0.2) + by, lerp(0.5, 0.6), lerp(-0.62, -0.1), lerp(0.38, 0.04), lerp(0.95, 1.0)));
             out.push(Draw { m, r: md.parts[format!("wear_fpshield_{f}").as_str()], view: true, local: false, hero: true, dynamic: false, hurt: 0.0 });
         }
         out
