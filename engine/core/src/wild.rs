@@ -228,8 +228,9 @@ impl Wild {
     }
     pub fn draws(&self, md: &Models) -> Vec<Draw> {
         let mut out = Vec::with_capacity(self.all.len() * 7 + self.prints.len());
-        let mut put = |n: &str, m: M4| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false });
+        let hurt = std::cell::Cell::new(0.0f32); let mut put = |n: &str, m: M4| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false, hurt: hurt.get() });
         for c in &self.all {
+            hurt.set((c.hit / 0.3).clamp(0.0, 1.0) as f32);
             match c.kind {
                 Kind::Fox => {
                     let base = trs(c.p[0], c.p[1] + flinch(c.hit) * 0.4, c.p[2], c.yaw, -flinch(c.hit) * 0.8, FOX); let s = if c.speed > 0.0 { sin(c.phase) * 0.8 } else { 0.0 }; const HIP: f64 = 0.28;

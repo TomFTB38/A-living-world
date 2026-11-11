@@ -184,14 +184,16 @@ impl Session {
         if needs_tool(b.cat) && fit.is_none() { self.notes.push("Sans pioche, la pierre s'effrite sans rien donner".into()); return; }
         if b.name.ends_with("_ore") { if let Some(tl) = fit { if tl.mat.tier < ore_tier(b.name) { self.notes.push(format!("Cette pioche est trop tendre pour ce minerai : il faut au moins du cuivre")); return; } } }
         // Le gravier rend son silex à la place de lui-même, pas en plus.
-        if b.name == "gravel" { let flint = hash_float(t.x * 7, t.y, t.z * 13 + (self.elapsed * 61.0) as i32, 77) < 0.2; self.add_item(if flint { "flint" } else { "gravel" }, 1); return; }
-        if let Some(d) = b.drop { if d != "air" { self.add_item(d, 1); } } if let Some((d, n)) = bonus_drop(b.name) { self.add_item(d, n); }
+        // Ce que rend le bloc tombe au sol, au milieu de sa case : on le ramasse en passant dessus.
+        let at = [t.x as f64 + 0.5, t.y as f64 + 0.35, t.z as f64 + 0.5];
+        if b.name == "gravel" { let flint = hash_float(t.x * 7, t.y, t.z * 13 + (self.elapsed * 61.0) as i32, 77) < 0.2; self.spill(if flint { "flint" } else { "gravel" }, 1, at); return; }
+        if let Some(d) = b.drop { if d != "air" { self.spill(d, 1, at); } } if let Some((d, n)) = bonus_drop(b.name) { self.spill(d, n, at); }
         let kind = fit.map(|t| t.kind).or(self.tool().map(|t| t.kind));
         for (k, (d, p)) in grass_drops(b.name).iter().enumerate() {
             let p = if *d == "fiber" && matches!(kind, Some("couteau") | Some("faucille")) { 1.0 } else if *d == "seeds" && kind == Some("faucille") { 0.6 } else { *p }; // au couteau, l'herbe donne toujours sa fibre
-            if hash_float(t.x * 7 + k as i32, t.y, t.z * 13 + (self.elapsed * 61.0) as i32, 77) < p { self.add_item(d, 1); }
+            if hash_float(t.x * 7 + k as i32, t.y, t.z * 13 + (self.elapsed * 61.0) as i32, 77) < p { self.spill(d, 1, at); }
         }
-        if b.name == "wheat_3" && kind == Some("faucille") { self.add_item("wheat", 1); }
+        if b.name == "wheat_3" && kind == Some("faucille") { self.spill("wheat", 1, at); }
     }
     /// Le tronc au-dessus de l'entaille tombe, le feuillage disparaît, le pied de l'arbre reste en place ; des branches tombent avec.
     pub(crate) fn fell(&mut self, t: Target) {
@@ -237,6 +239,7 @@ impl Session {
         dmg *= skill_bonus(self.skills[2]); let cost = if heavy { STAMINA_HIT * HEAVY_COST } else { STAMINA_HIT }; if heavy { dmg *= HEAVY_MUL; }
         if !self.creative { if self.stamina < cost { dmg *= 0.5; } self.spend(cost); }
         self.sound.swing(voice(tool), 1.0); let me = self.player.p; let knife = self.tool().is_some_and(|t| t.kind == "couteau");
+        let spot = match prey { Prey::Deer(k) => self.fauna.deer[k].p, Prey::Wild(k) => self.wild.all[k].p };
         let (loot, extra): (&[(&str, u32)], &[(&str, u32)]) = match prey {
             Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); let close = (at[0] - me[0]).hypot(at[2] - me[2]) < 2.4;
                 if self.fauna.strike(k, dmg, me) { (DEER_LOOT, DEER_KNIFE) } else { if close && hash_float((self.elapsed * 977.0) as i32, k as i32, self.seed, 13) < 0.3 { self.harm(6.0, "La ruade d'un cerf", true); } (&[], &[]) } }
@@ -245,7 +248,8 @@ impl Session {
         self.wear_tool(1);
         if !loot.is_empty() && !self.creative {
             let mut got: Vec<(&str, u32)> = loot.to_vec(); if knife { for (id, n) in extra { if let Some(g) = got.iter_mut().find(|g| g.0 == *id) { g.1 += n; } else { got.push((id, *n)); } } }
-            let mut said = Vec::new(); for (id, n) in got { self.add_item(id, n); if let Some(i) = item(id) { said.push(format!("+{n} {}", i.label)); } } self.notes.push(said.join(", ")); self.skills[2] += 2.0; self.dirty = true;
+            // La dépouille tombe au sol, là où la bête est tombée.
+            for (id, n) in got { self.spill(id, n, [spot[0], spot[1] + 0.5, spot[2]]); } self.skills[2] += 2.0; self.dirty = true;
         }
     }
 
@@ -512,6 +516,7 @@ impl Session {
         let mut fires: Vec<_> = self.fires.iter().collect(); fires.sort_by_key(|f| *f.0); for (p, t) in fires { s += &format!("fire {} {} {} {}\n", p[0], p[1], p[2], t); }
         let mut chests: Vec<_> = self.chests.iter().collect(); chests.sort_by_key(|c| *c.0);
         for (p, items) in chests { s += &format!("chest {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
+        s += &self.loose_save();
         for stv in &self.stashes { s += &format!("stash {} {} {} {}", stv.p[0], stv.p[1], stv.p[2], stv.born); for v in &stv.items { s += &format!(" {}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } s.push('\n'); }
         for (k, e) in self.world.edits() { s += &format!("chunk {} {}", k.0, k.1); let mut l: Vec<_> = e.into_iter().collect(); l.sort(); for (i, id) in l { s += &format!(" {i}:{id}"); } s.push('\n'); }
         s
@@ -548,6 +553,7 @@ impl Session {
                     for c in a { let f: Vec<&str> = c.split(':').collect(); if f.len() == 4 { if let (Ok(i), Ok(n), Ok(w)) = (f[0].parse::<usize>(), f[2].parse::<f64>(), f[3].parse::<f64>()) { if i < CHEST_SIZE { v[i] = stack(f[1], n, w); } } } }
                     self.chests.insert(p, v); }
                 Some("spawn") => { for k in 0..3 { self.spawn[k] = num(a.next())?; } }
+                Some("sol") => { let v: Vec<&str> = a.collect(); self.loose_load(&v); }
                 Some("stash") => { let p = [num(a.next())?, num(a.next())?, num(a.next())?]; let rest: Vec<&str> = a.collect();
                     // Ancien format (sans heure de la mort) : la dépouille repart de maintenant.
                     let (born, list) = match rest.first().and_then(|x| x.parse::<f64>().ok()) { Some(b) if !rest[0].contains(':') => (b, &rest[1..]), _ => { stash_v1 = true; (f64::NAN, &rest[..]) } };

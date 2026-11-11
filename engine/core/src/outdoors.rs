@@ -7,7 +7,7 @@ use crate::player::Voxels;
 use crate::session::*;
 use crate::survival::*;
 
-#[derive(Clone, Copy, Debug, PartialEq)] pub struct Arrow { pub p: [f64; 3], pub v: [f64; 3], pub stuck: bool, pub life: f64 }
+#[derive(Clone, Copy, Debug, PartialEq)] pub struct Arrow { pub p: [f64; 3], pub v: [f64; 3], pub stuck: bool, pub life: f64, /** tension de l'arc au tir, 0 à 1 */ pub pow: f64 }
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Line { pub spot: [f64; 3], pub bite: f64, pub told: bool, pub fish: &'static str }
 pub const ARROW_SPEED: f64 = 34.0; const ARROW_GRAVITY: f64 = 12.0; const ARROW_DMG: f64 = 9.0;
 /// Une touche se saisit dans cette fenêtre (secondes), sinon le poisson file.
@@ -18,13 +18,8 @@ impl Session {
     /// Clic droit avec l'arc ou la canne. Vrai si le clic a servi.
     pub(crate) fn outdoor_use(&mut self) -> bool {
         match self.inv[self.sel].map(|s| s.item) {
-            Some("bow") => {
-                if self.use_t > 0.0 { return true; }
-                if self.count("arrow") == 0 { self.notes.push("Plus de flèches".into()); self.use_t = 0.8; return true; }
-                if !self.creative { self.take_one("arrow"); self.spend(4.0); }
-                let (e, f) = (self.eye, self.look); self.arrows.push(Arrow { p: [e[0] + f[0] * 0.6, e[1] + f[1] * 0.6, e[2] + f[2] * 0.6], v: [f[0] * ARROW_SPEED, f[1] * ARROW_SPEED, f[2] * ARROW_SPEED], stuck: false, life: 0.0 });
-                self.sound.swing(Some("sword"), 1.3); self.anim.trigger(); self.use_t = 0.7; self.wear_slot(self.sel, 1); true
-            }
+            // L'arc se bande en tenant le clic droit (Session::bow_tick) : le clic seul ne tire pas.
+            Some("bow") => { if self.count("arrow") == 0 && !self.creative { if self.use_t <= 0.0 { self.notes.push("Plus de flèches".into()); self.use_t = 0.8; } } true }
             Some("fishing_rod") => {
                 if self.use_t > 0.0 { return true; } self.use_t = 0.5; self.anim.trigger();
                 if let Some(l) = self.line.take() {
@@ -64,7 +59,7 @@ impl Session {
             let mut best: Option<(f64, crate::session::Prey)> = None;
             for (k, dr) in self.fauna.deer.iter().enumerate() { if let Some(t) = ray_box(a.p, d, dr.p, 0.55, 1.6) { if t <= len && best.is_none_or(|b| t < b.0) { best = Some((t, Prey::Deer(k))); } } }
             for (k, c) in self.wild.all.iter().enumerate() { if let Some((hw, h)) = wild_box(c.kind) { if let Some(t) = ray_box(a.p, d, c.p, hw, h) { if t <= len && best.is_none_or(|b| t < b.0) { best = Some((t, Prey::Wild(k))); } } } }
-            if let Some((_, prey)) = best { self.arrow_hit(prey, a.p); a.life = 1e9; continue; }
+            if let Some((_, prey)) = best { self.arrow_hit(prey, a.p, a.pow); a.life = 1e9; continue; }
             // Puis le décor : la flèche se plante là où elle touche.
             let mut t = 0.0; let mut hit = false;
             while t < len { let q = [a.p[0] + d[0] * t, a.p[1] + d[1] * t, a.p[2] + d[2] * t]; if self.world.get(q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32).is_none_or(|b| b != 0 && is_solid(b)) { a.p = q; a.stuck = true; a.life = 0.0; hit = true; break; } t += 0.1; }
@@ -81,14 +76,38 @@ impl Session {
             }
         }
     }
-    fn arrow_hit(&mut self, prey: Prey, from: [f64; 3]) {
+    fn arrow_hit(&mut self, prey: Prey, from: [f64; 3], pow: f64) {
+        let dmg = ARROW_DMG * (0.45 + 0.75 * pow);
+        let spot = match prey { Prey::Deer(k) => self.fauna.deer[k].p, Prey::Wild(k) => self.wild.all[k].p };
         let loot: &[(&str, u32)] = match prey {
-            Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); if self.fauna.strike(k, ARROW_DMG, from) { DEER_LOOT } else { &[] } }
-            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); self.wild.strike(k, ARROW_DMG, from).map_or(&[], wild_loot) }
+            Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); if self.fauna.strike(k, dmg, from) { DEER_LOOT } else { &[] } }
+            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); self.wild.strike(k, dmg, from).map_or(&[], wild_loot) }
         };
-        if !loot.is_empty() && !self.creative { let mut said = Vec::new(); for (id, n) in loot { self.add_item(id, *n); if let Some(i) = item(id) { said.push(format!("+{n} {}", i.label)); } } self.notes.push(said.join(", ")); self.skills[2] += 2.0; self.dirty = true; }
+        if !loot.is_empty() && !self.creative { for (id, n) in loot { self.spill(id, *n, [spot[0], spot[1] + 0.5, spot[2]]); } self.skills[2] += 2.0; self.dirty = true; }
     }
 }
 /// Boîte de visée d'une bête (demi-largeur, hauteur) ; les oiseaux et virevoltants ne se chassent pas.
 pub fn wild_box(k: crate::wild::Kind) -> Option<(f64, f64)> { use crate::wild::Kind::*; match k { Fox => Some((0.35, 0.7)), Hare => Some((0.28, 0.5)), Wolf => Some((0.45, 1.0)), Boar => Some((0.5, 0.85)), Bear => Some((0.8, 1.6)), Ibex => Some((0.4, 1.1)), Lizard => Some((0.2, 0.15)), _ => None } }
 pub fn wild_loot(k: crate::wild::Kind) -> &'static [(&'static str, u32)] { use crate::wild::Kind::*; match k { Fox => FOX_LOOT, Hare => HARE_LOOT, Wolf => WOLF_LOOT, Boar => BOAR_LOOT, Bear => BEAR_LOOT, Ibex => IBEX_LOOT, Lizard => LIZARD_LOOT, _ => &[] } }
+
+/// Temps pour bander l'arc à fond.
+pub const DRAW_T: f64 = 0.9;
+impl Session {
+    /// L'arc : tenir le clic droit bande la corde (un peu de souffle), relâcher décoche ; plus elle est tendue, plus la
+    /// flèche file loin et blesse. Trop vite relâchée, la flèche tombe sans force.
+    pub(crate) fn bow_tick(&mut self, dt: f64, hold: bool) {
+        let bow = self.inv[self.sel].is_some_and(|s| s.item == "bow"); let ammo = self.creative || self.count("arrow") > 0;
+        if bow && hold && !ammo && self.use_t <= 0.0 { self.notes.push("Plus de flèches".into()); self.use_t = 0.8; }
+        if bow && hold && ammo { if self.bow_t <= 0.0 { self.sound.creak(); } self.bow_t += dt; if !self.creative { self.spend(dt * 1.5); } }
+        else if self.bow_t > 0.0 {
+            let pow = (self.bow_t / DRAW_T).min(1.0); self.bow_t = 0.0;
+            if bow && ammo && pow > 0.12 {
+                if !self.creative { self.take_one("arrow"); }
+                let (e, f) = (self.eye, self.look); let sp = ARROW_SPEED * (0.3 + 0.7 * pow);
+                self.arrows.push(Arrow { p: [e[0] + f[0] * 0.6, e[1] + f[1] * 0.6, e[2] + f[2] * 0.6], v: [f[0] * sp, f[1] * sp, f[2] * sp], stuck: false, life: 0.0, pow });
+                self.sound.swing(Some("sword"), 1.1 + 0.3 * pow as f32); self.anim.trigger(); self.wear_slot(self.sel, 1);
+            }
+        }
+        self.anim.bow = (self.bow_t / DRAW_T).min(1.0);
+    }
+}

@@ -17,7 +17,7 @@ fn aim(s: &mut Session, p: [i32; 3]) { clear_to(s, p); look(s, [p[0] as f64 + 0.
 /// Clic droit sur un bloc, puis le temps que le geste se termine.
 fn right(s: &mut Session, p: [i32; 3]) { aim(s, p); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); idle(s, 0.8); }
 /// Clic gauche maintenu jusqu'à ce que le bloc cède (l'endurance se refait entre deux blocs, comme en jouant).
-fn dig(s: &mut Session, p: [i32; 3]) { aim(s, p); let b = s.world.get(p[0], p[1], p[2]); let mut k = 0; while s.world.get(p[0], p[1], p[2]) == b && k < 4000 { s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); if s.winded { idle(s, 2.0); aim(s, p); } k += 1; } assert!(k < 4000, "{p:?} ne cède pas"); idle(s, 0.3); }
+fn dig(s: &mut Session, p: [i32; 3]) { aim(s, p); let b = s.world.get(p[0], p[1], p[2]); let mut k = 0; while s.world.get(p[0], p[1], p[2]) == b && k < 4000 { s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); if s.winded { idle(s, 2.0); aim(s, p); } k += 1; } assert!(k < 4000, "{p:?} ne cède pas"); idle(s, 0.3); s.collect_loose(); }
 /// Pose l'objet de la case `sel` sur le dessus d'un bloc de sol.
 fn place_on(s: &mut Session, sel: usize, g: [i32; 3]) -> [i32; 3] { s.sel = sel; clear_to(s, g); look(s, [g[0] as f64 + 0.5, g[1] as f64 + 0.97, g[2] as f64 + 0.5]); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); idle(s, 0.4); [g[0], g[1] + 1, g[2]] }
 fn slot_of(s: &Session, id: &str) -> usize { s.inv.iter().position(|t| t.is_some_and(|t| t.item == id)).unwrap_or_else(|| panic!("pas de {id} dans le sac")) }

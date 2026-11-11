@@ -235,7 +235,7 @@ stone_pillar | Colonne de pierre | batir | 1.6 | 32 | Une colonne taillée. |
 stone_wall | Mur fin de pierre | batir | 1.2 | 64 | Un mur d'une demi-épaisseur, posé en travers du regard. |
 
 # --- Monde vivant : chasse à l'arc, pêche, racines et cultures ---
-bow | Arc | outils | 0.8 | 1 | Clic droit : tire une flèche là où l'on vise. Les flèches plantées se ramassent en marchant dessus. | usages=150
+bow | Arc | outils | 0.8 | 1 | Tenir le clic droit bande la corde, relâcher décoche : plus elle est tendue, plus la flèche va loin. Les flèches plantées se ramassent en marchant dessus. | usages=150
 arrow | Flèche | outils | 0.05 | 64 | Une pointe de silex sur une hampe droite. |
 fishing_rod | Canne à pêche | outils | 0.6 | 1 | Clic droit vers l'eau pour lancer ; quand ça mord, clic droit vite. | usages=60
 trout | Truite | vivres | 0.4 | 16 | Vit dans l'eau qui court : ruisseaux et rivières. À cuire. | aliment=6:2:-2 garde=1

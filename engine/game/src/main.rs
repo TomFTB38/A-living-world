@@ -27,7 +27,7 @@ fn spawn_point(seed: i32) -> [f64; 3] {
     best
 }
 fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &hud::Menu, info: &[String]) -> usize {
-    let (proj, vm) = (view::perspective(menu.fov(), w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
+    let (proj, vm) = (view::perspective(menu.fov() * (1.0 - 0.12 * s.anim.bow), w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
     let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let mut draws = s.draws(md, &vm); if menu.title.is_some() { draws.retain(|d| !d.view); } /* pas de main tendue derrière l'écran titre */ let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
     gpu.lights = s.lights(s.eye, gpu::LIGHTS);
     let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); let night = sky.night.clamp(0.0, 1.0); // la nuit, la direction est celle de la lune : elle ne dit pas l'heure env.flies = s.deep as f32 * (0.55 + 0.9 * night);
@@ -94,7 +94,7 @@ fn read_settings() -> hud::Menu {
     let mut m = hud::Menu::new();
     let Ok(t) = std::fs::read_to_string(beside_exe("reglages.alw")) else { return m }; let first = t.lines().next().unwrap_or(""); let v: Vec<f32> = first.split_whitespace().filter_map(|x| x.parse().ok()).collect();
     // Seconde ligne : les touches, deux par action, « - » pour une case vide.
-    if let Some(l) = t.lines().nth(1) { let k: Vec<&str> = l.split_whitespace().collect(); if k.len() == hud::ACTIONS.len() * 2 { for (i, b) in m.binds.iter_mut().enumerate() { for sl in 0..2 { b[sl] = if k[i * 2 + sl] == "-" { String::new() } else { k[i * 2 + sl].to_string() }; } } } }
+    if let Some(l) = t.lines().nth(1) { let k: Vec<&str> = l.split_whitespace().collect(); if k.len() % 2 == 0 && k.len() <= hud::ACTIONS.len() * 2 { for (i, b) in m.binds.iter_mut().enumerate().take(k.len() / 2) { for sl in 0..2 { b[sl] = if k[i * 2 + sl] == "-" { String::new() } else { k[i * 2 + sl].to_string() }; } } } }
     if v.len() >= 5 { m.vol[0] = v[0].clamp(0.0, 1.0); m.vol[1] = v[1].clamp(0.0, 1.0); m.vol[2] = v[2].clamp(0.0, 1.0); m.vol[3] = v.get(5).copied().unwrap_or(0.5).clamp(0.0, 1.0); m.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); m.mood = (v[4] as usize).min(hud::MOODS.len() - 1); m.quality = v.get(6).map_or(0, |q| (*q as usize).min(1));
         // Indicateurs de survie : mode d'affichage, animations réduites, marqueur de la dépouille.
         if let Some(x) = v.get(7) { m.hud = (*x as usize).min(needs::MODES.len() - 1); } if let Some(x) = v.get(8) { m.reduce = *x > 0.5; } if let Some(x) = v.get(9) { m.marker = *x > 0.5; } if let Some(x) = v.get(10) { m.tips = *x > 0.5; } if let Some(x) = v.get(11) { m.vol[4] = x.clamp(0.0, 1.0); } if let Some(x) = v.get(12) { m.vol[5] = x.clamp(0.0, 1.0); } if let Some(x) = v.get(13) { m.autostep = *x > 0.5; } }
@@ -276,7 +276,7 @@ impl ApplicationHandler for App {
                             Some(hud::Hit::Craft(all)) => if let Some(r) = g.s.book.sel { let mut made = 0; loop { match g.s.craft(r) { Ok(()) => { made += 1; if !(all || shift) || made >= 64 { break; } } Err(e) => { if made == 0 { g.say(e.into()); } break; } } } },
                             None => {}
                         },
-                        (MouseButton::Left, false) => g.s.drop_slot(slot),
+                        (MouseButton::Left, false) => if slot.is_none() && g.s.cursor.is_some() && hud::outside_panel(&g.s, w, h, g.mouse) { g.s.throw_cursor() } else { g.s.drop_slot(slot) },
                         // Clic droit sur une recette : favorite ou non (les favorites passent en tête du livre).
                         (MouseButton::Right, true) if matches!(at, Some(hud::Hit::Book(_))) => if let Some(hud::Hit::Book(r)) = at { let out = alw_core::survival::recipes()[r].out; if !g.s.fav.remove(out) { g.s.fav.insert(out); } },
                         (MouseButton::Right, true) => if let Some(i) = slot { if g.s.cursor.is_some() { g.s.put_one(i) } else { g.s.take_half(i); g.half = Some(i); } },
@@ -334,6 +334,7 @@ impl ApplicationHandler for App {
                     _ if g.menu.is(hud::A_MAP, &name) => { g.s.toggle_map(); g.grab(!g.s.map.open); }
                     _ if g.s.map.open => {}
                     _ if g.menu.is(hud::A_JOURNAL, &name) => { g.s.town.journal = !g.s.town.journal; }
+                    _ if g.menu.is(hud::A_DROP, &name) && !g.s.inv_open => { let all = g.keys.contains(&KeyCode::ShiftLeft) || g.keys.contains(&KeyCode::ShiftRight); g.s.throw_held(all); }
                     _ if g.menu.is(hud::A_INV, &name) => { let on = !g.s.inv_open; g.s.inv_open = on; if !on { g.s.drop_slot(None); g.s.close_chest(); } g.grab(!on); }
                     _ if g.menu.is(hud::A_VIEW, &name) => { g.s.third = !g.s.third; let m = if g.s.third { "Troisième personne" } else { "Première personne" }; g.say(m.into()); }
                     KeyCode::KeyF => { if g.s.creative { g.s.player.fly = !g.s.player.fly; let m = if g.s.player.fly { "Vol activé" } else { "Vol désactivé" }; g.say(m.into()); } else { g.say("Le vol demande le mode créatif (G)".into()); } }

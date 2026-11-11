@@ -278,6 +278,10 @@ impl SoundScape {
     /// Roulade : frottement du corps et du sac au sol.
     pub fn roll(&self) { self.send(Cmd::Play { l: l("puff", 0.75, 0.35), k: 1.0, pan: 0.0, delay: 0.0 }); self.send(Cmd::Play { l: l("leaf", 0.8, 0.28), k: 1.0, pan: 0.0, delay: 0.14 }); self.send(Cmd::Play { l: l("sand", 0.9, 0.3), k: 1.0, pan: 0.0, delay: 0.3 }); }
     pub fn splash(&self, k: f32) { self.send(Cmd::Play { l: l("splash", 0.85, 0.5), k, pan: 0.0, delay: 0.0 }); }
+    /// La corde de l'arc qu'on tend : bois qui grince.
+    pub fn creak(&self) { self.send(Cmd::Play { l: L { lp: 1400.0, ..l("plankdry", 0.55, 0.22) }, k: 1.0, pan: 0.0, delay: 0.0 }); }
+    /// Un objet ramassé : petit claquement clair.
+    pub fn pickup(&self) { self.send(Cmd::Tone { f: 820.0, to: 1240.0, dur: 0.06, vol: 0.1, pan: 0.0, delay: 0.0, saw: false, lp: 0.0 }); self.send(Cmd::Play { l: l("leaf", 1.7, 0.18), k: 1.0, pan: 0.0, delay: 0.0 }); }
     pub fn hurt(&self) { self.send(Cmd::Play { l: l("hurt", 1.0, 0.6), k: 1.0, pan: 0.0, delay: 0.0 }); }
     pub fn bird(&mut self, pos: [f64; 3], voice: usize) {
         let Some((v, pan)) = self.at(pos, 22.0) else { return }; let r = &mut self.rnd;

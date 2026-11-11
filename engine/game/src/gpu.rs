@@ -258,7 +258,7 @@ impl Gpu {
         let jit = [(hal(fr % 8 + 1, 2) - 0.5) * 2.0 / w, (hal(fr % 8 + 1, 3) - 0.5) * 2.0 / h];
         let mut enc = self.device.create_command_encoder(&Default::default());
         let draws = &draws[..draws.len().min(MAX_ACTORS as usize)]; let mut inst: Vec<f32> = Vec::with_capacity(draws.len() * 20);
-        for d in draws { inst.extend_from_slice(&d.m); inst.extend_from_slice(&[d.view as u8 as f32, d.local as u8 as f32, d.hero as u8 as f32, 0.0]); }
+        for d in draws { inst.extend_from_slice(&d.m); inst.extend_from_slice(&[d.view as u8 as f32, d.local as u8 as f32, d.hero as u8 as f32, d.hurt]); }
         if !inst.is_empty() { self.queue.write_buffer(&self.actor_inst, 0, &bytes_f32(&inst)); }
         // Ombres : la cascade proche à chaque image, les lointaines à tour de rôle.
         let list_all: Vec<&ChunkGpu> = self.chunks.values().collect();

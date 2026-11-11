@@ -105,7 +105,7 @@ fn chasser() {
     let p = s.player.p; let q = [p[0], ground_y(&s, p[0], p[2] + 2.0), p[2] + 2.0]; s.player.pitch = ((q[1] + 0.25 - s.player.eye()[1]) / 2.0).atan();
     s.wild.put(alw_core::wild::Kind::Hare, q, 0.0, false); s.tick(0.0, none(), Actions::default()); assert_eq!(s.prey, Some(Prey::Wild(s.wild.all.len() - 1)), "le lièvre est visé");
     let meat = s.count("raw_meat"); s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() });
-    assert!(s.wild.all.iter().all(|c| c.kind != alw_core::wild::Kind::Hare || (c.p[0] - q[0]).abs() > 0.01), "un coup d'épée abat le lièvre"); assert_eq!(s.count("raw_meat"), meat + 2);
+    assert!(s.wild.all.iter().all(|c| c.kind != alw_core::wild::Kind::Hare || (c.p[0] - q[0]).abs() > 0.01), "un coup d'épée abat le lièvre"); s.collect_loose(); assert_eq!(s.count("raw_meat"), meat + 2);
     // le cerf encaisse un coup et s'enfuit ; le poing ne l'abat pas
     idle(&mut s, 0.5); s.sel = 8; let q = [p[0], ground_y(&s, p[0], p[2] + 2.5), p[2] + 2.5]; s.fauna.put(q, 0.0); s.player.pitch = ((q[1] + 0.9 - s.player.eye()[1]) / 2.5).atan();
     s.tick(0.0, none(), Actions::default()); assert!(matches!(s.prey, Some(Prey::Deer(_))), "le cerf est visé"); let st = s.stamina;
@@ -151,7 +151,7 @@ fn durete_outils_de_pierre_fibre() {
         s.player.pitch = -0.7; s.player.yaw = 0.0; s.tick(0.0, none(), Actions::default()); let g = s.target.unwrap(); let (x, y, z) = (g.x, g.y + 1, g.z); s.world.edit(x, y, z, b); s.stamina = 100.0;
         s.sel = sel.unwrap_or(30); let before = s.inv.iter().flatten().map(|t| t.n.unwrap_or(1)).sum::<u32>(); let mut k = 0;
         while s.world.get(x, y, z) == Some(b) && k < 2000 { s.stamina = 100.0; s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); k += 1; }
-        let after = s.inv.iter().flatten().map(|t| t.n.unwrap_or(1)).sum::<u32>(); idle(s, 0.4); (k as f64 * DT, after > before)
+        s.collect_loose(); let after = s.inv.iter().flatten().map(|t| t.n.unwrap_or(1)).sum::<u32>(); idle(s, 0.4); (k as f64 * DT, after > before)
     };
     let pick = s.inv.iter().position(|t| t.is_some_and(|t| t.item == "stone_pickaxe")); let axe = s.inv.iter().position(|t| t.is_some_and(|t| t.item == "stone_axe")); let knife = s.inv.iter().position(|t| t.is_some_and(|t| t.item == "stone_knife"));
     let (hand_stone, got) = time(&mut s, B::STONE, None); assert!(hand_stone > 15.0 && !got, "la pierre à mains nues : {hand_stone:.1} s, rien");

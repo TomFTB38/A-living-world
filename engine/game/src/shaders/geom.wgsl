@@ -25,7 +25,7 @@ fn wind(p: vec3f, w: f32) -> vec3f {
 struct AIn { @location(0) pos: vec4i, @location(1) nrm: vec4f, @location(2) lit: vec4f, @location(3) tint: vec4f, @location(5) m0: vec4f, @location(6) m1: vec4f, @location(7) m2: vec4f, @location(8) m3: vec4f, @location(9) flags: vec4f };
 @vertex fn vs_actor(v: AIn) -> VOut {
   var o: VOut; let lp = vec3f(v.pos.xyz) / 128.0; let m = mat4x4f(v.m0, v.m1, v.m2, v.m3); let world = (m * vec4f(lp, 1.0)).xyz;
-  o.w = world; o.n = (mat3x3f(m[0].xyz, m[1].xyz, m[2].xyz) * v.nrm.xyz); o.lit = v.lit.xyz; o.tint = v.tint.rgb * 2.0; o.local = lp; o.nl = v.nrm.xyz; o.flags = v.flags.xyz;
+  o.w = world; o.n = (mat3x3f(m[0].xyz, m[1].xyz, m[2].xyz) * v.nrm.xyz); o.lit = v.lit.xyz; o.tint = mix(v.tint.rgb * 2.0, vec3f(1.5, 0.22, 0.18), v.flags.w * 0.65) /* touchée : la bête rougit un instant */; o.local = lp; o.nl = v.nrm.xyz; o.flags = v.flags.xyz;
   o.data = vec3i(v.pos.w, i32(v.lit.w * 255.0 + 0.5), i32(v.tint.a * 255.0 + 0.5));
   var c = u.vp * vec4f(world, 1.0); let w = c.w;
   if (v.flags.x > 0.5) { c.z = (1.0 - (1.0 - c.z / w) * 0.05) * w; } // en première personne, la main passe devant le monde

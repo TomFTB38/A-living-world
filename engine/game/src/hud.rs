@@ -24,6 +24,12 @@ const BOOK_COLS: usize = 5; const BOOK_ROWS: usize = 4;
 pub const CAT_ROWS: usize = 4;
 pub fn cat_rows(s: &Session) -> usize { tabs()[s.tab.min(tabs().len() - 1)].1.len().div_ceil(9) }
 /// Disposition de l'écran d'inventaire, partagée par le dessin et la souris : [x, y, largeur, hauteur].
+/// La souris est-elle hors du panneau de l'inventaire (là où lâcher un objet le jette au sol) ?
+pub fn outside_panel(s: &Session, w: f32, h: f32, m: [f32; 2]) -> bool {
+    let l = layout(s, w, h); if l.is_empty() { return false; } let pad = 40.0 * scale(h);
+    let (x0, y0) = l.iter().fold((f32::MAX, f32::MAX), |a, r| (a.0.min(r.1[0]), a.1.min(r.1[1]))); let (x1, y1) = l.iter().fold((f32::MIN, f32::MIN), |a, r| (a.0.max(r.1[0] + r.1[2]), a.1.max(r.1[1] + r.1[3])));
+    m[0] < x0 - pad || m[0] > x1 + pad || m[1] < y0 - pad - 30.0 * scale(h) || m[1] > y1 + pad
+}
 pub fn layout(s: &Session, w: f32, h: f32) -> Vec<(Hit, [f32; 4])> {
     let creative = s.creative; let k = if creative { scale(h) } else { inv_scale(w, h) }; let c = 58.0 * k; let g = 5.0 * k; let cell = c + g; let tw = 9.0 * c + 8.0 * g; let mut o = Vec::new();
     if creative {
@@ -74,12 +80,12 @@ pub struct Menu { pub open: bool, pub credits: bool, pub weather: usize, pub moo
     /// Page des commandes, conseils de départ, touches (deux par action, par leur nom), touche attendue pour une action, écran titre.
     pub controls: bool, pub tips: bool, pub binds: Vec<[String; 2]>, pub listen: Option<(usize, usize)>, pub title: Option<Title> }
 /// Les actions qu'on peut attribuer à une touche, dans l'ordre de `Menu::binds`.
-pub const ACTIONS: [&str; 13] = ["Avancer", "Reculer", "Aller à gauche", "Aller à droite", "Sauter", "Courir", "S'accroupir", "Roulade", "Inventaire et recettes", "Carte", "Journal des villages", "Vue à la troisième personne", "Tourner le bloc"];
+pub const ACTIONS: [&str; 14] = ["Avancer", "Reculer", "Aller à gauche", "Aller à droite", "Sauter", "Courir", "S'accroupir", "Roulade", "Inventaire et recettes", "Carte", "Journal des villages", "Vue à la troisième personne", "Tourner le bloc", "Jeter (Maj : toute la pile)"];
 pub const A_FWD: usize = 0; pub const A_BACK: usize = 1; pub const A_LEFT: usize = 2; pub const A_RIGHT: usize = 3; pub const A_JUMP: usize = 4; pub const A_SPRINT: usize = 5; pub const A_CROUCH: usize = 6; pub const A_ROLL: usize = 7;
-pub const A_INV: usize = 8; pub const A_MAP: usize = 9; pub const A_JOURNAL: usize = 10; pub const A_VIEW: usize = 11; pub const A_TURN: usize = 12;
+pub const A_INV: usize = 8; pub const A_MAP: usize = 9; pub const A_JOURNAL: usize = 10; pub const A_VIEW: usize = 11; pub const A_TURN: usize = 12; pub const A_DROP: usize = 13;
 /// Touches par défaut, par leur nom affiché : ZQSD et WASD marchent toutes deux.
 pub fn default_binds() -> Vec<[String; 2]> {
-    [["Z", "W"], ["S", ""], ["Q", "A"], ["D", ""], ["Espace", ""], ["Maj", ""], ["Ctrl", ""], ["V", ""], ["E", ""], ["M", ""], ["J", ""], ["C", ""], ["R", ""]].iter().map(|b| [b[0].to_string(), b[1].to_string()]).collect()
+    [["Z", "W"], ["S", ""], ["Q", "A"], ["D", ""], ["Espace", ""], ["Maj", ""], ["Ctrl", ""], ["V", ""], ["E", ""], ["M", ""], ["J", ""], ["C", ""], ["R", ""], ["G", ""]].iter().map(|b| [b[0].to_string(), b[1].to_string()]).collect()
 }
 impl Menu {
     pub fn new() -> Menu { Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5, 0.5, 0.5], quality: 0, confirm: false, profile: 1, hud: 1, reduce: false, marker: true, alt: false, autostep: true, controls: false, tips: true, binds: default_binds(), listen: None, title: None } }
@@ -132,7 +138,7 @@ pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
     if m.credits { o.push((M::Back, [x0, p[1] + p[3] - 66.0 * k, tw, bh])); return o; }
     if m.controls {
         // Commandes : deux touches par action, puis sensibilité et champ de vision.
-        let rh = 30.0 * k; let mut y = p[1] + 88.0 * k; let kw = 120.0 * k;
+        let rh = 28.0 * k; let mut y = p[1] + 86.0 * k; let kw = 120.0 * k;
         for a in 0..ACTIONS.len() { for sl in 0..2 { o.push((M::Bind(a, sl), [x0 + tw - 2.0 * kw - g + sl as f32 * (kw + g), y, kw, rh - 4.0 * k])); } y += rh; }
         y += 14.0 * k; for i in 4..6 { o.push((M::Vol(i), [x0 + 230.0 * k, y + (i - 4) as f32 * 30.0 * k, tw - 230.0 * k, 22.0 * k])); }
         y += 72.0 * k; let b = (tw - 2.0 * g) / 3.0; o.push((M::AutoStep, [x0, y, b, bh])); o.push((M::ResetKeys, [x0 + b + g, y, b, bh])); o.push((M::Back, [x0 + 2.0 * (b + g), y, b, bh])); return o;

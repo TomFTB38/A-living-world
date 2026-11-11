@@ -66,10 +66,10 @@ impl Fall {
         let sc = 1.0 - ((self.rest - REST) / FADE).clamp(0.0, 1.0); let mut o = Vec::with_capacity(self.flutter.len() + 1);
         if sc > 0.0 { let mid = self.reach * 0.5; let (s, c) = (crate::det::sin(self.angle), crate::det::cos(self.angle)); let m = [self.dir[0] * s * mid, c * mid, self.dir[2] * s * mid]; // disparaît vers le milieu du tronc
             let p = [self.pivot[0] + m[0] * (1.0 - sc), self.pivot[1] + m[1] * (1.0 - sc), self.pivot[2] + m[2] * (1.0 - sc)];
-            o.push(Draw { m: rot_axis(p, self.axis, self.angle, sc), r: Range { first: 0, count: (self.n / 4 * 6) as u32 }, view: false, local: true, hero: false, dynamic: true }); }
+            o.push(Draw { m: rot_axis(p, self.axis, self.angle, sc), r: Range { first: 0, count: (self.n / 4 * 6) as u32 }, view: false, local: true, hero: false, dynamic: true, hurt: 0.0 }); }
         if let Some(h) = md.held(self.leaf) { for f in &self.flutter { if f.life > 0.0 {
             let k = (f.life / 0.9).min(1.0) * 0.55; let m: M4 = mul(&trs(f.p[0], f.p[1], f.p[2], f.spin * self.t, f.spin * 0.6 * self.t, k), &trs(-0.5, -0.5, -0.5, 0.0, 0.0, 1.0));
-            o.push(Draw { m, r: h.r, view: false, local: true, hero: false, dynamic: false });
+            o.push(Draw { m, r: h.r, view: false, local: true, hero: false, dynamic: false, hurt: 0.0 });
         } } }
         o
     }

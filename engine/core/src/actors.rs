@@ -282,10 +282,10 @@ impl Models {
     }
 }
 /// Un morceau à dessiner : matrice, plage d'indices, et la façon de le traiter.
-#[derive(Clone, Copy, Debug)] pub struct Draw { pub m: M4, pub r: Range, pub view: bool, pub local: bool, pub hero: bool, pub dynamic: bool }
+#[derive(Clone, Copy, Debug)] pub struct Draw { pub m: M4, pub r: Range, pub view: bool, pub local: bool, pub hero: bool, pub dynamic: bool, /** coup reçu, de 0 à 1 : la bête rougit */ pub hurt: f32 }
 fn hold_m(h: Hold) -> M4 { match h { Hold::Tool => mul(&trs(0.0, -0.58, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.0), &roll_z(-std::f64::consts::FRAC_PI_4)), Hold::Block => trs(-0.14, -0.76, -0.14, 0.0, 0.0, 0.28), Hold::Deco => trs(-0.28, -0.72, -0.1, 0.0, 0.0, 0.55) } }
 #[derive(Default, Clone, Copy)] pub struct AnimIn { pub speed: f64, pub ground: bool, pub vy: f64, pub crouch: bool, pub fly: bool, pub mining: bool, pub guard: bool }
-#[derive(Default)] pub struct Anim { phase: f64, walk: f64, run: f64, low: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64, /** garde levée, de 0 à 1 */ pub guard: f64 }
+#[derive(Default)] pub struct Anim { /** arc bandé, de 0 à 1 */ pub bow: f64, phase: f64, walk: f64, run: f64, low: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64, /** garde levée, de 0 à 1 */ pub guard: f64 }
 impl Anim {
     pub fn update(&mut self, dt: f64, s: AnimIn) {
         let ease = |c: f64, t: f64, k: f64| c + (t - c) * (dt * k).min(1.0); let was = self.air;
@@ -323,7 +323,7 @@ impl Anim {
             base = mul(&base, &mul(&trs(0.0, k, 0.0, 0.0, 0.0, 1.0), &mul(&crate::view::rot_axis([0.0; 3], [d[1], 0.0, -d[0]], e * 6.2832, 1.0), &trs(0.0, -k, 0.0, 0.0, 0.0, 1.0))));
         }
         let t = mul(&base, &trs(0.0, hip_y, 0.0, 0.0, lean, 1.0)); let mut out = Vec::with_capacity(12); let up_y = 0.56;
-        let part = |n: &str| md.parts[n]; let mut put = |n: &str, m: M4| out.push(Draw { m, r: part(n), view: false, local: false, hero: true, dynamic: false });
+        let part = |n: &str| md.parts[n]; let mut put = |n: &str, m: M4| out.push(Draw { m, r: part(n), view: false, local: false, hero: true, dynamic: false, hurt: 0.0 });
         let wear = |slot: usize, n: &str| outfit[slot].map(|f| format!("wear_{n}_{f}"));
         let hd = mul(&t, &trs(0.0, 0.66, 0.0, 0.0, -lean * 0.75 - pitch * 0.5, 1.0)); put("torso", t); put("head", hd);
         if let Some(n) = wear(0, "head") { put(&n, hd); } if let Some(n) = wear(1, "torso") { put(&n, t); } if let Some(n) = wear(4, "back") { put(&n, t); }
@@ -331,7 +331,7 @@ impl Anim {
             if let Some(n) = wear(2, "thigh") { put(&n, m); } if let Some(n) = wear(3, "shin") { put(&n, sh); } }
         let ul = mul(&t, &trs(0.3, up_y, 0.0, 0.0, arm_l, 1.0)); put("upper", ul); let fl = mul(&ul, &trs(0.0, -UPPER, 0.0, 0.0, elbow_l, 1.0)); put("fore", fl); if let Some(n) = wear(5, "shield") { put(&n, fl); }
         let ur = mul(&t, &trs(-0.3, up_y, 0.02, 0.0, arm_r, 1.0)); put("upper", ur); let fr = mul(&ur, &trs(0.0, -UPPER, 0.0, 0.0, elbow_r, 1.0)); put("fore", fr);
-        if let Some(h) = held { out.push(Draw { m: mul(&mul(&fr, &trs(0.0, UPPER, 0.0, 0.0, 0.0, 1.0)), &hold_m(h.hold)), r: h.r, view: false, local: h.local, hero: true, dynamic: false }); }
+        if let Some(h) = held { out.push(Draw { m: mul(&mul(&fr, &trs(0.0, UPPER, 0.0, 0.0, 0.0, 1.0)), &hold_m(h.hold)), r: h.r, view: false, local: h.local, hero: true, dynamic: false, hurt: 0.0 }); }
         out
     }
     /// Première personne : poing si la main est vide, bloc seul s'il y en a un, bras et outil sinon.
@@ -340,24 +340,31 @@ impl Anim {
         let s = sin(self.phase); let c = cos(self.phase * 0.5); let w = self.walk * (1.0 - self.air); let pi = std::f64::consts::PI; let v = mul(&invert(view), &trs(0.0, 0.0, 0.0, pi, 0.0, 1.0));
         let strike = if self.swing > 0.0 { sin(self.swing * pi) } else { 0.0 }; let push = sin(self.punch * pi); let r = md.parts["fist"]; let mut out = Vec::new();
         let bx_ = c * 0.022 * w - 0.05 * self.run; let by = -s.abs() * 0.022 * w - 0.05 * self.low + 0.07 * self.air * (self.rise - 0.5);
-        let hand = |m: M4| Draw { m, r, view: true, local: false, hero: true, dynamic: false };
+        let hand = |m: M4| Draw { m, r, view: true, local: false, hero: true, dynamic: false, hurt: 0.0 };
         match held {
             None => { let hit = strike.max(push); out.push(hand(mul(&v, &trs(-0.27 + bx_ + 0.08 * hit, -0.33 + by + 0.05 * hit, 0.2 + 0.2 * hit, 0.34 - 0.16 * hit, -2.06 - 0.3 * hit, 0.46)))); }
+            // L'arc bandé : il se redresse au milieu de la vue, la flèche encochée recule avec la corde, la main tremble à fond.
+            Some(h) if h.hold == Hold::Tool && self.bow > 0.0 => {
+                let b = self.bow; let shake = if b >= 1.0 { 0.004 * sin(self.phase * 23.0 + 1.0) } else { 0.0 };
+                let arm = mul(&v, &trs(-0.25 + 0.13 * b + bx_ * 0.3 + shake, -0.27 + 0.06 * b + by * 0.3, 0.1 + 0.08 * b, 0.22 - 0.2 * b, -1.72 + 0.22 * b, 0.46));
+                out.push(hand(arm)); out.push(Draw { m: mul(&arm, &mul(&hold_m(Hold::Tool), &mul(&roll_z(std::f64::consts::FRAC_PI_4 * b), &trs(0.0, 0.0, 0.0, 0.0, 0.0, 0.8)))), r: h.r, view: true, local: h.local, hero: true, dynamic: false, hurt: 0.0 });
+                out.push(Draw { m: mul(&v, &trs(-0.07 + shake, -0.16 + 0.02 * b, 0.62 - 0.22 * b, 0.0, 0.0, 1.0)), r: md.parts["arrow"], view: true, local: false, hero: true, dynamic: false, hurt: 0.0 });
+            }
             Some(h) if h.hold == Hold::Tool => {
                 let arm = mul(&v, &trs(-0.25 + bx_, -0.27 + by - 0.06 * strike, 0.1 + 0.2 * push + 0.12 * strike, 0.22 + 0.3 * strike, -1.72 + 0.22 * self.run + 0.85 * strike - 0.3 * push, 0.46));
-                out.push(hand(arm)); out.push(Draw { m: mul(&arm, &mul(&hold_m(Hold::Tool), &trs(0.0, 0.0, 0.0, 0.0, 0.0, 0.8))), r: h.r, view: true, local: h.local, hero: true, dynamic: false });
+                out.push(hand(arm)); out.push(Draw { m: mul(&arm, &mul(&hold_m(Hold::Tool), &trs(0.0, 0.0, 0.0, 0.0, 0.0, 0.8))), r: h.r, view: true, local: h.local, hero: true, dynamic: false, hurt: 0.0 });
             }
             Some(h) => {
                 let sc = if h.hold == Hold::Block { 0.26 } else { 0.46 };
                 let base = mul(&v, &trs(-0.29 + bx_ + 0.05 * strike, -0.2 + by - 0.1 * strike + 0.03 * push, 0.52 + 0.12 * push + 0.08 * strike, 0.62 + 0.25 * strike, 0.26 + 0.6 * strike - 0.3 * push, sc));
-                out.push(Draw { m: mul(&base, &trs(-0.5, if h.hold == Hold::Block { -0.5 } else { -0.4 }, -0.5, 0.0, 0.0, 1.0)), r: h.r, view: true, local: h.local, hero: true, dynamic: false });
+                out.push(Draw { m: mul(&base, &trs(-0.5, if h.hold == Hold::Block { -0.5 } else { -0.4 }, -0.5, 0.0, 0.0, 1.0)), r: h.r, view: true, local: h.local, hero: true, dynamic: false, hurt: 0.0 });
             }
         }
         if let Some(f) = shield {
             // Au repos, le bord du bouclier en bas à gauche ; en garde, il remonte au milieu et couvre une part de la vue.
             let g = self.guard; let lerp = |a: f64, b: f64| a + (b - a) * g;
             let m = mul(&v, &trs(lerp(0.36, 0.27) + bx_ * 0.6, lerp(-0.42, -0.24) + by, lerp(0.48, 0.68), lerp(-0.5, -0.32), lerp(0.35, 0.1), 0.92));
-            out.push(Draw { m, r: md.parts[format!("wear_fpshield_{f}").as_str()], view: true, local: false, hero: true, dynamic: false });
+            out.push(Draw { m, r: md.parts[format!("wear_fpshield_{f}").as_str()], view: true, local: false, hero: true, dynamic: false, hurt: 0.0 });
         }
         out
     }

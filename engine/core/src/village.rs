@@ -312,7 +312,7 @@ impl Town {
     pub fn draws(&self, md: &Models) -> Vec<Draw> {
         let mut out = Vec::with_capacity(self.folk.len() * 6);
         for f in &self.folk {
-            let base = trs(f.p[0], f.p[1], f.p[2], f.yaw, 0.0, 1.0); let mut put = |n: &str, m| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false });
+            let base = trs(f.p[0], f.p[1], f.p[2], f.yaw, 0.0, 1.0); let mut put = |n: &str, m| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 });
             let s = if f.moving { f.phase.sin() * 0.6 } else { 0.0 };
             let l = f.look.min(8); let face = f.name.bytes().map(|b| b as usize).sum::<usize>() % 6; let bob = if f.moving { (f.phase * 2.0).sin().abs() * 0.03 } else { 0.0 };
             let body = mul(&base, &trs(0.0, bob, 0.0, 0.0, 0.0, 1.0)); put(&format!("folk{l}"), body); put(&format!("folkHead{face}"), mul(&body, &trs(0.0, 1.4, 0.0, 0.0, 0.0, 1.0)));
