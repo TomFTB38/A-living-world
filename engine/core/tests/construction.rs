@@ -19,7 +19,7 @@ fn formes_et_orientations() {
     for b in BLOCKS.iter() { let Some(i) = shapes::info(b.id) else { continue };
         assert_eq!(shapes::variant(i.base, i.facing, i.top, i.open, i.upper), b.id, "{} se retrouve depuis sa base", b.name);
         for bb in shapes::geometry(i) { for k in 0..3 { assert!(bb[k] >= 0.0 && bb[k + 3] <= 1.0 && bb[k] < bb[k + 3], "{} : boîte {bb:?}", b.name); } }
-        assert!(item(BLOCKS[i.base as usize].name).is_some(), "{} : l'objet de base existe", b.name); }
+        let base = &BLOCKS[i.base as usize]; assert!(item(base.drop.unwrap_or(base.name)).is_some(), "{} : l'objet de base existe", b.name); }
     // un quart de tour : la marche haute passe de +z à +x
     let up = |id: u16| shapes::geometry(shapes::info(id).unwrap())[1]; let st = by_name("planks_stairs").unwrap();
     assert_eq!(up(st), [0.0, 0.5, 0.5, 1.0, 1.0, 1.0]); assert_eq!(up(shapes::variant(st, 1, false, false, false)), [0.5, 0.5, 0.0, 1.0, 1.0, 1.0]); assert_eq!(up(shapes::variant(st, 2, false, false, false)), [0.0, 0.5, 0.0, 1.0, 1.0, 0.5]);

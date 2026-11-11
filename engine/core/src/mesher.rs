@@ -387,7 +387,9 @@ impl Mesher {
             "torch" => {
                 // Torche plantée : un bâton, une tête de fibres enroulées, une flamme vive.
                 bx3(o, x + 0.46, y, z + 0.46, x + 0.54, y + 0.62, z + 0.54, 0.42, 0.28, 0.15, 0.0, s, l); bx3(o, x + 0.43, y + 0.58, z + 0.43, x + 0.57, y + 0.72, z + 0.57, 0.3, 0.24, 0.14, 0.0, s, l);
-                bx(o, x + 0.44, y + 0.72, z + 0.44, x + 0.56, y + 0.9, z + 0.56, 2.5, 1.3, 0.35, 0.0, s, 255.0, EMIT, false, 0.0, 255.0); bx(o, x + 0.47, y + 0.88, z + 0.47, x + 0.53, y + 0.98, z + 0.53, 2.8, 1.9, 0.7, 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
+                // La flamme : une enveloppe orangée, une langue qui monte, un cœur clair ; le shader la fait danser.
+                bx(o, x + 0.43, y + 0.71, z + 0.43, x + 0.57, y + 0.86, z + 0.57, 2.4, 1.1, 0.3, 0.0, s, 255.0, EMIT, false, 0.0, 255.0); bx(o, x + 0.46, y + 0.8, z + 0.46, x + 0.54, y + 0.99, z + 0.54, 2.6, 1.4, 0.4, 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
+                bx(o, x + 0.475, y + 0.74, z + 0.475, x + 0.525, y + 0.88, z + 0.525, 2.9, 2.2, 1.0, 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
                 return;
             }
             "carrot" | "potato" => {

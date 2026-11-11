@@ -106,6 +106,11 @@ impl Session {
     pub fn plan(&self) -> Option<Vec<([i32; 3], crate::blocks::Id)>> {
         let (t, st) = (self.target?, self.inv[self.sel]?); let block = item(st.item)?.block?;
         if !self.creative && st.n.unwrap_or(0) == 0 { return None; }
+        // Une torche posée contre le flanc d'un bloc se fixe au mur, penchée vers soi.
+        if block == B::TORCH && t.py == t.y && (t.px != t.x || t.pz != t.z) && is_solid(t.id) {
+            let f = crate::shapes::facing_of((t.x - t.px) as f64, (t.z - t.pz) as f64); let id = crate::shapes::variant(by_name("torch_wall")?, f, false, false, false);
+            if self.world.get(t.px, t.py, t.pz).is_some_and(|c| c == 0 || !is_solid(c)) { return Some(vec![([t.px, t.py, t.pz], id)]); }
+        }
         if let Some(si) = crate::shapes::info(block) { return self.plan_shape(si, &t); }
         let [x, y, z] = Self::place_spot(&t); let cur = self.world.get(x, y, z)?; if is_solid(cur) { return None; }
         let id = if block == B::SNOW_LAYER && snow_level(cur) > 0 { snow_of(snow_level(cur) + 1) } else { let f = self.player.forward(); placed_variant(oriented_block(block, gaze_axis(f[0], f[1], f[2], self.orient, self.axis))) };
@@ -201,10 +206,18 @@ impl Session {
         (built, gone)
     }
     /// Lumières colorées proches : position et couleur des champignons lumineux, les plus près d'abord.
-    pub fn lights(&self, e: [f64; 3], max: usize) -> Vec<([f32; 3], [f32; 3])> {
+    /// Lumières ponctuelles près de `e` : position et portée (0 : portée courte des champignons), couleur.
+    /// La torche ou la lanterne tenue en main éclaire en premier, avec sa flamme qui vacille.
+    pub fn lights(&self, e: [f64; 3], max: usize) -> Vec<([f32; 4], [f32; 3])> {
+        let mut out = Vec::new();
+        if let Some(k) = self.inv[self.sel].and_then(|s| match s.item { "torch" => Some(1.0), "lantern" => Some(1.15), _ => None }) {
+            let t = self.elapsed; let fl = (0.9 + 0.06 * (t * 11.0).sin() + 0.04 * (t * 23.7).sin()) as f32 * k as f32; let f = self.look; let p = self.player.eye();
+            out.push(([(p[0] + f[0] * 0.4) as f32, (p[1] - 0.25) as f32, (p[2] + f[2] * 0.4) as f32, 11.0], [1.0 * fl, 0.62 * fl, 0.3 * fl]));
+        }
+        let max = max - out.len();
         let mut v: Vec<(f64, [i32; 4])> = self.glows.values().flatten().map(|p| ((p[0] as f64 + 0.5 - e[0]).powi(2) + (p[1] as f64 + 0.3 - e[1]).powi(2) + (p[2] as f64 + 0.5 - e[2]).powi(2), *p)).filter(|q| q.0 < 32.0 * 32.0).collect();
         v.sort_by(|a, b| a.0.total_cmp(&b.0)); v.truncate(max);
-        v.into_iter().map(|(_, p)| { let c = crate::mesher::GLOW[p[3] as usize]; ([p[0] as f32 + 0.5, p[1] as f32 + 0.35, p[2] as f32 + 0.5], [c[0] as f32, c[1] as f32, c[2] as f32]) }).collect()
+        out.extend(v.into_iter().map(|(_, p)| { let c = crate::mesher::GLOW[p[3] as usize]; ([p[0] as f32 + 0.5, p[1] as f32 + 0.35, p[2] as f32 + 0.5, 0.0], [c[0] as f32, c[1] as f32, c[2] as f32]) })); out
     }
     /// Hauteur du soleil, négative la nuit.
     pub fn sun_height(&self) -> f64 { crate::det::sin((self.hour - 6.0) / 12.0 * std::f64::consts::PI) }

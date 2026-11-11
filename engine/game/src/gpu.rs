@@ -23,7 +23,7 @@ struct Targets {
     b_ssao: wgpu::BindGroup, b_blur_h: wgpu::BindGroup, b_blur_v: wgpu::BindGroup, b_light: wgpu::BindGroup, b_vol: wgpu::BindGroup, b_water: wgpu::BindGroup, b_comp: wgpu::BindGroup, b_taa: [wgpu::BindGroup; 2], b_first: [wgpu::BindGroup; 2], b_down: Vec<wgpu::BindGroup>, b_up: Vec<wgpu::BindGroup>, b_last: [wgpu::BindGroup; 2],
 }
 pub struct Gpu {
-    pub lights: Vec<([f32; 3], [f32; 3])>,
+    pub lights: Vec<([f32; 4], [f32; 3])>,
     surface: Option<wgpu::Surface<'static>>, device: wgpu::Device, queue: wgpu::Queue, config: wgpu::SurfaceConfiguration, format: wgpu::TextureFormat,
     p: Pipes, t: Targets, fall_vb: wgpu::Buffer, fall_serial: u64, actor_vb: wgpu::Buffer, actor_inst: wgpu::Buffer, ui_buf: wgpu::Buffer, ui_u: wgpu::Buffer, ui_bind: wgpu::BindGroup, frame0: wgpu::BindGroup, geom1: wgpu::BindGroup, ubuf: wgpu::Buffer, ibuf: wgpu::Buffer, inst: wgpu::Buffer,
     shadow_views: Vec<wgpu::TextureView>, shadow_bind: Vec<wgpu::BindGroup>, shadow_buf: Vec<wgpu::Buffer>, shadow_vp: [M4; 3], shadow_size: u32, hole: f32, cascades: [f64; 3],
@@ -284,7 +284,7 @@ impl Gpu {
         let ivp = view::invert(vp); let ip = view::invert(proj); let mut u: Vec<f32> = Vec::with_capacity(FLOATS);
         for m in [vp, &ivp, &self.prev_vp, view_m, proj, &ip, &self.shadow_vp[0], &self.shadow_vp[1], &self.shadow_vp[2]] { u.extend_from_slice(m); }
         u.extend_from_slice(&[self.cascades[0] as f32, self.cascades[1] as f32, self.cascades[2] as f32, 0.0, eye[0] as f32, eye[1] as f32, eye[2] as f32, time as f32, s.dir[0], s.dir[1], s.dir[2], s.exposure, s.col[0], s.col[1], s.col[2], env.cloud, s.top[0], s.top[1], s.top[2], 1.0 / self.shadow_size as f32, s.hor[0], s.hor[1], s.hor[2], s.night, s.ground[0], s.ground[1], s.ground[2], 0.0048, jit[0], jit[1], w, h, (fr % 64) as f32, env.mist, self.hole, if self.reset { 1.0 } else { 0.0 }, aim.map_or(0.0, |a| a.0[0] as f32), aim.map_or(0.0, |a| a.0[1] as f32), aim.map_or(0.0, |a| a.0[2] as f32), aim.map_or(0.0, |a| a.1), ghost.map_or(0.0, |g| g.0[0] as f32), ghost.map_or(0.0, |g| g.0[1] as f32), ghost.map_or(0.0, |g| g.0[2] as f32), ghost.map_or(0.0, |g| g.1 as u8 as f32), env.fog_k, env.rain, env.bright, env.under as u8 as f32, env.flies, self.lights.len().min(LIGHTS) as f32, env.snow, 0.0, env.valley, env.aurora, 0.0, 0.0]);
-        for k in 0..LIGHTS { let (p, c) = self.lights.get(k).copied().unwrap_or(([0.0; 3], [0.0; 3])); u.extend_from_slice(&[p[0], p[1], p[2], 0.0, c[0], c[1], c[2], 0.0]); }
+        for k in 0..LIGHTS { let (p, c) = self.lights.get(k).copied().unwrap_or(([0.0; 4], [0.0; 3])); u.extend_from_slice(&[p[0], p[1], p[2], p[3], c[0], c[1], c[2], 0.0]); }
         // Forme de l'aperçu de pose : deux boîtes au plus, relatives à sa case (un cube plein par défaut).
         for k in 0..2 { let b = gbox.get(k).copied().unwrap_or(if k == 0 { [0.0, 0.0, 0.0, 1.0, 1.0, 1.0] } else { [0.0; 6] }); u.extend_from_slice(&[b[0] as f32, b[1] as f32, b[2] as f32, 0.0, b[3] as f32, b[4] as f32, b[5] as f32, 0.0]); }
         self.queue.write_buffer(&self.ubuf, 0, &bytes_f32(&u));

@@ -9,7 +9,7 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 42] = ["chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 43] = ["torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
@@ -53,6 +53,14 @@ pub fn draw(o: &mut VBuf, model: &str, name: &str, x: f64, y: f64, z: f64, s: f6
 
 fn build(k: &mut K, m: &str, r: &mut Rng) {
     match m {
+        "torch_wall" => {
+            // Une patte de fer scellée au mur, la torche penchée de 30° vers la pièce, la tête de fibres, la flamme.
+            k.b([0.44, 0.34, 0.9, 0.56, 0.5, 1.0], IRON); k.b([0.46, 0.4, 0.74, 0.54, 0.44, 0.92], IRON);
+            let (a, l) = (0.52f64, 0.62); let (dy, dz) = (a.cos(), -a.sin()); let c = [0.5, 0.2 + dy * l * 0.5, 0.94 + dz * l * 0.5];
+            k.r(c, [[0.04, 0.0, 0.0], [0.0, dy * l * 0.5, dz * l * 0.5], [0.0, -dz * 0.04, dy * 0.04]], [0.42, 0.28, 0.15]);
+            let top = [0.5, 0.2 + dy * l, 0.94 + dz * l]; k.r([top[0], top[1] - 0.04, top[2] + 0.02], [[0.07, 0.0, 0.0], [0.0, dy * 0.07, dz * 0.07], [0.0, -dz * 0.07, dy * 0.07]], [0.3, 0.24, 0.14]);
+            k.flame(top[0], top[1] + 0.02, top[2], 0.24); k.flame(top[0] + 0.02, top[1] + 0.02, top[2] - 0.03, 0.17);
+        }
         "chair" => {
             for (a, b) in [(0.18, 0.18), (0.76, 0.18), (0.18, 0.76), (0.76, 0.76)] { k.b([a, 0.0, b, a + 0.06, 0.46, b + 0.06], DARK); }
             k.t([0.14, 0.46, 0.14, 0.86, 0.52, 0.86], "planks", [1.0; 3]);

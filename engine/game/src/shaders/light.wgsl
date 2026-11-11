@@ -13,7 +13,7 @@
   }
   let a = textureLoad(t_a, px, 0); let nt = textureLoad(t_n, px, 0); let l = textureLoad(t_l, px, 0);
   let n = normalize(nt.xyz * 2.0 - vec3f(1.0)); let alb = a.rgb; let rough = nt.a; let sky_l = l.x; let blk = l.y; let trans = l.z; let emis = l.w; let vao = a.a;
-  if (emis > 0.5) { return vec4f(alb * 5.0, 1.0); }
+  if (emis > 0.5) { return vec4f(alb * 5.0 * (emis * 1.6 - 0.6), 1.0); } /* la flamme vacille (emis entre 0,64 et 1) */
   let dist = length(wp - u.cam.xyz); let ss = textureSampleLevel(t_ao, s_clamp, i.uv, 0.0).r;
   let sh = shadow_at(wp, n, dist, i.pos.xy, 8) * cloud_shade(wp);
   let nol = dot(n, u.sun.xyz); let wrp = select(sat(nol), sat((nol + 0.45) / 1.45), trans > 0.0);
@@ -28,9 +28,11 @@
   // Champignons lumineux : une lueur fluorescente de leur couleur, sans ombre, qui meurt en quelques blocs.
   var glow = vec3f(0.0);
   for (var k = 0; k < i32(u.extra.y); k++) {
-    let dv = u.lights[k * 2].xyz - wp; let d2 = dot(dv, dv); if (d2 > 30.0) { continue; }
-    let fade = 1.0 - d2 / 30.0; let face = 0.35 + 0.65 * sat(dot(n, dv * inverseSqrt(max(d2, 0.01))));
-    glow += u.lights[k * 2 + 1].rgb * face * fade * fade / (1.0 + d2 * 0.9);
+    // Portée : courte par défaut (champignons), plus longue pour la torche tenue (w = rayon).
+    let rr = u.lights[k * 2].w; let r2 = select(30.0, rr * rr, rr > 0.0);
+    let dv = u.lights[k * 2].xyz - wp; let d2 = dot(dv, dv); if (d2 > r2) { continue; }
+    let fade = 1.0 - d2 / r2; let face = select(0.35, 0.15, rr > 0.0) + select(0.65, 0.85, rr > 0.0) * sat(dot(n, dv * inverseSqrt(max(d2, 0.01))));
+    glow += u.lights[k * 2 + 1].rgb * face * fade * fade / (1.0 + d2 * 27.0 / r2);
   }
   var c = alb * (direct + amb + blkc + glow * 3.2 * vao) + bl;
   let hv = normalize(u.sun.xyz - vv); let nh = sat(dot(n, hv));

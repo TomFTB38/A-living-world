@@ -15,6 +15,11 @@ fn wind(p: vec3f, w: f32) -> vec3f {
   var o: VOut;
   var world = vec3f(v.pos.xyz) * v.org.w + v.org.xyz;
   world += wind(world, v.nrm.w * 2.0);
+  // Flammes (torches, feux, bougies) : le haut de la flamme danse et s'étire, le pied reste sur la mèche.
+  if (i32(v.lit.w * 255.0 + 0.5) == 4) {
+    let t = u.cam.w; let up = clamp(fract(world.y + 0.001) - 0.4, 0.0, 0.6) * 2.0; let s = floor(world.xz * 3.0);
+    world += vec3f(sin(t * 9.0 + s.x * 1.7 + s.y * 0.9) * 0.05, (sin(t * 13.0 + s.y * 2.3) * 0.5 + 0.5) * 0.06, cos(t * 11.0 + s.x * 0.7 + s.y * 1.3) * 0.05) * up;
+  }
   if (v.org.w > 0.1 && length(world.xz - u.cam.xz) < u.misc.z) { world.y -= 90.0; } // horizon : trou sous les chunks chargés
   o.w = world; o.n = v.nrm.xyz; o.lit = v.lit.xyz; o.tint = v.tint.rgb * 2.0; o.local = world; o.nl = o.n; o.flags = vec3f(0.0);
   o.data = vec3i(v.pos.w, i32(v.lit.w * 255.0 + 0.5), i32(v.tint.a * 255.0 + 0.5));
@@ -87,7 +92,7 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
     else if (alb.r > alb.g * 1.25 && alb.g > alb.b * 1.9 && hi > 0.3) { rough = 0.3 + 0.15 * gr; } /* laiton, or */
     if (kind != 3) { nn = normalize(n + (vec3f(noise(q * 1.9), noise(q * 1.9 + vec3f(3.1)), noise(q * 1.9 + vec3f(7.7))) - vec3f(0.5)) * 0.22); }
     if (kind == 3) { trans = 0.45; alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.72); }
-    if (kind == 4) { emis = 1.0; }
+    if (kind == 4) { let t = u.cam.w; let q = floor(i.w * 2.0); emis = 0.82 + 0.1 * sin(t * 17.0 + q.x * 3.1 + q.z * 1.7) + 0.08 * sin(t * 29.0 + q.y * 5.3); }
   }
   var o: GOut; o.a = vec4f(alb, i.lit.x); o.n = vec4f(nn * 0.5 + vec3f(0.5), rough); o.l = vec4f(i.lit.y, i.lit.z, trans, max(emis, i.flags.z * 0.4)); return o;
 }
