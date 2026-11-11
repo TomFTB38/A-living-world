@@ -592,7 +592,7 @@ fn capture(a: &[String]) {
             // Une meute de loups qui approche, un sanglier qui fouille le sol, l'arc en main et une flèche plantée devant soi.
             use alw_core::wild::Kind as K; s.inv[0] = Some(alw_core::session::Stack::new("bow", None)); s.sel = 0; s.add_item("arrow", 12); s.player.pitch = -0.05;
             for (k, l, kind) in [(7.0, -1.0, K::Wolf), (8.5, 0.6, K::Wolf), (9.5, -2.2, K::Wolf), (6.0, 3.2, K::Boar)] { let (x, z) = at(k, l); s.wild.put(kind, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.0 + l * 0.1, false); }
-            let (ax, az) = at(3.0, 0.4); s.arrows.push(alw_core::outdoors::Arrow { p: [ax, gy(&s, ax, az) as f64 + 0.25, az], v: [s.player.yaw.sin() * 20.0, -14.0, s.player.yaw.cos() * 20.0], stuck: true, life: 0.0 });
+            let (ax, az) = at(3.0, 0.4); s.arrows.push(alw_core::outdoors::Arrow { p: [ax, gy(&s, ax, az) as f64 + 0.25, az], v: [s.player.yaw.sin() * 20.0, -14.0, s.player.yaw.cos() * 20.0], stuck: true, life: 0.0, pow: 1.0 });
         }
         if scene == "fissure" {
             // Un bloc à moitié cassé à la pioche de pierre : les fissures doivent se voir.
