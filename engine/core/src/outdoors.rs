@@ -23,13 +23,13 @@ impl Session {
                 if self.count("arrow") == 0 { self.notes.push("Plus de flèches".into()); self.use_t = 0.8; return true; }
                 if !self.creative { self.take_one("arrow"); self.spend(4.0); }
                 let (e, f) = (self.eye, self.look); self.arrows.push(Arrow { p: [e[0] + f[0] * 0.6, e[1] + f[1] * 0.6, e[2] + f[2] * 0.6], v: [f[0] * ARROW_SPEED, f[1] * ARROW_SPEED, f[2] * ARROW_SPEED], stuck: false, life: 0.0 });
-                self.sound.swing(Some("sword"), 1.3); self.anim.trigger(); self.use_t = 0.7; true
+                self.sound.swing(Some("sword"), 1.3); self.anim.trigger(); self.use_t = 0.7; self.wear_slot(self.sel, 1); true
             }
             Some("fishing_rod") => {
                 if self.use_t > 0.0 { return true; } self.use_t = 0.5; self.anim.trigger();
                 if let Some(l) = self.line.take() {
                     let now = self.elapsed;
-                    if now >= l.bite && now <= l.bite + BITE_WINDOW { self.add_item(l.fish, 1); self.notes.push(format!("+1 {}", item(l.fish).map_or(l.fish, |i| i.label))); self.sound.splash(0.4); self.skills[2] += 1.0; }
+                    if now >= l.bite && now <= l.bite + BITE_WINDOW { self.add_item(l.fish, 1); self.wear_slot(self.sel, 1); self.notes.push(format!("+1 {}", item(l.fish).map_or(l.fish, |i| i.label))); self.sound.splash(0.4); self.skills[2] += 1.0; }
                     else { self.notes.push("Ligne ramenée".into()); }
                     return true;
                 }
@@ -56,6 +56,8 @@ impl Session {
         let me = self.player.p; let mut arrows = std::mem::take(&mut self.arrows);
         for a in arrows.iter_mut() {
             a.life += dt;
+            // Le bloc où elle était plantée a disparu : la flèche retombe.
+            if a.stuck && self.world.get(a.p[0].floor() as i32, a.p[1].floor() as i32, a.p[2].floor() as i32).is_some_and(|b| b == 0 || !is_solid(b)) { a.stuck = false; a.life = 0.0; let k = 0.05 / (a.v[0] * a.v[0] + a.v[1] * a.v[1] + a.v[2] * a.v[2]).sqrt().max(1e-6); a.v = [a.v[0] * k, -0.5, a.v[2] * k]; }
             if a.stuck { if (a.p[0] - me[0]).hypot(a.p[2] - me[2]) < 1.3 && (a.p[1] - me[1] - 0.5).abs() < 1.6 { if self.add_item("arrow", 1) == 0 { a.life = 1e9; } } continue; }
             a.v[1] -= ARROW_GRAVITY * dt; let step = [a.v[0] * dt, a.v[1] * dt, a.v[2] * dt]; let len = (step[0] * step[0] + step[1] * step[1] + step[2] * step[2]).sqrt(); let d = [step[0] / len, step[1] / len, step[2] / len];
             // Le gibier d'abord : la boîte la plus proche le long du trajet de cette image.

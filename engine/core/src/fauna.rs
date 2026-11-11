@@ -112,7 +112,12 @@ impl Fauna {
             let y = match (gc, gf, gr) { (Some(a), Some(b), Some(c)) => Some(a.max(b).max(c)), _ => None };
             match y {
                 Some(y) if (y - base).abs() <= 1.0 && fits(w, nx, y, nz, d.yaw, 2) => { d.p[0] = nx; d.p[2] = nz; d.gy = y; d.blocked = 0; }
-                _ => { d.blocked += 1; for _ in 0..6 { let y = d.yaw + r.range(0.6, 3.2); if turn(d, w, y) { break; } } if d.blocked > 40 { d.state = DeerState::Graze; d.t = r.range(1.0, 3.0); d.blocked = 0; } }
+                _ => {
+                    // Longer l'obstacle par le cap libre le plus proche avant de tourner au hasard : une biche ne reste pas collée au mur.
+                    let mut moved = false;
+                    for k in [0.44, -0.44, 0.87, -0.87, 1.31, -1.31, 1.75, -1.75] { let yaw = d.yaw + k; let (nx, nz) = (d.p[0] + sin(yaw) * sp * dt, d.p[2] + cos(yaw) * sp * dt);
+                        if let Some(y) = ground(w, nx, nz, base) { if (y - base).abs() <= 1.0 && fits(w, nx, y, nz, yaw, 2) { d.p[0] = nx; d.p[2] = nz; d.gy = y; d.yaw += k * 0.6; d.blocked = 0; moved = true; break; } } }
+                    if !moved { d.blocked += 1; for _ in 0..6 { let y = d.yaw + r.range(0.6, 3.2); if turn(d, w, y) { break; } } } if d.blocked > 40 { d.state = DeerState::Graze; d.t = r.range(1.0, 3.0); d.blocked = 0; } }
             }
             d.p[1] += (d.gy - d.p[1]) * (dt * 9.0).min(1.0);
         }

@@ -63,7 +63,7 @@ wheat | Blé | matieres | 0.1 | 99 | Une gerbe d'épis mûrs, pour le pain. |
 raw_hide | Peau crue | matieres | 1.0 | 32 | Une peau fraîche : à gratter au couteau sur l'établi pour faire du cuir. |
 leather | Cuir | matieres | 0.6 | 64 | Souple et résistant : vêtements, gourde, sac. |
 fur | Fourrure | matieres | 0.5 | 64 | Chaude et douce : vêtements d'hiver. |
-bone_needle | Aiguille en os | matieres | 0.02 | 16 | Pour coudre le cuir et la fourrure. Elle ne s'use pas. |
+bone_needle | Aiguille en os | matieres | 0.02 | 16 | Pour coudre le cuir et la fourrure. Elle finit par casser. | usages=40
 coal | Charbon | matieres | 0.4 | 64 | Brûle longtemps et très chaud : fours et forge. | combustible=80
 charcoal | Charbon de bois | matieres | 0.25 | 64 | Du bois cuit à l'étouffée : un combustible de forge. | combustible=60
 copper_ore | Minerai de cuivre | roches | 1.2 | 64 | Une roche veinée de vert et d'orange. À fondre au four. |
@@ -79,8 +79,8 @@ bowl | Bol en bois | matieres | 0.2 | 16 | Pour les soupes et les ragoûts. |
 
 # --- Eau ---
 waterskin | Gourde vide | vivres | 0.3 | 1 | Clic droit face à l'eau pour la remplir. |
-waterskin_raw | Gourde d'eau brute | vivres | 1.3 | 1 | Eau non traitée : à faire bouillir au feu, ou à boire à ses risques. | boisson=35:0
-waterskin_clean | Gourde d'eau potable | vivres | 1.3 | 1 | Eau bouillie : se boit sans crainte. | boisson=40:1
+waterskin_raw | Gourde d'eau brute | vivres | 1.3 | 1 | Eau non traitée : à faire bouillir au feu, ou à boire à ses risques. | boisson=20:0 usages=4
+waterskin_clean | Gourde d'eau potable | vivres | 1.3 | 1 | Eau bouillie : se boit sans crainte. | boisson=22:1 usages=4
 
 # --- Vivres ---
 berries | Myrtilles | vivres | 0.1 | 32 | Une poignée de baies sucrées. | aliment=9:5:0 garde=3
@@ -141,7 +141,7 @@ dirt | Terre | terrain | 1.2 | 64 | |
 dry_earth | Terre craquelée | terrain | 1.2 | 64 | |
 path | Terre de chemin | terrain | 1.2 | 64 | |
 forest_soil | Humus | terrain | 1.2 | 64 | |
-gravel | Gravier | terrain | 1.3 | 64 | Casser du gravier donne parfois un silex. |
+gravel | Gravier | terrain | 1.3 | 64 | Casser du gravier donne parfois un silex à sa place. |
 sand | Sable | terrain | 1.2 | 64 | |
 clay | Argile | terrain | 1.2 | 64 | Au bord de l'eau : se moule en briques. |
 snow | Neige | terrain | 0.3 | 64 | |
@@ -235,9 +235,9 @@ stone_pillar | Colonne de pierre | batir | 1.6 | 32 | Une colonne taillée. |
 stone_wall | Mur fin de pierre | batir | 1.2 | 64 | Un mur d'une demi-épaisseur, posé en travers du regard. |
 
 # --- Monde vivant : chasse à l'arc, pêche, racines et cultures ---
-bow | Arc | outils | 0.8 | 1 | Clic droit : tire une flèche là où l'on vise. Les flèches plantées se ramassent en marchant dessus. |
+bow | Arc | outils | 0.8 | 1 | Clic droit : tire une flèche là où l'on vise. Les flèches plantées se ramassent en marchant dessus. | usages=150
 arrow | Flèche | outils | 0.05 | 64 | Une pointe de silex sur une hampe droite. |
-fishing_rod | Canne à pêche | outils | 0.6 | 1 | Clic droit vers l'eau pour lancer ; quand ça mord, clic droit vite. |
+fishing_rod | Canne à pêche | outils | 0.6 | 1 | Clic droit vers l'eau pour lancer ; quand ça mord, clic droit vite. | usages=60
 trout | Truite | vivres | 0.4 | 16 | Vit dans l'eau qui court : ruisseaux et rivières. À cuire. | aliment=6:2:-2 garde=1
 perch | Perche | vivres | 0.4 | 16 | Vit dans l'eau calme des lacs et des mares. À cuire. | aliment=6:2:-2 garde=1
 char | Omble | vivres | 0.5 | 16 | Poisson des eaux froides du nord et des montagnes. À cuire. | aliment=7:2:-2 garde=1
@@ -260,7 +260,7 @@ timber | Poutre de chêne | batir | 1.2 | 64 | Du chêne équarri et noirci : po
 roof_tiles | Tuiles | batir | 1.0 | 64 | De la terre cuite rouge, pour des toits qui durent un siècle. |
 slate | Ardoise | batir | 1.2 | 64 | Des feuilles de pierre bleu-gris, pour les toits des riches et des églises. |
 barrel | Tonneau | batir | 3.0 | 16 | Douelles cerclées de fer : vin, bière, salaisons. |
-fire_drill | Archet à feu | outils | 0.4 | 1 | Un bâton qu'on fait tourner vite contre un autre : de quoi allumer un feu de camp, avec un peu de patience. |
+fire_drill | Archet à feu | outils | 0.4 | 1 | Un bâton qu'on fait tourner vite contre un autre : de quoi allumer un feu de camp, avec un peu de patience. | usages=15
 # --- Richesse : pierres et sols, pans de bois, bois peints, étoffes, formes ---
 marble | Marbre | batir | 1.2 | 64 | Une pierre blanche veinée de gris, pour les colonnes et les dallages des riches. |
 marble_black | Marbre noir | batir | 1.2 | 64 | Le marbre sombre des damiers et des tombeaux. |

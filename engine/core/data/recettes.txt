@@ -24,6 +24,7 @@ stone_knife 1 | main | pebble 2, stick 1, fiber 1 | outils
 stone_axe 1 | main | pebble 3, stick 2, fiber 3 | outils
 stone_pickaxe 1 | main | pebble 3, stick 2, fiber 3 | outils
 stone_shovel 1 | main | pebble 2, stick 2, fiber 2 | outils
+pebble 4 | main | cut 1 | matieres
 stone_hammer 1 | main | rock 2, stick 1, fiber 2 | outils
 stone_spear 1 | main | stick 3, pebble 1, fiber 2 | outils
 rope 1 | main | fiber 3 | matieres

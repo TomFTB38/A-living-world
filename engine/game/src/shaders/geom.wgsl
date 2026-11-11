@@ -66,7 +66,7 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
     if ((layer0 < 4 || kind == 1 || (layer0 < 8 && n.y < 0.5)) && !held) { /* herbe et feuillage : grandes taches de teinte, comme une vraie prairie, et un vert olive plutôt que citron */
       let mv = noise(i.w * 0.043) * 0.62 + noise(i.w * 0.16 + vec3f(5.3)) * 0.38;
       let gl = dot(alb, vec3f(0.3, 0.6, 0.1)); let olive = vec3f(gl * 1.02, gl, gl * 0.62);
-      alb = mix(alb, olive, 0.22 + 0.34 * mv) * (0.8 + 0.32 * mv) * vec3f(0.96, 0.95, 1.0);
+      alb = mix(alb, olive, 0.06 + 0.14 * mv) * (0.9 + 0.2 * mv);
     }
     // mousse en petits pixels sur les pierres et l'écorce
     let mossy_rock = layer0 >= MOSSY0 && layer0 < MOSSY0 + 4;
@@ -80,7 +80,7 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
     /* Personnages, bêtes, outils : un grain fin attaché au modèle (toile, cuir, fourrure, métal), pas aux cases du monde. */
     let q = i.local * select(9.0, 34.0, i.flags.z > 0.5 || i.flags.x > 0.5);
     let gr = noise(q) * 0.55 + noise(q * 2.9 + vec3f(1.7)) * 0.3 + noise(q * 8.3 + vec3f(4.1)) * 0.15;
-    alb *= alb * (0.86 + 0.26 * gr) * 1.2;
+    alb *= alb * (0.93 + 0.14 * gr) * 1.22;
     let hi = max(alb.r, max(alb.g, alb.b)); let lo = min(alb.r, min(alb.g, alb.b));
     rough = 0.82 - 0.18 * gr;
     if (hi - lo < 0.05 * hi + 0.01 && hi > 0.12) { rough = 0.22 + 0.2 * gr; } /* acier : gris et lisse, il prend le soleil */

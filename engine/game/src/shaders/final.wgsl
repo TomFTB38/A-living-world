@@ -12,15 +12,15 @@ fn aces(x: vec3f) -> vec3f { return clamp(x * (2.51 * x + vec3f(0.03)) / (x * (2
     c = acc / 8.0;
   }
   c += textureSampleLevel(t_b, s_clamp, i.uv, 0.0).rgb * 0.04;
-  c = pow(aces(c * u.sun.w * u.weather.z * 0.9), vec3f(1.0 / 2.2));
+  c = pow(aces(c * u.sun.w * u.weather.z * 0.97), vec3f(1.0 / 2.2));
   let l = dot(c, vec3f(0.3, 0.59, 0.11));
   /* Étalonnage film : les verts-jaunes criards se calment, le reste garde sa couleur. */
   let yg = sat((c.g - max(c.r * 0.9, c.b) ) * 4.0) * sat((c.r - c.b) * 3.0);
-  c = mix(vec3f(l), c, 1.04 - 0.22 * yg);
+  c = mix(vec3f(l), c, 1.14 - 0.08 * yg);
   c *= mix(vec3f(0.95, 0.99, 1.05), vec3f(1.04, 1.0, 0.93), smoothstep(0.08, 0.85, l));
   c = clamp(c, vec3f(0.0), vec3f(1.0));
-  c = mix(c, c * c * (vec3f(3.0) - 2.0 * c), 0.26);
-  let e = i.uv - vec2f(0.5); c *= 1.0 - 0.32 * smoothstep(0.18, 0.75, dot(e, e) * 1.6); /* vignetage d'objectif */
+  c = mix(c, c * c * (vec3f(3.0) - 2.0 * c), 0.2);
+  let e = i.uv - vec2f(0.5); c *= 1.0 - 0.2 * smoothstep(0.2, 0.8, dot(e, e) * 1.6); /* vignetage d'objectif */
   c += vec3f((ign(i.pos.xy) - 0.5) / 255.0);
   return vec4f(c, 1.0);
 }

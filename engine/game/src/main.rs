@@ -97,7 +97,7 @@ fn read_settings() -> hud::Menu {
     if let Some(l) = t.lines().nth(1) { let k: Vec<&str> = l.split_whitespace().collect(); if k.len() == hud::ACTIONS.len() * 2 { for (i, b) in m.binds.iter_mut().enumerate() { for sl in 0..2 { b[sl] = if k[i * 2 + sl] == "-" { String::new() } else { k[i * 2 + sl].to_string() }; } } } }
     if v.len() >= 5 { m.vol[0] = v[0].clamp(0.0, 1.0); m.vol[1] = v[1].clamp(0.0, 1.0); m.vol[2] = v[2].clamp(0.0, 1.0); m.vol[3] = v.get(5).copied().unwrap_or(0.5).clamp(0.0, 1.0); m.weather = (v[3] as usize).min(hud::WEATHERS.len() - 1); m.mood = (v[4] as usize).min(hud::MOODS.len() - 1); m.quality = v.get(6).map_or(0, |q| (*q as usize).min(1));
         // Indicateurs de survie : mode d'affichage, animations réduites, marqueur de la dépouille.
-        if let Some(x) = v.get(7) { m.hud = (*x as usize).min(needs::MODES.len() - 1); } if let Some(x) = v.get(8) { m.reduce = *x > 0.5; } if let Some(x) = v.get(9) { m.marker = *x > 0.5; } if let Some(x) = v.get(10) { m.tips = *x > 0.5; } if let Some(x) = v.get(11) { m.vol[4] = x.clamp(0.0, 1.0); } if let Some(x) = v.get(12) { m.vol[5] = x.clamp(0.0, 1.0); } }
+        if let Some(x) = v.get(7) { m.hud = (*x as usize).min(needs::MODES.len() - 1); } if let Some(x) = v.get(8) { m.reduce = *x > 0.5; } if let Some(x) = v.get(9) { m.marker = *x > 0.5; } if let Some(x) = v.get(10) { m.tips = *x > 0.5; } if let Some(x) = v.get(11) { m.vol[4] = x.clamp(0.0, 1.0); } if let Some(x) = v.get(12) { m.vol[5] = x.clamp(0.0, 1.0); } if let Some(x) = v.get(13) { m.autostep = *x > 0.5; } }
     m
 }
 /// Panneau F3 : ce qu'il faut pour comprendre où l'on est et comment tourne le jeu.
@@ -127,7 +127,7 @@ impl Game {
     }
     fn write_settings(&self) {
         let m = &self.menu; let keys: Vec<&str> = m.binds.iter().flat_map(|b| b.iter().map(|x| if x.is_empty() { "-" } else { x.as_str() })).collect();
-        let _ = std::fs::write(beside_exe("reglages.alw"), format!("{} {} {} {} {} {} {} {} {} {} {} {} {}\n{}\n", m.vol[0], m.vol[1], m.vol[2], m.weather, m.mood, m.vol[3], m.quality, m.hud, m.reduce as u8, m.marker as u8, m.tips as u8, m.vol[4], m.vol[5], keys.join(" ")));
+        let _ = std::fs::write(beside_exe("reglages.alw"), format!("{} {} {} {} {} {} {} {} {} {} {} {} {} {}\n{}\n", m.vol[0], m.vol[1], m.vol[2], m.weather, m.mood, m.vol[3], m.quality, m.hud, m.reduce as u8, m.marker as u8, m.tips as u8, m.vol[4], m.vol[5], m.autostep as u8, keys.join(" ")));
     }
     fn slide(&mut self, i: usize) {
         let sz = self.window.inner_size(); let r = hud::menu_layout(sz.width as f32, sz.height as f32, &self.menu).into_iter().find(|x| x.0 == hud::M::Vol(i)).map(|x| x.1);
@@ -181,7 +181,7 @@ impl Game {
         let titled = self.menu.title.is_some(); if titled { self.s.player.yaw += real * 0.035; } // derrière l'écran titre, la vue tourne lentement
         let talking = self.s.town.talk.is_some() || self.s.map.open || titled; let open = self.s.inv_open || self.menu.open || talking; let input = if open { Input::default() } else { Input { x: ax(b(hud::A_LEFT), b(hud::A_RIGHT)), z: ax(b(hud::A_FWD), b(hud::A_BACK)), jump: b(hud::A_JUMP), sprint: b(hud::A_SPRINT), crouch: b(hud::A_CROUCH), roll: b(hud::A_ROLL) } };
         self.place_t -= dt; let place = self.rmb && self.place_t <= 0.0; if place { self.place_t = 0.22; }
-        self.s.tick(dt, input, if talking { Actions::default() } else { Actions { mine: self.lmb, place, guard: self.rmb } });
+        self.s.player.autostep = self.menu.autostep; self.s.tick(dt, input, if talking { Actions::default() } else { Actions { mine: self.lmb, place, guard: self.rmb } });
         for n in std::mem::take(&mut self.s.notes) { self.say(n); }
         if (self.s.dead.is_some() || self.s.inv_open || self.s.town.talk.is_some() || self.s.map.open) && self.grabbed && !self.menu.open { self.grab(false); }
         if talking && !titled && self.s.town.talk.is_none() && !self.s.map.open && !self.s.inv_open && !self.menu.open && self.s.dead.is_none() { self.grab(true); } // le villageois s'est éloigné // écran de mort, coffre ouvert d'un clic droit : il faut le pointeur
@@ -235,6 +235,7 @@ impl ApplicationHandler for App {
                         Some(hud::M::NewWorld) => { g.write_settings(); g.open_title(); if let Some(t) = g.menu.title.as_mut() { t.page = hud::TPage::Worlds; t.sel = t.worlds.iter().position(|x| x.name == t.current).unwrap_or(0); } }
                         Some(hud::M::Controls) => { g.menu.controls = true; g.menu.listen = None; }
                         Some(hud::M::Bind(a, sl)) => g.menu.listen = Some((a, sl)),
+                        Some(hud::M::AutoStep) => { g.menu.autostep = !g.menu.autostep; g.write_settings(); }
                         Some(hud::M::ResetKeys) => { g.menu.binds = hud::default_binds(); g.menu.listen = None; g.write_settings(); }
                         Some(hud::M::Tips) => g.menu.tips = !g.menu.tips,
                         Some(hud::M::Resume) => g.close_menu(),

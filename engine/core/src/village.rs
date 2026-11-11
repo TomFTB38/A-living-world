@@ -19,7 +19,7 @@ use std::f64::consts::{PI, TAU};
 use std::rc::Rc;
 
 /// Taille d'une case de la grille des villages, en blocs.
-pub const CELL: i32 = 384;
+pub const CELL: i32 = 640;
 /// Aucun village ne déborde de ce rayon autour de son centre, terrain aplani compris.
 pub const SPAN: i32 = 64;
 /// Distance où les villageois apparaissent, et où ils s'effacent.

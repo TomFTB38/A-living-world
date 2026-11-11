@@ -7,9 +7,9 @@ pub trait Voxels { fn get(&self, x: i32, y: i32, z: i32) -> Option<Id>; }
 #[derive(Default, Clone, Copy)]
 pub struct Input { pub x: f64, pub z: f64, pub jump: bool, pub sprint: bool, pub crouch: bool, pub roll: bool }
 pub const ROLL_TIME: f64 = 0.62; const ROLL_SPEED: f64 = 5.5; /* trois blocs au plus */ const ROLL_WAIT: f64 = 0.3;
-pub struct Player { pub p: [f64; 3], pub v: [f64; 3], pub yaw: f64, pub pitch: f64, pub ground: bool, pub crouch: bool, pub in_water: bool, pub speed: f64, pub fly: bool, pub move_yaw: f64, pub roll_t: f64, roll_dir: [f64; 2], pub roll_local: [f64; 2], roll_wait: f64 }
+pub struct Player { /** Franchir un bloc entier sans sauter (saut automatique). */ pub autostep: bool, pub p: [f64; 3], pub v: [f64; 3], pub yaw: f64, pub pitch: f64, pub ground: bool, pub crouch: bool, pub in_water: bool, pub speed: f64, pub fly: bool, pub move_yaw: f64, pub roll_t: f64, roll_dir: [f64; 2], pub roll_local: [f64; 2], roll_wait: f64 }
 impl Player {
-    pub fn new(x: f64, y: f64, z: f64) -> Self { Player { p: [x, y, z], v: [0.0; 3], yaw: 0.0, pitch: 0.0, ground: false, crouch: false, in_water: false, speed: 0.0, fly: false, move_yaw: 0.0, roll_t: 0.0, roll_dir: [0.0; 2], roll_local: [0.0, 1.0], roll_wait: 0.0 } }
+    pub fn new(x: f64, y: f64, z: f64) -> Self { Player { autostep: true, p: [x, y, z], v: [0.0; 3], yaw: 0.0, pitch: 0.0, ground: false, crouch: false, in_water: false, speed: 0.0, fly: false, move_yaw: 0.0, roll_t: 0.0, roll_dir: [0.0; 2], roll_local: [0.0, 1.0], roll_wait: 0.0 } }
     /// Le corps (une boîte de 0,6 × 1,8) rencontre-t-il quelque chose ? Les blocs de forme (dalle, escalier, porte…) arrêtent
     /// exactement là où ils sont dessinés ; les autres blocs pleins occupent toute leur case.
     fn hits(&self, w: &impl Voxels, x: f64, y: f64, z: f64) -> bool { self.top_hit(w, x, y, z).is_some() }
@@ -55,7 +55,7 @@ impl Player {
             let mut n = self.p; n[a] += self.v[a] * dt;
             if !self.hits(w, n[0], n[1], n[2]) { self.p[a] = n[a]; continue; }
             // Une marche se franchit sans sauter : d'abord une demi-hauteur (dalle, escalier), puis un bloc entier.
-            let step = if self.ground && !fly { [0.52, 1.02].into_iter().find(|h| !self.hits(w, n[0], n[1] + h, n[2]) && !self.hits(w, self.p[0], self.p[1] + h, self.p[2])) } else { None };
+            let step = if self.ground && !fly { [0.52, 1.02].into_iter().filter(|h| *h < 0.6 || self.autostep).find(|h| !self.hits(w, n[0], n[1] + h, n[2]) && !self.hits(w, self.p[0], self.p[1] + h, self.p[2])) } else { None };
             match step { Some(h) => { self.p[a] = n[a]; self.p[1] += h; if let Some(t) = self.top_hit(w, self.p[0], self.p[1] - h, self.p[2]) { if t <= self.p[1] { self.p[1] = t; } } } None => self.v[a] = 0.0 }
         }
         let ny = self.p[1] + self.v[1] * dt;

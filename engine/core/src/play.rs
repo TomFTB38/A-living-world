@@ -112,6 +112,8 @@ impl Session {
         if !r.need.iter().all(|n| self.count(n.id) >= n.n) { return Err("Il manque des ingrédients"); }
         let before = self.inv; for n in r.need.iter().filter(|n| !n.keep) { self.take(n.id, n.n); }
         if self.add_item(r.out, r.n) > 0 { self.inv = before; return Err("L'inventaire est plein"); }
+        // Les outils qu'on garde (marteau, couteau, aiguille…) s'usent à chaque ouvrage.
+        for n in r.need.iter().filter(|n| n.keep) { let m = members(n.id); if let Some(i) = self.inv.iter().position(|s| s.is_some_and(|s| m.contains(&s.item))) { self.wear_slot(i, 1); } }
         let sk = if r.at == Station::Fire { 4 } else { 3 }; self.skills[sk] += 1.0;
         self.sound.place(item(r.out).and_then(|i| i.block).map_or("planks", |b| BLOCKS[b as usize].name)); self.dirty = true; Ok(())
     }
@@ -121,15 +123,24 @@ impl Session {
     pub(crate) fn tool_id(&self) -> Option<&'static str> { self.held().filter(|i| i.block.is_none()).map(|i| i.id) }
     fn tool(&self) -> Option<crate::data::Tool> { self.tool_id().and_then(def).and_then(|d| d.tool) }
     /// L'outil tenu s'use ; à bout, il se brise.
-    fn wear_tool(&mut self, n: u32) {
-        if self.creative { return; } let Some(st) = self.inv[self.sel] else { return }; let Some(t) = def(st.item).and_then(|d| d.tool) else { return };
-        let max = (t.mat.dur as f64 / PROFILES[self.profile].wear).round() as u32; let w = st.wear + n;
-        if w >= max { self.inv[self.sel] = None; self.notes.push(format!("{} s'est brisé", item(st.item).map_or(st.item, |i| i.label))); self.sound.break_block("stone", Some("pickaxe")); } else { self.inv[self.sel] = Some(Stack { wear: w, ..st }); }
+    fn wear_tool(&mut self, n: u32) { self.wear_slot(self.sel, n); }
+    /// Combien d'usages tient un objet : un outil selon sa matière, un arc, une aiguille ou une gourde selon « usages ».
+    fn max_uses(&self, item: &str) -> Option<u32> {
+        let d = def(item)?; if let Some(t) = d.tool { return Some((t.mat.dur as f64 / PROFILES[self.profile].wear).round().max(1.0) as u32); }
+        (d.uses > 0).then(|| if d.drink.is_some() { d.uses } else { (d.uses as f64 / PROFILES[self.profile].wear).round().max(1.0) as u32 })
+    }
+    /// L'objet de la case `i` s'use de `n` ; à bout, il se brise (une gourde, elle, se vide).
+    pub(crate) fn wear_slot(&mut self, i: usize, n: u32) {
+        if self.creative { return; } let Some(st) = self.inv[i] else { return }; let Some(max) = self.max_uses(st.item) else { return }; let w = st.wear + n;
+        if w >= max {
+            if def(st.item).is_some_and(|d| d.drink.is_some()) { self.inv[i] = Some(Stack::new("waterskin", None)); self.notes.push("La gourde est vide".into()); }
+            else { self.inv[i] = None; self.notes.push(format!("{} s'est brisé", item(st.item).map_or(st.item, |i| i.label))); self.sound.break_block("stone", Some("pickaxe")); }
+        } else { self.inv[i] = Some(Stack { wear: w, ..st }); }
         self.dirty = true;
     }
     /// Usure d'un outil ou d'un bouclier, de 0 (neuf) à 1 (brisé), pour l'affichage.
     pub fn wear_of(&self, st: &Stack) -> Option<f64> {
-        let d = def(st.item)?; if let Some(t) = d.tool { return Some(st.wear as f64 / (t.mat.dur as f64 / PROFILES[self.profile].wear).max(1.0)); }
+        let d = def(st.item)?; if d.tool.is_some() || d.uses > 0 { return self.max_uses(st.item).map(|m| st.wear as f64 / m as f64); }
         d.wear.filter(|w| w.slot == crate::data::Slot::Hand).map(|w| st.wear as f64 / shield_life(w.armor, self.profile) as f64)
     }
     /// Un coup encaissé use le bouclier ; à bout, il se fend.
@@ -172,6 +183,8 @@ impl Session {
     fn drops(&mut self, b: Block, t: Target, fit: Option<crate::data::Tool>) {
         if needs_tool(b.cat) && fit.is_none() { self.notes.push("Sans pioche, la pierre s'effrite sans rien donner".into()); return; }
         if b.name.ends_with("_ore") { if let Some(tl) = fit { if tl.mat.tier < ore_tier(b.name) { self.notes.push(format!("Cette pioche est trop tendre pour ce minerai : il faut au moins du cuivre")); return; } } }
+        // Le gravier rend son silex à la place de lui-même, pas en plus.
+        if b.name == "gravel" { let flint = hash_float(t.x * 7, t.y, t.z * 13 + (self.elapsed * 61.0) as i32, 77) < 0.2; self.add_item(if flint { "flint" } else { "gravel" }, 1); return; }
         if let Some(d) = b.drop { if d != "air" { self.add_item(d, 1); } } if let Some((d, n)) = bonus_drop(b.name) { self.add_item(d, n); }
         let kind = fit.map(|t| t.kind).or(self.tool().map(|t| t.kind));
         for (k, (d, p)) in grass_drops(b.name).iter().enumerate() {
@@ -261,7 +274,7 @@ impl Session {
                     if self.use_t > 0.0 { return true; } let it = held.unwrap().item; self.use_t = if it == "torch" { 0.3 } else { 0.55 }; self.anim.trigger();
                     if self.fires.get(&p).is_none_or(|f| *f <= 0.0) { self.notes.push("Il n'y a plus de bois : ajoutez-en avant d'allumer".into()); return true; }
                     let chance = match it { "torch" => 1.0, "flint" => 0.4, _ => 0.3 } * (1.0 - 0.5 * self.weather.state.rain.min(1.0));
-                    self.sound.place("flint"); if !self.creative && hash_float((self.elapsed * 397.0) as i32, p[0] ^ p[2], self.seed, 23) >= chance { self.notes.push(if it == "torch" { "Le feu ne prend pas sous cette pluie" } else { "Des étincelles... encore" }.into()); return true; }
+                    self.sound.place("flint"); if it == "fire_drill" { self.wear_slot(self.sel, 1); } if !self.creative && hash_float((self.elapsed * 397.0) as i32, p[0] ^ p[2], self.seed, 23) >= chance { self.notes.push(if it == "torch" { "Le feu ne prend pas sous cette pluie" } else { "Des étincelles... encore" }.into()); return true; }
                     self.world.edit(t.x, t.y, t.z, B::CAMPFIRE); self.sound.place("campfire"); self.notes.push("Le feu prend".into()); self.dirty = true; return true;
                 }
                 if (t.id == B::CAMPFIRE || t.id == B::CAMPFIRE_OUT) && hd.is_some_and(|d| d.fuel > 0.0 && d.block.is_none_or(|b| !is_deco(b))) {
@@ -291,7 +304,7 @@ impl Session {
         // Boire à la gourde : l'eau brute peut rendre malade ; la gourde se vide.
         if let (Some(_), Some((q, safe))) = (held, hd.and_then(|d| d.drink)) {
             self.vit[2] = (self.vit[2] + q).min(100.0); if !safe && hash_float((self.elapsed * 211.0) as i32, 9, self.seed, 19) < 0.3 { self.harm(5.0, "Une eau non bouillie", false); self.notes.push("Cette eau n'était pas saine : faites-la bouillir au feu".into()); }
-            self.inv[self.sel] = Some(Stack::new("waterskin", None)); self.use_t = 0.7; self.sound.splash(0.2); self.anim.trigger(); self.gain(2); self.dirty = true; return true;
+            self.wear_slot(self.sel, 1); self.use_t = 0.7; self.sound.splash(0.2); self.anim.trigger(); self.gain(2); self.dirty = true; return true;
         }
         if let Some(d) = hd.filter(|d| d.heal > 0.0) { if self.vit[0] >= 100.0 { return true; } self.vit[0] = (self.vit[0] + d.heal).min(100.0); self.consume_held(); self.use_t = 1.0; self.gain(0); self.notes.push("Blessure pansée".into()); return true; }
         if hd.is_some_and(|d| d.block.is_some()) || self.creative { return false; }

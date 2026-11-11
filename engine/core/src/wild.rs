@@ -166,8 +166,7 @@ impl Wild {
         let sp = match c.state { State::Flee => run, State::Walk => amble, _ => 0.0 }; c.speed = sp;
         if sp == 0.0 { c.phase = 0.0; c.p[1] += (c.gy - c.p[1]) * (dt * 9.0).min(1.0); return; }
         c.phase += dt * (4.0 + sp * 2.2);
-        let (nx, nz) = (c.p[0] + sin(c.yaw) * sp * dt, c.p[2] + cos(c.yaw) * sp * dt);
-        match ground(w, nx, nz, c.gy) { Some(y) if (y - c.gy).abs() <= 1.0 && fits(w, nx, y, nz, c.yaw, 1) => { c.p[0] = nx; c.p[2] = nz; c.gy = y; } _ => { c.yaw += if c.hit > 0.0 { 0.0 } else { r.range(1.6, 2.6) }; c.t = c.t.max(0.6); } }
+        if !steer(c, w, sp * dt) { c.yaw += if c.hit > 0.0 { 0.0 } else { r.range(1.6, 2.6) }; c.t = c.t.max(0.6); }
         c.p[1] += (c.gy - c.p[1]) * (dt * 9.0).min(1.0);
         c.step += dt * sp; if c.step > 0.55 { c.step = 0.0; c.foot = !c.foot; let (q, y) = (c.p, c.yaw); let saved = (self.last_print, self.left); self.last_print = None; self.foot(w, q, Some(y), true); (self.last_print, self.left) = saved; }
     }
@@ -193,8 +192,7 @@ impl Wild {
         let sp = match c.state { State::Chase => if dist < if bear { 1.6 } else { 1.2 } { 0.0 } else if wolf { 6.6 } else if bear { 5.4 } else { 6.2 }, State::Flee => if bear { 4.5 } else { 6.0 }, State::Walk => if wolf { 1.9 } else if bear { 1.0 } else { 1.1 }, _ => 0.0 }; c.speed = sp;
         if sp == 0.0 { c.phase = 0.0; c.p[1] += (c.gy - c.p[1]) * (dt * 9.0).min(1.0); return; }
         c.phase += dt * (4.0 + sp * 2.0);
-        let (nx, nz) = (c.p[0] + sin(c.yaw) * sp * dt, c.p[2] + cos(c.yaw) * sp * dt);
-        match ground(w, nx, nz, c.gy) { Some(y) if (y - c.gy).abs() <= 1.0 && fits(w, nx, y, nz, c.yaw, 1) => { c.p[0] = nx; c.p[2] = nz; c.gy = y; } _ => { if c.state != State::Chase { c.yaw += r.range(1.0, 3.0); } } }
+        if !steer(c, w, sp * dt) && c.state != State::Chase { c.yaw += r.range(1.0, 3.0); }
         c.p[1] += (c.gy - c.p[1]) * (dt * 9.0).min(1.0);
     }
     fn crow(&mut self, c: &mut Critter, dt: f64, w: &impl Voxels, p: [f64; 3]) {
@@ -269,4 +267,15 @@ impl Wild {
         for pr in &self.prints { let sc = if pr.small { 0.55 } else { 1.0 }; put("print", trs(pr.p[0], pr.p[1], pr.p[2], pr.yaw, 0.0, sc)); }
         out
     }
+}
+
+/// Avancer de `step` dans le sens voulu ; si un mur barre la route, longer l'obstacle par le cap libre le plus proche
+/// (de 25° en 25°, d'un côté puis de l'autre), en montant ou descendant d'un bloc s'il le faut. Faux si tout est bouché.
+fn steer(c: &mut Critter, w: &impl Voxels, step: f64) -> bool {
+    for k in [0.0, 0.44, -0.44, 0.87, -0.87, 1.31, -1.31, 1.75, -1.75, 2.4, -2.4] {
+        let yaw = c.yaw + k; let (nx, nz) = (c.p[0] + sin(yaw) * step, c.p[2] + cos(yaw) * step);
+        if let Some(y) = ground(w, nx, nz, c.gy) { if (y - c.gy).abs() <= 1.0 && fits(w, nx, y, nz, yaw, 1) {
+            c.p[0] = nx; c.p[2] = nz; c.gy = y; if k != 0.0 { c.yaw += k * 0.6; } return true; } }
+    }
+    false
 }

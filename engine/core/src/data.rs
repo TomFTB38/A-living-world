@@ -39,6 +39,8 @@ impl Tool {
 #[derive(Clone, Debug)] pub struct Def {
     pub id: &'static str, pub label: &'static str, pub cat: &'static str, pub mass: f64, pub stack: u32, pub desc: &'static str, pub block: Option<crate::blocks::Id>,
     pub tool: Option<Tool>, pub food: Option<Food>, pub keep: f64, pub risk: f64, pub wear: Option<Wear>, pub fuel: f64, pub drink: Option<(f64, bool)>, pub heal: f64,
+    /// Nombre d'usages avant qu'il ne s'use (arc, aiguille, gourde : une gorgée par usage). 0 : ne s'use pas ainsi.
+    pub uses: u32,
 }
 #[derive(Clone, Copy, Debug, PartialEq)] pub enum Station { Hand, Bench, Fire, Furnace, Anvil, Mason }
 impl Station {
@@ -69,7 +71,7 @@ impl Db {
             let f: Vec<&'static str> = l.split('|').map(str::trim).collect();
             if f.len() != 7 { db.errors.push(format!("objets.txt:{} : 7 champs attendus, {} trouvés", ln + 1, f.len())); continue; }
             let (Ok(mass), Ok(stack)) = (f[3].parse::<f64>(), f[4].parse::<u32>()) else { db.errors.push(format!("objets.txt:{} masse ou pile illisible", ln + 1)); continue };
-            let mut d = Def { id: f[0], label: f[1], cat: f[2], mass, stack, desc: f[5], block: by_name(f[0]), tool: None, food: None, keep: 0.0, risk: 0.0, wear: None, fuel: 0.0, drink: None, heal: 0.0 };
+            let mut d = Def { id: f[0], label: f[1], cat: f[2], mass, stack, desc: f[5], block: by_name(f[0]), tool: None, food: None, keep: 0.0, risk: 0.0, wear: None, fuel: 0.0, drink: None, uses: 0, heal: 0.0 };
             let (mut kind, mut mat, mut slot, mut warm, mut cool, mut armor, mut bag) = (None, None, None, 0.0, 0.0, 0.0, 0.0);
             for p in f[6].split_whitespace() {
                 let Some((k, v)) = p.split_once('=') else { db.errors.push(format!("objets.txt:{} propriété « {p} » sans valeur", ln + 1)); continue };
@@ -78,6 +80,7 @@ impl Db {
                     "outil" => kind = Some(v), "mat" => mat = mats.iter().find(|m| m.name == v).copied(), "porte" => slot = match v { "tete" => Some(Slot::Head), "torse" => Some(Slot::Torso), "jambes" => Some(Slot::Legs), "pieds" => Some(Slot::Feet), "dos" => Some(Slot::Back), "main" => Some(Slot::Hand), _ => { bad = true; None } },
                     "chaud" => warm = num(v).unwrap_or_else(|| { bad = true; 0.0 }), "frais" => cool = num(v).unwrap_or_else(|| { bad = true; 0.0 }), "armure" => armor = num(v).unwrap_or_else(|| { bad = true; 0.0 }), "sac" => bag = num(v).unwrap_or_else(|| { bad = true; 0.0 }),
                     "aliment" => { let n: Vec<f64> = v.split(':').filter_map(num).collect(); if n.len() == 3 { d.food = Some(Food { hunger: n[0], thirst: n[1], health: n[2] }); } else { bad = true; } }
+                    "usages" => d.uses = num(v).map_or_else(|| { bad = true; 0 }, |x| x as u32),
                     "boisson" => { let n: Vec<f64> = v.split(':').filter_map(num).collect(); if n.len() == 2 { d.drink = Some((n[0], n[1] > 0.5)); } else { bad = true; } }
                     "garde" => d.keep = num(v).unwrap_or_else(|| { bad = true; 0.0 }), "risque" => d.risk = num(v).unwrap_or_else(|| { bad = true; 0.0 }), "combustible" => d.fuel = num(v).unwrap_or_else(|| { bad = true; 0.0 }), "soin" => d.heal = num(v).unwrap_or_else(|| { bad = true; 0.0 }),
                     _ => bad = true,

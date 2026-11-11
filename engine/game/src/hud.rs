@@ -70,7 +70,7 @@ const VOLS: [&str; 6] = ["Volume général", "Effets", "Musique", "Luminosité",
 pub fn bright(v: f32) -> f32 { 0.6 + 0.5 * v }
 const CREDITS: [&str; 13] = ["Musique générée par le jeu. Sons retravaillés pour le jeu.", "", "Licence CC BY 3.0", "crack : Benboncan, freesound.org/people/Benboncan/sounds/71823", "splash : AGFX, freesound.org/people/AGFX/packs/1253", "hurt : sonictechtonic, freesound.org/people/sonictechtonic/sounds/241872", "", "Licence CC0", "Kenney (Impact Sounds), worthahep88, lolamadeus, Sheyvan, blukotek, Yuval", "", "Police de l'interface", "Inter, SIL Open Font License 1.1", ""];
 /// Réglages du menu. `profile` reflète le profil de survie de la partie ; `hud` : mode des indicateurs ; `alt` : touche Alt tenue.
-pub struct Menu { pub open: bool, pub credits: bool, pub weather: usize, pub mood: usize, pub vol: [f32; 6], pub quality: usize, pub confirm: bool, pub profile: usize, pub hud: usize, pub reduce: bool, pub marker: bool, pub alt: bool,
+pub struct Menu { pub open: bool, pub credits: bool, pub weather: usize, pub mood: usize, pub vol: [f32; 6], pub quality: usize, pub confirm: bool, pub profile: usize, pub hud: usize, pub reduce: bool, pub marker: bool, pub alt: bool, pub autostep: bool,
     /// Page des commandes, conseils de départ, touches (deux par action, par leur nom), touche attendue pour une action, écran titre.
     pub controls: bool, pub tips: bool, pub binds: Vec<[String; 2]>, pub listen: Option<(usize, usize)>, pub title: Option<Title> }
 /// Les actions qu'on peut attribuer à une touche, dans l'ordre de `Menu::binds`.
@@ -82,7 +82,7 @@ pub fn default_binds() -> Vec<[String; 2]> {
     [["Z", "W"], ["S", ""], ["Q", "A"], ["D", ""], ["Espace", ""], ["Maj", ""], ["Ctrl", ""], ["V", ""], ["E", ""], ["M", ""], ["J", ""], ["C", ""], ["R", ""]].iter().map(|b| [b[0].to_string(), b[1].to_string()]).collect()
 }
 impl Menu {
-    pub fn new() -> Menu { Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5, 0.5, 0.5], quality: 0, confirm: false, profile: 1, hud: 1, reduce: false, marker: true, alt: false, controls: false, tips: true, binds: default_binds(), listen: None, title: None } }
+    pub fn new() -> Menu { Menu { open: false, credits: false, weather: 0, mood: 0, vol: [0.7, 0.7, 0.5, 0.5, 0.5, 0.5], quality: 0, confirm: false, profile: 1, hud: 1, reduce: false, marker: true, alt: false, autostep: true, controls: false, tips: true, binds: default_binds(), listen: None, title: None } }
     /// Une touche (par son nom) déclenche-t-elle cette action ?
     pub fn is(&self, a: usize, key: &str) -> bool { !key.is_empty() && self.binds[a].iter().any(|b| b == key) }
     /// Sensibilité de la souris en radians par point, champ de vision vertical en radians.
@@ -125,7 +125,7 @@ pub fn title_layout(t: &Title, w: f32, h: f32) -> Vec<(T, [f32; 4])> {
 pub fn title_at(t: &Title, w: f32, h: f32, p: [f32; 2]) -> Option<T> { title_layout(t, w, h).into_iter().find(|x| inside(p, x.1)).map(|x| x.0) }
 /// Ce que change chaque profil, en une ligne.
 pub fn profile_line(i: usize) -> String { let p = &PROFILES[i]; match i { 0 => "Besoins lents, blessures légères, dépouille gardée longtemps".into(), 1 => "Le jeu tel qu'il est pensé".into(), _ => format!("Besoins x{:.1}, blessures x{:.1}, dépouille {:.0} jours", p.needs, p.harm, p.stash_days) } }
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum M { Resume, Weather(usize), Mood(usize), Quality(usize), Vol(usize), Credits, Back, Quit, NewWorld, Profile(usize), Hud(usize), Reduce, Marker, Tips, Controls, Bind(usize, usize), ResetKeys }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum M { Resume, Weather(usize), Mood(usize), Quality(usize), Vol(usize), Credits, Back, Quit, NewWorld, Profile(usize), Hud(usize), Reduce, Marker, Tips, Controls, Bind(usize, usize), ResetKeys, AutoStep }
 fn menu_panel(w: f32, h: f32) -> ([f32; 4], f32) { let k = scale(h).min(h / 800.0); let (pw, ph) = (680.0 * k, 702.0 * k); ([(w - pw) * 0.5, (h - ph) * 0.5, pw, ph], k) }
 pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
     let (p, k) = menu_panel(w, h); let (x0, tw) = (p[0] + 34.0 * k, p[2] - 68.0 * k); let bh = 40.0 * k; let g = 8.0 * k; let mut o = Vec::new();
@@ -135,7 +135,7 @@ pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
         let rh = 30.0 * k; let mut y = p[1] + 88.0 * k; let kw = 120.0 * k;
         for a in 0..ACTIONS.len() { for sl in 0..2 { o.push((M::Bind(a, sl), [x0 + tw - 2.0 * kw - g + sl as f32 * (kw + g), y, kw, rh - 4.0 * k])); } y += rh; }
         y += 14.0 * k; for i in 4..6 { o.push((M::Vol(i), [x0 + 230.0 * k, y + (i - 4) as f32 * 30.0 * k, tw - 230.0 * k, 22.0 * k])); }
-        y += 72.0 * k; let b = (tw - g) / 2.0; o.push((M::ResetKeys, [x0, y, b, bh])); o.push((M::Back, [x0 + b + g, y, b, bh])); return o;
+        y += 72.0 * k; let b = (tw - 2.0 * g) / 3.0; o.push((M::AutoStep, [x0, y, b, bh])); o.push((M::ResetKeys, [x0 + b + g, y, b, bh])); o.push((M::Back, [x0 + 2.0 * (b + g), y, b, bh])); return o;
     }
     let mut y = p[1] + 70.0 * k; o.push((M::Resume, [x0, y, tw, bh])); y += bh + 32.0 * k;
     let row = |n: usize, y: f32, f: &dyn Fn(usize) -> M, o: &mut Vec<(M, [f32; 4])>| { let b = (tw - (n as f32 - 1.0) * g) / n as f32; for i in 0..n { o.push((f(i), [x0 + i as f32 * (b + g), y, b, 32.0 * k])); } };
@@ -304,6 +304,7 @@ impl Ui {
                 M::Profile(i) => { if i == 0 { label("Survie (pour ce monde)", self); } self.panel(r, k, if m.profile == i { sel } else { plain }); self.centered(PROFILES[i].name, r, 15.0 * k, INK); }
                 M::Hud(i) => { if i == 0 { label("Indicateurs de survie (Alt : tout afficher)", self); } self.panel(r, k, if m.hud == i { sel } else { plain }); self.centered(needs::MODES[i], r, 15.0 * k, INK); }
                 M::Reduce => { self.panel(r, k, if m.reduce { sel } else { plain }); self.centered(if m.reduce { "Animations réduites : oui" } else { "Animations réduites : non" }, r, 14.5 * k, INK); }
+                M::AutoStep => { self.panel(r, k, if m.autostep { sel } else { plain }); self.centered(if m.autostep { "Saut automatique : oui" } else { "Saut automatique : non" }, r, 14.5 * k, INK); }
                 M::Marker => { self.panel(r, k, if m.marker { sel } else { plain }); self.centered(if m.marker { "Marqueur de dépouille : oui" } else { "Marqueur de dépouille : non" }, r, 14.5 * k, INK); }
                 M::Vol(i) => { self.text(VOLS[i], x0, r[1], 16.0 * k, DIM); let t = 6.0 * k; let y = r[1] + (r[3] - t) * 0.5; self.rect(r[0], y, r[2], t, [0.0, 0.0, 0.0, 0.5]); self.rect(r[0], y, r[2] * m.vol[i], t, ACCENT); let hx = r[0] + r[2] * m.vol[i]; self.panel([hx - 7.0 * k, r[1] + 1.0 * k, 14.0 * k, r[3] - 2.0 * k], k, INK); }
             }

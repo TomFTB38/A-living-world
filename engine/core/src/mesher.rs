@@ -250,19 +250,22 @@ impl Mesher {
             // Construction : la géométrie vient de shapes.rs (la même que les collisions), texturée dans sa matière.
             "slab" | "stairs" | "pillar" | "wall" => {
                 let Some(i) = crate::shapes::info(b) else { return }; let layer = BLOCKS[crate::shapes::material(b) as usize].faces[0] as f64;
-                for bb in crate::shapes::geometry(i) { tbox(o, x, y, z, bb, layer, s, l, 1.0); }
+                for bb in crate::shapes::geometry(i) { tbox(o, x, y, z, inset(bb), layer, s, l, 1.0); }
                 return;
             }
             "door" | "trapdoor" => {
                 // Battant de planches plus sombres, deux traverses, une poignée de fer du côté opposé aux gonds.
                 let Some(i) = crate::shapes::info(b) else { return }; let layer = BLOCKS[B::PLANKS as usize].faces[0] as f64;
                 for bb in crate::shapes::geometry(i) {
-                    tbox(o, x, y, z, bb, layer, s, l, 0.72);
-                    let (dx, dz) = (bb[3] - bb[0], bb[5] - bb[2]); let thin_x = dx < dz; let e = 0.012;
-                    if i.kind == crate::shapes::Kind::Door {
-                        for h in [0.18, 0.78] { let (y0, y1) = (y + h, y + h + 0.1); if thin_x { bx3(o, x + bb[0] - e, y0, z + bb[2], x + bb[3] + e, y1, z + bb[5], 0.32, 0.2, 0.1, 0.0, s, l); } else { bx3(o, x + bb[0], y0, z + bb[2] - e, x + bb[3], y1, z + bb[5] + e, 0.32, 0.2, 0.1, 0.0, s, l); } }
-                        if !i.upper { let (hy, hw) = (y + 0.92, 0.05); if thin_x { bx3(o, x + bb[0] - 0.06, hy, z + bb[5] - 0.2, x + bb[3] + 0.06, hy + hw, z + bb[5] - 0.12, 0.2, 0.2, 0.22, 0.0, s, l); } else { bx3(o, x + bb[3] - 0.2, hy, z + bb[2] - 0.06, x + bb[3] - 0.12, hy + hw, z + bb[5] + 0.06, 0.2, 0.2, 0.22, 0.0, s, l); } }
-                    }
+                    tbox(o, x, y, z, inset(bb), layer, s, l, 0.72);
+                    let _ = bb;
+                }
+                // Traverses et poignée posées dans le repère du battant (gonds au coin x = 0, z = 0), puis tournées comme lui :
+                // la poignée reste du côté libre, ouvert comme fermé, quel que soit le sens de la porte.
+                if i.kind == crate::shapes::Kind::Door {
+                    let (p, e) = (crate::shapes::PANEL, 0.012); let put = |o: &mut VBuf, bb: [f64; 6], c: [f64; 3]| { let t = crate::shapes::turn(bb, i.facing); bx3(o, x + t[0], y + t[1], z + t[2], x + t[3], y + t[4], z + t[5], c[0], c[1], c[2], 0.0, s, l); };
+                    for h in [0.18, 0.78] { put(o, if i.open { [-e, h, 0.0, p + e, h + 0.1, 1.0] } else { [0.0, h, -e, 1.0, h + 0.1, p + e] }, [0.32, 0.2, 0.1]); }
+                    if !i.upper { put(o, if i.open { [-0.06, 0.92, 0.78, p + 0.06, 0.97, 0.88] } else { [0.78, 0.92, -0.06, 0.88, 0.97, p + 0.06] }, [0.2, 0.2, 0.22]); }
                 }
                 return;
             }
@@ -278,10 +281,10 @@ impl Mesher {
                 // Cadre de bois, croisillon, et quatre carreaux de verre bleuté légèrement en retrait.
                 let Some(i) = crate::shapes::info(b) else { return }; let g = crate::shapes::geometry(i)[0]; let along_x = g[3] - g[0] > g[5] - g[2];
                 let part = |o: &mut VBuf, a0: f64, a1: f64, y0: f64, y1: f64, inset: f64, c: [f64; 3]| { if along_x { bx3(o, x + a0, y + y0, z + g[2] + inset, x + a1, y + y1, z + g[5] - inset, c[0], c[1], c[2], 0.0, s, l); } else { bx3(o, x + g[0] + inset, y + y0, z + a0, x + g[3] - inset, y + y1, z + a1, c[0], c[1], c[2], 0.0, s, l); } };
-                let wood = [0.46, 0.3, 0.16]; let glass = [0.62, 0.78, 0.86];
-                part(o, 0.0, 1.0, 0.0, 0.1, 0.0, wood); part(o, 0.0, 1.0, 0.9, 1.0, 0.0, wood); part(o, 0.0, 0.1, 0.1, 0.9, 0.0, wood); part(o, 0.9, 1.0, 0.1, 0.9, 0.0, wood);
-                part(o, 0.46, 0.54, 0.1, 0.9, 0.01, wood); part(o, 0.1, 0.9, 0.46, 0.54, 0.01, wood);
-                part(o, 0.1, 0.9, 0.1, 0.9, 0.045, glass);
+                // Un cadre fin et une croisée légère : le verre est clair, on voit au travers.
+                let wood = [0.46, 0.3, 0.16];
+                part(o, 0.0, 1.0, 0.0, 0.07, 0.0, wood); part(o, 0.0, 1.0, 0.93, 1.0, 0.0, wood); part(o, 0.0, 0.07, 0.07, 0.93, 0.0, wood); part(o, 0.93, 1.0, 0.07, 0.93, 0.0, wood);
+                part(o, 0.485, 0.515, 0.07, 0.93, 0.03, wood); part(o, 0.07, 0.93, 0.485, 0.515, 0.03, wood);
                 return;
             }
             "barrel" => {
@@ -882,6 +885,9 @@ pub fn obox(o: &mut VBuf, c: [f64; 3], a: [[f64; 3]; 3], col: [f64; 3], layer: f
     ];
     for (q, n, ao) in faces { let k = if layer < 0.0 { 0.86 + 0.14 * n[1] + 0.05 * n[0] } else { 1.0 }; for v in q { o.v(v[0], v[1], v[2], ly, n[0], n[1], n[2], 0.0, ao, s, l, kd, col[0] * k, col[1] * k, col[2] * k); } }
 }
+/// Une forme de construction contre le bord de sa case : ses faces s'en écartent d'un rien, sans quoi elles se battraient
+/// avec celles du bloc voisin (qui reste dessiné, la forme n'étant pas opaque) et la texture scintillerait.
+fn inset(bb: [f64; 6]) -> [f64; 6] { let e = 0.0025; let f = |v: f64, lo: bool| if lo && v <= 0.0 { v + e } else if !lo && v >= 1.0 { v - e } else { v }; [f(bb[0], true), f(bb[1], true), f(bb[2], true), f(bb[3], false), f(bb[4], false), f(bb[5], false)] }
 fn tbox(o: &mut VBuf, x: f64, y: f64, z: f64, bb: [f64; 6], layer: f64, s: f64, l: f64, tone: f64) {
     let (a, b, f, e, c, d) = (x + bb[0], x + bb[3], y + bb[1], y + bb[4], z + bb[2], z + bb[5]);
     let faces: [([[f64; 3]; 4], [f64; 3], f64); 6] = [

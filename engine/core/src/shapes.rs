@@ -41,8 +41,8 @@ fn table() -> &'static [Option<Info>; BLOCKS.len()] {
 pub fn info(id: Id) -> Option<Info> { table()[id as usize] }
 
 /// Un quart de tour vers la droite, vu d'en haut : +z devient +x.
-fn turn(b: Bx, f: u8) -> Bx { let mut b = b; for _ in 0..f % 4 { b = [b[2], b[1], 1.0 - b[3], b[5], b[4], 1.0 - b[0]]; } b }
-const PANEL: f64 = 0.1875;
+pub fn turn(b: Bx, f: u8) -> Bx { let mut b = b; for _ in 0..f % 4 { b = [b[2], b[1], 1.0 - b[3], b[5], b[4], 1.0 - b[0]]; } b }
+pub const PANEL: f64 = 0.1875;
 /// La géométrie, dans le repère du bloc [0, 1]³. Ce sont aussi les boîtes de collision (l'échelle n'en a pas : on y grimpe).
 pub fn geometry(i: Info) -> Vec<Bx> {
     let f = i.facing; let r = |v: &[Bx]| v.iter().map(|b| turn(*b, f)).collect::<Vec<_>>();

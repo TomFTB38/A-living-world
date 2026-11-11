@@ -243,7 +243,7 @@ fn cobble(t: &Tile, x: f64, y: f64) -> S {
     S { c: mul(pal(&STONE, tone), 0.35 + 0.65 * gap), h: 0.15 + 0.7 * gap * (0.7 + 0.3 * n), r: 0.85 }
 }
 // ------------------------------------------------------------------ village médiéval
-const PLASTER: [C; 4] = pl!("#b9ad94", "#d3c8b0", "#e3dac6", "#efe8d8"); const TIMBER: [C; 4] = pl!("#241710", "#352217", "#4a3020", "#5e3f29");
+const PLASTER: [C; 4] = pl!("#b9ad94", "#d3c8b0", "#e3dac6", "#efe8d8"); const TIMBER: [C; 4] = pl!("#3a2414", "#55361f", "#73502f", "#906942");
 const TILE: [C; 4] = pl!("#5a2a1e", "#743a29", "#8c4d38", "#a2634c"); const SLATE: [C; 4] = pl!("#2c3138", "#3b424b", "#4d555f", "#636b74");
 /// Torchis chaulé : une surface claire, un peu bosselée, des taches d'humidité et quelques fissures fines.
 fn plaster(t: &Tile, x: f64, y: f64) -> S {
@@ -252,11 +252,14 @@ fn plaster(t: &Tile, x: f64, y: f64) -> S {
     let c = mul(pal(&PLASTER, 0.45 + 0.45 * n + 0.12 * (fine - 0.5)), 1.0 - 0.07 * stain - 0.16 * crack);
     S { c: [c[0], c[1] * (1.0 - 0.03 * stain), c[2] * (1.0 - 0.08 * stain)], h: 0.45 + 0.35 * n + 0.1 * fine - 0.3 * crack, r: 0.93 }
 }
-/// Chêne équarri et vieilli : fil serré, fentes de séchage, traces d'herminette.
+/// Chêne équarri : un fil droit et serré dans la longueur, des cernes plus sombres, un nœud ici ou là, les arêtes
+/// chanfreinées qui foncent au bord : un bloc se lit comme une vraie poutre.
 fn dark_timber(t: &Tile, x: f64, y: f64) -> S {
-    let g = t.val(x * 4.0, y * 0.18, 64); let g2 = t.val(x * 1.3 + 9.0, y * 0.1, 32); let check = smooth(0.92, 0.97, t.val(x * 2.5, y * 0.08, 32));
-    let adze = 0.5 + 0.5 * sin((y + 6.0 * t.val(x, y, 4)) * 0.45); let tone = 0.25 + 0.45 * g2 + 0.25 * (g - 0.5) + 0.1 * adze;
-    S { c: mul(pal(&TIMBER, tone), 1.0 - 0.55 * check), h: 0.5 + 0.25 * g + 0.15 * adze - 0.5 * check, r: 0.8 }
+    let wob = 1.6 * t.fbm(x * 0.5, y * 0.05, 4, 2); let ring = ((x + wob) * 0.9).sin() * 0.5 + 0.5; let fine = t.val(x * 3.0, y * 0.12, 64);
+    let (kx, ky) = (t.pi((y / 64.0).floor() as i64 + 3) * 40.0 + 12.0, 22.0 + 20.0 * t.pi(7)); let kd = ((x - kx).powi(2) * 1.8 + (y - ky).powi(2) * 0.35).sqrt(); let knot = 1.0 - smooth(1.5, 4.0, kd);
+    let edge = x.min(63.99 - x); let chamfer = 1.0 - smooth(1.0, 5.0, edge);
+    let tone = 0.42 + 0.22 * ring + 0.18 * (fine - 0.5) - 0.3 * knot;
+    S { c: mul(pal(&TIMBER, tone), 1.0 - 0.35 * chamfer), h: 0.55 + 0.15 * ring + 0.1 * fine - 0.3 * chamfer - 0.2 * knot, r: 0.75 }
 }
 /// Tuiles plates de terre cuite, en rangs décalés : bas arrondi, ombre du rang du dessus, teintes de cuisson inégales, un peu de mousse.
 fn roof_tiles(t: &Tile, x: f64, y: f64) -> S {
