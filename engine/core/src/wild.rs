@@ -9,30 +9,9 @@ use crate::noise::Rng;
 use crate::player::Voxels;
 use crate::view::{mul, roll_z, rot_axis, trs, M4};
 
-const ORANGE: [f64; 3] = [0.8, 0.38, 0.12]; const WHITE: [f64; 3] = [0.94, 0.93, 0.9]; const BLACK: [f64; 3] = [0.08, 0.07, 0.07];
 const CROW: f64 = 1.9; const FOX: f64 = 1.45; /* un renard roux adulte : environ 40 cm au garrot */ const MAX_PRINTS: usize = 160; const PRINT_LIFE: f64 = 150.0;
 pub fn parts() -> Vec<(&'static str, VBuf)> {
-    let mut fox = VBuf::new(400); { let o = &mut fox;
-        b(o, [-0.11, 0.0, -0.3, 0.11, 0.22, 0.28], ORANGE); b(o, [-0.09, -0.02, -0.18, 0.09, 0.04, 0.24], WHITE);
-        // queue touffue, pointe blanche
-        b(o, [-0.07, 0.02, -0.62, 0.07, 0.15, -0.3], ORANGE); b(o, [-0.06, 0.03, -0.74, 0.06, 0.14, -0.62], WHITE); }
-    let mut fox_head = VBuf::new(400); { let o = &mut fox_head;
-        b(o, [-0.1, -0.02, -0.04, 0.1, 0.15, 0.14], ORANGE); b(o, [-0.05, -0.02, 0.14, 0.05, 0.06, 0.28], WHITE); b(o, [-0.025, 0.02, 0.28, 0.025, 0.06, 0.31], BLACK);
-        b(o, [-0.1, 0.15, -0.02, -0.04, 0.27, 0.04], ORANGE); b(o, [0.04, 0.15, -0.02, 0.1, 0.27, 0.04], ORANGE); b(o, [-0.09, 0.23, -0.015, -0.05, 0.28, 0.035], BLACK); b(o, [0.05, 0.23, -0.015, 0.09, 0.28, 0.035], BLACK);
-        b(o, [-0.07, 0.08, 0.13, -0.04, 0.11, 0.145], BLACK); b(o, [0.04, 0.08, 0.13, 0.07, 0.11, 0.145], BLACK); }
-    let mut fox_leg = VBuf::new(120); b(&mut fox_leg, [-0.03, -0.28, -0.03, 0.03, 0.0, 0.03], [0.22, 0.12, 0.07]);
-    // Lièvres et lapins : brun, gris, blanc d'hiver ou noir ; ventre et queue plus clairs.
-    let hare_mesh = |fur: [f64; 3], belly: [f64; 3], tip: [f64; 3]| { let mut o = VBuf::new(500); { let o = &mut o;
-        b(o, [-0.1, 0.0, -0.16, 0.1, 0.2, 0.14], fur); b(o, [-0.08, 0.16, -0.14, 0.08, 0.22, 0.1], [fur[0] * 0.88, fur[1] * 0.88, fur[2] * 0.88]);
-        b(o, [-0.07, 0.1, 0.1, 0.07, 0.24, 0.25], fur); b(o, [-0.02, 0.15, 0.25, 0.02, 0.18, 0.27], [0.75, 0.55, 0.55]);
-        b(o, [-0.075, 0.18, 0.18, -0.06, 0.21, 0.21], BLACK); b(o, [0.06, 0.18, 0.18, 0.075, 0.21, 0.21], BLACK);
-        for sx in [-1.0f64, 1.0] { let (a, c) = if sx < 0.0 { (-0.055, -0.02) } else { (0.02, 0.055) }; b(o, [a, 0.24, 0.12, c, 0.46, 0.16], fur); b(o, [a, 0.42, 0.12, c, 0.47, 0.16], tip); }
-        b(o, [-0.04, 0.08, -0.2, 0.04, 0.15, -0.15], belly); b(o, [-0.09, 0.0, -0.08, 0.09, 0.05, 0.2], belly); } o };
-    let hares = [hare_mesh([0.52, 0.37, 0.24], [0.86, 0.8, 0.7], BLACK), hare_mesh([0.56, 0.55, 0.53], [0.82, 0.81, 0.79], [0.25, 0.24, 0.23]), hare_mesh(WHITE, [0.9, 0.9, 0.9], BLACK), hare_mesh([0.13, 0.12, 0.12], [0.3, 0.28, 0.27], [0.08, 0.08, 0.08])];
-    let mut crow = VBuf::new(300); { let o = &mut crow; let mut q = |a: [f64; 6], c: [f64; 3]| b(o, a.map(|v| v * CROW), c);
-        q([-0.06, 0.0, -0.12, 0.06, 0.1, 0.1], BLACK); q([-0.05, 0.07, 0.07, 0.05, 0.16, 0.16], BLACK); q([-0.02, 0.1, 0.16, 0.02, 0.13, 0.23], [0.2, 0.2, 0.22]);
-        q([-0.04, 0.04, -0.24, 0.04, 0.07, -0.12], [0.1, 0.1, 0.12]); q([-0.035, -0.06, 0.0, -0.02, 0.0, 0.015], BLACK); q([0.02, -0.06, 0.0, 0.035, 0.0, 0.015], BLACK); }
-    let mut crow_wing = VBuf::new(60); b(&mut crow_wing, [0.0, 0.0, -0.08 * CROW, 0.2 * CROW, 0.015 * CROW, 0.09 * CROW], [0.1, 0.1, 0.12]);
+    let mut out = crate::betes::land(CROW);
     // Virevoltant : une boule de brindilles emmêlées, des arcs de petits cubes sur une sphère.
     let mut tumble = VBuf::new(4000); { let o = &mut tumble; let mut r = Rng::new(77);
         for _ in 0..14 {
@@ -43,28 +22,7 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
         for _ in 0..40 { let (x, y, z) = (r.range(-0.35, 0.35), r.range(-0.35, 0.35), r.range(-0.35, 0.35)); let w = 0.024; b(o, [x - w, y - w, z - w, x + w, y + w, z + w], [0.66, 0.56, 0.4]); }
     }
     let mut print = VBuf::new(60); b(&mut print, [-0.07, 0.0, -0.11, 0.07, 0.012, 0.11], [0.2, 0.24, 0.33]);
-    // Loup : la silhouette du renard, plus haute et plus lourde, gris dessus et pâle dessous ; queue droite, oreilles courtes.
-    let mut wolf = VBuf::new(400); { let o = &mut wolf; b(o, [-0.13, 0.0, -0.32, 0.13, 0.26, 0.3], GREY); b(o, [-0.11, -0.02, -0.2, 0.11, 0.05, 0.26], PALE); b(o, [-0.14, 0.12, 0.1, 0.14, 0.3, 0.3], [0.36, 0.35, 0.33]); b(o, [-0.06, 0.04, -0.6, 0.06, 0.16, -0.3], GREY); b(o, [-0.05, 0.05, -0.68, 0.05, 0.14, -0.6], [0.2, 0.2, 0.19]); }
-    let mut wolf_head = VBuf::new(400); { let o = &mut wolf_head; b(o, [-0.11, -0.03, -0.04, 0.11, 0.16, 0.15], GREY); b(o, [-0.06, -0.03, 0.15, 0.06, 0.07, 0.3], PALE); b(o, [-0.03, 0.02, 0.3, 0.03, 0.07, 0.33], BLACK);
-        b(o, [-0.1, 0.16, -0.02, -0.05, 0.24, 0.04], GREY); b(o, [0.05, 0.16, -0.02, 0.1, 0.24, 0.04], GREY); b(o, [-0.075, 0.08, 0.14, -0.04, 0.11, 0.155], [0.85, 0.7, 0.2]); b(o, [0.04, 0.08, 0.14, 0.075, 0.11, 0.155], [0.85, 0.7, 0.2]); }
-    let mut wolf_leg = VBuf::new(120); b(&mut wolf_leg, [-0.035, -0.32, -0.035, 0.035, 0.0, 0.035], [0.32, 0.31, 0.3]);
-    // Sanglier : un corps massif et bas, brun noir, une crête de soies, le groin et deux défenses.
-    let mut boar = VBuf::new(400); { let o = &mut boar; b(o, [-0.18, 0.0, -0.36, 0.18, 0.34, 0.3], BRISTLE); b(o, [-0.05, 0.3, -0.3, 0.05, 0.4, 0.26], [0.15, 0.11, 0.08]); b(o, [-0.02, 0.1, -0.42, 0.02, 0.22, -0.36], [0.15, 0.11, 0.08]); }
-    let mut boar_head = VBuf::new(400); { let o = &mut boar_head; b(o, [-0.14, -0.08, -0.04, 0.14, 0.18, 0.2], BRISTLE); b(o, [-0.07, -0.06, 0.2, 0.07, 0.06, 0.32], [0.32, 0.22, 0.17]); b(o, [-0.05, -0.04, 0.32, 0.05, 0.04, 0.34], [0.5, 0.36, 0.32]);
-        b(o, [-0.1, -0.04, 0.22, -0.07, 0.06, 0.26], TUSK); b(o, [0.07, -0.04, 0.22, 0.1, 0.06, 0.26], TUSK); b(o, [-0.12, 0.16, -0.02, -0.06, 0.24, 0.04], BRISTLE); b(o, [0.06, 0.16, -0.02, 0.12, 0.24, 0.04], BRISTLE); }
-    let mut boar_leg = VBuf::new(120); b(&mut boar_leg, [-0.045, -0.2, -0.045, 0.045, 0.0, 0.045], [0.16, 0.12, 0.09]);
-    // Ours : massif, brun, garrot bossu, museau clair ; bouquetin : élancé, cornes en arc ; lézard : plat, queue longue, pattes écartées.
-    let mut bear = VBuf::new(400); { let o = &mut bear; b(o, [-0.18, 0.0, -0.32, 0.18, 0.32, 0.3], BROWN); b(o, [-0.16, 0.24, 0.02, 0.16, 0.38, 0.26], [0.28, 0.18, 0.11]); b(o, [-0.05, 0.08, -0.38, 0.05, 0.16, -0.32], BROWN); }
-    let mut bear_head = VBuf::new(400); { let o = &mut bear_head; b(o, [-0.13, -0.06, -0.04, 0.13, 0.15, 0.14], BROWN); b(o, [-0.07, -0.05, 0.14, 0.07, 0.05, 0.25], [0.5, 0.38, 0.26]); b(o, [-0.03, -0.01, 0.25, 0.03, 0.03, 0.27], BLACK);
-        b(o, [-0.13, 0.13, -0.02, -0.07, 0.2, 0.04], BROWN); b(o, [0.07, 0.13, -0.02, 0.13, 0.2, 0.04], BROWN); b(o, [-0.08, 0.05, 0.13, -0.05, 0.08, 0.145], BLACK); b(o, [0.05, 0.05, 0.13, 0.08, 0.08, 0.145], BLACK); }
-    let mut bear_leg = VBuf::new(120); b(&mut bear_leg, [-0.06, -0.26, -0.06, 0.06, 0.0, 0.06], [0.24, 0.15, 0.09]);
-    let mut ibex = VBuf::new(400); { let o = &mut ibex; b(o, [-0.1, 0.0, -0.26, 0.1, 0.2, 0.24], IBEX_C); b(o, [-0.08, -0.02, -0.16, 0.08, 0.04, 0.2], [0.85, 0.8, 0.7]); b(o, [-0.03, 0.08, -0.31, 0.03, 0.16, -0.26], [0.85, 0.8, 0.7]); }
-    let mut ibex_head = VBuf::new(400); { let o = &mut ibex_head; b(o, [-0.06, -0.02, -0.03, 0.06, 0.12, 0.1], IBEX_C); b(o, [-0.04, -0.03, 0.1, 0.04, 0.05, 0.2], IBEX_C); b(o, [-0.02, -0.08, 0.12, 0.02, -0.02, 0.16], [0.4, 0.34, 0.26]);
-        for x in [-0.05, 0.03] { b(o, [x, 0.12, -0.02, x + 0.025, 0.24, 0.02], HORN); b(o, [x, 0.22, -0.1, x + 0.025, 0.27, -0.01], HORN); b(o, [x, 0.14, -0.16, x + 0.025, 0.24, -0.1], HORN); } }
-    let mut ibex_leg = VBuf::new(120); b(&mut ibex_leg, [-0.025, -0.34, -0.025, 0.025, 0.0, 0.025], [0.42, 0.36, 0.28]);
-    let mut lizard = VBuf::new(400); { let o = &mut lizard; b(o, [-0.045, 0.0, -0.1, 0.045, 0.04, 0.1], SCALE); b(o, [-0.03, 0.0, 0.1, 0.03, 0.035, 0.17], SCALE); b(o, [-0.015, 0.0, -0.28, 0.015, 0.02, -0.1], [0.42, 0.44, 0.24]);
-        for (x, z) in [(-0.08, 0.06), (0.05, 0.06), (-0.08, -0.07), (0.05, -0.07)] { b(o, [x, 0.0, z, x + 0.03, 0.015, z + 0.02], [0.4, 0.42, 0.22]); } b(o, [-0.025, 0.025, 0.15, -0.012, 0.035, 0.16], BLACK); b(o, [0.012, 0.025, 0.15, 0.025, 0.035, 0.16], BLACK); }
-    let [h0, h1, h2, h3] = hares; vec![("bear", bear), ("bearHead", bear_head), ("bearLeg", bear_leg), ("ibex", ibex), ("ibexHead", ibex_head), ("ibexLeg", ibex_leg), ("lizard", lizard), ("wolf", wolf), ("wolfHead", wolf_head), ("wolfLeg", wolf_leg), ("boar", boar), ("boarHead", boar_head), ("boarLeg", boar_leg), ("fox", fox), ("foxHead", fox_head), ("foxLeg", fox_leg), ("hare0", h0), ("hare1", h1), ("hare2", h2), ("hare3", h3), ("crow", crow), ("crowWing", crow_wing), ("tumble", tumble), ("print", print)].into_iter().chain(sea_parts()).collect()
+    out.extend([("tumble", tumble), ("print", print)]); out.into_iter().chain(sea_parts()).collect()
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum Kind { Fox, Hare, Crow, Tumble, Wolf, Boar, Bear, Ibex, Lizard, /** maquereau des mers fraîches, en bancs */ Fish, /** poissons des récifs chauds */ Reef, Dolphin, Crab, Gull, /** chasse le nageur en eau profonde */ Shark, /** baleine à bosse, paisible, au grand large */ Whale }
@@ -84,34 +42,7 @@ fn smooth01(v: f64, a: f64, b: f64) -> f64 { crate::noise::smooth(a, b, v) }
 fn wet_at(w: &impl Voxels, x: f64, y: f64, z: f64) -> bool { w.get(x.floor() as i32, y.floor() as i32, z.floor() as i32).is_some_and(is_wet) }
 const DOLPHIN: f64 = 1.0; const GULL: f64 = 1.5;
 /// Mer : maquereau, trois poissons de récif, dauphin, crabe, goéland. Tous orientés vers +z, centrés sur leur corps.
-fn sea_parts() -> Vec<(&'static str, VBuf)> {
-    let fish = |len: f64, hgt: f64, back: [f64; 3], belly: [f64; 3], band: Option<[f64; 3]>, tail: [f64; 3], fin: [f64; 3]| { let mut o = VBuf::new(600); { let o = &mut o;
-        let (l, h, wd) = (len * 0.5, hgt * 0.5, hgt * 0.28);
-        b(o, [-wd, -h * 0.2, -l, wd, h, l * 0.8], back); b(o, [-wd * 0.95, -h, -l * 0.8, wd * 0.95, -h * 0.15, l * 0.7], belly); // dos et ventre
-        b(o, [-wd * 0.8, -h * 0.6, l * 0.8, wd * 0.8, h * 0.6, l], back); // museau
-        b(o, [-wd * 1.02, h * 0.15, l * 0.55, wd * 1.02, h * 0.45, l * 0.75], BLACK); b(o, [-wd * 1.03, h * 0.25, l * 0.6, wd * 1.03, h * 0.38, l * 0.7], WHITE); b(o, [-wd * 1.04, h * 0.28, l * 0.62, wd * 1.04, h * 0.36, l * 0.68], BLACK); // œil
-        if let Some(c) = band { for z in [-0.35, 0.15] { b(o, [-wd * 1.02, -h, l * z, wd * 1.02, h, l * z + len * 0.09], c); } }
-        b(o, [-0.008, h * 0.8, -l * 0.5, 0.008, h * 1.5, l * 0.2], fin); b(o, [-0.008, -h * 1.3, -l * 0.5, 0.008, -h * 0.8, -l * 0.1], fin); // nageoires dorsale et anale
-        b(o, [-0.01, -h * 0.35, -l * 1.15, 0.01, h * 0.35, -l], tail); b(o, [-0.01, h * 0.2, -l * 1.55, 0.01, h * 0.95, -l * 1.1], tail); b(o, [-0.01, -h * 0.95, -l * 1.55, 0.01, -h * 0.2, -l * 1.1], tail); // queue fourchue
-        b(o, [-wd * 1.6, -h * 0.3, l * 0.25, -wd, -h * 0.1, l * 0.45], fin); b(o, [wd, -h * 0.3, l * 0.25, wd * 1.6, -h * 0.1, l * 0.45], fin); } o };
-    let mackerel = { let mut o = fish(0.42, 0.11, [0.2, 0.42, 0.42], [0.86, 0.88, 0.9], None, [0.24, 0.32, 0.34], [0.3, 0.4, 0.42]);
-        for k in 0..6 { let z = -0.17 + k as f64 * 0.06; b(&mut o, [-0.032, 0.03, z, 0.032, 0.058, z + 0.025], [0.08, 0.16, 0.18]); } o }; // zébrures sombres du dos
-    let clown = fish(0.26, 0.13, [0.98, 0.45, 0.1], [0.98, 0.55, 0.2], Some(WHITE), [0.98, 0.45, 0.1], [0.12, 0.08, 0.06]);
-    let tang = fish(0.3, 0.17, [0.12, 0.3, 0.85], [0.18, 0.38, 0.9], None, [0.98, 0.84, 0.15], [0.06, 0.1, 0.3]);
-    let butterfly = fish(0.24, 0.22, [0.98, 0.86, 0.2], [0.98, 0.92, 0.6], Some([0.1, 0.08, 0.06]), [0.98, 0.86, 0.2], [0.95, 0.7, 0.15]);
-    // Crabe : carapace orangée bombée, yeux sur pédoncules, deux pinces et six pattes articulées.
-    let mut crab = VBuf::new(800); { let o = &mut crab; let (sh, dk, cl) = ([0.82, 0.32, 0.14], [0.6, 0.2, 0.1], [0.9, 0.42, 0.2]);
-        b(o, [-0.15, 0.05, -0.11, 0.15, 0.13, 0.11], sh); b(o, [-0.12, 0.13, -0.08, 0.12, 0.16, 0.08], cl); b(o, [-0.13, 0.03, -0.1, 0.13, 0.05, 0.1], [0.9, 0.78, 0.6]);
-        for sx in [-1.0f64, 1.0] { b(o, [sx * 0.05 - 0.012, 0.14, 0.08, sx * 0.05 + 0.012, 0.22, 0.1], dk); b(o, [sx * 0.05 - 0.02, 0.21, 0.08, sx * 0.05 + 0.02, 0.24, 0.11], BLACK);
-            let (a0, a1) = if sx < 0.0 { (-0.22, -0.12) } else { (0.12, 0.22) }; b(o, [a0, 0.06, 0.1, a1, 0.1, 0.16], dk); b(o, [a0 - 0.02 * sx.min(0.0), 0.05, 0.16, a1 + 0.02 * sx.max(0.0), 0.13, 0.26], cl); b(o, [a0, 0.11, 0.24, a1, 0.13, 0.3], dk);
-            for k in 0..3 { let z = -0.07 + k as f64 * 0.06; let (l0, l1) = if sx < 0.0 { (-0.27, -0.14) } else { (0.14, 0.27) }; b(o, [l0, 0.08, z, l1, 0.11, z + 0.025], dk); let (f0, f1) = if sx < 0.0 { (-0.3, -0.26) } else { (0.26, 0.3) }; b(o, [f0, 0.0, z, f1, 0.1, z + 0.025], dk); } } }
-    // Goéland : blanc, manteau gris, bec jaune, bouts d'ailes noirs.
-    let mut gull = VBuf::new(400); { let o = &mut gull; let mut q = |a: [f64; 6], c: [f64; 3]| b(o, a.map(|v| v * GULL), c);
-        q([-0.055, 0.0, -0.13, 0.055, 0.09, 0.1], WHITE); q([-0.045, 0.06, 0.07, 0.045, 0.14, 0.15], WHITE); q([-0.015, 0.08, 0.15, 0.015, 0.105, 0.22], [0.95, 0.8, 0.2]); q([-0.05, 0.075, -0.1, 0.05, 0.095, 0.06], [0.62, 0.65, 0.7]);
-        q([-0.035, 0.04, -0.24, 0.035, 0.07, -0.12], WHITE); q([-0.035, -0.05, 0.0, -0.02, 0.0, 0.015], [0.9, 0.7, 0.4]); q([0.02, -0.05, 0.0, 0.035, 0.0, 0.015], [0.9, 0.7, 0.4]); q([-0.047, 0.1, 0.12, -0.044, 0.115, 0.13], BLACK); q([0.044, 0.1, 0.12, 0.047, 0.115, 0.13], BLACK); }
-    let mut gull_wing = VBuf::new(120); b(&mut gull_wing, [0.0, 0.0, -0.08 * GULL, 0.17 * GULL, 0.012 * GULL, 0.08 * GULL], [0.64, 0.67, 0.72]); b(&mut gull_wing, [0.17 * GULL, 0.0, -0.07 * GULL, 0.25 * GULL, 0.012 * GULL, 0.05 * GULL], BLACK);
-    vec![("mackerel", mackerel), ("reef0", clown), ("reef1", tang), ("reef2", butterfly), ("crab", crab), ("gull", gull), ("gullWing", gull_wing)].into_iter().chain(crate::marine::parts()).collect()
-}
+fn sea_parts() -> Vec<(&'static str, VBuf)> { crate::betes::sea(GULL).into_iter().chain(crate::marine::parts()).collect() }
 /// Le recul d'un coup : une poussée qui glisse sur le sol et s'amortit, arrêtée par les murs et les marches trop hautes.
 fn knock(c: &mut Critter, dt: f64, w: &impl Voxels) {
     if c.v[0] == 0.0 && c.v[2] == 0.0 { return; }
@@ -130,8 +61,6 @@ pub fn snow_at(w: &impl Voxels, x: f64, y: f64, z: f64) -> Option<f64> {
 }
 fn hp_of(k: Kind) -> f64 { match k { Kind::Fox => crate::survival::FOX_HP, Kind::Hare => crate::survival::HARE_HP, Kind::Wolf => crate::survival::WOLF_HP, Kind::Boar => crate::survival::BOAR_HP, Kind::Bear => crate::survival::BEAR_HP, Kind::Ibex => crate::survival::IBEX_HP, Kind::Lizard => crate::survival::LIZARD_HP, Kind::Fish | Kind::Reef => 2.0, Kind::Crab => 4.0, Kind::Dolphin => 30.0, Kind::Gull => 3.0, Kind::Shark => 26.0, Kind::Whale => 400.0, _ => 1.0 } }
 const WOLF: f64 = 1.75; const BOAR: f64 = 1.25; const BEAR: f64 = 2.3; const IBEX: f64 = 1.5;
-const BROWN: [f64; 3] = [0.32, 0.21, 0.13]; const IBEX_C: [f64; 3] = [0.6, 0.52, 0.4]; const HORN: [f64; 3] = [0.45, 0.4, 0.33]; const SCALE: [f64; 3] = [0.5, 0.52, 0.3];
-const GREY: [f64; 3] = [0.42, 0.41, 0.39]; const PALE: [f64; 3] = [0.7, 0.68, 0.64]; const BRISTLE: [f64; 3] = [0.24, 0.17, 0.12]; const TUSK: [f64; 3] = [0.92, 0.88, 0.78];
 impl Wild {
     /// Un coup porté à l'animal `i` : il détale, ou tombe. Renvoie son espèce s'il est mort (il disparaît alors).
     pub fn strike(&mut self, i: usize, dmg: f64, from: [f64; 3]) -> Option<Kind> {

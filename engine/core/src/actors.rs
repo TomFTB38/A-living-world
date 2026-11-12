@@ -18,7 +18,7 @@ pub(crate) fn b(o: &mut VBuf, a: [f64; 6], c: C) { bx(o, a[0], a[1], a[2], a[3],
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum Hold { Tool, Block, Deco }
 #[derive(Clone, Copy, Debug)] pub struct Held { pub r: Range, pub hold: Hold, pub local: bool }
 /// Tous les modèles dans un seul tampon de sommets.
-pub struct Models { pub data: Vec<u8>, pub n: usize, pub char_verts: usize, parts: HashMap<&'static str, Range>, items: HashMap<&'static str, Held> }
+pub struct Models { pub data: Vec<u8>, pub n: usize, pub char_verts: usize, pub parts: HashMap<&'static str, Range>, items: HashMap<&'static str, Held> }
 fn take(all: &mut VBuf, o: VBuf) -> Range { let st = all.n; all.data.extend_from_slice(&o.data); all.n += o.n; Range { first: (st / 4 * 6) as u32, count: (o.n / 4 * 6) as u32 } }
 fn torso() -> VBuf {
     let mut o = VBuf::new(900); let o2 = &mut o;

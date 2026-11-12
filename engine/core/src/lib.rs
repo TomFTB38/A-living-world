@@ -35,3 +35,5 @@ pub mod guide;
 pub mod tour;
 pub mod hostile;
 pub mod marine;
+pub mod sculpt;
+pub mod betes;

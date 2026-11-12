@@ -3,7 +3,7 @@
 //! Le type du village suit le biome, ses ateliers suivent artisans.txt. Les bâtiments sont posés après la génération
 //! du terrain (`gen_world`), si bien que le terrain lui-même reste celui du prototype.
 //! Les villageois suivent leur journée : à l'atelier ou aux champs le jour, sur la place le soir, chez eux la nuit.
-use crate::actors::{b, Draw, Models};
+use crate::actors::{Draw, Models};
 use crate::batisse::{raise, style, Lot, Plan, Prop, Work};
 use crate::biome::Biome;
 use crate::blocks::{Id, by_name, idx, CH, CX};
@@ -511,10 +511,31 @@ impl Town {
         out
     }
 }
+/// La matière d'une pièce de villageois, d'après sa couleur : peau, cheveux, cuir, fer, fourrure, paille ou étoffe.
+fn vmat(c: [f64; 3]) -> crate::hostile::Mat {
+    use crate::hostile::Mat;
+    const SKIN: [[f64; 3]; 8] = [[0.87, 0.69, 0.56], [0.78, 0.6, 0.48], [0.76, 0.58, 0.44], [0.66, 0.47, 0.32], [0.5, 0.35, 0.23], [0.74, 0.56, 0.41], [0.92, 0.76, 0.66], [0.84, 0.64, 0.5]];
+    const SKIN2: [[f64; 3]; 4] = [[0.86, 0.68, 0.58], [0.9, 0.72, 0.6], [0.72, 0.52, 0.38], [0.8, 0.6, 0.46]];
+    const HAIR: [[f64; 3]; 12] = [[0.32, 0.2, 0.11], [0.13, 0.1, 0.08], [0.72, 0.58, 0.32], [0.08, 0.07, 0.06], [0.14, 0.1, 0.08], [0.1, 0.08, 0.07], [0.82, 0.68, 0.36], [0.62, 0.28, 0.12], [0.48, 0.34, 0.2], [0.3, 0.2, 0.12], [0.15, 0.12, 0.1], [0.6, 0.45, 0.25]];
+    const LEATHER: [[f64; 3]; 6] = [[0.22, 0.15, 0.1], [0.4, 0.27, 0.16], [0.2, 0.14, 0.1], [0.16, 0.12, 0.1], [0.5, 0.36, 0.2], [0.66, 0.56, 0.38]];
+    const METAL: [[f64; 3]; 6] = [[0.52, 0.53, 0.56], [0.75, 0.66, 0.4], [0.6, 0.6, 0.62], [0.62, 0.58, 0.52], [0.8, 0.66, 0.3], [0.7, 0.7, 0.68]];
+    const FUR: [[f64; 3]; 5] = [[0.42, 0.32, 0.22], [0.55, 0.52, 0.48], [0.3, 0.22, 0.15], [0.45, 0.35, 0.25], [0.4, 0.3, 0.2]];
+    let near = |l: &[[f64; 3]], ks: &[f64]| l.iter().any(|x| ks.iter().any(|k| (0..3).all(|i| (x[i] * k - c[i]).abs() < 0.004)));
+    if near(&SKIN, &[1.0, 0.9]) || near(&SKIN2, &[1.0, 0.9]) { Mat::Human } else if near(&HAIR, &[1.0, 0.8]) { Mat::Hair } else if near(&FUR, &[1.0, 1.2]) { Mat::Fur }
+    else if near(&LEATHER, &[1.0]) { Mat::Leather } else if near(&METAL, &[1.0, 0.8]) { Mat::Metal } else if near(&[[0.82, 0.7, 0.42]], &[1.0]) { Mat::Grain }
+    else if near(&[[0.95, 0.94, 0.9], [0.14, 0.1, 0.08], [0.55, 0.3, 0.28], [0.5, 0.28, 0.26]], &[1.0]) { Mat::Plain } else { Mat::Cloth }
+}
+/// Une pièce de villageois : arêtes abattues, matière peinte en pixels.
+fn soft(q: &mut VBuf, a: [f64; 6], c: [f64; 3]) { crate::sculpt::rbox(q, a, c, vmat(c), if a[4] - a[1] < 0.2 && a[3] - a[0] < 0.45 { 0.045 } else { 0.06 }) }
+/// Le crâne, arrondi : plus étroit au menton et au sommet.
+fn skull(q: &mut VBuf, sk: [f64; 3]) { let mut p = crate::sculpt::Pen::new(q, crate::hostile::Mat::Human, 0.045); p.column(&[(0.0, 0.14, 0.15), (0.06, 0.18, 0.18), (0.3, 0.19, 0.19), (0.38, 0.165, 0.17)], 0.0, sk, 0.8); }
+/// Les épaules arrondies et le haut des bras, de la couleur du vêtement.
+fn shoulders(q: &mut VBuf, c: [f64; 3]) { let mut p = crate::sculpt::Pen::new(q, crate::hostile::Mat::Cloth, 0.05); for sx in [-1.0f64, 1.0] { p.blob([sx * 0.24, 1.33, 0.0], [0.08, 0.075, 0.15], c, c); } }
 /// Corps des villageois, un peu plus étoffés que le joueur d'origine. Une tenue par métier (dans l'ordre d'artisans.txt), trois pour les autres :
 /// tunique ombrée, col, ceinture et boucle, et l'attribut du métier (tablier de forge, gilet de cuir, ceinture à outils, poussière de pierre).
 /// Six têtes : trois chevelures, cheveux courts ou longs, barbe ; yeux avec pupille, sourcils, nez, bouche.
 pub fn parts() -> Vec<(&'static str, VBuf)> {
+    let b = soft;
     // (tunique, ombre de la tunique, pantalon)
     const OUTFIT: [([f64; 3], [f64; 3], [f64; 3]); 9] = [
         ([0.42, 0.33, 0.25], [0.32, 0.25, 0.19], [0.24, 0.21, 0.19]), ([0.26, 0.22, 0.22], [0.19, 0.16, 0.16], [0.18, 0.16, 0.15]), ([0.36, 0.42, 0.5], [0.27, 0.32, 0.39], [0.22, 0.22, 0.24]),
@@ -537,7 +558,7 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
             4 => { b(q, [-0.2, 1.2, 0.165, 0.2, 1.3, 0.17], [0.7, 0.7, 0.68]); } // poussière de pierre
             _ => { for y in [1.0, 1.1, 1.2] { b(q, [-0.02, y, 0.165, 0.02, y + 0.04, 0.175], *t2); } } // boutons
         }
-        o.push((NAMES[i], body));
+        shoulders(q, *t); o.push((NAMES[i], body));
         let mut arm = VBuf::new(80); b(&mut arm, [-0.09, -0.42, -0.09, 0.09, 0.04, 0.09], *t); b(&mut arm, [-0.095, -0.44, -0.095, 0.095, -0.38, 0.095], *t2); b(&mut arm, [-0.075, -0.62, -0.08, 0.075, -0.44, 0.08], skin); o.push((ARMS[i], arm));
         let mut leg = VBuf::new(80); b(&mut leg, [-0.11, -0.6, -0.11, 0.11, 0.0, 0.11], *pants); b(&mut leg, [-0.115, -0.76, -0.12, 0.115, -0.6, 0.17], shoe); b(&mut leg, [-0.117, -0.62, -0.122, 0.117, -0.58, 0.122], belt); o.push((LEGS[i], leg));
     }
@@ -546,7 +567,7 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
     for (k, n) in HEADS.iter().enumerate() {
         let hair = hairs[k % 3]; let style = k / 3; let sk = if k % 2 == 0 { skin } else { [0.76, 0.58, 0.44] };
         let mut h = VBuf::new(400); let q = &mut h;
-        b(q, [-0.19, 0.0, -0.19, 0.19, 0.38, 0.19], sk); b(q, [-0.2, 0.3, -0.2, 0.2, 0.42, 0.2], hair); b(q, [-0.2, 0.12, -0.2, 0.2, 0.32, -0.1], hair); // crâne, chevelure, nuque
+        skull(q, sk); b(q, [-0.2, 0.3, -0.2, 0.2, 0.42, 0.2], hair); b(q, [-0.2, 0.12, -0.2, 0.2, 0.32, -0.1], hair); // crâne, chevelure, nuque
         b(q, [-0.2, 0.2, -0.1, -0.17, 0.33, 0.06], hair); b(q, [0.17, 0.2, -0.1, 0.2, 0.33, 0.06], hair); // tempes
         if style == 1 { b(q, [-0.21, -0.12, -0.21, 0.21, 0.3, -0.12], hair); } // cheveux longs
         for sx in [-1.0, 1.0] { let x0 = if sx < 0.0 { -0.12 } else { 0.05 };
@@ -563,6 +584,7 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
 /// manteau de fourrure, jambières croisées, bottes fourrées, tresses, barbes, bonnet ou casque à nasal), le port
 /// (marinière rayée, foulard, toile bleue, bonnet de laine ou chapeau de paille). Mêmes pièces, mêmes articulations.
 fn regional() -> Vec<(&'static str, VBuf)> {
+    let b = soft;
     let leak = |s: String| -> &'static str { Box::leak(s.into_boxed_str()) };
     let dk = |c: [f64; 3], k: f64| [c[0] * k, c[1] * k, c[2] * k];
     let mut o = Vec::new(); let belt = [0.22, 0.15, 0.1]; let leather = [0.4, 0.27, 0.16];
@@ -588,7 +610,7 @@ fn regional() -> Vec<(&'static str, VBuf)> {
                     for k in 0..7 { let y = 0.72 + k as f64 * 0.1; b(q, [-0.26, y, -0.16, 0.26, y + 0.05, 0.16], [0.9, 0.88, 0.82]); b(q, [-0.262, y + 0.05, -0.162, 0.262, y + 0.1, 0.162], *t); }
                     b(q, [-0.14, 1.3, -0.17, 0.14, 1.42, 0.17], [0.75, 0.16, 0.14]); b(q, [-0.04, 1.14, 0.16, 0.04, 1.3, 0.2], [0.75, 0.16, 0.14]); b(q, [-0.275, 0.84, -0.175, 0.275, 0.9, 0.175], [0.66, 0.56, 0.38]); }
             }
-            o.push((leak(format!("folk{i}r{region}")), body));
+            if region != 2 { shoulders(q, *t); } o.push((leak(format!("folk{i}r{region}")), body));
             let mut arm = VBuf::new(120); let a = &mut arm;
             match region { 1 => { b(a, [-0.11, -0.5, -0.11, 0.11, 0.04, 0.11], *t); b(a, [-0.115, -0.52, -0.115, 0.115, -0.46, 0.115], t2); b(a, [-0.07, -0.64, -0.075, 0.07, -0.5, 0.075], sk); }
                 2 => { b(a, [-0.09, -0.42, -0.09, 0.09, 0.04, 0.09], *t); b(a, [-0.1, -0.46, -0.1, 0.1, -0.3, 0.1], leather); b(a, [-0.075, -0.62, -0.08, 0.075, -0.46, 0.08], sk); }
@@ -606,13 +628,13 @@ fn regional() -> Vec<(&'static str, VBuf)> {
         let hairs: [[f64; 3]; 3] = match region { 1 => [[0.08, 0.07, 0.06], [0.14, 0.1, 0.08], [0.1, 0.08, 0.07]], 2 => [[0.82, 0.68, 0.36], [0.62, 0.28, 0.12], [0.48, 0.34, 0.2]], _ => [[0.3, 0.2, 0.12], [0.15, 0.12, 0.1], [0.6, 0.45, 0.25]] };
         for k in 0..6 { let hair = hairs[k % 3]; let sk = tones[k % 3]; let bearded = k == 1 || k == 4 || (region == 2 && k != 3);
             let mut h = VBuf::new(600); let q = &mut h;
-            b(q, [-0.19, 0.0, -0.19, 0.19, 0.38, 0.19], sk);
+            skull(q, sk);
             for sx in [-1.0, 1.0] { let x0 = if sx < 0.0 { -0.12 } else { 0.05 };
                 b(q, [x0, 0.17, 0.19, x0 + 0.07, 0.22, 0.195], [0.95, 0.94, 0.9]); b(q, [x0 + if sx < 0.0 { 0.03 } else { 0.01 }, 0.17, 0.195, x0 + if sx < 0.0 { 0.06 } else { 0.04 }, 0.215, 0.2], [0.14, 0.1, 0.08]);
                 b(q, [x0 - 0.005, 0.245, 0.19, x0 + 0.075, 0.27, 0.2], dk(hair, 0.8)); }
             b(q, [-0.03, 0.1, 0.19, 0.03, 0.18, 0.225], dk(sk, 0.9)); b(q, [-0.06, 0.055, 0.19, 0.06, 0.075, 0.198], [0.5, 0.28, 0.26]);
-            if bearded { let long = region == 2; b(q, [-0.17, if long { -0.16 } else { -0.06 }, 0.08, 0.17, 0.045, 0.21], hair); b(q, [-0.2, -0.02, -0.02, -0.15, 0.2, 0.18], hair); b(q, [0.15, -0.02, -0.02, 0.2, 0.2, 0.18], hair); b(q, [-0.08, 0.08, 0.19, 0.08, 0.1, 0.208], hair);
-                if long { b(q, [-0.05, -0.24, 0.12, 0.05, -0.15, 0.2], hair); b(q, [-0.04, -0.25, 0.12, 0.04, -0.22, 0.2], [0.6, 0.55, 0.45]); } } // barbe tressée, bague
+            if bearded { let long = region == 2; b(q, [-0.17, if long { -0.16 } else { -0.06 }, 0.08, 0.17, 0.045, if long { 0.235 } else { 0.21 }], hair); b(q, [-0.2, -0.02, -0.02, -0.15, 0.2, 0.18], hair); b(q, [0.15, -0.02, -0.02, 0.2, 0.2, 0.18], hair); b(q, [-0.08, 0.08, 0.19, 0.08, 0.1, 0.208], hair);
+                if long { b(q, [-0.05, -0.24, 0.14, 0.05, -0.15, 0.24], hair); b(q, [-0.04, -0.25, 0.145, 0.04, -0.22, 0.245], [0.6, 0.55, 0.45]); } } // barbe tressée, bague
             match region {
                 1 => { // chèche enroulé, ou foulard qui couvre la nuque
                     let tc = [[0.92, 0.9, 0.84], [0.2, 0.26, 0.5], [0.66, 0.24, 0.18]][k % 3];

@@ -598,7 +598,7 @@ fn capture(a: &[String]) {
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true, ..Default::default() }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
     }
-    if ["survie", "craft", "campement", "mort", "ramassage", "fissure", "construction", "faune", "combat", "tenue", "creatures", "titre"].contains(&scene.as_str()) {
+    if ["survie", "craft", "campement", "mort", "ramassage", "fissure", "construction", "faune", "combat", "tenue", "creatures", "titre", "menagerie"].contains(&scene.as_str()) {
         // Survie : on retombe au sol, un établi et un feu de camp devant soi, des jauges entamées.
         use alw_core::blocks::{is_solid, B}; use alw_core::player::Voxels;
         s.player.fly = false; s.third = false; s.sel = 2; for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.dead.is_some() { s.respawn(); } s.vit = [100.0; 3];
@@ -658,6 +658,12 @@ fn capture(a: &[String]) {
             use alw_core::wild::Kind as K; s.inv[0] = Some(alw_core::session::Stack::new("bow", None)); s.sel = 0; s.add_item("arrow", 12); s.player.pitch = -0.05;
             for (k, l, kind) in [(7.0, -1.0, K::Wolf), (8.5, 0.6, K::Wolf), (9.5, -2.2, K::Wolf), (6.0, 3.2, K::Boar)] { let (x, z) = at(k, l); s.wild.put(kind, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.0 + l * 0.1, false); }
             let (ax, az) = at(3.0, 0.4); s.arrows.push(alw_core::outdoors::Arrow { p: [ax, gy(&s, ax, az) as f64 + 0.25, az], v: [s.player.yaw.sin() * 20.0, -14.0, s.player.yaw.cos() * 20.0], stuck: true, life: 0.0, pow: 1.0 });
+        }
+        if scene == "menagerie" {
+            // Toutes les bêtes sculptées en rang devant soi, en plein jour : ours, sanglier, loup, renard, bouquetin, lièvre, lézard, un cerf derrière.
+            use alw_core::wild::Kind as K; s.hour = 14.5; s.player.pitch = -0.3; s.sel = 8;
+            for (kind, l, k) in [(K::Bear, -3.4, 7.0), (K::Boar, -1.4, 6.0), (K::Wolf, 0.0, 6.0), (K::Fox, 1.3, 5.5), (K::Ibex, 2.5, 6.0), (K::Hare, 3.4, 5.0), (K::Lizard, 2.6, 4.2), (K::Crow, -0.6, 4.6)] { let (x, z) = at(k, l); s.wild.put(kind, [x, gy(&s, x, z) as f64, z], s.player.yaw + 1.5, false); }
+            let (x, z) = at(10.0, -1.0); s.fauna.put([x, gy(&s, x, z) as f64, z], s.player.yaw + 1.9);
         }
         if scene == "fissure" {
             // Un bloc à moitié cassé à la pioche de pierre : les fissures doivent se voir.

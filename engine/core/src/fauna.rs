@@ -1,5 +1,5 @@
 //! Faune simple : habitat, comportements, réactions au joueur. Mêmes règles et même suite aléatoire que le prototype.
-use crate::actors::{b, Draw, Models};
+use crate::actors::{Draw, Models};
 use crate::blocks::*;
 use crate::det::{cos, hypot2, sin};
 use crate::mesher::VBuf;
@@ -7,34 +7,9 @@ use crate::noise::Rng;
 use crate::player::Voxels;
 use crate::view::{mul, roll_z, trs, M4};
 pub const BIRD: f64 = 1.7; // à l'échelle réelle, un oiseau disparaît dans l'herbe et le feuillage
-const FUR: [f64; 3] = [0.68, 0.45, 0.26]; const FUR2: [f64; 3] = [0.56, 0.36, 0.2]; const CREAM: [f64; 3] = [0.92, 0.84, 0.7]; const DARK: [f64; 3] = [0.15, 0.1, 0.07]; const ANT: [f64; 3] = [0.74, 0.62, 0.45];
 const MAX_DEER: usize = 5; const MAX_BIRDS: usize = 9;
 /// Maillages, dans l'ordre du prototype.
-pub fn parts() -> [(&'static str, VBuf); 5] {
-    let mut body = VBuf::new(300); { let o = &mut body;
-        b(o, [-0.2, 0.0, -0.55, 0.2, 0.4, 0.55], FUR); b(o, [-0.16, -0.05, -0.45, 0.16, 0.02, 0.45], CREAM);
-        for (x, z) in [(-0.11, -0.3), (0.09, -0.12), (-0.06, 0.12), (0.12, 0.32), (0.02, -0.42), (-0.13, 0.36)] { b(o, [x - 0.035, 0.4, z - 0.035, x + 0.035, 0.42, z + 0.035], CREAM); }
-        b(o, [-0.07, 0.24, -0.62, 0.07, 0.4, -0.55], CREAM); }
-    let mut head = VBuf::new(300); { let o = &mut head;
-        b(o, [-0.09, 0.0, -0.08, 0.09, 0.42, 0.1], FUR2); b(o, [-0.11, 0.38, -0.08, 0.11, 0.58, 0.16], FUR); b(o, [-0.07, 0.4, 0.16, 0.07, 0.51, 0.3], FUR2);
-        b(o, [-0.04, 0.44, 0.3, 0.04, 0.5, 0.33], DARK);
-        b(o, [-0.13, 0.48, 0.05, -0.1, 0.51, 0.08], DARK); b(o, [0.1, 0.48, 0.05, 0.13, 0.51, 0.08], DARK);
-        b(o, [-0.25, 0.54, -0.04, -0.11, 0.6, 0.03], FUR2); b(o, [0.11, 0.54, -0.04, 0.25, 0.6, 0.03], FUR2);
-        for sx in [-1.0f64, 1.0] {
-            let m = |a: f64, c: f64| (f64::min(sx * a, sx * c), f64::max(sx * a, sx * c));
-            let q = m(0.06, 0.1); b(o, [q.0, 0.58, -0.03, q.1, 0.92, 0.01], ANT); let q = m(0.1, 0.24); b(o, [q.0, 0.8, -0.03, q.1, 0.84, 0.01], ANT);
-            let q = m(0.2, 0.24); b(o, [q.0, 0.84, -0.03, q.1, 1.04, 0.01], ANT); let q = m(0.08, 0.12); b(o, [q.0, 0.68, 0.01, q.1, 0.72, 0.15], ANT);
-        } }
-    let mut leg = VBuf::new(300); b(&mut leg, [-0.06, -0.48, -0.07, 0.06, 0.0, 0.07], FUR2); b(&mut leg, [-0.05, -0.62, -0.06, 0.05, -0.48, 0.06], CREAM); b(&mut leg, [-0.055, -0.7, -0.065, 0.055, -0.62, 0.065], DARK);
-    let mut bird = VBuf::new(300); { let o = &mut bird; const BLUE: [f64; 3] = [0.22, 0.5, 0.86]; let mut q = |a: [f64; 6], c: [f64; 3]| b(o, a.map(|v| v * BIRD), c);
-        q([-0.055, 0.0, -0.1, 0.055, 0.1, 0.09], BLUE); q([-0.056, 0.0, -0.03, 0.056, 0.05, 0.1], [0.95, 0.9, 0.82]);
-        q([-0.05, 0.08, 0.06, 0.05, 0.17, 0.15], BLUE); q([-0.015, 0.11, 0.15, 0.015, 0.13, 0.19], [0.92, 0.65, 0.15]);
-        q([-0.03, 0.04, -0.22, 0.03, 0.07, -0.1], [0.14, 0.3, 0.6]);
-        q([-0.03, 0.14, 0.14, -0.02, 0.15, 0.15], DARK); q([0.02, 0.14, 0.14, 0.03, 0.15, 0.15], DARK);
-        q([-0.04, -0.06, 0.0, -0.025, 0.0, 0.015], DARK); q([0.025, -0.06, 0.0, 0.04, 0.0, 0.015], DARK); }
-    let mut wing = VBuf::new(300); b(&mut wing, [0.0, 0.0, -0.07 * BIRD, 0.17 * BIRD, 0.015 * BIRD, 0.08 * BIRD], [0.15, 0.36, 0.72]);
-    [("deerBody", body), ("deerHead", head), ("deerLeg", leg), ("bird", bird), ("wing", wing)]
-}
+pub fn parts() -> Vec<(&'static str, VBuf)> { crate::betes::deer() }
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum DeerState { Graze, Walk, Flee }
 #[derive(Clone, Debug)] pub struct Deer { pub p: [f64; 3], pub gy: f64, pub yaw: f64, pub state: DeerState, pub t: f64, pub phase: f64, pub head: f64, pub hoof: f64, pub speed: f64, blocked: u32, pub hp: f64, pub hit: f64 }
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum BirdState { Fly, Perch, Gone }
