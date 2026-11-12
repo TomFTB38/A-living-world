@@ -95,10 +95,10 @@ pub struct Foe {
     /// Où elle croit le joueur, et depuis quand elle ne l'a plus vu ; l'éveil monte avec ce qu'elle voit et entend.
     pub seen: Option<[f64; 3]>, lost: f64, pub alert: f64, home: [f64; 3],
     /// Mort en cours (s) ; variante d'équipement ; vétéran (un peu plus dur, meilleur butin) ; bond ou course en cours.
-    pub dead: f64, pub variant: u8, pub vet: bool, pub air: bool, burst: f64, pub climbing: bool, pub group: u32,
+    /** bouclier levé (brigand), de 0 à 1 */ pub guard: f64, pub dead: f64, pub variant: u8, pub vet: bool, pub air: bool, burst: f64, pub climbing: bool, pub group: u32,
 }
 /// Ce que font les créatures, pour la session (coups, sons, butin).
-#[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Die([f64; 3], usize, bool) }
+#[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool) }
 
 pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv>, groups: u32, pub spawned: u32 }
 /// Ce que la session donne à la horde à chaque image.
@@ -121,13 +121,17 @@ impl Horde {
     pub fn put(&mut self, sp: usize, p: [f64; 3], yaw: f64, vet: bool) -> usize {
         let s = &bestiary().species[sp]; let max = s.hp * if vet { 1.25 } else { 1.0 }; self.groups += 1; let variant = (self.rng.next() * 3.0) as u8;
         self.foes.push(Foe { sp, p, yaw, hp: max, max, state: if s.ambush { Ai::Embuscade } else { Ai::Repos }, t: self.rng.range(1.0, 4.0), cd: 0.5, wind: 0.0, hit: 0.0, phase: 0.0, speed: 0.0, v: [0.0; 3], gy: p[1],
-            seen: None, lost: 0.0, alert: 0.0, home: p, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups });
+            seen: None, lost: 0.0, alert: 0.0, home: p, guard: 0.0, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups });
         self.spawned += 1; self.foes.len() - 1
     }
     /// Un coup porté : moins fort sur une armure, plus fort avec l'arme qui la blesse le mieux ; rend vrai si elle meurt.
     pub fn strike(&mut self, i: usize, dmg: f64, from: [f64; 3], weapon: &str, heavy: bool) -> bool {
         let Some(f) = self.foes.get_mut(i) else { return false }; if f.dead > 0.0 { return false; } let s = &bestiary().species[f.sp];
-        let mul = if !s.weak.is_empty() && s.weak == weapon { 1.35 } else { 1.0 }; f.hp -= dmg * (1.0 - s.armor) * mul; f.hit = 0.3;
+        let mul = if !s.weak.is_empty() && s.weak == weapon { 1.35 } else { 1.0 };
+        // Bouclier levé et coup de face : il arrête l'essentiel (une flèche aussi).
+        let face = { let (dx, dz) = (from[0] - f.p[0], from[2] - f.p[2]); let d = dx.hypot(dz).max(0.01); (sin(f.yaw) * dx + cos(f.yaw) * dz) / d };
+        let blocked = f.guard > 0.5 && face > 0.3; if blocked { self.ev.push(FoeEv::Blocked(f.p)); }
+        f.hp -= dmg * (1.0 - s.armor) * mul * if blocked { 0.2 } else { 1.0 }; f.hit = if blocked { 0.0 } else { 0.3 };
         let (dx, dz) = (f.p[0] - from[0], f.p[2] - from[2]); let d = dx.hypot(dz).max(0.1); let k = if heavy { 6.5 } else { 3.2 } / s.size; f.v = [dx / d * k, 0.0, dz / d * k];
         // Un coup interrompt l'attaque annoncée (le joueur qui frappe le premier garde l'avantage) ; elle sait maintenant où il est.
         if heavy || f.wind > s.windup * 0.5 { f.wind = 0.0; f.cd = f.cd.max(0.6); }
@@ -227,6 +231,8 @@ impl Horde {
                 f.speed = 0.0; f.yaw = turn(f.yaw, (me[0] - f.p[0]).atan2(me[2] - f.p[2]), dt * if f.wind > 0.0 { 2.0 } else { 7.0 });
                 // L'attaque s'annonce (bras levé, gueule ouverte, corps ramassé), puis tombe : esquivable, parable.
                 if f.wind <= 0.0 && f.cd <= 0.0 { f.wind = s.windup; self.ev.push(FoeEv::Swing(f.p)); }
+                // Le brigand au bouclier se couvre entre deux coups.
+                if s.body == Body::Brigand && f.variant % 3 != 2 { let want = if f.wind <= 0.0 && f.cd > 0.3 { 1.0 } else { 0.0 }; f.guard += (want - f.guard) * (dt * 8.0).min(1.0); }
                 if dist > s.reach + 1.2 && f.wind <= 0.0 { f.state = Poursuite; }
                 if !c.alive { f.state = Retour; }
             }
@@ -235,10 +241,11 @@ impl Horde {
             Retour => { f.speed = s.walk; f.yaw = turn(f.yaw, (f.home[0] - f.p[0]).atan2(f.home[2] - f.p[2]), dt * 3.0); if hypot2(f.p[0] - f.home[0], f.p[2] - f.home[2]) < 2.0 { f.state = Repos; f.t = r.range(2.0, 5.0); } if f.alert > 0.6 && see { f.state = Poursuite; } }
             Fuite => { f.speed = s.run * 0.9; f.yaw = turn(f.yaw, (f.p[0] - me[0]).atan2(f.p[2] - me[2]), dt * 6.0); if f.t <= 0.0 { f.state = Retour; f.home = f.p; } }
         }
+        if f.state != Combat { f.guard = (f.guard - dt * 4.0).max(0.0); }
         // ---- le coup tombe à la fin de l'annonce, s'il y a contact (distance et angle cohérents avec le geste)
         if f.wind > 0.0 { f.wind -= dt; if f.wind <= 0.0 { f.wind = 0.0; f.cd = s.cd * if f.vet { 0.9 } else { 1.0 };
             let face = sin(f.yaw) * to[0] + cos(f.yaw) * to[1]; let reach = s.reach + if f.air { 0.8 } else { 0.5 };
-            if c.alive && dist < reach && face > 0.35 && dy.abs() < 1.9 { let dmg = s.dmg * r.range(0.8, 1.25) * if f.vet { 1.15 } else { 1.0 }; self.ev.push(FoeEv::Hit { from: f.p, dmg, cause: cause(s.body), push: if s.body == Body::Bete { 4.0 } else { 2.5 } }); } } }
+            if c.alive && dist < reach && face > 0.35 && dy.abs() < 1.9 { let dmg = s.dmg * r.range(0.8, 1.25) * if f.vet { 1.15 } else { 1.0 } * if f.air { 1.4 } else { 1.0 }; self.ev.push(FoeEv::Hit { from: f.p, dmg, cause: cause(s.body), push: if s.body == Body::Bete { 4.0 } else { 2.5 } }); } } }
         // ---- le mouvement : marcher sur le relief voxel, contourner, monter et descendre d'un bloc, grimper (rampant), bondir (bête)
         if f.state != Combat && f.state != Detection { f.phase += dt * (2.0 + f.speed * 1.8); } else { f.phase += dt * 1.5; }
         if f.air { f.p[0] += f.v[0] * dt; f.p[2] += f.v[2] * dt; f.v[1] -= 22.0 * dt; f.p[1] += f.v[1] * dt;
@@ -283,7 +290,7 @@ fn walk(f: &mut Foe, w: &impl Voxels, step: f64, climb: bool, body: Body) -> boo
 const PIX: f64 = 0.032;
 fn mat_of(c: [f64; 3]) -> Mat {
     if c == EYE || c == GEYE || c == RED_EYE { return Mat::Plain; }
-    if c == CLOTH || c == CLOTH2 { Mat::Cloth } else if c == LEATH || c == LEATH2 || c == LEATHER { Mat::Leather } else if c == STEEL || c == STEEL2 || c == RUSTM || c == RUST { Mat::Metal }
+    if c == CLOTH || c == CLOTH2 || c == TUNIC || c == TUNIC2 || c == CAPE || c == CAPE2 || c == MASK { Mat::Cloth } else if c == HOOD || c == HOOD2 { Mat::Leather } else if c == SKINB { Mat::Flesh } else if c == FURD || c == FURM || c == FURL { Mat::Fur } else if c == LEATH || c == LEATH2 || c == LEATHER { Mat::Leather } else if c == STEEL || c == STEEL2 || c == RUSTM || c == RUST { Mat::Metal }
     else if c == FLESH || c == FLESH2 { Mat::Flesh } else if c == BONE || c == BONE2 { Mat::Bone } else if c == HIDE || c == HIDE2 { Mat::Fur } else if c == CHIT || c == CHIT2 || c == SPOT { Mat::Chitin } else { Mat::Grain }
 }
 fn shade(m: Mat, c: [f64; 3], i: i32, j: i32, nu: i32, nv: i32, side: bool, seed: i32) -> [f64; 3] {
@@ -329,6 +336,9 @@ const RUST: [f64; 3] = [0.46, 0.26, 0.13];
 const EYE: [f64; 3] = [1.0, 0.86, 0.22]; const BONE: [f64; 3] = [0.82, 0.78, 0.66]; const HIDE: [f64; 3] = [0.19, 0.17, 0.15]; const HIDE2: [f64; 3] = [0.3, 0.26, 0.2]; const RED_EYE: [f64; 3] = [1.0, 0.42, 0.18];
 const FLESH: [f64; 3] = [0.6, 0.5, 0.46]; const FLESH2: [f64; 3] = [0.48, 0.39, 0.36]; const BONE2: [f64; 3] = [0.72, 0.64, 0.56]; const CLOTH: [f64; 3] = [0.46, 0.14, 0.14]; const CLOTH2: [f64; 3] = [0.32, 0.1, 0.1];
 const LEATH: [f64; 3] = [0.33, 0.21, 0.15]; const LEATH2: [f64; 3] = [0.24, 0.15, 0.11]; const STEEL: [f64; 3] = [0.47, 0.48, 0.52]; const STEEL2: [f64; 3] = [0.36, 0.37, 0.41]; const RUSTM: [f64; 3] = [0.5, 0.3, 0.18];
+const TUNIC: [f64; 3] = [0.29, 0.26, 0.24]; const TUNIC2: [f64; 3] = [0.21, 0.19, 0.18]; const HOOD: [f64; 3] = [0.38, 0.25, 0.17]; const HOOD2: [f64; 3] = [0.28, 0.18, 0.13]; const MASK: [f64; 3] = [0.15, 0.14, 0.14];
+const SKINB: [f64; 3] = [0.74, 0.56, 0.44]; const CAPE: [f64; 3] = [0.44, 0.13, 0.13]; const CAPE2: [f64; 3] = [0.31, 0.1, 0.1]; const SYMBOL: [f64; 3] = [0.86, 0.82, 0.74]; const WOODH: [f64; 3] = [0.45, 0.3, 0.17];
+const FURD: [f64; 3] = [0.2, 0.19, 0.21]; const FURM: [f64; 3] = [0.36, 0.34, 0.36]; const FURL: [f64; 3] = [0.62, 0.56, 0.5];
 const CHIT: [f64; 3] = [0.21, 0.16, 0.23]; const CHIT2: [f64; 3] = [0.34, 0.28, 0.35]; const SPOT: [f64; 3] = [0.6, 0.62, 0.48]; const GEYE: [f64; 3] = [0.72, 1.0, 0.6]; const LEATHER: [f64; 3] = [0.36, 0.24, 0.14];
 pub fn parts() -> Vec<(&'static str, VBuf)> {
     let mut o: Vec<(&'static str, VBuf)> = Vec::new(); let mut m = |n: &'static str, f: &dyn Fn(&mut VBuf)| { let mut v = VBuf::new(600); f(&mut v); o.push((n, v)); };
@@ -388,34 +398,81 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
     m("rodKnife", &|q| { b(q, [-0.022, -0.1, -0.022, 0.022, 0.06, 0.022], LEATH2); for y in [-0.07, -0.02, 0.03] { b(q, [-0.025, y, -0.025, 0.025, y + 0.012, 0.025], LEATH); }
         b(q, [-0.07, 0.06, -0.022, 0.07, 0.09, 0.022], RUSTM); b(q, [-0.04, 0.09, -0.01, 0.04, 0.38, 0.01], STEEL); b(q, [-0.025, 0.38, -0.009, 0.025, 0.44, 0.009], STEEL); b(q, [0.0, 0.44, -0.008, 0.015, 0.47, 0.008], STEEL2);
         b(q, [-0.04, 0.16, -0.012, -0.015, 0.22, 0.012], RUSTM); b(q, [0.015, 0.27, -0.012, 0.04, 0.32, 0.012], RUSTM); b(q, [0.03, 0.12, -0.011, 0.045, 0.15, 0.011], [0.06, 0.06, 0.07]); });
-    // Brigand errant : jaque de cuir, ceinture, capuchon (trois teintes), foulard sur le bas du visage, armes rudimentaires.
-    for (i, hood) in [[0.24, 0.27, 0.18], [0.36, 0.17, 0.12], [0.2, 0.2, 0.22]].into_iter().enumerate() {
-        let tn: &'static str = ["briTorso0", "briTorso1", "briTorso2"][i]; let hn: &'static str = ["briHead0", "briHead1", "briHead2"][i];
-        m(tn, &move |q| { b(q, [-0.24, 0.0, -0.14, 0.24, 0.58, 0.14], LEATHER); b(q, [-0.25, -0.02, -0.15, 0.25, 0.06, 0.15], [0.16, 0.11, 0.07]); b(q, [-0.04, 0.0, 0.15, 0.04, 0.06, 0.16], [0.6, 0.55, 0.4]);
-            for y in [0.16, 0.3, 0.44] { b(q, [-0.01, y, 0.14, 0.01, y + 0.08, 0.15], [0.2, 0.13, 0.08]); } b(q, [-0.26, 0.42, -0.18, 0.26, 0.62, 0.17], hood); b(q, [-0.22, -0.24, -0.13, 0.22, -0.02, 0.13], [0.22, 0.2, 0.18]);
-            b(q, [0.1, -0.12, 0.12, 0.2, 0.0, 0.16], [0.3, 0.2, 0.12]); });
-        m(hn, &move |q| { b(q, [-0.16, 0.0, -0.16, 0.16, 0.3, 0.16], [0.62, 0.48, 0.38]); b(q, [-0.19, 0.08, -0.2, 0.19, 0.4, 0.19], hood); b(q, [-0.17, 0.1, 0.0, 0.17, 0.27, 0.19], [0.05, 0.05, 0.05]);
-            b(q, [-0.165, -0.02, 0.06, 0.165, 0.12, 0.175], [hood[0] * 0.7, hood[1] * 0.7, hood[2] * 0.7]); b(q, [-0.1, 0.17, 0.16, -0.03, 0.21, 0.19], [0.85, 0.82, 0.7]); b(q, [0.03, 0.17, 0.16, 0.1, 0.21, 0.19], [0.85, 0.82, 0.7]);
-            b(q, [-0.08, 0.18, 0.18, -0.05, 0.205, 0.195], [0.1, 0.07, 0.05]); b(q, [0.05, 0.18, 0.18, 0.08, 0.205, 0.195], [0.1, 0.07, 0.05]); b(q, [-0.06, 0.36, -0.28, 0.06, 0.42, -0.18], hood); });
-    }
-    m("briArm", &|q| { b(q, [-0.075, -0.42, -0.075, 0.075, 0.04, 0.075], LEATHER); b(q, [-0.07, -0.72, -0.07, 0.07, -0.42, 0.07], [0.62, 0.48, 0.38]); b(q, [-0.08, -0.6, -0.08, 0.08, -0.46, 0.08], [0.22, 0.15, 0.09]); b(q, [-0.065, -0.82, -0.06, 0.065, -0.72, 0.07], [0.58, 0.45, 0.35]); });
-    m("briLeg", &|q| { b(q, [-0.085, -0.44, -0.085, 0.085, 0.0, 0.085], [0.22, 0.2, 0.18]); b(q, [-0.08, -0.84, -0.08, 0.08, -0.44, 0.08], [0.24, 0.16, 0.09]); b(q, [-0.085, -0.9, -0.08, 0.085, -0.82, 0.18], [0.18, 0.12, 0.07]); b(q, [-0.09, -0.52, -0.09, 0.09, -0.46, 0.09], [0.3, 0.2, 0.12]); });
-    // Les armes, tenues dans la main droite (le long du bras, pointe vers l'avant quand il frappe).
-    m("briClub", &|q| { b(q, [-0.03, -0.1, -0.03, 0.03, 0.4, 0.03], [0.36, 0.24, 0.13]); b(q, [-0.065, 0.3, -0.065, 0.065, 0.62, 0.065], [0.42, 0.29, 0.16]); for y in [0.38, 0.5] { b(q, [-0.075, y, -0.02, 0.075, y + 0.03, 0.02], [0.4, 0.4, 0.42]); } });
-    m("briSword", &|q| { b(q, [-0.025, -0.12, -0.025, 0.025, 0.06, 0.025], [0.25, 0.16, 0.1]); b(q, [-0.1, 0.06, -0.03, 0.1, 0.1, 0.03], RUST); b(q, [-0.035, 0.1, -0.012, 0.035, 0.78, 0.012], [0.5, 0.42, 0.36]); b(q, [-0.02, 0.4, -0.014, 0.025, 0.6, 0.014], RUST); });
-    m("briAxe", &|q| { b(q, [-0.028, -0.1, -0.028, 0.028, 0.62, 0.028], [0.38, 0.26, 0.14]); b(q, [-0.02, 0.44, 0.0, 0.02, 0.64, 0.22], [0.48, 0.44, 0.4]); b(q, [-0.022, 0.48, 0.18, 0.022, 0.6, 0.24], [0.6, 0.58, 0.54]); });
-    // Bête rôdeuse : basse, avant massif et arrière fuyant, une crête de plaques d'os sur l'échine, une longue queue à pointe osseuse.
-    m("bstBody", &|q| { b(q, [-0.2, -0.05, 0.0, 0.2, 0.34, 0.5], HIDE); b(q, [-0.16, -0.08, -0.5, 0.16, 0.22, 0.02], HIDE); b(q, [-0.21, 0.05, 0.1, 0.21, 0.2, 0.4], HIDE2);
-        for (z, h) in [(0.4, 0.44), (0.25, 0.42), (0.1, 0.38), (-0.08, 0.31), (-0.26, 0.27), (-0.42, 0.24)] { b(q, [-0.05, h - 0.12, z - 0.06, 0.05, h, z + 0.06], BONE); }
-        for (x, z) in [(-0.21, 0.3), (0.21, 0.15), (-0.17, -0.2), (0.17, -0.35)] { b(q, [x - 0.02, 0.1, z - 0.05, x + 0.02, 0.18, z + 0.05], HIDE2); }
-        b(q, [-0.035, 0.06, -0.95, 0.035, 0.12, -0.5], HIDE); b(q, [-0.05, 0.03, -1.08, 0.05, 0.13, -0.95], BONE); });
-    // La tête : un crâne long et étroit, coiffé d'un masque d'os, des yeux rouges enfoncés ; la mâchoire s'ouvre à part.
-    m("bstHead", &|q| { b(q, [-0.13, -0.08, -0.06, 0.13, 0.14, 0.2], HIDE); b(q, [-0.09, -0.06, 0.2, 0.09, 0.08, 0.46], HIDE2); b(q, [-0.12, 0.06, 0.0, 0.12, 0.17, 0.4], BONE);
-        b(q, [-0.1, 0.02, 0.17, -0.06, 0.07, 0.22], RED_EYE); b(q, [0.06, 0.02, 0.17, 0.1, 0.07, 0.22], RED_EYE); for x in [-0.07, 0.05] { b(q, [x, 0.17, -0.04, x + 0.03, 0.3, 0.06], BONE); }
-        for x in [-0.07, -0.025, 0.02, 0.055] { b(q, [x, -0.1, 0.4, x + 0.018, -0.05, 0.43], BONE); } });
-    m("bstJaw", &|q| { b(q, [-0.08, -0.06, 0.0, 0.08, 0.0, 0.36], HIDE2); for x in [-0.06, -0.015, 0.03] { b(q, [x, 0.0, 0.3, x + 0.018, 0.05, 0.33], BONE); } });
-    m("bstFore", &|q| { b(q, [-0.07, -0.34, -0.07, 0.07, 0.04, 0.08], HIDE); b(q, [-0.055, -0.62, -0.05, 0.055, -0.34, 0.06], HIDE2); b(q, [-0.065, -0.66, -0.04, 0.065, -0.6, 0.14], HIDE); for x in [-0.05, 0.0, 0.035] { b(q, [x, -0.68, 0.12, x + 0.018, -0.63, 0.18], BONE); } });
-    m("bstHind", &|q| { b(q, [-0.06, -0.24, -0.08, 0.06, 0.04, 0.06], HIDE); b(q, [-0.05, -0.46, -0.1, 0.05, -0.24, -0.02], HIDE2); b(q, [-0.055, -0.5, -0.08, 0.055, -0.44, 0.08], HIDE); });
+    // Brigand errant (planche du bestiaire) : capuche de cuir brun qui tombe en pèlerine sur les épaules, foulard sombre
+    // sur le bas du visage, veste épaisse, bandoulières, ceinture à boucle et sacoche, pans de veste effrangés, cape rouge
+    // au symbole de clan (une croix claire) dans le dos, épaulière de fer à gauche et de cuir à droite, brassards et bottes
+    // sanglées ; hache rudimentaire (ou épée, ou gourdin) et souvent un bouclier de planches cerclé à la croix.
+    m("briTorso", &|q| {
+        b(q, [-0.22, 0.06, -0.13, 0.22, 0.62, 0.13], TUNIC); b(q, [-0.2, 0.3, 0.13, -0.04, 0.6, 0.145], TUNIC2); b(q, [0.04, 0.3, 0.13, 0.2, 0.6, 0.145], TUNIC2);
+        b(q, [-0.05, 0.08, 0.13, 0.05, 0.56, 0.14], [0.12, 0.11, 0.1]); for y in [0.2, 0.32, 0.44] { b(q, [-0.06, y, 0.135, 0.06, y + 0.025, 0.15], LEATH2); }
+        // Bandoulière de l'épaule droite à la hanche gauche, et sangle du dos.
+        for k in 0..8 { let t = k as f64 / 7.0; let (x, y) = (-0.19 + 0.38 * t, 0.6 - 0.5 * t); b(q, [x - 0.035, y - 0.035, 0.135, x + 0.035, y + 0.035, 0.155], LEATH); b(q, [x - 0.035, y - 0.035, -0.155, x + 0.035, y + 0.035, -0.13], LEATH); }
+        b(q, [0.02, 0.3, 0.15, 0.08, 0.36, 0.165], RUSTM);
+        // Ceinture large, boucle, sacoche à gauche, bourse à droite.
+        b(q, [-0.235, -0.02, -0.14, 0.235, 0.09, 0.145], LEATH); b(q, [-0.05, -0.01, 0.145, 0.05, 0.08, 0.165], STEEL2); b(q, [-0.03, 0.01, 0.16, 0.03, 0.06, 0.17], LEATH2);
+        b(q, [0.13, -0.17, 0.04, 0.26, 0.06, 0.16], LEATH2); b(q, [0.12, -0.0, 0.03, 0.27, 0.07, 0.17], LEATH); b(q, [0.18, -0.06, 0.16, 0.21, -0.02, 0.172], STEEL2); b(q, [-0.22, -0.12, 0.05, -0.14, 0.0, 0.13], LEATH2);
+        // Pans de veste effrangés, rouges et bruns, de longueurs inégales.
+        for (i, x) in [-0.19, -0.11, -0.03, 0.05, 0.13, 0.2].iter().enumerate() { let low = [-0.3, -0.24, -0.34, -0.26, -0.32, -0.22][i]; let c = if i % 3 == 1 { CAPE2 } else { TUNIC2 }; b(q, [*x - 0.04, low, 0.04, *x + 0.04, 0.0, 0.14], c); }
+        for z in [-0.1, 0.0] { b(q, [-0.235, -0.26, z, -0.2, 0.0, z + 0.09], TUNIC2); b(q, [0.2, -0.24, z, 0.235, 0.0, z + 0.09], CAPE2); }
+        // Cape dans le dos, bas en lambeaux, croix du clan.
+        b(q, [-0.21, 0.0, -0.17, 0.21, 0.62, -0.14], CAPE); for (x, low) in [(-0.17, -0.34), (-0.09, -0.24), (0.0, -0.38), (0.09, -0.26), (0.17, -0.32)] { b(q, [x - 0.045, low, -0.172, x + 0.045, 0.02, -0.142], if low < -0.3 { CAPE2 } else { CAPE }); }
+        for k in 0..7 { let t = k as f64 / 6.0; let (x, y) = (-0.12 + 0.24 * t, 0.5 - 0.3 * t); b(q, [x - 0.03, y - 0.03, -0.185, x + 0.03, y + 0.03, -0.168], SYMBOL); b(q, [-x - 0.03, y - 0.03, -0.185, -x + 0.03, y + 0.03, -0.168], SYMBOL); }
+        // Épaules : fer cabossé à gauche (deux plaques, rivets), cuir épais à droite.
+        b(q, [0.14, 0.5, -0.16, 0.34, 0.66, 0.16], STEEL); b(q, [0.15, 0.43, -0.165, 0.35, 0.52, 0.165], STEEL2); b(q, [0.3, 0.58, 0.14, 0.33, 0.62, 0.17], [0.2, 0.2, 0.22]); b(q, [0.2, 0.62, -0.05, 0.28, 0.665, 0.08], RUSTM);
+        b(q, [-0.33, 0.5, -0.15, -0.14, 0.64, 0.15], LEATH); b(q, [-0.335, 0.46, -0.155, -0.15, 0.52, 0.155], LEATH2);
+        // Col de foulard rouge.
+        b(q, [-0.13, 0.6, -0.11, 0.13, 0.68, 0.12], CAPE2);
+    });
+    m("briHead", &|q| {
+        b(q, [-0.12, 0.0, -0.1, 0.12, 0.27, 0.11], SKINB); b(q, [-0.1, 0.17, 0.105, -0.03, 0.2, 0.115], [0.95, 0.93, 0.88]); b(q, [0.03, 0.17, 0.105, 0.1, 0.2, 0.115], [0.95, 0.93, 0.88]);
+        b(q, [-0.075, 0.172, 0.11, -0.045, 0.198, 0.12], [0.18, 0.12, 0.08]); b(q, [0.045, 0.172, 0.11, 0.075, 0.198, 0.12], [0.18, 0.12, 0.08]); b(q, [-0.11, 0.205, 0.105, -0.02, 0.225, 0.118], [0.2, 0.13, 0.09]); b(q, [0.02, 0.205, 0.105, 0.11, 0.225, 0.118], [0.2, 0.13, 0.09]);
+        // Foulard sombre sur le nez et la bouche, noué derrière.
+        b(q, [-0.125, -0.02, -0.105, 0.125, 0.15, 0.135], MASK); b(q, [-0.1, 0.0, 0.135, 0.1, 0.13, 0.145], [0.2, 0.19, 0.18]); b(q, [-0.05, -0.02, -0.14, 0.05, 0.06, -0.1], MASK);
+        // Capuche de cuir : dessus, joues, nuque, bord avant, pointe, et pèlerine sur les épaules.
+        b(q, [-0.165, 0.25, -0.15, 0.165, 0.35, 0.15], HOOD); b(q, [-0.17, -0.04, -0.15, -0.115, 0.3, 0.14], HOOD); b(q, [0.115, -0.04, -0.15, 0.17, 0.3, 0.14], HOOD); b(q, [-0.165, -0.06, -0.17, 0.165, 0.32, -0.1], HOOD2);
+        b(q, [-0.13, 0.24, 0.12, 0.13, 0.3, 0.17], HOOD2); b(q, [-0.125, -0.04, 0.12, -0.11, 0.26, 0.155], HOOD2); b(q, [0.11, -0.04, 0.12, 0.125, 0.26, 0.155], HOOD2);
+        b(q, [-0.1, 0.34, -0.12, 0.1, 0.4, 0.06], HOOD); b(q, [-0.05, 0.38, -0.16, 0.05, 0.44, -0.04], HOOD2);
+        b(q, [-0.26, -0.12, -0.19, 0.26, -0.03, 0.17], HOOD); for (x, low) in [(-0.22, -0.2), (-0.12, -0.16), (0.0, -0.21), (0.12, -0.15), (0.22, -0.19)] { b(q, [x - 0.05, low, -0.18, x + 0.05, -0.1, 0.16], HOOD2); }
+    });
+    m("briUpper", &|q| { b(q, [-0.065, -0.34, -0.065, 0.065, 0.02, 0.065], TUNIC); b(q, [-0.07, -0.08, -0.07, 0.07, -0.03, 0.07], LEATH2); b(q, [-0.06, -0.36, -0.06, 0.06, -0.3, 0.06], TUNIC2); });
+    m("briFore", &|q| { b(q, [-0.06, -0.3, -0.06, 0.06, 0.0, 0.06], TUNIC2); b(q, [-0.07, -0.29, -0.07, 0.07, -0.08, 0.07], LEATH); for y in [-0.25, -0.17, -0.11] { b(q, [-0.075, y, -0.075, 0.075, y + 0.022, 0.075], LEATH2); }
+        b(q, [-0.06, -0.4, -0.05, 0.06, -0.3, 0.07], SKINB); b(q, [-0.06, -0.42, 0.02, 0.06, -0.36, 0.08], [0.66, 0.49, 0.38]); b(q, [0.04, -0.38, 0.04, 0.07, -0.33, 0.08], SKINB); });
+    m("briThigh", &|q| { b(q, [-0.08, -0.44, -0.08, 0.08, 0.02, 0.08], TUNIC2); b(q, [0.0, -0.3, 0.075, 0.07, -0.2, 0.09], TUNIC); b(q, [-0.085, -0.46, -0.085, 0.085, -0.38, 0.09], LEATH2); });
+    m("briShin", &|q| { b(q, [-0.075, -0.2, -0.075, 0.075, 0.0, 0.075], TUNIC2); b(q, [-0.085, -0.44, -0.08, 0.085, -0.12, 0.085], LEATH); b(q, [-0.095, -0.16, -0.09, 0.095, -0.1, 0.095], LEATH2);
+        for y in [-0.36, -0.26] { b(q, [-0.09, y, -0.085, 0.09, y + 0.03, 0.09], LEATH2); b(q, [0.05, y, 0.085, 0.08, y + 0.03, 0.095], STEEL2); } b(q, [-0.085, -0.47, -0.07, 0.085, -0.4, 0.2], LEATH); b(q, [-0.09, -0.49, -0.075, 0.09, -0.46, 0.21], [0.16, 0.11, 0.08]); });
+    // Armes, tenues dans le poing droit, le long de l'avant-bras ; bouclier au bras gauche.
+    m("briAxe", &|q| { b(q, [-0.026, -0.12, -0.026, 0.026, 0.55, 0.026], WOODH); for y in [-0.08, 0.0] { b(q, [-0.03, y, -0.03, 0.03, y + 0.04, 0.03], LEATH2); }
+        b(q, [-0.035, 0.4, -0.06, 0.035, 0.56, 0.05], STEEL2); b(q, [-0.022, 0.36, 0.04, 0.022, 0.6, 0.2], STEEL); b(q, [-0.018, 0.33, 0.18, 0.018, 0.63, 0.23], [0.72, 0.72, 0.74]); b(q, [-0.02, 0.45, -0.12, 0.02, 0.5, -0.05], STEEL2); });
+    m("briSword", &|q| { b(q, [-0.025, -0.12, -0.025, 0.025, 0.06, 0.025], LEATH2); b(q, [-0.1, 0.06, -0.03, 0.1, 0.1, 0.03], STEEL2); b(q, [-0.035, 0.1, -0.012, 0.035, 0.78, 0.012], STEEL); b(q, [-0.02, 0.4, -0.014, 0.025, 0.6, 0.014], RUSTM); });
+    m("briClub", &|q| { b(q, [-0.03, -0.1, -0.03, 0.03, 0.4, 0.03], WOODH); b(q, [-0.065, 0.3, -0.065, 0.065, 0.62, 0.065], [0.42, 0.29, 0.16]); for y in [0.38, 0.5] { b(q, [-0.075, y, -0.02, 0.075, y + 0.03, 0.02], STEEL2); } });
+    m("briShield", &|q| { let rows: [(f64, f64); 6] = [(-0.3, 0.18), (-0.2, 0.26), (-0.08, 0.29), (0.06, 0.29), (0.18, 0.26), (0.28, 0.18)];
+        for (i, (y, w)) in rows.iter().enumerate() { b(q, [-0.035, *y - 0.06, -*w, 0.0, *y + 0.07, *w], if i % 2 == 0 { WOODH } else { [0.5, 0.33, 0.18] }); }
+        b(q, [-0.05, -0.38, -0.03, -0.03, 0.36, 0.03], STEEL2); b(q, [-0.05, -0.03, -0.3, -0.03, 0.03, 0.3], STEEL2);
+        for k in 0..7 { let t = k as f64 / 6.0 - 0.5; b(q, [-0.06, t * 0.5 - 0.035, t * 0.4 - 0.035, -0.035, t * 0.5 + 0.035, t * 0.4 + 0.035], SYMBOL); b(q, [-0.06, t * 0.5 - 0.035, -t * 0.4 - 0.035, -0.035, t * 0.5 + 0.035, -t * 0.4 + 0.035], SYMBOL); }
+        b(q, [-0.075, -0.04, -0.04, -0.045, 0.04, 0.04], STEEL); b(q, [0.0, -0.1, -0.03, 0.04, 0.1, 0.03], LEATH2); });
+    // Bête rôdeuse (planche) : un grand loup noir hérissé, crinière en épis sur la nuque et le garrot, flancs gris,
+    // ventre et pattes clairs, yeux jaunes, gueule rouge aux crocs blancs, griffes, queue touffue.
+    m("bstBody", &|q| {
+        b(q, [-0.2, -0.06, 0.0, 0.2, 0.34, 0.46], FURM); b(q, [-0.16, -0.04, -0.52, 0.16, 0.26, 0.02], FURM); b(q, [-0.15, -0.1, 0.06, 0.15, -0.0, 0.44], FURL); b(q, [-0.12, -0.08, -0.46, 0.12, 0.0, -0.02], FURL);
+        b(q, [-0.21, 0.18, -0.02, 0.21, 0.36, 0.47], FURD); b(q, [-0.17, 0.14, -0.53, 0.17, 0.28, 0.02], FURD); b(q, [-0.19, 0.3, 0.32, 0.19, 0.44, 0.58], FURD);
+        // Crinière en épis : nuque, garrot, échine.
+        for (z, h, w) in [(0.52, 0.52, 0.16), (0.44, 0.5, 0.18), (0.36, 0.47, 0.17), (0.28, 0.43, 0.15), (0.18, 0.41, 0.13), (0.08, 0.38, 0.12), (-0.04, 0.35, 0.11), (-0.16, 0.33, 0.1), (-0.3, 0.31, 0.09), (-0.42, 0.3, 0.08)] {
+            b(q, [-w, h - 0.08, z - 0.05, w, h, z + 0.05], FURD); b(q, [-w * 0.55, h - 0.02, z - 0.035, w * 0.55, h + 0.05, z + 0.03], FURD); b(q, [-0.025, h + 0.03, z - 0.02, 0.025, h + 0.08, z + 0.02], FURM); }
+        for (x, z) in [(-0.22, 0.38), (0.22, 0.38), (-0.22, 0.24), (0.22, 0.24), (-0.2, 0.1), (0.2, 0.1)] { b(q, [x - 0.025, 0.05, z - 0.06, x + 0.025, 0.3, z + 0.05], FURM); }
+        // Jabot clair sous le cou.
+        b(q, [-0.13, -0.08, 0.36, 0.13, 0.22, 0.52], FURL); b(q, [-0.08, -0.14, 0.4, 0.08, -0.04, 0.5], FURL);
+    });
+    m("bstHead", &|q| {
+        b(q, [-0.13, -0.06, -0.08, 0.13, 0.16, 0.16], FURD); b(q, [-0.15, -0.08, -0.12, 0.15, 0.1, 0.04], FURM); b(q, [-0.16, -0.12, -0.1, -0.1, 0.06, 0.06], FURL); b(q, [0.1, -0.12, -0.1, 0.16, 0.06, 0.06], FURL);
+        b(q, [-0.08, -0.04, 0.16, 0.08, 0.08, 0.36], FURM); b(q, [-0.07, 0.04, 0.16, 0.07, 0.1, 0.32], FURD); b(q, [-0.035, 0.04, 0.34, 0.035, 0.09, 0.38], [0.06, 0.05, 0.05]);
+        b(q, [-0.075, -0.05, 0.18, 0.075, -0.0, 0.35], [0.5, 0.12, 0.1]); for x in [-0.06, -0.03, 0.0, 0.03] { b(q, [x, -0.07, 0.3, x + 0.02, -0.02, 0.33], BONE); } b(q, [-0.07, -0.09, 0.24, -0.05, -0.02, 0.27], BONE); b(q, [0.05, -0.09, 0.24, 0.07, -0.02, 0.27], BONE);
+        b(q, [-0.1, 0.07, 0.15, -0.04, 0.11, 0.17], EYE); b(q, [0.04, 0.07, 0.15, 0.1, 0.11, 0.17], EYE); b(q, [-0.11, 0.1, 0.13, -0.03, 0.14, 0.18], FURD); b(q, [0.03, 0.1, 0.13, 0.11, 0.14, 0.18], FURD);
+        for sx in [-1.0f64, 1.0] { let x = 0.08 * sx; b(q, [x - 0.045, 0.14, -0.04, x + 0.045, 0.3, 0.04], FURD); b(q, [x - 0.025, 0.28, -0.02, x + 0.025, 0.36, 0.02], FURD); b(q, [x - 0.02, 0.16, 0.035, x + 0.02, 0.26, 0.045], [0.45, 0.35, 0.33]); }
+    });
+    m("bstJaw", &|q| { b(q, [-0.07, -0.06, 0.0, 0.07, 0.0, 0.32], FURM); b(q, [-0.06, 0.0, 0.02, 0.06, 0.015, 0.3], [0.62, 0.16, 0.14]); for x in [-0.05, -0.02, 0.01, 0.035] { b(q, [x, 0.0, 0.27, x + 0.018, 0.05, 0.3], BONE); } b(q, [-0.06, 0.0, 0.2, -0.04, 0.06, 0.23], BONE); b(q, [0.04, 0.0, 0.2, 0.06, 0.06, 0.23], BONE); b(q, [-0.08, -0.1, 0.02, 0.08, -0.04, 0.2], FURL); });
+    m("bstFore", &|q| { b(q, [-0.075, -0.3, -0.08, 0.075, 0.06, 0.09], FURD); b(q, [-0.06, -0.56, -0.05, 0.06, -0.28, 0.07], FURL); b(q, [-0.07, -0.62, -0.04, 0.07, -0.55, 0.15], FURL); for x in [-0.055, -0.02, 0.015, 0.045] { b(q, [x, -0.64, 0.13, x + 0.018, -0.58, 0.19], BONE); } b(q, [-0.08, -0.3, 0.06, 0.08, -0.16, 0.1], FURM); });
+    m("bstHind", &|q| { b(q, [-0.08, -0.26, -0.12, 0.08, 0.06, 0.08], FURD); b(q, [-0.055, -0.44, -0.12, 0.055, -0.24, -0.02], FURL); b(q, [-0.06, -0.5, -0.1, 0.06, -0.44, 0.1], FURL); for x in [-0.045, -0.01, 0.025] { b(q, [x, -0.52, 0.08, x + 0.018, -0.46, 0.14], BONE); } });
+    m("bstTail", &|q| { b(q, [-0.06, -0.05, -0.2, 0.06, 0.07, 0.0], FURD); b(q, [-0.08, -0.1, -0.42, 0.08, 0.06, -0.18], FURM); b(q, [-0.07, -0.16, -0.58, 0.07, 0.02, -0.4], FURM); b(q, [-0.05, -0.2, -0.68, 0.05, -0.04, -0.56], FURL); });
     // Rampant nocturne : une tête basse à plaques et mandibules, plusieurs yeux, trois anneaux, six pattes coudées.
     m("crwHead", &|q| { b(q, [-0.2, -0.04, -0.12, 0.2, 0.16, 0.16], CHIT); b(q, [-0.22, 0.12, -0.14, 0.22, 0.19, 0.12], CHIT2);
         for (x, y) in [(-0.12, 0.1), (-0.05, 0.13), (0.03, 0.13), (0.1, 0.1), (-0.15, 0.04), (0.13, 0.04)] { b(q, [x, y - 0.02, 0.15, x + 0.035, y + 0.015, 0.175], GEYE); }
@@ -464,32 +521,43 @@ impl Horde {
                     put("rodKnife", mul(&fb, &trs(0.0, -0.4, 0.04, 0.0, 1.45, 1.0)));
                 }
                 Body::Brigand => {
-                    let rod = false; let hip = if rod { 0.84 } else { 0.9 };
-                    let hunch = if rod { 0.42 } else { 0.08 } + run * 0.18 + wind * 0.15 - strike * 0.1 + flinch * 0.6 - if f.state == Ai::Detection { 0.25 } else { 0.0 };
-                    let bob = (f.phase * 2.0).sin().abs() * 0.04 * run;
-                    let body = mul(&base, &trs(0.0, hip + bob, 0.0, if rod { 0.12 * (f.phase * 0.5).sin() } else { 0.0 }, hunch, 1.0));
-                    put(if rod { "rodTorso" } else { ["briTorso0", "briTorso1", "briTorso2"][f.variant as usize % 3] }, body);
-                    let look = if f.state == Ai::Detection || f.state == Ai::Soupcon { -0.35 } else { -hunch * 0.6 };
-                    put(if rod { "rodHead" } else { ["briHead0", "briHead1", "briHead2"][f.variant as usize % 3] }, mul(&body, &trs(0.0, if rod { 0.56 } else { 0.62 }, if rod { 0.06 } else { 0.0 }, if f.state == Ai::Soupcon { 0.5 * sin(f.phase * 0.7) } else { 0.0 }, look, 1.0)));
-                    let leg = sw * (0.45 + 0.35 * run); put(if rod { "rodLeg" } else { "briLeg" }, mul(&base, &trs(-0.12, hip, 0.0, 0.0, leg, 1.0))); put(if rod { "rodLeg" } else { "briLeg" }, mul(&base, &trs(0.12, hip, 0.0, 0.0, -leg, 1.0)));
-                    // Bras : ballants et longs (rôdeur), arme au poing (brigand) ; l'attaque lève le bras droit loin en arrière, puis l'abat.
-                    let arm_l = -sw * 0.5 * (0.4 + run) - if rod { 0.35 } else { 0.0 } - wind * 0.4; let atk = -2.4 * wind + strike * 0.6;
-                    let arm_r = if wind > 0.0 || strike > 0.0 { atk } else { sw * 0.5 * (0.4 + run) - if rod { 0.35 } else { 0.25 } };
-                    let sh = if rod { 0.27 } else { 0.32 }; let ay = if rod { 0.48 } else { 0.54 };
-                    put(if rod { "rodArm" } else { "briArm" }, mul(&body, &trs(sh, ay, 0.0, 0.0, arm_l - hunch * 0.5, 1.0)));
-                    let ar = mul(&body, &trs(-sh, ay, 0.0, 0.0, arm_r - hunch * 0.5, 1.0)); put(if rod { "rodArm" } else { "briArm" }, ar);
-                    if !rod { put(["briClub", "briSword", "briAxe"][f.variant as usize % 3], mul(&ar, &trs(0.0, -0.78, 0.04, 0.0, std::f64::consts::FRAC_PI_2 * 0.9, 1.0))); }
+                    // Debout, solide. Repos : il respire, regarde alentour ; marche, course ; détection : il se redresse, tête levée ;
+                    // attaque : hache levée haut puis abattue ; blocage : bouclier levé devant soi ; repli ; mort : il tombe à la renverse.
+                    let t = f.phase; let det = if f.state == Ai::Detection || f.state == Ai::Soupcon { 1.0 } else { 0.0 }; let die = fall; let guard = f.guard;
+                    let flee = if f.state == Ai::Fuite { 1.0 } else { 0.0 };
+                    let stride = (0.34 + 0.4 * run) * sw; let knee0 = 0.12 + 0.18 * run + 0.15 * guard + 0.9 * die; let thigh0 = -0.06 - 0.1 * run - 0.1 * guard - 0.9 * die;
+                    let hip = 0.92 - 0.04 * guard - 0.6 * die + if f.speed == 0.0 { 0.012 * (t * 1.2).sin() } else { 0.0 } - (t * 2.0).sin().abs() * 0.03 * run;
+                    let lean = 0.06 + 0.26 * run - 0.08 * det + 0.14 * guard + wind * 0.08 - strike * 0.05 - flinch * 0.8 - 1.2 * die;
+                    let body = mul(&trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size), &trs(0.0, 0.0, 0.0, 0.06 * (t * 0.4).sin() * (1.0 - run) - 0.3 * wind + 0.35 * strike, lean, 1.0));
+                    put("briTorso", body);
+                    let hy = if f.state == Ai::Soupcon || (f.speed == 0.0 && f.state == Ai::Repos) { 0.5 * (t * 0.35).sin() } else { 0.0 };
+                    put("briHead", mul(&body, &trs(0.0, 0.66, 0.02, hy, -lean * 0.5 - 0.25 * det + 0.3 * die, 1.0)));
+                    let legs = trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size);
+                    for (x, st) in [(-0.11, stride), (0.11, -stride)] { let th = mul(&legs, &trs(x, 0.0, 0.0, 0.0, thigh0 + st, 1.0)); put("briThigh", th); put("briShin", mul(&th, &trs(0.0, -0.44, 0.0, 0.0, knee0 + if st > 0.0 { 0.0 } else { -st * 1.1 }, 1.0))); }
+                    let shield = f.variant % 3 != 2;
+                    // Bras gauche : bouclier au repos le long du corps, levé devant soi en garde ; bras droit : l'arme.
+                    let (ul, fl, yl) = if guard > 0.0 { (-1.1 * guard - 0.2, -0.9 * guard, 0.6 * guard) } else { (-sw * (0.3 + 0.5 * run) - 0.15 - 0.3 * det + 1.2 * die - 0.3 * flee, -0.35 - 0.4 * run, 0.0) };
+                    let (ur, fr) = if wind > 0.0 || strike > 0.0 { (-0.4 - 2.4 * wind + strike * 1.3, -0.7 * wind - 0.15) } else { (sw * (0.3 + 0.5 * run) - 0.25 - 0.3 * det + 1.2 * die, -0.4 - 0.4 * run) };
+                    let ua = mul(&body, &trs(0.3, 0.56, 0.0, -yl, ul, 1.0)); put("briUpper", ua); let fa = mul(&ua, &trs(0.0, -0.34, 0.0, 0.0, fl, 1.0)); put("briFore", fa);
+                    if shield { put("briShield", mul(&fa, &trs(0.1, -0.2, 0.0, 0.0, 0.0, 1.0))); }
+                    let ub = mul(&body, &trs(-0.3, 0.56, 0.0, 0.0, ur, 1.0)); put("briUpper", ub); let fb = mul(&ub, &trs(0.0, -0.34, 0.0, 0.0, fr, 1.0)); put("briFore", fb);
+                    put(["briAxe", "briSword", "briClub"][f.variant as usize % 3], mul(&fb, &trs(0.0, -0.38, 0.05, 0.0, std::f64::consts::FRAC_PI_2 * 0.92, 1.0)));
                 }
                 Body::Bete => {
-                    let hip = 0.62; let crouch = wind * 0.14 - strike * 0.05 + if f.state == Ai::Embuscade || f.state == Ai::Soupcon { 0.1 } else { 0.0 };
-                    let gallop = run > 0.6; let pitch = if f.air { -0.25 } else { 0.0 } + flinch * 0.5;
-                    let body = mul(&base, &trs(0.0, hip - crouch + if gallop { (f.phase).sin().abs() * 0.06 } else { 0.0 }, 0.0, 0.0, pitch, 1.0));
-                    put("bstBody", body);
-                    let head = mul(&body, &trs(0.0, 0.22, 0.5, 0.0, if f.state == Ai::Detection { -0.4 } else { 0.1 + wind * 0.25 - strike * 0.3 }, 1.0)); put("bstHead", head);
-                    put("bstJaw", mul(&head, &trs(0.0, -0.06, 0.02, 0.0, 0.15 + (wind + strike) * 0.55 + if f.state == Ai::Detection { 0.4 } else { 0.0 }, 1.0)));
-                    let a = if f.air { 0.9 } else { sw * (0.5 + 0.4 * run) }; let b2 = if gallop { a } else { -a };
-                    put("bstFore", mul(&body, &trs(-0.15, 0.04, 0.38, 0.0, a, 1.0))); put("bstFore", mul(&body, &trs(0.15, 0.04, 0.38, 0.0, b2, 1.0)));
-                    put("bstHind", mul(&body, &trs(-0.12, 0.04, -0.36, 0.0, -b2 * 0.9, 1.0))); put("bstHind", mul(&body, &trs(0.12, 0.04, -0.36, 0.0, -a * 0.9, 1.0)));
+                    // Repos : il souffle, la queue balance ; marche ; course (galop) ; repérage : tête et oreilles dressées ;
+                    // bond : corps tendu, pattes en avant ; morsure : gueule grande ouverte, tête lancée ; mort : couché sur le flanc.
+                    let t = f.phase; let det = if f.state == Ai::Detection || f.state == Ai::Soupcon || f.state == Ai::Embuscade { 1.0 } else { 0.0 }; let die = fall;
+                    let gallop = run > 0.55; let crouch = wind * 0.12 + 0.08 * det * if f.state == Ai::Embuscade { 1.0 } else { 0.0 };
+                    let pitch = if f.air { -0.3 + 0.5 * (f.v[1] / 6.0).clamp(-1.0, 1.0) * -1.0 } else { 0.0 } + flinch * 0.5;
+                    let hip = 0.6 - crouch - 0.38 * die + if gallop { (t).sin().abs() * 0.07 } else { 0.012 * (t * 1.4).sin() };
+                    let base2 = mul(&trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size), &roll_z(die * 1.5));
+                    let body = mul(&base2, &trs(0.0, 0.0, 0.0, 0.0, pitch, 1.0)); put("bstBody", body);
+                    let head = mul(&body, &trs(0.0, 0.34, 0.62, 0.0, 0.05 - 0.4 * det + wind * 0.25 - strike * 0.35 + 0.3 * die, 1.3)); put("bstHead", head);
+                    put("bstJaw", mul(&head, &trs(0.0, -0.06, 0.02, 0.0, 0.08 + (wind + strike) * 0.6 + if f.air { 0.6 } else { 0.0 } + 0.25 * det, 1.0)));
+                    put("bstTail", mul(&body, &trs(0.0, 0.22, -0.5, 0.25 * (t * if f.speed > 0.0 { 1.0 } else { 0.5 }).sin(), -0.5 + 0.35 * run - 0.25 * det, 1.0)));
+                    let a = if f.air { 1.0 } else { sw * (0.45 + 0.4 * run) }; let b2 = if gallop || f.air { a } else { -a }; let hind = if f.air { -0.9 } else { 0.0 };
+                    put("bstFore", mul(&body, &trs(-0.13, 0.04, 0.36, 0.0, -a, 1.0))); put("bstFore", mul(&body, &trs(0.13, 0.04, 0.36, 0.0, -b2, 1.0)));
+                    put("bstHind", mul(&body, &trs(-0.12, 0.04, -0.38, 0.0, b2 * 0.9 - hind, 1.0))); put("bstHind", mul(&body, &trs(0.12, 0.04, -0.38, 0.0, a * 0.9 - hind, 1.0)));
                 }
                 Body::Rampant => {
                     // Trois anneaux qui ondulent à la suite de la tête ; les six pattes vont par trépied (1-4-5 puis 2-3-6).
@@ -565,6 +633,7 @@ impl Session {
                     let (dx, dz) = (self.player.p[0] - from[0], self.player.p[2] - from[2]); let d = dx.hypot(dz).max(0.1); self.player.v[0] += dx / d * push; self.player.v[2] += dz / d * push; self.player.v[1] = self.player.v[1].max(2.5); } }
                 FoeEv::Growl(p, b) => match b { Body::Bete => self.sound.fox_scream(p), Body::Rampant => self.sound.rustle(p), _ => self.sound.thump(p) },
                 FoeEv::Swing(_) => self.sound.swing(None, 0.8),
+                FoeEv::Blocked(p) => { self.sound.thump(p); self.notes.push("Bloqué par son bouclier".into()); }
                 FoeEv::Die(p, sp, vet) => { let s = &bestiary().species[sp]; self.sound.thump(p); self.skills[2] += 2.0; if self.creative { continue; }
                     for &(id, lo, hi, pr) in &s.loot { let roll = self.horde.roll(); let pr = if vet { (pr * 1.3).min(1.0) } else { pr }; if roll < pr { let n = lo + (self.horde.roll() * (hi - lo + 1) as f64) as u32; self.spill(id, n.min(hi).max(lo), [p[0], p[1] + 0.6, p[2]]); } } }
             }

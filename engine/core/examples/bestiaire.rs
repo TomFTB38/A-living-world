@@ -26,7 +26,7 @@ fn main() {
     let md = Models::build(); let (w, h) = (1800usize, 340usize); let mut img = vec![[46u8, 52, 60]; w * h]; let mut zb = vec![f32::MAX; w * h];
     let mut hd = Horde::new(1); let mut x = -5.6;
     for id in ["rodeur", "brigand", "rodeuse", "rampant"] { for pose in 0..2 { let sp = species(id).unwrap(); let yaw = if pose == 0 { 0.9 } else { 2.2 }; let i = hd.put(sp, [x, 0.0, 0.0], yaw, false);
-        let f = &mut hd.foes[i]; f.variant = (i % 3) as u8; if pose == 0 { f.state = Ai::Poursuite; f.speed = 3.0; f.phase = 1.2; } else { f.state = Ai::Combat; f.wind = 0.12; } x += if id == "rodeuse" || id == "rampant" { 1.75 } else { 1.25 }; } }
+        let f = &mut hd.foes[i]; f.variant = (i % 3) as u8; if pose == 0 { f.state = Ai::Poursuite; f.speed = 3.0; f.phase = 1.2; } else { f.state = Ai::Combat; f.wind = 0.12; } x += if id == "rodeuse" || id == "rampant" { 1.95 } else { 1.25 }; } }
     let d = hd.draws(&md); let l: Vec<(M4, Range)> = d.iter().map(|x| (x.m, x.r)).collect(); draw(&mut img, &mut zb, w, h, &md, &l, 0.0, 0.0);
     let mut out = format!("P6 {w} {h} 255\n").into_bytes(); for p in &img { out.extend_from_slice(p); } std::fs::write(std::env::args().nth(1).unwrap(), out).unwrap();
 }

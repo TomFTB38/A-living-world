@@ -24,8 +24,8 @@ fn draw(img: &mut [[u8; 3]], zb: &mut [f32], w: usize, h: usize, md: &Models, li
 }
 fn main() {
     let md = Models::build(); let (w, h) = (1500usize, 700usize); let mut img = vec![[34u8, 36, 44]; w * h]; let mut zb = vec![f32::MAX; w * h];
-    let sp = species("rodeur").unwrap(); let mut hd = Horde::new(3);
-    for (x, yaw) in [(-1.3, std::f64::consts::PI), (0.0, 2.5), (1.3, -0.75)] { let i = hd.put(sp, [x, 0.0, 0.0], yaw, false); hd.foes[i].state = Ai::Repos; }
+    let id = std::env::args().nth(2).unwrap_or("rodeur".into()); let sp = species(&id).unwrap(); let pose = std::env::args().nth(3).unwrap_or_default(); let mut hd = Horde::new(3);
+    for (x, yaw) in [(-1.3, std::f64::consts::PI), (0.0, 2.5), (1.3, -0.75)] { let i = hd.put(sp, [x, 0.0, 0.0], yaw, false); hd.foes[i].state = Ai::Repos; let f = &mut hd.foes[i]; f.phase = 1.0 + x; match pose.as_str() { "anim" => { if x < -1.0 { f.state = Ai::Poursuite; f.speed = 6.0; } else if x < 0.5 { f.state = Ai::Combat; f.wind = 0.1; } else { f.state = Ai::Combat; f.guard = 1.0; } } _ => {} } }
     let l: Vec<(M4, Range)> = hd.draws(&md).iter().map(|x| (x.m, x.r)).collect(); draw(&mut img, &mut zb, w, h, &md, &l, 0.0, 0.0);
     let mut out = format!("P6 {w} {h} 255\n").into_bytes(); for p in &img { out.extend_from_slice(p); } std::fs::write(std::env::args().nth(1).unwrap(), out).unwrap();
 }
