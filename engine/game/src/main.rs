@@ -661,9 +661,9 @@ fn capture(a: &[String]) {
         }
         if scene == "menagerie" {
             // Toutes les bêtes sculptées en rang devant soi, en plein jour : ours, sanglier, loup, renard, bouquetin, lièvre, lézard, un cerf derrière.
-            use alw_core::wild::Kind as K; s.hour = 14.5; s.player.pitch = -0.3; s.sel = 8;
-            for (kind, l, k) in [(K::Bear, -3.4, 7.0), (K::Boar, -1.4, 6.0), (K::Wolf, 0.0, 6.0), (K::Fox, 1.3, 5.5), (K::Ibex, 2.5, 6.0), (K::Hare, 3.4, 5.0), (K::Lizard, 2.6, 4.2), (K::Crow, -0.6, 4.6)] { let (x, z) = at(k, l); s.wild.put(kind, [x, gy(&s, x, z) as f64, z], s.player.yaw + 1.5, false); }
-            let (x, z) = at(10.0, -1.0); s.fauna.put([x, gy(&s, x, z) as f64, z], s.player.yaw + 1.9);
+            use alw_core::wild::Kind as K; s.hour = 14.5; s.player.pitch = -0.2; s.sel = 8; s.player.p[1] += 3.0;
+            for (kind, l, k) in [(K::Bear, -5.5, 12.0), (K::Boar, -2.8, 11.0), (K::Wolf, -0.6, 11.0), (K::Fox, 1.4, 10.5), (K::Ibex, 3.4, 11.0), (K::Hare, 5.0, 10.0), (K::Lizard, 1.0, 9.0), (K::Crow, -1.8, 9.5)] { let (x, z) = at(k, l); s.wild.put(kind, [x, gy(&s, x, z) as f64, z], s.player.yaw + 1.5, false); }
+            let (x, z) = at(14.0, -1.0); s.fauna.put([x, gy(&s, x, z) as f64, z], s.player.yaw + 1.9);
         }
         if scene == "fissure" {
             // Un bloc à moitié cassé à la pioche de pierre : les fissures doivent se voir.
