@@ -9,7 +9,7 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 46] = ["chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 59] = ["fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
@@ -52,7 +52,73 @@ pub fn draw(o: &mut VBuf, model: &str, name: &str, x: f64, y: f64, z: f64, s: f6
 }
 
 fn build(k: &mut K, m: &str, r: &mut Rng) {
+    const ROPE: C = [0.66, 0.56, 0.38]; const ROPE2: C = [0.52, 0.43, 0.28]; const NET: C = [0.55, 0.48, 0.34]; const CORK: C = [0.72, 0.5, 0.28]; const OLD: C = [0.4, 0.32, 0.24]; const SILVER: C = [0.7, 0.74, 0.78]; const SILVER2: C = [0.42, 0.48, 0.55];
+    let fish = |k: &mut K, x: f64, y: f64, z: f64, hang: bool, rr: &mut Rng| { // un poisson : corps fuselé argenté, dos sombre, queue fourchue ; pendu tête en bas ou couché
+        let t = rr.range(0.9, 1.1); let (bc, bd) = (tone(SILVER, t), tone(SILVER2, t));
+        if hang { k.b([x - 0.03, y - 0.26, z - 0.012, x + 0.03, y - 0.06, z + 0.012], bc); k.b([x - 0.022, y - 0.24, z + 0.012, x + 0.022, y - 0.08, z + 0.016], bd); k.b([x - 0.04, y - 0.04, z - 0.008, x + 0.04, y, z + 0.008], bd); k.b([x - 0.004, y - 0.06, z - 0.004, x + 0.004, y + 0.02, z + 0.004], ROPE2); }
+        else { k.b([x - 0.13, y, z - 0.035, x + 0.1, y + 0.05, z + 0.035], bc); k.b([x - 0.1, y + 0.05, z - 0.02, x + 0.08, y + 0.06, z + 0.02], bd); k.b([x + 0.1, y + 0.005, z - 0.05, x + 0.16, y + 0.04, z + 0.05], bd); k.b([x - 0.12, y + 0.02, z - 0.036, x - 0.1, y + 0.035, z - 0.03], [0.05, 0.05, 0.05]); }
+    };
     match m {
+        // Mobilier de port : filets, séchoirs, nasses, bittes, bouées, ancre, avirons, garde-corps de corde, voiles, fanion.
+        "fishing_net" => { // filet pendu contre le mur ou la clôture, en mailles lâches qui s'affaissent, flotteurs de liège en haut
+            for i in 0..9 { let x = 0.06 + i as f64 * 0.11; let sag = |y: f64| 0.03 * (1.0 - (2.0 * y - 1.0).powi(2)); for j in 0..8 { let y = 0.1 + j as f64 * 0.11; k.b([x - 0.008, y, 0.9 - sag(y), x + 0.008, y + 0.11, 0.915 - sag(y)], NET); } }
+            for j in 0..9 { let y = 0.1 + j as f64 * 0.11; k.b([0.04, y - 0.007, 0.89, 0.96, y + 0.007, 0.92], tone(NET, 0.9)); }
+            for i in 0..5 { let x = 0.12 + i as f64 * 0.19; k.b([x - 0.04, 0.94, 0.88, x + 0.04, 0.99, 0.93], CORK); } k.b([0.0, 0.96, 0.89, 1.0, 0.98, 0.92], ROPE);
+            for i in 0..3 { let x = 0.25 + i as f64 * 0.25; k.b([x - 0.02, 0.02, 0.86, x + 0.02, 0.1, 0.92], tone(NET, 0.8)); } // les plombs du bas
+        }
+        "fish_rack" => { // séchoir : deux montants, une perche, une rangée de poissons pendus
+            for x in [0.06, 0.88] { k.b([x, 0.0, 0.44, x + 0.06, 0.95, 0.5], WOOD); } k.b([0.0, 0.88, 0.45, 1.0, 0.93, 0.49], tone(WOOD, 0.9)); k.b([0.2, 0.4, 0.45, 0.8, 0.43, 0.49], tone(WOOD, 0.8));
+            for i in 0..6 { fish(k, 0.17 + i as f64 * 0.13, 0.88, 0.47, true, r); }
+        }
+        "creel" => { // nasse en osier : une demi-voûte de baguettes sur un cadre, l'entrée en entonnoir, une corde
+            const WICK: C = [0.62, 0.48, 0.28];
+            k.b([0.14, 0.0, 0.2, 0.86, 0.04, 0.8], tone(WICK, 0.85));
+            for i in 0..7 { let a = i as f64 / 6.0 * std::f64::consts::PI; let (cx, cy) = (0.5 - 0.34 * a.cos(), 0.36 * a.sin()); k.b([cx - 0.035, cy, 0.2, cx + 0.035, cy + 0.05, 0.8], if i % 2 == 0 { WICK } else { tone(WICK, 0.85) }); }
+            for z in [0.2, 0.42, 0.6, 0.78] { for i in 0..7 { let a = i as f64 / 6.0 * std::f64::consts::PI; let (cx, cy) = (0.5 - 0.35 * a.cos(), 0.37 * a.sin()); k.b([cx - 0.02, cy - 0.01, z, cx + 0.02, cy + 0.05, z + 0.02], tone(WICK, 0.75)); } }
+            k.b([0.42, 0.12, 0.16, 0.58, 0.26, 0.2], [0.18, 0.12, 0.07]); k.b([0.46, 0.36, 0.5, 0.54, 0.42, 0.9], ROPE);
+        }
+        "mooring_post" => { // bitte d'amarrage : un gros pieu goudronné à tête bombée, une corde lovée autour
+            const TAR: C = [0.2, 0.15, 0.11]; k.b([0.3, 0.0, 0.3, 0.7, 0.78, 0.7], TAR); k.b([0.26, 0.78, 0.26, 0.74, 0.86, 0.74], tone(TAR, 1.2)); k.b([0.32, 0.86, 0.32, 0.68, 0.9, 0.68], tone(TAR, 1.1));
+            for (i, y) in [0.42, 0.48, 0.54].iter().enumerate() { let w = 0.25 - i as f64 * 0.01; k.b([0.5 - w, *y, 0.5 - w, 0.5 + w, y + 0.05, 0.5 + w], if i % 2 == 0 { ROPE } else { ROPE2 }); }
+            k.b([0.66, 0.0, 0.4, 0.95, 0.06, 0.6], ROPE); k.b([0.72, 0.06, 0.45, 0.9, 0.09, 0.55], ROPE2); // la corde qui traîne
+        }
+        "buoy" => { // bouée : une sphère rouge et blanche en tranches, un anneau et un bout de corde
+            let cols = [[0.85, 0.2, 0.15], [0.92, 0.9, 0.86], [0.85, 0.2, 0.15]];
+            for (i, (y0, y1, rr)) in [(0.0, 0.08, 0.14), (0.08, 0.18, 0.22), (0.18, 0.32, 0.26), (0.32, 0.44, 0.22), (0.44, 0.52, 0.14)].iter().enumerate() { k.b([0.5 - rr, *y0, 0.5 - rr, 0.5 + rr, *y1, 0.5 + rr], cols[(i / 2).min(2)]); }
+            k.b([0.47, 0.52, 0.47, 0.53, 0.62, 0.53], IRON); k.b([0.5, 0.0, 0.48, 0.92, 0.04, 0.52], ROPE);
+        }
+        "net_pile" => { // un tas de filets emmêlés, quelques flotteurs, sur le sol
+            for _ in 0..9 { let (x, z, w, h) = (r.range(0.15, 0.85), r.range(0.15, 0.85), r.range(0.12, 0.26), r.range(0.05, 0.14)); k.b([x - w, 0.0, z - w * 0.8, x + w, h, z + w * 0.8], tone(NET, r.range(0.8, 1.05))); }
+            for _ in 0..4 { let (x, z) = (r.range(0.15, 0.85), r.range(0.15, 0.85)); k.b([x - 0.04, 0.08, z - 0.04, x + 0.04, 0.15, z + 0.04], CORK); }
+        }
+        "anchor" => { // ancre de fer couchée contre le mur : la verge, l'organeau, le jas de bois, les deux pattes
+            k.b([0.46, 0.06, 0.82, 0.54, 0.92, 0.9], IRON); k.b([0.42, 0.9, 0.8, 0.58, 0.98, 0.92], IRON); k.b([0.2, 0.72, 0.8, 0.8, 0.78, 0.9], DARK);
+            for sx in [-1.0f64, 1.0] { for i in 0..4 { let t = i as f64 / 3.0; let (x, y) = (0.5 + sx * (0.08 + 0.26 * t), 0.06 + 0.22 * t * t); k.b([x - 0.05, y, 0.81, x + 0.05, y + 0.07, 0.89], IRON); } k.b([0.5 + sx * 0.36 - 0.05, 0.26, 0.8, 0.5 + sx * 0.36 + 0.05, 0.36, 0.9], tone(IRON, 1.3)); }
+            k.b([0.3, 0.0, 0.7, 0.75, 0.04, 0.95], ROPE);
+        }
+        "oars" => { // deux avirons appuyés au mur, croisés
+            for (x0, x1) in [(0.2, 0.62), (0.8, 0.38)] { for i in 0..10 { let t = i as f64 / 9.0; let x = x0 + (x1 - x0) * t; let y = t * 0.95; k.b([x - 0.025, y, 0.82, x + 0.025, y + 0.11, 0.88], if i < 3 { tone(WOOD, 1.15) } else { WOOD }); }
+                k.b([x0 - 0.07, 0.0, 0.83, x0 + 0.07, 0.3, 0.87], tone(WOOD, 1.2)); }
+        }
+        "rope_rail" => { // garde-corps : deux poteaux aux bords, deux cordes tendues qui pendent un peu
+            for x in [0.0, 0.88] { k.b([x, 0.0, 0.44, x + 0.12, 1.0, 0.56], tone(WOOD, 0.85)); k.b([x - 0.01, 0.98, 0.43, x + 0.13, 1.02, 0.57], tone(WOOD, 0.75)); }
+            for (y, d) in [(0.88, 0.05), (0.52, 0.04)] { for i in 0..8 { let t = (i as f64 + 0.5) / 8.0; let sag = d * (1.0 - (2.0 * t - 1.0).powi(2)); let x = 0.1 + 0.8 * t; k.b([x - 0.055, y - sag, 0.475, x + 0.055, y - sag + 0.045, 0.525], if i % 2 == 0 { ROPE } else { ROPE2 }); } }
+        }
+        "sail" => { // un pan de voile écrue, gonflée par le vent, avec une couture et une pièce rapiécée
+            const CLOTH: C = [0.88, 0.84, 0.74];
+            for i in 0..10 { let x = 0.05 * 0.0 + i as f64 * 0.1; let belly = 0.12 * (1.0 - (2.0 * ((i as f64 + 0.5) / 10.0) - 1.0).powi(2)); k.b([x, 0.0, 0.46 - belly, x + 0.1, 1.0, 0.5 - belly], if i % 4 == 0 { tone(CLOTH, 0.9) } else { CLOTH }); }
+            k.b([0.3, 0.35, 0.38, 0.55, 0.62, 0.42], [0.74, 0.62, 0.48]); k.b([0.0, 0.48, 0.42, 1.0, 0.5, 0.5], tone(CLOTH, 0.82));
+        }
+        "pennant" => { // une hampe et un fanion à deux pointes, bleu et blanc
+            k.b([0.46, 0.0, 0.46, 0.54, 1.0, 0.54], DARK); k.b([0.44, 0.98, 0.44, 0.56, 1.02, 0.56], GOLD);
+            for i in 0..8 { let x = 0.54 + i as f64 * 0.055; let w = 0.2 - i as f64 * 0.012; let fl = (i as f64 * 0.8).sin() * 0.025; k.b([x, 0.92 - w * 2.0, 0.48 + fl, x + 0.055, 0.96, 0.52 + fl], if i % 3 == 2 { [0.92, 0.9, 0.86] } else { [0.18, 0.3, 0.62] }); }
+        }
+        "fish_crate" => { // une caisse ouverte pleine de poissons sur de la glace pilée
+            k.b([0.1, 0.0, 0.18, 0.9, 0.06, 0.82], DARK); for (a, b2) in [([0.1, 0.06, 0.18], [0.9, 0.32, 0.24]), ([0.1, 0.06, 0.76], [0.9, 0.32, 0.82]), ([0.1, 0.06, 0.24], [0.16, 0.32, 0.76]), ([0.84, 0.06, 0.24], [0.9, 0.32, 0.76])] { k.b([a[0], a[1], a[2], b2[0], b2[1], b2[2]], WOOD); }
+            k.b([0.16, 0.06, 0.24, 0.84, 0.27, 0.76], [0.86, 0.9, 0.94]); for i in 0..7 { fish(k, r.range(0.28, 0.72), 0.27 + (i % 2) as f64 * 0.03, 0.3 + i as f64 * 0.065, false, r); }
+        }
+        "boat_bench" => { k.b([0.0, 0.0, 0.35, 1.0, 0.08, 0.65], OLD); } // banc de nage d'une barque, posé en travers
+
         // Le coffre ouvert : la caisse cerclée, l'intérieur sombre, le couvercle levé sur ses charnières, vers l'arrière.
         "chest_open" => {
             const CW: C = [0.55, 0.37, 0.2]; const CW2: C = [0.6, 0.41, 0.22]; const BAND: C = [0.24, 0.24, 0.25];

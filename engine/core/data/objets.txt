@@ -183,6 +183,19 @@ coral_block_purple | Corail violet | batir | 1.0 | 64 | Un bloc de corail massif
 coral_block_yellow | Corail jaune | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
 coral_block_blue | Corail bleu | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
 wreck_planks | Bordages d'épave | batir | 1.0 | 64 | Du bois gris et rongé d'algues, arraché à une coque engloutie. |
+fishing_net | Filet de pêche | decor | 1.0 | 16 | Un filet de mailles brunes, ses flotteurs de liège : à pendre au mur ou à la clôture. |
+fish_rack | Séchoir à poissons | decor | 1.0 | 16 | Deux montants, une perche, des poissons qui sèchent au vent. |
+creel | Nasse | decor | 1.0 | 16 | Un piège d'osier pour les crabes et les homards. |
+mooring_post | Bitte d'amarrage | decor | 1.0 | 16 | Un pieu goudronné où l'on attache les barques. |
+buoy | Bouée | decor | 1.0 | 16 | Rouge et blanche, pour marquer les filets. |
+net_pile | Tas de filets | decor | 1.0 | 16 | Des filets emmêlés qui attendent d'être ravaudés. |
+anchor | Ancre | decor | 1.0 | 16 | Une ancre de fer, à poser contre un mur. |
+oars | Avirons | decor | 1.0 | 16 | Deux rames appuyées au mur. |
+rope_rail | Garde-corps de corde | decor | 1.0 | 16 | Deux poteaux et des cordes tendues, pour border un ponton. |
+sail | Voile | decor | 1.0 | 16 | Un pan de toile écrue gonflée par le vent : on en empile pour faire une voile entière. |
+pennant | Fanion | decor | 1.0 | 16 | Une hampe et un fanion bleu et blanc. |
+fish_crate | Caisse de poissons | decor | 1.0 | 16 | Une caisse ouverte, pleine de poissons sur la glace. |
+boat_bench | Banc de barque | decor | 1.0 | 16 | La planche où s'assoit le rameur. |
 shell | Coquillage | matieres | 0.05 | 64 | Ramassé sur la plage. Les marchands en donnent quelques pièces. |
 oak_leaves | Feuilles de chêne | plantes | 0.2 | 64 | |
 birch_leaves | Feuilles de bouleau | plantes | 0.2 | 64 | |

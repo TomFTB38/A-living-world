@@ -217,25 +217,80 @@ impl WorldGen {
             } }
             made += 1;
         }
-        // Le port : un chemin jusqu'à la grève, un ponton de planches sur pilotis qui s'avance dans la mer, des lanternes au bout,
-        // des barques amarrées le long, des caisses et des tonneaux de poisson.
+        // Le port, comme un vrai port de pêche : un chemin bordé de murets jusqu'à la grève, une halle aux poissons couverte,
+        // un grand ponton en T sur pilotis bordé de cordes et de bittes, un voilier et des barques amarrés, une petite jetée,
+        // des barques tirées sur le sable, des séchoirs, des filets, des nasses, des rochers, et une tour de guet sur la côte.
         if let Some((a, _)) = sea_dir.filter(|_| kind == "port") {
+            let mark = works.blocks.len();
             let (dx, dz) = (a.cos(), a.sin()); let (sx, sz) = (-dz, dx); let cell = |t: f64, w: f64| ((x as f64 + 0.5 + dx * t + sx * w).floor() as i32, (z as f64 + 0.5 + dz * t + sz * w).floor() as i32);
-            let sea = crate::gen::SEA; let deck = sea as i32 + 1; let plank = id("spruce_planks"); let post = id("spruce_log");
+            let sea = crate::gen::SEA; let deck = sea as i32 + 1; let plank = id("spruce_planks"); let post = id("spruce_log"); let stone = id("fieldstone");
+            // Les objets orientés : le garde-corps, le filet, le séchoir et la voile suivent l'axe du ponton (ou lui sont perpendiculaires).
+            let along = |n: &str, cross: bool| -> Id { let f = if (dx.abs() > dz.abs()) != cross { 0 } else { 1 }; if f == 0 { id(n) } else { id(&format!("{n}@{f}")) } };
+            let ground = |cx: i32, cz: i32| self.column(cx as f64 + 0.5, cz as f64 + 0.5).h.ceil() as i32; // la première case libre au-dessus du sol naturel
             let shore = (7..60).find(|t| { let (cx, cz) = cell(*t as f64, 0.0); self.column(cx as f64 + 0.5, cz as f64 + 0.5).water == sea }).unwrap_or(40) as f64;
+            // Le chemin et ses murets de pierre sèche.
             let mut t = 7.0; while t < shore - 1.0 { for w in [0.0, 0.7] { let (cx, cz) = cell(t, w); let gy = shape(&pads, nat(cx, cz), cx as f64 + 0.5, cz as f64 + 0.5).0; if !paths.iter().any(|p| p[0] == cx && p[2] == cz) { paths.push([cx, gy, cz]); lanes.put([cx, gy, cz], pave); } } t += 0.5; }
-            let len = (12.0 + (h(80) * 5.0).floor()).min((SPAN - 10) as f64 - shore); let mut t = shore - 2.0;
-            while t <= shore + len { let ti = (t - shore + 2.0) as i32;
-                for w in [-1.0, 0.0, 1.0] { let (cx, cz) = cell(t, w); works.put([cx, deck, cz], plank); works.put([cx, deck + 1, cz], 0); works.put([cx, deck + 2, cz], 0);
-                    if ti % 3 == 0 && w != 0.0 { let floor = self.column(cx as f64 + 0.5, cz as f64 + 0.5).h.floor() as i32; for y in floor..deck { works.put([cx, y, cz], post); } } }
+            let mut t = (shore - 14.0).max(9.0); while t < shore - 3.0 { for w in [-2.5, 3.2] { if (t as i32) % 6 == 0 { continue; } let (cx, cz) = cell(t, w); let g = ground(cx, cz); if self.column(cx as f64 + 0.5, cz as f64 + 0.5).water == 0.0 { works.put([cx, g, cz], stone); } } t += 1.0; }
+            // Le grand ponton : cinq de large, des pilotis, des bittes et des cordes sur les bords, une tête en T au bout.
+            let len = (14.0 + (h(80) * 5.0).floor()).min(58.0 - shore).max(6.0); let end = shore + len;
+            let mut t = shore - 3.0;
+            while t <= end { let ti = (t - shore + 3.0) as i32;
+                for wi in -2i32..=2 { let w = wi as f64; let (cx, cz) = cell(t, w); works.put([cx, deck, cz], plank); for y in deck + 1..deck + 4 { works.put([cx, y, cz], 0); }
+                    if wi.abs() == 2 { if ti % 3 == 0 { let floor = self.column(cx as f64 + 0.5, cz as f64 + 0.5).h.floor() as i32; for y in floor..deck { works.put([cx, y, cz], post); } }
+                        if t > shore { works.put([cx, deck + 1, cz], if ti % 5 == 0 { id("mooring_post") } else { along("rope_rail", false) }); } } }
                 t += 1.0; }
-            for w in [-1.0, 1.0] { let (cx, cz) = cell(shore + len, w); works.put([cx, deck + 1, cz], fence); works.put([cx, deck + 2, cz], lantern); }
-            for (k, (tt, w)) in [(shore + 1.0, 0.0), (shore + 2.0, 1.0)].iter().enumerate() { let (cx, cz) = cell(*tt, *w); works.put([cx, deck + 1, cz], id(if k == 0 { "crate" } else { "barrel" })); }
-            // Les barques : une coque de planches posée sur l'eau, la proue effilée, deux bancs.
-            for (i, at) in [shore + 4.0, shore + len - 3.0].iter().enumerate() { let side = if i == 0 { 2.6 } else { -2.6 }; let sgn: f64 = if side > 0.0 { 1.0 } else { -1.0 };
-                for u in 0..5 { let half: i32 = if u == 4 { 0 } else { 1 }; for w in -half..=half { let (cx, cz) = cell(at + u as f64 - 2.0, side + sgn * w as f64 * 0.9); works.put([cx, sea as i32, cz], plank);
-                    if w.abs() == half || u == 0 || u == 4 { works.put([cx, deck, cz], plank); } else if u == 2 { works.put([cx, deck, cz], id("planks_slab")); } } } }
-            v.r = v.r.max((shore + len + 4.0) as i32);
+            for tt in 0i32..4 { let t = end - tt as f64; for wi in -6i32..=6 { let w = wi as f64; let (cx, cz) = cell(t, w); if wi.abs() > 2 { works.put([cx, deck, cz], plank); for y in deck + 1..deck + 4 { works.put([cx, y, cz], 0); } }
+                if (wi.abs() == 6 || tt == 0) && (wi + tt) % 2 == 0 { let floor = self.column(cx as f64 + 0.5, cz as f64 + 0.5).h.floor() as i32; for y in floor..deck { works.put([cx, y, cz], post); } }
+                if tt == 0 && wi.abs() < 6 { works.put([cx, deck + 1, cz], if wi % 3 == 0 { id("mooring_post") } else { along("rope_rail", true) }); }
+                if wi.abs() == 6 && tt > 0 { works.put([cx, deck + 1, cz], along("rope_rail", false)); } } }
+            for (tt, w) in [(1.0, -6.0), (1.0, 6.0)] { let (cx, cz) = cell(end - tt, w); works.put([cx, deck + 1, cz], fence); works.put([cx, deck + 2, cz], fence); works.put([cx, deck + 3, cz], lantern); }
+            for (i, (tt, w)) in [(2.0, -4.0), (2.0, -3.0), (3.0, -4.0), (2.0, 4.0), (3.0, 3.5), (1.5, 0.0), (3.0, -1.5), (3.0, 1.5)].iter().enumerate() { let (cx, cz) = cell(end - tt, *w); works.put([cx, deck + 1, cz], id(["barrel", "barrel", "fish_crate", "crate", "net_pile", "creel", "buoy", "fish_crate"][i])); }
+            { let (cx, cz) = cell(end - 2.0, -4.0); works.put([cx, deck + 2, cz], id("barrel")); }
+            { let (cx, cz) = cell(end - 2.0, 5.0); works.put([cx, deck + 1, cz], id("pennant")); }
+            // Le voilier amarré au bout : une coque de sept, des bancs, le mât et sa grande voile.
+            let hull = |works: &mut crate::batisse::Work, t0: f64, w0: f64, n: i32, wide: i32| { for u in 0..n { let half = if u == n - 1 { 0 } else if u == n - 2 && wide > 1 { wide - 1 } else { wide }; for wi in -half..=half { let (cx, cz) = cell(t0 + u as f64, w0 + wi as f64 * 0.95); works.put([cx, sea as i32, cz], plank);
+                if wi.abs() == half || u == 0 || u == n - 1 { works.put([cx, deck, cz], plank); } else if u % 2 == 1 { works.put([cx, deck, cz], along("boat_bench", true)); } else { works.put([cx, deck, cz], 0); } } } };
+            hull(&mut works, end - 7.0, 9.0, 8, 1); let (mx, mz) = cell(end - 3.0, 9.0); for y in deck..deck + 7 { works.put([mx, y, mz], fence); }
+            for u in [-2.0, -1.0, 1.0] { for y in deck + 2..deck + 6 { let (cx, cz) = cell(end - 3.0 + u, 9.0); works.put([cx, y, cz], along("sail", false)); } }
+            { let (cx, cz) = cell(end - 3.0, 9.0); works.put([cx, deck + 7, cz], id("pennant")); }
+            // Les barques amarrées le long du ponton, et deux autres tirées sur le sable.
+            hull(&mut works, shore + 4.0, -4.2, 5, 1); hull(&mut works, shore + (len * 0.5).floor(), 4.2, 5, 1);
+            for (i, w) in [-8.0, -11.5].iter().enumerate() { let t0 = shore - 3.0 - i as f64; let (cx, cz) = cell(t0, *w); let g = ground(cx, cz); if self.column(cx as f64 + 0.5, cz as f64 + 0.5).water == 0.0 && (g - deck).abs() <= 3 {
+                for u in 0..5 { let half: i32 = if u == 4 { 0 } else { 1 }; for wi in -half..=half { let (px, pz) = (cx + (sx * wi as f64).round() as i32 + (dx * (u as f64 - 2.0)).round() as i32, cz + (sz * wi as f64).round() as i32 + (dz * (u as f64 - 2.0)).round() as i32);
+                    let gg = ground(px, pz); works.put([px, gg, pz], plank); if wi.abs() == half || u == 0 || u == 4 { works.put([px, gg + 1, pz], plank); } } }
+                let (ox2, oz2) = cell(t0 + 1.0, *w + 2.0); let g2 = ground(ox2, oz2); works.put([ox2, g2, oz2], id(if i == 0 { "net_pile" } else { "creel" })); } }
+            // Une petite jetée sur le côté, pour les barques du matin.
+            let jw = -15.0; let js = (0..20).map(|k| shore - 4.0 + k as f64).find(|t| { let (cx, cz) = cell(*t, jw); self.column(cx as f64 + 0.5, cz as f64 + 0.5).water == sea });
+            if let Some(js) = js { for k in -2..7 { let t = js + k as f64; for wi in -1..=1 { let (cx, cz) = cell(t, jw + wi as f64); works.put([cx, deck, cz], plank); for y in deck + 1..deck + 3 { works.put([cx, y, cz], 0); } if wi != 0 && k % 3 == 0 { let floor = self.column(cx as f64 + 0.5, cz as f64 + 0.5).h.floor() as i32; for y in floor..deck { works.put([cx, y, cz], post); } } }
+                    if k == 6 || k == 3 { let (cx, cz) = cell(t, jw + 1.0); works.put([cx, deck + 1, cz], id("mooring_post")); } }
+                hull(&mut works, js + 2.0, jw - 3.0, 5, 1); }
+            // La halle aux poissons : quatre poteaux, un toit de bardeaux qui déborde, l'étal, les caisses, les filets pendus.
+            let (ht, hw) = (shore - 6.0, 7.5); let mut top = 0; for u in -3..=3 { for w in -2..=2 { let (cx, cz) = cell(ht + u as f64, hw + w as f64); top = top.max(ground(cx, cz)); } }
+            if top > 0 && top - deck < 6 { let roof = top + 4;
+                for u in -3..=3 { for w in -2..=2 { let (cx, cz) = cell(ht + u as f64, hw + w as f64); let g = ground(cx, cz); for y in g..top { works.put([cx, y, cz], plank); } // le plancher, à niveau
+                    let corner = (u == -3 || u == 3) && (w == -2 || w == 2); if corner { for y in top..roof { works.put([cx, y, cz], post); } } }
+                    for w in -3..=3 { let (cx, cz) = cell(ht + u as f64, hw + w as f64); works.put([cx, roof, cz], id("shingles")); } }
+                for u in [-4, 4] { for w in -3..=3 { let (cx, cz) = cell(ht + u as f64, hw + w as f64); works.put([cx, roof - 1, cz], id("planks_slab_top")); } }
+                for u in -1..=1 { let (cx, cz) = cell(ht + u as f64, hw - 1.5); works.put([cx, top, cz], id("planks_slab")); }
+                for (u, w, n) in [(-1, 1, "fish_crate"), (0, 1, "fish_crate"), (1, 1, "barrel"), (-2, -1, "creel"), (2, -1, "crate"), (2, 0, "fish_crate")] { let (cx, cz) = cell(ht + u as f64, hw + w as f64); works.put([cx, top, cz], id(n)); }
+                for u in [-2, 0, 2] { let (cx, cz) = cell(ht + u as f64, hw + 2.0); works.put([cx, top + 1, cz], along("fishing_net", true)); }
+                { let (cx, cz) = cell(ht, hw); works.put([cx, roof - 1, cz], lantern); }
+                for (u, w, n) in [(-4, -3, "oars"), (4, -3, "anchor"), (-4, 3, "buoy")] { let (cx, cz) = cell(ht + u as f64, hw + w as f64); works.put([cx, ground(cx, cz), cz], if n == "buoy" { id(n) } else { along(n, false) }); } }
+            // Les séchoirs à poissons et les filets, le long du chemin.
+            for (i, t) in [shore - 12.0, shore - 16.0, shore - 20.0].iter().enumerate() { if *t < 10.0 { continue; } let w = if i % 2 == 0 { -4.0 } else { 4.5 }; let (cx, cz) = cell(*t, w); if self.column(cx as f64 + 0.5, cz as f64 + 0.5).water == 0.0 { works.put([cx, ground(cx, cz), cz], along("fish_rack", false)); let (nx2, nz2) = cell(*t + 1.0, w); works.put([nx2, ground(nx2, nz2), nz2], along(if i == 1 { "fishing_net" } else { "fish_rack" }, false)); } }
+            // Des rochers sur la grève, à l'écart du ponton.
+            for k in 0..6 { let (t, w) = (shore - 1.0 + (h(90 + k) * 4.0).floor(), if k % 2 == 0 { -20.0 - h(96 + k) * 6.0 } else { 14.0 + h(96 + k) * 6.0 }); let (cx, cz) = cell(t, w); let g = ground(cx, cz);
+                for (ox2, oz2, oy) in [(0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1), (-1, 0, 0)] { if (ox2 + oz2 + oy) as f64 <= h(100 + k) * 3.0 { works.put([cx + ox2, g + oy - 1, cz + oz2], if oy == 1 { id("mossy_stone") } else { id("stone") }); } } }
+            // La tour de guet, sur le point le plus haut du rivage, avec son fanion.
+            let mut best = None; for w in (-30..=30).step_by(3) { if w > -8 && w < 18 { continue; } for t in [shore - 8.0, shore - 5.0, shore - 3.0] { let (cx, cz) = cell(t, w as f64); let c = self.column(cx as f64 + 0.5, cz as f64 + 0.5); if c.water == 0.0 { let g = ground(cx, cz); if best.is_none_or(|b: (i32, i32, i32)| g > b.0) { best = Some((g, cx, cz)); } } } }
+            if let Some((g, tx, tz)) = best { let top = g + 6;
+                for ox2 in -1..=1 { for oz2 in -1..=1 { let corner = ox2 != 0 && oz2 != 0; let gg = ground(tx + ox2, tz + oz2); if corner { for y in (gg - 1)..top { works.put([tx + ox2, y, tz + oz2], post); } } works.put([tx + ox2, top, tz + oz2], plank);
+                    if ox2 != 0 || oz2 != 0 { works.put([tx + ox2, top + 1, tz + oz2], fence); } } }
+                works.put([tx, top + 1, tz], 0); works.put([tx + 1, top + 2, tz + 1], fence); works.put([tx + 1, top + 3, tz + 1], id("pennant")); works.put([tx - 1, top + 2, tz - 1], lantern);
+                for y in g..top { works.put([tx, y, tz - 2], id("ladder")); } }
+            // Rien au-delà de la portée du village.
+            let far = SPAN - 7; let mut tail = works.blocks.split_off(mark); tail.retain(|b| ((b.0 - x) as f64).hypot((b.2 - z) as f64) <= far as f64); works.blocks.extend(tail);
+            let reach = works.blocks[mark.min(works.blocks.len())..].iter().map(|b| ((b.0 - x) as f64).hypot((b.2 - z) as f64)).fold(0.0, f64::max); v.r = v.r.max(reach.ceil() as i32 + 1).min(SPAN - 6);
         }
         // Le marché : des étals entre les rues, face au puits, à l'écart des lanternes.
         let stripes = [[[0.62, 0.14, 0.12], [0.9, 0.86, 0.78]], [[0.18, 0.28, 0.5], [0.9, 0.86, 0.78]], [[0.28, 0.42, 0.22], [0.88, 0.82, 0.64]], [[0.7, 0.48, 0.15], [0.38, 0.24, 0.13]]];

@@ -4,7 +4,7 @@ use crate::blocks::{Block, Shape};
 pub const VARIANTS: u32 = 4;
 pub const MATERIALS: [&str; 88] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm", "ore_copper", "ore_tin", "ore_iron", "ore_coal", "clay", "stone_bricks", "bricks", "thatch", "planks_birch", "planks_spruce", "cobble", "farmland_top", "plaster", "dark_timber", "roof_tiles", "slate", "marble", "ashlar", "fieldstone", "setts", "polished_stone", "checker", "terracotta", "parquet", "shingles", "wool", "rug", "frame_square", "frame_cross", "frame_diag", "wattle", "books", "hay", "crate", "chiseled", "stained_glass", "iron_plate", "verdigris", "coral", "planks_wreck"];
 
-pub const BLOCKS: [Block; 577] = [
+pub const BLOCKS: [Block; 611] = [
     Block { id: 0, name: "air", shape: Shape::Air, hardness: 0.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "decor", drop: Some("air") },
     Block { id: 1, name: "grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
     Block { id: 2, name: "dirt", shape: Shape::Cube, hardness: 0.45, faces: [8,8,8], dir_faces: [8,8,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
@@ -582,6 +582,40 @@ pub const BLOCKS: [Block; 577] = [
     Block { id: 574, name: "coral_block_yellow", shape: Shape::Cube, hardness: 0.9, faces: [344,344,344], dir_faces: [344,344,344,344], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.1,0.94,0.42], model: None, cat: "rock", drop: Some("coral_block_yellow") },
     Block { id: 575, name: "coral_block_blue", shape: Shape::Cube, hardness: 0.9, faces: [344,344,344], dir_faces: [344,344,344,344], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.4,0.8,0.98], model: None, cat: "rock", drop: Some("coral_block_blue") },
     Block { id: 576, name: "wreck_planks", shape: Shape::Cube, hardness: 0.8, faces: [348,348,348], dir_faces: [348,348,348,348], grain: [0,2,2,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("wreck_planks") },
+    Block { id: 577, name: "fishing_net", shape: Shape::Deco, hardness: 0.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("fishing_net"), cat: "wood", drop: Some("fishing_net") },
+    Block { id: 578, name: "fishing_net@1", shape: Shape::Deco, hardness: 0.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("fishing_net"), cat: "wood", drop: Some("fishing_net") },
+    Block { id: 579, name: "fishing_net@2", shape: Shape::Deco, hardness: 0.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("fishing_net"), cat: "wood", drop: Some("fishing_net") },
+    Block { id: 580, name: "fishing_net@3", shape: Shape::Deco, hardness: 0.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("fishing_net"), cat: "wood", drop: Some("fishing_net") },
+    Block { id: 581, name: "fish_rack", shape: Shape::Deco, hardness: 0.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("fish_rack"), cat: "wood", drop: Some("fish_rack") },
+    Block { id: 582, name: "fish_rack@1", shape: Shape::Deco, hardness: 0.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("fish_rack"), cat: "wood", drop: Some("fish_rack") },
+    Block { id: 583, name: "fish_rack@2", shape: Shape::Deco, hardness: 0.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("fish_rack"), cat: "wood", drop: Some("fish_rack") },
+    Block { id: 584, name: "fish_rack@3", shape: Shape::Deco, hardness: 0.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("fish_rack"), cat: "wood", drop: Some("fish_rack") },
+    Block { id: 585, name: "anchor", shape: Shape::Deco, hardness: 1.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("anchor"), cat: "wood", drop: Some("anchor") },
+    Block { id: 586, name: "anchor@1", shape: Shape::Deco, hardness: 1.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("anchor"), cat: "wood", drop: Some("anchor") },
+    Block { id: 587, name: "anchor@2", shape: Shape::Deco, hardness: 1.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("anchor"), cat: "wood", drop: Some("anchor") },
+    Block { id: 588, name: "anchor@3", shape: Shape::Deco, hardness: 1.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("anchor"), cat: "wood", drop: Some("anchor") },
+    Block { id: 589, name: "oars", shape: Shape::Deco, hardness: 0.4, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("oars"), cat: "wood", drop: Some("oars") },
+    Block { id: 590, name: "oars@1", shape: Shape::Deco, hardness: 0.4, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("oars"), cat: "wood", drop: Some("oars") },
+    Block { id: 591, name: "oars@2", shape: Shape::Deco, hardness: 0.4, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("oars"), cat: "wood", drop: Some("oars") },
+    Block { id: 592, name: "oars@3", shape: Shape::Deco, hardness: 0.4, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("oars"), cat: "wood", drop: Some("oars") },
+    Block { id: 593, name: "rope_rail", shape: Shape::Deco, hardness: 0.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rope_rail"), cat: "wood", drop: Some("rope_rail") },
+    Block { id: 594, name: "rope_rail@1", shape: Shape::Deco, hardness: 0.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rope_rail"), cat: "wood", drop: Some("rope_rail") },
+    Block { id: 595, name: "rope_rail@2", shape: Shape::Deco, hardness: 0.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rope_rail"), cat: "wood", drop: Some("rope_rail") },
+    Block { id: 596, name: "rope_rail@3", shape: Shape::Deco, hardness: 0.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rope_rail"), cat: "wood", drop: Some("rope_rail") },
+    Block { id: 597, name: "sail", shape: Shape::Deco, hardness: 0.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("sail"), cat: "wood", drop: Some("sail") },
+    Block { id: 598, name: "sail@1", shape: Shape::Deco, hardness: 0.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("sail"), cat: "wood", drop: Some("sail") },
+    Block { id: 599, name: "sail@2", shape: Shape::Deco, hardness: 0.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("sail"), cat: "wood", drop: Some("sail") },
+    Block { id: 600, name: "sail@3", shape: Shape::Deco, hardness: 0.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("sail"), cat: "wood", drop: Some("sail") },
+    Block { id: 601, name: "boat_bench", shape: Shape::Deco, hardness: 0.4, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("boat_bench"), cat: "wood", drop: Some("boat_bench") },
+    Block { id: 602, name: "boat_bench@1", shape: Shape::Deco, hardness: 0.4, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("boat_bench"), cat: "wood", drop: Some("boat_bench") },
+    Block { id: 603, name: "boat_bench@2", shape: Shape::Deco, hardness: 0.4, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("boat_bench"), cat: "wood", drop: Some("boat_bench") },
+    Block { id: 604, name: "boat_bench@3", shape: Shape::Deco, hardness: 0.4, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("boat_bench"), cat: "wood", drop: Some("boat_bench") },
+    Block { id: 605, name: "creel", shape: Shape::Deco, hardness: 0.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("creel"), cat: "wood", drop: Some("creel") },
+    Block { id: 606, name: "mooring_post", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("mooring_post"), cat: "wood", drop: Some("mooring_post") },
+    Block { id: 607, name: "buoy", shape: Shape::Deco, hardness: 0.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("buoy"), cat: "wood", drop: Some("buoy") },
+    Block { id: 608, name: "net_pile", shape: Shape::Deco, hardness: 0.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("net_pile"), cat: "wood", drop: Some("net_pile") },
+    Block { id: 609, name: "pennant", shape: Shape::Deco, hardness: 0.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("pennant"), cat: "wood", drop: Some("pennant") },
+    Block { id: 610, name: "fish_crate", shape: Shape::Deco, hardness: 0.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("fish_crate"), cat: "wood", drop: Some("fish_crate") },
 ];
 
 #[allow(non_snake_case)]
@@ -1097,4 +1131,17 @@ pub mod B {
     pub const CORAL_BLOCK_YELLOW: crate::blocks::Id = 574;
     pub const CORAL_BLOCK_BLUE: crate::blocks::Id = 575;
     pub const WRECK_PLANKS: crate::blocks::Id = 576;
+    pub const FISHING_NET: crate::blocks::Id = 577;
+    pub const FISH_RACK: crate::blocks::Id = 581;
+    pub const ANCHOR: crate::blocks::Id = 585;
+    pub const OARS: crate::blocks::Id = 589;
+    pub const ROPE_RAIL: crate::blocks::Id = 593;
+    pub const SAIL: crate::blocks::Id = 597;
+    pub const BOAT_BENCH: crate::blocks::Id = 601;
+    pub const CREEL: crate::blocks::Id = 605;
+    pub const MOORING_POST: crate::blocks::Id = 606;
+    pub const BUOY: crate::blocks::Id = 607;
+    pub const NET_PILE: crate::blocks::Id = 608;
+    pub const PENNANT: crate::blocks::Id = 609;
+    pub const FISH_CRATE: crate::blocks::Id = 610;
 }

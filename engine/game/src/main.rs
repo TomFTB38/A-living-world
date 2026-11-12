@@ -509,7 +509,7 @@ fn capture(a: &[String]) {
         s.sel = 8; s.third = false; s.player.fly = true; s.hour = 11.0;
         if scene == "port" { if let Some(v) = w.villages_near(0.0, 0.0, 6000.0).into_iter().find(|v| v.kind == "port") {
             let (x, z) = (v.c[0] as f64, v.c[2] as f64); let a = (0..24).map(|k| k as f64 * std::f64::consts::TAU / 24.0).find(|a| (20..=50).step_by(3).any(|r| w.column(x + a.cos() * r as f64, z + a.sin() * r as f64).water == sea)).unwrap_or(0.0);
-            println!("port : {} {:?}", v.name, v.c); let (sx, sz) = (-a.sin(), a.cos()); look(&mut s, [x + a.cos() * 12.0 + sx * 14.0, v.c[1] as f64 + 12.0, z + a.sin() * 12.0 + sz * 14.0], [x + a.cos() * 40.0, sea, z + a.sin() * 40.0]); } }
+            println!("port : {} {:?}", v.name, v.c); let (sx, sz) = (-a.sin(), a.cos()); look(&mut s, [x + a.cos() * 18.0 + sx * 22.0, v.c[1] as f64 + 9.0, z + a.sin() * 18.0 + sz * 22.0], [x + a.cos() * 38.0 - sx * 2.0, sea, z + a.sin() * 38.0 - sz * 2.0]); } }
         if scene == "epave" { if let Some(p) = w.wrecks_near(0.0, 0.0, 9000.0).into_iter().find(|p| w.climate.at(p[0] as f64, p[2] as f64).temp > 0.0) {
             println!("épave : {p:?}"); let c = [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5]; look(&mut s, [c[0] + 9.0, c[1] + 7.5, c[2] + 7.0], [c[0] - 2.0, c[1] + 1.0, c[2] - 1.0]); } }
         let mut deep = None; if scene == "large" { 'p: for r in 20..800 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.sea > 0.8 && c.mix.deep > 0.6 && c.mix.temp > 0.3 && c.water == sea && sea - c.h > 14.0 { deep = Some((x, z, c.h)); break 'p; } } }
