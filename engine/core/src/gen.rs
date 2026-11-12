@@ -261,7 +261,7 @@ impl WorldGen {
             let ground = v[idx(x, y - 1, z)]; let here = v[idx(x, y, z)];
             let wy = waters[x + z * CX];
             if wy != 0 {
-                if here == B::WATER && nd.n2(wx / 8.0, wz / 8.0) > 0.42 && hash_float(wxi, wzi, s, 5) < 0.45 && v[idx(x, wy as usize, z)] == B::WATER && v[idx(x, wy as usize + 1, z)] == 0 { v[idx(x, wy as usize + 1, z)] = B::LILY_PAD; }
+                if here == B::WATER && nd.n2(wx / 8.0, wz / 8.0) > 0.42 && hash_float(wxi, wzi, s, 5) < 0.45 && self.climate.at(wx, wz).strong(Biome::Mountains) < 0.5 /* pas de nénuphars dans l'eau froide des lacs d'altitude */ && v[idx(x, wy as usize, z)] == B::WATER && v[idx(x, wy as usize + 1, z)] == 0 { v[idx(x, wy as usize + 1, z)] = B::LILY_PAD; }
                 continue;
             }
             if here != 0 { continue; }
