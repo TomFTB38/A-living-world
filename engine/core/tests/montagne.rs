@@ -12,10 +12,16 @@ fn les_montagnes_dressent_des_pics() {
 fn neige_glace_alpages_et_epiceas() {
     let g = WorldGen::new(SEED); let (x, z) = coeur(&g); let (cx, cz) = ((x / CX as f64).floor() as i32, (z / CX as f64).floor() as i32);
     let mut n = std::collections::HashMap::<&str, usize>::new();
-    for dz in -4..=4 { for dx in -4..=4 { let v = g.gen_chunk(cx + dx, cz + dz); for b in v { let k = match b { b if b == B::SNOW => "neige", b if b == B::ICE => "glace", b if b == B::GRASS => "alpage", b if b == B::GRAVEL => "eboulis", b if b == B::SPRUCE_LOG => "epicea", b if b == B::LICHEN_STONE => "lichen", b if is_water(b) => "eau", _ => continue }; *n.entry(k).or_default() += 1; } } }
-    println!("{n:?}"); for k in ["neige", "glace", "alpage", "eboulis", "epicea"] { assert!(n.get(k).copied().unwrap_or(0) > 20, "il manque {k} : {n:?}"); }
+    for dz in -4..=4 { for dx in -4..=4 { let v = g.gen_chunk(cx + dx, cz + dz); for b in v { let k = match b { b if b == B::SNOW => "neige", b if b == B::ICE => "glace", b if b == B::GRASS => "alpage", b if b == B::GRAVEL => "eboulis", b if b == B::SPRUCE_LOG => "epicea", b if b == B::LICHEN_STONE => "lichen", b if b == B::EDELWEISS => "edelweiss", b if b == B::GENTIAN => "gentiane", b if is_water(b) => "eau", _ => continue }; *n.entry(k).or_default() += 1; } } }
+    println!("{n:?}"); for k in ["neige", "glace", "alpage", "eboulis", "epicea", "edelweiss", "gentiane"] { assert!(n.get(k).copied().unwrap_or(0) > 20, "il manque {k} : {n:?}"); }
 }
 #[test]
 fn le_biome_porte_son_nom_et_son_danger() {
     assert_eq!(NAMES[Biome::Mountains as usize], "Hautes montagnes"); assert_eq!(alw_core::hostile::biome_danger(Biome::Mountains as usize, 80.0), 5);
+}
+#[test]
+fn des_lacs_d_altitude_dans_les_cirques() {
+    let g = WorldGen::new(SEED); let mut n = 0;
+    for r in 90..400 { for k in 0..200 { let a = k as f64 / 200.0 * std::f64::consts::TAU; let c = g.column(a.cos() * r as f64 * 8.0, a.sin() * r as f64 * 8.0); if c.still && c.water > 0.0 && c.mix.strong(Biome::Mountains) > 0.6 { n += 1; } } }
+    assert!(n >= 3, "aucun lac d'altitude trouvé ({n})");
 }

@@ -526,7 +526,7 @@ impl Mesher {
                 let a = r_.range(3.0, 6.0); blade(o, cx, y, cz, a, 0.5, 0.6, 0.3, k[0] * 1.1, k[1] * 1.1, k[2] * 1.1, s, l, s);
                 return;
             }
-            let col = match m { "lupine" => [0.44, 0.26, 0.72], "pink" => [0.9, 0.42, 0.6], "yellow" => [0.95, 0.74, 0.16], "mushroom" => [0.75, 0.6, 0.45], "glowcap" => [0.3, 0.7, 0.8], _ => [0.95, 0.93, 0.85] };
+            let col = match m { "lupine" => [0.44, 0.26, 0.72], "gentian" => [0.2, 0.32, 0.95], "pink" => [0.9, 0.42, 0.6], "yellow" => [0.95, 0.74, 0.16], "mushroom" => [0.75, 0.6, 0.45], "glowcap" => [0.3, 0.7, 0.8], _ => [0.95, 0.93, 0.85] };
             let hh = if m == "lupine" { 0.8 } else { 0.4 };
             bx(o, x + 0.34, y + hh * 0.4, z + 0.34, x + 0.66, y + hh, z + 0.66, col[0], col[1], col[2], 40.0, s, l, FOLIAGE, false, 70.0, 255.0);
             return;
@@ -599,6 +599,28 @@ impl Mesher {
                     bx(o, a - w, y + h, c - w, a + w, y + h + 0.07, c + w, col[0], col[1], col[2], 80.0, s, l, FOLIAGE, false, 80.0, 255.0);
                 }
                 let t = r_.range(0.0, 6.3); blade(o, x + 0.5, y, z + 0.5, t, 0.04, 0.34, 0.15, 0.36, 0.5, 0.18, s, l, s);
+            }
+            "edelweiss" => {
+                // Edelweiss : une rosette de feuilles gris argenté, une à trois tiges laineuses, et l'étoile de bractées blanc feutré autour d'un cœur jaune pâle.
+                for k in 0..5 { let t = k as f64 * 1.2566 + r_.range(0.0, 0.4); blade(o, x + 0.5, y, z + 0.5, t, 0.04, 0.12, 0.22, 0.62, 0.66, 0.58, s, l, s); }
+                let n = r_.int(1, 3);
+                for _ in 0..n {
+                    let (a, c, h) = (x + r_.range(0.3, 0.7), z + r_.range(0.3, 0.7), r_.range(0.16, 0.3)); stem(o, a, y, c, h, s, l); let rot = r_.range(0.0, 1.0);
+                    for k in 0..6 { let t = k as f64 * 1.0472 + rot; let (dx, dz) = (t.cos(), t.sin()); let (px, pz) = (a + dx * 0.05, c + dz * 0.05);
+                        bx(o, px - 0.028, y + h - 0.005, pz - 0.028, px + 0.028, y + h + 0.018, pz + 0.028, 1.2, 1.2, 1.12, 85.0, s, l, FOLIAGE, false, 85.0, 255.0);
+                        let (qx, qz) = (a + dx * 0.085, c + dz * 0.085); bx(o, qx - 0.018, y + h - 0.012, qz - 0.018, qx + 0.018, y + h + 0.006, qz + 0.018, 1.12, 1.14, 1.06, 85.0, s, l, FOLIAGE, false, 85.0, 255.0); }
+                    bx(o, a - 0.03, y + h + 0.01, c - 0.03, a + 0.03, y + h + 0.04, c + 0.03, 1.2, 1.05, 0.55, 85.0, s, l, FOLIAGE, false, 85.0, 255.0);
+                }
+            }
+            "gentian" => {
+                // Gentiane : de grosses trompettes d'un bleu profond, presque posées sur l'herbe, sur une touffe de feuilles luisantes.
+                let n = r_.int(2, 4);
+                for _ in 0..n {
+                    let (a, c, h) = (x + r_.range(0.2, 0.8), z + r_.range(0.2, 0.8), r_.range(0.08, 0.16)); stem(o, a, y, c, h, s, l); let k = r_.range(0.9, 1.1);
+                    for (y0, y1, w, lt) in [(0.0, 0.07, 0.03, 0.85), (0.07, 0.14, 0.045, 1.0), (0.14, 0.18, 0.06, 1.15)] { bx(o, a - w, y + h + y0, c - w, a + w, y + h + y1, c + w, 0.16 * k * lt, 0.3 * k * lt, 1.05 * k * lt, 80.0, s, l, FOLIAGE, false, 80.0, 255.0); }
+                    bx(o, a - 0.02, y + h + 0.175, c - 0.02, a + 0.02, y + h + 0.185, c + 0.02, 0.9, 0.95, 0.5, 80.0, s, l, FOLIAGE, false, 80.0, 255.0);
+                }
+                for _ in 0..4 { let t = r_.range(0.0, 6.28); blade(o, x + 0.5, y, z + 0.5, t, 0.05, 0.1, 0.25, 0.22, 0.42, 0.14, s, l, s); }
             }
             "snowlayer" => {
                 // Pellicule de neige : une dalle fine, texturée, posée sur le bloc ; ses bords ne se dessinent que vers l'air.

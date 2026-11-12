@@ -7,7 +7,7 @@ fn main() {
     let yaw: f64 = a.get(3).and_then(|s| s.parse().ok()).unwrap_or(0.6); let dist: f64 = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(34.0); let pitch: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(0.42);
     let g = WorldGen::new(seed); let bi: usize = a.get(6).and_then(|s| s.parse().ok()).unwrap_or(7); let rad: i32 = a.get(7).and_then(|s| s.parse().ok()).unwrap_or(7);
     let mut found = None; 'p: for r in 8..900 { for k in 0..96 { let t = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (t.cos() * r as f64 * 16.0, t.sin() * r as f64 * 16.0); if alw_core::noise::smooth(0.3, 0.55, g.climate.at(x, z).w[bi]) > 0.97 { found = Some((x + 160.0 * t.cos(), z + 160.0 * t.sin())); break 'p; } } }
-    let (fx, fz) = found.expect("biome introuvable"); let gh = g.column(fx, fz).h; eprintln!("{} en {fx:.0} {fz:.0}, sol {gh:.0}", alw_core::biome::NAMES[bi]);
+    let (fx, fz) = match a.get(8).and_then(|s| s.split_once(':')) { Some((x, z)) => (x.parse().unwrap(), z.parse().unwrap()), None => found.expect("biome introuvable") }; let gh = g.column(fx, fz).h; eprintln!("{} en {fx:.0} {fz:.0}, sol {gh:.0}", alw_core::biome::NAMES[bi]);
     let t = build_textures(16); let n = 16 * 16; let mut avg = vec![[0.5f64; 3]; t.layers as usize];
     for l in 0..t.layers as usize { let mut c = [0.0; 3]; for p in t.albedo[l * n * 4..(l + 1) * n * 4].chunks(4) { for k in 0..3 { c[k] += (p[k] as f64 / 255.0).powi(2); } } avg[l] = c.map(|x| x / n as f64); }
     let mut cache: HashMap<(i32, i32), std::sync::Arc<Vec<u16>>> = HashMap::new(); let mut m = Mesher::new();

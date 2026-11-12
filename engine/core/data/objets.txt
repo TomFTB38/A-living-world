@@ -189,6 +189,8 @@ cotton_grass | Linaigrette | plantes | 0.05 | 64 | |
 daisy | Marguerite | plantes | 0.02 | 64 | |
 lupine | Lupin | plantes | 0.02 | 64 | |
 pink_flower | Fleur rose | plantes | 0.02 | 64 | |
+edelweiss | Edelweiss | plantes | 0.02 | 64 | |
+gentian | Gentiane | plantes | 0.02 | 64 | |
 yellow_flower | Fleur jaune | plantes | 0.02 | 64 | |
 feather_grass | Stipe plumeuse | plantes | 0.05 | 64 | |
 sagebrush | Armoise | plantes | 0.1 | 64 | |

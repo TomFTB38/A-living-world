@@ -66,12 +66,15 @@ impl WorldGen {
     fn pond_at(&self, gx: i32, gz: i32) -> Option<Pond> {
         if let Some(p) = self.ponds.borrow().get(&(gx, gz)) { return *p; }
         let s = self.seed;
-        let p = if hash_float(gx, gz, s, 71) > 0.42 { None } else {
+        let p = if hash_float(gx, gz, s, 71) > 0.62 { None } else {
             let x = (gx as f64 + 0.2 + 0.6 * hash_float(gx, gz, s, 72)) * POND_CELL as f64; let z = (gz as f64 + 0.2 + 0.6 * hash_float(gx, gz, s, 73)) * POND_CELL as f64;
             // Un lac se pose à plat, au niveau du point bas de sa rive ; sur une pente, il n'y a pas de lac.
             let r = 7.0 + 8.0 * hash_float(gx, gz, s, 74); let mid = self.raw_height(x, z); let (mut lo, mut hi) = (mid.hs, mid.hs);
             for k in 0..8 { let a = k as f64 * 0.7854; let q = self.raw_height(x + cos(a) * r * 1.2, z + sin(a) * r * 1.2).hs; lo = lo.min(q); hi = hi.max(q); }
-            if hi - lo > 5.0 || mid.massif > 0.02 { None } else { Some(Pond { x, z, r, level: lo.floor() - 1.0 }) }
+            // En montagne, les lacs d'altitude se nichent dans les cirques : ils acceptent une cuvette plus creusée, la berge fait barrage.
+            let alp = self.climate.at(x, z).strong(Biome::Mountains) > 0.6; let first = hash_float(gx, gz, s, 71) <= 0.42;
+            if alp { if hi - lo > 9.0 || lo > 100.0 { None } else { Some(Pond { x, z, r: r * 0.85, level: lo.floor() - 1.0 }) } }
+            else if !first || hi - lo > 5.0 || mid.massif > 0.02 { None } else { Some(Pond { x, z, r, level: lo.floor() - 1.0 }) }
         };
         self.ponds.borrow_mut().insert((gx, gz), p);
         p
@@ -231,7 +234,7 @@ impl WorldGen {
             let wi = water as i32;
             if wi != 0 {
                 for y in (top + 1)..=wi { v[idx(x, y as usize, z)] = B::WATER; }
-                if cold && wi > top { v[idx(x, wi as usize, z)] = B::ICE; } // lac et rivière gelés en surface
+                if (cold || (alp && wi as f64 > snowl - 4.0)) && wi > top { v[idx(x, wi as usize, z)] = B::ICE; } // lac et rivière gelés en surface
                 // La chute rejoint le bassin : une colonne d'eau pleine, plaquée contre le palier du dessus.
                 if !c.still { let t = self.fall_top(wx, wz, water) as i32; for y in (wi + 1)..=t.min(CH as i32 - 2) { if v[idx(x, y as usize, z)] == 0 { v[idx(x, y as usize, z)] = if cold { B::ICE } else { B::WATER }; } } } // chute gelée
                 // rochers qui affleurent dans le lit
@@ -272,6 +275,14 @@ impl WorldGen {
                 v[idx(x, y, z)] = if r < 0.05 { B::FROST_GRASS } else if r < 0.062 { B::PINECONE } else if r < 0.062 + 0.22 * patch { if t < 0.75 { B::BLUEBERRY } else { B::FERN_DRY } } else if r < 0.075 + 0.22 * patch { B::FERN_DRY } else if r < 0.081 + 0.22 * patch { B::ROWAN } else { litter(0.012, 0.005) };
             } continue; } let (fr, path, meadow, deep, _) = info[x + z * CX];
             if ground == B::PATH { if r < 0.055 { v[idx(x, y, z)] = B::FLAGSTONE; } continue; }
+            // Hautes montagnes : alpages fleuris (gentianes, lupins), edelweiss dans les rocailles de l'étage alpin, cailloux sur les éboulis.
+            if (ground == B::GRASS || ground == B::MOOR_GRASS || ground == B::GRAVEL || ground == B::LICHEN_STONE) && self.climate.at(wx, wz).strong(Biome::Mountains) > 0.5 {
+                let patch = smooth(-0.15, 0.5, nd.n2(wx / 11.0 + 41.0, wz / 11.0 - 23.0)); let t = hash_float(wxi, wzi, s, 46);
+                v[idx(x, y, z)] = if ground == B::GRAVEL { litter(0.0, 0.03) }
+                    else if ground == B::GRASS { if r < 0.16 { B::TALL_GRASS } else if r < 0.16 + 0.16 * patch { if t < 0.45 { B::GENTIAN } else if t < 0.65 { B::LUPINE } else if t < 0.85 { B::YELLOW_FLOWER } else { B::PINK_FLOWER } } else if r < 0.165 + 0.16 * patch { B::EDELWEISS } else { litter(0.0, 0.006) } }
+                    else if r < 0.03 + 0.08 * patch { B::EDELWEISS } else if r < 0.05 + 0.1 * patch { B::GENTIAN } else if ground == B::MOOR_GRASS && r < 0.2 { B::FROST_GRASS } else { litter(0.0, 0.025) };
+                continue;
+            }
             // Hautes terres : bruyère en nappes, linaigrettes près de l'eau, herbe rase et quelques fleurs.
             if ground == B::MOOR_GRASS || (ground == B::FOREST_SOIL && info[x + z * CX].4 < 0.5 && self.climate.at(wx, wz).strong(Biome::Highlands) > 0.5) {
                 let patch = smooth(-0.2, 0.45, nd.n2(wx / 13.0 + 21.0, wz / 13.0 - 9.0)); let wet = ground == B::FOREST_SOIL;
