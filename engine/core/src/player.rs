@@ -1,5 +1,5 @@
 //! Déplacement à collisions voxel : marche, sprint, saut, nage, vol.
-use crate::blocks::{Id, is_solid, is_water};
+use crate::blocks::{Id, is_solid, is_wet};
 const HALF: f64 = 0.3; const GRAV: f64 = 26.0; const JUMP: f64 = 9.2;
 
 /// Accès au monde. `None` : zone pas encore chargée, traitée comme un mur pour ne jamais tomber dans le vide.
@@ -29,7 +29,7 @@ impl Player {
     pub fn update(&mut self, w: &impl Voxels, dt: f64, i: Input) {
         let fly = self.fly; let sp = if fly { if i.sprint { 22.0 } else { 11.0 } } else if i.sprint { 7.2 } else if i.crouch { 2.0 } else { 4.5 };
         self.crouch = i.crouch && !fly;
-        self.in_water = w.get(self.p[0].floor() as i32, (self.p[1] + 0.9).floor() as i32, self.p[2].floor() as i32).is_some_and(is_water);
+        self.in_water = w.get(self.p[0].floor() as i32, (self.p[1] + 0.9).floor() as i32, self.p[2].floor() as i32).is_some_and(is_wet);
         let (s, c) = self.yaw.sin_cos();
         let (mut mx, mut mz) = (i.x * c + i.z * s, -i.x * s + i.z * c); let l = (mx * mx + mz * mz).sqrt();
         if l > 1.0 { mx /= l; mz /= l; }

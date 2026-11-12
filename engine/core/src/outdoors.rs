@@ -32,9 +32,9 @@ impl Session {
                 let (e, f) = (self.eye, self.look); let mut t = 0.5;
                 while t < 14.0 { let q = [e[0] + f[0] * t, e[1] + f[1] * t, e[2] + f[2] * t]; let c = [q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32];
                     match self.world.get(c[0], c[1], c[2]) {
-                        Some(b) if is_water(b) => {
+                        Some(b) if is_wet(b) => {
                             let col = self.gen.column(q[0], q[2]); let cold = self.taiga > 0.4 || self.highlands > 0.4 || self.mountains > 0.4; let running = b != B::WATER || !col.still;
-                            let fish = if cold { "char" } else if running { "trout" } else { "perch" };
+                            let fish = if col.mix.sea > 0.3 && col.water == crate::gen::SEA { if col.mix.temp > 0.3 { "sea_bream" } else { "mackerel" } } else if cold { "char" } else if running { "trout" } else { "perch" }; // en mer : dorades au chaud, maquereaux au frais
                             let wait = (5.0 + 9.0 * self.rand(3)) / (1.0 + self.skills[2] * 0.01).min(1.5);
                             self.line = Some(Line { spot: [q[0], c[1] as f64 + 0.92, q[2]], bite: self.elapsed + wait, told: false, fish }); self.sound.splash(0.15); return true;
                         }
@@ -90,8 +90,8 @@ impl Session {
     }
 }
 /// Boîte de visée d'une bête (demi-largeur, hauteur) ; les oiseaux et virevoltants ne se chassent pas.
-pub fn wild_box(k: crate::wild::Kind) -> Option<(f64, f64)> { use crate::wild::Kind::*; match k { Fox => Some((0.35, 0.7)), Hare => Some((0.28, 0.5)), Wolf => Some((0.45, 1.0)), Boar => Some((0.5, 0.85)), Bear => Some((0.8, 1.6)), Ibex => Some((0.4, 1.1)), Lizard => Some((0.2, 0.15)), _ => None } }
-pub fn wild_loot(k: crate::wild::Kind) -> &'static [(&'static str, u32)] { use crate::wild::Kind::*; match k { Fox => FOX_LOOT, Hare => HARE_LOOT, Wolf => WOLF_LOOT, Boar => BOAR_LOOT, Bear => BEAR_LOOT, Ibex => IBEX_LOOT, Lizard => LIZARD_LOOT, _ => &[] } }
+pub fn wild_box(k: crate::wild::Kind) -> Option<(f64, f64)> { use crate::wild::Kind::*; match k { Fox => Some((0.35, 0.7)), Hare => Some((0.28, 0.5)), Wolf => Some((0.45, 1.0)), Boar => Some((0.5, 0.85)), Bear => Some((0.8, 1.6)), Ibex => Some((0.4, 1.1)), Lizard => Some((0.2, 0.15)), Fish | Reef => Some((0.22, 0.25)), Crab => Some((0.3, 0.25)), Dolphin => Some((0.7, 0.6)), _ => None } }
+pub fn wild_loot(k: crate::wild::Kind) -> &'static [(&'static str, u32)] { use crate::wild::Kind::*; match k { Fox => FOX_LOOT, Hare => HARE_LOOT, Wolf => WOLF_LOOT, Boar => BOAR_LOOT, Bear => BEAR_LOOT, Ibex => IBEX_LOOT, Lizard => LIZARD_LOOT, Fish => &[("mackerel", 1)], Reef => &[("sea_bream", 1)], Crab => &[("raw_meat", 1), ("shell", 1)], _ => &[] } }
 
 /// Temps pour bander l'arc à fond.
 pub const DRAW_T: f64 = 0.9;

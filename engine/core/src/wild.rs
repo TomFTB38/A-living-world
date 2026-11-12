@@ -64,14 +64,14 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
     let mut ibex_leg = VBuf::new(120); b(&mut ibex_leg, [-0.025, -0.34, -0.025, 0.025, 0.0, 0.025], [0.42, 0.36, 0.28]);
     let mut lizard = VBuf::new(400); { let o = &mut lizard; b(o, [-0.045, 0.0, -0.1, 0.045, 0.04, 0.1], SCALE); b(o, [-0.03, 0.0, 0.1, 0.03, 0.035, 0.17], SCALE); b(o, [-0.015, 0.0, -0.28, 0.015, 0.02, -0.1], [0.42, 0.44, 0.24]);
         for (x, z) in [(-0.08, 0.06), (0.05, 0.06), (-0.08, -0.07), (0.05, -0.07)] { b(o, [x, 0.0, z, x + 0.03, 0.015, z + 0.02], [0.4, 0.42, 0.22]); } b(o, [-0.025, 0.025, 0.15, -0.012, 0.035, 0.16], BLACK); b(o, [0.012, 0.025, 0.15, 0.025, 0.035, 0.16], BLACK); }
-    let [h0, h1, h2, h3] = hares; vec![("bear", bear), ("bearHead", bear_head), ("bearLeg", bear_leg), ("ibex", ibex), ("ibexHead", ibex_head), ("ibexLeg", ibex_leg), ("lizard", lizard), ("wolf", wolf), ("wolfHead", wolf_head), ("wolfLeg", wolf_leg), ("boar", boar), ("boarHead", boar_head), ("boarLeg", boar_leg), ("fox", fox), ("foxHead", fox_head), ("foxLeg", fox_leg), ("hare0", h0), ("hare1", h1), ("hare2", h2), ("hare3", h3), ("crow", crow), ("crowWing", crow_wing), ("tumble", tumble), ("print", print)]
+    let [h0, h1, h2, h3] = hares; vec![("bear", bear), ("bearHead", bear_head), ("bearLeg", bear_leg), ("ibex", ibex), ("ibexHead", ibex_head), ("ibexLeg", ibex_leg), ("lizard", lizard), ("wolf", wolf), ("wolfHead", wolf_head), ("wolfLeg", wolf_leg), ("boar", boar), ("boarHead", boar_head), ("boarLeg", boar_leg), ("fox", fox), ("foxHead", fox_head), ("foxLeg", fox_leg), ("hare0", h0), ("hare1", h1), ("hare2", h2), ("hare3", h3), ("crow", crow), ("crowWing", crow_wing), ("tumble", tumble), ("print", print)].into_iter().chain(sea_parts()).collect()
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum Kind { Fox, Hare, Crow, Tumble, Wolf, Boar, Bear, Ibex, Lizard }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum Kind { Fox, Hare, Crow, Tumble, Wolf, Boar, Bear, Ibex, Lizard, /** maquereau des mers fraîches, en bancs */ Fish, /** poissons des récifs chauds */ Reef, Dolphin, Crab, Gull }
 #[derive(Clone, Copy, PartialEq, Debug)] enum State { Idle, Walk, Flee, Fly, Gone, Chase }
-#[derive(Clone, Debug)] pub struct Critter { pub kind: Kind, pub color: u8, pub p: [f64; 3], gy: f64, pub yaw: f64, state: State, t: f64, phase: f64, speed: f64, v: [f64; 3], spin: f64, axis: [f64; 3], step: f64, foot: bool, life: f64, pub hp: f64, pub hit: f64, cd: f64 }
+#[derive(Clone, Debug)] pub struct Critter { pub kind: Kind, pub color: u8, pub p: [f64; 3], gy: f64, pub yaw: f64, state: State, t: f64, phase: f64, speed: f64, v: [f64; 3], spin: f64, axis: [f64; 3], step: f64, foot: bool, life: f64, pub hp: f64, pub hit: f64, cd: f64, /** banc de poissons ou groupe de dauphins */ school: u32 }
 /// Ce que cette faune fait entendre.
-#[derive(Clone, Copy, Debug)] pub enum Ev { Caw([f64; 3]), Bark([f64; 3]), Scream([f64; 3]), Thump([f64; 3]), Rustle([f64; 3]), Bite([f64; 3], f64, &'static str), Howl([f64; 3]), Grunt([f64; 3]) }
+#[derive(Clone, Copy, Debug)] pub enum Ev { /** cri de goéland */ Cry([f64; 3]), /** un dauphin replonge */ Splash([f64; 3]), Caw([f64; 3]), Bark([f64; 3]), Scream([f64; 3]), Thump([f64; 3]), Rustle([f64; 3]), Bite([f64; 3], f64, &'static str), Howl([f64; 3]), Grunt([f64; 3]) }
 /// Une empreinte posée sur la neige.
 #[derive(Clone, Copy, Debug)] pub struct Print { pub p: [f64; 3], pub yaw: f64, pub age: f64, pub small: bool }
 pub struct Wild { cold: f64, dry: f64, pub night: bool, rng: Rng, pub all: Vec<Critter>, pub prints: Vec<Print>, pub ev: Vec<Ev>, pub wind: f64, t: f64, last_print: Option<[f64; 3]>, left: bool }
@@ -80,6 +80,45 @@ pub struct Wild { cold: f64, dry: f64, pub night: bool, rng: Rng, pub all: Vec<C
 /// Dessus du sol le plus haut sous `from` : le premier bloc plein en descendant (feuillage et bois compris). Rien sur l'eau.
 /// Le sursaut d'une bête touchée : il monte puis retombe en douceur (0 au début et à la fin), au lieu de sauter d'un coup.
 pub fn flinch(h: f64) -> f64 { if h <= 0.0 { 0.0 } else { ((1.0 - h / 0.3).clamp(0.0, 1.0) * std::f64::consts::PI).sin() * 0.3 } }
+fn smooth01(v: f64, a: f64, b: f64) -> f64 { crate::noise::smooth(a, b, v) }
+fn wet_at(w: &impl Voxels, x: f64, y: f64, z: f64) -> bool { w.get(x.floor() as i32, y.floor() as i32, z.floor() as i32).is_some_and(is_wet) }
+const DOLPHIN: f64 = 1.0; const GULL: f64 = 1.5;
+/// Mer : maquereau, trois poissons de récif, dauphin, crabe, goéland. Tous orientés vers +z, centrés sur leur corps.
+fn sea_parts() -> Vec<(&'static str, VBuf)> {
+    let fish = |len: f64, hgt: f64, back: [f64; 3], belly: [f64; 3], band: Option<[f64; 3]>, tail: [f64; 3], fin: [f64; 3]| { let mut o = VBuf::new(600); { let o = &mut o;
+        let (l, h, wd) = (len * 0.5, hgt * 0.5, hgt * 0.28);
+        b(o, [-wd, -h * 0.2, -l, wd, h, l * 0.8], back); b(o, [-wd * 0.95, -h, -l * 0.8, wd * 0.95, -h * 0.15, l * 0.7], belly); // dos et ventre
+        b(o, [-wd * 0.8, -h * 0.6, l * 0.8, wd * 0.8, h * 0.6, l], back); // museau
+        b(o, [-wd * 1.02, h * 0.15, l * 0.55, wd * 1.02, h * 0.45, l * 0.75], BLACK); b(o, [-wd * 1.03, h * 0.25, l * 0.6, wd * 1.03, h * 0.38, l * 0.7], WHITE); b(o, [-wd * 1.04, h * 0.28, l * 0.62, wd * 1.04, h * 0.36, l * 0.68], BLACK); // œil
+        if let Some(c) = band { for z in [-0.35, 0.15] { b(o, [-wd * 1.02, -h, l * z, wd * 1.02, h, l * z + len * 0.09], c); } }
+        b(o, [-0.008, h * 0.8, -l * 0.5, 0.008, h * 1.5, l * 0.2], fin); b(o, [-0.008, -h * 1.3, -l * 0.5, 0.008, -h * 0.8, -l * 0.1], fin); // nageoires dorsale et anale
+        b(o, [-0.01, -h * 0.35, -l * 1.15, 0.01, h * 0.35, -l], tail); b(o, [-0.01, h * 0.2, -l * 1.55, 0.01, h * 0.95, -l * 1.1], tail); b(o, [-0.01, -h * 0.95, -l * 1.55, 0.01, -h * 0.2, -l * 1.1], tail); // queue fourchue
+        b(o, [-wd * 1.6, -h * 0.3, l * 0.25, -wd, -h * 0.1, l * 0.45], fin); b(o, [wd, -h * 0.3, l * 0.25, wd * 1.6, -h * 0.1, l * 0.45], fin); } o };
+    let mackerel = { let mut o = fish(0.42, 0.11, [0.2, 0.42, 0.42], [0.86, 0.88, 0.9], None, [0.24, 0.32, 0.34], [0.3, 0.4, 0.42]);
+        for k in 0..6 { let z = -0.17 + k as f64 * 0.06; b(&mut o, [-0.032, 0.03, z, 0.032, 0.058, z + 0.025], [0.08, 0.16, 0.18]); } o }; // zébrures sombres du dos
+    let clown = fish(0.26, 0.13, [0.98, 0.45, 0.1], [0.98, 0.55, 0.2], Some(WHITE), [0.98, 0.45, 0.1], [0.12, 0.08, 0.06]);
+    let tang = fish(0.3, 0.17, [0.12, 0.3, 0.85], [0.18, 0.38, 0.9], None, [0.98, 0.84, 0.15], [0.06, 0.1, 0.3]);
+    let butterfly = fish(0.24, 0.22, [0.98, 0.86, 0.2], [0.98, 0.92, 0.6], Some([0.1, 0.08, 0.06]), [0.98, 0.86, 0.2], [0.95, 0.7, 0.15]);
+    // Dauphin : gris ardoise dessus, pâle dessous, rostre court, aileron dorsal en faux, nageoires pectorales, caudale horizontale.
+    let mut dol = VBuf::new(800); { let o = &mut dol; let (g, pl, dk) = ([0.42, 0.46, 0.52], [0.8, 0.82, 0.84], [0.3, 0.33, 0.38]);
+        b(o, [-0.2, -0.16, -0.5, 0.2, 0.2, 0.45], g); b(o, [-0.18, -0.2, -0.4, 0.18, -0.05, 0.4], pl); b(o, [-0.16, -0.12, 0.45, 0.16, 0.16, 0.7], g); b(o, [-0.07, -0.08, 0.7, 0.07, 0.02, 0.92], dk); // corps, tête, rostre
+        b(o, [-0.15, -0.1, -0.85, 0.15, 0.14, -0.5], g); b(o, [-0.09, -0.06, -1.15, 0.09, 0.08, -0.85], dk); b(o, [-0.34, -0.03, -1.32, 0.34, 0.02, -1.15], dk); // pédoncule, caudale
+        b(o, [-0.03, 0.2, -0.15, 0.03, 0.42, 0.05], dk); b(o, [-0.03, 0.36, -0.28, 0.03, 0.44, -0.12], dk); // aileron
+        b(o, [-0.38, -0.15, 0.15, -0.2, -0.11, 0.32], dk); b(o, [0.2, -0.15, 0.15, 0.38, -0.11, 0.32], dk); // pectorales
+        b(o, [-0.165, 0.04, 0.55, -0.15, 0.08, 0.6], BLACK); b(o, [0.15, 0.04, 0.55, 0.165, 0.08, 0.6], BLACK); }
+    // Crabe : carapace orangée bombée, yeux sur pédoncules, deux pinces et six pattes articulées.
+    let mut crab = VBuf::new(800); { let o = &mut crab; let (sh, dk, cl) = ([0.82, 0.32, 0.14], [0.6, 0.2, 0.1], [0.9, 0.42, 0.2]);
+        b(o, [-0.15, 0.05, -0.11, 0.15, 0.13, 0.11], sh); b(o, [-0.12, 0.13, -0.08, 0.12, 0.16, 0.08], cl); b(o, [-0.13, 0.03, -0.1, 0.13, 0.05, 0.1], [0.9, 0.78, 0.6]);
+        for sx in [-1.0f64, 1.0] { b(o, [sx * 0.05 - 0.012, 0.14, 0.08, sx * 0.05 + 0.012, 0.22, 0.1], dk); b(o, [sx * 0.05 - 0.02, 0.21, 0.08, sx * 0.05 + 0.02, 0.24, 0.11], BLACK);
+            let (a0, a1) = if sx < 0.0 { (-0.22, -0.12) } else { (0.12, 0.22) }; b(o, [a0, 0.06, 0.1, a1, 0.1, 0.16], dk); b(o, [a0 - 0.02 * sx.min(0.0), 0.05, 0.16, a1 + 0.02 * sx.max(0.0), 0.13, 0.26], cl); b(o, [a0, 0.11, 0.24, a1, 0.13, 0.3], dk);
+            for k in 0..3 { let z = -0.07 + k as f64 * 0.06; let (l0, l1) = if sx < 0.0 { (-0.27, -0.14) } else { (0.14, 0.27) }; b(o, [l0, 0.08, z, l1, 0.11, z + 0.025], dk); let (f0, f1) = if sx < 0.0 { (-0.3, -0.26) } else { (0.26, 0.3) }; b(o, [f0, 0.0, z, f1, 0.1, z + 0.025], dk); } } }
+    // Goéland : blanc, manteau gris, bec jaune, bouts d'ailes noirs.
+    let mut gull = VBuf::new(400); { let o = &mut gull; let mut q = |a: [f64; 6], c: [f64; 3]| b(o, a.map(|v| v * GULL), c);
+        q([-0.055, 0.0, -0.13, 0.055, 0.09, 0.1], WHITE); q([-0.045, 0.06, 0.07, 0.045, 0.14, 0.15], WHITE); q([-0.015, 0.08, 0.15, 0.015, 0.105, 0.22], [0.95, 0.8, 0.2]); q([-0.05, 0.075, -0.1, 0.05, 0.095, 0.06], [0.62, 0.65, 0.7]);
+        q([-0.035, 0.04, -0.24, 0.035, 0.07, -0.12], WHITE); q([-0.035, -0.05, 0.0, -0.02, 0.0, 0.015], [0.9, 0.7, 0.4]); q([0.02, -0.05, 0.0, 0.035, 0.0, 0.015], [0.9, 0.7, 0.4]); q([-0.047, 0.1, 0.12, -0.044, 0.115, 0.13], BLACK); q([0.044, 0.1, 0.12, 0.047, 0.115, 0.13], BLACK); }
+    let mut gull_wing = VBuf::new(120); b(&mut gull_wing, [0.0, 0.0, -0.08 * GULL, 0.17 * GULL, 0.012 * GULL, 0.08 * GULL], [0.64, 0.67, 0.72]); b(&mut gull_wing, [0.17 * GULL, 0.0, -0.07 * GULL, 0.25 * GULL, 0.012 * GULL, 0.05 * GULL], BLACK);
+    vec![("mackerel", mackerel), ("reef0", clown), ("reef1", tang), ("reef2", butterfly), ("dolphin", dol), ("crab", crab), ("gull", gull), ("gullWing", gull_wing)]
+}
 /// Le recul d'un coup : une poussée qui glisse sur le sol et s'amortit, arrêtée par les murs et les marches trop hautes.
 fn knock(c: &mut Critter, dt: f64, w: &impl Voxels) {
     if c.v[0] == 0.0 && c.v[2] == 0.0 { return; }
@@ -96,7 +135,7 @@ pub fn snow_at(w: &impl Voxels, x: f64, y: f64, z: f64) -> Option<f64> {
     let n = snow_level(w.get(fx, fy, fz)?); if n > 0 { return Some(fy as f64 + n as f64 / 10.0); }
     if w.get(fx, fy - 1, fz)? == B::SNOW { return Some(fy as f64); } None
 }
-fn hp_of(k: Kind) -> f64 { match k { Kind::Fox => crate::survival::FOX_HP, Kind::Hare => crate::survival::HARE_HP, Kind::Wolf => crate::survival::WOLF_HP, Kind::Boar => crate::survival::BOAR_HP, Kind::Bear => crate::survival::BEAR_HP, Kind::Ibex => crate::survival::IBEX_HP, Kind::Lizard => crate::survival::LIZARD_HP, _ => 1.0 } }
+fn hp_of(k: Kind) -> f64 { match k { Kind::Fox => crate::survival::FOX_HP, Kind::Hare => crate::survival::HARE_HP, Kind::Wolf => crate::survival::WOLF_HP, Kind::Boar => crate::survival::BOAR_HP, Kind::Bear => crate::survival::BEAR_HP, Kind::Ibex => crate::survival::IBEX_HP, Kind::Lizard => crate::survival::LIZARD_HP, Kind::Fish | Kind::Reef => 2.0, Kind::Crab => 4.0, Kind::Dolphin => 30.0, Kind::Gull => 3.0, _ => 1.0 } }
 const WOLF: f64 = 1.75; const BOAR: f64 = 1.25; const BEAR: f64 = 2.3; const IBEX: f64 = 1.5;
 const BROWN: [f64; 3] = [0.32, 0.21, 0.13]; const IBEX_C: [f64; 3] = [0.6, 0.52, 0.4]; const HORN: [f64; 3] = [0.45, 0.4, 0.33]; const SCALE: [f64; 3] = [0.5, 0.52, 0.3];
 const GREY: [f64; 3] = [0.42, 0.41, 0.39]; const PALE: [f64; 3] = [0.7, 0.68, 0.64]; const BRISTLE: [f64; 3] = [0.24, 0.17, 0.12]; const TUSK: [f64; 3] = [0.92, 0.88, 0.78];
@@ -116,29 +155,38 @@ impl Wild {
     pub fn nearest(&self, p: [f64; 3]) -> Option<usize> { self.all.iter().enumerate().map(|(i, c)| (i, (c.p[0] - p[0]).hypot(c.p[2] - p[2]))).filter(|x| x.1 < 3.0).min_by(|a, b| a.1.total_cmp(&b.1)).map(|x| x.0) }
     pub fn new(seed: i32) -> Self { Wild { cold: 0.0, dry: 0.0, night: false, rng: Rng::new((seed ^ 0x2f0c) as u32), all: Vec::new(), prints: Vec::new(), ev: Vec::new(), wind: 0.7, t: 0.0, last_print: None, left: false } }
     /// Pose un animal ou un virevoltant à un endroit précis (bancs d'essai, captures).
-    pub fn put(&mut self, kind: Kind, p: [f64; 3], yaw: f64, flying: bool) { self.all.push(Critter { kind, color: if kind == Kind::Hare { 2 } else { 0 }, p, gy: p[1], yaw, state: if flying { State::Fly } else { State::Idle }, t: 30.0, phase: 0.6, speed: 0.0, v: [0.0; 3], spin: 0.7, axis: [0.6, 0.0, 0.8], step: 0.0, foot: false, life: 0.0, hp: hp_of(kind), hit: 0.0, cd: 0.0 }); }
+    pub fn put(&mut self, kind: Kind, p: [f64; 3], yaw: f64, flying: bool) { self.all.push(Critter { kind, color: if kind == Kind::Hare { 2 } else { 0 }, p, gy: p[1], yaw, state: if flying { State::Fly } else { State::Idle }, t: 30.0, phase: 0.6, speed: 0.0, v: [0.0; 3], spin: 0.7, axis: [0.6, 0.0, 0.8], step: 0.0, foot: false, life: 0.0, hp: hp_of(kind), hit: 0.0, cd: 0.0, school: 0 }); }
+    /// Pose un nageur dans un banc donné (bancs d'essai, captures) ; `color` choisit le poisson de récif.
+    pub fn put_swim(&mut self, kind: Kind, p: [f64; 3], yaw: f64, school: u32, color: u8) { self.put(kind, p, yaw, false); if let Some(c) = self.all.last_mut() { c.school = school; c.color = color; c.state = State::Walk; } }
     fn count(&self, k: Kind) -> usize { self.all.iter().filter(|c| c.kind == k).count() }
     fn spawn(&mut self, kind: Kind, w: &impl Voxels, p: [f64; 3]) {
+        if matches!(kind, Kind::Fish | Kind::Reef | Kind::Dolphin) { self.spawn_swim(kind, w, p); return; }
+        if kind == Kind::Gull { let n = self.all.len(); self.spawn(Kind::Crow, w, p); if self.all.len() > n { self.all[n].kind = Kind::Gull; self.all[n].hp = hp_of(Kind::Gull); } return; }
         let r = &mut self.rng; let (a, d) = if kind == Kind::Tumble { (self.wind + std::f64::consts::PI + r.range(-0.9, 0.9), r.range(26.0, 44.0)) } else { (r.range(0.0, 6.283), r.range(18.0, 50.0)) };
         let (x, z) = (p[0] + sin(a) * d, p[2] + cos(a) * d); let Some(y) = surface(w, x, z, p[1] + 25.0) else { return }; if (y - p[1]).abs() > 30.0 { return; } let yaw = r.range(0.0, 6.283);
+        if kind == Kind::Crab && w.get(x.floor() as i32, y as i32 - 1, z.floor() as i32) != Some(B::SAND) { return; } // le crabe ne sort que sur le sable
         if kind != Kind::Crow && kind != Kind::Tumble && !fits(w, x, y, z, yaw, 1) { return; }
         let y = if kind == Kind::Crow { y + r.range(10.0, 16.0) } else { y };
         let axis = [r.range(-1.0, 1.0), 0.0, r.range(-1.0, 1.0)]; let t = r.range(1.0, 5.0);
         let roll = r.next(); let color = if kind != Kind::Hare { 0 } else if self.cold > 0.5 { if roll < 0.75 { 2 } else { 1 } } else if self.dry > 0.5 { if roll < 0.6 { 0 } else { 1 } } else if roll < 0.5 { 0 } else if roll < 0.8 { 1 } else if roll < 0.9 { 3 } else { 2 };
-        self.all.push(Critter { kind, color, p: [x, y, z], gy: y, yaw, state: if kind == Kind::Crow { State::Fly } else { State::Idle }, t, phase: 0.0, speed: 0.0, v: [0.0; 3], spin: 0.0, axis, step: 0.0, foot: false, life: 0.0, hp: hp_of(kind), hit: 0.0, cd: 0.0 });
+        self.all.push(Critter { kind, color, p: [x, y, z], gy: y, yaw, state: if kind == Kind::Crow { State::Fly } else { State::Idle }, t, phase: 0.0, speed: 0.0, v: [0.0; 3], spin: 0.0, axis, step: 0.0, foot: false, life: 0.0, hp: hp_of(kind), hit: 0.0, cd: 0.0, school: 0 });
     }
     /// `taiga` et `steppe` : force du biome autour du joueur, déjà lissée.
-    pub fn update(&mut self, dt: f64, w: &impl Voxels, p: [f64; 3], day: f64, taiga: f64, steppe: f64, open: f64, player_ground: bool, wild: [f64; 3]) {
-        let [deep, high, desert] = wild;
+    pub fn update(&mut self, dt: f64, w: &impl Voxels, p: [f64; 3], day: f64, taiga: f64, steppe: f64, open: f64, player_ground: bool, wild: [f64; 5]) {
+        let [deep, high, desert, sea, warm] = wild; let coast = (sea * 3.0).min(1.0) * (1.0 - sea).max(0.0) * 1.6;
         self.t += dt; self.cold = taiga; self.dry = steppe; self.wind = 0.7 + 0.6 * sin(self.t * 0.011) + 0.25 * sin(self.t * 0.047);
-        let want = |k: Kind| match k { Kind::Fox => (2.0 * taiga + 1.0 * open).round() as usize, Kind::Hare => (3.0 * taiga + 2.0 * open + 2.0 * steppe).round() as usize, Kind::Crow => if day > 0.2 { (4.0 * taiga).round() as usize } else { 0 }, Kind::Tumble => (4.0 * steppe).round() as usize, Kind::Ibex => (3.5 * high).round() as usize, Kind::Lizard => (3.0 * desert).round() as usize, _ => 0 };
+        let want = |k: Kind| match k { Kind::Fox => (2.0 * taiga + 1.0 * open).round() as usize, Kind::Hare => (3.0 * taiga + 2.0 * open + 2.0 * steppe).round() as usize, Kind::Crow => if day > 0.2 { (4.0 * taiga).round() as usize } else { 0 }, Kind::Tumble => (4.0 * steppe).round() as usize, Kind::Ibex => (3.5 * high).round() as usize, Kind::Lizard => (3.0 * desert).round() as usize, Kind::Fish => (22.0 * sea * (1.0 - warm)).round() as usize, Kind::Reef => (22.0 * sea * warm).round() as usize, Kind::Dolphin => (3.0 * smooth01(sea, 0.5, 0.9)).round() as usize, Kind::Crab => (4.0 * coast).round() as usize, Kind::Gull => if day > 0.2 { (4.0 * sea.min(1.0)).round() as usize } else { 0 }, _ => 0 };
         // Loups : en meute, dans la taïga, et la nuit hors des forêts ; sangliers : dans les prairies et les bois clairs.
         let night = day < 0.05; self.night = night;
         let want_pred = |k: Kind| match k { Kind::Wolf => (3.0 * taiga + if night { 2.0 * open } else { 0.0 }).round() as usize, Kind::Boar => (1.6 * open).round() as usize, Kind::Bear => (0.8 * taiga + 1.2 * deep).round() as usize, _ => 0 };
-        for k in [Kind::Fox, Kind::Hare, Kind::Crow, Kind::Tumble, Kind::Ibex, Kind::Lizard] { if self.count(k) < want(k) && self.rng.next() < dt * 0.6 { self.spawn(k, w, p); } }
+        for k in [Kind::Fox, Kind::Hare, Kind::Crow, Kind::Tumble, Kind::Ibex, Kind::Lizard, Kind::Fish, Kind::Reef, Kind::Dolphin, Kind::Crab, Kind::Gull] { if self.count(k) < want(k) && self.rng.next() < dt * 0.6 { self.spawn(k, w, p); } }
         for k in [Kind::Wolf, Kind::Boar, Kind::Bear] { if self.count(k) < want_pred(k) && self.rng.next() < dt * 0.25 { let n = self.all.len(); self.spawn(k, w, p); if k == Kind::Wolf && self.all.len() > n { let q = self.all[n].p; for _ in 0..2 { let o = [q[0] + self.rng.range(-2.0, 2.0), q[1], q[2] + self.rng.range(-2.0, 2.0)]; let yaw = self.rng.range(0.0, 6.28); self.put(Kind::Wolf, o, yaw, false); } self.ev.push(Ev::Howl(q)); } } }
         let mut all = std::mem::take(&mut self.all);
-        for c in all.iter_mut() { c.hit = (c.hit - dt).max(0.0); match c.kind { Kind::Fox | Kind::Hare | Kind::Ibex | Kind::Lizard => self.walker(c, dt, w, p), Kind::Crow => self.crow(c, dt, w, p), Kind::Tumble => self.tumble(c, dt, w), Kind::Wolf | Kind::Boar | Kind::Bear => self.beast(c, dt, w, p) } }
+        // Bancs : le centre et le cap moyen de chaque groupe de nageurs, pour que chacun suive les autres.
+        let mut schools: Vec<(u32, [f64; 3], [f64; 2], f64)> = Vec::new();
+        for c in all.iter().filter(|c| c.school != 0) { let (sy, cy) = (sin(c.yaw), cos(c.yaw)); match schools.iter_mut().find(|s| s.0 == c.school) { Some(s) => { for k in 0..3 { s.1[k] += c.p[k]; } s.2[0] += sy; s.2[1] += cy; s.3 += 1.0; } None => schools.push((c.school, c.p, [sy, cy], 1.0)) } }
+        for s in schools.iter_mut() { for k in 0..3 { s.1[k] /= s.3; } }
+        for c in all.iter_mut() { c.hit = (c.hit - dt).max(0.0); match c.kind { Kind::Fish | Kind::Reef | Kind::Dolphin => { let sc = schools.iter().find(|s| s.0 == c.school).map(|s| (s.1, s.2)); self.swim(c, dt, w, p, sc) } Kind::Fox | Kind::Hare | Kind::Ibex | Kind::Lizard | Kind::Crab => self.walker(c, dt, w, p), Kind::Crow | Kind::Gull => self.crow(c, dt, w, p), Kind::Tumble => self.tumble(c, dt, w), Kind::Wolf | Kind::Boar | Kind::Bear => self.beast(c, dt, w, p) } }
         all.retain(|c| c.state != State::Gone && hypot2(c.p[0] - p[0], c.p[2] - p[2]) < 90.0 && w.get(c.p[0].floor() as i32, c.p[1].floor() as i32, c.p[2].floor() as i32).is_some()); self.all = all;
         // Les pas du joueur s'impriment dans la neige, en alternant pied gauche et pied droit.
         if player_ground { self.foot(w, p, None, false); } else { self.last_print = None; }
@@ -151,10 +199,50 @@ impl Wild {
         self.prints.push(Print { p: [p[0] + cos(yaw) * side, top + 0.004, p[2] - sin(yaw) * side], yaw, age: 0.0, small }); self.last_print = Some(p);
         if self.prints.len() > MAX_PRINTS { self.prints.remove(0); }
     }
+    /// Un banc de poissons, ou deux à trois dauphins, dans une colonne d'eau assez profonde autour du joueur.
+    fn spawn_swim(&mut self, kind: Kind, w: &impl Voxels, p: [f64; 3]) {
+        let r = &mut self.rng; let (a, d) = (r.range(0.0, 6.283), r.range(12.0, 40.0)); let (x, z) = (p[0] + sin(a) * d, p[2] + cos(a) * d);
+        // Surface puis fond, en descendant depuis au-dessus du joueur.
+        let (mut y, mut top, mut bot) = (p[1] as i32 + 20, None, None);
+        while y > 1 && y > p[1] as i32 - 50 { match w.get(x.floor() as i32, y, z.floor() as i32) { None => return, Some(b) => { if is_wet(b) { if top.is_none() { top = Some(y as f64 + 0.9); } } else if top.is_some() { bot = Some(y as f64 + 1.0); break; } else if is_solid(b) { return; } } } y -= 1; }
+        let (Some(top), Some(bot)) = (top, bot) else { return }; let need = if kind == Kind::Dolphin { 4.0 } else { 2.0 }; if top - bot < need { return; }
+        let n = if kind == Kind::Dolphin { r.int(2, 3) } else { r.int(5, 9) }; let school = 1 + (r.next() * 1e6) as u32; let yaw = r.range(0.0, 6.283); let color = (r.next() * 3.0) as u8;
+        for _ in 0..n { let q = [x + r.range(-1.5, 1.5), (bot + 0.6 + r.next() * (top - bot - 1.4)).min(top - 0.7), z + r.range(-1.5, 1.5)]; if !wet_at(w, q[0], q[1], q[2]) { continue; }
+            self.all.push(Critter { kind, color, p: q, gy: q[1], yaw: yaw + r.range(-0.3, 0.3), state: State::Walk, t: r.range(3.0, 9.0), phase: r.range(0.0, 6.0), speed: 0.0, v: [0.0; 3], spin: 0.0, axis: [0.0; 3], step: 0.0, foot: false, life: 0.0, hp: hp_of(kind), hit: 0.0, cd: 0.0, school }); }
+    }
+    /// Nage en banc : chacun suit le cap moyen et le centre du groupe, garde l'eau au-dessus et le fond au-dessous, et file loin du nageur qui approche.
+    /// Le dauphin, lui, s'approche par curiosité et bondit hors de l'eau de temps en temps.
+    fn swim(&mut self, c: &mut Critter, dt: f64, w: &impl Voxels, p: [f64; 3], school: Option<([f64; 3], [f64; 2])>) {
+        let r = &mut self.rng; let dol = c.kind == Kind::Dolphin; c.t -= dt; c.life += dt;
+        if c.state == State::Fly { // bond du dauphin : une parabole, puis la replongée
+            c.v[1] -= 14.0 * dt; for k in 0..3 { c.p[k] += c.v[k] * dt; } c.phase += dt * 3.0;
+            if c.v[1] < 0.0 && wet_at(w, c.p[0], c.p[1], c.p[2]) { c.state = State::Walk; c.t = r.range(5.0, 12.0); self.ev.push(Ev::Splash(c.p)); c.v[1] = -2.0; }
+            return;
+        }
+        if !wet_at(w, c.p[0], c.p[1], c.p[2]) { c.cd += dt; if c.cd > 2.0 { c.state = State::Gone; } c.p[1] -= 3.0 * dt; return; } c.cd = 0.0;
+        let to_me = [p[0] - c.p[0], p[1] + 1.0 - c.p[1], p[2] - c.p[2]]; let dist = (to_me[0] * to_me[0] + to_me[1] * to_me[1] + to_me[2] * to_me[2]).sqrt();
+        if !dol && dist < 4.0 && c.state != State::Flee { c.state = State::Flee; c.t = r.range(1.5, 2.5); }
+        if c.state == State::Flee && c.t <= 0.0 { c.state = State::Walk; c.t = r.range(3.0, 8.0); }
+        let mut d = [sin(c.yaw), 0.0, cos(c.yaw)];
+        if let Some((cen, head)) = school { let hl = hypot2(head[0], head[1]).max(1e-6); d[0] += head[0] / hl * 0.8 + (cen[0] - c.p[0]) * 0.25; d[2] += head[1] / hl * 0.8 + (cen[2] - c.p[2]) * 0.25; d[1] += (cen[1] - c.p[1]) * 0.3; }
+        if c.t <= 0.0 { c.t = r.range(2.0, 6.0); c.spin = r.range(-0.9, 0.9); } d[0] += cos(c.yaw) * c.spin * 0.6; d[2] -= sin(c.yaw) * c.spin * 0.6; // errance douce
+        if c.state == State::Flee { let l = dist.max(0.1); d = [-to_me[0] / l * 3.0 + d[0] * 0.3, -to_me[1] / l, -to_me[2] / l * 3.0 + d[2] * 0.3]; }
+        if dol && dist > 7.0 && dist < 30.0 { d[0] += to_me[0] / dist * 0.7; d[2] += to_me[2] / dist * 0.7; } // le dauphin vient voir
+        // Rester dans l'eau : ni crever la surface, ni racler le fond.
+        if !wet_at(w, c.p[0], c.p[1] + if dol { 1.2 } else { 0.6 }, c.p[2]) { d[1] -= 0.8; } if !wet_at(w, c.p[0], c.p[1] - 0.6, c.p[2]) { d[1] += 0.8; }
+        let want = d[0].atan2(d[2]); let mut dy = want - c.yaw; while dy > std::f64::consts::PI { dy -= std::f64::consts::TAU; } while dy < -std::f64::consts::PI { dy += std::f64::consts::TAU; } c.yaw += dy.clamp(-3.0 * dt, 3.0 * dt);
+        let sp = if c.state == State::Flee { if dol { 6.0 } else { 4.5 } } else if dol { 3.6 } else { 1.3 }; c.speed += (sp - c.speed) * (dt * 3.0).min(1.0);
+        let hl = hypot2(d[0], d[2]).max(1e-6); let vy = (d[1] / hl).clamp(-0.6, 0.6) * c.speed * 0.6;
+        let n = [c.p[0] + sin(c.yaw) * c.speed * dt, c.p[1] + vy * dt, c.p[2] + cos(c.yaw) * c.speed * dt];
+        if wet_at(w, n[0], n[1], n[2]) { c.v = [(n[0] - c.p[0]) / dt.max(1e-6), vy, (n[2] - c.p[2]) / dt.max(1e-6)]; c.p = n; } else { c.yaw += r.range(1.8, 2.8); c.v = [0.0; 3]; }
+        c.phase += dt * (6.0 + c.speed * 5.0);
+        // Le dauphin, près de la surface, prend son élan et saute.
+        if dol && c.t < 0.3 && r.next() < dt * 0.5 && !wet_at(w, c.p[0], c.p[1] + 1.6, c.p[2]) { c.state = State::Fly; c.v = [sin(c.yaw) * 5.5, 6.5, cos(c.yaw) * 5.5]; self.ev.push(Ev::Splash(c.p)); }
+    }
     fn walker(&mut self, c: &mut Critter, dt: f64, w: &impl Voxels, p: [f64; 3]) {
         knock(c, dt, w); let hare = c.kind == Kind::Hare; let dist = hypot2(c.p[0] - p[0], c.p[2] - p[2]); let r = &mut self.rng;
         // Distance de fuite, vitesse de fuite et de marche : le bouquetin file loin, le lézard détale au dernier moment.
-        let (shy, run, amble) = match c.kind { Kind::Hare => (4.5, 8.5, 1.2), Kind::Ibex => (8.0, 7.5, 1.3), Kind::Lizard => (2.5, 5.5, 0.7), _ => (6.0, 7.0, 1.7) };
+        let (shy, run, amble) = match c.kind { Kind::Hare => (4.5, 8.5, 1.2), Kind::Ibex => (8.0, 7.5, 1.3), Kind::Lizard => (2.5, 5.5, 0.7), Kind::Crab => (2.6, 3.2, 0.55), _ => (6.0, 7.0, 1.7) };
         if dist < shy && c.state != State::Flee {
             c.state = State::Flee; c.t = r.range(3.0, 5.0); c.yaw = (c.p[0] - p[0]).atan2(c.p[2] - p[2]); if hare { self.ev.push(Ev::Thump(c.p)); } else if r.next() < 0.6 { self.ev.push(Ev::Bark(c.p)); }
         }
@@ -197,7 +285,7 @@ impl Wild {
     }
     fn crow(&mut self, c: &mut Critter, dt: f64, w: &impl Voxels, p: [f64; 3]) {
         let r = &mut self.rng; c.phase += dt * if c.state == State::Fly { 11.0 } else { 0.0 }; c.t -= dt;
-        if r.next() < dt * 0.12 { self.ev.push(Ev::Caw(c.p)); }
+        if r.next() < dt * 0.12 { self.ev.push(if c.kind == Kind::Gull { Ev::Cry(c.p) } else { Ev::Caw(c.p) }); }
         if c.state == State::Idle {
             if hypot2(c.p[0] - p[0], c.p[2] - p[2]) < 5.0 || c.t <= 0.0 { c.state = State::Fly; c.t = r.range(8.0, 18.0); c.v[1] = 3.0; self.ev.push(Ev::Caw(c.p)); }
             return;
@@ -263,6 +351,17 @@ impl Wild {
                 }
                 Kind::Lizard => { let wag = if c.speed > 0.0 { sin(c.phase * 1.6) * 0.25 } else { 0.0 }; put("lizard", trs(c.p[0], c.p[1] + 0.01 + flinch(c.hit) * 0.2, c.p[2], c.yaw + wag, 0.0, 1.6)); }
                 Kind::Tumble => put("tumble", rot_axis([c.p[0], c.p[1] + 0.58, c.p[2]], c.axis, c.spin, 1.0)),
+                Kind::Fish | Kind::Reef | Kind::Dolphin => {
+                    // Le corps ondule (la queue bat), le nez suit la pente de la nage.
+                    let hv = hypot2(c.v[0], c.v[2]); let pitch = -(c.v[1]).atan2(hv.max(0.3)) * 0.8; let wag = sin(c.phase) * if c.kind == Kind::Dolphin { 0.04 } else { 0.18 };
+                    let (n, sc) = match c.kind { Kind::Fish => ("mackerel", 1.0), Kind::Reef => (["reef0", "reef1", "reef2"][c.color as usize % 3], 1.0), _ => ("dolphin", DOLPHIN) };
+                    let bob = if c.kind == Kind::Dolphin { -sin(c.phase) * 0.12 } else { 0.0 }; put(n, trs(c.p[0], c.p[1] + 0.1, c.p[2], c.yaw + wag, pitch + bob, sc));
+                }
+                Kind::Crab => { let bob = if c.speed > 0.0 { sin(c.phase * 2.0).abs() * 0.03 } else { 0.0 }; put("crab", trs(c.p[0], c.p[1] + bob + flinch(c.hit) * 0.2, c.p[2], c.yaw + std::f64::consts::FRAC_PI_2, 0.0, 1.3)); } // le crabe marche de côté
+                Kind::Gull => {
+                    let base = trs(c.p[0], c.p[1] + 0.05, c.p[2], c.yaw, 0.0, 1.0); let f = if c.state == State::Fly { 0.15 + 0.4 * sin(c.phase * 0.7) } else { -1.3 };
+                    put("gull", base); put("gullWing", mul(&base, &mul(&trs(0.05 * GULL, 0.08 * GULL, 0.0, 0.0, 0.0, 1.0), &roll_z(f)))); put("gullWing", mul(&base, &mul(&trs(-0.05 * GULL, 0.08 * GULL, 0.0, 0.0, 0.0, 1.0), &roll_z(std::f64::consts::PI - f))));
+                }
             }
         }
         for pr in &self.prints { let sc = if pr.small { 0.55 } else { 1.0 }; put("print", trs(pr.p[0], pr.p[1], pr.p[2], pr.yaw, 0.0, sc)); }

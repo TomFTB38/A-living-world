@@ -66,6 +66,8 @@ jobs:
           shot cactus -38.5 53 0.5 -20 52 -30 16 4 1280 720 2048 cactus
           shot hautes_terres -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 hautes_terres
           shot hautes_montagnes -38.5 53 0.5 -20 52 -30 15 6 1280 720 2048 hautes_montagnes
+          shot recif -38.5 53 0.5 -20 52 -30 15 5 1280 720 2048 recif
+          shot plage -38.5 53 0.5 -20 52 -30 15 6 1280 720 2048 plage
           shot foret -38.5 53 0.5 -20 52 -30 11 3 1280 720 1024 foret
           shot foret_nuit -38.5 53 0.5 -20 52 -30 22.5 3 1280 720 1024 foret
           shot f3 -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 f3

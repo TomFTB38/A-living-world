@@ -356,6 +356,14 @@ defs.push(['furnace_lit', 'deco', null, 1.4, { model: 'furnace', solid: true, li
 // Fleurs d'altitude : l'edelweiss laineux des rocailles et la gentiane bleue des alpages.
 defs.push(['edelweiss', 'deco', null, 0.02, { model: 'edelweiss', drop: null }]);
 defs.push(['gentian', 'deco', null, 0.02, { model: 'gentian', drop: null }]);
+// Mer : plantes immergées (l'eau remplit leur case), coquillages et oyats sur les plages.
+defs.push(['seagrass', 'deco', null, 0.02, { model: 'seagrass', drop: null }]);
+defs.push(['kelp', 'deco', null, 0.02, { model: 'kelp', drop: null }]);
+defs.push(['kelp_top', 'deco', null, 0.02, { model: 'kelp_top', drop: null }]);
+defs.push(['coral', 'deco', null, 0.3, { model: 'coral', drop: null }]);
+defs.push(['coral_fan', 'deco', null, 0.2, { model: 'coral_fan', drop: null }]);
+defs.push(['shell', 'deco', null, 0.05, { model: 'shell' }]);
+defs.push(['marram', 'deco', null, 0.02, { model: 'marram', drop: null }]);
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,

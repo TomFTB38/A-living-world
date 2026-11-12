@@ -24,6 +24,10 @@ pub struct Block {
 #[inline(always)] pub fn is_solid(b: Id) -> bool { BLOCKS[b as usize].solid }
 #[inline(always)] pub fn is_opaque(b: Id) -> bool { BLOCKS[b as usize].opaque }
 #[inline(always)] pub fn is_water(b: Id) -> bool { BLOCKS[b as usize].shape == Shape::Water }
+/// Plante immergée : sa case est pleine d'eau (on y nage, l'eau s'y dessine), la plante y pousse en plus.
+#[inline(always)] pub fn is_aquatic(b: Id) -> bool { (B::SEAGRASS..=B::CORAL_FAN).contains(&b) }
+/// De l'eau, avec ou sans plante dedans.
+#[inline(always)] pub fn is_wet(b: Id) -> bool { is_water(b) || is_aquatic(b) }
 /// Niveau d'eau : 8 pour une source, 1 à 7 pour l'eau qui coule, 0 sinon.
 #[inline] pub fn water_level(b: Id) -> u8 { if b == B::WATER { 8 } else if is_water(b) { (b - B::WATER_1 + 1) as u8 } else { 0 } }
 #[inline] pub fn flow_block(level: u8) -> Id { B::WATER_1 + level as Id - 1 }

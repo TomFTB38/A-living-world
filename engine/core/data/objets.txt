@@ -175,6 +175,7 @@ dead_hollow | Tronc creux de bois mort | bois | 1.2 | 64 | | combustible=20
 # --- Plantes ---
 twigs | Branches au sol | plantes | 0.3 | 64 | |
 pebbles | Cailloux au sol | plantes | 0.6 | 64 | |
+shell | Coquillage | matieres | 0.05 | 64 | Ramassé sur la plage. Les marchands en donnent quelques pièces. |
 oak_leaves | Feuilles de chêne | plantes | 0.2 | 64 | |
 birch_leaves | Feuilles de bouleau | plantes | 0.2 | 64 | |
 beech_leaves | Feuilles de hêtre | plantes | 0.2 | 64 | |
@@ -243,6 +244,8 @@ fishing_rod | Canne à pêche | outils | 0.6 | 1 | Clic droit vers l'eau pour la
 trout | Truite | vivres | 0.4 | 16 | Vit dans l'eau qui court : ruisseaux et rivières. À cuire. | aliment=6:2:-2 garde=1
 perch | Perche | vivres | 0.4 | 16 | Vit dans l'eau calme des lacs et des mares. À cuire. | aliment=6:2:-2 garde=1
 char | Omble | vivres | 0.5 | 16 | Poisson des eaux froides du nord et des montagnes. À cuire. | aliment=7:2:-2 garde=1
+mackerel | Maquereau | vivres | 0.4 | 16 | Poisson de mer des eaux fraîches, en bancs serrés. À cuire. | aliment=7:2:-2 garde=1
+sea_bream | Dorade | vivres | 0.5 | 16 | Poisson de mer des eaux chaudes, autour des récifs. À cuire. | aliment=8:2:-2 garde=1
 cooked_fish | Poisson grillé | vivres | 0.3 | 16 | Léger et nourrissant. | aliment=24:4:3 garde=2
 carrot | Carotte | vivres | 0.1 | 64 | Se croque crue ou se sème sur une terre labourée. | aliment=8:3:0 garde=8
 potato | Pomme de terre | vivres | 0.2 | 64 | Crue, elle nourrit mal ; cuite, beaucoup mieux. Se sème aussi. | aliment=4:0:0 garde=12

@@ -327,11 +327,19 @@ impl SoundScape {
     pub fn deer_alarm(&self, pos: [f64; 3]) { if let Some((v, pan)) = self.at(pos, 40.0) { self.send(Cmd::Play { l: l("snort", 1.0, 0.6 * v), k: 1.0, pan, delay: 0.0 }); self.send(Cmd::Play { l: l("snort", 0.92, 0.45 * v), k: 1.0, pan, delay: 0.42 }); } }
     pub fn deer_call(&self, pos: [f64; 3]) { if let Some((v, pan)) = self.at(pos, 26.0) { self.send(Cmd::Play { l: L { lp: 900.0, ..l("snort", 0.7, 0.24 * v) }, k: 1.0, pan, delay: 0.0 }); } }
     /// Ambiance : le vent n'existe que par mauvais temps, l'eau dépend de ce qui coule autour du joueur.
-    pub fn env(&self, cloud: f64, rain: f64, covered: bool, submerged: bool, brook: Option<[f64; 3]>, fall: Option<[f64; 3]>) {
+    pub fn env(&self, cloud: f64, rain: f64, covered: bool, submerged: bool, brook: Option<[f64; 3]>, fall: Option<[f64; 3]>, surf: f64) {
         let storm = rain.max((cloud - 0.72).max(0.0) / 0.28 * 0.4) as f32; let q = if covered { 0.3 } else { 1.0 }; let soft = |v: f32| v.sqrt() * v.sqrt().sqrt();
         let fl = brook.and_then(|b| self.at(b, 22.0)); let dr = fall.and_then(|b| self.at(b, 38.0));
-        self.send(Cmd::Env { wind: (if storm > 0.02 { 0.3 * storm * q } else { 0.0 }).max(self.breeze * q), rain: 0.24 * rain as f32 * q, brook: (if submerged { 0.16 } else { fl.map_or(0.0, |a| 0.22 * soft(a.0)) }, fl.map_or(0.0, |a| a.1)), fall: (dr.map_or(0.0, |a| 0.36 * soft(a.0)), dr.map_or(0.0, |a| a.1)), under: submerged });
+        self.send(Cmd::Env { wind: (if storm > 0.02 { 0.3 * storm * q } else { 0.0 }).max(self.breeze * q), rain: 0.24 * rain as f32 * q, brook: (if submerged { 0.16 } else { fl.map_or(0.0, |a| 0.22 * soft(a.0)) }, fl.map_or(0.0, |a| a.1)), fall: (dr.map_or(0.0, |a| 0.36 * soft(a.0)).max(0.3 * surf as f32 * q), /* le ressac de la mer, quand on est au bord ou au large */ dr.map_or(0.0, |a| a.1)), under: submerged });
     }
+    /// Goéland : des cris aigus qui retombent, « kia-kia-kia », en série irrégulière.
+    pub fn gull(&mut self, pos: [f64; 3]) {
+        let Some((v, pan)) = self.at(pos, 70.0) else { return }; let r = &mut self.rnd; let n = 2 + r.pick(4); let f = r.range(1150.0, 1450.0); let mut o = Vec::new();
+        for i in 0..n { let d = i as f32 * r.range(0.22, 0.32) as f32; o.push(Cmd::Tone { f: f * 1.15, to: f * 0.72, dur: 0.17, vol: 0.09 * v, pan, delay: d, saw: true, lp: 3200.0 }); o.push(Cmd::Tone { f: f * 2.3, to: f * 1.5, dur: 0.12, vol: 0.025 * v, pan, delay: d, saw: false, lp: 5000.0 }); }
+        for c in o { self.send(c); }
+    }
+    /// Une gerbe d'eau à distance (le dauphin qui replonge).
+    pub fn splash_at(&mut self, pos: [f64; 3]) { let Some((v, pan)) = self.at(pos, 50.0) else { return }; self.send(Cmd::Play { l: l("splash", 0.85, 0.5), k: 0.7 * v, pan, delay: 0.0 }); }
     /// Corbeau : deux ou trois croassements rauques.
     pub fn caw(&mut self, pos: [f64; 3]) {
         let Some((v, pan)) = self.at(pos, 60.0) else { return }; let r = &mut self.rnd; let n = 2 + r.pick(2); let f = r.range(520.0, 640.0); let mut o = Vec::new();

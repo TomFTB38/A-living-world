@@ -83,7 +83,7 @@ impl Mesher {
                 if y > t { self.sky[k] = 15; y -= 1; continue; }
                 let b = self.vol[k];
                 if is_opaque(b) { if y < ylow { ylow = y; } break; }
-                if is_leaf(b) { s = if s > 1 { s - 1 } else { 0 }; } else if is_water(b) { s = s.saturating_sub(1); }
+                if is_leaf(b) { s = if s > 1 { s - 1 } else { 0 }; } else if is_wet(b) { s = s.saturating_sub(1); }
                 self.sky[k] = s;
                 y -= 1;
             }
@@ -202,12 +202,15 @@ impl Mesher {
             let k = at(x, y, z); let b = self.vol[k as usize];
             if b == 0 || is_opaque(b) { continue; }
             let (fx, fy, fz) = (x as f64, y as f64, z as f64);
-            if is_water(b) {
-                let up = self.vk(k + WW); let covered = is_water(up); let top_y = if covered { fy + 1.0 } else { fy + 0.875 * water_level(b) as f64 / 8.0 };
+            if is_wet(b) {
+                // Une plante immergée : sa case se dessine comme une eau de source, la plante par-dessus.
+                if is_aquatic(b) && lod < 2 { let l = self.blk[k as usize] as f64 * 17.0; self.deco_model(&mut deco, b, x, y, z, cx * CX as i32 + x, cz * CX as i32 + z, self.sky[k as usize] as f64 * 17.0, l, lod); }
+                let lvl = |v: Id| -> u8 { if is_aquatic(v) { 8 } else { water_level(v) } };
+                let up = self.vk(k + WW); let covered = is_wet(up); let top_y = if covered { fy + 1.0 } else { fy + 0.875 * lvl(b) as f64 / 8.0 };
                 let s = (self.sky[(k + WW) as usize] as i32 * 17) as f64; let l = (self.blk[k as usize] as i32 * 17) as f64;
                 // Hauteur d'une colonne voisine, et de chaque coin : l'eau qui coule forme une pente continue, pas des marches.
                 let flowing = (-1..=1).any(|dz| (-1..=1).any(|dx| { let v = self.vk(k + dx + dz * W); is_water(v) && v != B::WATER }));
-                let height = |n: i32| -> Option<f64> { let v = self.vk(n); if is_water(v) { Some(if is_water(self.vk(n + WW)) { 1.0 } else { 0.875 * water_level(v) as f64 / 8.0 }) } else if is_opaque(v) { None } else { Some(0.0) } };
+                let height = |n: i32| -> Option<f64> { let v = self.vk(n); if is_wet(v) { Some(if is_wet(self.vk(n + WW)) { 1.0 } else { 0.875 * lvl(v) as f64 / 8.0 }) } else if is_opaque(v) { None } else { Some(0.0) } };
                 let corner = |cx: i32, cz: i32| -> f64 {
                     if !flowing || covered { return top_y; }
                     let (mut sum, mut n) = (top_y - fy, 1.0); for q in [k + cx, k + cz * W, k + cx + cz * W] { if let Some(h) = height(q) { sum += h; n += 1.0; } } fy + (sum / n).max(0.04)
@@ -223,7 +226,7 @@ impl Mesher {
                 for (n, nx, nz, ax, az, bx, bz, ca, cb) in sides {
                     let v = self.vk(n); if is_opaque(v) { continue; }
                     let mut low = fy;
-                    if is_water(v) { if !flowing { continue; } low = fy + height(n).unwrap_or(0.0); if low >= ca.max(cb) - 0.01 { continue; } }
+                    if is_wet(v) { if !flowing { continue; } low = fy + height(n).unwrap_or(0.0); if low >= ca.max(cb) - 0.01 { continue; } }
                     let ss = (self.sky[n as usize].max(self.sky[k as usize]) as i32 * 17) as f64;
                     for (a, e, c) in [(ax, low, az), (bx, low, bz), (bx, cb.max(low), bz), (ax, ca.max(low), az)] { water.v(a, e, c, 0.0, nx, 0.0, nz, 0.0, 255.0, ss, l, 0, 1.0, 1.0, 1.0); }
                 }
@@ -526,7 +529,7 @@ impl Mesher {
                 let a = r_.range(3.0, 6.0); blade(o, cx, y, cz, a, 0.5, 0.6, 0.3, k[0] * 1.1, k[1] * 1.1, k[2] * 1.1, s, l, s);
                 return;
             }
-            let col = match m { "lupine" => [0.44, 0.26, 0.72], "gentian" => [0.2, 0.32, 0.95], "pink" => [0.9, 0.42, 0.6], "yellow" => [0.95, 0.74, 0.16], "mushroom" => [0.75, 0.6, 0.45], "glowcap" => [0.3, 0.7, 0.8], _ => [0.95, 0.93, 0.85] };
+            let col = match m { "seagrass" | "kelp" | "kelp_top" => [0.3, 0.38, 0.14], "coral" => [0.95, 0.5, 0.4], "coral_fan" => [0.7, 0.3, 0.7], "marram" => [0.6, 0.65, 0.45], "shell" => [0.9, 0.8, 0.7], "lupine" => [0.44, 0.26, 0.72], "gentian" => [0.2, 0.32, 0.95], "pink" => [0.9, 0.42, 0.6], "yellow" => [0.95, 0.74, 0.16], "mushroom" => [0.75, 0.6, 0.45], "glowcap" => [0.3, 0.7, 0.8], _ => [0.95, 0.93, 0.85] };
             let hh = if m == "lupine" { 0.8 } else { 0.4 };
             bx(o, x + 0.34, y + hh * 0.4, z + 0.34, x + 0.66, y + hh, z + 0.66, col[0], col[1], col[2], 40.0, s, l, FOLIAGE, false, 70.0, 255.0);
             return;
@@ -599,6 +602,56 @@ impl Mesher {
                     bx(o, a - w, y + h, c - w, a + w, y + h + 0.07, c + w, col[0], col[1], col[2], 80.0, s, l, FOLIAGE, false, 80.0, 255.0);
                 }
                 let t = r_.range(0.0, 6.3); blade(o, x + 0.5, y, z + 0.5, t, 0.04, 0.34, 0.15, 0.36, 0.5, 0.18, s, l, s);
+            }
+            "seagrass" => {
+                // Zostère : une prairie de longs rubans vert sombre, couchés par le courant.
+                let n = r_.int(9, 13); let lean = r_.range(0.1, 0.3); let dir = r_.range(0.0, 6.28);
+                for _ in 0..n { let t = r_.range(0.8, 1.2); blade(o, x + r_.next(), y, z + r_.next(), dir + r_.range(-0.5, 0.5), r_.range(0.025, 0.045), r_.range(0.45, 0.95), lean, 0.17 * t, 0.4 * t, 0.2 * t, s, l, s); }
+            }
+            "kelp" | "kelp_top" => {
+                // Varech : une tige olive qui monte d'une case à l'autre, de larges frondes brunes ondulantes ; au sommet, un flotteur et un panache.
+                let top = m == "kelp_top"; let (a, c) = (x + 0.5 + (wx % 3) as f64 * 0.04, z + 0.5 + (wz % 3) as f64 * 0.04); let hh = if top { 0.62 } else { 1.0 };
+                bx(o, a - 0.035, y, c - 0.035, a + 0.035, y + hh, c + 0.035, 0.42, 0.38, 0.14, 60.0, s, l, FOLIAGE, false, 60.0, 255.0);
+                for k in 0..if top { 2 } else { 3 } { let yy = y + 0.12 + k as f64 * 0.3; let t = r_.range(0.85, 1.15); blade(o, a, yy, c, r_.range(0.0, 6.28), r_.range(0.07, 0.1), r_.range(0.35, 0.55), r_.range(0.2, 0.35), 0.4 * t, 0.36 * t, 0.12 * t, s, l, s); }
+                if top { bx(o, a - 0.07, y + 0.55, c - 0.07, a + 0.07, y + 0.7, c + 0.07, 0.62, 0.52, 0.18, 60.0, s, l, FOLIAGE, false, 60.0, 255.0); for _ in 0..4 { blade(o, a, y + 0.66, c, r_.range(0.0, 6.28), 0.07, 0.4, 0.3, 0.45, 0.4, 0.14, s, l, s); } }
+            }
+            "coral" => {
+                // Corail : une colonie ramifiée aux couleurs vives, ou une boule de corail-cerveau, posée sur le sable.
+                const PAL: [[f64; 3]; 5] = [[0.98, 0.42, 0.36], [0.99, 0.62, 0.2], [0.72, 0.34, 0.86], [0.98, 0.86, 0.32], [0.3, 0.76, 0.86]];
+                let col = PAL[(hash_int(wx, 7, wz, 92) % 5) as usize]; let (a, c) = (x + 0.5, z + 0.5); let dk = [col[0] * 0.7, col[1] * 0.7, col[2] * 0.7];
+                if hash_int(wx, 3, wz, 93) % 4 == 0 {
+                    for (r0, h0) in [(0.34, 0.2), (0.27, 0.34), (0.17, 0.44)] { bx(o, a - r0, y, c - r0, a + r0, y + h0, c + r0, col[0], col[1], col[2], 0.0, s, l, FOLIAGE, false, 0.0, 255.0); }
+                    for k in 0..5 { let t = k as f64 * 1.26; let (dx, dz) = (cos(t) * 0.2, sin(t) * 0.2); bx(o, a + dx - 0.03, y + 0.3, c + dz - 0.03, a + dx + 0.03, y + 0.36, c + dz + 0.03, dk[0], dk[1], dk[2], 0.0, s, l, FOLIAGE, false, 0.0, 255.0); }
+                } else {
+                    let n = r_.int(4, 6);
+                    for _ in 0..n { let (t, rr) = (r_.range(0.0, 6.28), r_.range(0.05, 0.25)); let (bx0, bz0) = (a + cos(t) * rr, c + sin(t) * rr); let h1 = r_.range(0.35, 0.8); let w = r_.range(0.035, 0.055);
+                        bx(o, bx0 - w, y, bz0 - w, bx0 + w, y + h1, bz0 + w, col[0], col[1], col[2], 0.0, s, l, FOLIAGE, false, 0.0, 255.0);
+                        let (ox2, oz2) = (cos(t) * 0.14, sin(t) * 0.14); let h2 = h1 * r_.range(0.4, 0.7);
+                        bx(o, bx0 + ox2 - w * 0.8, y + h2, bz0 + oz2 - w * 0.8, bx0 + ox2 + w * 0.8, y + h2 + r_.range(0.18, 0.3), bz0 + oz2 + w * 0.8, col[0] * 1.05, col[1] * 1.05, col[2] * 1.05, 0.0, s, l, FOLIAGE, false, 0.0, 255.0);
+                        bx(o, bx0 - w * 0.6, y + h2, bz0 - w * 0.6, bx0 + ox2 + w * 0.6, y + h2 + w * 1.2, bz0 + oz2 + w * 0.6, col[0], col[1], col[2], 0.0, s, l, FOLIAGE, false, 0.0, 255.0);
+                        bx(o, bx0 - w * 1.2, y + h1, bz0 - w * 1.2, bx0 + w * 1.2, y + h1 + 0.04, bz0 + w * 1.2, (col[0] * 1.25).min(1.2), (col[1] * 1.25).min(1.2), (col[2] * 1.25).min(1.2), 0.0, s, l, FOLIAGE, false, 0.0, 255.0); }
+                }
+            }
+            "coral_fan" => {
+                // Gorgone : un éventail plat de fines mailles violettes ou rouges, dressé face au courant.
+                let col = if hash_int(wx, 1, wz, 94) % 2 == 0 { [0.62, 0.22, 0.7] } else { [0.86, 0.24, 0.26] }; let t = r_.range(0.0, 3.14); let (ca, sa) = (cos(t), sin(t)); let (a, c) = (x + 0.5, z + 0.5);
+                bx(o, a - 0.03, y, c - 0.03, a + 0.03, y + 0.18, c + 0.03, col[0] * 0.6, col[1] * 0.6, col[2] * 0.6, 0.0, s, l, FOLIAGE, false, 0.0, 255.0);
+                for i in -5..=5 { for j in 0..8 { let (u, v) = (i as f64 * 0.07, 0.18 + j as f64 * 0.075); if u * u / 0.16 + (v - 0.18) * (v - 0.18) / 0.36 > 1.0 { continue; }
+                    let k = if (i + j) % 3 == 0 { 0.65 } else { 1.0 }; let (px, pz) = (a + ca * u, c + sa * u);
+                    bx(o, px - 0.035, y + v, pz - 0.035, px + 0.035, y + v + 0.07, pz + 0.035, col[0] * k, col[1] * k, col[2] * k, 30.0, s, l, FOLIAGE, false, 30.0, 255.0); } }
+            }
+            "shell" => {
+                // Coquillage : une coquille Saint-Jacques côtelée, crème et rose, à demi enfoncée dans le sable.
+                let t = r_.range(0.0, 6.28); let (ca, sa) = (cos(t), sin(t)); let (a, c) = (cx, cz); let pink = r_.next() < 0.5;
+                for i in -3..=3 { let u = i as f64 * 0.032; let len = 0.13 - (i as f64).abs() * 0.012; let k = if i % 2 == 0 { 1.0 } else { 0.84 };
+                    let (p0x, p0z) = (a + ca * u, c + sa * u); let (dx, dz) = (-sa * len, ca * len);
+                    bx(o, p0x.min(p0x + dx) - 0.014, y, p0z.min(p0z + dz) - 0.014, p0x.max(p0x + dx) + 0.014, y + 0.03 + 0.012 * (3 - (i as i32).abs()) as f64, p0z.max(p0z + dz) + 0.014, 0.96 * k, if pink { 0.74 } else { 0.86 } * k, if pink { 0.7 } else { 0.7 } * k, 0.0, s, l, FOLIAGE, false, 0.0, 255.0); }
+                bx(o, a - 0.03, y, c - 0.03, a + 0.03, y + 0.025, c + 0.03, 0.85, 0.7, 0.6, 0.0, s, l, FOLIAGE, false, 0.0, 255.0);
+            }
+            "marram" => {
+                // Oyat : une touffe raide de longues herbes gris-vert, qui retient le sable des dunes et ploie sous le vent du large.
+                let n = r_.int(10, 15); let lean = r_.range(0.15, 0.3); let dir = r_.range(0.0, 6.28);
+                for _ in 0..n { let t = r_.range(0.85, 1.15); blade(o, cx + r_.range(-0.15, 0.15), y, cz + r_.range(-0.15, 0.15), dir + r_.range(-0.9, 0.9), r_.range(0.018, 0.03), r_.range(0.55, 1.05), lean, 0.6 * t, 0.65 * t, 0.44 * t, s, l, s); }
             }
             "edelweiss" => {
                 // Edelweiss : une rosette de feuilles gris argenté, une à trois tiges laineuses, et l'étoile de bractées blanc feutré autour d'un cœur jaune pâle.
@@ -878,7 +931,10 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32) -> (Vec<u8>, usize) {
             let t = (gen.n_deco.n2(wx / 40.0, wz / 40.0) + 1.0) * 0.5;
             let (tg, dp, st, de) = (c.mix.strong(crate::biome::Biome::Taiga), c.mix.strong(crate::biome::Biome::DeepForest), c.mix.strong(crate::biome::Biome::Steppe), c.mix.strong(crate::biome::Biome::Desert));
             let mt = c.mix.strong(crate::biome::Biome::Mountains);
-            cols[k] = if mt > 0.5 && c.water == 0.0 { if c.h > 92.0 + 4.0 * t { [0.88, 0.91, 0.96] } else if c.h > 83.0 + 4.0 * t { [(0.46 + 0.06 * t) as f32, (0.46 + 0.05 * t) as f32, (0.47 + 0.05 * t) as f32] } else { [(0.3 + 0.08 * t) as f32, (0.44 + 0.06 * t) as f32, (0.22 + 0.04 * t) as f32] } } // montagne : alpages, roche grise, neiges
+            let sea_w = c.mix.sea > 0.005 && c.water == crate::gen::SEA; let fond = (c.water - c.h).max(0.0); let warm = crate::noise::smooth(0.2, 0.5, c.mix.temp);
+            cols[k] = if sea_w { let k2 = crate::noise::smooth(2.0, 22.0, fond); let sh = [0.2 + 0.05 * warm, 0.42 + 0.14 * warm, 0.48 + 0.06 * warm]; let dp = [0.08, 0.2, 0.34]; [(sh[0] + (dp[0] - sh[0]) * k2) as f32, (sh[1] + (dp[1] - sh[1]) * k2) as f32, (sh[2] + (dp[2] - sh[2]) * k2) as f32] } // mer : turquoise sur les petits fonds, bleu nuit au large
+            else if c.mix.sea > 0.005 && c.water == 0.0 && c.h < crate::gen::SEA + 3.0 { [0.84, 0.78, 0.6] } // plages
+            else if mt > 0.5 && c.water == 0.0 { if c.h > 92.0 + 4.0 * t { [0.88, 0.91, 0.96] } else if c.h > 83.0 + 4.0 * t { [(0.46 + 0.06 * t) as f32, (0.46 + 0.05 * t) as f32, (0.47 + 0.05 * t) as f32] } else { [(0.3 + 0.08 * t) as f32, (0.44 + 0.06 * t) as f32, (0.22 + 0.04 * t) as f32] } } // montagne : alpages, roche grise, neiges
             else if c.mix.strong(crate::biome::Biome::Highlands) > 0.5 && c.water == 0.0 && c.h <= 100.0 { [(0.48 + 0.08 * t) as f32, (0.46 + 0.06 * t) as f32, (0.33 + 0.04 * t) as f32] } else if de > 0.5 && c.water == 0.0 && c.h <= 95.0 { [(0.84 + 0.05 * t) as f32, (0.7 + 0.04 * t) as f32, (0.48 + 0.03 * t) as f32] } else if st > 0.5 && c.water == 0.0 && c.h <= 90.0 && canopy <= 3.0 { [(0.56 + 0.08 * t) as f32, (0.5 + 0.06 * t) as f32, (0.3 + 0.04 * t) as f32] } else if tg > 0.5 || c.h > 100.0 { if c.water != 0.0 { [0.7, 0.8, 0.88] } else if canopy > 3.0 { [0.42, 0.5, 0.48] } else { [0.86, 0.9, 0.95] } } else if dp > 0.5 && canopy > 3.0 { [0.1, 0.2, 0.12] } else if c.water != 0.0 { [0.22, 0.36, 0.42] } else if c.h > 90.0 { [(0.42 + 0.1 * t) as f32, (0.4 + 0.1 * t) as f32, (0.37 + 0.09 * t) as f32] } else if canopy > 3.0 { [(0.2 + 0.1 * t) as f32, (0.34 + 0.1 * t) as f32, 0.09] } else { [(0.42 + 0.1 * t) as f32, (0.5 + 0.05 * t) as f32, 0.2] };
         } }
         for j in 0..CELLS { for i in 0..CELLS {

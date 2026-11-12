@@ -17,7 +17,7 @@ groupe plank | Planches | planks birch_planks spruce_planks
 groupe knife | Couteau | stone_knife copper_knife bronze_knife iron_knife
 groupe hammer | Marteau | stone_hammer copper_hammer bronze_hammer iron_hammer
 groupe needle | Aiguille | bone_needle
-groupe fish | Poisson | trout perch char
+groupe fish | Poisson | trout perch char mackerel sea_bream
 
 # --- À la main : la survie primitive ---
 stone_knife 1 | main | pebble 2, stick 1, fiber 1 | outils

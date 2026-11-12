@@ -479,6 +479,29 @@ fn capture(a: &[String]) {
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..900 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Mountains) > 0.9 && c.still && c.water > 0.0 { found = Some((x - a.cos() * 34.0, z - a.sin() * 34.0, a, c.water)); break 'p; } } }
         println!("hautes montagnes : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 16.0, z]; let f = view::norm([a.cos(), -0.3, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.mountains = 1.0; s.tick(0.0, none, Actions::default()); }
     }
+    if scene == "recif" || scene == "plage" {
+        // Mer chaude : sous l'eau, un récif de corail et ses bancs de poissons ; ou la plage, ses crabes et ses goélands, des dauphins au large.
+        let w = WorldGen::new(SEED); let reef = scene == "recif"; let mut found = None;
+        'p: for r in 20..800 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z);
+            let ok = if reef { c.mix.sea > 0.6 && c.mix.temp > 0.45 && c.water == alw_core::gen::SEA && c.water - c.h >= 4.0 && c.water - c.h <= 8.0 } else { c.mix.sea > 0.03 && c.mix.sea < 0.3 && c.water == 0.0 && c.h < alw_core::gen::SEA + 2.0 && c.mix.temp > 0.3 };
+            if ok { found = Some((x, z, c.h)); break 'p; } } }
+        println!("{scene} : {found:?}");
+        if let Some((x, z, h)) = found {
+            // Le regard vers le large : la direction où la mer s'étend le plus.
+            let a = (0..16).map(|k| k as f64 / 16.0 * std::f64::consts::TAU).max_by(|p, q| { let f = |t: f64| w.column(x + t.cos() * 30.0, z + t.sin() * 30.0).mix.sea; f(*p).total_cmp(&f(*q)) }).unwrap_or(0.0);
+            let (dx, dz) = (a.cos(), a.sin()); let (sx, sz) = (-dz, dx); let at = |k: f64, l: f64| (x + dx * k + sx * l, z + dz * k + sz * l);
+            s.sel = 8; s.third = false; s.player.fly = true; s.player.p = if reef { [x, h + 1.4, z] } else { [x - dx * 4.0, h + 2.2, z - dz * 4.0] };
+            let f = view::norm([dx, if reef { -0.12 } else { -0.08 }, dz]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); s.hour = 11.0;
+            g.settle(); pump(&mut s, &mut g); g.settle(); s.sea = 1.0; s.sea_warm = 1.0;
+            use alw_core::wild::Kind as K;
+            if reef { for (i, (k, l, y)) in [(4.0, -1.2, 1.6), (6.5, 1.5, 2.2), (9.0, -0.5, 1.2)].iter().enumerate() { for n in 0..6 { let (fx, fz) = at(*k + (n % 3) as f64 * 0.45, *l + (n / 3) as f64 * 0.5); s.wild.put_swim(K::Reef, [fx, h + y + (n % 2) as f64 * 0.3, fz], s.player.yaw + 1.2, 10 + i as u32, i as u8); } }
+                let (fx, fz) = at(11.0, 2.5); s.wild.put_swim(K::Dolphin, [fx, h + 2.6, fz], s.player.yaw + 1.4, 30, 0); }
+            else { for (k, l) in [(2.0, -1.5), (3.2, 1.2)] { let (cx, cz) = at(k, l); s.wild.put(K::Crab, [cx, h + 1.0, cz], s.player.yaw + 1.0, false); }
+                for (k, l, y) in [(8.0, -3.0, 6.0), (12.0, 2.0, 8.0)] { let (gx, gz) = at(k, l); s.wild.put(K::Gull, [gx, h + y, gz], s.player.yaw + 1.3, true); }
+                for (k, l) in [(26.0, -2.0), (28.0, 0.5)] { let (dx2, dz2) = at(k, l); let c = w.column(dx2, dz2); if c.water > 0.0 { s.wild.put_swim(K::Dolphin, [dx2, c.water - 0.6, dz2], s.player.yaw + 1.5, 31, 0); } } }
+            s.tick(0.0, none, Actions::default());
+        }
+    }
     if scene == "cactus" {
         // Le grand cactus le plus proche du cœur du désert, vu de près.
         use alw_core::blocks::{idx, B, CH, CX}; let w = WorldGen::new(SEED); let mut core = None; 'p: for r in 8..700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if w.column(x, z).mix.strong(alw_core::biome::Biome::Desert) > 0.97 { core = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'p; } } }

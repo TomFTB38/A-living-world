@@ -20,4 +20,6 @@ montagne | stew 1 | iron_ingot 1
 hautes_terres | heather 8 | rope 1
 hautes_terres | raw_hide 2 | leather 1
 tous | worn_coin 3 | bread 2
+tous | shell 8 | worn_coin 1
+tous | mackerel 3 | bread 2
 tous | worn_coin 6 | bandage 3

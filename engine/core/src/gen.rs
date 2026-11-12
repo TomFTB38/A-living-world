@@ -17,6 +17,8 @@ struct Raw { wx: f64, wz: f64, low: f64, hs: f64, massif: f64 }
 pub struct Stamp { data: Vec<[i32; 4]>, force: bool, ground: bool }
 
 struct Bed { d_r: f64, wid: f64, l: f64, grad: f64 }
+/// Niveau de la mer.
+pub const SEA: f64 = 47.0;
 const LIP: f64 = 0.55; // part du lit qui se déverse au bord d'un palier
 fn fdiv(a: i32, b: i32) -> i32 { a.div_euclid(b) }
 #[inline] fn ri(x: f64) -> i32 { round(x) as i32 }
@@ -36,7 +38,25 @@ impl WorldGen {
         let s = seed; let n = |k: i32| Noise::new(s.wrapping_add(k));
         WorldGen { seed: s, n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()), towns: RefCell::new(HashMap::new()) }
     }
-    fn raw_height(&self, x: f64, z: f64) -> Raw {
+    fn raw_height(&self, x: f64, z: f64) -> Raw { let m = self.climate.at(x, z); let r = self.raw_land(x, z, &m); self.seafloor(r, &m) }
+    /// Mer et océan : la côte se relève d'abord un peu (pas de terre sous le niveau de la mer qui resterait sèche à côté de l'eau),
+    /// puis le sol plonge vers le fond marin : petits fonds sableux près des côtes, grand large profond avec ses monts sous-marins
+    /// et ses fosses, et des îles qui percent la surface.
+    fn seafloor(&self, r: Raw, m: &crate::biome::Mix) -> Raw {
+        let o = m.sea; if m.shore <= 0.0 { return r; }
+        let Raw { wx, wz, low, hs, massif } = r;
+        let shelf = SEA - 3.5 - 5.0 * self.n_base.fbm(wx / 160.0 + 70.0, wz / 160.0 - 12.0, 3); // plateau côtier
+        let abyss = SEA - 20.0 - 12.0 * self.n_base.fbm(wx / 420.0 - 33.0, wz / 420.0 + 87.0, 3) + 9.0 * (1.0 - self.n_cliff.fbm(wx / 210.0 + 5.0, wz / 210.0 + 61.0, 2).abs() * 2.2).max(0.0); // large : fosses et dorsales
+        let mut floor = lerp(shelf, abyss, m.deep);
+        // Îles : des terres hautes isolées au large, avec leur propre plage.
+        let isle = smooth(0.34, 0.5, self.n_hill.fbm(wx / 520.0 + 300.0, wz / 520.0 - 200.0, 3) + 0.15 * self.n_hill.n2(wx / 140.0, wz / 140.0)) * smooth(0.5, 0.9, o);
+        floor = lerp(floor, SEA + 3.0 + 14.0 * smooth(0.0, 1.0, self.n_base.fbm(wx / 90.0 + 4.0, wz / 90.0 - 8.0, 2)), isle);
+        let lift = m.shore; let dive = smooth(0.14, 0.62, o);
+        let lo1 = lerp(low, low.max(SEA + 4.5), lift); let hs1 = lerp(hs, hs.max(SEA + 4.0), lift);
+        let low2 = lerp(lo1, floor, dive); let hs2 = lerp(hs1, floor + (hs - low) * 0.35 * (1.0 - m.deep), dive);
+        Raw { wx, wz, low: low2, hs: hs2, massif: massif.max(smooth(0.02, 0.14, o) * (1.0 - isle)) }
+    }
+    fn raw_land(&self, x: f64, z: f64, m: &crate::biome::Mix) -> Raw {
         let wx = x + 34.0 * self.n_warp.n2(x / 170.0, z / 170.0); let wz = z + 34.0 * self.n_warp.n2(x / 170.0 + 40.0, z / 170.0 + 40.0);
         // Grand relief : des massifs rares et lointains, posés sur les collines, jamais au-dessus du plafond du monde.
         let massif = smooth(0.14, 0.5, self.n_base.fbm(wx / 1500.0 + 210.0, wz / 1500.0 - 130.0, 3));
@@ -44,7 +64,7 @@ impl WorldGen {
         let mut low = 52.0 + 15.0 * self.n_base.fbm(wx / 340.0, wz / 340.0, 3) + massif * (14.0 + 34.0 * ridge.max(0.0) * ridge.max(0.0));
         let mut hs = low + 5.5 * self.n_hill.fbm(wx / 96.0, wz / 96.0, 3);
         // Le relief propre aux biomes entre ici, avant les rivières et les lacs : leur eau suit le désert plat comme le plateau des hautes terres.
-        let m = self.climate.at(x, z); let (de, hl) = (m.strong(Biome::Desert), m.strong(Biome::Highlands));
+        let (de, hl) = (m.strong(Biome::Desert), m.strong(Biome::Highlands));
         if de > 0.01 { let plain = 54.0 + 4.0 * self.n_base.fbm(wx / 600.0, wz / 600.0, 2); low = lerp(low, plain, de); hs = lerp(hs, low, de); }
         if hl > 0.01 { let crest = 1.0 - self.n_hill.fbm(x / 120.0 + 40.0, z / 120.0 - 11.0, 3).abs() * 1.8; let lift = hl * (1.0 - massif) * (13.0 + 11.0 * crest.max(0.0)); low += lift; hs = low + (hs - (low - lift)) * 0.8; }
         // Hautes montagnes : des chaînes de crêtes aiguës, des pics jusque sous le plafond du monde, des vallons glaciaires entre elles.
@@ -156,9 +176,12 @@ impl WorldGen {
             let walk = 1.0 - smooth(1.5, 5.0, bank_d);
             if walk > 0.0 { h = lerp(h, low - 1.0, walk); }
         }
+        // La mer : partout où le sol de la zone marine passe sous son niveau, l'eau calme le recouvre.
+        if mix.sea > 0.0 && h < SEA + 0.5 && SEA > water { water = SEA; still = true; wet = true; h = h.min(SEA - 1.0); path = 0.0; }
+        if mix.sea > 0.0 && h < SEA + 5.0 { wet = true; } // la grève : ni grotte ni surplomb qui ouvrirait un trou sous le niveau de la mer
         let f = self.n_forest.fbm(x / 170.0, z / 170.0, 3) * 1.5 + 0.78 + 0.12 * self.n_forest.n2(x / 31.0, z / 31.0);
         // La prairie éclaircit la forêt ; le relief et l'eau restent communs, pour que rien ne se voie à la frontière.
-        let f = f - 1.1 * mix.strong(Biome::Meadow) + 0.7 * mix.strong(Biome::DeepForest) - 1.6 * steppe - 1.8 * desert - 1.5 * high - 0.7 * mix.strong(Biome::Mountains);
+        let f = f - 1.1 * mix.strong(Biome::Meadow) + 0.7 * mix.strong(Biome::DeepForest) - 1.6 * steppe - 1.8 * desert - 1.5 * high - 0.7 * mix.strong(Biome::Mountains) - 1.5 * smooth(0.0, 0.12, mix.sea);
         Column { mix, wet, h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path: path * (1.0 - mix.strong(Biome::Mountains)), /* pas de route tracée à flanc de montagne */ bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
     }
     fn stone_at(&self, x: f64, y: f64, z: f64) -> Id {
@@ -180,6 +203,9 @@ impl WorldGen {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let c = self.column(wx, wz); let (hf, cliff, fr, path, water) = (c.h, c.cliff, c.forest, c.path, c.water);
             let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga); let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, taiga); let steppe = c.mix.strong(Biome::Steppe); let dry = hash_float(wxi, wzi, self.seed, 44) < smooth(0.3, 0.7, steppe); let sandy = hash_float(wxi, wzi, self.seed, 48) < smooth(0.3, 0.7, c.mix.strong(Biome::Desert)); let moor = hash_float(wxi, wzi, self.seed, 49) < smooth(0.3, 0.7, c.mix.strong(Biome::Highlands));
+            // Bord de mer : plages de sable sous la ligne des vagues et un peu au-dessus, dunes basses derrière ; fonds de sable, de gravier et de vase au large.
+            let coast = c.mix.sea > 0.005; let beach = coast && hf <= SEA + 3.0 + 1.5 * self.n_deco.n2(wx / 23.0 + 9.0, wz / 23.0 - 4.0) && cliff < 0.6;
+            let sandy = sandy || beach;
             let mtn = c.mix.strong(Biome::Mountains); let alp = hash_float(wxi, wzi, self.seed, 50) < smooth(0.3, 0.7, mtn); let snowl = 101.0 - 8.0 * mtn;
             // Pente de la montagne, lue sur le relief brut : falaises et éboulis là où le sol plonge.
             let slope = if mtn > 0.05 { let (a, b, d) = (self.raw_height(wx, wz).hs, self.raw_height(wx + 1.0, wz).hs, self.raw_height(wx, wz + 1.0).hs); (b - a).abs().max((d - a).abs()) } else { 0.0 };
@@ -203,6 +229,10 @@ impl WorldGen {
                 if depth == 0 {
                     let yf = y as f64;
                     v[i] = if path > 0.45 { B::PATH }
+                    else if coast && water == SEA && yf < water + 1.0 { let n = self.n_deco.n2(wx / 11.0 - 3.0, wz / 11.0 + 7.0); let fond = SEA - yf;
+                        if fond > 14.0 { if n > 0.35 { B::CLAY } else if n < -0.35 { self.stone_at(wx, yf, wz) } else { B::GRAVEL } } // grand large : vase, gravier, roche nue
+                        else if n > 0.45 { B::GRAVEL } else { B::SAND } } // petits fonds : sable clair, quelques bancs de gravier
+                    else if beach { B::SAND }
                     else if water != 0.0 && yf < water + 1.0 { if self.n_deco.n2(wx / 7.0, wz / 7.0) > 0.0 { B::GRAVEL } else { B::SAND } }
                     else if c.bank > 0.72 && yf <= water + 2.0 { if self.n_deco.n2(wx / 9.0 + 40.0, wz / 9.0) > 0.3 { B::CLAY } else { B::GRAVEL } } // berges : gravier, et des bancs d'argile
                     else if alp && yf > snowl + 3.0 && slope < 0.9 && self.n_deco.n2(wx / 21.0 - 7.0, wz / 21.0 + 13.0) > 0.42 { B::ICE } // glacier : des langues de glace bleue dans les combes des sommets
@@ -234,11 +264,11 @@ impl WorldGen {
             let wi = water as i32;
             if wi != 0 {
                 for y in (top + 1)..=wi { v[idx(x, y as usize, z)] = B::WATER; }
-                if (cold || (alp && wi as f64 > snowl - 4.0)) && wi > top { v[idx(x, wi as usize, z)] = B::ICE; } // lac et rivière gelés en surface
+                if ((cold && !coast) || (alp && wi as f64 > snowl - 4.0) || (coast && c.mix.temp < -0.7 && self.n_deco.n2(wx / 13.0 + 31.0, wz / 13.0 - 17.0) > 0.62 - 0.5 * smooth(-0.7, -1.0, c.mix.temp))) && wi > top { v[idx(x, wi as usize, z)] = B::ICE; } // lac et rivière gelés ; banquise en plaques sur les mers froides // lac et rivière gelés en surface
                 // La chute rejoint le bassin : une colonne d'eau pleine, plaquée contre le palier du dessus.
                 if !c.still { let t = self.fall_top(wx, wz, water) as i32; for y in (wi + 1)..=t.min(CH as i32 - 2) { if v[idx(x, y as usize, z)] == 0 { v[idx(x, y as usize, z)] = if cold { B::ICE } else { B::WATER }; } } } // chute gelée
                 // rochers qui affleurent dans le lit
-                if !cold && self.n_deco.n2(wx / 4.3 + 31.0, wz / 4.3 - 12.0) > 0.56 {
+                if !cold && !coast && self.n_deco.n2(wx / 4.3 + 31.0, wz / 4.3 - 12.0) > 0.56 { // (pas en mer)
                     let crown = wi + if hash_float(wxi, wzi, self.seed, 9) > 0.55 { 1 } else { 0 };
                     let mut y = top + 1;
                     while y <= crown && y < CH as i32 - 1 { v[idx(x, y as usize, z)] = if y == crown && !cold { B::MOSSY_STONE } else { B::STONE }; y += 1; }
@@ -260,12 +290,36 @@ impl WorldGen {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let ground = v[idx(x, y - 1, z)]; let here = v[idx(x, y, z)];
             let wy = waters[x + z * CX];
+            if wy == SEA as i32 && here == B::WATER {
+                // Fonds marins : prairies de zostère près des côtes, forêts de varech dans les eaux fraîches, récifs de corail dans les mers chaudes.
+                let cm = self.climate.at(wx, wz);
+                if cm.sea > 0.005 {
+                    let depth = wy - y as i32 + 1; let patch = nd.n2(wx / 19.0 + 77.0, wz / 19.0 - 5.0); let patch2 = nd.n2(wx / 9.0 - 13.0, wz / 9.0 + 51.0); let r = hash_float(wxi, wzi, s, 81);
+                    let warm = cm.temp > 0.3; let ground_ok = ground == B::SAND || ground == B::GRAVEL || ground == B::CLAY;
+                    if !ground_ok && r > 0.02 { continue; }
+                    if warm && depth >= 2 && depth <= 10 && patch > -0.05 {
+                        if r < 0.34 + 0.3 * smooth(0.1, 0.6, patch) { v[idx(x, y, z)] = if r < 0.1 { B::CORAL_FAN } else { B::CORAL }; } // récif
+                        else if r < 0.5 { v[idx(x, y, z)] = B::SEAGRASS; }
+                    } else if !warm && depth >= 5 && depth <= 22 && patch > 0.12 && r < 0.42 {
+                        // Varech : une colonne qui monte jusqu'à un ou deux blocs de la surface.
+                        let top = (wy - 1 - (hash_float(wxi, wzi, s, 82) * 3.0) as i32).max(y as i32); for yy in y as i32..top { v[idx(x, yy as usize, z)] = B::KELP; } v[idx(x, top as usize, z)] = B::KELP_TOP;
+                    } else if depth <= 8 && patch2 > -0.1 && r < 0.45 { v[idx(x, y, z)] = B::SEAGRASS; }
+                    else if depth > 8 && r < 0.03 { v[idx(x, y, z)] = B::SEAGRASS; }
+                    continue;
+                }
+            }
             if wy != 0 {
                 if here == B::WATER && nd.n2(wx / 8.0, wz / 8.0) > 0.42 && hash_float(wxi, wzi, s, 5) < 0.45 && self.climate.at(wx, wz).strong(Biome::Mountains) < 0.5 /* pas de nénuphars dans l'eau froide des lacs d'altitude */ && v[idx(x, wy as usize, z)] == B::WATER && v[idx(x, wy as usize + 1, z)] == 0 { v[idx(x, wy as usize + 1, z)] = B::LILY_PAD; }
                 continue;
             }
             if here != 0 { continue; }
             let r = hash_float(wxi, wzi, s, 3);
+            // Plage et dunes : coquillages et bois flotté sur le sable mouillé, touffes d'oyat sur les dunes.
+            if ground == B::SAND && (y as f64) <= SEA + 6.0 { let cm = self.climate.at(wx, wz); if cm.sea > 0.005 {
+                let k = hash_float(wxi, wzi, s, 83); let dune = y as f64 > SEA + 2.5;
+                v[idx(x, y, z)] = if !dune && k < 0.025 { B::SHELL } else if !dune && k < 0.035 { B::TWIGS } else if dune && r < 0.22 * (0.5 + 0.5 * smooth(-0.3, 0.3, nd.n2(wx / 7.0, wz / 7.0))) { B::MARRAM } else if k < 0.04 { B::SHELL } else { 0 };
+                continue;
+            } }
             // Ce qui traîne au sol et se ramasse : branches tombées (plus sous les arbres), cailloux.
             let k = hash_float(wxi, wzi, s, 61); let litter = |tw: f64, pb: f64| if k < tw { B::TWIGS } else if k < tw + pb { B::PEBBLES } else { 0 };
             // Au froid, sous la future pellicule de neige : quelques herbes givrées et des pommes de pin, rien d'autre.
@@ -393,7 +447,7 @@ impl WorldGen {
         let x = ((gx as f64 + hash_float(gx, gz, s, 22)) * ROCK_CELL as f64).floor(); let z = ((gz as f64 + hash_float(gx, gz, s, 23)) * ROCK_CELL as f64).floor();
         let cm = self.climate.at(x, z); let st = cm.strong(Biome::Steppe); let hl = cm.strong(Biome::Highlands); let mt = cm.strong(Biome::Mountains); if hash_float(gx, gz, s, 21) > 0.62 + 0.12 * st + 0.3 * hl + 0.3 * mt || cm.strong(Biome::Desert) > 0.3 { return None; } // pas de rochers dans le désert // la steppe est semée de rochers
         let c = self.column(x, z);
-        if c.water != 0.0 || c.path > 0.1 { return None; }
+        if c.water != 0.0 || c.path > 0.1 || (c.mix.sea > 0.02 && c.h < SEA + 4.0) { return None; } // pas de rocher sur la grève : il dépasserait de l'eau toute proche
         let mut r = Rng::new(hash_int(gx, gz, s, 24)); let mut data = Vec::new();
         let n = r.int(1, 3).min(if st > 0.5 { 2 } else { 3 }); let base = c.h.floor(); let cold = c.mix.strong(Biome::Taiga) > 0.6 || st > 0.5 || mt > 0.5; let tall = 1.0 + 0.4 * st * hash_float(gx, gz, s, 25) + 1.3 * hl * hash_float(gx, gz, s, 26) + 0.9 * mt * hash_float(gx, gz, s, 27); /* hautes terres : de vrais chaos rocheux, dressés */ let tg = c.mix.strong(Biome::Taiga).max(mt); let de = c.mix.strong(Biome::Desert) > 0.5;
         for k in 0..n {
@@ -457,6 +511,11 @@ impl WorldGen {
         if c.water != 0.0 || c.path > 0.0 || c.bank > 0.4 || c.h > 86.0 { return None; }
         let pick = hash_float(gx, gz, s, 33);
         let glade = smooth(-0.1, 0.45, self.n_forest.n2(x / 46.0 + 70.0, z / 46.0 - 40.0));
+        // Rivage : pas d'arbre sur la plage, sauf des cocotiers penchés sous les climats chauds ; les îles chaudes en sont couvertes.
+        if c.mix.sea > 0.005 && c.h <= SEA + 6.0 {
+            if c.mix.temp < 0.15 || pick > 0.12 + 0.3 * smooth(0.4, 0.9, c.mix.sea) { return None; }
+            let mut r = Rng::new(hash_int(gx, gz, s, 34)); let age = r.next(); return Some(grow_palm(x, c.h.floor(), z, &mut r, age));
+        }
         let desert = c.mix.strong(Biome::Desert);
         if desert > 0.5 {
             // Désert : des palmiers autour des points d'eau, des cactus ailleurs, clairsemés.

@@ -17,7 +17,7 @@ regle oubli 76
 regle plafond 10 6
 regle rythme 0.7
 regle distance 250:1 750:2 1500:3 3000:4
-regle biome Prairie=1 Forêt tempérée=2 Forêt profonde=2 Taïga=2 Steppe sèche=3 Désert=3 Hautes terres=4 Hautes montagnes=5
+regle biome Prairie=1 Forêt tempérée=2 Forêt profonde=2 Taïga=2 Steppe sèche=3 Désert=3 Hautes terres=4 Hautes montagnes=5 Mer=2 Océan=3
 regle montagne 118=5
 regle adaptation 5:1 10:2 20:3 30:4
 regle journee 240

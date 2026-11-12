@@ -294,7 +294,7 @@ impl Session {
         let (loot, extra): (&[(&str, u32)], &[(&str, u32)]) = match prey {
             Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); let close = (at[0] - me[0]).hypot(at[2] - me[2]) < 2.4;
                 if self.fauna.strike(k, dmg, me) { (DEER_LOOT, DEER_KNIFE) } else { if close && hash_float((self.elapsed * 977.0) as i32, k as i32, self.seed, 13) < 0.3 { self.harm(6.0, "La ruade d'un cerf", true); } (&[], &[]) } }
-            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); if heavy { self.wild.stagger(k, me, 1.2); } match self.wild.strike(k, dmg, me) { Some(crate::wild::Kind::Fox) => (FOX_LOOT, FOX_KNIFE), Some(crate::wild::Kind::Hare) => (HARE_LOOT, HARE_KNIFE), Some(crate::wild::Kind::Wolf) => (WOLF_LOOT, &[("fur", 1)]), Some(crate::wild::Kind::Boar) => (BOAR_LOOT, &[("raw_meat", 1), ("leather", 1)]), Some(crate::wild::Kind::Bear) => (BEAR_LOOT, &[("raw_hide", 1)]), Some(crate::wild::Kind::Ibex) => (IBEX_LOOT, &[("raw_meat", 1)]), Some(crate::wild::Kind::Lizard) => (LIZARD_LOOT, &[]), _ => (&[], &[]) } }
+            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); if heavy { self.wild.stagger(k, me, 1.2); } match self.wild.strike(k, dmg, me) { Some(crate::wild::Kind::Fox) => (FOX_LOOT, FOX_KNIFE), Some(crate::wild::Kind::Hare) => (HARE_LOOT, HARE_KNIFE), Some(crate::wild::Kind::Wolf) => (WOLF_LOOT, &[("fur", 1)]), Some(crate::wild::Kind::Boar) => (BOAR_LOOT, &[("raw_meat", 1), ("leather", 1)]), Some(crate::wild::Kind::Bear) => (BEAR_LOOT, &[("raw_hide", 1)]), Some(crate::wild::Kind::Ibex) => (IBEX_LOOT, &[("raw_meat", 1)]), Some(crate::wild::Kind::Lizard) => (LIZARD_LOOT, &[]), Some(crate::wild::Kind::Fish) => (&[("mackerel", 1)], &[]), Some(crate::wild::Kind::Reef) => (&[("sea_bream", 1)], &[]), Some(crate::wild::Kind::Crab) => (&[("raw_meat", 1), ("shell", 1)], &[]), _ => (&[], &[]) } }
             Prey::Foe(_) => (&[], &[]),
         };
         self.wear_tool(1);
@@ -402,6 +402,8 @@ impl Session {
         self.world.edit_many(&edits); self.sound.place("planks"); self.anim.trigger(); self.dirty = true;
     }
     pub(crate) fn on_broken(&mut self, p: [i32; 3], id: Id) {
+        // Une plante marine arrachée laisse sa case à la mer.
+        if is_aquatic(id) { self.world.edit(p[0], p[1], p[2], B::WATER); }
         // Un lit se casse en entier : l'autre moitié part avec, sans rendre un second lit.
         if let Some(q) = crate::shapes::bed_partner(p, id) { if self.world.get(q[0], q[1], q[2]).is_some_and(crate::shapes::is_bed) { self.world.edit(q[0], q[1], q[2], 0); if self.bed == Some(q) { self.bed = Some(p); } } }
         // Une porte se casse en entier : l'autre moitié part avec, et la porte revient une seule fois dans le sac.

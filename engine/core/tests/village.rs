@@ -17,7 +17,7 @@ fn smith(s: &Session) -> usize { s.town.folk.iter().position(|f| f.craft == Some
 #[test]
 fn des_villages_partout_et_aucun_artisan_unique() {
     let g = WorldGen::new(SEED); let all = g.villages_near(0.0, 0.0, 4000.0);
-    assert!(all.len() >= 40, "{} villages seulement", all.len());
+    assert!(all.len() >= 34, "{} villages seulement", all.len()); // la mer et l'océan couvrent près d'un tiers du monde
     assert!((all[0].c[0] as f64).hypot(all[0].c[2] as f64) < 600.0, "un village à portée du départ : {:?}", all[0].c);
     for c in &db().craftsmen { let n = all.iter().filter(|v| v.crafts.contains(&c.id)).count(); assert!(n >= 2, "{} : {n} village(s) seulement", c.id); }
     for v in &all { assert!(v.crafts.len() >= 2 && v.houses.len() >= v.crafts.len() + 2, "{} : {:?}", v.name, v.crafts); assert!(v.r + 6 <= SPAN); }

@@ -17,11 +17,12 @@ fn main() {
     let fwd = { let d = [c[0] - eye[0], c[1] - eye[1], c[2] - eye[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt(); d.map(|x| x / l) };
     let right = { let r = [-fwd[2], 0.0, fwd[0]]; let l = (r[0] * r[0] + r[2] * r[2]).sqrt(); r.map(|x| x / l) }; let up = [right[1] * fwd[2] - right[2] * fwd[1], right[2] * fwd[0] - right[0] * fwd[2], right[0] * fwd[1] - right[1] * fwd[0]];
     let sun = { let s = [0.45f64, 0.75, 0.35]; let l = (s[0] * s[0] + s[1] * s[1] + s[2] * s[2]).sqrt(); s.map(|x| x / l) }; let foc = 1.0 / (0.55f64).tan();
-    let r = rad; let (kx, kz) = ((fx as i32).div_euclid(CX as i32), (fz as i32).div_euclid(CX as i32));
+    let mut wq: Vec<[[f64; 3]; 4]> = Vec::new(); let r = rad; let (kx, kz) = ((fx as i32).div_euclid(CX as i32), (fz as i32).div_euclid(CX as i32));
     for cz in kz - r..=kz + r { for cx in kx - r..=kx + r {
         let mut get = |x: i32, z: i32| cache.entry((x, z)).or_insert_with(|| std::sync::Arc::new(g.gen_world(x, z))).clone();
         let mut mesh = m.mesh_chunk(&mut get, cx, cz, 0); let vox = get(cx, cz); dress(&g, cx, cz, &vox, &mut mesh);
         let org = [(cx * CX as i32) as f64, 0.0, (cz * CX as i32) as f64];
+        for q in (0..mesh.n_w).step_by(4) { let mut pts = [[0f64; 3]; 4]; for j in 0..4 { let vv = &mesh.water[(q + j) * VSIZE..(q + j + 1) * VSIZE]; let p = [0, 2, 4].map(|i| i16::from_le_bytes([vv[i], vv[i + 1]]) as f64 / 128.0); pts[j] = [p[0] + org[0], p[1], p[2] + org[2]]; } wq.push(pts); }
         for (data, cnt) in [(&mesh.opaque, mesh.n_o), (&mesh.deco, mesh.n_d)] {
             for q in (0..cnt).step_by(4) { let mut pts = [[0f64; 3]; 4]; let mut col = [0.0; 3]; let mut nn = [0.0; 3];
                 for j in 0..4 { let vv = &data[(q + j) * VSIZE..(q + j + 1) * VSIZE]; let p = [0, 2, 4].map(|i| i16::from_le_bytes([vv[i], vv[i + 1]]) as f64 / 128.0); let layer = i16::from_le_bytes([vv[6], vv[7]]) as usize;
@@ -39,6 +40,14 @@ fn main() {
                         if w0 < 0.0 || w1 < 0.0 || w2 < 0.0 { continue; } let z = 1.0 / (w0 / p0[2] + w1 / p1[2] + w2 / p2[2]); let i = yy * w + xx; if z < zb[i] { zb[i] = z; img[i] = col.map(|c| c * lit); } } } } }
         }
     } }
+    // L'eau, après tout le reste : un voile bleu-vert translucide, plus dense quand on regarde loin dedans.
+    for qd in &wq { let mut pts = [[0f64; 3]; 4]; for j in 0..4 { let d = [qd[j][0] - eye[0], qd[j][1] - eye[1], qd[j][2] - eye[2]]; let (xc, yc, zc) = (d[0] * right[0] + d[1] * right[1] + d[2] * right[2], d[0] * up[0] + d[1] * up[1] + d[2] * up[2], d[0] * fwd[0] + d[1] * fwd[1] + d[2] * fwd[2]); pts[j] = [w as f64 * 0.5 + xc / zc.max(0.05) * foc * h as f64 * 0.5, h as f64 * 0.5 - yc / zc.max(0.05) * foc * h as f64 * 0.5, zc]; }
+        if pts.iter().any(|p| p[2] < 0.3) { continue; }
+        for tri in [[0, 1, 2], [0, 2, 3]] { let (p0, p1, p2) = (pts[tri[0]], pts[tri[1]], pts[tri[2]]); let area = (p1[0] - p0[0]) * (p2[1] - p0[1]) - (p1[1] - p0[1]) * (p2[0] - p0[0]); if area.abs() < 1e-9 { continue; }
+            let x0 = p0[0].min(p1[0]).min(p2[0]).max(0.0) as usize; let x1 = (p0[0].max(p1[0]).max(p2[0]).min(w as f64 - 1.0)).max(0.0) as usize; let y0 = p0[1].min(p1[1]).min(p2[1]).max(0.0) as usize; let y1 = (p0[1].max(p1[1]).max(p2[1]).min(h as f64 - 1.0)).max(0.0) as usize;
+            if x1 - x0 > w || y1.saturating_sub(y0) > h { continue; }
+            for yy in y0..=y1 { for xx in x0..=x1 { let (px, py) = (xx as f64 + 0.5, yy as f64 + 0.5); let w0 = ((p1[0] - px) * (p2[1] - py) - (p1[1] - py) * (p2[0] - px)) / area; let w1 = ((p2[0] - px) * (p0[1] - py) - (p2[1] - py) * (p0[0] - px)) / area; let w2 = 1.0 - w0 - w1;
+                if w0 < 0.0 || w1 < 0.0 || w2 < 0.0 { continue; } let z = 1.0 / (w0 / p0[2] + w1 / p1[2] + w2 / p2[2]); let i = yy * w + xx; if z < zb[i] - 0.01 { let k = (0.45 + (zb[i] - z).min(40.0) / 60.0).min(0.92); let wc = [0.08, 0.3, 0.42]; for c in 0..3 { img[i][c] += (wc[c] - img[i][c]) * k; } } } } } }
     for (p, z) in img.iter_mut().zip(&zb) { if *z < f64::MAX { let f = 0.55 * (1.0 - (-z / 300.0).exp()); for k in 0..3 { p[k] += ([0.55, 0.7, 0.9][k] - p[k]) * f; } } }
     let mut o = format!("P6 {w} {h} 255\n").into_bytes(); for p in &img { for k in 0..3 { o.push((p[k].max(0.0).powf(1.0 / 2.2) * 255.0).min(255.0) as u8); } } std::fs::write(out, o).unwrap();
 }
