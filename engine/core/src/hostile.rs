@@ -113,7 +113,7 @@ fn sees(w: &impl Voxels, a: [f64; 3], b: [f64; 3]) -> bool {
 }
 fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.55, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.55 } }
 /// Boîte de visée et de collision (demi-largeur, hauteur).
-pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.36, 1.85), Body::Brigand => (0.36, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.55, 0.8) }; (w * size, h * size) }
+pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.42, 1.85), Body::Brigand => (0.42, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.55, 0.8) }; (w * size, h * size) }
 
 impl Horde {
     pub fn new(seed: i32) -> Self { Horde { foes: Vec::new(), rng: Rng::new((seed ^ 0x6d21) as u32), spawn_t: 2.0, ev: Vec::new(), groups: 0, spawned: 0 } }
@@ -499,12 +499,17 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
     o
 }
 
+/// Les humanoïdes plus épais : buste élargi, membres plus forts (largeur et profondeur), tête un peu plus grosse.
+fn thick(n: &str, m: M4) -> M4 {
+    let (sx, sz) = match n { "rodTorso" => (1.22, 1.25), "briTorso" => (1.18, 1.22), "rodHead" | "briHead" => (1.1, 1.08), "rodUpper" | "rodFore" | "rodThigh" | "rodShin" => (1.4, 1.35), "briUpper" | "briFore" | "briThigh" | "briShin" => (1.3, 1.28), _ => return m };
+    let mut k = m; for r in 0..3 { k[r] *= sx as f32; k[8 + r] *= sz as f32; } k
+}
 impl Horde {
     /// Corps articulés, gestes de chaque état : marche, course, détection (tête dressée), attaque annoncée puis coup, blessure, mort.
     pub fn draws(&self, md: &Models) -> Vec<Draw> {
         let mut out = Vec::with_capacity(self.foes.len() * 12);
         for f in &self.foes {
-            let s = &bestiary().species[f.sp]; let hurt = (f.hit / 0.3).clamp(0.0, 1.0) as f32; let mut put = |n: &str, m: M4| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false, hurt });
+            let s = &bestiary().species[f.sp]; let hurt = (f.hit / 0.3).clamp(0.0, 1.0) as f32; let mut put = |n: &str, m: M4| { let m = thick(n, m); out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false, hurt }) };
             let fall = (f.dead / 0.9).min(1.0); let flinch = crate::wild::flinch(f.hit) as f64;
             // L'annonce : de 0 (rien) à 1 (au sommet du geste) ; puis le coup part d'un coup.
             let wind = if f.wind > 0.0 { (1.0 - f.wind / s.windup.max(0.05)).clamp(0.0, 1.0) } else { 0.0 }; let strike = if f.wind == 0.0 && f.cd > s.cd - 0.25 && f.state == Ai::Combat { 1.0 } else { 0.0 };
@@ -526,14 +531,14 @@ impl Horde {
                     let head_pitch = 0.12 - lean * 0.4 - 0.3 * det + 0.06 * (t * 0.8).sin() * (1.0 - run) + 0.4 * die; let head_yaw = if f.state == Ai::Soupcon { 0.45 * (t * 0.7).sin() } else { 0.06 * (t * 0.31).sin() };
                     put("rodHead", mul(&body, &trs(0.0, 0.64, 0.08, head_yaw, head_pitch, 1.0)));
                     let legs = trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size);
-                    for (x, st) in [(-0.1, stride), (0.1, -stride)] { let th = mul(&legs, &trs(x, 0.0, 0.0, 0.0, thigh0 + st, 1.0)); put("rodThigh", th);
+                    for (x, st) in [(-0.12, stride), (0.12, -stride)] { let th = mul(&legs, &trs(x, 0.0, 0.0, 0.0, thigh0 + st, 1.0)); put("rodThigh", th);
                         put("rodShin", mul(&th, &trs(0.0, -0.44, 0.0, 0.0, knee0 + (if st > 0.0 { 0.0 } else { -st * 1.1 }), 1.0))); }
                     // Bras : ballants et longs, en avant à cause du dos voûté ; le droit tient le couteau.
                     let dang = -lean * 0.6 - 0.08; let swing_l = -sw * (0.25 + 0.5 * run); let swing_r = sw * (0.25 + 0.5 * run);
                     let (ul, fl) = (dang + swing_l - 0.35 * det - 0.6 * flinch + 1.2 * die, -0.35 - 0.3 * det - 0.4 * run);
                     let (ur, fr) = if wind > 0.0 || strike > 0.0 { (dang - 0.6 - 2.3 * wind + strike * 1.1, -0.9 * wind - 0.2 - strike * 0.3) } else { (dang + swing_r - 0.35 * det - 0.6 * flinch + 1.2 * die, -0.45 - 0.3 * det - 0.4 * run) };
-                    let ua = mul(&body, &trs(0.27, 0.56, 0.0, -0.15 * det, ul, 1.0)); put("rodUpper", ua); put("rodFore", mul(&ua, &trs(0.0, -0.34, 0.0, 0.0, fl, 1.0)));
-                    let ub = mul(&body, &trs(-0.27, 0.56, 0.0, 0.15 * det + strike * 0.5, ur, 1.0)); put("rodUpper", ub); let fb = mul(&ub, &trs(0.0, -0.34, 0.0, 0.0, fr, 1.0)); put("rodFore", fb);
+                    let ua = mul(&body, &trs(0.33, 0.56, 0.0, -0.15 * det, ul, 1.0)); put("rodUpper", ua); put("rodFore", mul(&ua, &trs(0.0, -0.34, 0.0, 0.0, fl, 1.0)));
+                    let ub = mul(&body, &trs(-0.33, 0.56, 0.0, 0.15 * det + strike * 0.5, ur, 1.0)); put("rodUpper", ub); let fb = mul(&ub, &trs(0.0, -0.34, 0.0, 0.0, fr, 1.0)); put("rodFore", fb);
                     put("rodKnife", mul(&fb, &trs(0.0, -0.4, 0.04, 0.0, 1.45, 1.0)));
                 }
                 Body::Brigand => {
@@ -549,14 +554,14 @@ impl Horde {
                     let hy = if f.state == Ai::Soupcon || (f.speed == 0.0 && f.state == Ai::Repos) { 0.5 * (t * 0.35).sin() } else { 0.0 };
                     put("briHead", mul(&body, &trs(0.0, 0.66, 0.02, hy, -lean * 0.5 - 0.25 * det + 0.3 * die, 1.0)));
                     let legs = trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size);
-                    for (x, st) in [(-0.11, stride), (0.11, -stride)] { let th = mul(&legs, &trs(x, 0.0, 0.0, 0.0, thigh0 + st, 1.0)); put("briThigh", th); put("briShin", mul(&th, &trs(0.0, -0.44, 0.0, 0.0, knee0 + if st > 0.0 { 0.0 } else { -st * 1.1 }, 1.0))); }
+                    for (x, st) in [(-0.135, stride), (0.135, -stride)] { let th = mul(&legs, &trs(x, 0.0, 0.0, 0.0, thigh0 + st, 1.0)); put("briThigh", th); put("briShin", mul(&th, &trs(0.0, -0.44, 0.0, 0.0, knee0 + if st > 0.0 { 0.0 } else { -st * 1.1 }, 1.0))); }
                     let shield = f.variant % 3 != 2;
                     // Bras gauche : bouclier au repos le long du corps, levé devant soi en garde ; bras droit : l'arme.
                     let (ul, fl, yl) = if guard > 0.0 { (-1.1 * guard - 0.2, -0.9 * guard, 0.6 * guard) } else { (-sw * (0.3 + 0.5 * run) - 0.15 - 0.3 * det + 1.2 * die - 0.3 * flee, -0.35 - 0.4 * run, 0.0) };
                     let (ur, fr) = if wind > 0.0 || strike > 0.0 { (-0.4 - 2.4 * wind + strike * 1.3, -0.7 * wind - 0.15) } else { (sw * (0.3 + 0.5 * run) - 0.25 - 0.3 * det + 1.2 * die, -0.4 - 0.4 * run) };
-                    let ua = mul(&body, &trs(0.3, 0.56, 0.0, -yl, ul, 1.0)); put("briUpper", ua); let fa = mul(&ua, &trs(0.0, -0.34, 0.0, 0.0, fl, 1.0)); put("briFore", fa);
-                    if shield { put("briShield", mul(&fa, &trs(0.1, -0.2, 0.0, 0.0, 0.0, 1.0))); }
-                    let ub = mul(&body, &trs(-0.3, 0.56, 0.0, 0.0, ur, 1.0)); put("briUpper", ub); let fb = mul(&ub, &trs(0.0, -0.34, 0.0, 0.0, fr, 1.0)); put("briFore", fb);
+                    let ua = mul(&body, &trs(0.36, 0.56, 0.0, -yl, ul, 1.0)); put("briUpper", ua); let fa = mul(&ua, &trs(0.0, -0.34, 0.0, 0.0, fl, 1.0)); put("briFore", fa);
+                    if shield { put("briShield", mul(&fa, &trs(0.13, -0.2, 0.0, 0.0, 0.0, 1.0))); }
+                    let ub = mul(&body, &trs(-0.36, 0.56, 0.0, 0.0, ur, 1.0)); put("briUpper", ub); let fb = mul(&ub, &trs(0.0, -0.34, 0.0, 0.0, fr, 1.0)); put("briFore", fb);
                     put(["briAxe", "briSword", "briClub"][f.variant as usize % 3], mul(&fb, &trs(0.0, -0.38, 0.05, 0.0, std::f64::consts::FRAC_PI_2 * 0.92, 1.0)));
                 }
                 Body::Bete => {
