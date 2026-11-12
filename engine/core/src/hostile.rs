@@ -2,7 +2,7 @@
 //! comportement (repos, patrouille, soupçon, détection, poursuite, combat, recherche, retour, fuite, embuscade),
 //! combat aux attaques annoncées, mort et butin. Un seul système pour toutes les espèces : ce qui les distingue
 //! (corps, chiffres, talents, butin) vient des données.
-use crate::actors::{b, Draw, Models};
+use crate::actors::{b as flat, Draw, Models};
 use crate::blocks::*;
 use crate::det::{cos, hypot2, sin};
 use crate::fauna::{fits, ground};
@@ -274,6 +274,56 @@ fn walk(f: &mut Foe, w: &impl Voxels, step: f64, climb: bool, body: Body) -> boo
     false
 }
 
+
+// ------------------------------------------------------------------------------------------- boîtes « en pixels »
+/// Chaque face d'une pièce est découpée en petits pixels (environ 3 cm) dont la teinte suit la matière : trame et
+/// effilochures de l'étoffe, grain et coutures du cuir, reflets, rayures et rouille du fer, marbrures de la chair, fissures
+/// de l'os, poil de la bête, reflets de la chitine. Les très petites pièces (yeux, dents, rivets) restent unies.
+#[derive(Clone, Copy, PartialEq)] enum Mat { Plain, Grain, Cloth, Leather, Metal, Flesh, Bone, Fur, Chitin }
+const PIX: f64 = 0.032;
+fn mat_of(c: [f64; 3]) -> Mat {
+    if c == EYE || c == GEYE || c == RED_EYE { return Mat::Plain; }
+    if c == CLOTH || c == CLOTH2 { Mat::Cloth } else if c == LEATH || c == LEATH2 || c == LEATHER { Mat::Leather } else if c == STEEL || c == STEEL2 || c == RUSTM || c == RUST { Mat::Metal }
+    else if c == FLESH || c == FLESH2 { Mat::Flesh } else if c == BONE || c == BONE2 { Mat::Bone } else if c == HIDE || c == HIDE2 { Mat::Fur } else if c == CHIT || c == CHIT2 || c == SPOT { Mat::Chitin } else { Mat::Grain }
+}
+fn shade(m: Mat, c: [f64; 3], i: i32, j: i32, nu: i32, nv: i32, side: bool, seed: i32) -> [f64; 3] {
+    let h = |k: i32| crate::noise::hash_float(i, j, seed, k); let (u, v) = ((i as f64 + 0.5) / nu as f64, (j as f64 + 0.5) / nv as f64);
+    let mut f = 0.9 + 0.16 * h(1); let mut out = c;
+    match m {
+        Mat::Plain => return c,
+        Mat::Grain => {}
+        Mat::Cloth => { if i % 2 == 0 { f *= 0.94; } if side && v < 0.18 { f *= 0.78 + 0.1 * h(2); } if h(3) < 0.06 { f *= 0.62; } if h(4) < 0.05 { f *= 1.18; } }
+        Mat::Leather => { f = 0.84 + 0.22 * h(1); if nu > 3 && (i == 0 || i == nu - 1) && j % 2 == 0 { f *= 1.28; } if h(5) < 0.07 { f *= 0.72; } }
+        Mat::Metal => { f = 0.84 + 0.2 * h(1); if v > 0.8 { f *= 1.12; } if h(6) < 0.05 { f *= 0.66; }
+            if h(7) < 0.14 { let r = [0.52, 0.3, 0.17]; let k = 0.55 + 0.3 * h(8); out = [c[0] + (r[0] - c[0]) * k, c[1] + (r[1] - c[1]) * k, c[2] + (r[2] - c[2]) * k]; } if (i + j) % 7 == 0 && h(9) < 0.4 { f *= 1.15; } }
+        Mat::Flesh => { f = 0.8 + 0.26 * h(1); if h(10) < 0.09 { f *= 0.74; out = [c[0] * 1.08, c[1] * 0.92, c[2] * 0.9]; } if h(11) < 0.04 { f *= 1.15; } }
+        Mat::Bone => { f = 0.9 + 0.14 * h(1); if h(12) < 0.07 { f *= 0.6; } }
+        Mat::Fur => { f = 0.78 + 0.32 * ((h(1) + crate::noise::hash_float(i, j / 2, seed, 13)) * 0.5); if h(14) < 0.08 { f *= 1.25; } }
+        Mat::Chitin => { f = 0.84 + 0.2 * h(1); if u < 0.12 || u > 0.88 || v > 0.88 { f *= 1.2; } if h(15) < 0.06 { out = [c[0] * 1.6, c[1] * 1.6, c[2] * 1.3]; } }
+    }
+    [out[0] * f, out[1] * f, out[2] * f]
+}
+fn b(q: &mut VBuf, a: [f64; 6], c: [f64; 3]) {
+    let m = mat_of(c); let (dx, dy, dz) = (a[3] - a[0], a[4] - a[1], a[5] - a[2]);
+    if m == Mat::Plain || dx.max(dy).max(dz) < PIX * 1.6 { flat(q, a, c); return; }
+    let seed = ((a[0] * 997.0) as i32) ^ ((a[1] * 613.0) as i32) << 3 ^ ((a[2] * 431.0) as i32) << 6;
+    let [x0, y0, z0, x1, y1, z1] = a;
+    // Les six faces, dans l'ordre et le sens de `mesher::bx` : coins p0, p1, p3 (le quatrième s'en déduit).
+    let faces: [([f64; 3], [f64; 3], [f64; 3], [f64; 3], bool); 6] = [
+        ([x0, y1, z1], [x1, y1, z1], [x0, y1, z0], [0.0, 1.0, 0.0], false), ([x0, y0, z0], [x1, y0, z0], [x0, y0, z1], [0.0, -1.0, 0.0], false),
+        ([x0, y0, z1], [x1, y0, z1], [x0, y1, z1], [0.0, 0.0, 1.0], true), ([x1, y0, z0], [x0, y0, z0], [x1, y1, z0], [0.0, 0.0, -1.0], true),
+        ([x1, y0, z1], [x1, y0, z0], [x1, y1, z1], [1.0, 0.0, 0.0], true), ([x0, y0, z0], [x0, y0, z1], [x0, y1, z0], [-1.0, 0.0, 0.0], true)];
+    for (k, (p0, p1, p3, n, side)) in faces.iter().enumerate() {
+        let du = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]]; let dv = [p3[0] - p0[0], p3[1] - p0[1], p3[2] - p0[2]];
+        let lu = (du[0] * du[0] + du[1] * du[1] + du[2] * du[2]).sqrt(); let lv = (dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2]).sqrt();
+        let (nu, nv) = (((lu / PIX).round() as i32).clamp(1, 24), ((lv / PIX).round() as i32).clamp(1, 24));
+        let at = |u: f64, v: f64| [p0[0] + du[0] * u + dv[0] * v, p0[1] + du[1] * u + dv[1] * v, p0[2] + du[2] * u + dv[2] * v];
+        for i in 0..nu { for j in 0..nv { let (u0, u1, v0, v1) = (i as f64 / nu as f64, (i + 1) as f64 / nu as f64, j as f64 / nv as f64, (j + 1) as f64 / nv as f64);
+            let (a0, a1, a2, a3) = (at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1)); let col = shade(m, c, i, j, nu, nv, *side, seed.wrapping_add(k as i32 * 131));
+            crate::mesher::face(q, [a0[0], a0[1], a0[2], a1[0], a1[1], a1[2], a2[0], a2[1], a2[2], a3[0], a3[1], a3[2]], *n, 0.0, 0.0, 255.0, 255.0, col, 255.0, 0.0, crate::mesher::kind::FLAT); } }
+    }
+}
+
 // ----------------------------------------------------------------------------------------------------------- modèles
 const RUST: [f64; 3] = [0.46, 0.26, 0.13];
 const EYE: [f64; 3] = [1.0, 0.86, 0.22]; const BONE: [f64; 3] = [0.82, 0.78, 0.66]; const HIDE: [f64; 3] = [0.19, 0.17, 0.15]; const HIDE2: [f64; 3] = [0.3, 0.26, 0.2]; const RED_EYE: [f64; 3] = [1.0, 0.42, 0.18];
@@ -300,7 +350,7 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
         for (i, x) in [-0.18, -0.11, -0.04, 0.03, 0.1, 0.17].iter().enumerate() { let low = [-0.34, -0.46, -0.3, -0.42, -0.36, -0.28][i]; let c = if i % 2 == 0 { CLOTH } else { CLOTH2 };
             b(q, [*x - 0.035, low, 0.06, *x + 0.035, 0.0, 0.135], c); b(q, [*x - 0.035, low + 0.06, -0.135, *x + 0.035, 0.0, -0.06], if i % 2 == 0 { CLOTH2 } else { CLOTH }); }
         for z in [-0.07, 0.02] { b(q, [-0.215, -0.3, z, -0.19, 0.0, z + 0.07], CLOTH2); b(q, [0.19, -0.26, z, 0.215, 0.0, z + 0.07], CLOTH); }
-        b(q, [-0.17, 0.12, -0.14, 0.17, 0.62, -0.11], CLOTH2); for (x, low) in [(-0.15, -0.05), (-0.07, 0.04), (0.0, -0.1), (0.08, 0.02), (0.15, -0.02)] { b(q, [x - 0.03, low, -0.145, x + 0.03, 0.14, -0.115], CLOTH); }
+        b(q, [-0.16, 0.38, -0.14, 0.16, 0.62, -0.11], CLOTH2); for (x, low) in [(-0.13, 0.16), (-0.065, 0.22), (0.0, 0.12), (0.065, 0.24), (0.13, 0.18)] { b(q, [x - 0.03, low, -0.145, x + 0.03, 0.4, -0.115], if low < 0.2 { CLOTH } else { CLOTH2 }); }
         // Épaulières de fer rouillé, deux plaques superposées de chaque côté, rivets et taches de rouille.
         for sx in [-1.0f64, 1.0] { let (x0, x1) = if sx < 0.0 { (-0.34, -0.13) } else { (0.13, 0.34) };
             b(q, [x0, 0.5, -0.15, x1, 0.66, 0.15], STEEL); b(q, [x0 - 0.01 * sx, 0.44, -0.155, x1 + 0.01 * sx, 0.52, 0.155], STEEL2);

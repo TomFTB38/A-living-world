@@ -756,7 +756,7 @@ impl Mesher {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn face(o: &mut VBuf, p: [f64; 12], n: [f64; 3], wa: f64, wb: f64, ao_l: f64, ao: f64, col: [f64; 3], s: f64, l: f64, kd: u8) {
+pub(crate) fn face(o: &mut VBuf, p: [f64; 12], n: [f64; 3], wa: f64, wb: f64, ao_l: f64, ao: f64, col: [f64; 3], s: f64, l: f64, kd: u8) {
     let ll = 0.86 + 0.14 * n[1] + 0.05 * n[0]; let (r, g, b) = (col[0] * ll, col[1] * ll, col[2] * ll);
     o.v(p[0], p[1], p[2], 0.0, n[0], n[1], n[2], wa, ao_l, s, l, kd, r, g, b);
     o.v(p[3], p[4], p[5], 0.0, n[0], n[1], n[2], wa, ao_l, s, l, kd, r, g, b);

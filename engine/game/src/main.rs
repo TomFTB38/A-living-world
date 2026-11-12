@@ -607,11 +607,11 @@ fn capture(a: &[String]) {
             for _ in 0..600 { s.stamina = 100.0; s.tick(1.0 / 60.0, none, Actions { mine: true, place: false, ..Default::default() }); if s.progress() > 0.62 { break; } }
             println!("fissure : progression {:.2}, cible {:?}", s.progress(), s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
         }
-        // L'écran titre : trente secondes de survol, le temps de quitter le départ et d'approcher le premier village.
-        if scene == "titre" { for i in 0..900 { s.tour_step(1.0 / 30.0); s.tick(1.0 / 30.0, none, Actions::default()); if i % 60 == 59 { pump(&mut s, &mut g); } } pump(&mut s, &mut g); println!("titre : survol en {:?}", s.player.p); }
+        // L'écran titre : dix secondes de survol, le temps de quitter le départ et d'approcher le premier village.
+        if scene == "titre" { for i in 0..300 { s.tour_step(1.0 / 30.0); s.tick(1.0 / 30.0, none, Actions::default()); if i % 30 == 29 { pump(&mut s, &mut g); } } pump(&mut s, &mut g); println!("titre : survol en {:?}", s.player.p); }
         if scene != "fissure" { s.tick(0.0, none, Actions::default()); }
         // Les quatre créatures communes, au crépuscule, à quelques pas : pour juger des modèles en jeu.
-        if scene == "creatures" { s.hour = 19.4; for (k, id) in ["rodeur", "brigand", "rodeuse", "rampant"].iter().enumerate() { let (x, z) = at(4.5, -2.4 + k as f64 * 1.6); let sp = alw_core::hostile::species(id).unwrap(); let i = s.horde.put(sp, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.14, false); s.horde.foes[i].state = alw_core::hostile::Ai::Detection; } s.tick(0.0, none, Actions::default()); println!("créatures : {}", s.horde.foes.len()); }
+        if scene == "creatures" { s.hour = 19.4; for (k, id) in ["rodeur", "brigand", "rodeuse", "rampant"].iter().enumerate() { let (fy, p0) = (s.player.yaw, s.player.p); let (fx, fz) = (fy.sin(), fy.cos()); let (x, z) = (p0[0] + fx * 4.5 + fz * (-2.4 + k as f64 * 1.6), p0[2] + fz * 4.5 - fx * (-2.4 + k as f64 * 1.6)); let sp = alw_core::hostile::species(id).unwrap(); let i = s.horde.put(sp, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.14, false); s.horde.foes[i].state = alw_core::hostile::Ai::Detection; } s.tick(0.0, none, Actions::default()); println!("créatures : {}", s.horde.foes.len()); }
         if scene == "combat" { let (x, z) = at(3.2, 0.3); s.wild.put(alw_core::wild::Kind::Wolf, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.14, false); s.guard_t = 0.12; s.anim.guard = 1.0; s.charge = 0.5; s.guide = 99; println!("combat : {} bêtes", s.wild.all.len()); } println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
     }
     let mut menu = hud::Menu { open: scene == "menu" || scene == "commandes", controls: scene == "commandes", weather: 3, quality: 1, hud: 2, ..hud::Menu::new() };
