@@ -479,34 +479,38 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         _ => panic!("matériau sans générateur : {name}"),
     }
 }
-fn detail(n: &str) -> f64 { match n { "bark_oak" => 0.2, "bark_birch" => 0.08, "bark_beech" => 0.14, "end_oak" => 0.1, "end_birch" => 0.08, "end_beech" => 0.08, "leaf_oak" => 0.16, "leaf_birch" => 0.16, "leaf_beech" => 0.16, "stone" => 0.2, "mossy_stone" => 0.2, "limestone" => 0.06, "granite" => 0.06, "gravel" => 0.08, "dirt" => 0.22, "path" => 0.2, "forest_soil" => 0.24, "grass_top" => 0.22, "grass_side" => 0.2, "planks" => 0.14, "sand" => 0.14, "grass_dry_top" => 0.22, "grass_dry_side" => 0.2, "dry_earth" => 0.18, "bark_dead" => 0.2, "lichen" => 0.2, "bark_acacia" => 0.2, "leaf_acacia" => 0.16, "bone" => 0.12, "leaf_spruce" => 0.1, _ => 0.0 } }
 pub struct Textures { pub albedo: Vec<u8>, pub nrm: Vec<u8>, pub layers: u32, pub size: u32 }
 /// Deux piles RGBA : albédo, puis normale XY et rugosité. Le motif vit dans un repère de 64 unités ; à 128 pixels, une octave fine ajoute un vrai détail.
 pub fn build_textures(size: usize) -> Textures {
+    // Rendu « pixel net » : chaque face est une grille de ART × ART pixels francs. Le motif est lu au centre de chaque pixel,
+    // la couleur y est uniforme, et le relief donne à chaque pixel une facette plate. Pas de grain aléatoire par texel ni de
+    // bosses fines : c'étaient elles qui donnaient l'aspect duveteux, « en laine », de près.
     let layers = MATERIALS.len() * VARIANTS as usize; let n = size * size * 4 * layers;
-    let (mut albedo, mut nrm) = (vec![0u8; n], vec![0u8; n]); let mut hh = vec![0f32; size * size];
-    let k = TEX / size as f64; let gain = (1.6 * size as f64) / TEX;
-    let wrap = |v: usize, d: i32| (v as i32 + d).rem_euclid(size as i32) as usize;
+    let (mut albedo, mut nrm) = (vec![0u8; n], vec![0u8; n]);
+    let cells = size.min(ART); let per = size / cells; let k = TEX / cells as f64; let gain = 0.75 * cells as f64 / TEX;
     let b8 = |v: f64| (clamp(v, 0.0, 1.0) * 255.0) as u8;
+    let mut cs = vec![S { c: [0.0; 3], h: 0.0, r: 0.0 }; cells * cells];
     for (m, name) in MATERIALS.iter().enumerate() {
-        let amp = if size as f64 > TEX { detail(name) } else { 0.0 };
         for v in 0..VARIANTS as usize {
             let t = Tile::new((1000 + m * 17 + v * 3) as u32); let layer = m * VARIANTS as usize + v; let base = layer * size * size * 4;
-            for y in 0..size { for x in 0..size {
-                let (lx, ly) = (x as f64 * k, y as f64 * k); let s = gen(name, &t, lx, ly); let p = base + (x + y * size) * 4;
-                let d = if amp != 0.0 { t.val(lx, ly, size as i64) - 0.5 } else { 0.0 }; let g = 1.0 + d * amp * 2.0;
-                albedo[p] = b8(s.c[0] * g); albedo[p + 1] = b8(s.c[1] * g); albedo[p + 2] = b8(s.c[2] * g); albedo[p + 3] = 255;
-                hh[x + y * size] = (s.h + d * amp) as f32; nrm[p + 2] = (s.r * 255.0) as u8; nrm[p + 3] = 255;
-            } }
-            for y in 0..size { for x in 0..size {
-                let p = base + (x + y * size) * 4;
-                let dx = hh[wrap(x, 1) + y * size] as f64 - hh[wrap(x, -1) + y * size] as f64; let dy = hh[x + wrap(y, 1) * size] as f64 - hh[x + wrap(y, -1) * size] as f64;
-                nrm[p] = b8(0.5 - dx * gain); nrm[p + 1] = b8(0.5 - dy * gain);
+            for y in 0..cells { for x in 0..cells { cs[x + y * cells] = gen(name, &t, (x as f64 + 0.5) * k, (y as f64 + 0.5) * k); } }
+            let at = |x: i32, y: i32| cs[(x.rem_euclid(cells as i32) + y.rem_euclid(cells as i32) * cells as i32) as usize].h;
+            for y in 0..cells { for x in 0..cells {
+                let c = cs[x + y * cells]; let (xi, yi) = (x as i32, y as i32);
+                let (dx, dy) = (at(xi + 1, yi) - at(xi - 1, yi), at(xi, yi + 1) - at(xi, yi - 1));
+                let (nx, ny) = (b8(0.5 - dx * gain), b8(0.5 - dy * gain));
+                for j in 0..per { for i in 0..per {
+                    let p = base + ((x * per + i) + (y * per + j) * size) * 4;
+                    albedo[p] = b8(c.c[0]); albedo[p + 1] = b8(c.c[1]); albedo[p + 2] = b8(c.c[2]); albedo[p + 3] = 255;
+                    nrm[p] = nx; nrm[p + 1] = ny; nrm[p + 2] = (c.r * 255.0) as u8; nrm[p + 3] = 255;
+                } }
             } }
         }
     }
     Textures { albedo, nrm, layers: layers as u32, size: size as u32 }
 }
+/// Nombre de pixels d'art par côté de bloc.
+pub const ART: usize = 64;
 
 /// Niveaux de détail réduits par moyenne, du plus grand au plus petit, le niveau 0 compris.
 pub fn mip_chain(base: &[u8], size: usize, layers: usize) -> Vec<Vec<u8>> {

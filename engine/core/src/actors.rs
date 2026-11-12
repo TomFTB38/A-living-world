@@ -120,19 +120,16 @@ fn thigh() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.1, -THIGH - 0.03, 
 fn shin() -> VBuf { let mut o = VBuf::new(100); b(&mut o, [-0.09, -0.18, -0.09, 0.09, 0.02, 0.095], PANTS); b(&mut o, [-0.105, -0.22, -0.105, 0.105, -0.13, 0.11], BOOT); b(&mut o, [-0.098, -0.37, -0.1, 0.098, -0.2, 0.105], BOOT); b(&mut o, [-0.098, -0.4, -0.11, 0.098, -0.32, 0.2], BOOT); b(&mut o, [-0.102, -0.42, -0.115, 0.102, -0.395, 0.205], SOLE); o }
 fn upper() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.082, -UPPER - 0.03, -0.085, 0.082, 0.03, 0.085], TUNIC); b(&mut o, [-0.09, -0.03, -0.095, 0.09, 0.05, 0.095], STRAP); o }
 fn fore() -> VBuf { let mut o = VBuf::new(60); b(&mut o, [-0.075, -0.09, -0.078, 0.075, 0.03, 0.078], TUNIC2); b(&mut o, [-0.062, -0.21, -0.065, 0.062, -0.09, 0.065], SKIN); b(&mut o, [-0.072, -0.235, -0.074, 0.072, -0.185, 0.074], LEATHER2); b(&mut o, [-0.066, -0.295, -0.07, 0.066, -0.23, 0.07], SKIN);
-    // Les doigts, un peu repliés vers l'avant, et le pouce.
-    for k in 0..4 { let x = -0.058 + k as f64 * 0.03; b(&mut o, [x, -0.355, -0.03, x + 0.026, -0.29, 0.06], if k % 2 == 0 { SKIN } else { SKIN2 }); b(&mut o, [x + 0.002, -0.37, 0.02, x + 0.024, -0.345, 0.07], SKIN2); }
-    b(&mut o, [-0.02, -0.3, 0.065, 0.024, -0.24, 0.095], SKIN2); b(&mut o, [-0.016, -0.33, 0.07, 0.02, -0.29, 0.1], SKIN); o }
+    // La main : un seul bloc, sans doigts (choix de style du jeu).
+    b(&mut o, [-0.064, -0.36, -0.07, 0.064, -0.29, 0.07], SKIN); o }
 fn fist() -> VBuf {
-    // Le bras vu en première personne : manche à revers, brassard de cuir sanglé, poignet, main serrée (phalanges, pouce).
+    // Le bras vu en première personne : manche à revers, brassard de cuir sanglé, poignet, main pleine, sans doigts.
     let mut o = VBuf::new(400); let q = &mut o;
     b(q, [-0.072, -0.3, -0.072, 0.072, 0.0, 0.072], SHIRT); b(q, [-0.074, -0.12, -0.074, 0.074, -0.1, 0.074], SHIRT2); b(q, [-0.078, -0.33, -0.078, 0.078, -0.29, 0.078], SHIRT2);
     b(q, [-0.064, -0.46, -0.066, 0.064, -0.33, 0.066], LEATHER2); for y in [-0.36, -0.43] { b(q, [-0.067, y - 0.012, -0.069, 0.067, y + 0.012, 0.069], BELT); } b(q, [0.062, -0.442, -0.016, 0.071, -0.418, 0.016], BUCKLE);
     b(q, [-0.05, -0.5, -0.053, 0.05, -0.46, 0.053], SKIN2);
     b(q, [-0.058, -0.6, -0.056, 0.058, -0.5, 0.056], SKIN);
-    for k in 0..4 { let x = -0.052 + k as f64 * 0.027; let t = if k % 2 == 0 { SKIN } else { SKIN2 };
-        b(q, [x, -0.655, -0.04, x + 0.024, -0.585, 0.064], t); b(q, [x + 0.002, -0.6, 0.056, x + 0.022, -0.58, 0.068], SKIN2); }
-    b(q, [0.054, -0.6, 0.0, 0.08, -0.52, 0.05], SKIN2); b(q, [0.046, -0.62, 0.03, 0.074, -0.58, 0.07], SKIN);
+    b(q, [-0.058, -0.65, -0.056, 0.058, -0.6, 0.056], SKIN); // poing d'un seul bloc, sans doigts ni pouce
     o
 }
 
