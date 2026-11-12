@@ -12,7 +12,7 @@ pub const VERT: usize = 36; // octets par sommet : position, uv, couleur, couche
 #[derive(Default)]
 pub struct Ui { pub data: Vec<f32>, w: f32, h: f32 }
 type C = [f32; 4];
-const LAYER_FLAT: f32 = -1.0; const LAYER_TEXT: f32 = -2.0; const LAYER_ICON: f32 = -3.0;
+const LAYER_FLAT: f32 = -1.0; const LAYER_TEXT: f32 = -2.0; const LAYER_ICON: f32 = -3.0; const LAYER_LOGO: f32 = -4.0;
 const INK: C = [0.96, 0.95, 0.9, 1.0]; const DIM: C = [0.74, 0.76, 0.69, 0.95]; const PANEL: C = [0.075, 0.09, 0.08, 0.93]; const WELL: C = [0.0, 0.0, 0.0, 0.32]; const ACCENT: C = [0.55, 0.78, 0.42, 1.0]; const BAD: C = [1.0, 0.45, 0.38, 1.0]; const GOLD: C = [0.95, 0.78, 0.36, 1.0];
 /// Ce que la souris peut viser dans l'inventaire. `Slot` couvre le sac, le coffre ouvert et l'équipement.
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum Hit { Slot(usize), Catalog(&'static str), Tab(usize), Book(usize), BookCat(usize), Page(i32), Search, Craft(bool), Scroll(i32) }
@@ -338,7 +338,10 @@ impl Ui {
             TPage::Main => {
                 // Un voile sombre à gauche, qui s'efface vers le monde.
                 for i in 0..24 { self.rect(0.0, 0.0, w * 0.75 * (1.0 - i as f32 / 24.0), h, [0.02, 0.03, 0.02, 0.055]); }
-                self.text("A Living World", 86.0 * k, h * 0.2, 64.0 * k, INK); self.text("Survivre, bâtir, explorer un monde qui vit", 92.0 * k, h * 0.2 + 84.0 * k, 20.0 * k, [0.85, 0.88, 0.8, 0.9]);
+                // Le logo du jeu, au-dessus des boutons, et la devise dessous.
+                let z = (h * 0.34).min(400.0 * k); let (lx, ly) = (90.0 * k + (400.0 * k - z) * 0.5, h * 0.03);
+                self.quad([[lx, ly], [lx + z, ly], [lx + z, ly + z], [lx, ly + z]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [1.0; 4], LAYER_LOGO);
+                let tag = "Survivre, bâtir, explorer un monde qui vit"; let tz = 17.0 * k; self.text(tag, 90.0 * k + (400.0 * k - Ui::text_width(tag, tz)) * 0.5, ly + z + 6.0 * k, tz, [0.92, 0.88, 0.74, 0.95]);
                 for (a, r) in title_layout(t, w, h) {
                     let on = hover == Some(a); btn(self, r, on, a == T::Continue);
                     match a {
