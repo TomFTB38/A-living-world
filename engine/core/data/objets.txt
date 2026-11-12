@@ -182,7 +182,6 @@ coral_block_orange | Corail orangé | batir | 1.0 | 64 | Un bloc de corail massi
 coral_block_purple | Corail violet | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
 coral_block_yellow | Corail jaune | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
 coral_block_blue | Corail bleu | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
-adobe | Terre crue | batir | 1.0 | 64 | Des briques de terre et de paille séchées au soleil, ocre et chaudes. |
 wreck_planks | Bordages d'épave | batir | 1.0 | 64 | Du bois gris et rongé d'algues, arraché à une coque engloutie. |
 fishing_net | Filet de pêche | decor | 1.0 | 16 | Un filet de mailles brunes, ses flotteurs de liège : à pendre au mur ou à la clôture. |
 fish_rack | Séchoir à poissons | decor | 1.0 | 16 | Deux montants, une perche, des poissons qui sèchent au vent. |

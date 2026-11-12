@@ -93,7 +93,7 @@ pub fn dress(gen: &WorldGen, cx: i32, cz: i32, vox: &[Id], mesh: &mut Mesh) {
 // ------------------------------------------------------------------------------------------------ styles et plans
 /// Les matières d'un village : soubassement, rez-de-chaussée, étage, poteaux, sol, âme des toits, couvertures.
 #[derive(Clone, Copy)]
-pub struct Style { pub found: Id, pub ground: Id, pub upper: Id, pub frame: bool, pub post: Id, pub floor: Id, pub core: Id, pub tiles: Id, pub thatch: Id, pub noble: Id, pub chimney: Id, pub pave: Id, pub beam: C3, /** architecture : 0 médiévale, 1 d'Afrique du Nord (terrasses, arcs), 2 nordique (rondins, toits raides, têtes de dragon), 3 steppe (yourtes, terre crue), 4 hautes terres (pierre sèche, chaume lesté) */ pub arch: u8 }
+pub struct Style { pub found: Id, pub ground: Id, pub upper: Id, pub frame: bool, pub post: Id, pub floor: Id, pub core: Id, pub tiles: Id, pub thatch: Id, pub noble: Id, pub chimney: Id, pub pave: Id, pub beam: C3, /** architecture : 0 médiévale, 1 d'Afrique du Nord (terrasses, arcs), 2 nordique (rondins, toits raides, têtes de dragon) */ pub arch: u8 }
 pub fn style(kind: &str) -> Style {
     let (found, cob, plaster, timber, planks, tiles, slate, thatch) = (id("cobblestone"), id("cobblestone"), id("plaster"), id("timber"), id("planks"), id("roof_tiles"), id("slate"), id("thatch"));
     let dark = [0.25, 0.16, 0.1];
@@ -104,12 +104,9 @@ pub fn style(kind: &str) -> Style {
         // Désert : l'architecture d'Afrique du Nord — murs de grès et d'enduit ocre, toits plats en terrasse crénelée,
         // poutres de palmier qui dépassent, portes en arc outrepassé, fenêtres à moucharabieh, coupoles.
         "desert" => Style { found: id("sandstone"), ground: id("sandstone"), upper: id("sandstone"), frame: false, post: id("red_sandstone"), floor: id("sandstone"), core: id("sandstone"), tiles, thatch, noble: tiles, chimney: id("sandstone"), pave: id("sandstone"), beam: [0.4, 0.28, 0.16], arch: 1 },
-        // Steppe : les nomades vivent sous la yourte de feutre ; les maisons sont de terre crue, aux angles arrondis et au toit plat de poutres.
-        "aride" => Style { found: cob, ground: id("adobe"), upper: id("adobe"), frame: false, post: id("adobe"), floor: planks, core: id("adobe"), tiles: thatch, thatch, noble: thatch, chimney: id("clay"), pave: cob, beam: [0.42, 0.3, 0.18], arch: 3 },
+        "aride" => Style { found, ground: cob, upper: plaster, frame: true, post: timber, floor: planks, core: planks, tiles, thatch, noble: tiles, chimney: cob, pave: cob, beam: dark, arch: 0 },
         "port" => Style { found: id("fieldstone"), ground: id("fieldstone"), upper: id("spruce_planks"), frame: false, post: id("spruce_log"), floor: id("spruce_planks"), core: id("spruce_planks"), tiles: id("shingles"), thatch: id("shingles"), noble: slate, chimney: id("stone_bricks"), pave: cob, beam: [0.2, 0.14, 0.09], arch: 0 }, // port de pêche : pierre sèche, planches, bardeaux
-        // Hautes terres : la maison basse écossaise — épais murs de pierre sèche, toit de chaume tenu par des cordes lestées de pierres,
-        // cheminées aux deux pignons ; ardoise pour l'église.
-        "hautes_terres" => Style { found: id("fieldstone"), ground: id("fieldstone"), upper: id("fieldstone"), frame: false, post: id("fieldstone"), floor: planks, core: planks, tiles: thatch, thatch, noble: slate, chimney: id("fieldstone"), pave: cob, beam: dark, arch: 4 },
+        "hautes_terres" => Style { found, ground: id("stone_bricks"), upper: plaster, frame: true, post: timber, floor: planks, core: planks, tiles: slate, thatch: slate, noble: slate, chimney: id("stone_bricks"), pave: cob, beam: dark, arch: 0 },
         _ => Style { found, ground: cob, upper: plaster, frame: true, post: timber, floor: planks, core: planks, tiles, thatch, noble: slate, chimney: id("clay_bricks"), pave: cob, beam: dark, arch: 0 },
     }
 }
@@ -299,29 +296,6 @@ impl B<'_> {
             for (pu, pw) in [(0.8, 0.8), (3.2, 0.8), (0.8, 2.8), (3.2, 2.8)] { self.k.cube(at, lot.p(pu - 0.04, y, pw - 0.04), lot.p(pu + 0.04, y + 1.9, pw + 0.04), beam, -1.0); }
             let cols = [[0.82, 0.3, 0.18], [0.92, 0.84, 0.66]]; for k in 0..6 { let w0 = 0.8 + k as f64 * 0.4; self.k.quad(at, [lot.p(0.8, y + 1.9, w0), lot.p(3.2, y + 1.9, w0), lot.p(3.2, y + 1.85, w0 + 0.4), lot.p(0.8, y + 1.85, w0 + 0.4)], cols[k % 2], -1.0, 0); } }
     }
-    /// Terre crue de la steppe : un toit plat de poutres et de roseaux, des poutres qui sortent du mur, un rebord arrondi ;
-    /// les angles de la maison sont adoucis par un pilier rond de terre.
-    fn adobe_roof(&mut self, yr: i32, y0: i32) {
-        let (w, d) = (self.w, self.d); let s = self.s; let lot = self.lot; let beam = s.beam; let cl = layer(s.ground);
-        for u in 0..w { for ww in 0..d { self.put(u, yr, ww, s.core); } }
-        for side in 0..4u8 { let n = self.normal(side); let len = self.len(side); for k in 0..len { let t = k as f64 + 0.5; let at = self.anchor(side, t, yr as f64);
-            let (a, c) = (self.on(side, t, yr as f64 + 0.3, -0.05), self.on(side, t, yr as f64 + 0.26, 0.5)); self.k.bar(at, a, c, cross_dir(n), 0.07, 0.07, beam, -1.0);
-            let (a, c) = (self.on(side, k as f64, yr as f64 + 1.12, -0.05), self.on(side, k as f64 + 1.0, yr as f64 + 1.12, -0.05)); self.k.bar(at, a, c, n, 0.14, 0.14, [1.0, 1.0, 1.0], cl); } }
-        let at = lot.cell(1, yr, 1); for k in 0..(w * d / 3) { let (u, ww) = (0.5 + ((k * 7) % w) as f64, 0.5 + ((k * 5) % d) as f64); self.k.cube(at, lot.p(u - 0.35, yr as f64 + 1.0, ww - 0.35), lot.p(u + 0.35, yr as f64 + 1.06, ww + 0.35), [0.78, 0.68, 0.42], -1.0); } // bottes de roseaux
-        for (cu, cw) in [(0.0, 0.0), (w as f64, 0.0), (w as f64, d as f64), (0.0, d as f64)] { let at = lot.cell(if cu > 0.0 { w - 1 } else { 0 }, y0 + 1, if cw > 0.0 { d - 1 } else { 0 });
-            for k in 0..4 { let a = k as f64 * std::f64::consts::FRAC_PI_4; let (ca, sa) = (a.cos() * 0.3, a.sin() * 0.3); self.k.solid(at, lot.p(cu, (y0 + yr + 2) as f64 * 0.5, cw), [lot.v(ca, 0.0, sa), [0.0, (yr - y0) as f64 * 0.5, 0.0], lot.v(-sa * 0.6, 0.0, ca * 0.6)], [1.0, 1.0, 1.0], cl, 0); } }
-    }
-    /// Chaume des hautes terres : des cordes tendues en travers du toit tous les trois quarts de bloc, lestées d'une pierre à chaque bout.
-    fn thatch_ropes(&mut self, yr: i32) {
-        let (w, d) = (self.w, self.d); let (wf, df, y) = (w as f64, d as f64, yr as f64); let lot = self.lot; let (e, over) = (1.45, 1.3); let peak = y + 2.0 + wf * 0.5 + 0.42;
-        let at = if w % 2 == 1 { lot.cell((w - 1) / 2, yr + (w + 1) / 2, d / 2) } else { lot.cell(w / 2 - 1, yr + w / 2, d / 2) }; let rope = [0.5, 0.42, 0.3]; let st = layer(id("fieldstone"));
-        let mut ww = -over + 0.4; while ww < df + over - 0.2 {
-            for side in [-1.0f64, 1.0] { let ue = if side < 0.0 { -e } else { wf + e }; let ye = y + 2.0 - e + 0.44; let p0 = lot.p(ue, ye, ww); let p1 = lot.p(wf * 0.5, peak, ww);
-                self.k.bar(at, p0, p1, lot.v(0.0, 0.0, 1.0), 0.02, 0.025, rope, -1.0);
-                let hang = lot.p(ue + side * 0.05, ye - 0.45, ww); self.k.bar(at, p0, hang, lot.v(0.0, 0.0, 1.0), 0.015, 0.015, rope, -1.0);
-                self.k.solid(at, add(hang, [0.0, -0.12, 0.0]), [lot.v(0.13, 0.0, 0.0), [0.0, 0.12, 0.0], lot.v(0.0, 0.0, 0.11)], [0.95, 0.95, 0.95], st, 0); }
-            ww += 0.75; }
-    }
     /// Coupole enduite de blanc sur la terrasse, avec son épi doré.
     fn dome(&mut self, y: i32, rad: f64) {
         let (w, d) = (self.w as f64, self.d as f64); let lot = self.lot; let c = lot.p(w * 0.5, y as f64, d * 0.5); let at = lot.cell(self.w / 2, y - 1, self.d / 2);
@@ -383,7 +357,7 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
     let (w, d) = plan.size(); let du = w / 2;
     const PAINT: [C3; 5] = [[0.24, 0.36, 0.26], [0.22, 0.3, 0.42], [0.5, 0.18, 0.14], [0.38, 0.3, 0.2], [0.3, 0.4, 0.42]];
     let mut b = B { k, lot, w, d, s, gaps: Vec::new(), paint: PAINT[(h * 5.0) as usize % 5], h };
-    let floors = match plan { Plan::Town | Plan::Tavern | Plan::Shop(_) if s.arch != 4 => 2, _ => 1 }; // la maison des hautes terres reste basse, tapie sous son chaume
+    let floors = match plan { Plan::Town | Plan::Tavern | Plan::Shop(_) => 2, _ => 1 };
     let top_wall = match plan { Plan::Church => y0 + 5, Plan::Mill => y0 + 6, _ => y0 + 3 + 4 * (floors - 1) };
     // Place nette : rien dans le volume du bâtiment et de son toit.
     let clear = match plan { Plan::Church => 18, Plan::Mill => 10, _ => top_wall - y0 + w / 2 + 4 };
@@ -438,7 +412,6 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
         }
         _ => {}
     }
-    if s.arch == 3 && plan == Plan::Cottage { yurt(&mut b, y0); furnish(&mut b, plan, y0); return (du, d - 2); }
     let craft = plan.craft();
     let forge = matches!(plan, Plan::Forge(_));
     // Rez-de-chaussée : la pierre ; à l'étage (ou au-dessus du soubassement pour une chaumière), le torchis entre les poutres.
@@ -473,8 +446,7 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
     let cover = match plan { Plan::Cottage => s.thatch, Plan::Forge(_) => s.noble, _ => s.tiles };
     let gable = if forge { s.ground } else { s.upper };
     if s.arch == 1 { b.flat_roof(yr, floors == 2 && h < 0.6); if plan == Plan::Tavern { b.dome(yr + 1, 1.8); } }
-    else if s.arch == 3 { b.adobe_roof(yr, y0); }
-    else { b.roof(yr, cover, gable, if (cover == s.thatch && cover == id("thatch")) || cover == id("grass") { 0.42 } else { 0.16 }); if s.arch == 2 { b.dragons(yr); } if s.arch == 4 { b.thatch_ropes(yr); b.chimney(1, y0 + 1, yr + w / 2 + 1); }
+    else { b.roof(yr, cover, gable, if (cover == s.thatch && cover == id("thatch")) || cover == id("grass") { 0.42 } else { 0.16 }); if s.arch == 2 { b.dragons(yr); }
         let cu = if forge { du + 1 } else { w - 2 }; b.chimney(cu, y0 + 1, if forge { yr + w / 2 + 2 } else { yr + w / 2 + 1 }); }
     // Le relief de la façade : chaînages d'angle, soubassement, perron et auvent, chevrons, balcon, appentis, linge, bric-à-brac.
     details(&mut b, plan, y0, floors, yr, cover);
@@ -493,25 +465,6 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
     let _ = craft; (du, d - 2)
 }
 fn cross_dir(n: C3) -> C3 { [-n[2], 0.0, n[0]] }
-/// Yourte : une paroi ronde de feutre blanc sur son treillis, ceinturée de cordes, une porte peinte de rouge, le toit conique
-/// de feutre en anneaux jusqu'à la couronne de bois et son tuyau de poêle ; des tapis au sol.
-fn yurt(b: &mut B, y0: i32) {
-    let (w, d) = (b.w, b.d); let lot = b.lot; let (cu, cw) = (w as f64 * 0.5, d as f64 * 0.5); let felt = id("wool_white"); let y = y0 as f64; let du = w / 2;
-    let fl = layer(felt); let at = lot.cell(du, y0 + 1, d / 2);
-    for u in 0..w { for ww in 0..d { let dist = ((u as f64 + 0.5 - cu).powi(2) + (ww as f64 + 0.5 - cw).powi(2)).sqrt();
-        if dist > 2.0 && dist <= 2.8 { for yy in y0 + 1..=y0 + 2 { b.put(u, yy, ww, felt); } } else if dist <= 2.0 { b.put(u, y0 + 1, ww, id("carpet_red")); b.put(u, y0 + 3, ww, felt); } } }
-    let f = b.lot_face(); let dr = id("door"); let (dx, dz) = (du, 0); let fu = (0..d).find(|ww| { let dist = ((dx as f64 + 0.5 - cu).powi(2) + (*ww as f64 + 0.5 - cw).powi(2)).sqrt(); dist <= 2.8 }).unwrap_or(dz);
-    b.put(dx, y0 + 1, fu, crate::shapes::variant(dr, f, false, false, false)); b.put(dx, y0 + 2, fu, crate::shapes::variant(dr, f, false, false, true));
-    let c = lot.p(cu, y + 3.0, cw);
-    for k in 0..8 { let t = k as f64 / 8.0; let r = 3.0 * (1.0 - t) + 0.45 * t; let (y0r, y1r) = (y + 3.0 + t * 1.6, y + 3.0 + (t + 0.125) * 1.6); let r2 = r * 0.96;
-        b.k.cube(at, add(c, [-r2, y0r - (y + 3.0), -r2]), add(c, [r2, y1r - (y + 3.0), r2]), [1.0, 0.97, 0.9], fl); }
-    let wood = [0.62, 0.32, 0.18]; b.k.cube(at, add(c, [-0.5, 1.55, -0.5]), add(c, [0.5, 1.72, 0.5]), wood, -1.0); b.k.cube(at, add(c, [0.15, 1.6, 0.15]), add(c, [0.33, 2.5, 0.33]), [0.2, 0.2, 0.22], -1.0);
-    for (yy, r) in [(1.15, 2.85), (1.75, 2.85), (3.3, 2.7)] { b.k.cube(at, add(c, [-r - 0.04, yy - 3.0, -r - 0.04]), add(c, [r + 0.04, yy - 3.0 + 0.06, r + 0.04]), [0.5, 0.36, 0.22], -1.0); } // cordes
-    let n = b.normal(0); let at2 = b.anchor(0, dx as f64 + 0.5, y + 1.0);
-    for t in [dx as f64 - 0.05, dx as f64 + 1.05] { let (a, e) = (lot.p(t, y + 1.0, fu as f64 - 0.02), lot.p(t, y + 3.1, fu as f64 - 0.02)); b.k.bar(at2, a, e, n, 0.07, 0.07, [0.72, 0.18, 0.12], -1.0); }
-    b.k.bar(at2, lot.p(dx as f64 - 0.1, y + 3.1, fu as f64 - 0.02), lot.p(dx as f64 + 1.1, y + 3.1, fu as f64 - 0.02), n, 0.08, 0.07, [0.72, 0.18, 0.12], -1.0);
-    b.put(du + 2, y0 + 1, -1, id("barrel")); b.put(-1, y0 + 1, 1, id("sack"));
-}
 /// Une coupole en anneaux superposés (enduit blanc), un tambour, un épi doré et son croissant.
 fn minaret_dome(k: &mut Work, at: [i32; 3], c: C3, rad: f64) {
     let pl = layer(id("plaster")); k.cube(at, add(c, [-rad, 0.0, -rad]), add(c, [rad, 0.35, rad]), [1.0, 0.98, 0.94], pl);
@@ -547,7 +500,7 @@ fn details(b: &mut B, plan: Plan, y0: i32, floors: i32, yr: i32, cover: Id) {
         for t in [l + 0.08, rr - 0.08] { let p0 = lot.p(t, yt - 0.55, 0.0); let p1 = lot.p(t, yt + 0.05, -out + 0.12); b.k.bar(at, p0, p1, cross_dir(n), 0.045, 0.045, beam, -1.0); b.k.bar(at, lot.p(t, yt + 0.02, 0.0), lot.p(t, yt + 0.02, -out), n, 0.04, 0.04, beam, -1.0); }
         b.k.bar(at, lot.p(l, yt + 0.02, -out + 0.04), lot.p(rr, yt + 0.02, -out + 0.04), n, 0.04, 0.05, beam, -1.0); }
     // Chevrons : sous chaque débord de toit, les bouts des poutres qui sortent du mur.
-    if !matches!(b.s.arch, 1 | 3) { for side in [1u8, 3] { let n = b.normal(side); for ww in 0..=d { let t = if side == 1 { ww as f64 } else { df - ww as f64 }; let at = b.anchor(side, t.min(df - 0.5).max(0.5), yr as f64);
+    if b.s.arch != 1 { for side in [1u8, 3] { let n = b.normal(side); for ww in 0..=d { let t = if side == 1 { ww as f64 } else { df - ww as f64 }; let at = b.anchor(side, t.min(df - 0.5).max(0.5), yr as f64);
         let (a, c) = (b.on(side, t, yr as f64 + 0.15, 0.0), b.on(side, t, yr as f64 + 0.62, 0.95)); b.k.bar(at, a, c, cross_dir(n), 0.06, 0.07, beam, -1.0); } } }
     // Balcon de bois à l'étage, sur la façade : plancher sur consoles, garde-corps à balustres, pots de fleurs.
     if floors == 2 && h < 0.55 && w >= 5 && b.s.arch != 1 { let at = lot.cell(du, y0 + 5, 0); let (l, rr, out) = (du as f64 - 1.0, du as f64 + 2.0, 0.85); let fy = y + 5.0;
