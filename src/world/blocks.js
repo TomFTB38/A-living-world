@@ -369,6 +369,7 @@ defs.push(['marram', 'deco', null, 0.02, { model: 'marram', drop: null }]);
 // Grands coraux : des blocs pleins de cinq couleurs, sur une même matière poreuse ; bois d'épave.
 for (const [n, t] of [['coral_block_red', [1.06, 0.44, 0.4]], ['coral_block_orange', [1.1, 0.62, 0.26]], ['coral_block_purple', [0.78, 0.4, 0.94]], ['coral_block_yellow', [1.1, 0.94, 0.42]], ['coral_block_blue', [0.4, 0.8, 0.98]]]) cube(n, 'coral', 0.9, 'rock', { tint: t });
 cube('wreck_planks', 'planks_wreck', 0.8, 'wood');
+cube('adobe', 'clay', 0.9, 'rock', { tint: [1.18, 0.88, 0.6] }); // terre crue des maisons de la steppe
 // Port de pêche : filets, séchoirs, nasses, bittes, bouées, ancre, avirons, garde-corps de corde, voiles, fanion.
 for (const [n, h, p] of [['fishing_net', 0.2, {}], ['fish_rack', 0.5, {}], ['anchor', 1.5, {}], ['oars', 0.4, {}], ['rope_rail', 0.5, { solid: true }], ['sail', 0.2, {}], ['boat_bench', 0.4, {}]]) turner(n, h, 'wood', p);
 for (const [n, h, p] of [['creel', 0.3, {}], ['mooring_post', 1.0, { solid: true }], ['buoy', 0.3, {}], ['net_pile', 0.2, {}], ['pennant', 0.3, {}], ['fish_crate', 0.5, {}]]) defs.push([n, 'deco', null, h, { model: n, cat: 'wood', ...p }]);

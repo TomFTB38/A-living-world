@@ -71,6 +71,8 @@ jobs:
           shot port -38.5 53 0.5 -20 52 -30 11 6 1280 720 2048 port
           shot village_desert -38.5 53 0.5 -20 52 -30 10.5 5 1280 720 2048 village_desert
           shot village_nord -38.5 53 0.5 -20 52 -30 10.5 5 1280 720 2048 village_nord
+          shot village_steppe -38.5 53 0.5 -20 52 -30 10.5 5 1280 720 2048 village_steppe
+          shot village_ecosse -38.5 53 0.5 -20 52 -30 10.5 5 1280 720 2048 village_ecosse
           shot epave -38.5 53 0.5 -20 52 -30 12 4 1280 720 2048 epave
           shot large -38.5 53 0.5 -20 52 -30 12 5 1280 720 2048 large
           shot foret -38.5 53 0.5 -20 52 -30 11 3 1280 720 1024 foret

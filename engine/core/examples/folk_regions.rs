@@ -24,7 +24,7 @@ fn draw(img: &mut [[u8; 3]], zb: &mut [f32], w: usize, h: usize, md: &Models, li
 fn main() {
     // Les villageois des trois régions : désert, Nord, port (trois de chaque).
     let md = Models::build(); let (w, h) = (1700usize, 330usize); let mut img = vec![[60u8, 70, 62]; w * h]; let mut zb = vec![f32::MAX; w * h];
-    let mut k = 0; for r in 1..=3 { for (look, face, yaw) in [(0u8, 1usize, 0.5), (6, 3, -0.4), (8, 4, 0.3)] {
+    let mut k = 0; for r in 4..=5 { for (look, face, yaw) in [(0u8, 1usize, 0.5), (6, 3, -0.4), (8, 4, 0.3)] {
         let base = trs(0.0, 0.0, 0.0, 0.0, 0.0, 1.0); let mut l = Vec::new(); let p = |n: &str| md.part(n);
         l.push((base, p(&format!("folk{look}r{r}")))); l.push((mul(&base, &trs(0.0, 1.4, 0.0, 0.0, 0.0, 1.0)), p(&format!("folkHead{face}r{r}"))));
         for x in [-0.125, 0.125] { l.push((mul(&base, &trs(x, 0.76, 0.0, 0.0, 0.0, 1.0)), p(&format!("folkLeg{look}r{r}")))); }
