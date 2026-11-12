@@ -561,7 +561,7 @@ fn capture(a: &[String]) {
     }
     if scene == "village_desert" || scene == "village_nord" || scene == "village_steppe" || scene == "village_ecosse" {
         // Le village du désert (grès, terrasses, coupoles) ou de la montagne (rondins, têtes de dragon), et ses habitants.
-        let want = match scene { "village_desert" => "desert", "village_steppe" => "aride", "village_ecosse" => "hautes_terres", _ => "montagne" };
+        let want = match scene.as_str() { "village_desert" => "desert", "village_steppe" => "aride", "village_ecosse" => "hautes_terres", _ => "montagne" };
         if let Some(v) = WorldGen::new(SEED).villages_near(0.0, 0.0, 9000.0).into_iter().find(|v| v.kind == want) {
             let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; s.hour = 10.5; s.sel = 8; s.third = false; s.player.fly = true;
             let e = [c[0] - 13.0, c[1] + 6.0, c[2] - 13.0]; s.player.p = [e[0], e[1] - 1.62, e[2]]; let f = view::norm([c[0] - e[0], c[1] - e[1], c[2] - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
