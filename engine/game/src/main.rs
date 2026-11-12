@@ -474,7 +474,7 @@ fn capture(a: &[String]) {
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Highlands) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
         println!("hautes terres : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 4.0, z]; let f = view::norm([a.cos(), -0.12, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.highlands = 1.0; s.tick(0.0, none, Actions::default()); }
     }
-    if scene == "montagne" {
+    if scene == "hautes_montagnes" {
         // Le cœur des hautes montagnes, vu d'un vallon vers les crêtes enneigées.
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..900 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Mountains) > 0.97 && c.water == 0.0 && c.h < 86.0 { found = Some((x, z, a, c.h)); break 'p; } } }
         println!("hautes montagnes : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 14.0, z]; let f = view::norm([a.cos(), 0.05, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.mountains = 1.0; s.tick(0.0, none, Actions::default()); }
