@@ -956,6 +956,24 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32) -> (Vec<u8>, usize) {
 /// Boîte orientée : centre `c`, trois demi-axes `a` (le repère doit être direct). `layer` < 0 : couleur unie `col` ;
 /// sinon la texture de cette couche, teintée par `col`. Pour les toits en pente, les jambes de force, les ailes du moulin.
 #[allow(clippy::too_many_arguments)]
+/// Moyenne du carré de l'albédo de chaque couche de texture (le moteur éclaire albédo² × teinte).
+fn mat_avg2() -> &'static Vec<[f64; 3]> {
+    static A: std::sync::OnceLock<Vec<[f64; 3]>> = std::sync::OnceLock::new();
+    A.get_or_init(|| { let t = crate::textures::build_textures(16); let n = 16 * 16; (0..t.layers as usize).map(|l| { let mut s = [0.0f64; 3]; for i in 0..n { for k in 0..3 { let v = t.albedo[(l * n + i) * 4 + k] as f64 / 255.0; s[k] += v * v; } } s.map(|v| (v / n as f64).max(1e-3)) }).collect() })
+}
+/// Une pièce de décor de couleur unie reçoit la vraie matière qui lui ressemble — bois sombre des poutres, bois clair des
+/// meubles, fer, pierre, enduit, étoffe — teintée pour garder sa couleur : grain, veines, joints et relief de la texture,
+/// au lieu d'un aplat. Les très petites pièces (yeux, clous, flammes) et les couleurs lumineuses restent unies.
+pub fn auto_tex(col: [f64; 3], size: f64) -> Option<(f64, [f64; 3])> {
+    let (hi, lo) = (col[0].max(col[1]).max(col[2]), col[0].min(col[1]).min(col[2])); if hi > 1.02 || size < 0.09 || hi < 0.03 { return None; }
+    let lum = 0.3 * col[0] + 0.6 * col[1] + 0.1 * col[2]; let sat = (hi - lo) / hi;
+    let m = if col[0] >= col[1] && col[1] >= col[2] * 0.95 && sat > 0.22 && sat < 0.8 { if lum < 0.3 { "dark_timber" } else { "wood_inner" } }
+        else if col[1] > col[0] && col[1] >= col[2] && sat > 0.2 { "leaf_oak" } // buissons, feuillages : de vraies feuilles
+        else if sat < 0.13 { if lum < 0.33 { "iron_plate" } else if lum > 0.72 { "plaster" } else { "polished_stone" } }
+        else { "wool" };
+    let li = crate::blocks::MATERIALS.iter().position(|x| *x == m)? * crate::blocks::VARIANTS as usize; let a = mat_avg2()[li];
+    Some((li as f64, [0, 1, 2].map(|k| (col[k] * col[k] * 1.22 / a[k]).clamp(0.0, 1.99))))
+}
 pub fn obox(o: &mut VBuf, c: [f64; 3], a: [[f64; 3]; 3], col: [f64; 3], layer: f64, s: f64, l: f64) {
     let p = |i: f64, j: f64, k: f64| [c[0] + a[0][0] * i + a[1][0] * j + a[2][0] * k, c[1] + a[0][1] * i + a[1][1] * j + a[2][1] * k, c[2] + a[0][2] * i + a[1][2] * j + a[2][2] * k];
     let nrm = |v: [f64; 3], sg: f64| { let m = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-9); [v[0] / m * sg, v[1] / m * sg, v[2] / m * sg] };

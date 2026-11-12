@@ -507,6 +507,7 @@ pub fn build_textures(size: usize) -> Textures {
         for v in 0..VARIANTS as usize {
             let t = Tile::new((1000 + m * 17 + v * 3) as u32); let layer = m * VARIANTS as usize + v; let base = layer * size * size * 4;
             for y in 0..cells { for x in 0..cells { cs[x + y * cells] = gen(name, &t, (x as f64 + 0.5) * k, (y as f64 + 0.5) * k); } }
+            let gain = gain * relief(name);
             let at = |x: i32, y: i32| cs[(x.rem_euclid(cells as i32) + y.rem_euclid(cells as i32) * cells as i32) as usize].h;
             for y in 0..cells { for x in 0..cells {
                 let c = cs[x + y * cells]; let (xi, yi) = (x as i32, y as i32);
@@ -521,6 +522,12 @@ pub fn build_textures(size: usize) -> Textures {
         }
     }
     Textures { albedo, nrm, layers: layers as u32, size: size as u32 }
+}
+/// Relief propre à chaque matière : la maçonnerie, les toitures et le bois de charpente sont creusés plus franchement
+/// (joints, rangs de tuiles, planches qui se chevauchent) ; le reste garde un relief doux.
+fn relief(n: &str) -> f64 {
+    match n { "stone_bricks" | "bricks" | "cobble" | "fieldstone" | "ashlar" | "setts" | "chiseled" => 2.0, "roof_tiles" | "slate" | "shingles" | "thatch" => 2.2,
+        "dark_timber" | "planks" | "planks_birch" | "planks_spruce" | "planks_wreck" | "parquet" | "wattle" | "crate" | "books" => 1.7, "plaster" | "terracotta" | "wood_inner" | "iron_plate" => 1.4, _ => 1.0 }
 }
 /// Nombre de pixels d'art par côté de bloc.
 pub const ART: usize = 64;

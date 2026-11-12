@@ -73,11 +73,15 @@ pub fn dress(gen: &WorldGen, cx: i32, cz: i32, vox: &[Id], mesh: &mut Mesh) {
             let off = [ox as f64, 0.0, oz as f64]; o.rot = p.rot;
             if p.quad {
                 let q = [sub(p.c, off), sub(p.a[0], off), sub(p.a[1], off), sub(p.a[2], off)];
-                let n = unit(cross(sub(q[1], q[0]), sub(q[3], q[0]))); let (kd, ly) = if p.layer < 0.0 { (crate::mesher::kind::FLAT, 0.0) } else { (crate::mesher::kind::TEX, p.layer) };
-                for (order, sg) in [([0, 1, 2, 3], 1.0), ([0, 3, 2, 1], -1.0)] { for k in order { let v = q[k]; o.v(v[0], v[1], v[2], ly, n[0] * sg, n[1] * sg, n[2] * sg, 0.0, 235.0, 255.0, 0.0, kd, p.col[0], p.col[1], p.col[2]); } }
+                let n = unit(cross(sub(q[1], q[0]), sub(q[3], q[0]))); let size = dot(sub(q[2], q[0]), sub(q[2], q[0])).sqrt();
+                // Les aplats de couleur prennent la matière qui leur ressemble (bois, fer, pierre, étoffe) : grain et relief.
+                let (kd, ly, col) = if p.layer >= 0.0 { (crate::mesher::kind::TEX, p.layer, p.col) } else if let Some((l, t)) = crate::mesher::auto_tex(p.col, size) { (crate::mesher::kind::TEX, l, t) } else { (crate::mesher::kind::FLAT, 0.0, p.col) };
+                for (order, sg) in [([0, 1, 2, 3], 1.0), ([0, 3, 2, 1], -1.0)] { for k in order { let v = q[k]; o.v(v[0], v[1], v[2], ly, n[0] * sg, n[1] * sg, n[2] * sg, 0.0, 235.0, 255.0, 0.0, kd, col[0], col[1], col[2]); } }
                 for v in q { top = top.max(v[1].ceil() as i32 + 1); }
             } else {
-                obox(&mut o, sub(p.c, off), p.a, p.col, p.layer, 255.0, 0.0);
+                let size = 2.0 * (0..3).map(|k| dot(p.a[k], p.a[k]).sqrt()).fold(0.0, f64::max);
+                let (col, ly) = if p.layer >= 0.0 { (p.col, p.layer) } else if let Some((l, t)) = crate::mesher::auto_tex(p.col, size) { (t, l) } else { (p.col, p.layer) };
+                obox(&mut o, sub(p.c, off), p.a, col, ly, 255.0, 0.0);
                 top = top.max((p.c[1] + p.a[0][1].abs() + p.a[1][1].abs() + p.a[2][1].abs()).ceil() as i32 + 1);
             }
             o.rot = 0;
@@ -389,6 +393,8 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
     let gable = if forge { s.ground } else { s.upper };
     b.roof(yr, cover, gable, if cover == s.thatch && cover == id("thatch") { 0.42 } else { 0.16 });
     let cu = if forge { du + 1 } else { w - 2 }; b.chimney(cu, y0 + 1, if forge { yr + w / 2 + 2 } else { yr + w / 2 + 1 });
+    // Le relief de la façade : chaînages d'angle, soubassement, perron et auvent, chevrons, balcon, appentis, linge, bric-à-brac.
+    details(&mut b, plan, y0, floors, yr, cover);
     // Abords : massifs fleuris de part et d'autre de la porte, un banc, des buissons aux angles.
     garden(b.k, lot, w, d, du, y0, h);
     // Enseignes.
@@ -404,6 +410,51 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
     let _ = craft; (du, d - 2)
 }
 fn cross_dir(n: C3) -> C3 { [-n[2], 0.0, n[0]] }
+/// Ce qui donne du relief et de la vie à une maison : tout dépasse du mur au lieu d'y être peint.
+fn details(b: &mut B, plan: Plan, y0: i32, floors: i32, yr: i32, cover: Id) {
+    let (w, d) = (b.w, b.d); let lot = b.lot; let (wf, df) = (w as f64, d as f64); let du = w / 2; let h = b.h; let y = y0 as f64;
+    let stone = layer(b.s.ground); let found = layer(b.s.found); let beam = b.s.beam; let mut r = crate::noise::Rng::new((h * 7.3e6) as u32 + 11);
+    let stone_floor = !matches!(plan, Plan::Cottage) && BLOCKS[b.s.ground as usize].faces[0] != BLOCKS[b.s.upper as usize].faces[0];
+    // Chaînages d'angle : de grosses pierres taillées, alternées longue et courte, qui débordent des deux faces.
+    if stone_floor { for (cu, cw, su, sw) in [(0.0, 0.0, -1.0, -1.0), (wf, 0.0, 1.0, -1.0), (wf, df, 1.0, 1.0), (0.0, df, -1.0, 1.0)] {
+        let at = lot.cell(if su < 0.0 { 0 } else { w - 1 }, y0 + 1, if sw < 0.0 { 0 } else { d - 1 });
+        for row in 0..6 { let yy = y + 1.0 + row as f64 * 0.5; let (lu, lw) = if row % 2 == 0 { (0.62, 0.32) } else { (0.32, 0.62) }; let o = 0.07;
+            let c = lot.p(cu - su * (lu - o) * 0.5, yy + 0.24, cw - sw * (lw - o) * 0.5); b.k.solid(at, c, [lot.v((lu + o) * 0.5, 0.0, 0.0), [0.0, 0.23, 0.0], lot.v(0.0, 0.0, (lw + o) * 0.5)], [1.08, 1.06, 1.02], stone, 0); } } }
+    // Soubassement : un bandeau de pierre qui ressaute au pied des murs, interrompu devant la porte.
+    for side in 0..4u8 { let n = b.normal(side); let len = b.len(side);
+        for k in 0..len { if side == 0 && k == du { continue; } let at = b.anchor(side, k as f64 + 0.5, y + 1.0); let (a, c) = (b.on(side, k as f64, y + 1.16, 0.06), b.on(side, k as f64 + 1.0, y + 1.16, 0.06)); b.k.bar(at, a, c, n, 0.17, 0.07, [0.95, 0.95, 0.95], found); } }
+    // Perron d'une marche devant la porte, et un auvent de bardeaux sur deux consoles.
+    { let at = lot.cell(du, y0 + 1, 0); let n = b.normal(0);
+        b.k.cube(at, lot.p(du as f64 - 0.25, y + 0.84, -0.75), lot.p(du as f64 + 1.25, y + 1.06, 0.0), [1.0, 1.0, 1.0], found);
+        let (yt, out) = (y + 3.25, 0.95); let l = du as f64 - 0.45; let rr = du as f64 + 1.45;
+        b.k.quad(at, [lot.p(l, yt + 0.32, 0.0), lot.p(rr, yt + 0.32, 0.0), lot.p(rr, yt, -out), lot.p(l, yt, -out)], [1.0, 1.0, 1.0], layer(cover), lot.grain() % 2 + 1);
+        for t in [l + 0.08, rr - 0.08] { let p0 = lot.p(t, yt - 0.55, 0.0); let p1 = lot.p(t, yt + 0.05, -out + 0.12); b.k.bar(at, p0, p1, cross_dir(n), 0.045, 0.045, beam, -1.0); b.k.bar(at, lot.p(t, yt + 0.02, 0.0), lot.p(t, yt + 0.02, -out), n, 0.04, 0.04, beam, -1.0); }
+        b.k.bar(at, lot.p(l, yt + 0.02, -out + 0.04), lot.p(rr, yt + 0.02, -out + 0.04), n, 0.04, 0.05, beam, -1.0); }
+    // Chevrons : sous chaque débord de toit, les bouts des poutres qui sortent du mur.
+    for side in [1u8, 3] { let n = b.normal(side); for ww in 0..=d { let t = if side == 1 { ww as f64 } else { df - ww as f64 }; let at = b.anchor(side, t.min(df - 0.5).max(0.5), yr as f64);
+        let (a, c) = (b.on(side, t, yr as f64 + 0.15, 0.0), b.on(side, t, yr as f64 + 0.62, 0.95)); b.k.bar(at, a, c, cross_dir(n), 0.06, 0.07, beam, -1.0); } }
+    // Balcon de bois à l'étage, sur la façade : plancher sur consoles, garde-corps à balustres, pots de fleurs.
+    if floors == 2 && h < 0.55 && w >= 5 { let at = lot.cell(du, y0 + 5, 0); let (l, rr, out) = (du as f64 - 1.0, du as f64 + 2.0, 0.85); let fy = y + 5.0;
+        b.k.cube(at, lot.p(l, fy - 0.1, -out), lot.p(rr, fy + 0.02, 0.0), beam, -1.0);
+        let mut t = l + 0.1; while t < rr { b.k.cube(at, lot.p(t - 0.035, fy, -out + 0.02), lot.p(t + 0.035, fy + 0.85, -out + 0.09), beam, -1.0); t += 0.27; }
+        b.k.cube(at, lot.p(l, fy + 0.85, -out), lot.p(rr, fy + 0.95, -out + 0.12), beam, -1.0); for t in [l, rr - 0.08] { b.k.cube(at, lot.p(t, fy, -out), lot.p(t + 0.08, fy + 0.95, 0.0), beam, -1.0); }
+        for t in [l + 0.3, l + 0.75] { let p = lot.p(t, fy + 0.04, -out * 0.5); let pot = [0.62, 0.32, 0.2]; b.k.solid(at, add(p, [0.0, 0.1, 0.0]), [lot.v(0.12, 0.0, 0.0), [0.0, 0.1, 0.0], lot.v(0.0, 0.0, 0.12)], pot, -1.0, 0); b.k.solid(at, add(p, [0.0, 0.3, 0.0]), [lot.v(0.15, 0.0, 0.0), [0.0, 0.12, 0.0], lot.v(0.0, 0.0, 0.15)], [0.25, 0.45, 0.18], -1.0, 0); }
+        for k in [0.5, 1.5] { b.k.bar(at, lot.p(l + k, fy - 0.1, 0.0), lot.p(l + k, fy - 0.1, -out), [0.0, -1.0, 0.0], 0.06, 0.12, beam, -1.0); } }
+    // Appentis contre le flanc droit d'une maison basse : deux poteaux, un toit en pente, du bois et des outils dessous.
+    if floors == 1 && plan != Plan::Church && h > 0.3 { let ww1 = (d / 2 - 1).max(1); let at = lot.cell(w - 1, y0 + 1, 1);
+        for ww in [0.6, ww1 as f64 + 0.4] { b.k.cube(at, lot.p(wf + 1.12, y + 1.0, ww - 0.06), lot.p(wf + 1.24, y + 2.55, ww + 0.06), beam, -1.0); }
+        b.k.quad(at, [lot.p(wf, y + 3.0, 0.3), lot.p(wf, y + 3.0, ww1 as f64 + 0.7), lot.p(wf + 1.45, y + 2.5, ww1 as f64 + 0.7), lot.p(wf + 1.45, y + 2.5, 0.3)], [1.0, 1.0, 1.0], layer(cover), lot.grain());
+        for ww in 1..=ww1 { b.put(w, y0 + 1, ww, id("log_pile")); } b.put(w, y0 + 2, 1, id("log_pile")); }
+    // Corde à linge derrière la maison : deux poteaux, une corde, des draps et des chemises qui sèchent.
+    if h > 0.62 { let at = lot.cell(1, y0 + 1, d - 1); let wy = df + 1.2; let (l, rr) = (0.6, wf - 0.6); let top = y + 2.6;
+        for t in [l, rr] { b.k.cube(at, lot.p(t - 0.05, y + 1.0, wy - 0.05), lot.p(t + 0.05, top + 0.1, wy + 0.05), beam, -1.0); }
+        b.k.bar(at, lot.p(l, top, wy), lot.p(rr, top, wy), [0.0, 1.0, 0.0], 0.015, 0.015, [0.62, 0.55, 0.4], -1.0);
+        let cloths = [[0.92, 0.9, 0.84], [0.62, 0.22, 0.2], [0.3, 0.42, 0.62], [0.86, 0.8, 0.55]]; let mut t = l + 0.3;
+        while t < rr - 0.5 { let wdt = r.range(0.35, 0.7); let hh = r.range(0.45, 0.85); let c = cloths[r.int(0, 3) as usize]; b.k.quad(at, [lot.p(t, top - 0.02, wy), lot.p(t + wdt, top - 0.02, wy), lot.p(t + wdt, top - hh, wy + 0.04), lot.p(t, top - hh, wy + 0.04)], c, -1.0, 0); t += wdt + r.range(0.15, 0.4); } }
+    // Bric-à-brac contre les flancs : un tonneau et son seau, des pots de fleurs, des sacs, une caisse.
+    let pick = ["flower_pot", "bucket", "sack", "flower_pot", "amphora"]; for (u, ww) in [(-1, d - 2), (w, d - 2)] { if r.next() < 0.7 { b.put(u, y0 + 1, ww, id(pick[r.int(0, 4) as usize])); } }
+    if r.next() < 0.6 { b.put(du + 1, y0 + 1, -1, id("flower_pot")); }
+}
 /// Pyramide à base rectangulaire (flèche, toit conique du moulin) : quatre faces texturées.
 fn pyramid(k: &mut Work, at: [i32; 3], base: C3, lot: Lot, hu: f64, hw: f64, h: f64, cover: Id) {
     let c = [add(base, add(lot.v(-hu, 0.0, -hw), [0.0; 3])), add(base, lot.v(hu, 0.0, -hw)), add(base, lot.v(hu, 0.0, hw)), add(base, lot.v(-hu, 0.0, hw))];

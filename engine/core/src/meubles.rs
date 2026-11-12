@@ -22,7 +22,7 @@ fn layer(n: &str) -> f64 {
 /// Un atelier de modèle : des boîtes dans le cube unité, en couleur unie, en matière, ou lumineuses.
 struct K { o: VBuf, s: f64, l: f64 }
 impl K {
-    fn b(&mut self, bb: [f64; 6], c: C) { bx(&mut self.o, bb[0], bb[1], bb[2], bb[3], bb[4], bb[5], c[0], c[1], c[2], 0.0, self.s, self.l, kind::FLAT, true, 0.0, 255.0); }
+    fn b(&mut self, bb: [f64; 6], c: C) { let size = (bb[3] - bb[0]).max(bb[4] - bb[1]).max(bb[5] - bb[2]); if let Some((ly, t)) = crate::mesher::auto_tex(c, size) { let h = [(bb[3] - bb[0]) * 0.5, (bb[4] - bb[1]) * 0.5, (bb[5] - bb[2]) * 0.5]; obox(&mut self.o, [bb[0] + h[0], bb[1] + h[1], bb[2] + h[2]], [[h[0], 0.0, 0.0], [0.0, h[1], 0.0], [0.0, 0.0, h[2]]], t, ly, self.s, self.l); return; } bx(&mut self.o, bb[0], bb[1], bb[2], bb[3], bb[4], bb[5], c[0], c[1], c[2], 0.0, self.s, self.l, kind::FLAT, true, 0.0, 255.0); }
     fn e(&mut self, bb: [f64; 6], c: C) { bx(&mut self.o, bb[0], bb[1], bb[2], bb[3], bb[4], bb[5], c[0], c[1], c[2], 0.0, self.s, 255.0, kind::EMIT, true, 0.0, 255.0); }
     fn t(&mut self, bb: [f64; 6], m: &str, c: C) { let h = [(bb[3] - bb[0]) * 0.5, (bb[4] - bb[1]) * 0.5, (bb[5] - bb[2]) * 0.5]; obox(&mut self.o, [bb[0] + h[0], bb[1] + h[1], bb[2] + h[2]], [[h[0], 0.0, 0.0], [0.0, h[1], 0.0], [0.0, 0.0, h[2]]], c, layer(m), self.s, self.l); }
     /// Boîte orientée (centre, demi-axes), couleur unie.
