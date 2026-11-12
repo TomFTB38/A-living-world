@@ -111,9 +111,9 @@ fn sees(w: &impl Voxels, a: [f64; 3], b: [f64; 3]) -> bool {
     let d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt(); let n = (l / 0.45).ceil() as i32;
     for i in 1..n { let t = i as f64 / n as f64; let q = [a[0] + d[0] * t, a[1] + d[1] * t, a[2] + d[2] * t]; if w.get(q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32).is_none_or(is_opaque) { return false; } } true
 }
-fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.45, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.45 } }
+fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.55, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.45 } }
 /// Boîte de visée et de collision (demi-largeur, hauteur).
-pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.36, 1.7), Body::Brigand => (0.36, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.6, 0.6) }; (w * size, h * size) }
+pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.36, 1.85), Body::Brigand => (0.36, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.6, 0.6) }; (w * size, h * size) }
 
 impl Horde {
     pub fn new(seed: i32) -> Self { Horde { foes: Vec::new(), rng: Rng::new((seed ^ 0x6d21) as u32), spawn_t: 2.0, ev: Vec::new(), groups: 0, spawned: 0 } }
@@ -238,7 +238,7 @@ impl Horde {
         // ---- le coup tombe à la fin de l'annonce, s'il y a contact (distance et angle cohérents avec le geste)
         if f.wind > 0.0 { f.wind -= dt; if f.wind <= 0.0 { f.wind = 0.0; f.cd = s.cd * if f.vet { 0.9 } else { 1.0 };
             let face = sin(f.yaw) * to[0] + cos(f.yaw) * to[1]; let reach = s.reach + if f.air { 0.8 } else { 0.5 };
-            if c.alive && dist < reach && face > 0.35 && dy.abs() < 1.9 { let dmg = s.dmg * if f.vet { 1.15 } else { 1.0 }; self.ev.push(FoeEv::Hit { from: f.p, dmg, cause: cause(s.body), push: if s.body == Body::Bete { 4.0 } else { 2.5 } }); } } }
+            if c.alive && dist < reach && face > 0.35 && dy.abs() < 1.9 { let dmg = s.dmg * r.range(0.8, 1.25) * if f.vet { 1.15 } else { 1.0 }; self.ev.push(FoeEv::Hit { from: f.p, dmg, cause: cause(s.body), push: if s.body == Body::Bete { 4.0 } else { 2.5 } }); } } }
         // ---- le mouvement : marcher sur le relief voxel, contourner, monter et descendre d'un bloc, grimper (rampant), bondir (bête)
         if f.state != Combat && f.state != Detection { f.phase += dt * (2.0 + f.speed * 1.8); } else { f.phase += dt * 1.5; }
         if f.air { f.p[0] += f.v[0] * dt; f.p[2] += f.v[2] * dt; f.v[1] -= 22.0 * dt; f.p[1] += f.v[1] * dt;
@@ -275,23 +275,69 @@ fn walk(f: &mut Foe, w: &impl Voxels, step: f64, climb: bool, body: Body) -> boo
 }
 
 // ----------------------------------------------------------------------------------------------------------- modèles
-const SKIN: [f64; 3] = [0.43, 0.46, 0.37]; const SKIN2: [f64; 3] = [0.35, 0.38, 0.3]; const RAG: [f64; 3] = [0.3, 0.24, 0.17]; const RAG2: [f64; 3] = [0.2, 0.16, 0.12]; const RUST: [f64; 3] = [0.46, 0.26, 0.13];
-const EYE: [f64; 3] = [1.0, 0.94, 0.55]; const BONE: [f64; 3] = [0.82, 0.78, 0.66]; const HIDE: [f64; 3] = [0.19, 0.17, 0.15]; const HIDE2: [f64; 3] = [0.3, 0.26, 0.2]; const RED_EYE: [f64; 3] = [1.0, 0.42, 0.18];
+const RUST: [f64; 3] = [0.46, 0.26, 0.13];
+const EYE: [f64; 3] = [1.0, 0.86, 0.22]; const BONE: [f64; 3] = [0.82, 0.78, 0.66]; const HIDE: [f64; 3] = [0.19, 0.17, 0.15]; const HIDE2: [f64; 3] = [0.3, 0.26, 0.2]; const RED_EYE: [f64; 3] = [1.0, 0.42, 0.18];
+const FLESH: [f64; 3] = [0.6, 0.5, 0.46]; const FLESH2: [f64; 3] = [0.48, 0.39, 0.36]; const BONE2: [f64; 3] = [0.72, 0.64, 0.56]; const CLOTH: [f64; 3] = [0.46, 0.14, 0.14]; const CLOTH2: [f64; 3] = [0.32, 0.1, 0.1];
+const LEATH: [f64; 3] = [0.33, 0.21, 0.15]; const LEATH2: [f64; 3] = [0.24, 0.15, 0.11]; const STEEL: [f64; 3] = [0.47, 0.48, 0.52]; const STEEL2: [f64; 3] = [0.36, 0.37, 0.41]; const RUSTM: [f64; 3] = [0.5, 0.3, 0.18];
 const CHIT: [f64; 3] = [0.21, 0.16, 0.23]; const CHIT2: [f64; 3] = [0.34, 0.28, 0.35]; const SPOT: [f64; 3] = [0.6, 0.62, 0.48]; const GEYE: [f64; 3] = [0.72, 1.0, 0.6]; const LEATHER: [f64; 3] = [0.36, 0.24, 0.14];
 pub fn parts() -> Vec<(&'static str, VBuf)> {
     let mut o: Vec<(&'static str, VBuf)> = Vec::new(); let mut m = |n: &'static str, f: &dyn Fn(&mut VBuf)| { let mut v = VBuf::new(600); f(&mut v); o.push((n, v)); };
-    // Rôdeur décharné : un torse maigre, voûté, des côtes sous la peau grise, des haillons, une épaulière rouillée d'un seul côté.
-    m("rodTorso", &|q| { b(q, [-0.2, 0.0, -0.12, 0.2, 0.52, 0.12], SKIN); for y in [0.22, 0.3, 0.38] { b(q, [-0.19, y, 0.11, 0.19, y + 0.03, 0.13], SKIN2); }
-        b(q, [-0.21, -0.12, -0.13, 0.21, 0.14, 0.13], RAG); b(q, [-0.2, -0.26, -0.11, 0.05, -0.1, 0.12], RAG2); b(q, [0.06, -0.2, -0.1, 0.2, -0.1, 0.1], RAG); b(q, [-0.08, 0.3, -0.135, 0.18, 0.5, -0.11], RAG2);
-        b(q, [0.12, 0.42, -0.16, 0.34, 0.6, 0.16], RUST); b(q, [0.14, 0.4, -0.17, 0.32, 0.43, 0.17], [0.32, 0.18, 0.1]); b(q, [-0.07, 0.5, -0.07, 0.07, 0.6, 0.07], SKIN2); });
-    // La tête enveloppée de bandes, un seul œil pâle qui luit, la mâchoire nue et longue.
-    m("rodHead", &|q| { b(q, [-0.14, 0.0, -0.15, 0.14, 0.3, 0.15], RAG); b(q, [-0.15, 0.18, -0.16, 0.15, 0.24, 0.16], RAG2); b(q, [-0.15, 0.08, -0.16, 0.0, 0.12, 0.16], RAG2);
-        b(q, [0.03, 0.12, 0.14, 0.11, 0.2, 0.165], [0.1, 0.09, 0.08]); b(q, [0.05, 0.14, 0.155, 0.09, 0.18, 0.17], EYE); b(q, [-0.1, -0.06, 0.02, 0.1, 0.04, 0.17], SKIN2); for x in [-0.07, -0.02, 0.03, 0.07] { b(q, [x, -0.02, 0.165, x + 0.025, 0.02, 0.175], BONE); }
-        b(q, [-0.16, 0.24, -0.1, -0.12, 0.34, 0.0], RAG2); });
-    // Bras long et fin, avant-bras bandé, longues mains griffues.
-    m("rodArm", &|q| { b(q, [-0.06, -0.42, -0.06, 0.06, 0.04, 0.06], SKIN); b(q, [-0.065, -0.4, -0.065, 0.065, -0.26, 0.065], RAG2); b(q, [-0.055, -0.78, -0.055, 0.055, -0.42, 0.055], SKIN2);
-        b(q, [-0.07, -0.72, -0.07, 0.07, -0.56, 0.07], RAG); for x in [-0.045, -0.01, 0.025] { b(q, [x, -0.95, -0.015, x + 0.022, -0.78, 0.04], BONE); } });
-    m("rodLeg", &|q| { b(q, [-0.07, -0.42, -0.07, 0.07, 0.0, 0.07], RAG2); b(q, [-0.055, -0.8, -0.055, 0.055, -0.42, 0.055], SKIN2); b(q, [-0.065, -0.66, -0.065, 0.065, -0.5, 0.065], RAG); b(q, [-0.06, -0.84, -0.05, 0.06, -0.78, 0.16], SKIN); });
+    // Rôdeur décharné (planche du bestiaire) : chair décharnée gris-rose, côtes saillantes, sangles de cuir croisées, ceinture
+    // à boucle et sacoche, haillons rouge sombre en lanières, deux épaulières de fer rouillé, capuche rouge et visage de crâne
+    // aux yeux jaunes, avant-bras bandés de cuir, doigts osseux, bottes de cuir sanglées, couteau rouillé. Membres en deux
+    // segments (genoux, coudes) pour la posture voûtée et les gestes.
+    m("rodTorso", &|q| {
+        b(q, [-0.19, 0.06, -0.1, 0.19, 0.6, 0.11], FLESH); b(q, [-0.15, 0.62, -0.08, 0.15, 0.66, 0.08], FLESH2);
+        for y in [0.26, 0.33, 0.4, 0.47] { b(q, [-0.17, y, 0.105, -0.03, y + 0.035, 0.125], BONE2); b(q, [0.03, y, 0.105, 0.17, y + 0.035, 0.125], BONE2); }
+        b(q, [-0.02, 0.24, 0.105, 0.02, 0.56, 0.12], FLESH2); for y in [0.14, 0.2] { b(q, [-0.15, y, 0.1, 0.15, y + 0.03, 0.115], FLESH2); }
+        // Sangles croisées sur la poitrine et le dos.
+        for k in 0..7 { let t = k as f64 / 6.0; let (x, y) = (-0.17 + 0.34 * t, 0.58 - 0.46 * t); b(q, [x - 0.035, y - 0.03, -0.125, x + 0.035, y + 0.035, 0.135], LEATH); let x2 = 0.17 - 0.34 * t; b(q, [x2 - 0.03, y - 0.03, 0.118, x2 + 0.03, y + 0.03, 0.137], LEATH2); }
+        b(q, [-0.02, 0.36, 0.13, 0.02, 0.4, 0.145], RUSTM);
+        // Ceinture, boucle de fer, sacoche sur la hanche droite, petite bourse à gauche.
+        b(q, [-0.21, -0.02, -0.125, 0.21, 0.08, 0.13], LEATH); b(q, [-0.05, -0.015, 0.13, 0.05, 0.075, 0.15], RUSTM); b(q, [-0.03, 0.005, 0.145, 0.03, 0.055, 0.155], LEATH2);
+        b(q, [-0.25, -0.16, -0.06, -0.15, 0.05, 0.1], LEATH2); b(q, [-0.26, -0.02, -0.07, -0.14, 0.04, 0.11], LEATH); b(q, [0.15, -0.1, 0.03, 0.22, 0.0, 0.11], LEATH2);
+        // Haillons rouges en lanières de longueurs inégales, devant, derrière et sur les flancs ; un pan de cape dans le dos.
+        for (i, x) in [-0.18, -0.11, -0.04, 0.03, 0.1, 0.17].iter().enumerate() { let low = [-0.34, -0.46, -0.3, -0.42, -0.36, -0.28][i]; let c = if i % 2 == 0 { CLOTH } else { CLOTH2 };
+            b(q, [*x - 0.035, low, 0.06, *x + 0.035, 0.0, 0.135], c); b(q, [*x - 0.035, low + 0.06, -0.135, *x + 0.035, 0.0, -0.06], if i % 2 == 0 { CLOTH2 } else { CLOTH }); }
+        for z in [-0.07, 0.02] { b(q, [-0.215, -0.3, z, -0.19, 0.0, z + 0.07], CLOTH2); b(q, [0.19, -0.26, z, 0.215, 0.0, z + 0.07], CLOTH); }
+        b(q, [-0.17, 0.12, -0.14, 0.17, 0.62, -0.11], CLOTH2); for (x, low) in [(-0.15, -0.05), (-0.07, 0.04), (0.0, -0.1), (0.08, 0.02), (0.15, -0.02)] { b(q, [x - 0.03, low, -0.145, x + 0.03, 0.14, -0.115], CLOTH); }
+        // Épaulières de fer rouillé, deux plaques superposées de chaque côté, rivets et taches de rouille.
+        for sx in [-1.0f64, 1.0] { let (x0, x1) = if sx < 0.0 { (-0.34, -0.13) } else { (0.13, 0.34) };
+            b(q, [x0, 0.5, -0.15, x1, 0.66, 0.15], STEEL); b(q, [x0 - 0.01 * sx, 0.44, -0.155, x1 + 0.01 * sx, 0.52, 0.155], STEEL2);
+            let rx = if sx < 0.0 { x0 + 0.04 } else { x1 - 0.07 }; b(q, [rx, 0.58, 0.15, rx + 0.04, 0.62, 0.162], RUSTM); b(q, [x0 + 0.05, 0.62, -0.1, x0 + 0.13, 0.665, 0.02], RUSTM);
+            b(q, [(x0 + x1) * 0.5 - 0.015, 0.6, 0.15, (x0 + x1) * 0.5 + 0.015, 0.63, 0.165], [0.22, 0.22, 0.24]); }
+    });
+    // La tête : un visage de crâne émacié, deux yeux jaunes qui luisent au fond des orbites, des dents, sous une capuche
+    // rouge profonde dont la pointe retombe vers l'avant et dont le pan couvre la nuque.
+    m("rodHead", &|q| {
+        b(q, [-0.1, 0.0, -0.08, 0.1, 0.25, 0.1], FLESH); b(q, [-0.09, -0.06, 0.0, 0.09, 0.03, 0.11], FLESH2);
+        b(q, [-0.085, 0.12, 0.095, -0.015, 0.18, 0.11], [0.08, 0.06, 0.05]); b(q, [0.015, 0.12, 0.095, 0.085, 0.18, 0.11], [0.08, 0.06, 0.05]);
+        b(q, [-0.07, 0.135, 0.105, -0.03, 0.165, 0.118], EYE); b(q, [0.03, 0.135, 0.105, 0.07, 0.165, 0.118], EYE);
+        b(q, [-0.015, 0.08, 0.1, 0.015, 0.11, 0.115], [0.1, 0.07, 0.06]); for x in [-0.06, -0.03, 0.0, 0.03] { b(q, [x, 0.03, 0.105, x + 0.022, 0.06, 0.116], BONE); }
+        b(q, [-0.07, -0.03, 0.1, 0.07, 0.0, 0.115], [0.4, 0.3, 0.27]);
+        // Capuche ample : dessus, joues, arrière, bord avant épais retombant sur le front, ombre intérieure, pointe dressée vers
+        // l'arrière, pan qui couvre la nuque en lanières.
+        b(q, [-0.18, 0.26, -0.17, 0.18, 0.37, 0.16], CLOTH); b(q, [-0.185, -0.02, -0.17, -0.115, 0.32, 0.15], CLOTH); b(q, [0.115, -0.02, -0.17, 0.185, 0.32, 0.15], CLOTH);
+        b(q, [-0.18, -0.1, -0.2, 0.18, 0.34, -0.1], CLOTH2); b(q, [-0.13, 0.22, 0.12, 0.13, 0.29, 0.19], CLOTH2); b(q, [-0.1, 0.19, 0.105, 0.1, 0.22, 0.125], [0.12, 0.05, 0.05]);
+        b(q, [-0.125, -0.02, 0.12, -0.105, 0.24, 0.16], CLOTH2); b(q, [0.105, -0.02, 0.12, 0.125, 0.24, 0.16], CLOTH2);
+        b(q, [-0.14, 0.36, -0.14, 0.14, 0.43, 0.1], CLOTH); b(q, [-0.1, 0.42, -0.18, 0.1, 0.5, 0.02], CLOTH2); b(q, [-0.06, 0.48, -0.24, 0.06, 0.56, -0.08], CLOTH); b(q, [-0.035, 0.54, -0.3, 0.035, 0.6, -0.18], CLOTH2);
+        for (x, low) in [(-0.15, -0.2), (-0.06, -0.26), (0.04, -0.19), (0.13, -0.23)] { b(q, [x - 0.045, low, -0.21, x + 0.045, -0.08, -0.13], CLOTH); }
+        b(q, [-0.17, -0.06, -0.06, -0.12, 0.08, 0.12], CLOTH2); b(q, [0.12, -0.06, -0.06, 0.17, 0.08, 0.12], CLOTH2);
+    });
+    // Haut du bras : décharné, une bande de cuir sous l'épaulière.
+    m("rodUpper", &|q| { b(q, [-0.05, -0.34, -0.05, 0.05, 0.02, 0.05], FLESH); b(q, [-0.055, -0.12, -0.055, 0.055, -0.07, 0.055], LEATH2); b(q, [-0.045, -0.36, -0.045, 0.045, -0.31, 0.045], BONE2); });
+    // Avant-bras bandé de cuir sanglé, main osseuse aux longs doigts.
+    m("rodFore", &|q| { b(q, [-0.045, -0.32, -0.045, 0.045, 0.0, 0.045], FLESH2); b(q, [-0.058, -0.27, -0.058, 0.058, -0.05, 0.058], LEATH); for y in [-0.24, -0.16, -0.09] { b(q, [-0.062, y, -0.062, 0.062, y + 0.025, 0.062], LEATH2); }
+        b(q, [-0.05, -0.38, -0.04, 0.05, -0.31, 0.05], FLESH); for (i, x) in [-0.045, -0.015, 0.015].iter().enumerate() { b(q, [*x, -0.48 + i as f64 * 0.01, -0.01, *x + 0.022, -0.37, 0.045], BONE); } b(q, [0.035, -0.42, 0.02, 0.06, -0.35, 0.06], BONE); });
+    // Cuisse maigre, chiffon noué au genou.
+    m("rodThigh", &|q| { b(q, [-0.055, -0.44, -0.055, 0.055, 0.0, 0.055], FLESH); b(q, [-0.07, -0.08, -0.07, 0.07, 0.02, 0.07], CLOTH2); b(q, [-0.065, -0.47, -0.065, 0.065, -0.38, 0.068], CLOTH); b(q, [-0.02, -0.46, 0.06, 0.02, -0.4, 0.075], BONE2); });
+    // Jambe et botte de cuir, sangles, bout relevé.
+    m("rodShin", &|q| { b(q, [-0.05, -0.2, -0.05, 0.05, 0.0, 0.05], FLESH2); b(q, [-0.07, -0.44, -0.07, 0.07, -0.16, 0.07], LEATH); for y in [-0.36, -0.25] { b(q, [-0.075, y, -0.075, 0.075, y + 0.03, 0.075], LEATH2); }
+        b(q, [-0.075, -0.18, -0.08, 0.075, -0.13, 0.08], LEATH2); b(q, [-0.065, -0.47, -0.06, 0.065, -0.4, 0.17], LEATH); b(q, [-0.07, -0.49, -0.065, 0.07, -0.46, 0.18], [0.16, 0.11, 0.08]); });
+    // Couteau rouillé : manche bandé, garde, lame large et ébréchée.
+    m("rodKnife", &|q| { b(q, [-0.022, -0.1, -0.022, 0.022, 0.06, 0.022], LEATH2); for y in [-0.07, -0.02, 0.03] { b(q, [-0.025, y, -0.025, 0.025, y + 0.012, 0.025], LEATH); }
+        b(q, [-0.07, 0.06, -0.022, 0.07, 0.09, 0.022], RUSTM); b(q, [-0.04, 0.09, -0.01, 0.04, 0.38, 0.01], STEEL); b(q, [-0.025, 0.38, -0.009, 0.025, 0.44, 0.009], STEEL); b(q, [0.0, 0.44, -0.008, 0.015, 0.47, 0.008], STEEL2);
+        b(q, [-0.04, 0.16, -0.012, -0.015, 0.22, 0.012], RUSTM); b(q, [0.015, 0.27, -0.012, 0.04, 0.32, 0.012], RUSTM); b(q, [0.03, 0.12, -0.011, 0.045, 0.15, 0.011], [0.06, 0.06, 0.07]); });
     // Brigand errant : jaque de cuir, ceinture, capuchon (trois teintes), foulard sur le bas du visage, armes rudimentaires.
     for (i, hood) in [[0.24, 0.27, 0.18], [0.36, 0.17, 0.12], [0.2, 0.2, 0.22]].into_iter().enumerate() {
         let tn: &'static str = ["briTorso0", "briTorso1", "briTorso2"][i]; let hn: &'static str = ["briHead0", "briHead1", "briHead2"][i];
@@ -342,8 +388,33 @@ impl Horde {
             let run = (f.speed / s.run.max(0.1)).clamp(0.0, 1.0); let sw = if f.speed > 0.0 { sin(f.phase) } else { 0.0 };
             let base = mul(&trs(f.p[0], f.p[1], f.p[2], f.yaw, 0.0, s.size * if f.vet { 1.08 } else { 1.0 }), &roll_z(fall * 1.45 * if f.variant % 2 == 0 { 1.0 } else { -1.0 }));
             match s.body {
-                Body::Rodeur | Body::Brigand => {
-                    let rod = s.body == Body::Rodeur; let hip = if rod { 0.84 } else { 0.9 };
+                Body::Rodeur => {
+                    // Posture voûtée, genoux pliés, tête en avant. Repos : il respire et dodeline ; marche : pas traînants ;
+                    // course : buste plongeant, bras rejetés ; détection : il se redresse, tête levée ; attaque : couteau levé
+                    // haut derrière la tête, puis taillade en travers ; blessure : il recule ; mort : il s'effondre face contre terre.
+                    let t = f.phase; let det = if f.state == Ai::Detection || f.state == Ai::Soupcon { 1.0 } else { 0.0 }; let die = fall;
+                    let breathe = if f.speed == 0.0 { 0.02 * (t * 1.3).sin() } else { 0.0 };
+                    let stride = (0.32 + 0.38 * run) * sw; let knee0 = 0.34 - 0.2 * det + 0.9 * die; let thigh0 = -0.2 + 0.15 * det - 0.9 * die;
+                    let hip = 0.87 + 0.03 * det - 0.62 * die + breathe * 0.5 - (f.phase * 2.0).sin().abs() * 0.03 * run;
+                    let lean = 0.24 + 0.28 * run - 0.2 * det + wind * 0.1 - strike * 0.05 - flinch * 0.9 + 1.0 * die;
+                    let root = mul(&base, &trs(0.0, 0.0, 0.0, 0.0, 0.0, 1.0)); let _ = roll_z;
+                    let body = mul(&trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size), &trs(0.0, 0.0, 0.0, 0.08 * (t * 0.45).sin() * (1.0 - run), lean, 1.0)); let _ = root;
+                    put("rodTorso", body);
+                    let head_pitch = 0.12 - lean * 0.4 - 0.3 * det + 0.06 * (t * 0.8).sin() * (1.0 - run) + 0.4 * die; let head_yaw = if f.state == Ai::Soupcon { 0.45 * (t * 0.7).sin() } else { 0.06 * (t * 0.31).sin() };
+                    put("rodHead", mul(&body, &trs(0.0, 0.64, 0.08, head_yaw, head_pitch, 1.0)));
+                    let legs = trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size);
+                    for (x, st) in [(-0.1, stride), (0.1, -stride)] { let th = mul(&legs, &trs(x, 0.0, 0.0, 0.0, thigh0 + st, 1.0)); put("rodThigh", th);
+                        put("rodShin", mul(&th, &trs(0.0, -0.44, 0.0, 0.0, knee0 + (if st > 0.0 { 0.0 } else { -st * 1.1 }), 1.0))); }
+                    // Bras : ballants et longs, en avant à cause du dos voûté ; le droit tient le couteau.
+                    let dang = -lean * 0.6 - 0.08; let swing_l = -sw * (0.25 + 0.5 * run); let swing_r = sw * (0.25 + 0.5 * run);
+                    let (ul, fl) = (dang + swing_l - 0.35 * det - 0.6 * flinch + 1.2 * die, -0.35 - 0.3 * det - 0.4 * run);
+                    let (ur, fr) = if wind > 0.0 || strike > 0.0 { (dang - 0.6 - 2.3 * wind + strike * 1.1, -0.9 * wind - 0.2 - strike * 0.3) } else { (dang + swing_r - 0.35 * det - 0.6 * flinch + 1.2 * die, -0.45 - 0.3 * det - 0.4 * run) };
+                    let ua = mul(&body, &trs(0.27, 0.56, 0.0, -0.15 * det, ul, 1.0)); put("rodUpper", ua); put("rodFore", mul(&ua, &trs(0.0, -0.34, 0.0, 0.0, fl, 1.0)));
+                    let ub = mul(&body, &trs(-0.27, 0.56, 0.0, 0.15 * det + strike * 0.5, ur, 1.0)); put("rodUpper", ub); let fb = mul(&ub, &trs(0.0, -0.34, 0.0, 0.0, fr, 1.0)); put("rodFore", fb);
+                    put("rodKnife", mul(&fb, &trs(0.0, -0.4, 0.04, 0.0, 1.45, 1.0)));
+                }
+                Body::Brigand => {
+                    let rod = false; let hip = if rod { 0.84 } else { 0.9 };
                     let hunch = if rod { 0.42 } else { 0.08 } + run * 0.18 + wind * 0.15 - strike * 0.1 + flinch * 0.6 - if f.state == Ai::Detection { 0.25 } else { 0.0 };
                     let bob = (f.phase * 2.0).sin().abs() * 0.04 * run;
                     let body = mul(&base, &trs(0.0, hip + bob, 0.0, if rod { 0.12 * (f.phase * 0.5).sin() } else { 0.0 }, hunch, 1.0));

@@ -19,3 +19,5 @@ montagne | coal 6 | copper_ingot 2
 montagne | stew 1 | iron_ingot 1
 hautes_terres | heather 8 | rope 1
 hautes_terres | raw_hide 2 | leather 1
+tous | worn_coin 3 | bread 2
+tous | worn_coin 6 | bandage 3

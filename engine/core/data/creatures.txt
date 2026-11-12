@@ -28,8 +28,8 @@ regle region 256
 #   armement=durée de l'attaque annoncée (s)  armure=part des dégâts arrêtés (0 à 0,6)  faible=<hache|epee|lance|marteau|couteau|fleche>
 #   biomes=tous | liste de biomes séparés par des virgules   poids=fréquence relative   groupe=min-max
 #   fuite=part de vie sous laquelle elle fuit (0 : jamais)   talents=bond,grimpe,embuscade,poussees,contourne
-#   butin=objet:min-max:probabilité,…
-espece rodeur | Rôdeur décharné | niveau=1 corps=rodeur taille=1.0 pv=28 degats=7 marche=0.95 course=4.6 portee=1.55 vue=17 ouie=13 recharge=1.7 armement=0.55 armure=0 faible=epee biomes=tous poids=1.0 groupe=1-2 fuite=0 talents=poussees butin=rag:1-2:0.75,bone:1-1:0.4,rusty_scrap:1-1:0.25
+#   butin=objet:min-max:probabilité,…  (les dégâts varient de −20 % à +25 % d'un coup à l'autre)
+espece rodeur | Rôdeur décharné | niveau=1 corps=rodeur taille=1.0 pv=20 degats=4 marche=0.95 course=4.6 portee=1.55 vue=17 ouie=13 recharge=1.7 armement=0.55 armure=0 faible=epee biomes=tous poids=1.0 groupe=1-2 fuite=0 talents=poussees butin=rag:1-2:0.75,bone:1-1:0.45,worn_coin:1-2:0.35,rusty_scrap:1-1:0.12
 espece brigand | Brigand errant | niveau=1 corps=brigand taille=1.0 pv=32 degats=8 marche=1.4 course=5.2 portee=1.8 vue=22 ouie=11 recharge=1.5 armement=0.45 armure=0.1 faible=fleche biomes=tous poids=0.8 groupe=1-3 fuite=0.3 talents=contourne butin=rag:1-2:0.5,leather:1-1:0.35,rusty_scrap:1-2:0.4,copper_ingot:1-1:0.08,bread:1-1:0.25
 espece rodeuse | Bête rôdeuse | niveau=1 corps=bete taille=1.0 pv=24 degats=6 marche=1.6 course=7.4 portee=1.5 vue=20 ouie=16 recharge=1.4 armement=0.35 armure=0 faible=lance biomes=tous poids=0.9 groupe=1-2 fuite=0.2 talents=bond butin=beast_fang:1-2:0.7,raw_meat:1-2:0.6,raw_hide:1-1:0.35
 espece rampant | Rampant nocturne | niveau=1 corps=rampant taille=1.0 pv=20 degats=6 marche=1.2 course=5.8 portee=1.3 vue=11 ouie=9 recharge=1.2 armement=0.4 armure=0.15 faible=marteau biomes=tous poids=0.7 groupe=1-1 fuite=0 talents=grimpe,embuscade butin=chitin_plate:1-2:0.65,fiber:1-3:0.3

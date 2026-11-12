@@ -384,3 +384,4 @@ rusty_scrap | Ferraille rouillée | matieres | 0.3 | 64 | Des bouts d'armure et 
 beast_fang | Croc de bête | matieres | 0.04 | 64 | Long et tranchant : une bonne pointe de flèche. |
 chitin_plate | Plaque de chitine | matieres | 0.15 | 64 | La carapace d'un rampant nocturne, légère et dure. |
 chitin_vest | Plastron de chitine | habits | 2.2 | 1 | Des plaques de chitine cousues sur du cuir : léger et solide. | porte=torse armure=5 chaud=1
+worn_coin | Pièce usée | matieres | 0.01 | 99 | Une vieille pièce au profil effacé, trouvée sur un rôdeur. Les villageois la prennent encore en échange. |
