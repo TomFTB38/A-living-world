@@ -1,0 +1,35 @@
+# A Living World — créatures hostiles. Tout se règle ici, sans toucher au code.
+#
+# regle <nom> <valeurs…>  : règles d'apparition et de difficulté
+#   lumiere N            : niveau de lumière (0 à 15) au-dessous duquel une créature peut apparaître
+#   cercle min max       : distance d'apparition autour du joueur (blocs)
+#   oubli D              : au-delà de D blocs, une créature ordinaire disparaît
+#   plafond N proche     : créatures actives au plus (indépendant des villageois), et dans un rayon de 24 blocs
+#   rythme S             : une tentative d'apparition toutes les S secondes (jamais en masse sur une image)
+#   distance a:b …       : bonus de danger selon la distance au point de départ du monde (à partir de a blocs : +b)
+#   biome Nom=d …        : danger naturel de chaque biome (les noms du jeu) ; montagne H=d : au-dessus de H blocs d'altitude
+#   adaptation j:r …     : après j journées validées dans une région, le bonus de distance baisse de r
+#   journee S            : secondes de présence active dans la région, au cours d'une même journée de jeu, pour la valider
+#   region B             : taille d'une région (blocs) ; l'adaptation est gardée par région et par biome
+regle lumiere 7
+regle cercle 24 46
+regle oubli 76
+regle plafond 10 6
+regle rythme 0.7
+regle distance 250:1 750:2 1500:3 3000:4
+regle biome Prairie=1 Forêt tempérée=2 Forêt profonde=2 Taïga=2 Steppe sèche=3 Désert=3 Hautes terres=4
+regle montagne 118=5
+regle adaptation 5:1 10:2 20:3 30:4
+regle journee 240
+regle region 256
+#
+# espece <id> | <nom> | propriétés
+#   niveau=1..4 corps=<rodeur|brigand|bete|rampant> taille=échelle pv= degats= marche= course= portee= vue= ouie= recharge=
+#   armement=durée de l'attaque annoncée (s)  armure=part des dégâts arrêtés (0 à 0,6)  faible=<hache|epee|lance|marteau|couteau|fleche>
+#   biomes=tous | liste de biomes séparés par des virgules   poids=fréquence relative   groupe=min-max
+#   fuite=part de vie sous laquelle elle fuit (0 : jamais)   talents=bond,grimpe,embuscade,poussees,contourne
+#   butin=objet:min-max:probabilité,…
+espece rodeur | Rôdeur décharné | niveau=1 corps=rodeur taille=1.0 pv=28 degats=7 marche=0.95 course=4.6 portee=1.55 vue=17 ouie=13 recharge=1.7 armement=0.55 armure=0 faible=epee biomes=tous poids=1.0 groupe=1-2 fuite=0 talents=poussees butin=rag:1-2:0.75,bone:1-1:0.4,rusty_scrap:1-1:0.25
+espece brigand | Brigand errant | niveau=1 corps=brigand taille=1.0 pv=32 degats=8 marche=1.4 course=5.2 portee=1.8 vue=22 ouie=11 recharge=1.5 armement=0.45 armure=0.1 faible=fleche biomes=tous poids=0.8 groupe=1-3 fuite=0.3 talents=contourne butin=rag:1-2:0.5,leather:1-1:0.35,rusty_scrap:1-2:0.4,copper_ingot:1-1:0.08,bread:1-1:0.25
+espece rodeuse | Bête rôdeuse | niveau=1 corps=bete taille=1.0 pv=24 degats=6 marche=1.6 course=7.4 portee=1.5 vue=20 ouie=16 recharge=1.4 armement=0.35 armure=0 faible=lance biomes=tous poids=0.9 groupe=1-2 fuite=0.2 talents=bond butin=beast_fang:1-2:0.7,raw_meat:1-2:0.6,raw_hide:1-1:0.35
+espece rampant | Rampant nocturne | niveau=1 corps=rampant taille=1.0 pv=20 degats=6 marche=1.2 course=5.8 portee=1.3 vue=11 ouie=9 recharge=1.2 armement=0.4 armure=0.15 faible=marteau biomes=tous poids=0.7 groupe=1-1 fuite=0 talents=grimpe,embuscade butin=chitin_plate:1-2:0.65,fiber:1-3:0.3

@@ -289,3 +289,8 @@ bottles 1 | four | glass 2, fuel 1 | decor
 beehive 1 | etabli | hay_bale 1, stick 2 | decor
 cheese 1 | main | fiber 1, berries 2 | decor
 bread_basket 1 | etabli | wattle 1, berries 1 | decor
+# Ce que laissent les créatures de la nuit.
+bandage 1 | main | rag 2 | vivres
+iron_ingot 1 | four | rusty_scrap 4, fuel 1 | matieres
+arrow 4 | etabli | stick 2, beast_fang 1, fiber 2 | outils
+chitin_vest 1 | etabli | chitin_plate 5, leather 2, fiber 3 | habits

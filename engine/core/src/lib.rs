@@ -33,3 +33,4 @@ pub mod loose;
 pub mod map;
 pub mod guide;
 pub mod tour;
+pub mod hostile;

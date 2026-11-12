@@ -379,3 +379,8 @@ bottles | Bouteilles | decor | 1.0 | 16 | Verre vert et brun, bouchons de liège
 beehive | Ruche de paille | decor | 1.0 | 16 | Une ruche tressée en cloche. |
 cheese | Meules de fromage | decor | 1.0 | 16 | Deux meules à croûte dorée, pour l'étal. |
 bread_basket | Corbeille de pains | decor | 1.0 | 16 | Un panier d'osier et trois miches. |
+rag | Lambeaux d'étoffe | matieres | 0.05 | 64 | Des haillons arrachés à un rôdeur ou à un brigand : on en fait des bandages. | combustible=6
+rusty_scrap | Ferraille rouillée | matieres | 0.3 | 64 | Des bouts d'armure et de lame rongés de rouille ; au four, ils redonnent du fer. |
+beast_fang | Croc de bête | matieres | 0.04 | 64 | Long et tranchant : une bonne pointe de flèche. |
+chitin_plate | Plaque de chitine | matieres | 0.15 | 64 | La carapace d'un rampant nocturne, légère et dure. |
+chitin_vest | Plastron de chitine | habits | 2.2 | 1 | Des plaques de chitine cousues sur du cuir : léger et solide. | porte=torse armure=5 chaud=1

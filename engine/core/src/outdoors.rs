@@ -58,6 +58,7 @@ impl Session {
             // Le gibier d'abord : la boîte la plus proche le long du trajet de cette image.
             let mut best: Option<(f64, crate::session::Prey)> = None;
             for (k, dr) in self.fauna.deer.iter().enumerate() { if let Some(t) = ray_box(a.p, d, dr.p, 0.55, 1.6) { if t <= len && best.is_none_or(|b| t < b.0) { best = Some((t, Prey::Deer(k))); } } }
+            for (k, f) in self.horde.foes.iter().enumerate() { if f.dead > 0.0 { continue; } let s = &crate::hostile::bestiary().species[f.sp]; let (hw, h) = crate::hostile::foe_box(s.body, s.size); if let Some(t) = ray_box(a.p, d, f.p, hw, h) { if t <= len && best.is_none_or(|b| t < b.0) { best = Some((t, Prey::Foe(k))); } } }
             for (k, c) in self.wild.all.iter().enumerate() { if let Some((hw, h)) = wild_box(c.kind) { if let Some(t) = ray_box(a.p, d, c.p, hw, h) { if t <= len && best.is_none_or(|b| t < b.0) { best = Some((t, Prey::Wild(k))); } } } }
             if let Some((_, prey)) = best { self.arrow_hit(prey, a.p, a.pow); a.life = 1e9; continue; }
             // Puis le décor : la flèche se plante là où elle touche.
@@ -78,10 +79,12 @@ impl Session {
     }
     fn arrow_hit(&mut self, prey: Prey, from: [f64; 3], pow: f64) {
         let dmg = ARROW_DMG * (0.45 + 0.75 * pow);
-        let spot = match prey { Prey::Deer(k) => self.fauna.deer[k].p, Prey::Wild(k) => self.wild.all[k].p };
+        let spot = match prey { Prey::Deer(k) => self.fauna.deer[k].p, Prey::Wild(k) => self.wild.all[k].p, Prey::Foe(k) => self.horde.foes[k].p };
+        if let Prey::Foe(k) = prey { self.sound.thump(spot); self.horde.strike(k, dmg, from, "fleche", false); return; }
         let loot: &[(&str, u32)] = match prey {
             Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); if self.fauna.strike(k, dmg, from) { DEER_LOOT } else { &[] } }
             Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); self.wild.strike(k, dmg, from).map_or(&[], wild_loot) }
+            Prey::Foe(_) => &[],
         };
         if !loot.is_empty() && !self.creative { for (id, n) in loot { self.spill(id, *n, [spot[0], spot[1] + 0.5, spot[2]]); } self.skills[2] += 2.0; self.dirty = true; }
     }

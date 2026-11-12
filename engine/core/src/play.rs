@@ -264,6 +264,7 @@ impl Session {
             if t < block_t && r <= reach && best.is_none_or(|b| t < b.0) { best = Some((t, p)); } } };
         for (k, dr) in self.fauna.deer.iter().enumerate() { consider(ray_box(o, d, dr.p, 0.55, 1.6), Prey::Deer(k)); }
         for (k, c) in self.wild.all.iter().enumerate() { let Some((hw, h)) = crate::outdoors::wild_box(c.kind) else { continue }; consider(ray_box(o, d, c.p, hw, h), Prey::Wild(k)); }
+        for (k, f) in self.horde.foes.iter().enumerate() { if f.dead > 0.0 { continue; } let s = &crate::hostile::bestiary().species[f.sp]; let (hw, h) = crate::hostile::foe_box(s.body, s.size); consider(ray_box(o, d, f.p, hw, h), Prey::Foe(k)); }
         best.map(|b| b.1)
     }
     /// Un coup porté à l'animal visé, selon l'arme ; épuisé, on frappe moitié moins fort. Au couteau, le dépeçage rend davantage.
@@ -277,7 +278,7 @@ impl Session {
         let (dx, dz) = (from[0] - self.player.p[0], from[2] - self.player.p[2]); let d = dx.hypot(dz).max(0.01);
         if (dx * self.look[0] + dz * self.look[2]) / d / self.look[0].hypot(self.look[2]).max(0.01) < 0.05 { return n; } // de côté ou de dos : la garde ne couvre pas
         let armor = def(sh.item).and_then(|d| d.wear).map_or(0.0, |w| w.armor); self.wear_equip(SLOTS.iter().position(|s| s.0 == crate::data::Slot::Hand).unwrap_or(5), 1);
-        if self.guard_t <= PARRY_T { if let Some(k) = self.wild.nearest(from) { self.wild.stagger(k, self.player.p, 2.0); } self.notes.push("Parade !".into()); self.sound.thump(from); self.skills[2] += 0.5; return 0.0; }
+        if self.guard_t <= PARRY_T { if let Some(k) = self.wild.nearest(from) { self.wild.stagger(k, self.player.p, 2.0); } if let Some(k) = self.horde.nearest(from) { self.horde.stagger(k, self.player.p, 2.2); } self.notes.push("Parade !".into()); self.sound.thump(from); self.skills[2] += 0.5; return 0.0; }
         let stop = block_share(armor); let cost = n * stop * 0.8; let ok = self.creative || self.stamina >= cost; if !self.creative { self.spend(cost); }
         self.sound.thump(from); n * (1.0 - if ok { stop } else { stop * 0.4 })
     }
@@ -287,11 +288,14 @@ impl Session {
         dmg *= skill_bonus(self.skills[2]); let cost = if heavy { STAMINA_HIT * HEAVY_COST } else { STAMINA_HIT }; if heavy { dmg *= HEAVY_MUL; }
         if !self.creative { if self.stamina < cost { dmg *= 0.5; } self.spend(cost); }
         self.sound.swing(voice(tool), 1.0); let me = self.player.p; let knife = self.tool().is_some_and(|t| t.kind == "couteau");
-        let spot = match prey { Prey::Deer(k) => self.fauna.deer[k].p, Prey::Wild(k) => self.wild.all[k].p };
+        let spot = match prey { Prey::Deer(k) => self.fauna.deer[k].p, Prey::Wild(k) => self.wild.all[k].p, Prey::Foe(k) => self.horde.foes[k].p };
+        // Une créature hostile : son butin tombe par la session quand elle meurt.
+        if let Prey::Foe(k) = prey { self.sound.thump(spot); let kind = self.tool().map_or("", |t| t.kind); if heavy { self.horde.stagger(k, me, 1.0); } self.horde.strike(k, dmg, me, kind, heavy); self.wear_tool(1); self.skills[2] += 0.5; return; }
         let (loot, extra): (&[(&str, u32)], &[(&str, u32)]) = match prey {
             Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); let close = (at[0] - me[0]).hypot(at[2] - me[2]) < 2.4;
                 if self.fauna.strike(k, dmg, me) { (DEER_LOOT, DEER_KNIFE) } else { if close && hash_float((self.elapsed * 977.0) as i32, k as i32, self.seed, 13) < 0.3 { self.harm(6.0, "La ruade d'un cerf", true); } (&[], &[]) } }
             Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); if heavy { self.wild.stagger(k, me, 1.2); } match self.wild.strike(k, dmg, me) { Some(crate::wild::Kind::Fox) => (FOX_LOOT, FOX_KNIFE), Some(crate::wild::Kind::Hare) => (HARE_LOOT, HARE_KNIFE), Some(crate::wild::Kind::Wolf) => (WOLF_LOOT, &[("fur", 1)]), Some(crate::wild::Kind::Boar) => (BOAR_LOOT, &[("raw_meat", 1), ("leather", 1)]), Some(crate::wild::Kind::Bear) => (BEAR_LOOT, &[("raw_hide", 1)]), Some(crate::wild::Kind::Ibex) => (IBEX_LOOT, &[("raw_meat", 1)]), Some(crate::wild::Kind::Lizard) => (LIZARD_LOOT, &[]), _ => (&[], &[]) } }
+            Prey::Foe(_) => (&[], &[]),
         };
         self.wear_tool(1);
         if !loot.is_empty() && !self.creative {
@@ -587,7 +591,7 @@ impl Session {
         let mut fires: Vec<_> = self.fires.iter().collect(); fires.sort_by_key(|f| *f.0); for (p, t) in fires { s += &format!("fire {} {} {} {}\n", p[0], p[1], p[2], t); }
         let mut chests: Vec<_> = self.chests.iter().collect(); chests.sort_by_key(|c| *c.0);
         for (p, items) in chests { s += &format!("chest {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
-        s += &self.loose_save();
+        s += &self.loose_save(); s += &self.regions_save();
         for stv in &self.stashes { s += &format!("stash {} {} {} {}", stv.p[0], stv.p[1], stv.p[2], stv.born); for v in &stv.items { s += &format!(" {}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } s.push('\n'); }
         for (k, e) in self.world.edits() { s += &format!("chunk {} {}", k.0, k.1); let mut l: Vec<_> = e.into_iter().collect(); l.sort(); for (i, id) in l { s += &format!(" {i}:{id}"); } s.push('\n'); }
         s
@@ -625,6 +629,7 @@ impl Session {
                     self.chests.insert(p, v); }
                 Some("spawn") => { for k in 0..3 { self.spawn[k] = num(a.next())?; } }
                 Some("sol") => { let v: Vec<&str> = a.collect(); self.loose_load(&v); }
+                Some("region") => { let v: Vec<&str> = a.collect(); self.region_load(&v); }
                 Some("stash") => { let p = [num(a.next())?, num(a.next())?, num(a.next())?]; let rest: Vec<&str> = a.collect();
                     // Ancien format (sans heure de la mort) : la dépouille repart de maintenant.
                     let (born, list) = match rest.first().and_then(|x| x.parse::<f64>().ok()) { Some(b) if !rest[0].contains(':') => (b, &rest[1..]), _ => { stash_v1 = true; (f64::NAN, &rest[..]) } };

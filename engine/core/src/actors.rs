@@ -312,6 +312,7 @@ impl Models {
         }
         for (name, o) in crate::fauna::parts() { parts.insert(name, take(&mut all, o)); }
         for (name, o) in crate::wild::parts() { parts.insert(name, take(&mut all, o)); }
+        for (name, o) in crate::hostile::parts() { parts.insert(name, take(&mut all, o)); }
         for (name, o) in crate::survival::parts() { parts.insert(name, take(&mut all, o)); }
         for (name, o) in crate::village::parts() { parts.insert(name, take(&mut all, o)); }
         let n = all.n; Models { data: all.data, n, char_verts, parts, items }

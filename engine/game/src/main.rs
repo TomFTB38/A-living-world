@@ -190,7 +190,7 @@ impl Game {
         for g in gone { self.gpu.forget(g); }
         self.save_t += real; if self.save_t > 30.0 { self.save_t = 0.0; self.save(); }
         if let Some(m) = &mut self.msg { m.1 -= real; if m.1 <= 0.0 { self.msg = None; } }
-        let size = self.window.inner_size(); let info = if self.debug { debug_lines(&self.s, self.fps, self.tris, if self.menu.quality == 1 { "Ultra" } else { "Haut" }) } else { Vec::new() };
+        let size = self.window.inner_size(); let info = if self.debug { let mut v = debug_lines(&self.s, self.fps, self.tris, if self.menu.quality == 1 { "Ultra" } else { "Haut" }); v.extend(self.s.hostile_report()); v.push("F6 : faire naître une créature · F7 : passer à la nuit".into()); v } else { Vec::new() };
         self.tris = draw(&mut self.gpu, &self.md, &self.s, self.time, size.width.max(1) as f32, size.height.max(1) as f32, self.msg.as_ref().map(|m| m.0.as_str()), self.mouse, &self.menu, &info);
         self.frames += 1; self.fps_t += real;
         if self.fps_t >= 0.5 {
@@ -346,6 +346,9 @@ impl ApplicationHandler for App {
                     KeyCode::KeyT => g.s.pass_hours(1.0),
                     KeyCode::KeyY => g.run_time = !g.run_time,
                     KeyCode::F3 => g.debug = !g.debug,
+                    // Outils de développement, seulement avec le panneau F3 ouvert : une créature devant soi, la nuit tout de suite.
+                    KeyCode::F6 if g.debug => { let k = g.s.horde.spawned as usize; let n = g.s.debug_spawn(k); g.say(format!("Apparition : {n}")); }
+                    KeyCode::F7 if g.debug => { g.s.hour = 22.0; g.say("Nuit".into()); }
                     KeyCode::F5 => { g.save(); g.say("Monde sauvegardé".into()); }
                     KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::Digit7 | KeyCode::Digit8 | KeyCode::Digit9 => { let n = c as usize - KeyCode::Digit1 as usize; if g.s.town.journal { g.s.mark_nth(n); } else { g.s.sel = n; } }
                     _ => {}
@@ -607,6 +610,8 @@ fn capture(a: &[String]) {
         // L'écran titre : trente secondes de survol, le temps de quitter le départ et d'approcher le premier village.
         if scene == "titre" { for i in 0..900 { s.tour_step(1.0 / 30.0); s.tick(1.0 / 30.0, none, Actions::default()); if i % 60 == 59 { pump(&mut s, &mut g); } } pump(&mut s, &mut g); println!("titre : survol en {:?}", s.player.p); }
         if scene != "fissure" { s.tick(0.0, none, Actions::default()); }
+        // Les quatre créatures communes, au crépuscule, à quelques pas : pour juger des modèles en jeu.
+        if scene == "creatures" { s.hour = 19.4; for (k, id) in ["rodeur", "brigand", "rodeuse", "rampant"].iter().enumerate() { let (x, z) = at(4.5, -2.4 + k as f64 * 1.6); let sp = alw_core::hostile::species(id).unwrap(); let i = s.horde.put(sp, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.14, false); s.horde.foes[i].state = alw_core::hostile::Ai::Detection; } s.tick(0.0, none, Actions::default()); println!("créatures : {}", s.horde.foes.len()); }
         if scene == "combat" { let (x, z) = at(3.2, 0.3); s.wild.put(alw_core::wild::Kind::Wolf, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.14, false); s.guard_t = 0.12; s.anim.guard = 1.0; s.charge = 0.5; s.guide = 99; println!("combat : {} bêtes", s.wild.all.len()); } println!("{scene} : établi et feu {:?}, prey {:?}, mort {:?}", s.stations(), s.prey, s.dead);
     }
     let mut menu = hud::Menu { open: scene == "menu" || scene == "commandes", controls: scene == "commandes", weather: 3, quality: 1, hud: 2, ..hud::Menu::new() };
