@@ -69,6 +69,8 @@ jobs:
           shot recif -38.5 53 0.5 -20 52 -30 15 5 1280 720 2048 recif
           shot plage -38.5 53 0.5 -20 52 -30 15 6 1280 720 2048 plage
           shot port -38.5 53 0.5 -20 52 -30 11 6 1280 720 2048 port
+          shot village_desert -38.5 53 0.5 -20 52 -30 10.5 5 1280 720 2048 village_desert
+          shot village_nord -38.5 53 0.5 -20 52 -30 10.5 5 1280 720 2048 village_nord
           shot epave -38.5 53 0.5 -20 52 -30 12 4 1280 720 2048 epave
           shot large -38.5 53 0.5 -20 52 -30 12 5 1280 720 2048 large
           shot foret -38.5 53 0.5 -20 52 -30 11 3 1280 720 1024 foret

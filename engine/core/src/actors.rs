@@ -304,7 +304,9 @@ impl Models {
                 Some(id) if BLOCKS[id as usize].shape == Shape::Deco => { let mut o = VBuf::new(800); mv.deco_model(&mut o, id, 0, 0, 0, 7, 11, 255.0, if emit(id) != 0 { 255.0 } else { 0.0 }, 0); (o, Hold::Deco) }
                 Some(id) => (cube_mesh(id), Hold::Block),
             };
-            let local = hold == Hold::Block && it.block != Some(B::WATER);
+            // La texture d'un objet tenu suit l'objet, pas le monde : sinon, sur un escalier, une dalle, un muret ou un meuble
+            // en main, elle glisserait à chaque pas du joueur.
+            let local = it.block != Some(B::WATER);
             items.insert(it.id, Held { r: take(&mut all, o), hold, local });
         }
         for (name, o) in crate::fauna::parts() { parts.insert(name, take(&mut all, o)); }

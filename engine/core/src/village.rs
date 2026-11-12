@@ -345,7 +345,7 @@ impl Site {
 
 // ---------------------------------------------------------------------------------------------- villageois
 #[derive(Clone, Debug)]
-pub struct Folk { pub v: (i32, i32), pub house: usize, pub craft: Option<&'static str>, pub name: String, pub p: [f64; 3], pub yaw: f64, pub phase: f64, pub moving: bool, pub working: bool, route: Vec<[f64; 3]>, goal: (u8, u32), look: u8,
+pub struct Folk { pub v: (i32, i32), pub house: usize, pub craft: Option<&'static str>, pub name: String, pub p: [f64; 3], pub yaw: f64, pub phase: f64, pub moving: bool, pub working: bool, route: Vec<[f64; 3]>, goal: (u8, u32), look: u8, /** tenue de la région : 0 médiévale, 1 désert, 2 Nord, 3 port */ pub region: u8,
     /// Effrayé par une arme (secondes qui restent), délai avant de resaluer le joueur.
     pub scared: f64, greet_t: f64, stuck: f64 }
 #[derive(Clone, Copy, Debug, PartialEq)] pub enum Page { Main, Order(usize), Trade }
@@ -457,7 +457,7 @@ impl Town {
             for j in 0..count {
                 let pick = (hash_float(v.id.0 * 7 + i as i32, v.id.1, j as i32, 92) * FIRST.len() as f64) as usize % FIRST.len();
                 let look = if let Some(c) = h.craft { db().craftsmen.iter().position(|x| x.id == c).unwrap_or(0) as u8 } else { 6 + (hash_float(i as i32, j as i32, v.id.0, v.id.1) * 3.0) as u8 % 3 };
-                self.folk.push(Folk { v: v.id, house: i, craft: if j == 0 { h.craft } else { None }, name: FIRST[pick].to_string(), p: h.spot, yaw: 0.0, phase: n as f64, moving: false, working: false, route: Vec::new(), goal: (9, 0), look, scared: 0.0, greet_t: 0.0, stuck: 0.0 });
+                self.folk.push(Folk { v: v.id, house: i, craft: if j == 0 { h.craft } else { None }, name: FIRST[pick].to_string(), p: h.spot, yaw: 0.0, phase: n as f64, moving: false, working: false, route: Vec::new(), goal: (9, 0), look, region: match v.kind { "desert" => 1, "montagne" | "taiga" => 2, "port" => 3, _ => 0 }, scared: 0.0, greet_t: 0.0, stuck: 0.0 });
                 n += 1;
             }
         }
@@ -502,10 +502,10 @@ impl Town {
                 if seed % 5 == 0 { leg_l = 0.06; leg_r = -0.04; }
             }
             let hip = 0.76; let body = mul(&base, &mul(&trs(0.0, hip + bob, 0.0, 0.0, lean, 1.0), &trs(0.0, -hip, 0.0, 0.0, 0.0, 1.0)));
-            put(&format!("folk{l}"), body); put(&format!("folkHead{face}"), mul(&body, &trs(0.0, 1.4, 0.0, head_yaw, head_pitch, 1.0)));
-            put(&format!("folkLeg{l}"), mul(&base, &trs(-0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_l, 1.0))); put(&format!("folkLeg{l}"), mul(&base, &trs(0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_r, 1.0)));
+            let rs = if f.region == 0 { String::new() } else { format!("r{}", f.region) }; put(&format!("folk{l}{rs}"), body); put(&format!("folkHead{face}{rs}"), mul(&body, &trs(0.0, 1.4, 0.0, head_yaw, head_pitch, 1.0)));
+            put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(-0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_l, 1.0))); put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_r, 1.0)));
             let al = mul(&body, &trs(-0.35, 1.34, 0.0, yaw_l, arm_l, 1.0)); let ar = mul(&body, &trs(0.35, 1.34, 0.0, yaw_r, arm_r, 1.0));
-            put(&format!("folkArm{l}"), al); put(&format!("folkArm{l}"), ar);
+            put(&format!("folkArm{l}{rs}"), al); put(&format!("folkArm{l}{rs}"), ar);
             if let Some(h) = tool.and_then(|n| md.held(n)) { out.push(Draw { m: mul(&ar, &mul(&trs(0.0, 0.0, 0.0, 0.0, 0.0, 1.0), &crate::actors::hold_m(h.hold))), r: h.r, view: false, local: h.local, hero: false, dynamic: false, hurt: 0.0 }); }
         }
         out
@@ -555,6 +555,80 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
         b(q, [-0.03, 0.1, 0.19, 0.03, 0.18, 0.225], skin2); b(q, [-0.06, 0.055, 0.19, 0.06, 0.075, 0.198], [0.55, 0.3, 0.28]); // nez, bouche
         if k == 1 || k == 4 { b(q, [-0.16, -0.06, 0.1, 0.16, 0.045, 0.205], hair); b(q, [-0.2, -0.02, -0.02, -0.15, 0.2, 0.18], hair); b(q, [0.15, -0.02, -0.02, 0.2, 0.2, 0.18], hair); b(q, [-0.08, 0.08, 0.19, 0.08, 0.1, 0.205], hair); } // barbe, favoris, moustache
         o.push((n, h));
+    }
+    o.extend(regional());
+    o
+}
+/// Les tenues des régions : le désert (djellaba, chèche, ceinture de laine, sandales, peaux hâlées), le Nord (laine,
+/// manteau de fourrure, jambières croisées, bottes fourrées, tresses, barbes, bonnet ou casque à nasal), le port
+/// (marinière rayée, foulard, toile bleue, bonnet de laine ou chapeau de paille). Mêmes pièces, mêmes articulations.
+fn regional() -> Vec<(&'static str, VBuf)> {
+    let leak = |s: String| -> &'static str { Box::leak(s.into_boxed_str()) };
+    let dk = |c: [f64; 3], k: f64| [c[0] * k, c[1] * k, c[2] * k];
+    let mut o = Vec::new(); let belt = [0.22, 0.15, 0.1]; let leather = [0.4, 0.27, 0.16];
+    for region in 1..=3u8 {
+        let tones: [[f64; 3]; 3] = match region { 1 => [[0.66, 0.47, 0.32], [0.5, 0.35, 0.23], [0.74, 0.56, 0.41]], 2 => [[0.92, 0.76, 0.66], [0.86, 0.68, 0.58], [0.9, 0.72, 0.6]], _ => [[0.84, 0.64, 0.5], [0.72, 0.52, 0.38], [0.8, 0.6, 0.46]] };
+        let cloth: [[f64; 3]; 9] = match region {
+            1 => [[0.86, 0.8, 0.66], [0.2, 0.24, 0.45], [0.72, 0.52, 0.28], [0.62, 0.3, 0.2], [0.9, 0.88, 0.82], [0.76, 0.66, 0.48], [0.3, 0.45, 0.62], [0.55, 0.28, 0.18], [0.32, 0.42, 0.3]],
+            2 => [[0.42, 0.45, 0.5], [0.3, 0.38, 0.26], [0.55, 0.24, 0.17], [0.42, 0.3, 0.2], [0.78, 0.74, 0.62], [0.36, 0.3, 0.4], [0.24, 0.32, 0.46], [0.5, 0.42, 0.28], [0.6, 0.56, 0.48]],
+            _ => [[0.2, 0.25, 0.42], [0.62, 0.2, 0.16], [0.2, 0.25, 0.42], [0.18, 0.3, 0.36], [0.22, 0.24, 0.36], [0.62, 0.2, 0.16], [0.2, 0.25, 0.42], [0.18, 0.3, 0.36], [0.62, 0.2, 0.16]] };
+        for (i, t) in cloth.iter().enumerate() { let t2 = dk(*t, 0.78); let sk = tones[i % 3];
+            let mut body = VBuf::new(400); let q = &mut body;
+            match region {
+                1 => { // djellaba : longue robe, capuche dans le dos, ceinture de laine colorée, galon à l'encolure
+                    b(q, [-0.27, 0.62, -0.17, 0.27, 1.4, 0.17], *t); b(q, [-0.15, 1.18, -0.23, 0.15, 1.42, -0.16], t2); b(q, [-0.06, 1.0, 0.17, 0.06, 1.38, 0.18], dk(*t, 0.65));
+                    let sash = [[0.7, 0.2, 0.16], [0.86, 0.66, 0.2], [0.2, 0.4, 0.5]][i % 3]; b(q, [-0.28, 0.84, -0.18, 0.28, 0.96, 0.18], sash); b(q, [0.14, 0.62, 0.17, 0.2, 0.86, 0.19], sash);
+                    if i <= 2 { b(q, [-0.21, 0.6, 0.17, 0.21, 1.26, 0.2], leather); } }
+                2 => { // laine et fourrure : tunique, manteau de fourrure sur les épaules, broche, ceinture à grosse boucle
+                    b(q, [-0.26, 0.7, -0.16, 0.26, 1.4, 0.16], *t); let fur = [[0.42, 0.32, 0.22], [0.55, 0.52, 0.48], [0.3, 0.22, 0.15]][i % 3];
+                    b(q, [-0.31, 1.24, -0.21, 0.31, 1.46, 0.21], fur); b(q, [-0.29, 0.86, -0.21, 0.29, 1.3, -0.17], fur); b(q, [0.12, 1.28, 0.2, 0.2, 1.36, 0.23], [0.8, 0.66, 0.3]);
+                    b(q, [-0.275, 0.86, -0.175, 0.275, 0.94, 0.175], belt); b(q, [-0.06, 0.85, 0.172, 0.06, 0.95, 0.19], [0.62, 0.58, 0.52]);
+                    for y in [0.74, 0.8] { b(q, [-0.265, y, 0.16, 0.265, y + 0.02, 0.165], t2); } }
+                _ => { // marinière : rayures, foulard noué, ceinture de corde
+                    for k in 0..7 { let y = 0.72 + k as f64 * 0.1; b(q, [-0.26, y, -0.16, 0.26, y + 0.05, 0.16], [0.9, 0.88, 0.82]); b(q, [-0.262, y + 0.05, -0.162, 0.262, y + 0.1, 0.162], *t); }
+                    b(q, [-0.14, 1.3, -0.17, 0.14, 1.42, 0.17], [0.75, 0.16, 0.14]); b(q, [-0.04, 1.14, 0.16, 0.04, 1.3, 0.2], [0.75, 0.16, 0.14]); b(q, [-0.275, 0.84, -0.175, 0.275, 0.9, 0.175], [0.66, 0.56, 0.38]); }
+            }
+            o.push((leak(format!("folk{i}r{region}")), body));
+            let mut arm = VBuf::new(120); let a = &mut arm;
+            match region { 1 => { b(a, [-0.11, -0.5, -0.11, 0.11, 0.04, 0.11], *t); b(a, [-0.115, -0.52, -0.115, 0.115, -0.46, 0.115], t2); b(a, [-0.07, -0.64, -0.075, 0.07, -0.5, 0.075], sk); }
+                2 => { b(a, [-0.09, -0.42, -0.09, 0.09, 0.04, 0.09], *t); b(a, [-0.1, -0.46, -0.1, 0.1, -0.3, 0.1], leather); b(a, [-0.075, -0.62, -0.08, 0.075, -0.46, 0.08], sk); }
+                _ => { for k in 0..4 { let y = -0.3 + k as f64 * 0.08; b(a, [-0.09, y, -0.09, 0.09, y + 0.04, 0.09], [0.9, 0.88, 0.82]); b(a, [-0.091, y + 0.04, -0.091, 0.091, y + 0.08, 0.091], *t); } b(a, [-0.075, -0.62, -0.08, 0.075, -0.3, 0.08], sk); } }
+            o.push((leak(format!("folkArm{i}r{region}")), arm));
+            let mut leg = VBuf::new(120); let l = &mut leg;
+            match region { 1 => { b(l, [-0.13, -0.58, -0.13, 0.13, 0.0, 0.13], *t); b(l, [-0.06, -0.72, -0.07, 0.06, -0.58, 0.07], sk); b(l, [-0.09, -0.76, -0.1, 0.09, -0.72, 0.17], leather); b(l, [-0.09, -0.7, 0.05, 0.09, -0.68, 0.08], leather); } // robe, chevilles nues, sandales
+                2 => { let pants = [[0.32, 0.28, 0.24], [0.4, 0.36, 0.3], [0.26, 0.26, 0.28]][i % 3]; b(l, [-0.11, -0.5, -0.11, 0.11, 0.0, 0.11], pants); for y in [-0.46, -0.36, -0.26] { b(l, [-0.115, y, -0.115, 0.115, y + 0.03, 0.115], leather); }
+                    let fur = [0.45, 0.35, 0.25]; b(l, [-0.125, -0.76, -0.13, 0.125, -0.5, 0.18], fur); b(l, [-0.13, -0.56, -0.135, 0.13, -0.5, 0.135], dk(fur, 1.2)); } // jambières croisées, bottes fourrées
+                _ => { let pants = if i % 2 == 0 { [0.18, 0.22, 0.36] } else { [0.6, 0.48, 0.3] }; b(l, [-0.11, -0.52, -0.11, 0.11, 0.0, 0.11], pants); b(l, [-0.115, -0.58, -0.115, 0.115, -0.5, 0.115], dk(pants, 1.25)); // toile retroussée
+                    if i % 3 == 0 { b(l, [-0.08, -0.72, -0.08, 0.08, -0.58, 0.08], sk); b(l, [-0.09, -0.76, -0.1, 0.09, -0.72, 0.16], sk); } else { b(l, [-0.115, -0.76, -0.12, 0.115, -0.58, 0.17], [0.16, 0.12, 0.1]); } } }
+            o.push((leak(format!("folkLeg{i}r{region}")), leg));
+        }
+        // Six têtes par région.
+        let hairs: [[f64; 3]; 3] = match region { 1 => [[0.08, 0.07, 0.06], [0.14, 0.1, 0.08], [0.1, 0.08, 0.07]], 2 => [[0.82, 0.68, 0.36], [0.62, 0.28, 0.12], [0.48, 0.34, 0.2]], _ => [[0.3, 0.2, 0.12], [0.15, 0.12, 0.1], [0.6, 0.45, 0.25]] };
+        for k in 0..6 { let hair = hairs[k % 3]; let sk = tones[k % 3]; let bearded = k == 1 || k == 4 || (region == 2 && k != 3);
+            let mut h = VBuf::new(600); let q = &mut h;
+            b(q, [-0.19, 0.0, -0.19, 0.19, 0.38, 0.19], sk);
+            for sx in [-1.0, 1.0] { let x0 = if sx < 0.0 { -0.12 } else { 0.05 };
+                b(q, [x0, 0.17, 0.19, x0 + 0.07, 0.22, 0.195], [0.95, 0.94, 0.9]); b(q, [x0 + if sx < 0.0 { 0.03 } else { 0.01 }, 0.17, 0.195, x0 + if sx < 0.0 { 0.06 } else { 0.04 }, 0.215, 0.2], [0.14, 0.1, 0.08]);
+                b(q, [x0 - 0.005, 0.245, 0.19, x0 + 0.075, 0.27, 0.2], dk(hair, 0.8)); }
+            b(q, [-0.03, 0.1, 0.19, 0.03, 0.18, 0.225], dk(sk, 0.9)); b(q, [-0.06, 0.055, 0.19, 0.06, 0.075, 0.198], [0.5, 0.28, 0.26]);
+            if bearded { let long = region == 2; b(q, [-0.17, if long { -0.16 } else { -0.06 }, 0.08, 0.17, 0.045, 0.21], hair); b(q, [-0.2, -0.02, -0.02, -0.15, 0.2, 0.18], hair); b(q, [0.15, -0.02, -0.02, 0.2, 0.2, 0.18], hair); b(q, [-0.08, 0.08, 0.19, 0.08, 0.1, 0.208], hair);
+                if long { b(q, [-0.05, -0.24, 0.12, 0.05, -0.15, 0.2], hair); b(q, [-0.04, -0.25, 0.12, 0.04, -0.22, 0.2], [0.6, 0.55, 0.45]); } } // barbe tressée, bague
+            match region {
+                1 => { // chèche enroulé, ou foulard qui couvre la nuque
+                    let tc = [[0.92, 0.9, 0.84], [0.2, 0.26, 0.5], [0.66, 0.24, 0.18]][k % 3];
+                    if k < 3 { b(q, [-0.21, 0.3, -0.21, 0.21, 0.42, 0.21], tc); b(q, [-0.2, 0.42, -0.2, 0.2, 0.5, 0.2], dk(tc, 0.92)); b(q, [-0.16, 0.5, -0.16, 0.16, 0.56, 0.16], tc); b(q, [-0.215, 0.36, 0.2, 0.215, 0.39, 0.215], dk(tc, 0.8)); b(q, [0.12, 0.2, -0.22, 0.2, 0.36, -0.14], tc); }
+                    else { b(q, [-0.21, 0.28, -0.21, 0.21, 0.44, 0.21], tc); b(q, [-0.21, -0.12, -0.21, 0.21, 0.32, -0.12], tc); b(q, [-0.215, -0.06, -0.12, -0.19, 0.32, 0.12], tc); b(q, [0.19, -0.06, -0.12, 0.215, 0.32, 0.12], tc); } }
+                2 => { // longs cheveux, tresses ; un bonnet de fourrure ou un casque de fer à nasal
+                    b(q, [-0.2, 0.28, -0.2, 0.2, 0.42, 0.2], hair); b(q, [-0.21, -0.14, -0.21, 0.21, 0.32, -0.12], hair);
+                    for sx in [-1.0f64, 1.0] { let x = sx * 0.17; b(q, [x - 0.035, -0.22, 0.0, x + 0.035, 0.2, 0.07], hair); b(q, [x - 0.04, -0.2, 0.0, x + 0.04, -0.17, 0.07], leather); }
+                    if k % 3 == 0 { let iron = [0.52, 0.53, 0.56]; b(q, [-0.21, 0.3, -0.21, 0.21, 0.46, 0.21], iron); b(q, [-0.15, 0.46, -0.15, 0.15, 0.52, 0.15], iron); b(q, [-0.215, 0.3, -0.215, 0.215, 0.34, 0.215], dk(iron, 0.8)); b(q, [-0.02, 0.12, 0.2, 0.02, 0.32, 0.225], iron); }
+                    else if k % 3 == 1 { let fur = [0.4, 0.3, 0.2]; b(q, [-0.22, 0.32, -0.22, 0.22, 0.5, 0.22], fur); b(q, [-0.23, 0.3, -0.23, 0.23, 0.36, 0.23], dk(fur, 1.2)); } }
+                _ => { // bonnet de laine à revers, ou chapeau de paille
+                    if k % 2 == 0 { let cap = if k < 3 { [0.7, 0.16, 0.14] } else { [0.2, 0.26, 0.45] }; b(q, [-0.2, 0.3, -0.2, 0.2, 0.48, 0.2], cap); b(q, [-0.21, 0.28, -0.21, 0.21, 0.36, 0.21], dk(cap, 0.8)); b(q, [-0.12, 0.48, -0.12, 0.12, 0.54, 0.12], cap); }
+                    else { let straw = [0.82, 0.7, 0.42]; b(q, [-0.2, 0.28, -0.2, 0.2, 0.42, 0.2], hair); b(q, [-0.34, 0.36, -0.34, 0.34, 0.39, 0.34], straw); b(q, [-0.18, 0.39, -0.18, 0.18, 0.5, 0.18], straw); b(q, [-0.185, 0.4, -0.185, 0.185, 0.43, 0.185], [0.5, 0.2, 0.16]); } }
+            }
+            o.push((leak(format!("folkHead{k}r{region}")), h));
+        }
     }
     o
 }

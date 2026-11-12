@@ -559,6 +559,16 @@ fn capture(a: &[String]) {
         s.toggle_map(); for _ in 0..60 { s.tick(1.0 / 60.0, none, Actions::default()); }
         println!("{scene} : {} pixels explorés, anim {:.2}", s.map.explored(), s.map.anim);
     }
+    if scene == "village_desert" || scene == "village_nord" {
+        // Le village du désert (grès, terrasses, coupoles) ou de la montagne (rondins, têtes de dragon), et ses habitants.
+        let want = if scene == "village_desert" { "desert" } else { "montagne" };
+        if let Some(v) = WorldGen::new(SEED).villages_near(0.0, 0.0, 9000.0).into_iter().find(|v| v.kind == want) {
+            let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; s.hour = 10.5; s.sel = 8; s.third = false; s.player.fly = true;
+            let e = [c[0] - 13.0, c[1] + 6.0, c[2] - 13.0]; s.player.p = [e[0], e[1] - 1.62, e[2]]; let f = view::norm([c[0] - e[0], c[1] - e[1], c[2] - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
+            g.settle(); pump(&mut s, &mut g); for _ in 0..900 { s.tick(1.0 / 60.0, none, Actions::default()); } pump(&mut s, &mut g); g.settle();
+            println!("{scene} : {} ({}) {:?}, {} habitants", v.name, v.kind, v.c, s.town.folk.len());
+        }
+    }
     if scene == "village" || scene == "artisan" || scene == "bourg" || scene == "interieur" {
         // Le village le plus proche du départ, en milieu de matinée : la place vue d'en haut, ou le forgeron à son poste et la conversation.
         if let Some(v) = s.nearest_village(0.0, 0.0) {

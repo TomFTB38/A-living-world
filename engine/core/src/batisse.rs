@@ -93,17 +93,21 @@ pub fn dress(gen: &WorldGen, cx: i32, cz: i32, vox: &[Id], mesh: &mut Mesh) {
 // ------------------------------------------------------------------------------------------------ styles et plans
 /// Les matières d'un village : soubassement, rez-de-chaussée, étage, poteaux, sol, âme des toits, couvertures.
 #[derive(Clone, Copy)]
-pub struct Style { pub found: Id, pub ground: Id, pub upper: Id, pub frame: bool, pub post: Id, pub floor: Id, pub core: Id, pub tiles: Id, pub thatch: Id, pub noble: Id, pub chimney: Id, pub pave: Id, pub beam: C3 }
+pub struct Style { pub found: Id, pub ground: Id, pub upper: Id, pub frame: bool, pub post: Id, pub floor: Id, pub core: Id, pub tiles: Id, pub thatch: Id, pub noble: Id, pub chimney: Id, pub pave: Id, pub beam: C3, /** architecture : 0 médiévale, 1 d'Afrique du Nord (terrasses, arcs), 2 nordique (rondins, toits raides, têtes de dragon) */ pub arch: u8 }
 pub fn style(kind: &str) -> Style {
     let (found, cob, plaster, timber, planks, tiles, slate, thatch) = (id("cobblestone"), id("cobblestone"), id("plaster"), id("timber"), id("planks"), id("roof_tiles"), id("slate"), id("thatch"));
     let dark = [0.25, 0.16, 0.1];
     match kind {
-        "taiga" => Style { found, ground: cob, upper: id("spruce_planks"), frame: false, post: id("spruce_log"), floor: id("spruce_planks"), core: id("spruce_planks"), tiles: slate, thatch, noble: slate, chimney: cob, pave: cob, beam: [0.2, 0.14, 0.09] },
-        "desert" => Style { found: id("sandstone"), ground: id("sandstone"), upper: plaster, frame: false, post: id("red_sandstone"), floor: id("sandstone"), core: planks, tiles, thatch, noble: tiles, chimney: id("sandstone"), pave: id("sandstone"), beam: [0.36, 0.24, 0.13] },
-        "aride" => Style { found, ground: cob, upper: plaster, frame: true, post: timber, floor: planks, core: planks, tiles, thatch, noble: tiles, chimney: cob, pave: cob, beam: dark },
-        "port" => Style { found: id("fieldstone"), ground: id("fieldstone"), upper: id("spruce_planks"), frame: false, post: id("spruce_log"), floor: id("spruce_planks"), core: id("spruce_planks"), tiles: id("shingles"), thatch: id("shingles"), noble: slate, chimney: id("stone_bricks"), pave: cob, beam: [0.2, 0.14, 0.09] }, // port de pêche : rez-de-chaussée de pierre sèche, étage de planches, toits de bardeaux
-        "montagne" | "hautes_terres" => Style { found, ground: id("stone_bricks"), upper: plaster, frame: true, post: timber, floor: planks, core: planks, tiles: slate, thatch: slate, noble: slate, chimney: id("stone_bricks"), pave: cob, beam: dark },
-        _ => Style { found, ground: cob, upper: plaster, frame: true, post: timber, floor: planks, core: planks, tiles, thatch, noble: slate, chimney: id("clay_bricks"), pave: cob, beam: dark },
+        // Taïga et montagne : l'architecture du Nord — soubassement de pierre, murs de rondins de sapin croisés aux angles,
+        // toits raides de bardeaux ou de gazon, rives croisées terminées en têtes de dragon.
+        "taiga" | "montagne" => Style { found: cob, ground: id("spruce_log"), upper: id("spruce_log"), frame: false, post: id("spruce_log"), floor: id("spruce_planks"), core: id("spruce_planks"), tiles: if kind == "taiga" { id("grass") } else { id("shingles") }, thatch: id("grass"), noble: id("shingles"), chimney: cob, pave: cob, beam: [0.24, 0.16, 0.1], arch: 2 },
+        // Désert : l'architecture d'Afrique du Nord — murs de grès et d'enduit ocre, toits plats en terrasse crénelée,
+        // poutres de palmier qui dépassent, portes en arc outrepassé, fenêtres à moucharabieh, coupoles.
+        "desert" => Style { found: id("sandstone"), ground: id("sandstone"), upper: id("sandstone"), frame: false, post: id("red_sandstone"), floor: id("sandstone"), core: id("sandstone"), tiles, thatch, noble: tiles, chimney: id("sandstone"), pave: id("sandstone"), beam: [0.4, 0.28, 0.16], arch: 1 },
+        "aride" => Style { found, ground: cob, upper: plaster, frame: true, post: timber, floor: planks, core: planks, tiles, thatch, noble: tiles, chimney: cob, pave: cob, beam: dark, arch: 0 },
+        "port" => Style { found: id("fieldstone"), ground: id("fieldstone"), upper: id("spruce_planks"), frame: false, post: id("spruce_log"), floor: id("spruce_planks"), core: id("spruce_planks"), tiles: id("shingles"), thatch: id("shingles"), noble: slate, chimney: id("stone_bricks"), pave: cob, beam: [0.2, 0.14, 0.09], arch: 0 }, // port de pêche : pierre sèche, planches, bardeaux
+        "hautes_terres" => Style { found, ground: id("stone_bricks"), upper: plaster, frame: true, post: timber, floor: planks, core: planks, tiles: slate, thatch: slate, noble: slate, chimney: id("stone_bricks"), pave: cob, beam: dark, arch: 0 },
+        _ => Style { found, ground: cob, upper: plaster, frame: true, post: timber, floor: planks, core: planks, tiles, thatch, noble: slate, chimney: id("clay_bricks"), pave: cob, beam: dark, arch: 0 },
     }
 }
 
@@ -143,7 +147,10 @@ impl B<'_> {
         for y in y0..=y1 { for u in 0..self.w { for ww in 0..self.d {
             let edge = u == 0 || ww == 0 || u == self.w - 1 || ww == self.d - 1; if !edge { continue; }
             let corner = (u == 0 || u == self.w - 1) && (ww == 0 || ww == self.d - 1);
-            let b = if corner { post } else if y == y0 { low } else { mat }; self.put(u, y, ww, b);
+            let mut b = if corner { post } else if y == y0 { low } else { mat };
+            // Rondins couchés le long du mur, croisés aux angles un rang sur deux.
+            if self.s.arch == 2 && b == id("spruce_log") { let along_u = if corner { (y - y0) % 2 == 0 } else { ww == 0 || ww == self.d - 1 }; let dir = if along_u { self.lot.u } else { self.lot.w }; b = id(if dir.0 != 0 { "spruce_log_x" } else { "spruce_log_z" }); }
+            self.put(u, y, ww, b);
         } } }
     }
     fn window(&mut self, side: u8, t: i32, y: i32) {
@@ -198,6 +205,9 @@ impl B<'_> {
             let (t, y) = (g.t as f64, g.y0 as f64); let at = self.anchor(side, t + 0.5, y);
             let (a, b) = (self.on(side, t - 0.12, y - 0.04, 0.08), self.on(side, t + 1.12, y - 0.04, 0.08)); self.k.bar(at, a, b, n, 0.05, 0.08, c, -1.0);
             let (a, b) = (self.on(side, t - 0.08, y + 1.05, 0.05), self.on(side, t + 1.08, y + 1.05, 0.05)); self.k.bar(at, a, b, n, 0.06, 0.05, c, -1.0);
+            if self.s.arch == 1 { // moucharabieh : un treillis de bois serré devant la fenêtre, dans un cadre
+                for k in 1..5 { let tt = t + k as f64 * 0.2; let (a, b) = (self.on(side, tt, y + 0.04, 0.06), self.on(side, tt, y + 0.96, 0.06)); self.k.bar(at, a, b, n, 0.025, 0.025, c, -1.0); let yy = y + k as f64 * 0.2; let (a, b) = (self.on(side, t + 0.02, yy, 0.07), self.on(side, t + 0.98, yy, 0.07)); self.k.bar(at, a, b, n, 0.025, 0.025, c, -1.0); }
+                continue; }
             // Volets peints, planches verticales et barres en Z.
             for (t0, t1) in [(t - 0.47, t - 0.03), (t + 1.03, t + 1.47)] {
                 let (a, b) = (self.on(side, (t0 + t1) * 0.5, y + 0.04, 0.03), self.on(side, (t0 + t1) * 0.5, y + 0.96, 0.03)); self.k.bar(at, a, b, n, (t1 - t0) * 0.5, 0.025, paint, -1.0);
@@ -270,6 +280,50 @@ impl B<'_> {
             }
         }
     }
+    /// Toit plat d'Afrique du Nord : une terrasse, un parapet crénelé, les poutres de palmier qui sortent du mur, une gargouille ;
+    /// sur les grandes maisons, un coin de terrasse aménagé (tapis, jarres, auvent rayé sur quatre perches).
+    fn flat_roof(&mut self, yr: i32, terrace: bool) {
+        let (w, d) = (self.w, self.d); let s = self.s;
+        for u in 0..w { for ww in 0..d { self.put(u, yr, ww, s.core); let edge = u == 0 || ww == 0 || u == w - 1 || ww == d - 1;
+            if edge { self.put(u, yr + 1, ww, s.ground); if (u + ww) % 2 == 0 && !((u == 0 || u == w - 1) && (ww == 0 || ww == d - 1)) { self.put(u, yr + 2, ww, s.ground); } } } }
+        for (u, ww) in [(0, 0), (w - 1, 0), (w - 1, d - 1), (0, d - 1)] { self.put(u, yr + 2, ww, s.ground); } // les angles montent plus haut
+        let beam = self.s.beam;
+        for side in 0..4u8 { let n = self.normal(side); let len = self.len(side); for k in 0..len { let t = k as f64 + 0.5; let at = self.anchor(side, t, yr as f64);
+            let (a, c) = (self.on(side, t, yr as f64 - 0.3, -0.05), self.on(side, t, yr as f64 - 0.36, 0.42)); self.k.bar(at, a, c, cross_dir(n), 0.075, 0.075, beam, -1.0); } }
+        { let n = self.normal(0); let at = self.anchor(0, 0.5, (yr + 1) as f64); let (a, c) = (self.on(0, 0.5, yr as f64 + 1.1, -0.1), self.on(0, 0.5, yr as f64 + 1.0, 0.6)); self.k.bar(at, a, c, cross_dir(n), 0.1, 0.09, [0.6, 0.38, 0.24], -1.0); }
+        if terrace && w >= 5 { let lot = self.lot; let at = lot.cell(1, yr, 1); let y = (yr + 1) as f64;
+            self.put(1, yr + 1, 1, id("carpet_red")); self.put(2, yr + 1, 1, id("carpet_red")); self.put(w - 2, yr + 1, d - 2, id("amphora")); self.put(w - 2, yr + 1, d - 3, id("amphora"));
+            for (pu, pw) in [(0.8, 0.8), (3.2, 0.8), (0.8, 2.8), (3.2, 2.8)] { self.k.cube(at, lot.p(pu - 0.04, y, pw - 0.04), lot.p(pu + 0.04, y + 1.9, pw + 0.04), beam, -1.0); }
+            let cols = [[0.82, 0.3, 0.18], [0.92, 0.84, 0.66]]; for k in 0..6 { let w0 = 0.8 + k as f64 * 0.4; self.k.quad(at, [lot.p(0.8, y + 1.9, w0), lot.p(3.2, y + 1.9, w0), lot.p(3.2, y + 1.85, w0 + 0.4), lot.p(0.8, y + 1.85, w0 + 0.4)], cols[k % 2], -1.0, 0); } }
+    }
+    /// Coupole enduite de blanc sur la terrasse, avec son épi doré.
+    fn dome(&mut self, y: i32, rad: f64) {
+        let (w, d) = (self.w as f64, self.d as f64); let lot = self.lot; let c = lot.p(w * 0.5, y as f64, d * 0.5); let at = lot.cell(self.w / 2, y - 1, self.d / 2);
+        minaret_dome(self.k, at, c, rad);
+    }
+    /// Architecture du Nord : sur chaque pignon, deux rives croisées qui dépassent du faîte et finissent en têtes de dragon sculptées ;
+    /// un bouclier rond peint de part et d'autre de la porte.
+    fn dragons(&mut self, yr: i32) {
+        let (w, d) = (self.w, self.d); let (wf, df, y) = (w as f64, d as f64, yr as f64); let lot = self.lot; let beam = self.s.beam; let (e, over) = (1.45, 1.3);
+        let at = if w % 2 == 1 { lot.cell((w - 1) / 2, yr + (w + 1) / 2, d / 2) } else { lot.cell(w / 2 - 1, yr + w / 2, d / 2) };
+        let peak = y + 2.0 + wf * 0.5;
+        for ww in [-over - 0.05, df + over + 0.05] { let out = if ww < 0.0 { -1.0 } else { 1.0 };
+            for side in [-1.0f64, 1.0] { let (u0, y0e) = if side < 0.0 { (-e, y + 2.0 - e) } else { (wf + e, y + 2.0 - e) }; let um = wf * 0.5; let dir = [um - u0, peak - y0e]; let l = (dir[0] * dir[0] + dir[1] * dir[1]).sqrt();
+                let ext = 1.1; let (u1, y1) = (um + dir[0] / l * ext, peak + 0.15 + dir[1] / l * ext);
+                self.k.bar(at, lot.p(u0, y0e + 0.15, ww), lot.p(u1, y1, ww), lot.v(0.0, 0.0, 1.0), 0.13, 0.05, beam, -1.0); // la rive
+                // La tête de dragon : un cou recourbé, la gueule, l'œil rouge, deux cornes.
+                let hd = lot.p(u1 + dir[0] / l * 0.18, y1 + 0.12, ww + out * 0.0); let dark = [beam[0] * 0.8, beam[1] * 0.8, beam[2] * 0.8];
+                self.k.solid(at, hd, [lot.v(0.16, 0.0, 0.0), [0.0, 0.11, 0.0], lot.v(0.0, 0.0, 0.07)], dark, -1.0, 0);
+                let snout = lot.p(u1 + dir[0] / l * 0.18 - side * 0.22, y1 + 0.1, ww); self.k.solid(at, snout, [lot.v(0.12, 0.0, 0.0), [0.0, 0.06, 0.0], lot.v(0.0, 0.0, 0.06)], dark, -1.0, 0);
+                for sz in [-1.0, 1.0] { let eye = lot.p(u1 + dir[0] / l * 0.18 - side * 0.05, y1 + 0.17, ww + sz * 0.075); self.k.solid(at, eye, [lot.v(0.025, 0.0, 0.0), [0.0, 0.025, 0.0], lot.v(0.0, 0.0, 0.01)], [0.9, 0.2, 0.1], -1.0, 0); }
+                let horn = lot.p(u1 + dir[0] / l * 0.18 + side * 0.08, y1 + 0.3, ww); self.k.solid(at, horn, [lot.v(0.03, 0.0, 0.0), [0.0, 0.1, 0.0], lot.v(0.0, 0.0, 0.03)], dark, -1.0, 0);
+            } }
+        // Boucliers ronds peints, de part et d'autre de la porte.
+        let n = self.normal(0); let du = (w / 2) as f64; let paints = [([0.7, 0.16, 0.12], [0.9, 0.86, 0.75]), ([0.18, 0.3, 0.55], [0.9, 0.78, 0.3])];
+        for (k, t) in [du - 1.0, du + 2.0].iter().enumerate() { let at = self.anchor(0, *t, y - 1.5); let (c0, c1) = paints[(k + (self.h * 3.0) as usize) % 2];
+            for (r, col, o) in [(0.42, c0, 0.05), (0.42, c0, 0.05), (0.2, c1, 0.08), (0.08, [0.6, 0.6, 0.62], 0.11)] { let p = self.on(0, *t, y - 1.6, o); self.k.solid(at, p, [mulv(cross_dir(n), r), [0.0, r, 0.0], mulv(n, 0.03)], col, -1.0, 0); }
+            let p = self.on(0, *t, y - 1.6, 0.05); self.k.solid(at, p, [mulv(cross_dir(n), 0.3), [0.0, 0.3, 0.0], mulv(n, 0.035)], [c1[0] * 0.9, c1[1] * 0.9, c1[2] * 0.9], -1.0, 1); }
+    }
     /// Cheminée de pierre contre le mur du fond, qui dépasse le faîte ; chapeau de dalles.
     fn chimney(&mut self, u: i32, y0: i32, top: i32) {
         let d = self.d; let m = self.s.chimney; for y in y0..=top { self.put(u, y, d, m); }
@@ -314,7 +368,7 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
             let stone = s.ground; b.walls(y0 + 1, y0 + 5, s.found, stone, stone);
             for ww in [3, 6, 9] { for side in [1u8, 3] { let t = b.t_of(side, 0, ww); b.window(side, t, y0 + 2); b.window(side, t, y0 + 3); } }
             b.window(2, du, y0 + 3); b.window(2, du, y0 + 4);
-            b.roof(y0 + 6, s.noble, stone, 0.16);
+            if s.arch == 1 { b.flat_roof(y0 + 6, false); b.dome(y0 + 7, 2.6); } else { b.roof(y0 + 6, s.noble, stone, 0.16); if s.arch == 2 { b.dragons(y0 + 6); } }
             // Contreforts entre les baies, coiffés d'un glacis ; arcs brisés au-dessus des fenêtres hautes.
             let sl = layer(stone);
             for side in [1u8, 3] { let n = b.normal(side);
@@ -337,7 +391,7 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
             let f = b.lot_face(); let dr = id("door");
             b.put(du, y0 + 1, -2, crate::shapes::variant(dr, f, false, false, false)); b.put(du, y0 + 2, -2, crate::shapes::variant(dr, f, false, false, true));
             let at = lot.cell(du - 1, tt, -1); let (cu, cw) = (du as f64 + 0.5, -0.5);
-            pyramid(b.k, at, lot.p(cu, (tt + 1) as f64, cw), lot, 1.75, 1.75, 6.5, s.noble);
+            if s.arch == 1 { b.k.cube(at, lot.p(cu - 1.5, (tt + 1) as f64, cw - 1.5), lot.p(cu + 1.5, (tt + 1) as f64 + 0.3, cw + 1.5), [1.0, 1.0, 1.0], layer(s.ground)); minaret_dome(b.k, at, lot.p(cu, (tt + 1) as f64 + 0.3, cw), 1.3); } else { pyramid(b.k, at, lot.p(cu, (tt + 1) as f64, cw), lot, 1.75, 1.75, 6.5, s.noble); }
             b.k.cube(at, add(lot.p(cu, (tt - 2) as f64 + 0.1, cw), [-0.3, 0.0, -0.3]), add(lot.p(cu, (tt - 1) as f64 + 0.5, cw), [0.3, 0.0, 0.3]), [0.62, 0.48, 0.2], -1.0); // la cloche
             let cross = lot.p(cu, (tt + 1) as f64 + 6.5, cw); b.k.cube(at, add(cross, [-0.04, 0.0, -0.04]), add(cross, [0.04, 0.9, 0.04]), [0.3, 0.28, 0.24], -1.0); b.k.bar(at, add(cross, [0.0, 0.62, 0.0]), add(add(cross, [0.0, 0.62, 0.0]), lot.v(0.3, 0.0, 0.0)), [0.0, 0.0, 1.0], 0.035, 0.035, [0.3, 0.28, 0.24], -1.0); b.k.bar(at, add(cross, [0.0, 0.62, 0.0]), add(add(cross, [0.0, 0.62, 0.0]), lot.v(-0.3, 0.0, 0.0)), [0.0, 0.0, 1.0], 0.035, 0.035, [0.3, 0.28, 0.24], -1.0);
             // La nef : bancs tournés vers l'autel, tapis rouge dans l'allée, chandeliers, bannières aux murs.
@@ -391,8 +445,9 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
     } else { for side in 0..4u8 { b.trims(side, (y0 + 1) as f64, (yr + 1) as f64); } }
     let cover = match plan { Plan::Cottage => s.thatch, Plan::Forge(_) => s.noble, _ => s.tiles };
     let gable = if forge { s.ground } else { s.upper };
-    b.roof(yr, cover, gable, if cover == s.thatch && cover == id("thatch") { 0.42 } else { 0.16 });
-    let cu = if forge { du + 1 } else { w - 2 }; b.chimney(cu, y0 + 1, if forge { yr + w / 2 + 2 } else { yr + w / 2 + 1 });
+    if s.arch == 1 { b.flat_roof(yr, floors == 2 && h < 0.6); if plan == Plan::Tavern { b.dome(yr + 1, 1.8); } }
+    else { b.roof(yr, cover, gable, if (cover == s.thatch && cover == id("thatch")) || cover == id("grass") { 0.42 } else { 0.16 }); if s.arch == 2 { b.dragons(yr); }
+        let cu = if forge { du + 1 } else { w - 2 }; b.chimney(cu, y0 + 1, if forge { yr + w / 2 + 2 } else { yr + w / 2 + 1 }); }
     // Le relief de la façade : chaînages d'angle, soubassement, perron et auvent, chevrons, balcon, appentis, linge, bric-à-brac.
     details(&mut b, plan, y0, floors, yr, cover);
     // Abords : massifs fleuris de part et d'autre de la porte, un banc, des buissons aux angles.
@@ -410,6 +465,15 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
     let _ = craft; (du, d - 2)
 }
 fn cross_dir(n: C3) -> C3 { [-n[2], 0.0, n[0]] }
+/// Une coupole en anneaux superposés (enduit blanc), un tambour, un épi doré et son croissant.
+fn minaret_dome(k: &mut Work, at: [i32; 3], c: C3, rad: f64) {
+    let pl = layer(id("plaster")); k.cube(at, add(c, [-rad, 0.0, -rad]), add(c, [rad, 0.35, rad]), [1.0, 0.98, 0.94], pl);
+    let n = 9; for i in 0..n { let a0 = i as f64 / n as f64 * std::f64::consts::FRAC_PI_2; let a1 = (i + 1) as f64 / n as f64 * std::f64::consts::FRAC_PI_2; let r = rad * a0.cos() * 0.98;
+        let (y0, y1) = (0.35 + rad * a0.sin(), 0.35 + rad * a1.sin()); k.cube(at, add(c, [-r, y0, -r]), add(c, [r, y1, r]), [1.0, 0.98, 0.94], pl); }
+    let top = add(c, [0.0, 0.35 + rad, 0.0]); k.cube(at, add(top, [-0.05, 0.0, -0.05]), add(top, [0.05, 0.6, 0.05]), [0.85, 0.66, 0.26], -1.0);
+    for y in [0.2, 0.36] { k.cube(at, add(top, [-0.09, y, -0.09]), add(top, [0.09, y + 0.09, 0.09]), [0.85, 0.66, 0.26], -1.0); }
+    k.cube(at, add(top, [-0.12, 0.62, -0.02]), add(top, [0.12, 0.66, 0.02]), [0.9, 0.72, 0.3], -1.0);
+}
 /// Ce qui donne du relief et de la vie à une maison : tout dépasse du mur au lieu d'y être peint.
 fn details(b: &mut B, plan: Plan, y0: i32, floors: i32, yr: i32, cover: Id) {
     let (w, d) = (b.w, b.d); let lot = b.lot; let (wf, df) = (w as f64, d as f64); let du = w / 2; let h = b.h; let y = y0 as f64;
@@ -423,18 +487,23 @@ fn details(b: &mut B, plan: Plan, y0: i32, floors: i32, yr: i32, cover: Id) {
     // Soubassement : un bandeau de pierre qui ressaute au pied des murs, interrompu devant la porte.
     for side in 0..4u8 { let n = b.normal(side); let len = b.len(side);
         for k in 0..len { if side == 0 && k == du { continue; } let at = b.anchor(side, k as f64 + 0.5, y + 1.0); let (a, c) = (b.on(side, k as f64, y + 1.16, 0.06), b.on(side, k as f64 + 1.0, y + 1.16, 0.06)); b.k.bar(at, a, c, n, 0.17, 0.07, [0.95, 0.95, 0.95], found); } }
+    // Afrique du Nord : la porte s'inscrit dans un arc outrepassé de grès rouge.
+    if b.s.arch == 1 { let at = lot.cell(du, y0 + 1, 0); let n = b.normal(0); let rs = layer(id("red_sandstone")); let (cu, cy, rad) = (du as f64 + 0.5, y + 2.25, 0.78);
+        for k in 0..12 { let a = -0.7 + k as f64 / 11.0 * (std::f64::consts::PI + 1.4); let p = b.on(0, cu + rad * a.cos(), cy + rad * a.sin(), 0.07); b.k.solid(at, p, [mulv(cross_dir(n), 0.13), [0.0, 0.13, 0.0], mulv(n, 0.08)], [1.0, 1.0, 1.0], rs, 0); }
+        for t in [du as f64 - 0.12, du as f64 + 1.12] { let (a, c) = (b.on(0, t, y + 1.0, 0.07), b.on(0, t, y + 1.8, 0.07)); b.k.bar(at, a, c, n, 0.12, 0.08, [1.0, 1.0, 1.0], rs); }
+        b.k.cube(at, lot.p(du as f64 - 0.25, y + 0.84, -0.75), lot.p(du as f64 + 1.25, y + 1.06, 0.0), [1.0, 1.0, 1.0], found); }
     // Perron d'une marche devant la porte, et un auvent de bardeaux sur deux consoles.
-    { let at = lot.cell(du, y0 + 1, 0); let n = b.normal(0);
+    else { let at = lot.cell(du, y0 + 1, 0); let n = b.normal(0);
         b.k.cube(at, lot.p(du as f64 - 0.25, y + 0.84, -0.75), lot.p(du as f64 + 1.25, y + 1.06, 0.0), [1.0, 1.0, 1.0], found);
         let (yt, out) = (y + 3.25, 0.95); let l = du as f64 - 0.45; let rr = du as f64 + 1.45;
         b.k.quad(at, [lot.p(l, yt + 0.32, 0.0), lot.p(rr, yt + 0.32, 0.0), lot.p(rr, yt, -out), lot.p(l, yt, -out)], [1.0, 1.0, 1.0], layer(cover), lot.grain() % 2 + 1);
         for t in [l + 0.08, rr - 0.08] { let p0 = lot.p(t, yt - 0.55, 0.0); let p1 = lot.p(t, yt + 0.05, -out + 0.12); b.k.bar(at, p0, p1, cross_dir(n), 0.045, 0.045, beam, -1.0); b.k.bar(at, lot.p(t, yt + 0.02, 0.0), lot.p(t, yt + 0.02, -out), n, 0.04, 0.04, beam, -1.0); }
         b.k.bar(at, lot.p(l, yt + 0.02, -out + 0.04), lot.p(rr, yt + 0.02, -out + 0.04), n, 0.04, 0.05, beam, -1.0); }
     // Chevrons : sous chaque débord de toit, les bouts des poutres qui sortent du mur.
-    for side in [1u8, 3] { let n = b.normal(side); for ww in 0..=d { let t = if side == 1 { ww as f64 } else { df - ww as f64 }; let at = b.anchor(side, t.min(df - 0.5).max(0.5), yr as f64);
-        let (a, c) = (b.on(side, t, yr as f64 + 0.15, 0.0), b.on(side, t, yr as f64 + 0.62, 0.95)); b.k.bar(at, a, c, cross_dir(n), 0.06, 0.07, beam, -1.0); } }
+    if b.s.arch != 1 { for side in [1u8, 3] { let n = b.normal(side); for ww in 0..=d { let t = if side == 1 { ww as f64 } else { df - ww as f64 }; let at = b.anchor(side, t.min(df - 0.5).max(0.5), yr as f64);
+        let (a, c) = (b.on(side, t, yr as f64 + 0.15, 0.0), b.on(side, t, yr as f64 + 0.62, 0.95)); b.k.bar(at, a, c, cross_dir(n), 0.06, 0.07, beam, -1.0); } } }
     // Balcon de bois à l'étage, sur la façade : plancher sur consoles, garde-corps à balustres, pots de fleurs.
-    if floors == 2 && h < 0.55 && w >= 5 { let at = lot.cell(du, y0 + 5, 0); let (l, rr, out) = (du as f64 - 1.0, du as f64 + 2.0, 0.85); let fy = y + 5.0;
+    if floors == 2 && h < 0.55 && w >= 5 && b.s.arch != 1 { let at = lot.cell(du, y0 + 5, 0); let (l, rr, out) = (du as f64 - 1.0, du as f64 + 2.0, 0.85); let fy = y + 5.0;
         b.k.cube(at, lot.p(l, fy - 0.1, -out), lot.p(rr, fy + 0.02, 0.0), beam, -1.0);
         let mut t = l + 0.1; while t < rr { b.k.cube(at, lot.p(t - 0.035, fy, -out + 0.02), lot.p(t + 0.035, fy + 0.85, -out + 0.09), beam, -1.0); t += 0.27; }
         b.k.cube(at, lot.p(l, fy + 0.85, -out), lot.p(rr, fy + 0.95, -out + 0.12), beam, -1.0); for t in [l, rr - 0.08] { b.k.cube(at, lot.p(t, fy, -out), lot.p(t + 0.08, fy + 0.95, 0.0), beam, -1.0); }
