@@ -300,7 +300,7 @@ impl WorldGen {
                     if warm && depth >= 2 && depth <= 10 && patch > -0.05 {
                         if r < 0.34 + 0.3 * smooth(0.1, 0.6, patch) { v[idx(x, y, z)] = if r < 0.1 { B::CORAL_FAN } else { B::CORAL }; } // récif
                         else if r < 0.5 { v[idx(x, y, z)] = B::SEAGRASS; }
-                    } else if !warm && depth >= 5 && depth <= 22 && patch > 0.12 && r < 0.42 {
+                    } else if !warm && depth >= 5 && depth <= 14 && patch > 0.22 && r < 0.3 { // forêts de varech sur les plateaux, le grand large reste dégagé
                         // Varech : une colonne qui monte jusqu'à un ou deux blocs de la surface.
                         let top = (wy - 1 - (hash_float(wxi, wzi, s, 82) * 3.0) as i32).max(y as i32); for yy in y as i32..top { v[idx(x, yy as usize, z)] = B::KELP; } v[idx(x, top as usize, z)] = B::KELP_TOP;
                     } else if depth <= 8 && patch2 > -0.1 && r < 0.45 { v[idx(x, y, z)] = B::SEAGRASS; }
