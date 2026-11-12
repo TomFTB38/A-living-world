@@ -18,7 +18,9 @@ export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'm
   // Richesse (au-delà de 256 couches : le moteur demande à la carte graphique la limite qu'elle offre) : pierres taillées, sols,
   // toits, tissus, pans de bois, mobilier.
   'marble', 'ashlar', 'fieldstone', 'setts', 'polished_stone', 'checker', 'terracotta', 'parquet', 'shingles', 'wool', 'rug',
-  'frame_square', 'frame_cross', 'frame_diag', 'wattle', 'books', 'hay', 'crate', 'chiseled', 'stained_glass', 'iron_plate', 'verdigris'];
+  'frame_square', 'frame_cross', 'frame_diag', 'wattle', 'books', 'hay', 'crate', 'chiseled', 'stained_glass', 'iron_plate', 'verdigris',
+  // Mer : corail massif (teinté par bloc) et bordages d'épave rongés d'algues.
+  'coral', 'planks_wreck'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -364,6 +366,9 @@ defs.push(['coral', 'deco', null, 0.3, { model: 'coral', drop: null }]);
 defs.push(['coral_fan', 'deco', null, 0.2, { model: 'coral_fan', drop: null }]);
 defs.push(['shell', 'deco', null, 0.05, { model: 'shell' }]);
 defs.push(['marram', 'deco', null, 0.02, { model: 'marram', drop: null }]);
+// Grands coraux : des blocs pleins de cinq couleurs, sur une même matière poreuse ; bois d'épave.
+for (const [n, t] of [['coral_block_red', [1.06, 0.44, 0.4]], ['coral_block_orange', [1.1, 0.62, 0.26]], ['coral_block_purple', [0.78, 0.4, 0.94]], ['coral_block_yellow', [1.1, 0.94, 0.42]], ['coral_block_blue', [0.4, 0.8, 0.98]]]) cube(n, 'coral', 0.9, 'rock', { tint: t });
+cube('wreck_planks', 'planks_wreck', 0.8, 'wood');
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,

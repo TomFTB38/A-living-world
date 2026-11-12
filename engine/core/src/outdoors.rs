@@ -90,8 +90,8 @@ impl Session {
     }
 }
 /// Boîte de visée d'une bête (demi-largeur, hauteur) ; les oiseaux et virevoltants ne se chassent pas.
-pub fn wild_box(k: crate::wild::Kind) -> Option<(f64, f64)> { use crate::wild::Kind::*; match k { Fox => Some((0.35, 0.7)), Hare => Some((0.28, 0.5)), Wolf => Some((0.45, 1.0)), Boar => Some((0.5, 0.85)), Bear => Some((0.8, 1.6)), Ibex => Some((0.4, 1.1)), Lizard => Some((0.2, 0.15)), Fish | Reef => Some((0.22, 0.25)), Crab => Some((0.3, 0.25)), Dolphin => Some((0.7, 0.6)), _ => None } }
-pub fn wild_loot(k: crate::wild::Kind) -> &'static [(&'static str, u32)] { use crate::wild::Kind::*; match k { Fox => FOX_LOOT, Hare => HARE_LOOT, Wolf => WOLF_LOOT, Boar => BOAR_LOOT, Bear => BEAR_LOOT, Ibex => IBEX_LOOT, Lizard => LIZARD_LOOT, Fish => &[("mackerel", 1)], Reef => &[("sea_bream", 1)], Crab => &[("raw_meat", 1), ("shell", 1)], _ => &[] } }
+pub fn wild_box(k: crate::wild::Kind) -> Option<(f64, f64)> { use crate::wild::Kind::*; match k { Fox => Some((0.35, 0.7)), Hare => Some((0.28, 0.5)), Wolf => Some((0.45, 1.0)), Boar => Some((0.5, 0.85)), Bear => Some((0.8, 1.6)), Ibex => Some((0.4, 1.1)), Lizard => Some((0.2, 0.15)), Fish | Reef => Some((0.22, 0.25)), Crab => Some((0.3, 0.25)), Dolphin => Some((0.7, 0.6)), Shark => Some((0.8, 0.7)), _ => None } }
+pub fn wild_loot(k: crate::wild::Kind) -> &'static [(&'static str, u32)] { use crate::wild::Kind::*; match k { Fox => FOX_LOOT, Hare => HARE_LOOT, Wolf => WOLF_LOOT, Boar => BOAR_LOOT, Bear => BEAR_LOOT, Ibex => IBEX_LOOT, Lizard => LIZARD_LOOT, Fish => &[("mackerel", 1)], Reef => &[("sea_bream", 1)], Crab => &[("raw_meat", 1), ("shell", 1)], Shark => &[("raw_meat", 3), ("shark_tooth", 2)], _ => &[] } }
 
 /// Temps pour bander l'arc à fond.
 pub const DRAW_T: f64 = 0.9;

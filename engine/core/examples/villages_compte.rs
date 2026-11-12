@@ -1,0 +1,2 @@
+fn main() { let g = alw_core::gen::WorldGen::new(20261104); let all = g.villages_near(0.0, 0.0, 4000.0); println!("{} villages à moins de 4000 blocs ; le plus proche à {:.0}", all.len(), (all[0].c[0] as f64).hypot(all[0].c[2] as f64));
+  let mut k = std::collections::BTreeMap::new(); for v in &all { *k.entry(v.kind).or_insert(0) += 1; } println!("{k:?}"); for v in all.iter().filter(|v| v.kind == "port").take(3) { println!("port {} en {:?}", v.name, v.c); } }

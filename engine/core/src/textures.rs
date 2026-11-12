@@ -216,6 +216,18 @@ fn planks(t: &Tile, x: f64, y: f64, p: &[C]) -> S {
     let row = (y / 16.0).floor(); let f = (y % 16.0) / 16.0; let seam = smooth(0.0, 0.07, f) * smooth(1.0, 0.93, f); let g = t.val(x + row * 19.0, y * 2.2, 12); let tone = t.pi(row as i64 * 13);
     S { c: mul(pal(p, 0.15 + 0.45 * tone + 0.4 * g), 0.5 + 0.5 * seam), h: seam * (0.7 + 0.3 * g), r: 0.7 }
 }
+/// Corail massif : une surface claire et poreuse, semée de calices ronds en creux et de crêtes sinueuses ; la couleur vient de la teinte du bloc.
+fn coral(t: &Tile, x: f64, y: f64) -> S {
+    let (d1, _d2, id) = t.vor(x, y, 9); let cup = smooth(0.34, 0.12, d1); let rim = smooth(0.22, 0.34, d1) * smooth(0.48, 0.34, d1);
+    let ridge = (0.5 + 0.5 * sin((x * 0.21 + 3.0 * t.fbm(x, y, 4, 3)) * std::f64::consts::PI)).powf(3.0); let n = t.fbm(x, y, 6, 3); let k = 0.78 + 0.16 * (n - 0.5) + 0.08 * t.pi(id) + 0.12 * rim - 0.32 * cup + 0.06 * ridge;
+    S { c: [0.86 * k, 0.84 * k, 0.8 * k], h: 0.55 + 0.25 * rim - 0.5 * cup + 0.15 * ridge, r: 0.8 }
+}
+/// Bordages d'épave : planches grises et gonflées d'eau, nœuds noircis, traînées d'algues vertes, croûtes de bernacles.
+fn planks_wreck(t: &Tile, x: f64, y: f64) -> S {
+    let mut p = planks(t, x, y, &pl!("#2e2a22", "#463f32", "#5b5243")); let algae = smooth(0.52, 0.7, t.fbm(x * 0.6, y * 1.6, 4, 3)); let barn = t.val(x + 7.0, y - 3.0, 32) > 0.86;
+    if barn { p.c = [0.72, 0.7, 0.64]; p.h = 0.9; } else { p.c = [lerp(p.c[0], 0.2, algae * 0.7), lerp(p.c[1], 0.36, algae * 0.7), lerp(p.c[2], 0.18, algae * 0.7)]; }
+    p.r = 0.95; p
+}
 const PLANKS_BIRCH: [C; 3] = pl!("#a3865c", "#c7aa7a", "#e2c999"); const PLANKS_SPRUCE: [C; 3] = pl!("#4a301a", "#6a4628", "#8a603a");
 const CUT_STONE: [C; 4] = pl!("#6e695f", "#8d877a", "#aaa395", "#c4bdae"); const BRICK: [C; 4] = pl!("#6e2c1c", "#8e3c26", "#a8502f", "#bf6a44");
 /// Minerai : la pierre ordinaire, piquée de grains et de veines de la couleur du métal.
@@ -475,6 +487,7 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "sandstone" => sandstone(t, x, y, [0.82, 0.68, 0.48], [0.7, 0.55, 0.36]), "sandstone_top" => sandstone_top(t, x, y), "red_sandstone" => sandstone(t, x, y, [0.74, 0.42, 0.26], [0.6, 0.32, 0.2]),
         "cactus_side" => cactus_side(t, x, y), "cactus_top" => cactus_top(t, x, y), "bark_palm" => bark_palm(t, x, y), "end_palm" => end_palm(t, x, y), "leaf_palm" => leaf(t, x, y, [0.8, 0.95, 0.55]),
         "grass_dry_top" => dry_top(t, x, y), "grass_dry_side" => dry_side(t, x, y), "dry_earth" => cracked(t, x, y),
+        "coral" => coral(t, x, y), "planks_wreck" => planks_wreck(t, x, y),
         "water_foam" => { let f = t.fbm(x, y, 8, 3); S { c: [f, f, f], h: f, r: 0.3 } }
         _ => panic!("matériau sans générateur : {name}"),
     }

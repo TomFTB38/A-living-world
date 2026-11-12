@@ -1,7 +1,7 @@
 //! Rend les créatures hostiles sur le processeur (couleurs plates) : en marche et en attaque annoncée, pour juger des modèles.
 use alw_core::{actors::{Models, Range}, mesher::VSIZE, view::M4};
 fn draw(img: &mut [[u8; 3]], zb: &mut [f32], w: usize, h: usize, md: &Models, list: &[(M4, Range)], yaw: f64, ox: f64) {
-    let (cy, sy) = (yaw.cos(), yaw.sin()); let sc = 150.0;
+    let (cy, sy) = (yaw.cos(), yaw.sin()); let sc = std::env::args().nth(3).and_then(|s| s.parse().ok()).unwrap_or(75.0f64);
     for (m, r) in list {
         let (a, b) = (r.first as usize / 6 * 4, (r.first + r.count) as usize / 6 * 4);
         for q in (a..b).step_by(4) {
@@ -23,10 +23,10 @@ fn draw(img: &mut [[u8; 3]], zb: &mut [f32], w: usize, h: usize, md: &Models, li
 }
 fn main() {
     // Faune marine : maquereau, trois poissons de récif, dauphin, crabe, goéland — de profil et de trois quarts.
-    let md = Models::build(); let (w, h) = (1200usize, 420usize); let mut img = vec![[46u8, 52, 60]; w * h]; let mut zb = vec![f32::MAX; w * h];
+    let md = Models::build(); let (w, h) = (1400usize, 700usize); let mut img = vec![[46u8, 52, 60]; w * h]; let mut zb = vec![f32::MAX; w * h];
     let mut f = alw_core::wild::Wild::new(1); use alw_core::wild::Kind as K;
-    f.put_swim(K::Dolphin, [-3.0, 1.2, 0.0], 1.57, 1, 0); f.put_swim(K::Fish, [-0.9, 1.6, 0.0], 1.57, 2, 0); f.put_swim(K::Reef, [-0.3, 1.6, 0.0], 1.57, 3, 0); f.put_swim(K::Reef, [0.3, 1.6, 0.0], 1.57, 3, 1); f.put_swim(K::Reef, [0.9, 1.6, 0.0], 1.57, 3, 2);
-    f.put(K::Crab, [-0.6, 0.0, 0.0], 0.0, false); f.put(K::Crab, [0.6, 0.0, 0.0], 0.8, false); f.put(K::Gull, [1.9, 0.0, 0.0], 1.0, false); f.put(K::Gull, [3.2, 1.2, 0.0], 1.57, true);
+    let yaw: f64 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(1.57);
+    if std::env::args().nth(3).is_none() { f.put_swim(K::Whale, [-1.5, 4.6, -3.0], yaw, 1, 0); } f.put_swim(K::Shark, [-1.6, 0.8, 0.0], yaw, 2, 0); f.put_swim(K::Dolphin, [1.6, 0.8, 0.0], yaw, 3, 0);
     let l: Vec<(M4, Range)> = f.draws(&md).iter().map(|x| (x.m, x.r)).collect(); draw(&mut img, &mut zb, w, h, &md, &l, 0.0, 0.0);
     let mut out = format!("P6 {w} {h} 255\n").into_bytes(); for p in &img { out.extend_from_slice(p); } std::fs::write(std::env::args().nth(1).unwrap(), out).unwrap();
 }

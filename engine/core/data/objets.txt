@@ -175,6 +175,14 @@ dead_hollow | Tronc creux de bois mort | bois | 1.2 | 64 | | combustible=20
 # --- Plantes ---
 twigs | Branches au sol | plantes | 0.3 | 64 | |
 pebbles | Cailloux au sol | plantes | 0.6 | 64 | |
+pearl | Perle | matieres | 0.02 | 64 | Ronde et nacrée, trouvée dans le coffre d'une épave. Les marchands la paient très cher. |
+shark_tooth | Dent de requin | matieres | 0.05 | 64 | Triangulaire et dentelée. Les marchands des ports en donnent un bon prix. |
+coral_block_red | Corail rouge | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
+coral_block_orange | Corail orangé | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
+coral_block_purple | Corail violet | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
+coral_block_yellow | Corail jaune | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
+coral_block_blue | Corail bleu | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
+wreck_planks | Bordages d'épave | batir | 1.0 | 64 | Du bois gris et rongé d'algues, arraché à une coque engloutie. |
 shell | Coquillage | matieres | 0.05 | 64 | Ramassé sur la plage. Les marchands en donnent quelques pièces. |
 oak_leaves | Feuilles de chêne | plantes | 0.2 | 64 | |
 birch_leaves | Feuilles de bouleau | plantes | 0.2 | 64 | |

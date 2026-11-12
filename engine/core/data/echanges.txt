@@ -1,6 +1,6 @@
 # A Living World — échanges avec les villageois (ceux qui ne tiennent pas d'atelier).
 # Une ligne par échange : type de village (ou « tous ») | ce que vous donnez | ce que vous recevez
-#   types : prairie, taiga, aride, desert, montagne, hautes_terres
+#   types : prairie, taiga, aride, desert, montagne, hautes_terres, port
 tous | berries 10 | bread 1
 tous | raw_meat 3 | bread 2
 tous | fur 2 | leather 2
@@ -21,5 +21,10 @@ hautes_terres | heather 8 | rope 1
 hautes_terres | raw_hide 2 | leather 1
 tous | worn_coin 3 | bread 2
 tous | shell 8 | worn_coin 1
+tous | pearl 1 | worn_coin 5
+port | shark_tooth 2 | worn_coin 1
+port | mackerel 4 | bread 2
+port | worn_coin 3 | fishing_rod 1
+port | worn_coin 2 | rope 2
 tous | mackerel 3 | bread 2
 tous | worn_coin 6 | bandage 3

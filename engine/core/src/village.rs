@@ -58,7 +58,7 @@ fn shape(pads: &[Pad], nat: i32, x: f64, z: f64) -> (i32, f64) {
 fn wild(b: Id) -> bool { let k = &crate::blocks::BLOCKS[b as usize]; k.shape == crate::blocks::Shape::Leaf || k.name.contains("_log") || k.name == "cactus" || k.name == "vine" || k.name == "shelf_fungus" || (k.shape == crate::blocks::Shape::Deco && !k.solid && (k.cat == "terrain" || k.cat == "decor") && k.light == 0) }
 impl Site { /** Le décor fin du village. */ pub fn props(&self) -> &[Prop] { &self.props } }
 
-pub fn kind_label(k: &str) -> &'static str { match k { "prairie" => "prairie", "taiga" => "taïga", "aride" => "steppe", "desert" => "désert", "montagne" => "montagne", _ => "hautes terres" } }
+pub fn kind_label(k: &str) -> &'static str { match k { "prairie" => "prairie", "taiga" => "taïga", "aride" => "steppe", "desert" => "désert", "montagne" => "montagne", "port" => "port de pêche", _ => "hautes terres" } }
 fn id(n: &str) -> Id { by_name(n).unwrap_or_else(|| panic!("bloc inconnu : {n}")) }
 fn dir(f: u8) -> (i32, i32) { [(0, 1), (1, 0), (0, -1), (-1, 0)][f as usize % 4] }
 const NAME_A: [&str; 16] = ["Haut", "Bel", "Clair", "Roche", "Val", "Mont", "Pré", "Bois", "Fond", "Gué", "Saule", "Brune", "Vieux", "Grand", "Pierre", "Chêne"];
@@ -88,22 +88,28 @@ impl WorldGen {
     }
     fn trace(&self, gx: i32, gz: i32) -> Option<Site> {
         let s = self.seed;
-        if hash_float(gx, gz, s, 301) > 0.7 { return None; }
+        if hash_float(gx, gz, s, 301) > 0.42 { return None; } // un peu plus d'une case sur trois porte un village : ils restent rares, et le voyage compte
         for t in 0..10 {
             let x = ((gx as f64 + 0.22 + 0.56 * hash_float(gx, gz, s, 302 + t * 2)) * CELL as f64) as i32;
             let z = ((gz as f64 + 0.22 + 0.56 * hash_float(gx, gz, s, 303 + t * 2)) * CELL as f64) as i32;
+            // Près d'une côte, le village s'installe d'abord à une trentaine de blocs du rivage : il devient un port.
+            let mut shores: Vec<(f64, i32)> = (0..16).filter_map(|k| { let a = k as f64 * TAU / 16.0; (4..=60).step_by(4).find(|r| { let c = self.column(x as f64 + a.cos() * *r as f64, z as f64 + a.sin() * *r as f64); c.water == crate::gen::SEA && c.mix.sea > 0.0 }).map(|r| (a, r)) }).collect();
+            shores.sort_by_key(|s| s.1);
+            for &(a, r) in shores.iter().take(3) { for back in [26.0, 32.0, 40.0, 50.0] { let (x2, z2) = (x + (a.cos() * (r as f64 - back)).round() as i32, z + (a.sin() * (r as f64 - back)).round() as i32); if let Some(y0) = self.flat_at(x2, z2, true) { return Some(self.build(gx, gz, x2, y0, z2)); } } }
             if let Some(y0) = self.flat(x, z) { return Some(self.build(gx, gz, x, y0, z)); }
         }
         None
     }
     /// Hauteur de la place si le terrain est sec et à peu près plat sur trente blocs alentour.
-    fn flat(&self, x: i32, z: i32) -> Option<i32> {
+    fn flat(&self, x: i32, z: i32) -> Option<i32> { self.flat_at(x, z, false) }
+    /// `coast` : un port, plus serré, se contente d'un terrain moins large et un peu moins plat.
+    fn flat_at(&self, x: i32, z: i32, coast: bool) -> Option<i32> {
         let mut tops = Vec::with_capacity(25);
-        for (r, n) in [(0.0, 1), (10.0, 8), (19.0, 8), (27.0, 8)] { for k in 0..n {
+        for (r, n) in if coast { &[(0.0, 1), (9.0, 8), (17.0, 8), (22.0, 8)][..] } else { &[(0.0, 1), (10.0, 8), (19.0, 8), (27.0, 8)][..] } { let (r, n) = (*r, *n); for k in 0..n {
             let a = k as f64 * TAU / n as f64 + r * 0.05; let c = self.column(x as f64 + r * a.cos(), z as f64 + r * a.sin());
             if c.water != 0.0 || c.cliff > 0.45 { return None; } tops.push(c.h.ceil() as i32 - 1);
         } }
-        let (lo, hi) = (*tops.iter().min()?, *tops.iter().max()?); let tol = if self.climate.at(x as f64, z as f64).strong(Biome::Mountains) > 0.5 { 15 } else { 10 }; /* en montagne, un vallon un peu pentu suffit : le village l'aplanit */ if hi - lo > tol { return None; }
+        let (lo, hi) = (*tops.iter().min()?, *tops.iter().max()?); let tol = if self.climate.at(x as f64, z as f64).strong(Biome::Mountains) > 0.5 { 15 } else { 10 }; /* en montagne, un vallon un peu pentu suffit : le village l'aplanit */ if hi - lo > tol + if coast { 3 } else { 0 } { return None; }
         tops.sort(); let y0 = tops[tops.len() / 2]; (y0 > 30 && y0 + 20 < CH as i32).then_some(y0)
     }
     fn build(&self, gx: i32, gz: i32, x: i32, y0: i32, z: i32) -> Site {
@@ -111,12 +117,14 @@ impl WorldGen {
         let mix = self.climate.at(x as f64, z as f64); let top = (0..crate::biome::COUNT).max_by(|a, b| mix.w[*a].total_cmp(&mix.w[*b])).unwrap_or(1);
         // Montagne : un bourg haut perché, ou blotti au pied de sommets qui le dominent.
         let peaks = (0..16).map(|k| { let (a, r) = (k as f64 * TAU / 8.0, if k < 8 { 60.0 } else { 95.0 }); self.column(x as f64 + r * a.cos(), z as f64 + r * a.sin()).h }).fold(0.0, f64::max);
-        let kind = if y0 > 76 || peaks - y0 as f64 > 24.0 || mix.strong(Biome::Mountains) > 0.4 { "montagne" } else if mix.strong(Biome::Highlands) > 0.4 { "hautes_terres" } else { match top { t if t == Biome::Taiga as usize => "taiga", t if t == Biome::Steppe as usize => "aride", t if t == Biome::Desert as usize => "desert", t if t == Biome::Highlands as usize => "hautes_terres", _ => "prairie" } };
+        // Bord de mer : si la mer est à quelques dizaines de blocs, le village devient un port de pêche, tourné vers elle.
+        let sea_dir = (0..24).filter_map(|k| { let a = k as f64 * TAU / 24.0; (20..=50).step_by(3).find(|r| { let c = self.column(x as f64 + 0.5 + a.cos() * *r as f64, z as f64 + 0.5 + a.sin() * *r as f64); c.water == crate::gen::SEA && c.mix.sea > 0.0 }).map(|r| (a, r)) }).min_by_key(|(_, r)| *r);
+        let kind = if sea_dir.is_some() && mix.strong(Biome::Mountains) < 0.4 { "port" } else if y0 > 76 || peaks - y0 as f64 > 24.0 || mix.strong(Biome::Mountains) > 0.4 { "montagne" } else if mix.strong(Biome::Highlands) > 0.4 { "hautes_terres" } else { match top { t if t == Biome::Taiga as usize => "taiga", t if t == Biome::Steppe as usize => "aride", t if t == Biome::Desert as usize => "desert", t if t == Biome::Highlands as usize => "hautes_terres", _ => "prairie" } };
         // Les ateliers : le forgeron dès que le type le permet, les autres une fois sur trois de moins ; au moins deux, au plus quatre.
-        let cand: Vec<&Craftsman> = db().craftsmen.iter().filter(|c| c.villages.contains(&kind)).collect();
+        let ck = if kind == "port" { "prairie" } else { kind }; let cand: Vec<&Craftsman> = db().craftsmen.iter().filter(|c| c.villages.contains(&ck)).collect();
         let mut crafts: Vec<&'static str> = cand.iter().enumerate().filter(|(i, c)| c.id == "forgeron" || h(*i as i32) < 0.68).map(|(_, c)| c.id).collect();
         for c in &cand { if crafts.len() >= 2 { break; } if !crafts.contains(&c.id) { crafts.push(c.id); } }
-        crafts.truncate(4);
+        crafts.truncate(if kind == "port" { 2 } else { 4 }); // un port de pêche reste un petit bourg
         let homes = 2 + (h(10) * 3.0) as usize; let name = format!("{}{}", NAME_A[(h(11) * 16.0) as usize % 16], NAME_B[(h(12) * 12.0) as usize % 12]);
         let mut v = Village { id: (gx, gz), kind, name, c: [x, y0, z], r: 8, crafts: crafts.clone(), houses: Vec::new() };
         let nat = |x: i32, z: i32| self.column(x as f64 + 0.5, z as f64 + 0.5).h.ceil() as i32 - 1;
@@ -136,7 +144,7 @@ impl WorldGen {
         let n = plans.len(); let a0 = h(13) * TAU; let mut taken: Vec<[i32; 4]> = Vec::new(); let mut angles = Vec::new();
         for (i, plan) in plans.iter().copied().enumerate() {
             let (w, d) = plan.size(); let (pw, pd) = if plan == Plan::Mill { (5, 5) } else { (w, d + if plan == Plan::Church { 2 } else { 0 }) };
-            let a = a0 + TAU * i as f64 / n as f64 + (h(20 + i as i32) - 0.5) * 0.4;
+            let a = match sea_dir.filter(|_| kind == "port") { Some((sa, _)) => sa + std::f64::consts::PI + ((i as f64 + 0.5) / n as f64 - 0.5) * TAU * 0.72 + (h(20 + i as i32) - 0.5) * 0.25, None => a0 + TAU * i as f64 / n as f64 + (h(20 + i as i32) - 0.5) * 0.4 }; // un port tourne ses maisons vers la terre, le dos à la mer
             let (ox, oz) = (a.cos(), a.sin()); let f = crate::shapes::facing_of(ox, oz); let (wx, wz) = dir(f); let (ux, uz) = dir(f + 1);
             let mut rad = 10.0 + n as f64 * 1.0; let mut placed = None;
             for _ in 0..14 {
@@ -208,6 +216,26 @@ impl WorldGen {
                 if mid { works.put([ax, fy, az], water); works.put([ax, fy - 1, az], id("dirt")); } else { works.put([ax, fy, az], farmland); works.put([ax, fy + 1, az], crop); }
             } }
             made += 1;
+        }
+        // Le port : un chemin jusqu'à la grève, un ponton de planches sur pilotis qui s'avance dans la mer, des lanternes au bout,
+        // des barques amarrées le long, des caisses et des tonneaux de poisson.
+        if let Some((a, _)) = sea_dir.filter(|_| kind == "port") {
+            let (dx, dz) = (a.cos(), a.sin()); let (sx, sz) = (-dz, dx); let cell = |t: f64, w: f64| ((x as f64 + 0.5 + dx * t + sx * w).floor() as i32, (z as f64 + 0.5 + dz * t + sz * w).floor() as i32);
+            let sea = crate::gen::SEA; let deck = sea as i32 + 1; let plank = id("spruce_planks"); let post = id("spruce_log");
+            let shore = (7..60).find(|t| { let (cx, cz) = cell(*t as f64, 0.0); self.column(cx as f64 + 0.5, cz as f64 + 0.5).water == sea }).unwrap_or(40) as f64;
+            let mut t = 7.0; while t < shore - 1.0 { for w in [0.0, 0.7] { let (cx, cz) = cell(t, w); let gy = shape(&pads, nat(cx, cz), cx as f64 + 0.5, cz as f64 + 0.5).0; if !paths.iter().any(|p| p[0] == cx && p[2] == cz) { paths.push([cx, gy, cz]); lanes.put([cx, gy, cz], pave); } } t += 0.5; }
+            let len = (12.0 + (h(80) * 5.0).floor()).min((SPAN - 10) as f64 - shore); let mut t = shore - 2.0;
+            while t <= shore + len { let ti = (t - shore + 2.0) as i32;
+                for w in [-1.0, 0.0, 1.0] { let (cx, cz) = cell(t, w); works.put([cx, deck, cz], plank); works.put([cx, deck + 1, cz], 0); works.put([cx, deck + 2, cz], 0);
+                    if ti % 3 == 0 && w != 0.0 { let floor = self.column(cx as f64 + 0.5, cz as f64 + 0.5).h.floor() as i32; for y in floor..deck { works.put([cx, y, cz], post); } } }
+                t += 1.0; }
+            for w in [-1.0, 1.0] { let (cx, cz) = cell(shore + len, w); works.put([cx, deck + 1, cz], fence); works.put([cx, deck + 2, cz], lantern); }
+            for (k, (tt, w)) in [(shore + 1.0, 0.0), (shore + 2.0, 1.0)].iter().enumerate() { let (cx, cz) = cell(*tt, *w); works.put([cx, deck + 1, cz], id(if k == 0 { "crate" } else { "barrel" })); }
+            // Les barques : une coque de planches posée sur l'eau, la proue effilée, deux bancs.
+            for (i, at) in [shore + 4.0, shore + len - 3.0].iter().enumerate() { let side = if i == 0 { 2.6 } else { -2.6 }; let sgn: f64 = if side > 0.0 { 1.0 } else { -1.0 };
+                for u in 0..5 { let half: i32 = if u == 4 { 0 } else { 1 }; for w in -half..=half { let (cx, cz) = cell(at + u as f64 - 2.0, side + sgn * w as f64 * 0.9); works.put([cx, sea as i32, cz], plank);
+                    if w.abs() == half || u == 0 || u == 4 { works.put([cx, deck, cz], plank); } else if u == 2 { works.put([cx, deck, cz], id("planks_slab")); } } } }
+            v.r = v.r.max((shore + len + 4.0) as i32);
         }
         // Le marché : des étals entre les rues, face au puits, à l'écart des lanternes.
         let stripes = [[[0.62, 0.14, 0.12], [0.9, 0.86, 0.78]], [[0.18, 0.28, 0.5], [0.9, 0.86, 0.78]], [[0.28, 0.42, 0.22], [0.88, 0.82, 0.64]], [[0.7, 0.48, 0.15], [0.38, 0.24, 0.13]]];
@@ -505,6 +533,14 @@ impl Session {
     /// une fois pour toutes (la graine et la place du coffre). Un coffre hors des villages est vide.
     pub(crate) fn village_loot(&self, p: [i32; 3]) -> Vec<Option<Stack>> {
         let mut out = vec![None; crate::session::CHEST_SIZE];
+        // Le coffre d'une épave : l'or et les pièces d'un navire marchand, du métal, des cordages, de quoi naviguer.
+        if self.gen.wreck_chest(p) {
+            let mut r = crate::noise::Rng::new((p[0].wrapping_mul(73856093) ^ p[1].wrapping_mul(19349663) ^ p[2].wrapping_mul(83492791) ^ self.seed) as u32); let mut slot = 0;
+            for &(id, lo, hi, pr) in &[("worn_coin", 6u32, 18u32, 1.0), ("pearl", 1, 4, 0.7), ("steel_ingot", 1, 3, 0.4), ("iron_ingot", 2, 5, 0.6), ("bronze_ingot", 1, 4, 0.5), ("rope", 2, 6, 0.7), ("rusty_scrap", 2, 6, 0.6), ("glass", 2, 5, 0.35), ("bandage", 1, 3, 0.4), ("shark_tooth", 1, 3, 0.4)] {
+                if r.next() >= pr { continue; } let Some(it) = item(id) else { continue }; let n = lo + (r.next() * (hi - lo + 1) as f64) as u32; let one = def(it.id).is_some_and(|d| d.stack <= 1);
+                slot = (slot + 1 + (r.next() * 3.0) as usize) % out.len(); while out[slot].is_some() { slot = (slot + 1) % out.len(); } out[slot] = Some(Stack { item: it.id, n: if one { None } else { Some(n.min(hi)) }, wear: 0 }); }
+            return out;
+        }
         let Some((v, h)) = self.town.here.iter().find_map(|v| v.houses.iter().find(|h| p[0] >= h.area[0] && p[0] <= h.area[2] && p[2] >= h.area[1] && p[2] <= h.area[3] && (p[1] - v.c[1]).abs() < 14).map(|h| (v, h))) else { return out };
         let table: &[(&str, u32, u32, f64)] = match h.craft {
             Some("forgeron") | Some("maitre_forgeron") => &[("coal", 3, 9, 0.9), ("iron_ore", 2, 5, 0.6), ("iron_ingot", 1, 3, 0.5), ("copper_ingot", 1, 3, 0.4), ("iron_hammer", 1, 1, 0.2), ("iron_knife", 1, 1, 0.25), ("charcoal", 2, 6, 0.4), ("bread", 1, 2, 0.5)],

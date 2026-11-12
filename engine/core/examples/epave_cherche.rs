@@ -1,0 +1,1 @@
+fn main() { let g = alw_core::gen::WorldGen::new(20261104); let w = g.wrecks_near(0.0, 0.0, 6000.0); println!("{} épaves à moins de 6000 blocs", w.len()); for p in w.iter().take(4) { println!("épave {}:{} (y {})", p[0], p[2], p[1]); } }

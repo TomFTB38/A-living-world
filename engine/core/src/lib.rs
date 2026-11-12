@@ -34,3 +34,4 @@ pub mod map;
 pub mod guide;
 pub mod tour;
 pub mod hostile;
+pub mod marine;

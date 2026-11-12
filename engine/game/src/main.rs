@@ -502,6 +502,24 @@ fn capture(a: &[String]) {
             s.tick(0.0, none, Actions::default());
         }
     }
+    if scene == "port" || scene == "epave" || scene == "large" {
+        // Le port de pêche le plus proche, son ponton et ses barques ; une épave au fond de l'océan ; le grand large, ses baleines et ses requins.
+        let w = WorldGen::new(SEED); use alw_core::wild::Kind as K; let sea = alw_core::gen::SEA;
+        let look = |s: &mut Session, from: [f64; 3], to: [f64; 3]| { s.player.p = from; let f = view::norm([to[0] - from[0], to[1] - from[1] - 1.6, to[2] - from[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); };
+        s.sel = 8; s.third = false; s.player.fly = true; s.hour = 11.0;
+        if scene == "port" { if let Some(v) = w.villages_near(0.0, 0.0, 6000.0).into_iter().find(|v| v.kind == "port") {
+            let (x, z) = (v.c[0] as f64, v.c[2] as f64); let a = (0..24).map(|k| k as f64 * std::f64::consts::TAU / 24.0).find(|a| (20..=50).step_by(3).any(|r| w.column(x + a.cos() * r as f64, z + a.sin() * r as f64).water == sea)).unwrap_or(0.0);
+            println!("port : {} {:?}", v.name, v.c); let (sx, sz) = (-a.sin(), a.cos()); look(&mut s, [x + a.cos() * 12.0 + sx * 14.0, v.c[1] as f64 + 12.0, z + a.sin() * 12.0 + sz * 14.0], [x + a.cos() * 40.0, sea, z + a.sin() * 40.0]); } }
+        if scene == "epave" { if let Some(p) = w.wrecks_near(0.0, 0.0, 6000.0).first().copied() {
+            println!("épave : {p:?}"); let c = [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5]; look(&mut s, [c[0] + 7.0, c[1] + 4.5, c[2] + 6.0], c); } }
+        let mut deep = None; if scene == "large" { 'p: for r in 20..800 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.sea > 0.8 && c.mix.deep > 0.6 && c.water == sea && sea - c.h > 14.0 { deep = Some((x, z, c.h)); break 'p; } } }
+            println!("large : {deep:?}"); if let Some((x, z, h)) = deep { look(&mut s, [x, (h + sea) * 0.5, z], [x + 20.0, (h + sea) * 0.5 + 1.0, z]); } }
+        g.settle(); pump(&mut s, &mut g); g.settle(); s.sea = 1.0;
+        let (fx, fz) = (s.player.yaw.sin(), s.player.yaw.cos()); let (sx, sz) = (-fz, fx); let e = s.player.p; let at = |k: f64, l: f64, y: f64| [e[0] + fx * k + sx * l, e[1] + y, e[2] + fz * k + sz * l];
+        if scene == "large" && deep.is_some() { s.wild.put_swim(K::Whale, at(24.0, -4.0, 1.0), s.player.yaw + 1.2, 40, 0); s.wild.put_swim(K::Shark, at(9.0, 3.0, -0.5), s.player.yaw - 1.4, 41, 0); for (k, l) in [(13.0, -2.0), (14.0, -0.5), (12.5, 1.0)] { s.wild.put_swim(K::Dolphin, at(k, l, 1.5), s.player.yaw + 1.5, 42, 0); } s.ocean = 1.0; }
+        if scene == "epave" { s.wild.put_swim(K::Shark, at(6.0, 2.5, 1.0), s.player.yaw + 1.3, 43, 0); }
+        s.tick(0.0, none, Actions::default());
+    }
     if scene == "cactus" {
         // Le grand cactus le plus proche du cœur du désert, vu de près.
         use alw_core::blocks::{idx, B, CH, CX}; let w = WorldGen::new(SEED); let mut core = None; 'p: for r in 8..700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if w.column(x, z).mix.strong(alw_core::biome::Biome::Desert) > 0.97 { core = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'p; } } }

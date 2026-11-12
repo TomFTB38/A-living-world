@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
-const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const BONE_CELL: i32 = 96; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38;
+const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const BONE_CELL: i32 = 96; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38; const CORAL_CELL: i32 = 17; const WRECK_CELL: i32 = 260;
 
 #[derive(Clone, Copy, Default, Debug)]
 pub struct Column { pub mix: Mix, pub wet: bool, pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
@@ -295,7 +295,7 @@ impl WorldGen {
                 let cm = self.climate.at(wx, wz);
                 if cm.sea > 0.005 {
                     let depth = wy - y as i32 + 1; let patch = nd.n2(wx / 19.0 + 77.0, wz / 19.0 - 5.0); let patch2 = nd.n2(wx / 9.0 - 13.0, wz / 9.0 + 51.0); let r = hash_float(wxi, wzi, s, 81);
-                    let warm = cm.temp > 0.3; let ground_ok = ground == B::SAND || ground == B::GRAVEL || ground == B::CLAY;
+                    let warm = cm.temp > 0.3; let ground_ok = ground == B::SAND || ground == B::GRAVEL || ground == B::CLAY || (B::CORAL_BLOCK_RED..=B::CORAL_BLOCK_BLUE).contains(&ground); // les grands coraux se couvrent eux aussi de petits
                     if !ground_ok && r > 0.02 { continue; }
                     if warm && depth >= 2 && depth <= 10 && patch > -0.05 {
                         if r < 0.34 + 0.3 * smooth(0.1, 0.6, patch) { v[idx(x, y, z)] = if r < 0.1 { B::CORAL_FAN } else { B::CORAL }; } // récif
@@ -433,10 +433,16 @@ impl WorldGen {
         for gz in fdiv(z0, TREE_CELL)..=fdiv(z1, TREE_CELL) { for gx in fdiv(x0, TREE_CELL)..=fdiv(x1, TREE_CELL) {
             if let Some(st) = self.cached(1, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
         } }
+        for gz in fdiv(z0, CORAL_CELL)..=fdiv(z1, CORAL_CELL) { for gx in fdiv(x0, CORAL_CELL)..=fdiv(x1, CORAL_CELL) {
+            if let Some(st) = self.cached(3, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
+        } }
+        for gz in fdiv(z0, WRECK_CELL)..=fdiv(z1, WRECK_CELL) { for gx in fdiv(x0, WRECK_CELL)..=fdiv(x1, WRECK_CELL) {
+            if let Some(st) = self.cached(4, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
+        } }
     }
     fn cached(&self, kind: u8, gx: i32, gz: i32) -> Option<Rc<Stamp>> {
         if let Some(s) = self.stamps.borrow().get(&(kind, gx, gz)) { return s.clone(); }
-        let st = match kind { 0 => self.rock_stamp(gx, gz), 1 => self.tree_stamp(gx, gz), _ => self.bone_stamp(gx, gz) }.map(Rc::new);
+        let st = match kind { 0 => self.rock_stamp(gx, gz), 1 => self.tree_stamp(gx, gz), 3 => self.coral_stamp(gx, gz), 4 => self.wreck_stamp(gx, gz), _ => self.bone_stamp(gx, gz) }.map(Rc::new);
         let mut m = self.stamps.borrow_mut();
         if m.len() > 6000 { m.clear(); }
         m.insert((kind, gx, gz), st.clone());
@@ -486,6 +492,73 @@ impl WorldGen {
         Some(Stamp { data: (1..=r.int(1, 2)).map(|y| [ri(x), h0 as i32 + y, ri(z), id as i32]).collect(), force: false, ground: true })
     }
     /// Squelette d'un grand animal disparu, à moitié enfoui dans la steppe : échine, côtes, crâne, défenses et os épars.
+    /// Grands coraux des mers chaudes : un massif de quelques colonies — bois de cerf ramifiés, dômes de corail-cerveau,
+    /// tables posées sur un pied, piliers — qui montent jusqu'à deux blocs de la surface.
+    fn coral_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
+        let s = self.seed; if hash_float(gx, gz, s, 141) > 0.7 { return None; }
+        let (x, z) = (((gx as f64 + 0.2 + 0.6 * hash_float(gx, gz, s, 142)) * CORAL_CELL as f64).floor(), ((gz as f64 + 0.2 + 0.6 * hash_float(gx, gz, s, 143)) * CORAL_CELL as f64).floor());
+        let c = self.column(x, z); if c.mix.sea < 0.5 || c.mix.temp < 0.32 || c.water != SEA || SEA - c.h < 3.5 || SEA - c.h > 24.0 { return None; }
+        let mut r = Rng::new(hash_int(gx, gz, s, 144)); let mut out: Vec<[i32; 4]> = Vec::new(); let top = SEA as i32 - 1;
+        const COLS: [Id; 5] = [B::CORAL_BLOCK_RED, B::CORAL_BLOCK_ORANGE, B::CORAL_BLOCK_PURPLE, B::CORAL_BLOCK_YELLOW, B::CORAL_BLOCK_BLUE];
+        for _ in 0..r.int(3, 7) {
+            let (cx, cz) = (x + r.range(-7.0, 7.0), z + r.range(-7.0, 7.0)); let g = self.column(cx, cz); if g.water != SEA { continue; } let y0 = g.h.floor() as i32; let col = COLS[(r.next() * 5.0) as usize % 5]; let (ix, iz) = (cx.floor() as i32, cz.floor() as i32);
+            let mut put = |x: i32, y: i32, z: i32| if y <= top && y >= y0 - 1 { out.push([x, y, z, col as i32]); };
+            match (r.next() * 4.0) as i32 {
+                0 => { // bois de cerf : un tronc qui se divise en branches obliques
+                    let h = r.int(3, 7).min(top - y0); for y in y0..y0 + h { put(ix, y, iz); }
+                    for _ in 0..r.int(4, 8) { let (a, y1) = (r.range(0.0, 6.283), y0 + r.int(1, h.max(2) - 1)); let (dx, dz) = (cos(a), sin(a)); for k in 1..=r.int(2, 5) { put(ix + (dx * k as f64).round() as i32, y1 + k, iz + (dz * k as f64).round() as i32); } } }
+                1 => { // dôme de corail-cerveau
+                    let rad = r.range(2.0, 4.0); let ri2 = rad.ceil() as i32; for dx in -ri2..=ri2 { for dz in -ri2..=ri2 { for dy in 0..=ri2 { if (dx * dx + dz * dz + dy * dy) as f64 <= rad * rad { put(ix + dx, y0 + dy, iz + dz); } } } } }
+                2 => { // corail en table : un pied, un large plateau
+                    let h = r.int(2, 5).min(top - y0); for y in y0..y0 + h { put(ix, y, iz); } let rad = r.range(2.2, 4.6); let ri2 = rad.ceil() as i32;
+                    for dx in -ri2..=ri2 { for dz in -ri2..=ri2 { if ((dx * dx + dz * dz) as f64) <= rad * rad { put(ix + dx, y0 + h, iz + dz); } } } }
+                _ => { // piliers serrés
+                    for _ in 0..r.int(3, 6) { let (px, pz) = (ix + r.int(-2, 2), iz + r.int(-2, 2)); let h = r.int(2, 6); for y in y0..y0 + h { put(px, y, pz); } } }
+            }
+        }
+        (!out.is_empty()).then(|| Stamp { data: out, force: true, ground: false })
+    }
+    /// Une épave au fond de la mer : une coque de navire couchée dans le sable, brisée par le milieu, le pont crevé,
+    /// le mât abattu et sa voile en lambeaux à côté ; à la poupe, un coffre et des tonneaux.
+    fn wreck_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
+        let s = self.seed; if hash_float(gx, gz, s, 151) > 0.55 { return None; }
+        let (x, z) = (((gx as f64 + 0.25 + 0.5 * hash_float(gx, gz, s, 152)) * WRECK_CELL as f64).floor(), ((gz as f64 + 0.25 + 0.5 * hash_float(gx, gz, s, 153)) * WRECK_CELL as f64).floor());
+        let c = self.column(x, z); if c.mix.sea < 0.45 || c.water != SEA || SEA - c.h < 9.0 { return None; }
+        let mut r = Rng::new(hash_int(gx, gz, s, 154)); let a = r.range(0.0, 6.283); let (fx, fz) = (cos(a), sin(a)); let (sx, sz) = (-fz, fx);
+        let (len, beam, hh) = (r.int(15, 21) as f64, r.range(2.6, 3.4), r.int(4, 5)); let y0 = c.h.floor() as i32; let brk = r.range(0.35, 0.6); let heel = r.range(-0.18, 0.18);
+        let mut m: std::collections::BTreeMap<(i32, i32, i32), Id> = std::collections::BTreeMap::new();
+        let put = |u: f64, w: f64, y: i32, b: Id, m: &mut std::collections::BTreeMap<(i32, i32, i32), Id>| { m.insert((ri(x + fx * u + sx * w), y, ri(z + fz * u + sz * w)), b); };
+        let wood = B::WRECK_PLANKS; let mut u = -len * 0.5;
+        while u <= len * 0.5 {
+            let t = (u + len * 0.5) / len; let hw = beam * if t > 0.7 { (1.0 - ((t - 0.7) / 0.3).powf(1.6)).max(0.15) } else { 1.0 - 0.15 * (0.12 - t).max(0.0) / 0.12 }; // proue effilée, poupe carrée
+            let broken = (t - brk).abs() < 0.07;
+            let mut w = -hw; while w <= hw { let edge = (hw - w.abs()) < 0.75; let tilt = (w * heel).round() as i32;
+                put(u, w, y0 + tilt, wood, &mut m); // fond de cale
+                for y in 1..hh { let yy = y0 + y + tilt; if edge && !(broken && y > 1) && !(y == hh - 1 && r.next() < 0.18) { put(u, w, yy, wood, &mut m); } else { put(u, w, yy, B::WATER, &mut m); } }
+                if !broken && r.next() < 0.55 { put(u, w, y0 + hh + tilt, wood, &mut m); } // le pont, crevé par endroits
+                w += 0.5; }
+            if t > 0.86 { for y in 1..=2 { put(u, 0.0, y0 + hh + y, wood, &mut m); } } // l'étrave qui se relève
+            u += 0.5;
+        }
+        // Le mât, abattu en travers du sable, et la voile déchirée qui pend à côté.
+        let ma = a + r.range(0.6, 1.2) * if r.next() < 0.5 { 1.0 } else { -1.0 }; let (mx, mz) = (cos(ma), sin(ma));
+        for k in 0..r.int(9, 13) { let (px, pz) = (x + mx * k as f64, z + mz * k as f64); let gy = self.column(px, pz).h.floor() as i32; m.insert((ri(px), gy.max(y0) + 1, ri(pz)), B::SPRUCE_LOG); if k > 3 && k < 9 && r.next() < 0.7 { m.insert((ri(px - mz * 1.0), gy.max(y0) + 1, ri(pz + mx * 1.0)), B::WOOL_WHITE); } }
+        // À la poupe : le coffre du capitaine, des tonneaux renversés.
+        let su = -len * 0.5 + 2.0; put(su, 0.0, y0 + 1, B::CHEST, &mut m); put(su + 1.0, 1.2, y0 + 1, B::BARREL, &mut m); put(su + 2.5, -1.0, y0 + 1, B::BARREL, &mut m);
+        Some(Stamp { data: m.into_iter().map(|((a, b, c), id)| [a, b, c, id as i32]).collect(), force: true, ground: false })
+    }
+    /// Les coffres d'épave à moins de `r` blocs, du plus proche au plus lointain (bancs d'essai, captures, carte).
+    pub fn wrecks_near(&self, x: f64, z: f64, r: f64) -> Vec<[i32; 3]> {
+        let (g0, g1) = (fdiv((x - r) as i32, WRECK_CELL), fdiv((x + r) as i32, WRECK_CELL)); let (h0, h1) = (fdiv((z - r) as i32, WRECK_CELL), fdiv((z + r) as i32, WRECK_CELL));
+        let mut o: Vec<[i32; 3]> = Vec::new();
+        for gx in g0..=g1 { for gz in h0..=h1 { if let Some(st) = self.cached(4, gx, gz) { for d in st.data.iter().filter(|d| d[3] == B::CHEST as i32) { if ((d[0] as f64 - x).hypot(d[2] as f64 - z)) <= r { o.push([d[0], d[1], d[2]]); } } } } }
+        o.sort_by(|a, b| (a[0] as f64 - x).hypot(a[2] as f64 - z).total_cmp(&(b[0] as f64 - x).hypot(b[2] as f64 - z))); o
+    }
+    /// Le coffre d'une épave est-il à cet endroit ? (son butin est celui d'un navire, pas d'une maison)
+    pub fn wreck_chest(&self, p: [i32; 3]) -> bool {
+        let (gx, gz) = (fdiv(p[0], WRECK_CELL), fdiv(p[2], WRECK_CELL));
+        (-1..=1).any(|i| (-1..=1).any(|j| self.cached(4, gx + i, gz + j).is_some_and(|st| st.data.iter().any(|d| d[0] == p[0] && d[1] == p[1] && d[2] == p[2] && d[3] == B::CHEST as i32))))
+    }
     fn bone_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
         let s = self.seed; if hash_float(gx, gz, s, 61) > 0.7 { return None; }
         let (x, z) = (((gx as f64 + 0.25 + 0.5 * hash_float(gx, gz, s, 62)) * BONE_CELL as f64).floor(), ((gz as f64 + 0.25 + 0.5 * hash_float(gx, gz, s, 63)) * BONE_CELL as f64).floor());

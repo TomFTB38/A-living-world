@@ -286,7 +286,7 @@ fn walk(f: &mut Foe, w: &impl Voxels, step: f64, climb: bool, body: Body) -> boo
 /// Chaque face d'une pièce est découpée en petits pixels (environ 3 cm) dont la teinte suit la matière : trame et
 /// effilochures de l'étoffe, grain et coutures du cuir, reflets, rayures et rouille du fer, marbrures de la chair, fissures
 /// de l'os, poil de la bête, reflets de la chitine. Les très petites pièces (yeux, dents, rivets) restent unies.
-#[derive(Clone, Copy, PartialEq)] enum Mat { Plain, Grain, Cloth, Leather, Metal, Flesh, Bone, Fur, Chitin }
+#[derive(Clone, Copy, PartialEq)] enum Mat { Plain, Grain, Cloth, Leather, Metal, Flesh, Bone, Fur, Chitin, /** peau lisse de cétacé */ Skin, /** peau de requin, grenue */ Shark, /** peau de baleine semée de bernacles */ Barnacle }
 const PIX: f64 = 0.0625;
 fn mat_of(c: [f64; 3]) -> Mat {
     if c == EYE || c == GEYE || c == RED_EYE || c == EYEO { return Mat::Plain; }
@@ -306,6 +306,9 @@ fn shade(m: Mat, c: [f64; 3], i: i32, j: i32, nu: i32, nv: i32, side: bool, seed
         Mat::Flesh => { f = 0.8 + 0.26 * h(1); if h(10) < 0.09 { f *= 0.74; out = [c[0] * 1.08, c[1] * 0.92, c[2] * 0.9]; } if h(11) < 0.04 { f *= 1.15; } }
         Mat::Bone => { f = 0.9 + 0.14 * h(1); if h(12) < 0.07 { f *= 0.6; } }
         Mat::Fur => { f = 0.78 + 0.32 * ((h(1) + crate::noise::hash_float(i, j / 2, seed, 13)) * 0.5); if h(14) < 0.08 { f *= 1.25; } }
+        Mat::Skin => { f = 0.93 + 0.08 * h(1); if h(16) < 0.05 { f *= 1.12; } if h(17) < 0.03 { f *= 0.86; } }
+        Mat::Shark => { f = 0.86 + 0.16 * h(1); if (i + 2 * j) % 5 == 0 { f *= 0.94; } if h(18) < 0.05 { f *= 0.78; } }
+        Mat::Barnacle => { f = 0.88 + 0.12 * h(1); if h(19) < 0.07 { let k = 0.6 + 0.3 * h(20); out = [0.78 * k + c[0] * 0.2, 0.76 * k + c[1] * 0.2, 0.7 * k + c[2] * 0.2]; } if h(21) < 0.04 { f *= 0.7; } }
         Mat::Chitin => { f = 0.84 + 0.2 * h(1); if u < 0.12 || u > 0.88 || v > 0.88 { f *= 1.2; } if h(15) < 0.06 { out = [c[0] * 1.6, c[1] * 1.6, c[2] * 1.3]; } }
     }
     // L'ombrage du pixel art : un liseré plus sombre au bord de chaque face, le haut des flancs plus clair que le bas, le dessus éclairé.
@@ -313,8 +316,11 @@ fn shade(m: Mat, c: [f64; 3], i: i32, j: i32, nu: i32, nv: i32, side: bool, seed
     if side { f *= 0.86 + 0.24 * v; } else { f *= 1.06; }
     [out[0] * f, out[1] * f, out[2] * f]
 }
-fn b(q: &mut VBuf, a: [f64; 6], c: [f64; 3]) {
-    let m = mat_of(c); let (dx, dy, dz) = (a[3] - a[0], a[4] - a[1], a[5] - a[2]);
+fn b(q: &mut VBuf, a: [f64; 6], c: [f64; 3]) { bm(q, a, c, mat_of(c)) }
+/// Une boîte en pixels pour la faune marine : 0 peau lisse (dauphin), 1 peau de requin, 2 baleine à bernacles, 3 uni (yeux, dents).
+pub(crate) fn skin(q: &mut VBuf, a: [f64; 6], c: [f64; 3], kind: u8) { bm(q, a, c, match kind { 0 => Mat::Skin, 1 => Mat::Shark, 2 => Mat::Barnacle, _ => Mat::Plain }) }
+fn bm(q: &mut VBuf, a: [f64; 6], c: [f64; 3], m: Mat) {
+    let (dx, dy, dz) = (a[3] - a[0], a[4] - a[1], a[5] - a[2]);
     if m == Mat::Plain || dx.max(dy).max(dz) < PIX * 1.6 { flat(q, a, c); return; }
     let seed = ((a[0] * 997.0) as i32) ^ ((a[1] * 613.0) as i32) << 3 ^ ((a[2] * 431.0) as i32) << 6;
     let [x0, y0, z0, x1, y1, z1] = a;

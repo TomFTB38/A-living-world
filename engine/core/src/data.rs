@@ -12,7 +12,7 @@ pub const TRADES: &str = include_str!("../data/echanges.txt");
 /// Un échange proposé par les villageois d'un type de village (« tous » : partout).
 #[derive(Clone, Debug)] pub struct Trade { pub kind: &'static str, pub give: (&'static str, u32), pub get: (&'static str, u32) }
 /// Les types de villages, d'après les biomes.
-pub const VILLAGES: [&str; 6] = ["prairie", "taiga", "aride", "desert", "montagne", "hautes_terres"];
+pub const VILLAGES: [&str; 7] = ["prairie", "taiga", "aride", "desert", "montagne", "hautes_terres", "port"];
 
 /// Emplacements d'équipement, dans l'ordre de l'écran.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)] pub enum Slot { Head, Torso, Legs, Feet, Back, Hand }

@@ -338,6 +338,14 @@ impl SoundScape {
         for i in 0..n { let d = i as f32 * r.range(0.22, 0.32) as f32; o.push(Cmd::Tone { f: f * 1.15, to: f * 0.72, dur: 0.17, vol: 0.09 * v, pan, delay: d, saw: true, lp: 3200.0 }); o.push(Cmd::Tone { f: f * 2.3, to: f * 1.5, dur: 0.12, vol: 0.025 * v, pan, delay: d, saw: false, lp: 5000.0 }); }
         for c in o { self.send(c); }
     }
+    /// La baleine souffle : un long jet d'air et d'eau qui siffle et retombe.
+    pub fn blow(&mut self, pos: [f64; 3]) { let Some((v, pan)) = self.at(pos, 90.0) else { return }; self.send(Cmd::Play { l: l("splash", 0.6, 0.4), k: 1.0 * v, pan, delay: 0.0 }); self.send(Cmd::Tone { f: 180.0, to: 90.0, dur: 1.1, vol: 0.12 * v, pan, delay: 0.05, saw: true, lp: 600.0 }); }
+    /// Chant de baleine : de longues plaintes graves qui glissent, montent et retombent, très loin.
+    pub fn whale_song(&mut self, pos: [f64; 3]) {
+        let Some((v, pan)) = self.at(pos, 140.0) else { return }; let r = &mut self.rnd; let n = 2 + r.pick(3); let mut o = Vec::new(); let mut d = 0.0f32;
+        for _ in 0..n { let f = r.range(110.0, 260.0); let to = f * r.range(0.6, 1.7); let dur = r.range(1.2, 2.6) as f32; o.push(Cmd::Tone { f, to, dur, vol: 0.09 * v, pan, delay: d, saw: false, lp: 900.0 }); o.push(Cmd::Tone { f: f * 2.0, to: to * 2.0, dur, vol: 0.025 * v, pan, delay: d, saw: false, lp: 1400.0 }); d += dur + r.range(0.3, 0.9) as f32; }
+        for c in o { self.send(c); }
+    }
     /// Une gerbe d'eau à distance (le dauphin qui replonge).
     pub fn splash_at(&mut self, pos: [f64; 3]) { let Some((v, pan)) = self.at(pos, 50.0) else { return }; self.send(Cmd::Play { l: l("splash", 0.85, 0.5), k: 0.7 * v, pan, delay: 0.0 }); }
     /// Corbeau : deux ou trois croassements rauques.
