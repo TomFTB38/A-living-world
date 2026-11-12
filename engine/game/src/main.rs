@@ -539,7 +539,7 @@ fn capture(a: &[String]) {
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true, ..Default::default() }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
     }
-    if ["survie", "craft", "campement", "mort", "ramassage", "fissure", "construction", "faune", "combat", "tenue"].contains(&scene.as_str()) {
+    if ["survie", "craft", "campement", "mort", "ramassage", "fissure", "construction", "faune", "combat", "tenue", "creatures", "titre"].contains(&scene.as_str()) {
         // Survie : on retombe au sol, un établi et un feu de camp devant soi, des jauges entamées.
         use alw_core::blocks::{is_solid, B}; use alw_core::player::Voxels;
         s.player.fly = false; s.third = false; s.sel = 2; for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.dead.is_some() { s.respawn(); } s.vit = [100.0; 3];
