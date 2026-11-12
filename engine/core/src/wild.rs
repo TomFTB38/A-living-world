@@ -287,7 +287,7 @@ impl Wild {
                 Kind::Fish | Kind::Reef => {
                     // Le corps ondule (la queue bat), le nez suit la pente de la nage.
                     let hv = hypot2(c.v[0], c.v[2]); let pitch = -(c.v[1]).atan2(hv.max(0.3)) * 0.8; let wag = sin(c.phase) * 0.18;
-                    let n = if c.kind == Kind::Fish { "mackerel" } else { ["reef0", "reef1", "reef2"][c.color as usize % 3] }; put(n, trs(c.p[0], c.p[1] + 0.1, c.p[2], c.yaw + wag, pitch, 1.0));
+                    let n = if c.kind == Kind::Fish { "mackerel" } else { ["reef0", "reef1", "reef2"][c.color as usize % 3] }; put(n, trs(c.p[0], c.p[1] + 0.1, c.p[2], c.yaw + wag, pitch, if c.kind == Kind::Fish { 1.8 } else { 2.2 })); // grossis pour qu'on les voie bien sous l'eau
                 }
                 Kind::Dolphin | Kind::Whale | Kind::Shark => {
                     // Corps et queue : les cétacés battent de haut en bas, le requin de gauche à droite ; le corps répond un peu au mouvement.
@@ -297,7 +297,7 @@ impl Wild {
                     if c.kind == Kind::Shark { let body = trs(c.p[0], c.p[1] + 0.1, c.p[2], c.yaw - beat * 0.06, pitch, sc); put(nb, body); put(nt, mul(&body, &trs(0.0, 0.0, piv, beat * 0.45, 0.0, 1.0))); }
                     else { let body = trs(c.p[0], c.p[1] + 0.1, c.p[2], c.yaw, pitch + beat * 0.05, sc); put(nb, body); put(nt, mul(&body, &trs(0.0, 0.0, piv, 0.0, -beat * if c.kind == Kind::Whale { 0.28 } else { 0.4 }, 1.0))); }
                 }
-                Kind::Crab => { let bob = if c.speed > 0.0 { sin(c.phase * 2.0).abs() * 0.03 } else { 0.0 }; put("crab", trs(c.p[0], c.p[1] + bob + flinch(c.hit) * 0.2, c.p[2], c.yaw + std::f64::consts::FRAC_PI_2, 0.0, 1.3)); } // le crabe marche de côté
+                Kind::Crab => { let bob = if c.speed > 0.0 { sin(c.phase * 2.0).abs() * 0.03 } else { 0.0 }; put("crab", trs(c.p[0], c.p[1] + bob + flinch(c.hit) * 0.2, c.p[2], c.yaw + std::f64::consts::FRAC_PI_2, 0.0, 2.4)); } // le crabe marche de côté
                 Kind::Gull => {
                     let base = trs(c.p[0], c.p[1] + 0.05, c.p[2], c.yaw, 0.0, 1.0); let f = if c.state == State::Fly { 0.15 + 0.4 * sin(c.phase * 0.7) } else { -1.3 };
                     put("gull", base); put("gullWing", mul(&base, &mul(&trs(0.05 * GULL, 0.08 * GULL, 0.0, 0.0, 0.0, 1.0), &roll_z(f)))); put("gullWing", mul(&base, &mul(&trs(-0.05 * GULL, 0.08 * GULL, 0.0, 0.0, 0.0, 1.0), &roll_z(std::f64::consts::PI - f))));
