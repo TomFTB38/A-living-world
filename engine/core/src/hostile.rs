@@ -111,9 +111,9 @@ fn sees(w: &impl Voxels, a: [f64; 3], b: [f64; 3]) -> bool {
     let d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt(); let n = (l / 0.45).ceil() as i32;
     for i in 1..n { let t = i as f64 / n as f64; let q = [a[0] + d[0] * t, a[1] + d[1] * t, a[2] + d[2] * t]; if w.get(q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32).is_none_or(is_opaque) { return false; } } true
 }
-fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.55, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.45 } }
+fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.55, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.55 } }
 /// Boîte de visée et de collision (demi-largeur, hauteur).
-pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.36, 1.85), Body::Brigand => (0.36, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.6, 0.6) }; (w * size, h * size) }
+pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.36, 1.85), Body::Brigand => (0.36, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.55, 0.8) }; (w * size, h * size) }
 
 impl Horde {
     pub fn new(seed: i32) -> Self { Horde { foes: Vec::new(), rng: Rng::new((seed ^ 0x6d21) as u32), spawn_t: 2.0, ev: Vec::new(), groups: 0, spawned: 0 } }
@@ -287,11 +287,11 @@ fn walk(f: &mut Foe, w: &impl Voxels, step: f64, climb: bool, body: Body) -> boo
 /// effilochures de l'étoffe, grain et coutures du cuir, reflets, rayures et rouille du fer, marbrures de la chair, fissures
 /// de l'os, poil de la bête, reflets de la chitine. Les très petites pièces (yeux, dents, rivets) restent unies.
 #[derive(Clone, Copy, PartialEq)] enum Mat { Plain, Grain, Cloth, Leather, Metal, Flesh, Bone, Fur, Chitin }
-const PIX: f64 = 0.032;
+const PIX: f64 = 0.0625;
 fn mat_of(c: [f64; 3]) -> Mat {
-    if c == EYE || c == GEYE || c == RED_EYE { return Mat::Plain; }
+    if c == EYE || c == GEYE || c == RED_EYE || c == EYEO { return Mat::Plain; }
     if c == CLOTH || c == CLOTH2 || c == TUNIC || c == TUNIC2 || c == CAPE || c == CAPE2 || c == MASK { Mat::Cloth } else if c == HOOD || c == HOOD2 { Mat::Leather } else if c == SKINB { Mat::Flesh } else if c == FURD || c == FURM || c == FURL { Mat::Fur } else if c == LEATH || c == LEATH2 || c == LEATHER { Mat::Leather } else if c == STEEL || c == STEEL2 || c == RUSTM || c == RUST { Mat::Metal }
-    else if c == FLESH || c == FLESH2 { Mat::Flesh } else if c == BONE || c == BONE2 { Mat::Bone } else if c == HIDE || c == HIDE2 { Mat::Fur } else if c == CHIT || c == CHIT2 || c == SPOT { Mat::Chitin } else { Mat::Grain }
+    else if c == FLESH || c == FLESH2 { Mat::Flesh } else if c == BONE || c == BONE2 { Mat::Bone } else if c == HIDE || c == HIDE2 { Mat::Fur } else if c == CHIT || c == CHIT2 || c == SPOT || c == CHITD { Mat::Chitin } else if c == ABDO || c == ABDO2 { Mat::Flesh } else if c == LEGC || c == LEGD { Mat::Bone } else { Mat::Grain }
 }
 fn shade(m: Mat, c: [f64; 3], i: i32, j: i32, nu: i32, nv: i32, side: bool, seed: i32) -> [f64; 3] {
     let h = |k: i32| crate::noise::hash_float(i, j, seed, k); let (u, v) = ((i as f64 + 0.5) / nu as f64, (j as f64 + 0.5) / nv as f64);
@@ -308,6 +308,9 @@ fn shade(m: Mat, c: [f64; 3], i: i32, j: i32, nu: i32, nv: i32, side: bool, seed
         Mat::Fur => { f = 0.78 + 0.32 * ((h(1) + crate::noise::hash_float(i, j / 2, seed, 13)) * 0.5); if h(14) < 0.08 { f *= 1.25; } }
         Mat::Chitin => { f = 0.84 + 0.2 * h(1); if u < 0.12 || u > 0.88 || v > 0.88 { f *= 1.2; } if h(15) < 0.06 { out = [c[0] * 1.6, c[1] * 1.6, c[2] * 1.3]; } }
     }
+    // L'ombrage du pixel art : un liseré plus sombre au bord de chaque face, le haut des flancs plus clair que le bas, le dessus éclairé.
+    if nu >= 3 && nv >= 3 && (i == 0 || i == nu - 1 || j == 0 || j == nv - 1) { f *= 0.84; }
+    if side { f *= 0.86 + 0.24 * v; } else { f *= 1.06; }
     [out[0] * f, out[1] * f, out[2] * f]
 }
 fn b(q: &mut VBuf, a: [f64; 6], c: [f64; 3]) {
@@ -338,8 +341,9 @@ const FLESH: [f64; 3] = [0.6, 0.5, 0.46]; const FLESH2: [f64; 3] = [0.48, 0.39, 
 const LEATH: [f64; 3] = [0.33, 0.21, 0.15]; const LEATH2: [f64; 3] = [0.24, 0.15, 0.11]; const STEEL: [f64; 3] = [0.47, 0.48, 0.52]; const STEEL2: [f64; 3] = [0.36, 0.37, 0.41]; const RUSTM: [f64; 3] = [0.5, 0.3, 0.18];
 const TUNIC: [f64; 3] = [0.29, 0.26, 0.24]; const TUNIC2: [f64; 3] = [0.21, 0.19, 0.18]; const HOOD: [f64; 3] = [0.38, 0.25, 0.17]; const HOOD2: [f64; 3] = [0.28, 0.18, 0.13]; const MASK: [f64; 3] = [0.15, 0.14, 0.14];
 const SKINB: [f64; 3] = [0.74, 0.56, 0.44]; const CAPE: [f64; 3] = [0.44, 0.13, 0.13]; const CAPE2: [f64; 3] = [0.31, 0.1, 0.1]; const SYMBOL: [f64; 3] = [0.86, 0.82, 0.74]; const WOODH: [f64; 3] = [0.45, 0.3, 0.17];
-const FURD: [f64; 3] = [0.2, 0.19, 0.21]; const FURM: [f64; 3] = [0.36, 0.34, 0.36]; const FURL: [f64; 3] = [0.62, 0.56, 0.5];
-const CHIT: [f64; 3] = [0.21, 0.16, 0.23]; const CHIT2: [f64; 3] = [0.34, 0.28, 0.35]; const SPOT: [f64; 3] = [0.6, 0.62, 0.48]; const GEYE: [f64; 3] = [0.72, 1.0, 0.6]; const LEATHER: [f64; 3] = [0.36, 0.24, 0.14];
+const FURD: [f64; 3] = [0.25, 0.22, 0.28]; const FURM: [f64; 3] = [0.4, 0.36, 0.43]; const FURL: [f64; 3] = [0.8, 0.7, 0.57];
+const ABDO: [f64; 3] = [0.58, 0.15, 0.14]; const ABDO2: [f64; 3] = [0.4, 0.1, 0.11]; const CHITD: [f64; 3] = [0.17, 0.12, 0.2]; const EYEO: [f64; 3] = [1.0, 0.68, 0.12]; const LEGC: [f64; 3] = [0.86, 0.72, 0.5]; const LEGD: [f64; 3] = [0.58, 0.44, 0.3];
+const CHIT: [f64; 3] = [0.38, 0.27, 0.42]; const CHIT2: [f64; 3] = [0.5, 0.38, 0.54]; const SPOT: [f64; 3] = [0.6, 0.62, 0.48]; const GEYE: [f64; 3] = [0.72, 1.0, 0.6]; const LEATHER: [f64; 3] = [0.36, 0.24, 0.14];
 pub fn parts() -> Vec<(&'static str, VBuf)> {
     let mut o: Vec<(&'static str, VBuf)> = Vec::new(); let mut m = |n: &'static str, f: &dyn Fn(&mut VBuf)| { let mut v = VBuf::new(600); f(&mut v); o.push((n, v)); };
     // Rôdeur décharné (planche du bestiaire) : chair décharnée gris-rose, côtes saillantes, sangles de cuir croisées, ceinture
@@ -473,13 +477,25 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
     m("bstFore", &|q| { b(q, [-0.075, -0.3, -0.08, 0.075, 0.06, 0.09], FURD); b(q, [-0.06, -0.56, -0.05, 0.06, -0.28, 0.07], FURL); b(q, [-0.07, -0.62, -0.04, 0.07, -0.55, 0.15], FURL); for x in [-0.055, -0.02, 0.015, 0.045] { b(q, [x, -0.64, 0.13, x + 0.018, -0.58, 0.19], BONE); } b(q, [-0.08, -0.3, 0.06, 0.08, -0.16, 0.1], FURM); });
     m("bstHind", &|q| { b(q, [-0.08, -0.26, -0.12, 0.08, 0.06, 0.08], FURD); b(q, [-0.055, -0.44, -0.12, 0.055, -0.24, -0.02], FURL); b(q, [-0.06, -0.5, -0.1, 0.06, -0.44, 0.1], FURL); for x in [-0.045, -0.01, 0.025] { b(q, [x, -0.52, 0.08, x + 0.018, -0.46, 0.14], BONE); } });
     m("bstTail", &|q| { b(q, [-0.06, -0.05, -0.2, 0.06, 0.07, 0.0], FURD); b(q, [-0.08, -0.1, -0.42, 0.08, 0.06, -0.18], FURM); b(q, [-0.07, -0.16, -0.58, 0.07, 0.02, -0.4], FURM); b(q, [-0.05, -0.2, -0.68, 0.05, -0.04, -0.56], FURL); });
-    // Rampant nocturne : une tête basse à plaques et mandibules, plusieurs yeux, trois anneaux, six pattes coudées.
-    m("crwHead", &|q| { b(q, [-0.2, -0.04, -0.12, 0.2, 0.16, 0.16], CHIT); b(q, [-0.22, 0.12, -0.14, 0.22, 0.19, 0.12], CHIT2);
-        for (x, y) in [(-0.12, 0.1), (-0.05, 0.13), (0.03, 0.13), (0.1, 0.1), (-0.15, 0.04), (0.13, 0.04)] { b(q, [x, y - 0.02, 0.15, x + 0.035, y + 0.015, 0.175], GEYE); }
-        for sx in [-1.0, 1.0] { let (a, c) = if sx < 0.0 { (-0.17, -0.09) } else { (0.09, 0.17) }; b(q, [a, -0.06, 0.14, c, 0.0, 0.3], CHIT2); b(q, [a + if sx < 0.0 { 0.03 } else { -0.01 }, -0.06, 0.28, c + if sx < 0.0 { 0.03 } else { -0.03 }, -0.02, 0.36], BONE); } });
-    m("crwSeg", &|q| { b(q, [-0.24, -0.02, -0.2, 0.24, 0.2, 0.2], CHIT); b(q, [-0.25, 0.16, -0.18, 0.25, 0.25, 0.16], CHIT2); b(q, [-0.04, 0.24, -0.12, 0.04, 0.3, 0.1], CHIT2); for x in [-0.15, 0.11] { b(q, [x, 0.25, -0.05, x + 0.05, 0.26, 0.03], SPOT); } });
-    m("crwTail", &|q| { b(q, [-0.17, -0.02, -0.34, 0.17, 0.16, 0.02], CHIT); b(q, [-0.1, 0.0, -0.52, 0.1, 0.12, -0.32], CHIT2); b(q, [-0.04, 0.02, -0.62, 0.04, 0.08, -0.5], BONE); });
-    m("crwLeg", &|q| { b(q, [0.0, -0.03, -0.03, 0.34, 0.03, 0.03], CHIT2); b(q, [0.3, -0.38, -0.025, 0.36, 0.0, 0.025], CHIT); b(q, [0.31, -0.44, -0.02, 0.35, -0.36, 0.02], BONE); });
+    // Rampant nocturne (plans) : un arthropode trapu à six pattes, carapace bombée violette en plaques, ventre et flancs
+    // rouge sang, tête basse rouge sombre à quatre yeux jaune-orangé, crochets d'os, pattes claires coudées et griffues.
+    m("crwBody", &|q| {
+        b(q, [-0.3, 0.0, -0.46, 0.3, 0.16, 0.34], ABDO); b(q, [-0.24, 0.02, -0.6, 0.24, 0.2, -0.42], ABDO); b(q, [-0.16, 0.05, -0.68, 0.16, 0.16, -0.58], ABDO2);
+        for z in [-0.32, -0.12, 0.08, 0.26] { b(q, [-0.31, 0.02, z, 0.31, 0.12, z + 0.04], ABDO2); }
+        b(q, [-0.375, 0.12, -0.44, 0.375, 0.28, 0.38], CHIT); b(q, [-0.31, 0.28, -0.38, 0.31, 0.4, 0.33], CHIT); b(q, [-0.22, 0.4, -0.3, 0.22, 0.47, 0.26], CHIT2); b(q, [-0.12, 0.47, -0.2, 0.12, 0.5, 0.16], CHIT2);
+        // Les plaques : sillons sombres en travers, rebords clairs, une arête au milieu.
+        for z in [-0.26, -0.08, 0.1] { b(q, [-0.38, 0.14, z, 0.38, 0.42, z + 0.035], CHITD); b(q, [-0.3, 0.4, z + 0.035, 0.3, 0.44, z + 0.07], CHIT2); }
+        b(q, [-0.04, 0.47, -0.3, 0.04, 0.52, 0.26], CHITD); for x in [-0.385, 0.35] { b(q, [x, 0.12, -0.44, x + 0.035, 0.16, 0.38], CHIT2); }
+        for (x, z) in [(-0.2, -0.18), (0.16, 0.0), (-0.1, 0.2), (0.22, -0.34)] { b(q, [x, 0.41, z, x + 0.06, 0.44, z + 0.06], SPOT); }
+    });
+    m("crwHead", &|q| {
+        b(q, [-0.21, -0.02, 0.0, 0.21, 0.22, 0.2], ABDO2); b(q, [-0.22, 0.16, -0.02, 0.22, 0.27, 0.16], CHIT);
+        for (x, y) in [(-0.15, 0.1), (0.09, 0.1), (-0.08, 0.15), (0.03, 0.15)] { b(q, [x, y, 0.195, x + 0.06, y + 0.05, 0.215], EYEO); }
+        for sx in [-1.0f64, 1.0] { let x = 0.1 * sx; b(q, [x - 0.035, -0.06, 0.16, x + 0.035, 0.04, 0.27], LEGC); b(q, [x - 0.03, -0.14, 0.24, x + 0.03, -0.04, 0.3], LEGC); b(q, [x - 0.025 - 0.02 * sx, -0.18, 0.2, x + 0.025 - 0.02 * sx, -0.12, 0.26], LEGD); }
+    });
+    // Une patte : le haut part du flanc et monte, le genou sombre, le bas plonge jusqu'au sol, la griffe recourbée.
+    m("crwLeg", &|q| { b(q, [0.0, -0.035, -0.04, 0.2, 0.05, 0.04], LEGD); b(q, [0.16, 0.02, -0.045, 0.3, 0.12, 0.045], LEGC); b(q, [0.27, 0.06, -0.045, 0.38, 0.16, 0.045], LEGD);
+        b(q, [0.34, -0.06, -0.04, 0.44, 0.12, 0.04], LEGC); b(q, [0.38, -0.2, -0.035, 0.46, -0.04, 0.035], LEGC); b(q, [0.35, -0.27, -0.03, 0.42, -0.18, 0.03], LEGD); b(q, [0.31, -0.29, -0.025, 0.37, -0.24, 0.025], LEGC); });
     o
 }
 
@@ -560,17 +576,18 @@ impl Horde {
                     put("bstHind", mul(&body, &trs(-0.12, 0.04, -0.38, 0.0, b2 * 0.9 - hind, 1.0))); put("bstHind", mul(&body, &trs(0.12, 0.04, -0.38, 0.0, a * 0.9 - hind, 1.0)));
                 }
                 Body::Rampant => {
-                    // Trois anneaux qui ondulent à la suite de la tête ; les six pattes vont par trépied (1-4-5 puis 2-3-6).
-                    let lift = if f.climbing { 0.0 } else { wind * 0.25 }; let rear = if f.climbing { -1.2 } else { -wind * 0.6 + strike * 0.3 };
-                    let root = mul(&base, &trs(0.0, 0.32 + lift, 0.0, 0.0, rear + flinch * 0.4, 1.0)); let wave = |k: f64| 0.18 * sin(f.phase * 0.9 - k) * (0.3 + run);
-                    put("crwHead", mul(&root, &trs(0.0, 0.0, 0.42, wave(0.0) * 0.5, if f.state == Ai::Embuscade { 0.2 } else { -0.1 }, 1.0)));
-                    let mut seg = root;
-                    for k in 0..3 { let m = mul(&seg, &trs(0.0, 0.0, if k == 0 { 0.18 } else { -0.4 }, wave(k as f64 + 1.0), 0.0, 1.0 - k as f64 * 0.08)); put("crwSeg", m);
-                        for sx in [-1.0f64, 1.0] { let tri = if (k + if sx > 0.0 { 1 } else { 0 }) % 2 == 0 { 1.0 } else { -1.0 }; let a = sw * 0.45 * tri;
-                            let leg = mul(&m, &mul(&trs(0.22 * sx, 0.06, 0.0, a + if sx > 0.0 { 0.0 } else { std::f64::consts::PI }, 0.0, 1.0), &roll_z(0.35 + 0.2 * (sin(f.phase + k as f64) * tri).max(0.0) * run)));
-                            put("crwLeg", leg); }
-                        seg = m; }
-                    put("crwTail", mul(&seg, &trs(0.0, 0.02, -0.18, wave(4.0), 0.0, 1.0)));
+                    // Corps bas et lourd ; trépied alterné (avant gauche, milieu droit, arrière gauche, puis l'inverse) ;
+                    // repérage : il se soulève sur ses pattes ; attaque : il se cabre, crochets en avant ; mort : sur le dos.
+                    let t = f.phase; let det = if f.state == Ai::Detection || f.state == Ai::Soupcon { 1.0 } else { 0.0 }; let die = fall;
+                    let lift = 0.05 * det + wind * 0.08 - 0.1 * die; let rear = if f.climbing { -1.2 } else { -wind * 0.45 + strike * 0.25 } + flinch * 0.3;
+                    let hip = 0.27 + lift + if f.speed > 0.0 { (t * 2.0).sin().abs() * 0.02 } else { 0.006 * (t * 1.6).sin() };
+                    let root = mul(&mul(&trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size), &roll_z(die * 3.0)), &trs(0.0, 0.0, 0.0, 0.0, rear, 1.0));
+                    put("crwBody", root); put("crwHead", mul(&root, &trs(0.0, 0.0, 0.36, 0.05 * (t * 0.7).sin(), if f.state == Ai::Embuscade { 0.15 } else { -0.05 - 0.2 * det }, 1.0)));
+                    for (k, z) in [0.22, 0.0, -0.24].iter().enumerate() { for sx in [-1.0f64, 1.0] {
+                        let tri = if (k + if sx > 0.0 { 1 } else { 0 }) % 2 == 0 { 1.0 } else { -1.0 }; let swing = sw * 0.4 * tri * (0.4 + run); let up = (sw * tri).max(0.0) * 0.12 * run;
+                        let spread = [0.45, 0.0, -0.45][k] * sx; let curl = die * 1.2;
+                        let leg = mul(&root, &mul(&trs(0.3 * sx, 0.1, *z, (if sx > 0.0 { 0.0 } else { std::f64::consts::PI }) + spread * 0.6 + swing, 0.0, 1.0), &roll_z(up + curl)));
+                        put("crwLeg", leg); } }
                 }
             }
         }
