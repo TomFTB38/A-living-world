@@ -40,7 +40,7 @@ fn le_monde_ne_depend_que_de_la_seed() {
 fn chaque_biome_a_un_vrai_coeur() {
     use alw_core::biome::*; let c = Climate::new(20261104); let mut top = [0.0f64; COUNT];
     for x in (-9000..9000).step_by(40) { for z in (-9000..9000).step_by(40) { let m = c.at(x as f64, z as f64); for i in 0..COUNT { top[i] = top[i].max(m.w[i]); } } }
-    println!("{top:?}"); for b in [Biome::Temperate, Biome::Meadow, Biome::DeepForest, Biome::Taiga, Biome::Steppe, Biome::Desert, Biome::Highlands] { assert!(c_strong(&top, b) > 0.95, "{} jamais franc : {:?}", NAMES[b as usize], top); }
+    println!("{top:?}"); for b in [Biome::Temperate, Biome::Meadow, Biome::DeepForest, Biome::Taiga, Biome::Steppe, Biome::Desert, Biome::Highlands, Biome::Mountains] { assert!(c_strong(&top, b) > 0.95, "{} jamais franc : {:?}", NAMES[b as usize], top); }
 }
 fn c_strong(t: &[f64; alw_core::biome::COUNT], b: alw_core::biome::Biome) -> f64 { alw_core::noise::smooth(0.3, 0.55, t[b as usize]) }
 

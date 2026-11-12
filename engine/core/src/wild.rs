@@ -273,9 +273,10 @@ impl Wild {
 /// Avancer de `step` dans le sens voulu ; si un mur barre la route, longer l'obstacle par le cap libre le plus proche
 /// (de 25° en 25°, d'un côté puis de l'autre), en montant ou descendant d'un bloc s'il le faut. Faux si tout est bouché.
 fn steer(c: &mut Critter, w: &impl Voxels, step: f64) -> bool {
+    let (up, down) = if c.kind == Kind::Ibex { (2.0, 3.0) } else { (1.0, 1.0) }; // le bouquetin saute de vire en vire
     for k in [0.0, 0.44, -0.44, 0.87, -0.87, 1.31, -1.31, 1.75, -1.75, 2.4, -2.4] {
         let yaw = c.yaw + k; let (nx, nz) = (c.p[0] + sin(yaw) * step, c.p[2] + cos(yaw) * step);
-        if let Some(y) = ground(w, nx, nz, c.gy) { if (y - c.gy).abs() <= 1.0 && fits(w, nx, y, nz, yaw, 1) {
+        if let Some(y) = ground(w, nx, nz, c.gy) { if y - c.gy <= up && c.gy - y <= down && fits(w, nx, y, nz, yaw, 1) {
             c.p[0] = nx; c.p[2] = nz; c.gy = y; if k != 0.0 { c.yaw += k * 0.6; } return true; } }
     }
     false

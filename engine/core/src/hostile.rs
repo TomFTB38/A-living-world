@@ -36,7 +36,7 @@ pub fn bestiary() -> &'static Bestiary { static B: OnceLock<Bestiary> = OnceLock
 pub fn species(id: &str) -> Option<usize> { bestiary().species.iter().position(|s| s.id == id) }
 
 fn parse(t: &'static str) -> Bestiary {
-    let mut r = Rules { light: 7, ring: (24.0, 46.0), forget: 76.0, cap: 10, cap_near: 6, every: 0.7, distance: vec![(250.0, 1), (750.0, 2), (1500.0, 3), (3000.0, 4)], biome: [2, 1, 2, 2, 3, 3, 4], mountain: (118.0, 5), adapt: vec![(5, 1), (10, 2), (20, 3), (30, 4)], day_secs: 240.0, region: 256.0 };
+    let mut r = Rules { light: 7, ring: (24.0, 46.0), forget: 76.0, cap: 10, cap_near: 6, every: 0.7, distance: vec![(250.0, 1), (750.0, 2), (1500.0, 3), (3000.0, 4)], biome: [2, 1, 2, 2, 3, 3, 4, 5], mountain: (118.0, 5), adapt: vec![(5, 1), (10, 2), (20, 3), (30, 4)], day_secs: 240.0, region: 256.0 };
     let mut sp = Vec::new();
     let pairs = |v: &str| -> Vec<(f64, f64)> { v.split_whitespace().filter_map(|p| { let (a, b) = p.split_once(':')?; Some((a.parse().ok()?, b.parse().ok()?)) }).collect() };
     for line in t.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {

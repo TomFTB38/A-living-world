@@ -103,7 +103,7 @@ impl WorldGen {
             let a = k as f64 * TAU / n as f64 + r * 0.05; let c = self.column(x as f64 + r * a.cos(), z as f64 + r * a.sin());
             if c.water != 0.0 || c.cliff > 0.45 { return None; } tops.push(c.h.ceil() as i32 - 1);
         } }
-        let (lo, hi) = (*tops.iter().min()?, *tops.iter().max()?); if hi - lo > 10 { return None; }
+        let (lo, hi) = (*tops.iter().min()?, *tops.iter().max()?); let tol = if self.climate.at(x as f64, z as f64).strong(Biome::Mountains) > 0.5 { 15 } else { 10 }; /* en montagne, un vallon un peu pentu suffit : le village l'aplanit */ if hi - lo > tol { return None; }
         tops.sort(); let y0 = tops[tops.len() / 2]; (y0 > 30 && y0 + 20 < CH as i32).then_some(y0)
     }
     fn build(&self, gx: i32, gz: i32, x: i32, y0: i32, z: i32) -> Site {
@@ -111,7 +111,7 @@ impl WorldGen {
         let mix = self.climate.at(x as f64, z as f64); let top = (0..crate::biome::COUNT).max_by(|a, b| mix.w[*a].total_cmp(&mix.w[*b])).unwrap_or(1);
         // Montagne : un bourg haut perché, ou blotti au pied de sommets qui le dominent.
         let peaks = (0..16).map(|k| { let (a, r) = (k as f64 * TAU / 8.0, if k < 8 { 60.0 } else { 95.0 }); self.column(x as f64 + r * a.cos(), z as f64 + r * a.sin()).h }).fold(0.0, f64::max);
-        let kind = if y0 > 76 || peaks - y0 as f64 > 24.0 { "montagne" } else if mix.strong(Biome::Highlands) > 0.4 { "hautes_terres" } else { match top { t if t == Biome::Taiga as usize => "taiga", t if t == Biome::Steppe as usize => "aride", t if t == Biome::Desert as usize => "desert", t if t == Biome::Highlands as usize => "hautes_terres", _ => "prairie" } };
+        let kind = if y0 > 76 || peaks - y0 as f64 > 24.0 || mix.strong(Biome::Mountains) > 0.4 { "montagne" } else if mix.strong(Biome::Highlands) > 0.4 { "hautes_terres" } else { match top { t if t == Biome::Taiga as usize => "taiga", t if t == Biome::Steppe as usize => "aride", t if t == Biome::Desert as usize => "desert", t if t == Biome::Highlands as usize => "hautes_terres", _ => "prairie" } };
         // Les ateliers : le forgeron dès que le type le permet, les autres une fois sur trois de moins ; au moins deux, au plus quatre.
         let cand: Vec<&Craftsman> = db().craftsmen.iter().filter(|c| c.villages.contains(&kind)).collect();
         let mut crafts: Vec<&'static str> = cand.iter().enumerate().filter(|(i, c)| c.id == "forgeron" || h(*i as i32) < 0.68).map(|(_, c)| c.id).collect();

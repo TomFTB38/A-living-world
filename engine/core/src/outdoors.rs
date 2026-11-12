@@ -33,7 +33,7 @@ impl Session {
                 while t < 14.0 { let q = [e[0] + f[0] * t, e[1] + f[1] * t, e[2] + f[2] * t]; let c = [q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32];
                     match self.world.get(c[0], c[1], c[2]) {
                         Some(b) if is_water(b) => {
-                            let col = self.gen.column(q[0], q[2]); let cold = self.taiga > 0.4 || self.highlands > 0.4; let running = b != B::WATER || !col.still;
+                            let col = self.gen.column(q[0], q[2]); let cold = self.taiga > 0.4 || self.highlands > 0.4 || self.mountains > 0.4; let running = b != B::WATER || !col.still;
                             let fish = if cold { "char" } else if running { "trout" } else { "perch" };
                             let wait = (5.0 + 9.0 * self.rand(3)) / (1.0 + self.skills[2] * 0.01).min(1.5);
                             self.line = Some(Line { spot: [q[0], c[1] as f64 + 0.92, q[2]], bite: self.elapsed + wait, told: false, fish }); self.sound.splash(0.15); return true;

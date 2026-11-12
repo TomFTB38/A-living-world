@@ -2,11 +2,11 @@
 //! jamais un biome pur à frontière nette : c'est ce qui rend les transitions invisibles.
 use crate::det::hypot2;
 use crate::noise::Noise;
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum Biome { Temperate = 0, Meadow = 1, DeepForest = 2, Taiga = 3, Steppe = 4, Desert = 5, Highlands = 6 }
-pub const COUNT: usize = 7;
-pub const NAMES: [&str; COUNT] = ["Forêt tempérée", "Prairie", "Forêt profonde", "Taïga", "Steppe sèche", "Désert", "Hautes terres"];
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum Biome { Temperate = 0, Meadow = 1, DeepForest = 2, Taiga = 3, Steppe = 4, Desert = 5, Highlands = 6, Mountains = 7 }
+pub const COUNT: usize = 8;
+pub const NAMES: [&str; COUNT] = ["Forêt tempérée", "Prairie", "Forêt profonde", "Taïga", "Steppe sèche", "Désert", "Hautes terres", "Hautes montagnes"];
 /// Place de chaque biome sur la carte température, humidité.
-const ANCHORS: [(f64, f64); COUNT] = [(0.05, 0.15), (0.32, -0.32), (0.28, 0.72), (-0.72, 0.05), (0.5, -0.56), (0.82, -0.86), (-0.75, -0.6)];
+const ANCHORS: [(f64, f64); COUNT] = [(0.05, 0.15), (0.32, -0.32), (0.28, 0.72), (-0.72, 0.05), (0.5, -0.56), (0.82, -0.86), (-0.75, -0.6), (-0.86, 0.72)];
 /// Autour du départ, le monde reste la forêt tempérée validée.
 const HOME: f64 = 420.0; const HOME_FADE: f64 = 900.0; const SOFT: f64 = 0.2;
 #[derive(Clone, Copy, Debug, Default)] pub struct Mix { pub w: [f64; COUNT], pub temp: f64, pub wet: f64 }

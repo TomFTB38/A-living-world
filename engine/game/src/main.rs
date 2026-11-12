@@ -41,6 +41,9 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
     let de = s.desert as f32 * (1.0 - night); if de > 0.01 { for k in 0..3 { sky.hor[k] += ([1.0, 0.92, 0.78][k] * 1.15 - sky.hor[k]) * 0.35 * de; sky.top[k] += ([0.42, 0.56, 0.78][k] - sky.top[k]) * 0.25 * de; sky.col[k] *= 1.0 + ([0.1, 0.05, -0.04][k]) * de; } env.mist += 0.0016 * de; env.rain *= 1.0 - s.desert as f32; }
     // Hautes terres : ciel bas et gris-bleu, lumière froide, brume qui traîne sur la lande.
     let hl = s.highlands as f32; if hl > 0.01 { for k in 0..3 { sky.top[k] += ([0.4, 0.5, 0.62][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.3 * hl; sky.hor[k] += ([0.72, 0.76, 0.8][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.35 * hl; sky.col[k] *= 1.0 + ([-0.05, -0.02, 0.03][k]) * hl; } env.mist += 0.003 * hl; env.fog_k += 1.2 * hl; }
+    // Hautes montagnes : ciel d'altitude d'un bleu profond, air limpide, neige à la place de la pluie, brume au fond des vallons le matin.
+    let mtn = s.mountains as f32; if mtn > 0.01 { for k in 0..3 { sky.top[k] += ([0.24, 0.4, 0.74][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.4 * mtn; sky.hor[k] += ([0.76, 0.84, 0.94][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.3 * mtn; sky.col[k] *= 1.0 + ([0.04, 0.03, 0.06][k]) * mtn * (1.0 - night); }
+        let h = s.hour as f32; env.valley = env.valley.max(mtn * ((h - 4.5) / 2.0).clamp(0.0, 1.0) * (1.0 - ((h - 9.5) / 2.5).clamp(0.0, 1.0)) * 0.5); env.snow = env.snow.max(mtn * (0.25 * env.cloud + 0.75 * s.weather.state.rain as f32)); env.rain *= 1.0 - mtn; env.fog_k *= 1.0 - 0.3 * mtn; }
     env.bright *= 1.0 - 0.42 * s.deep as f32; env.fog_k += 2.6 * s.deep as f32; env.mist += 0.0035 * s.deep as f32; for v in &mut sky.top { *v *= 1.0 - 0.3 * s.deep as f32; }
     gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], if alw_core::blocks::is_deco(t.id) { 0.0 } else { s.progress() as f32 })) /* fissures sur les blocs pleins seulement */, s.ghost(), &s.ghost_boxes(), &draws, &ui)
 }
@@ -470,6 +473,11 @@ fn capture(a: &[String]) {
     if scene == "hautes_terres" {
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Highlands) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
         println!("hautes terres : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 4.0, z]; let f = view::norm([a.cos(), -0.12, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.highlands = 1.0; s.tick(0.0, none, Actions::default()); }
+    }
+    if scene == "montagne" {
+        // Le cœur des hautes montagnes, vu d'un vallon vers les crêtes enneigées.
+        let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..900 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Mountains) > 0.97 && c.water == 0.0 && c.h < 86.0 { found = Some((x, z, a, c.h)); break 'p; } } }
+        println!("hautes montagnes : {found:?}"); if let Some((x, z, a, h)) = found { s.sel = 8; s.third = false; s.player.fly = true; s.player.p = [x, h + 14.0, z]; let f = view::norm([a.cos(), 0.05, a.sin()]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); g.settle(); pump(&mut s, &mut g); g.settle(); s.mountains = 1.0; s.tick(0.0, none, Actions::default()); }
     }
     if scene == "cactus" {
         // Le grand cactus le plus proche du cœur du désert, vu de près.
