@@ -286,7 +286,10 @@ impl Session {
         let held = self.inv[self.sel].and_then(|s| md.held(s.item)); let p = &self.player;
         let roll = p.rolling().then_some((p.roll_t / crate::player::ROLL_TIME, p.roll_local));
         let mut o = if self.third { self.anim.third(md, p.p, if p.speed > 0.2 && roll.is_none() { p.move_yaw } else { p.yaw }, p.pitch, held, roll, self.equip.map(|e| e.map(|st| crate::actors::family(st.item)))) } else { self.anim.first(md, view, held, self.shield().map(|st| crate::actors::family(st.item))) };
-        o.extend(self.fauna.draws(md)); o.extend(self.wild.draws(md)); o.extend(self.horde.draws(md)); o.extend(self.town.draws(md)); o.extend(self.loose_draws(md));
+        let n0 = o.len(); o.extend(self.fauna.draws(md)); o.extend(self.wild.draws(md)); o.extend(self.horde.draws(md)); o.extend(self.town.draws(md)); o.extend(self.loose_draws(md));
+        // Les torches et les feux éclairent aussi les bêtes, les créatures et les villageois : le niveau de lumière posée
+        // là où se tient chaque pièce part avec elle (la partie entière paire de `hurt`, lue par le shader).
+        for d in o[n0..].iter_mut() { let lv = self.lamp_at(d.m[12].floor() as i32, (d.m[13] + 0.3).floor() as i32, d.m[14].floor() as i32); if lv > 0 { d.hurt += 2.0 * lv as f32; } }
         // Flèches en vol ou plantées, dans l'axe de leur trajectoire ; le bouchon de la ligne, qui plonge quand ça mord.
         for a in &self.arrows { let h = a.v[0].hypot(a.v[2]).max(1e-6); o.push(Draw { m: crate::view::trs(a.p[0], a.p[1], a.p[2], a.v[0].atan2(a.v[2]), -(a.v[1] / h).atan(), 1.0), r: md.part("arrow"), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 }); }
         if let Some(l) = self.line { let dip = if self.elapsed >= l.bite && self.elapsed <= l.bite + crate::outdoors::BITE_WINDOW { -0.12 - 0.05 * (self.elapsed * 18.0).sin() } else { 0.02 * (self.elapsed * 2.0).sin() }; o.push(Draw { m: crate::view::trs(l.spot[0], l.spot[1] + dip, l.spot[2], 0.0, 0.0, 1.0), r: md.part("bobber"), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 }); }

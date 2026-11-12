@@ -524,6 +524,12 @@ impl Session {
         for dx in -1..=1 { for dz in -1..=1 { for g in self.lamps.get(&(cx + dx, cz + dz)).into_iter().flatten() { let d = (g[0] - x).abs() + (g[1] - y).abs() + (g[2] - z).abs(); if d < 15 { lamp = lamp.max(g[3] - d); } } } }
         sky.max(lamp).clamp(0, 15) as u8
     }
+    /// La lumière des seules sources posées (torches, lanternes, feux) en une case, de 0 à 15.
+    pub fn lamp_at(&self, x: i32, y: i32, z: i32) -> u8 {
+        let n = CX as i32; let (cx, cz) = (x.div_euclid(n), z.div_euclid(n)); let mut lamp = 0i32;
+        for dx in -1..=1 { for dz in -1..=1 { for g in self.lamps.get(&(cx + dx, cz + dz)).into_iter().flatten() { let d = (g[0] - x).abs() + (g[1] - y).abs() + (g[2] - z).abs(); if d < 15 { lamp = lamp.max(g[3] - d); } } } }
+        lamp.clamp(0, 15) as u8
+    }
     /// La région (grille de `region` blocs) et le biome principal du lieu : la clé de l'adaptation.
     pub fn region_key(&self, x: f64, z: f64) -> (i32, i32, u8) { let r = bestiary().rules.region; ((x / r).floor() as i32, (z / r).floor() as i32, self.gen.climate.at(x, z).main() as u8) }
     /// Le danger ici, décomposé (biome, distance, adaptation, structure, événement).
