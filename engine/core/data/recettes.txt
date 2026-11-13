@@ -231,6 +231,16 @@ oak_beam 1 | etabli | oak_log 1 | batir
 cart 1 | etabli | plank 8, iron_ingot 1 | decor
 trough 1 | etabli | plank 5, iron_ingot 1 | decor
 tool_rack 1 | etabli | plank 3, stick 4, iron_ingot 1 | decor
+bell 1 | enclume | copper_ingot 6, plank 2 | decor
+chain 4 | enclume | iron_ingot 1 | decor
+wall_clock 1 | etabli | plank 2, iron_ingot 1, copper_ingot 1 | decor
+cross 1 | enclume | copper_ingot 3 | decor
+flag 1 | etabli | stick 3, wool_blue 2 | decor
+tanning_vat 1 | taille | stone_bricks 4 | decor
+lime_vat 1 | taille | stone_bricks 4 | decor
+hides 1 | etabli | leather 3, stick 2 | decor
+sawhorse 1 | etabli | plank 4, oak_log 1 | decor
+chopping_block 1 | main | oak_log 1 | decor
 limestone_masonry_stairs 4 | taille | limestone_masonry 3, !hammer 1 | batir
 limestone_masonry_slab 4 | taille | limestone_masonry 2, !hammer 1 | batir
 limestone_masonry_vslab 4 | taille | limestone_masonry 2, !hammer 1 | batir

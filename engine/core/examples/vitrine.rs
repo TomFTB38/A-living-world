@@ -4,10 +4,10 @@ use alw_core::{batisse::{dress_props, Lot, Work}, blocks::{by_name, idx, CH, CX}
 use std::collections::HashMap;
 fn main() {
     let a: Vec<String> = std::env::args().collect(); let out = &a[1];
-    let arch = match a.get(2).map(|s| s.as_str()).unwrap_or("chaumiere") { "maison" => Arch::TimberHouse, "forge" => Arch::Forge, "auberge" => Arch::Inn, "grange" => Arch::Barn, _ => Arch::Cottage };
+    let arch = match a.get(2).map(|s| s.as_str()).unwrap_or("chaumiere") { "maison" => Arch::TimberHouse, "forge" => Arch::Forge, "auberge" => Arch::Inn, "grange" => Arch::Barn, "villageois" => Arch::House, "moulin" => Arch::Mill, "tannerie" => Arch::Tannery, "eglise" => Arch::Chapel, "grande_mairie" => Arch::TownHall, "petite_mairie" => Arch::Hall, "atelier" => Arch::Woodshop, "ferme" => Arch::Farm, "etable" => Arch::Fold, "ecurie" => Arch::Stable, _ => Arch::Cottage };
     let cond = match a.get(3).map(|s| s.as_str()).unwrap_or("entretenu") { "ancien" => Cond::Old, "endommage" => Cond::Damaged, "abandonne" => Cond::Abandoned, "chantier" => Cond::Building, "repare" => Cond::Repaired, _ => Cond::Kept };
     let yaw: f64 = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(-1.15); let dist: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(60.0); let pitch: f64 = a.get(6).and_then(|s| s.parse().ok()).unwrap_or(0.38);
-    let y0 = 20; let mut k = Work::default(); let n = arch.variants() as i32; let stride = 22;
+    let y0 = 20; let mut k = Work::default(); let n = arch.variants() as i32; let stride = 26;
     for v in 0..n { let h = 0.13 + 0.37 * v as f64 % 1.0; let rich = if v % 2 == 0 { 0.4 } else { 0.8 }; let craft = if arch == Arch::Forge { Some(if v == 2 { "maitre_forgeron" } else { "forgeron" }) } else { None };
         let mut sp = Spec::new(arch, v as u8, h, rich, craft, cond); if arch == Arch::Forge && v == 2 { sp = Spec::new(arch, 2, h, rich, Some("forgeron"), cond); }
         let lot = Lot { o: (v * stride + 8, 8), u: (1, 0), w: (0, 1) }; let _ = raise(&mut k, lot, &sp, y0); }

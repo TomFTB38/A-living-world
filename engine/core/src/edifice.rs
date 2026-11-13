@@ -9,15 +9,19 @@ use crate::blocks::Id;
 
 /// Les archétypes de bâtiments.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Arch { Cottage, TimberHouse, Forge, Inn, Barn, Workshop, Chapel, Mill }
+pub enum Arch { Cottage, TimberHouse, Forge, Inn, Barn, Workshop, Chapel, Mill, House, Tannery, Woodshop, TownHall, Hall, Farm, Fold, Stable }
 /// L'état d'un bâtiment. Il est déduit de l'âge, de la richesse et de l'orientation du village ; il pourra évoluer en jeu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cond { New, Kept, Old, Repaired, Damaged, Abandoned, Building }
 impl Cond { pub fn label(self) -> &'static str { match self { Cond::New => "neuf", Cond::Kept => "entretenu", Cond::Old => "ancien", Cond::Repaired => "réparé", Cond::Damaged => "endommagé", Cond::Abandoned => "abandonné", Cond::Building => "en construction" } } }
 impl Arch {
-    pub fn label(self) -> &'static str { match self { Arch::Cottage => "chaumière", Arch::TimberHouse => "maison à colombages", Arch::Forge => "forge", Arch::Inn => "auberge", Arch::Barn => "grange", Arch::Workshop => "atelier", Arch::Chapel => "chapelle", Arch::Mill => "moulin" } }
+    pub fn label(self) -> &'static str { match self { Arch::Cottage => "chaumière", Arch::TimberHouse => "maison à colombages", Arch::Forge => "forge", Arch::Inn => "auberge", Arch::Barn => "grange", Arch::Workshop => "atelier", Arch::Chapel => "église", Arch::Mill => "moulin", Arch::House => "maison de villageois", Arch::Tannery => "tannerie", Arch::Woodshop => "atelier du bûcheron", Arch::TownHall => "grande mairie", Arch::Hall => "petite mairie", Arch::Farm => "ferme", Arch::Fold => "étable", Arch::Stable => "écurie" } }
+    /// Le patron de construction de l'archétype, s'il en a un.
+    pub fn patron(self) -> Option<crate::patrons::Kind> { use crate::patrons::Kind as K; Some(match self { Arch::House => K::Maison, Arch::Forge => K::Forge, Arch::Inn => K::Auberge, Arch::Mill => K::Moulin, Arch::Tannery => K::Tanneur, Arch::Chapel => K::Eglise, Arch::TownHall => K::GrandeMairie, Arch::Hall => K::PetiteMairie, Arch::Woodshop => K::Atelier, Arch::Farm => K::Ferme, Arch::Fold => K::Etable, Arch::Stable => K::Ecurie, _ => return None }) }
+    /// Une bâtisse d'élevage ou de récolte, près des champs ?
+    pub fn rural(self) -> bool { matches!(self, Arch::Barn | Arch::Farm | Arch::Fold | Arch::Stable) }
     /// Nombre de variantes géométriques.
-    pub fn variants(self) -> u8 { match self { Arch::Cottage | Arch::TimberHouse => 6, Arch::Forge | Arch::Inn => 3, Arch::Barn => 4, _ => 1 } }
+    pub fn variants(self) -> u8 { match self { Arch::Cottage | Arch::TimberHouse => 6, Arch::Forge | Arch::Inn => 3, Arch::Barn => 4, Arch::House => 8, a if a.patron().is_some() => 2, _ => 1 } }
 }
 
 /// La fiche d'un bâtiment : archétype, variante, dimensions du corps principal, étages, état, graine, richesse, métier.
@@ -26,6 +30,7 @@ pub struct Spec { pub arch: Arch, pub var: u8, pub w: i32, pub d: i32, pub floor
 impl Spec {
     pub fn new(arch: Arch, var: u8, h: f64, rich: f64, craft: Option<&'static str>, cond: Cond) -> Spec {
         let k = |n: i32| (h * 7919.0).floor() as i32 % n; let var = var % arch.variants();
+        if let (Some(kd), false) = (arch.patron(), cond == Cond::Building) { let pl = crate::patrons::plan(kd, var); return Spec { arch, var, w: pl.w, d: pl.d, floors: 1, cond, h, rich, craft, door_side: 0 }; }
         let (w, d, floors, door_side) = match arch {
             Arch::Cottage => (5 + k(3), 6 + k(2) + if var == 1 { 3 } else { 0 }, 1, 0),
             Arch::TimberHouse => match var { 1 => (5, 6 + k(2), 3, 0), 2 => (6 + k(2), 8, 2, 1), _ => (5 + k(3), 6 + k(3), 2, 0) },
@@ -35,13 +40,15 @@ impl Spec {
             Arch::Workshop => { let (w, d) = Plan::Shop("").size(); (w, d, 2, 0) }
             Arch::Chapel => { let (w, d) = Plan::Church.size(); (w, d, 1, 0) }
             Arch::Mill => (3, 3, 1, 0),
+            _ => (5, 6, 1, 0),
         };
         Spec { arch, var, w, d, floors, cond, h, rich, craft, door_side }
     }
     /// Habité (un lit, une porte, des habitants) ?
-    pub fn dwelling(&self) -> bool { !matches!(self.arch, Arch::Barn | Arch::Chapel | Arch::Mill) && !matches!(self.cond, Cond::Abandoned | Cond::Building) }
+    pub fn dwelling(&self) -> bool { !matches!(self.arch, Arch::Barn | Arch::Chapel | Arch::Mill | Arch::Fold | Arch::Stable | Arch::TownHall | Arch::Hall) && !matches!(self.cond, Cond::Abandoned | Cond::Building) }
     /// L'emprise au sol, débords de toit, annexes et abords compris, en coordonnées du terrain : [u0, w0, u1, w1] inclus.
     pub fn extent(&self) -> [i32; 4] {
+        if let (Some(k), false) = (self.arch.patron(), self.cond == Cond::Building) { return crate::patrons::plan(k, self.var).ext; }
         let (w, d) = (self.w, self.d); let mut e = [-1, -1, w, d];
         match (self.arch, self.var) {
             (Arch::Cottage, 2) => e[2] = w + 3, (Arch::Cottage, 4) => e[0] = -6, (Arch::Cottage, 5) => e[2] = w + 2, (Arch::Cottage, _) => e[2] = w + 1,
@@ -49,7 +56,7 @@ impl Spec {
             (Arch::Forge, 1) => { e[2] = w + 5; e[0] = -2; } (Arch::Forge, 2) => e[0] = -4, (Arch::Forge, _) => e[0] = -2,
             (Arch::Inn, 1) => { e[0] = -5; e[2] = w + 1; } (Arch::Inn, _) => e[2] = w + 5,
             (Arch::Barn, 2) => { e[2] = w + 3; e[1] = -4; } (Arch::Barn, _) => { e[1] = -4; e[2] = w + 1; }
-            (Arch::Workshop, _) => { e = [-3, -2, w + 1, d]; } (Arch::Chapel, _) => { e = [-1, -4, w, d]; } (Arch::Mill, _) => { e = [-3, -6, 5, 4]; }
+            (Arch::Workshop, _) => { e = [-3, -2, w + 1, d]; } (Arch::Chapel, _) => { e = [-1, -4, w, d]; } (Arch::Mill, _) => { e = [-3, -6, 5, 4]; } _ => {}
         }
         e
     }
@@ -112,7 +119,15 @@ fn stair(b: &mut B, u: i32, ww0: i32, y: i32) {
 /// Bâtit la fiche `sp` sur son terrain, le sol à `y0`. Rend la porte, le poste et le lit.
 pub fn raise(k: &mut Work, lot: Lot, sp: &Spec, y0: i32) -> Made {
     const PAINT: [C3; 5] = [[0.24, 0.36, 0.26], [0.22, 0.3, 0.42], [0.5, 0.18, 0.14], [0.38, 0.3, 0.2], [0.3, 0.4, 0.42]];
-    // Les plans encore anciens : chapelle, moulin, ateliers.
+    // Les patrons de construction : chaque bâtiment reproduit sa planche, bloc par bloc.
+    if let (Some(kind), false) = (sp.arch.patron(), sp.cond == Cond::Building) {
+        let aged = matches!(sp.cond, Cond::Old | Cond::Damaged | Cond::Abandoned);
+        let look = crate::patrons::Look { roof: if aged { "mossy_roof_tiles" } else if sp.rich > 0.72 { "slate" } else { "roof_tiles" }, infill: if sp.rich > 0.75 && sp.h > 0.7 { "plaster_ochre" } else { "plaster" } };
+        let bt = crate::patrons::build(k, lot, y0, kind, sp.var, look, sp.h);
+        if aged && sp.arch == Arch::House { let mut r = crate::noise::Rng::new((sp.h * 9.1e6) as u32 + 3); for _ in 0..3 { let u = r.int(0, sp.w - 1); for y in y0 + 1..=y0 + r.int(1, 2) { k.put(lot.cell(u, y, sp.d), id("vine")); } } } // le lierre gagne le mur du fond
+        return Made { door: bt.door.map(|x| (0, x)), spot: bt.spot, bed: bt.bed };
+    }
+    // Les plans encore anciens : ateliers des autres métiers.
     match sp.arch {
         Arch::Chapel | Arch::Mill | Arch::Workshop => {
             let plan = match sp.arch { Arch::Chapel => Plan::Church, Arch::Mill => Plan::Mill, _ => Plan::Shop(sp.craft.unwrap_or("menuisier")) };

@@ -375,6 +375,10 @@ defs.push(['marram', 'deco', null, 0.02, { model: 'marram', drop: null }]);
 // Grands coraux : des blocs pleins de cinq couleurs, sur une même matière poreuse ; bois d'épave.
 for (const [n, t] of [['coral_block_red', [1.06, 0.44, 0.4]], ['coral_block_orange', [1.1, 0.62, 0.26]], ['coral_block_purple', [0.78, 0.4, 0.94]], ['coral_block_yellow', [1.1, 0.94, 0.42]], ['coral_block_blue', [0.4, 0.8, 0.98]]]) cube(n, 'coral', 0.9, 'rock', { tint: t });
 cube('wreck_planks', 'planks_wreck', 0.8, 'wood');
+// Patrons médiévaux : cloche, chaîne, horloge, croix, drapeau, cuves, peaux, chevalet de sciage, billot.
+for (const [n, h, p] of [['wall_clock', 0.4, {}], ['hides', 0.3, {}], ['sawhorse', 0.6, { solid: true }]]) turner(n, h, 'wood', p);
+defs.push(['bell', 'deco', null, 0.8, { model: 'bell', cat: 'rock' }], ['chain', 'deco', null, 0.5, { model: 'chain', cat: 'rock' }], ['cross', 'deco', null, 0.6, { model: 'cross', cat: 'rock' }], ['flag', 'deco', null, 0.3, { model: 'flag', cat: 'wood' }],
+  ['tanning_vat', 'deco', null, 1.5, { model: 'tanning_vat', solid: true, cat: 'rock' }], ['lime_vat', 'deco', null, 1.5, { model: 'lime_vat', solid: true, cat: 'rock' }], ['chopping_block', 'deco', null, 0.8, { model: 'chopping_block', solid: true, cat: 'wood' }]);
 // Refonte des villages : charrette, abreuvoir, râtelier d'outils des champs (orientables), tas de charbon de bois.
 for (const [n, h, p] of [['cart', 0.8, { solid: true }], ['trough', 0.6, { solid: true }], ['tool_rack', 0.4, {}]]) turner(n, h, 'wood', p);
 defs.push(['coal_heap', 'deco', null, 0.6, { model: 'coal_heap', cat: 'rock', drop: 'charcoal' }]);

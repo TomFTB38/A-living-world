@@ -9,7 +9,7 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 63] = ["cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 73] = ["bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
@@ -59,6 +59,43 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
         else { k.b([x - 0.13, y, z - 0.035, x + 0.1, y + 0.05, z + 0.035], bc); k.b([x - 0.1, y + 0.05, z - 0.02, x + 0.08, y + 0.06, z + 0.02], bd); k.b([x + 0.1, y + 0.005, z - 0.05, x + 0.16, y + 0.04, z + 0.05], bd); k.b([x - 0.12, y + 0.02, z - 0.036, x - 0.1, y + 0.035, z - 0.03], [0.05, 0.05, 0.05]); }
     };
     match m {
+        // Patrons médiévaux : cloche, chaîne, horloge murale, croix, drapeau, cuves du tanneur, peaux qui sèchent, chevalet, billot.
+        "bell" => { // cloche de bronze sous son joug de chêne, battant de fer
+            k.b([0.05, 0.9, 0.44, 0.95, 1.0, 0.56], DARK); k.b([0.44, 0.8, 0.46, 0.56, 0.9, 0.54], IRON);
+            for (i, (r0, y0)) in [(0.12, 0.72), (0.16, 0.6), (0.2, 0.46), (0.24, 0.32), (0.29, 0.2)].iter().enumerate() { let bz = [0.72, 0.5, 0.24]; let c = tone(bz, 1.0 + i as f64 * 0.04); k.b([0.5 - r0, *y0, 0.5 - r0, 0.5 + r0, y0 + 0.14, 0.5 + r0], c); }
+            k.b([0.19, 0.16, 0.19, 0.81, 0.21, 0.81], tone([0.72, 0.5, 0.24], 1.2)); k.b([0.47, 0.08, 0.47, 0.53, 0.3, 0.53], IRON);
+        }
+        "chain" => { for i in 0..8 { let y = i as f64 * 0.125; if i % 2 == 0 { k.b([0.44, y, 0.47, 0.56, y + 0.15, 0.53], IRON); } else { k.b([0.47, y, 0.44, 0.53, y + 0.15, 0.56], tone(IRON, 1.3)); } } }
+        "wall_clock" => { // horloge : cadran blanc cerclé de pierre, chiffres, aiguilles de fer
+            k.b([0.04, 0.04, 0.86, 0.96, 0.96, 0.98], [0.62, 0.6, 0.56]); k.b([0.12, 0.12, 0.84, 0.88, 0.88, 0.86], [0.85, 0.66, 0.26]); k.b([0.16, 0.16, 0.82, 0.84, 0.84, 0.84], [0.93, 0.9, 0.82]);
+            for h in 0..12 { let a = h as f64 / 12.0 * std::f64::consts::TAU; let (x, y) = (0.5 + 0.27 * a.sin(), 0.5 + 0.27 * a.cos()); k.b([x - 0.02, y - 0.02, 0.81, x + 0.02, y + 0.02, 0.82], IRON); }
+            k.b([0.48, 0.48, 0.8, 0.52, 0.74, 0.81], IRON); k.b([0.48, 0.48, 0.79, 0.68, 0.52, 0.8], IRON); k.b([0.46, 0.46, 0.78, 0.54, 0.54, 0.8], GOLD);
+        }
+        "cross" => { k.b([0.42, 0.0, 0.42, 0.58, 1.0, 0.58], GOLD); k.b([0.14, 0.6, 0.42, 0.86, 0.76, 0.58], GOLD); k.b([0.38, 0.0, 0.38, 0.62, 0.08, 0.62], tone(GOLD, 0.8)); }
+        "flag" => { // mât et drapeau bleu frappé d'une fleur d'or
+            k.b([0.45, 0.0, 0.45, 0.55, 1.0, 0.55], DARK); k.b([0.43, 0.98, 0.43, 0.57, 1.04, 0.57], GOLD);
+            for i in 0..6 { let x0 = 0.55 + i as f64 * 0.07; let dy = (i as f64 * 0.9).sin() * 0.03; k.b([x0, 0.55 + dy, 0.48, x0 + 0.07, 0.95 + dy, 0.52], if i % 3 == 1 { [0.2, 0.3, 0.6] } else { [0.14, 0.22, 0.5] }); }
+            k.b([0.68, 0.68, 0.47, 0.8, 0.82, 0.53], GOLD);
+        }
+        "tanning_vat" | "lime_vat" => { // cuve de pierre maçonnée, le bain dedans (tan brun ou chaux laiteuse), un bâton
+            let st = [0.6, 0.58, 0.54]; k.b([0.0, 0.0, 0.0, 1.0, 0.12, 1.0], tone(st, 0.85));
+            for (a, b2) in [([0.0, 0.0], [1.0, 0.12]), ([0.0, 0.88], [1.0, 1.0])] { k.b([a[0], 0.12, a[1], b2[0], 0.86, b2[1]], st); k.b([a[1], 0.12, a[0], b2[1], 0.86, b2[0]], tone(st, 0.95)); }
+            let liq = if m == "tanning_vat" { [0.36, 0.22, 0.1] } else { [0.78, 0.84, 0.86] }; k.b([0.12, 0.12, 0.12, 0.88, 0.7, 0.88], liq);
+            k.b([0.6, 0.5, 0.3, 0.66, 1.1, 0.36], WOOD);
+        }
+        "hides" => { // peaux qui sèchent sur une perche, contre le mur
+            k.b([0.0, 0.88, 0.8, 1.0, 0.94, 0.86], WOOD); let hc = [[0.62, 0.42, 0.26], [0.78, 0.6, 0.42], [0.48, 0.3, 0.18]];
+            for (i, x) in [0.06, 0.38, 0.7].iter().enumerate() { let c = hc[i]; k.b([*x, 0.3, 0.84, x + 0.26, 0.88, 0.86], c); k.b([x + 0.03, 0.2, 0.84, x + 0.23, 0.3, 0.86], tone(c, 0.9)); k.b([*x, 0.86, 0.79, x + 0.26, 0.9, 0.87], tone(c, 0.8)); }
+        }
+        "sawhorse" => { // chevalet de sciage : deux X de chêne, une bûche dessus, la scie posée
+            for z in [0.15, 0.78] { for (a, b2) in [(0.1, 0.9), (0.9, 0.1)] { for i in 0..6 { let t = i as f64 / 5.0; let x = a + (b2 - a) * t; k.b([x - 0.05, t * 0.6, z, x + 0.05, t * 0.6 + 0.12, z + 0.07], WOOD); } } }
+            k.b([0.2, 0.55, 0.0, 0.8, 0.85, 1.0], [0.5, 0.36, 0.22]); k.b([0.24, 0.85, 0.0, 0.76, 0.88, 0.05], [0.8, 0.68, 0.48]); k.b([0.24, 0.85, 0.95, 0.76, 0.88, 1.0], [0.8, 0.68, 0.48]);
+            k.b([0.35, 0.86, 0.3, 0.38, 0.98, 0.9], [0.7, 0.72, 0.76]); k.b([0.33, 0.86, 0.9, 0.4, 1.0, 1.0], WOOD);
+        }
+        "chopping_block" => { // billot : un gros rond de chêne, la hache plantée
+            k.b([0.18, 0.0, 0.18, 0.82, 0.55, 0.82], [0.48, 0.34, 0.2]); k.b([0.2, 0.55, 0.2, 0.8, 0.57, 0.8], [0.76, 0.62, 0.42]);
+            k.b([0.48, 0.5, 0.45, 0.62, 0.66, 0.55], [0.7, 0.72, 0.76]); k.b([0.55, 0.6, 0.48, 0.6, 1.05, 0.52], WOOD);
+        }
         // Refonte des villages : charrette, abreuvoir, tas de charbon de bois, râtelier d'outils des champs.
         "cart" => { // charrette à bras : caisse de planches à ridelles, deux grandes roues à rayons, brancards posés au sol, un peu de foin
             k.b([0.12, 0.42, 0.08, 0.88, 0.48, 0.92], WOOD); for x in [0.12, 0.84] { k.b([x, 0.48, 0.08, x + 0.04, 0.7, 0.92], tone(WOOD, 0.9)); } for z in [0.08, 0.88] { k.b([0.12, 0.48, z, 0.88, 0.66, z + 0.04], tone(WOOD, 0.9)); }
