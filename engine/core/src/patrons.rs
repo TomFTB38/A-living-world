@@ -16,11 +16,11 @@ use crate::shapes::{facing_of, variant};
 pub(crate) struct P<'a> { pub k: &'a mut Work, pub lot: Lot, pub y0: i32, pub mirror: bool, pub w: i32, pub d: i32, pub h: f64, pub rec: Rec }
 /// Ce que le patron a posé et que l'habillage en relief reprendra : fenêtres, portes, pans de bois, toits, sablières, cheminées.
 #[derive(Default)]
-pub(crate) struct Rec { wins: Vec<(i32, i32, i32, bool)>, doors: Vec<(i32, i32, i32, i32, i32)>, frames: Vec<((i32, i32), (i32, i32), (i32, i32), i32)>, roofs: Vec<((i32, i32), (i32, i32), i32, i32, bool, String, Option<String>)>, belts: Vec<((i32, i32), (i32, i32), i32)>, caps: Vec<(i32, i32, i32)>, pyrs: Vec<(i32, i32, i32, i32, String)> }
+pub(crate) struct Rec { wins: Vec<(i32, i32, i32, bool)>, doors: Vec<(i32, i32, i32, i32, i32)>, frames: Vec<((i32, i32), (i32, i32), (i32, i32), i32)>, roofs: Vec<((i32, i32), (i32, i32), i32, i32, bool, String, Option<String>)>, belts: Vec<((i32, i32), (i32, i32), i32)>, lamps: Vec<(i32, i32, i32)>, pyrs: Vec<(i32, i32, i32, i32, String)> }
 impl P<'_> {
     fn lx(&self, x: i32) -> i32 { if self.mirror { self.w - 1 - x } else { x } }
     pub fn put(&mut self, x: i32, y: i32, z: i32, b: Id) { let c = self.lot.cell(self.lx(x), self.y0 + y, z); self.k.put(c, b); }
-    pub fn n(&mut self, x: i32, y: i32, z: i32, name: &str) { self.put(x, y, z, id(name)); }
+    pub fn n(&mut self, x: i32, y: i32, z: i32, name: &str) { if name == "lantern" || name == "chandelier" { self.rec.lamps.push((x, y, z)); } self.put(x, y, z, id(name)); }
     /// La case porte-t-elle déjà un bloc ?
     pub fn filled(&self, x: i32, y: i32, z: i32) -> bool { let c = self.lot.cell(self.lx(x), self.y0 + y, z); self.k.blocks.iter().rev().find(|b| (b.0, b.1, b.2) == (c[0], c[1], c[2])).is_some_and(|b| b.3 != 0) }
     pub fn fill(&mut self, x: (i32, i32), y: (i32, i32), z: (i32, i32), name: &str) { let b = id(name); for xx in x.0..=x.1 { for yy in y.0..=y.1 { for zz in z.0..=z.1 { self.put(xx, yy, zz, b); } } } }
@@ -48,14 +48,14 @@ impl P<'_> {
         let xy = |a: i32, b: i32| if along_z { (a, b) } else { (b, a) }; let up = |s: i32| if along_z { (s, 0) } else { (0, s) };
         let mut k = 0;
         loop { let (al, ar, yy) = (a0 - ov + k, a1 + ov - k, y + k); if al > ar { break; }
-            for b in b0..=b1 {
+            for b in b0 - ov..=b1 + ov {
                 if al == ar { let (px, pz) = xy(al, b); self.n(px, yy, pz, mat); continue; }
                 let (lx, lz) = xy(al, b); let (rx, rz) = xy(ar, b); let (ux, uz) = up(1); let (vx, vz) = up(-1);
                 self.stair(lx, yy, lz, &st, ux, uz, false); self.stair(rx, yy, rz, &st, vx, vz, false);
                 if k > 1 { self.stair(lx, yy - 1, lz, &st, vx, vz, true); self.stair(rx, yy - 1, rz, &st, ux, uz, true); }
             }
             if let Some(g) = gable { for b in [b0, b1] { for a in (al + 1).max(a0)..=(ar - 1).min(a1) { let (px, pz) = xy(a, b); if k > 0 || !self.filled(px, yy, pz) { self.n(px, yy, pz, g); } } } }
-            if al + 1 >= ar { if al + 1 == ar { for b in b0..=b1 { let (px, pz) = xy(al, b); let (qx, qz) = xy(ar, b); self.n(px, yy + 1, pz, &format!("{mat}_slab")); self.n(qx, yy + 1, qz, &format!("{mat}_slab")); } } break; }
+            if al + 1 >= ar { if al + 1 == ar { for b in b0 - ov..=b1 + ov { let (px, pz) = xy(al, b); let (qx, qz) = xy(ar, b); self.n(px, yy + 1, pz, &format!("{mat}_slab")); self.n(qx, yy + 1, qz, &format!("{mat}_slab")); } } break; }
             k += 1;
         }
     }
@@ -85,7 +85,8 @@ impl P<'_> {
         for x in ext[0]..=ext[2] { for z in ext[1]..=ext[3] { for y in 1..=h { self.put(x, y, z, 0); } } }
         for x in body[0]..=body[2] { for z in body[1]..=body[3] { for y in -3..0 { self.n(x, y, z, "cobblestone"); } let edge = x == body[0] || x == body[2] || z == body[1] || z == body[3]; self.n(x, 0, z, if edge { found } else { floor }); } }
     }
-    pub fn cap(&mut self, x: i32, y: i32, z: i32) { self.rec.caps.push((x, y, z)); }
+    /// Le chapeau d'une cheminée : une dalle de pierre posée sur le conduit.
+    pub fn cap(&mut self, x: i32, y: i32, z: i32) { self.n(x, y + 1, z, "stone_bricks_slab"); }
     /// Le bloc posé en dernier sur une case (0 : rien).
     fn at(&self, x: i32, y: i32, z: i32) -> Id { let c = self.lot.cell(self.lx(x), self.y0 + y, z); self.k.blocks.iter().rev().find(|b| (b.0, b.1, b.2) == (c[0], c[1], c[2])).map_or(0, |b| b.3) }
     fn name(&self, x: i32, y: i32, z: i32) -> &'static str { crate::blocks::BLOCKS[self.at(x, y, z) as usize].name }
@@ -159,61 +160,21 @@ impl P<'_> {
         // ---- abouts des poutres de plancher, qui dépassent des sablières sur les longs pans
         for &(xr, zr, y) in &rec.belts { for x in (xr.0 + 1..xr.1).step_by(2) { for (z, s) in [(zr.0, -1.0), (zr.1, 1.0)] { if !self.name(x, y, z).starts_with("oak_log") { continue; }
             let zf = if s < 0.0 { z as f64 } else { z as f64 + 1.0 }; self.block((x, y, z), (x as f64 + 0.32, y as f64 + 0.3, zf.min(zf + s * 0.22)), (x as f64 + 0.68, y as f64 + 0.7, zf.max(zf + s * 0.22)), END); } } }
-        // ---- toits : un vrai pan incliné à 45° posé sur les gradins d'escaliers (qui restent dessous pour l'intérieur et
-        // les collisions), des rangs de tuiles en relief, le faîtage en tuiles faîtières, de larges rives qui cachent les marches
-        let unit = |v: [f64; 3]| { let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-9); [v[0] / l, v[1] / l, v[2] / l] };
-        let add = |a: [f64; 3], b: [f64; 3]| [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; let mul = |a: [f64; 3], k: f64| [a[0] * k, a[1] * k, a[2] * k];
-        for (xr, zr, y, ov, along_z, mat, gab) in &rec.roofs { let (y, ov, along_z) = (*y, *ov, *along_z); let ((a0, a1), (b0, b1)) = if along_z { (*xr, *zr) } else { (*zr, *xr) };
-            let (lo, hi) = ((a0 - ov) as f64, (a1 + ov + 1) as f64); let half = (hi - lo) * 0.5; let ac = lo + half; let peak = y as f64 + 1.0 + half;
-            let pt = |a: f64, yy: f64, b: f64| if along_z { (a, yy, b) } else { (b, yy, a) }; let vec = |da: f64, dy: f64, db: f64| if along_z { (da, dy, db) } else { (db, dy, da) };
-            let bb = ((b0 - ov) as f64 - 0.08, (b1 + ov + 1) as f64 + 0.08); let bm = (bb.0 + bb.1) * 0.5;
-            let at = { let bmid = (b0 + b1) / 2; let am = (ac - 0.5).floor() as i32; let (x, z) = if along_z { (am, bmid) } else { (bmid, am) }; let yy = (y..y + 30).rev().find(|&yy| self.at(x, yy, z) != 0).unwrap_or(y); (x, yy, z) }; let ly = crate::batisse::layer(id(mat)); let slope_world = self.fv(vec(1.0, 0.0, 0.0)); let rot = if slope_world[0].abs() > 0.5 { 1 } else { 2 };
-            let along = self.fv(vec(0.0, 0.0, (bb.1 - bb.0) * 0.5)); let (t, e) = (0.16, 0.3);
-            for sd in [-1.0f64, 1.0] {
-                let (ae, ye) = (if sd < 0.0 { lo - e } else { hi + e }, y as f64 + 1.0 - e); // le bord de l'avant-toit
-                let nrm = unit(self.fv(vec(sd, 1.0, 0.0))); let sl = self.fv(vec(ac - ae, peak - ye, 0.0)); let len = (ac - ae).abs() * std::f64::consts::SQRT_2;
-                let p0 = pt((ae + ac) * 0.5, (ye + peak) * 0.5, bm); let c = add(self.fp(p0.0, p0.1, p0.2), mul(nrm, t * 0.5)); let cw = self.cw(at);
-                self.k.solid(cw, c, [along, mul(sl, 0.5), mul(nrm, t * 0.5)], [1.0, 1.0, 1.0], ly, rot);
-                let n = (len / 0.5) as i32; for i in 1..n { let f = i as f64 / n as f64; let q = pt(ae + (ac - ae) * f, ye + (peak - ye) * f, bm); let q = add(self.fp(q.0, q.1, q.2), mul(nrm, t + 0.02));
-                    self.k.solid(cw, q, [along, mul(unit(sl), 0.04), mul(nrm, 0.03)], [0.82, 0.82, 0.82], ly, rot); }
-                // les rives : une planche de chêne sous le bord du pan, au bout du débord
-                for (b, o) in [(bb.0, 0.02), (bb.1, -0.02)] { let (pa, pb) = (pt(ae, ye, b + o), pt(ac, peak, b + o)); let sh = mul(nrm, -0.1);
-                    let (wa, wb) = (add(self.fp(pa.0, pa.1, pa.2), sh), add(self.fp(pb.0, pb.1, pb.2), sh)); let side = self.fv(vec(0.0, 0.0, 1.0)); self.k.bar(cw, wa, wb, side, 0.2, 0.05, OAK, -1.0); }
-                // le haut des pignons : une bande de la matière du pignon cache les marches des escaliers sous le pan
-                if let Some(g) = gab { let gl = crate::batisse::layer(id(g)); let aw = if sd < 0.0 { a0 as f64 } else { (a1 + 1) as f64 }; let yw = y as f64 + 1.0 + (aw - lo).min(hi - aw);
-                    for bq in [b0 as f64 - 0.03, (b1 + 1) as f64 + 0.03] { let q = [pt(aw, yw - 0.02, bq), pt(ac, peak - 0.02, bq), pt(ac, peak - 2.1, bq), pt(aw, yw - 2.1, bq)];
-                        let q = q.map(|v| self.fp(v.0, v.1, v.2)); self.k.quad(cw, q, [1.0, 1.0, 1.0], gl, 0); } }
-            }
-            let r = 0.2; let cw = self.cw(at); let q = pt(ac, peak + t * 0.9, bm); let c = self.fp(q.0, q.1, q.2);
-            let (d1, d2) = (self.fv(vec(r, r, 0.0)), self.fv(vec(-r, r, 0.0))); self.k.solid(cw, c, [along, d1, d2], [0.78, 0.78, 0.78], ly, rot);
-        }
-        // ---- toits en pyramide : quatre faces lisses et les arêtiers
-        for (cx, cz, r, y, mat) in &rec.pyrs { let at = (*cx, *y + *r, *cz); let (cxf, czf, r, y) = (*cx as f64 + 0.5, *cz as f64 + 0.5, *r as f64, *y as f64); let ly = crate::batisse::layer(id(mat));
-            let e = 0.3; let (lo, yb) = (r + 0.5 + e, y + 1.0 - e); let apex = (cxf, y + 1.0 + r + 0.5 + 0.06, czf);
-            let cor = [(-lo, -lo), (lo, -lo), (lo, lo), (-lo, lo)]; let cw = self.cw(at); let ap = self.fp(apex.0, apex.1, apex.2);
-            for i in 0..4 { let (a, b) = (cor[i], cor[(i + 1) % 4]); let (pa, pb) = (self.fp(cxf + a.0, yb + 0.06, czf + a.1), self.fp(cxf + b.0, yb + 0.06, czf + b.1));
-                let face_x = (a.0 - b.0).abs() < 0.01; let wv = self.fv(if face_x { (1.0, 0.0, 0.0) } else { (0.0, 0.0, 1.0) }); let rot = if wv[0].abs() > 0.5 { 1 } else { 2 };
-                self.k.quad(cw, [pa, pb, ap, ap], [1.0, 1.0, 1.0], ly, rot);
-                self.k.bar(cw, pa, ap, [0.0, 1.0, 0.0], 0.09, 0.07, [0.72, 0.72, 0.72], ly); }
-        }
-        // ---- chapeaux de cheminée
-        for &(x, y, z) in &rec.caps { let (xf, yf, zf) = (x as f64, y as f64 + 1.0, z as f64);
-            self.block((x, y, z), (xf - 0.12, yf, zf - 0.12), (xf + 1.12, yf + 0.16, zf + 1.12), STONE);
-            self.block((x, y, z), (xf + 0.3, yf + 0.16, zf + 0.3), (xf + 0.7, yf + 0.45, zf + 0.7), [0.55, 0.3, 0.22]); }
+        // ---- les lanternes et les lustres pendent à une chaîne jusqu'au plafond ou à la poutre au-dessus ; sans rien
+        // au-dessus d'eux, ils se posent sur un poteau jusqu'au sol
+        for &(x, y, z) in &rec.lamps { if !self.name(x, y, z).starts_with("lantern") && !self.name(x, y, z).starts_with("chandelier") { continue; }
+            if let Some(top) = (y + 1..y + 9).find(|&yy| self.at(x, yy, z) != 0) { for yy in y + 1..top { self.n(x, yy, z, "chain"); } continue; }
+            if let Some(bot) = (y - 8..y).rev().find(|&yy| self.at(x, yy, z) != 0) { for yy in bot + 1..y { self.n(x, yy, z, "fence"); } } }
     }
     /// Une corniche de pierre en relief autour d'un rectangle de murs, au sommet de la rangée y.
     pub fn cornice(&mut self, x: (i32, i32), z: (i32, i32), y: i32) {
-        const C: [f64; 3] = [0.58, 0.56, 0.52]; let (x0, x1, z0, z1, yf) = (x.0 as f64 - 0.12, x.1 as f64 + 1.12, z.0 as f64 - 0.12, z.1 as f64 + 1.12, y as f64 + 0.86);
-        self.block((x.0, y, z.0), (x0, yf, x0.min(z0).max(z0)), (x1, yf + 0.16, z.0 as f64 + 0.2), C); self.block((x.0, y, z.1), (x0, yf, z.1 as f64 + 0.8), (x1, yf + 0.16, z1), C);
-        self.block((x.0, y, z.0), (x0, yf, z0), (x.0 as f64 + 0.2, yf + 0.16, z1), C); self.block((x.1, y, z.0), (x.1 as f64 + 0.8, yf, z0), (x1, yf + 0.16, z1), C);
+        let top = variant(id("stone_bricks_slab"), 0, true, false, false);
+        for xx in x.0 - 1..=x.1 + 1 { for zz in z.0 - 1..=z.1 + 1 { let ring = xx == x.0 - 1 || xx == x.1 + 1 || zz == z.0 - 1 || zz == z.1 + 1; if ring && !self.filled(xx, y, zz) { self.put(xx, y, zz, top); } } }
     }
     /// La charpente apparente d'un pignon : entrait, poinçon et deux jambes de force, sur la face z (dehors vers s).
-    pub fn truss(&mut self, x: (i32, i32), z: i32, s: f64, y: i32, top: f64) {
-        const OAK: [f64; 3] = [0.3, 0.19, 0.1]; let zf = if s < 0.0 { z as f64 - 0.05 } else { z as f64 + 1.05 }; let (a, b) = (x.0 as f64, x.1 as f64 + 1.0); let mid = (a + b) * 0.5; let at = (x.0, y, z); let n = (0.0, 0.0, s);
-        self.piece(at, (a, y as f64 + 0.15, zf), (b, y as f64 + 0.15, zf), n, 0.14, 0.06, OAK);
-        self.piece(at, (mid, y as f64 + 0.15, zf), (mid, top, zf), n, 0.12, 0.06, OAK);
-        for e in [a + 1.2, b - 1.2] { self.piece(at, (mid, y as f64 + 0.9, zf), (e, y as f64 + 0.25 + (mid - e).abs() * 0.0, zf), n, 0.09, 0.05, OAK); let _ = e; }
-        for e in [(a + mid) * 0.5, (b + mid) * 0.5] { self.piece(at, (e, y as f64 + 0.15, zf), (mid, y as f64 + 0.15 + (mid - a) * 0.75, zf), n, 0.08, 0.05, OAK); }
+    pub fn truss(&mut self, x: (i32, i32), z: i32, _s: f64, y: i32, _top: f64) {
+        for xx in x.0..=x.1 { if self.name(xx, y, z) == "planks" { self.log(xx, y, z, 'x'); } } // l'entrait
+        let mid = (x.0 + x.1) / 2; for yy in y + 1..y + 12 { if self.name(mid, yy, z) != "planks" { break; } self.log(mid, yy, z, 'y'); } // le poinçon
     }
     pub fn sconce(&mut self, x: i32, y: i32, z: i32, dx: i32, dz: i32) { self.turn(x, y, z, "wall_sconce", dx, dz); }
 }
@@ -241,7 +202,7 @@ pub(crate) fn maison(p: &mut P, d: i32, roof: &str, infill: &str, woodshed: bool
     p.turn(5, 1, d - 2, "fireplace", 0, 1); for y in 2..=8 { p.n(5, y, d - 2, "stone_bricks"); } p.cap(5, 8, d - 2);
     // l'intérieur : lit, coffre, table et chaise, étagère, lanterne
     p.turn(1, 1, d - 2, "bed", 0, 1); p.turn(1, 1, d - 3, "bed_foot", 0, 1); p.n(5, 1, 1, "chest"); p.n(4, 1, d - 3, "table"); p.n(4, 2, d - 3, "candle"); p.turn(3, 1, d - 3, "chair", 1, 0);
-    p.turn(5, 2, 1, "wall_shelf", 1, 0); p.n(3, 3, 2, "lantern"); p.n(2, 1, 2, "carpet_red");
+    p.turn(5, 2, 1, "wall_shelf", 1, 0); p.n(3, 2, 2, "lantern"); p.n(2, 1, 2, "carpet_red");
     if woodshed { for z in 1..=3 { p.n(w, 0, z, "cobblestone"); p.n(w, 1, z, "log_pile"); p.n(w, 2, z, "log_pile"); p.stair(w, 3, z, &format!("{roof}_stairs"), -1, 0, false); } }
     Built { door: Some(3), spot: None, bed: Some((2, d - 2)) }
 }
