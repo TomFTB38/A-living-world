@@ -287,21 +287,26 @@ pub(crate) fn auberge(p: &mut P) -> Built {
 pub(crate) fn moulin(p: &mut P, h: f64) -> Built {
     let (c, r) = (4, 4); let oct = |dx: i32, dz: i32, r: i32| dx.abs().max(dz.abs()) <= r && dx.abs() + dz.abs() <= r + r / 2;
     let rim = |dx: i32, dz: i32, r: i32| oct(dx, dz, r) && (!oct(dx + 1, dz, r) || !oct(dx - 1, dz, r) || !oct(dx, dz + 1, r) || !oct(dx, dz - 1, r));
-    p.ground([-2, -2, 10, 9], 15, [0, 0, 8, 8], "planks", "cobblestone");
+    p.ground([-2, -2, 10, 9], 20, [0, 0, 8, 8], "planks", "cobblestone");
     for dx in -r..=r { for dz in -r..=r { if !oct(dx, dz, r) { continue; } let (x, z) = (c + dx, c + dz);
         p.n(x, 0, z, if rim(dx, dz, r) { "cobblestone" } else { "planks" }); if rim(dx, dz, r) { for y in 1..=3 { p.n(x, y, z, if (x + z + y) % 3 == 0 { "cobblestone" } else { "stone_bricks" }); } } p.n(x, 4, z, "planks"); } }
     p.door(c, 1, 0, 0, -1); p.win(0, 2, c, false); p.win(8, 2, c, false); p.win(c, 2, 8, true);
     for dx in -r..=r { for dz in -r..=r { if oct(dx, dz, r) && !oct(dx, dz, r - 1) { p.n(c + dx, 5, c + dz, "fence"); } } } // le garde-corps du balcon
-    let r2 = 3; for dx in -r2..=r2 { for dz in -r2..=r2 { if !rim(dx, dz, r2) { continue; }
-        let corner = dx.abs() == dz.abs() || dx == 0 || dz == 0; for y in 5..=8 { if corner || y == 8 { p.log(c + dx, y, c + dz, 'y'); } else { p.n(c + dx, y, c + dz, "plaster"); } } } }
+    // deux étages à pans de bois au-dessus du balcon : sablière à mi-hauteur, plancher entre les deux
+    let r2 = 3; for dx in -r2..=r2 { for dz in -r2..=r2 { if !oct(dx, dz, r2) { continue; }
+        if !rim(dx, dz, r2) { p.n(c + dx, 9, c + dz, "planks"); continue; }
+        let corner = dx.abs() == dz.abs() || dx == 0 || dz == 0; for y in 5..=12 { if corner || y == 9 || y == 12 { p.log(c + dx, y, c + dz, 'y'); } else { p.n(c + dx, y, c + dz, "plaster"); } } } }
     for (x, z, ax) in [(c, c + 3, true), (c - 3, c, false), (c + 3, c, false)] { p.win(x, 6, z, ax); p.win(x, 7, z, ax); } p.door(c, 5, c - 3, 0, -1);
-    p.pyramid(c, c, 4, 9, "roof_tiles"); p.n(c, 14, c, "oak_log_c");
-    // l'escalier vers l'étage, les meules et les sacs
+    for (x, z, ax) in [(c, c - 3, true), (c, c + 3, true), (c - 3, c, false), (c + 3, c, false)] { p.win(x, 10, z, ax); p.win(x, 11, z, ax); }
+    p.pyramid(c, c, 4, 13, "roof_tiles"); p.n(c, 18, c, "oak_log_c");
+    // les escaliers : du rez-de-chaussée au balcon, du premier au second étage ; les meules, les sacs, la trémie
     for k in 0..4 { p.stair(c - 2, 1 + k, 2 + k, "planks_stairs", 0, 1, false); if k < 3 { p.put(c - 2, 4, 2 + k, 0); } }
-    p.n(c + 1, 1, c + 1, "grindstone"); p.n(c + 2, 1, c - 1, "sack"); p.n(c + 2, 1, c, "sack"); p.n(c + 1, 1, c + 2, "barrel"); p.n(c, 3, c, "lantern"); p.n(c + 1, 6, c, "sack");
+    for k in 0..4 { p.stair(c - 2 + k, 5 + k, c - 1, "planks_stairs", 1, 0, false); if k < 3 { p.put(c - 2 + k, 9, c - 1, 0); } }
+    p.n(c + 1, 1, c + 1, "grindstone"); p.n(c + 2, 1, c - 1, "sack"); p.n(c + 2, 1, c, "sack"); p.n(c + 1, 1, c + 2, "barrel"); p.n(c, 3, c, "lantern"); p.n(c + 1, 5, c + 1, "sack"); p.n(c - 1, 5, c + 1, "crate");
+    p.n(c, 10, c, "grindstone"); p.n(c + 1, 10, c + 1, "sack"); p.n(c - 1, 10, c + 1, "sack"); p.n(c, 12, c, "lantern"); p.n(c, 8, c, "lantern");
     // l'arbre des ailes, qui sort du toit en façade
-    for z in -1..=2 { p.log(c, 11, z, 'z'); }
-    let at = p.lot.cell(p.lx(c), p.y0 + 11, -1); let hub = p.lot.p(p.lx(c) as f64 + 0.5, (p.y0 + 11) as f64 + 0.5, -0.6); crate::batisse::sails(p.k, at, p.lot, hub, h);
+    for z in -1..=2 { p.log(c, 15, z, 'z'); }
+    let at = p.lot.cell(p.lx(c), p.y0 + 15, -1); let hub = p.lot.p(p.lx(c) as f64 + 0.5, (p.y0 + 15) as f64 + 0.5, -0.6); crate::batisse::sails(p.k, at, p.lot, hub, h);
     Built { door: Some(c), spot: None, bed: None }
 }
 
@@ -388,32 +393,38 @@ pub(crate) fn petite_mairie(p: &mut P) -> Built {
 /// de l'entrée (horloge, cloche, flèche d'ardoise, drapeau), perron de pierre, bannières bleues ; toits d'ardoise.
 /// Dedans : salle du conseil (grande table, tapis rouge, bannières, lustres), escalier, salle haute.
 pub(crate) fn grande_mairie(p: &mut P) -> Built {
-    let (w, d) = (19, 15); p.ground([-1, -3, w, d], 20, [0, 0, w - 1, d - 1], "planks", "stone_bricks");
-    // les volumes : corps central (x 4..14, z 2..12), ailes (x 0..4 et 14..18, z 0..12)
-    let parts = [(4, 14, 2, 12), (0, 4, 0, 12), (14, 18, 0, 12)];
+    let (w, d) = (19, 15); p.ground([-1, -3, w, d], 25, [0, 0, w - 1, d - 1], "planks", "stone_bricks");
+    // les volumes : corps central (x 4..14, z 2..12), deux ailes en avancée (x 0..4 et 14..18, z 0..12), l'avant-corps
+    // de l'entrée (x 7..11, z 0..2) ; rez-de-chaussée de pierre de taille, étage à pans de bois
+    let parts = [(4, 14, 2, 12), (0, 4, 0, 12), (14, 18, 0, 12), (7, 11, 0, 2)];
     for &(x0, x1, z0, z1) in &parts { for x in x0..=x1 { for z in z0..=z1 { p.n(x, 0, z, "planks"); } }
         for x in x0..=x1 { for z in z0..=z1 { let edge = x == x0 || x == x1 || z == z0 || z == z1; if !edge { continue; } for y in 1..=4 { p.n(x, y, z, if y == 1 { "cobblestone" } else { "stone_bricks" }); } } }
         p.belt((x0, x1), (z0, z1), 5); p.frame((x0, x1), (z0, z1), (6, 8), 2, "plaster"); p.belt((x0, x1), (z0, z1), 9); }
     for &(x0, x1, z0, z1) in &parts { for x in x0 + 1..x1 { for z in z0 + 1..z1 { for y in 1..=8 { if y != 5 { p.put(x, y, z, 0); } else { p.n(x, 5, z, "planks"); } } } } } // les volumes communiquent
-    for z in 3..12 { for y in 1..=8 { if y != 5 { p.put(4, y, z, 0); p.put(14, y, z, 0); } } }
-    // fenêtres
-    for x in [1, 3, 15, 17] { for y in [2, 3, 7] { p.win(x, y, 0, true); } } for x in [6, 8, 10, 12] { for y in [2, 3, 7] { p.win(x, y, 2, true); } }
+    for z in 3..12 { for y in 1..=8 { if y != 5 { p.put(4, y, z, 0); p.put(14, y, z, 0); } } } for x in 8..=10 { for y in 1..=8 { if y != 5 { p.put(x, y, 2, 0); } else { p.n(x, 5, 2, "planks"); } } }
+    // fenêtres : hautes au rez-de-chaussée, à l'étage entre les colombages
+    for x in [1, 3, 15, 17] { for y in [2, 3, 7] { p.win(x, y, 0, true); } } for x in [5, 6, 12, 13] { for y in [2, 3, 7] { p.win(x, y, 2, true); } }
+    for x in [8, 10] { p.win(x, 2, 0, true); p.win(x, 3, 0, true); } for x in 8..=10 { p.win(x, 7, 0, true); }
     for z in [2, 4, 6, 8, 10] { for y in [2, 7] { p.win(0, y, z, false); p.win(w - 1, y, z, false); } } for x in [2, 6, 9, 12, 16] { for y in [2, 7] { p.win(x, y, 12, true); } }
-    // toits : corps central (faîte parallèle à la rue), ailes (pignons sur la rue)
+    // toits d'ardoise : le corps central (faîte parallèle à la rue), les ailes et l'avant-corps (pignons sur la rue)
     p.roof((4, 14), (2, 12), 9, 1, false, "slate", Some("plaster")); p.roof((0, 4), (0, 12), 9, 1, true, "slate", Some("plaster")); p.roof((14, 18), (0, 12), 9, 1, true, "slate", Some("plaster"));
-    // la tour d'horloge sur l'entrée (x 7..11, z 0..3)
-    for x in 7..=11 { for z in 0..=3 { let edge = x == 7 || x == 11 || z == 0; for y in 1..=15 { if edge && (z == 0 || x == 7 || x == 11) { p.n(x, y, z, if y <= 4 { "stone_bricks" } else if (x == 7 || x == 11) && z == 0 { "oak_log_c" } else { "plaster" }); } } } }
-    for x in 8..=10 { for y in 1..=3 { p.put(x, y, 0, 0); } for z in 1..=3 { for y in 1..=8 { if y != 5 { p.put(x, y, z, 0); } } } } p.door(9, 1, 0, 0, -1); p.door(8, 1, 0, 0, -1); p.door(10, 1, 0, 0, -1); p.n(8, 3, 0, "stone_bricks"); p.n(9, 3, 0, "stone_bricks"); p.n(10, 3, 0, "stone_bricks");
-    for x in 8..=10 { p.n(x, 15, 1, "planks"); } p.turn(9, 12, -1, "wall_clock", 0, 1); p.n(9, 14, 2, "bell"); for y in 13..=14 { p.put(9, y, 0, 0); }
-    for x in 7..=11 { for z in 0..=3 { if x == 7 || x == 11 || z == 0 || z == 3 { p.n(x, 16, z, "stone_bricks"); } } } p.pyramid(9, 1, 2, 17, "slate"); p.n(9, 20, 1, "flag");
-    // perron, bannières, lanternes
-    for x in 6..=12 { p.stair(x, 0, -1, "stone_bricks_stairs", 0, 1, false); }
-    for x in [6, 12] { p.turn(x, 3, 1, "banner_blue", 0, 1); } for x in [2, 16] { p.turn(x, 7, -1, "banner_blue", 0, 1); } for x in [6, 12] { p.n(x, 1, -2, "fence"); p.n(x, 2, -2, "lantern"); }
+    p.roof((7, 11), (0, 3), 9, 1, true, "slate", Some("plaster")); p.win(9, 10, 0, true); p.log(9, 11, 0, 'y');
+    // la tour de l'horloge, carrée, au milieu du toit : pans de bois, cadrans, chambre des cloches ajourée, corniche, flèche d'ardoise
+    let (tx0, tx1, tz0, tz1) = (7, 11, 5, 9);
+    for x in tx0..=tx1 { for z in tz0..=tz1 { let edge = x == tx0 || x == tx1 || z == tz0 || z == tz1; for y in 10..=19 { if !edge { p.put(x, y, z, 0); continue; }
+        let corner = (x == tx0 || x == tx1) && (z == tz0 || z == tz1); p.n(x, y, z, if corner || y == 14 || y == 19 { "oak_log_c" } else if y < 14 { "plaster" } else { "stone_bricks" }); } } }
+    for x in tx0 + 1..tx1 { for z in tz0 + 1..tz1 { p.n(x, 15, z, "planks"); } }
+    for y in 16..=18 { p.put(9, y, tz0, 0); p.put(9, y, tz1, 0); p.put(tx0, y, 7, 0); p.put(tx1, y, 7, 0); } p.n(9, 18, 7, "chain"); p.n(9, 17, 7, "bell"); // les abat-sons et la cloche
+    p.turn(9, 13, tz0 - 1, "wall_clock", 0, 1); p.turn(9, 13, tz1 + 1, "wall_clock", 0, -1); // les cadrans, au-dessus des toits
+    p.cornice((tx0, tx1), (tz0, tz1), 19); p.pyramid(9, 7, 3, 20, "slate"); p.n(9, 24, 7, "flag");
+    // perron de pierre, bannières bleues, lanternes
+    for x in 7..=11 { p.stair(x, 0, -1, "stone_bricks_stairs", 0, 1, false); } p.door(9, 1, 0, 0, -1);
+    for x in [6, 12] { p.turn(x, 3, 1, "banner_blue", 0, 1); } for x in [2, 16] { p.turn(x, 7, -1, "banner_blue", 0, 1); } p.turn(9, 4, -1, "banner_blue", 0, 1); for x in [7, 11] { p.n(x, 1, -2, "fence"); p.n(x, 2, -2, "lantern"); }
     for &(x, z) in &[(2, 6), (16, 6)] { for y in 1..=14 { p.n(x, y, z, "stone_bricks"); } p.cap(x, 14, z); p.turn(x, 1, z - 1, "fireplace", 0, 1); }
     // la salle du conseil : tapis rouge depuis la porte, grande table et chaises, lustres ; l'escalier vers la salle haute
     for z in 1..=10 { p.n(9, 1, z, "carpet_red"); } for z in 5..=9 { p.n(8, 1, z, "table"); p.n(10, 1, z, "table"); p.turn(7, 1, z, "chair", -1, 0); p.turn(11, 1, z, "chair", 1, 0); } p.n(8, 2, 6, "books_pile"); p.n(10, 2, 8, "candle");
     for x in [6, 12] { p.n(x, 4, 7, "chandelier"); } for k in 0..4 { p.stair(16, 1 + k, 7 + k, "planks_stairs", 0, 1, false); if k < 3 { p.put(16, 5, 7 + k, 0); } }
-    for z in 3..=11 { p.n(9, 6, z, "carpet_red"); } for x in 7..=11 { p.n(x, 6, 7, "table"); } p.n(9, 7, 7, "candle"); p.n(9, 8, 7, "chandelier");
+    for z in 3..=11 { p.n(9, 6, z, "carpet_red"); } for x in 7..=11 { p.n(x, 6, 7, "table"); } p.n(9, 7, 7, "candle"); p.n(9, 8, 9, "chandelier");
     Built { door: Some(9), spot: None, bed: None }
 }
 
