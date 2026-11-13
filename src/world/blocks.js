@@ -20,7 +20,9 @@ export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'm
   'marble', 'ashlar', 'fieldstone', 'setts', 'polished_stone', 'checker', 'terracotta', 'parquet', 'shingles', 'wool', 'rug',
   'frame_square', 'frame_cross', 'frame_diag', 'wattle', 'books', 'hay', 'crate', 'chiseled', 'stained_glass', 'iron_plate', 'verdigris',
   // Mer : corail massif (teinté par bloc) et bordages d'épave rongés d'algues.
-  'coral', 'planks_wreck'];
+  'coral', 'planks_wreck',
+  // Refonte des villages : pierre calcaire appareillée, moellons gris, bout de poutre, bardage de grange, tuiles moussues, chemin de terre.
+  'lime_masonry', 'rubble', 'beam_end', 'boards', 'tiles_moss', 'path_top'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -330,12 +332,16 @@ cube('marble_black', 'marble', 1.8, 'rock', { tint: [0.3, 0.3, 0.32] }); cube('b
 // Pans de bois et matériaux de maison.
 cube('timber_frame', 'frame_square', 0.9, 'wood'); cube('timber_cross', 'frame_cross', 0.9, 'wood'); cube('timber_brace', 'frame_diag', 0.9, 'wood'); cube('wattle', 'wattle', 0.5, 'wood');
 cube('bookshelf', ['planks', 'books', 'planks'], 0.8, 'wood'); cube('hay_bale', 'hay', 0.4, 'foliage'); cube('crate', 'crate', 0.7, 'wood');
+// Refonte des villages : les matériaux des planches architecturales.
+cube('limestone_masonry', 'lime_masonry', 1.6, 'rock'); cube('rubble_wall', 'rubble', 1.6, 'rock'); cube('barn_boards', 'boards', 0.8, 'wood'); cube('mossy_roof_tiles', 'tiles_moss', 0.9, 'rock');
+cube('dirt_path', ['path_top', 'dirt', 'dirt'], 0.5, 'terrain', { drop: 'dirt' });
+defs.push(['oak_beam', 'cube', ['beam_end', 'dark_timber', 'beam_end'], 1.0, { cat: 'wood' }], ['oak_beam_x', 'cube', ['dark_timber', 'beam_end', 'dark_timber'], 1.0, { cat: 'wood', drop: 'oak_beam', axis: 'x' }], ['oak_beam_z', 'cube', ['dark_timber', 'dark_timber', 'beam_end'], 1.0, { cat: 'wood', drop: 'oak_beam', axis: 'z' }]);
 // Bois peints et enduits colorés, laines teintes : une texture, une teinte.
 for (const [n, t] of [['planks_dark', [0.55, 0.45, 0.4]], ['planks_red', [0.95, 0.5, 0.42]], ['planks_white', [1.45, 1.4, 1.3]], ['planks_blue', [0.6, 0.78, 1.0]], ['planks_green', [0.62, 0.85, 0.58]]]) cube(n, 'planks', 0.8, 'wood', { tint: t });
 for (const [n, t] of [['plaster_ochre', [1.0, 0.82, 0.55]], ['plaster_rose', [1.0, 0.8, 0.76]], ['plaster_blue', [0.82, 0.9, 1.02]]]) cube(n, 'plaster', 0.7, 'rock', { tint: t });
 for (const [n, t] of [['white', [1, 1, 1]], ['red', [0.75, 0.2, 0.18]], ['blue', [0.28, 0.4, 0.8]], ['green', [0.35, 0.6, 0.3]], ['yellow', [1.0, 0.85, 0.3]], ['black', [0.22, 0.22, 0.24]], ['brown', [0.55, 0.38, 0.25]], ['purple', [0.55, 0.3, 0.65]], ['orange', [1.0, 0.55, 0.22]]]) cube(`wool_${n}`, 'wool', 0.3, 'foliage', { tint: t });
 // Formes (escaliers, dalles, dalles verticales) des matières qui en ont besoin.
-for (const [n, h, c] of [['marble', 1.8, 'rock'], ['ashlar', 1.6, 'rock'], ['fieldstone', 1.5, 'rock'], ['setts', 1.5, 'rock'], ['polished_stone', 1.6, 'rock'], ['shingles', 0.8, 'wood'], ['roof_tiles', 0.9, 'rock'], ['slate', 1.1, 'rock'], ['copper_roof', 1.4, 'rock'], ['plaster', 0.7, 'rock'], ['timber', 0.9, 'wood']]) forms(n, h, c);
+for (const [n, h, c] of [['marble', 1.8, 'rock'], ['ashlar', 1.6, 'rock'], ['fieldstone', 1.5, 'rock'], ['setts', 1.5, 'rock'], ['polished_stone', 1.6, 'rock'], ['shingles', 0.8, 'wood'], ['roof_tiles', 0.9, 'rock'], ['slate', 1.1, 'rock'], ['copper_roof', 1.4, 'rock'], ['plaster', 0.7, 'rock'], ['timber', 0.9, 'wood'], ['limestone_masonry', 1.6, 'rock'], ['rubble_wall', 1.6, 'rock'], ['mossy_roof_tiles', 0.9, 'rock'], ['barn_boards', 0.8, 'wood']]) forms(n, h, c);
 // Mobilier : orientable vers celui qui le pose.
 for (const [n, h, p] of [['chair', 0.5, { solid: true }], ['bench', 0.6, { solid: true }], ['armchair', 0.6, { solid: true }], ['throne', 1.2, { solid: true }], ['cupboard', 0.9, { solid: true }],
   ['fireplace', 1.6, { solid: true, light: 13 }], ['loom', 0.8, { solid: true }], ['spinning_wheel', 0.6, { solid: true }], ['grindstone', 1.2, { solid: true }], ['signpost', 0.5, { solid: true }],
@@ -369,6 +375,9 @@ defs.push(['marram', 'deco', null, 0.02, { model: 'marram', drop: null }]);
 // Grands coraux : des blocs pleins de cinq couleurs, sur une même matière poreuse ; bois d'épave.
 for (const [n, t] of [['coral_block_red', [1.06, 0.44, 0.4]], ['coral_block_orange', [1.1, 0.62, 0.26]], ['coral_block_purple', [0.78, 0.4, 0.94]], ['coral_block_yellow', [1.1, 0.94, 0.42]], ['coral_block_blue', [0.4, 0.8, 0.98]]]) cube(n, 'coral', 0.9, 'rock', { tint: t });
 cube('wreck_planks', 'planks_wreck', 0.8, 'wood');
+// Refonte des villages : charrette, abreuvoir, râtelier d'outils des champs (orientables), tas de charbon de bois.
+for (const [n, h, p] of [['cart', 0.8, { solid: true }], ['trough', 0.6, { solid: true }], ['tool_rack', 0.4, {}]]) turner(n, h, 'wood', p);
+defs.push(['coal_heap', 'deco', null, 0.6, { model: 'coal_heap', cat: 'rock', drop: 'charcoal' }]);
 // Port de pêche : filets, séchoirs, nasses, bittes, bouées, ancre, avirons, garde-corps de corde, voiles, fanion.
 for (const [n, h, p] of [['fishing_net', 0.2, {}], ['fish_rack', 0.5, {}], ['anchor', 1.5, {}], ['oars', 0.4, {}], ['rope_rail', 0.5, { solid: true }], ['sail', 0.2, {}], ['boat_bench', 0.4, {}]]) turner(n, h, 'wood', p);
 for (const [n, h, p] of [['creel', 0.3, {}], ['mooring_post', 1.0, { solid: true }], ['buoy', 0.3, {}], ['net_pile', 0.2, {}], ['pennant', 0.3, {}], ['fish_crate', 0.5, {}]]) defs.push([n, 'deco', null, h, { model: n, cat: 'wood', ...p }]);

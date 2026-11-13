@@ -223,6 +223,26 @@ ashlar_vslab 4 | taille | ashlar 2, !hammer 1 | batir
 fieldstone_stairs 4 | taille | fieldstone 3, !hammer 1 | batir
 fieldstone_slab 4 | taille | fieldstone 2, !hammer 1 | batir
 fieldstone_vslab 4 | taille | fieldstone 2, !hammer 1 | batir
+limestone_masonry 2 | taille | limestone 2, clay 1, !hammer 1 | batir
+rubble_wall 2 | main | rock 3, clay 1 | batir
+barn_boards 4 | etabli | plank 4 | batir
+mossy_roof_tiles 4 | main | roof_tiles 4, fiber 1 | batir
+oak_beam 1 | etabli | oak_log 1 | batir
+cart 1 | etabli | plank 8, iron_ingot 1 | decor
+trough 1 | etabli | plank 5, iron_ingot 1 | decor
+tool_rack 1 | etabli | plank 3, stick 4, iron_ingot 1 | decor
+limestone_masonry_stairs 4 | taille | limestone_masonry 3, !hammer 1 | batir
+limestone_masonry_slab 4 | taille | limestone_masonry 2, !hammer 1 | batir
+limestone_masonry_vslab 4 | taille | limestone_masonry 2, !hammer 1 | batir
+rubble_wall_stairs 4 | taille | rubble_wall 3, !hammer 1 | batir
+rubble_wall_slab 4 | taille | rubble_wall 2, !hammer 1 | batir
+rubble_wall_vslab 4 | taille | rubble_wall 2, !hammer 1 | batir
+mossy_roof_tiles_stairs 4 | etabli | mossy_roof_tiles 3 | batir
+mossy_roof_tiles_slab 4 | etabli | mossy_roof_tiles 2 | batir
+mossy_roof_tiles_vslab 4 | etabli | mossy_roof_tiles 2 | batir
+barn_boards_stairs 4 | etabli | barn_boards 3 | batir
+barn_boards_slab 4 | etabli | barn_boards 2 | batir
+barn_boards_vslab 4 | etabli | barn_boards 2 | batir
 setts_stairs 4 | taille | setts 3, !hammer 1 | batir
 setts_slab 4 | taille | setts 2, !hammer 1 | batir
 setts_vslab 4 | taille | setts 2, !hammer 1 | batir

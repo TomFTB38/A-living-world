@@ -111,10 +111,10 @@ fn le_travail_le_plus_fin_reste_aux_maitres() {
 
 #[test]
 fn saluer_echanger_et_ranger_son_arme() {
-    let (mut s, v) = in_village(); s.hour = 19.0; idle(&mut s, 30.0); s.notes.clear();
+    let (mut s, v) = in_village(); s.hour = 19.0; idle(&mut s, 30.0); let greeted: Vec<String> = s.notes.iter().filter_map(|n| n.split(" : « Bon").next().filter(|_| n.contains(" : « Bon")).map(|x| x.to_string())).collect(); s.notes.clear();
     // Un villageois (pas un artisan) sur la place : on s'approche, il salue.
-    // (celui qui est le plus loin de nous : il ne nous a pas encore salués)
-    let me = s.player.p; let k = (0..s.town.folk.len()).filter(|i| s.town.folk[*i].v == v.id && s.town.folk[*i].craft.is_none()).max_by(|a, b| { let d = |i: usize| (s.town.folk[i].p[0] - me[0]).hypot(s.town.folk[i].p[2] - me[2]); d(*a).total_cmp(&d(*b)) }).expect("un villageois"); let p = s.town.folk[k].p; s.player.p = [p[0] + 1.6, p[1], p[2]]; idle(&mut s, 0.5);
+    // (celui qui est le plus loin de nous et ne nous a pas encore salués : dans un hameau, on se croise vite)
+    let me = s.player.p; let k = (0..s.town.folk.len()).filter(|i| s.town.folk[*i].v == v.id && s.town.folk[*i].craft.is_none() && !greeted.contains(&s.town.folk[*i].name)).max_by(|a, b| { let d = |i: usize| (s.town.folk[i].p[0] - me[0]).hypot(s.town.folk[i].p[2] - me[2]); d(*a).total_cmp(&d(*b)) }).expect("un villageois"); let p = s.town.folk[k].p; s.player.p = [p[0] + 1.6, p[1], p[2]]; idle(&mut s, 0.5);
     assert!(s.notes.iter().any(|n| n.contains("Bonsoir") || n.contains("Bonjour")), "il salue : {:?}", s.notes);
     // L'épée à la main : il recule, et ne parle pas tant qu'elle n'est pas rangée.
     s.inv[3] = Some(Stack::new("sword", None)); s.sel = 3; s.notes.clear(); idle(&mut s, 0.3); assert!(s.notes.iter().any(|n| n.contains("Rangez cette arme")), "{:?}", s.notes);

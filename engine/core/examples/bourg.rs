@@ -5,7 +5,7 @@ use std::collections::HashMap;
 fn main() {
     let a: Vec<String> = std::env::args().collect(); let out = &a[1]; let seed: i32 = a.get(2).and_then(|s| s.parse().ok()).unwrap_or(20261104);
     let yaw: f64 = a.get(3).and_then(|s| s.parse().ok()).unwrap_or(0.6); let dist: f64 = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(34.0); let pitch: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(0.42);
-    let g = WorldGen::new(seed); let want = a.get(7).cloned(); let v = g.villages_near(0.0, 0.0, 4000.0).into_iter().find(|v| want.as_deref().is_none_or(|k| v.kind == k)).expect("un village"); eprintln!("{} ({}) {:?} r {}", v.name, v.kind, v.c, v.r);
+    let g = WorldGen::new(seed); let want = a.get(7).cloned(); let named = a.get(8).cloned(); let v = g.villages_near(0.0, 0.0, 4000.0).into_iter().find(|v| want.as_deref().is_none_or(|k| v.kind == k) && named.as_deref().is_none_or(|n| v.name == n)).expect("un village"); eprintln!("{} ({}) {:?} r {}", v.name, v.kind, v.c, v.r);
     let t = build_textures(16); let n = 16 * 16; let mut avg = vec![[0.5f64; 3]; t.layers as usize];
     for l in 0..t.layers as usize { let mut c = [0.0; 3]; for p in t.albedo[l * n * 4..(l + 1) * n * 4].chunks(4) { for k in 0..3 { c[k] += (p[k] as f64 / 255.0).powi(2); } } avg[l] = c.map(|x| x / n as f64); }
     let mut cache: HashMap<(i32, i32), std::sync::Arc<Vec<u16>>> = HashMap::new(); let mut m = Mesher::new();

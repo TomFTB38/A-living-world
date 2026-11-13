@@ -37,3 +37,5 @@ pub mod hostile;
 pub mod marine;
 pub mod sculpt;
 pub mod betes;
+pub mod edifice;
+pub mod bourg;

@@ -26,7 +26,7 @@ pub const SPAN: i32 = 76;
 const NEAR: f64 = 150.0; const FAR: f64 = 210.0;
 /// Réputation demandée pour qu'un artisan transmette sa technique.
 pub const TEACH_REP: i32 = 20;
-const BLEND: i32 = 6;
+pub(crate) const BLEND: i32 = 6;
 
 #[derive(Clone, Debug)]
 pub struct House {
@@ -38,17 +38,19 @@ pub struct House {
     pub door: [f64; 3], pub inside: [f64; 3], pub spot: [f64; 3], pub bed: [f64; 3], pub ring: [f64; 3],
     /// Sens vers le fond du bâtiment (0 : +z, 1 : +x, 2 : -z, 3 : -x) : l'artisan regarde son poste.
     pub back: u8,
+    /// Le chemin de la porte jusqu'au bord de la place, le long des rues (sans la porte).
+    pub way: Vec<[f64; 3]>,
 }
 #[derive(Clone, Debug)]
-pub struct Village { pub id: (i32, i32), pub kind: &'static str, pub name: String, pub c: [i32; 3], pub r: i32, pub crafts: Vec<&'static str>, pub houses: Vec<House> }
+pub struct Village { pub id: (i32, i32), pub kind: &'static str, pub name: String, pub c: [i32; 3], pub r: i32, pub crafts: Vec<&'static str>, pub houses: Vec<House>, /** l'identité du village (civilisation, taille, spécialité, richesse, âge, orientation), pour les villages refondus */ pub ident: Option<crate::bourg::Identity> }
 /// Un village tracé, avec les blocs à poser.
-pub struct Site { pub v: Village, blocks: Vec<(i32, i32, i32, Id)>, props: Vec<Prop>, pads: Vec<Pad>, paths: Vec<[i32; 3]> }
+pub struct Site { pub v: Village, pub(crate) blocks: Vec<(i32, i32, i32, Id)>, pub(crate) props: Vec<Prop>, pub(crate) pads: Vec<Pad>, pub(crate) paths: Vec<[i32; 3]> }
 /// Une assise aplanie : la place (ronde) ou le terrain d'un bâtiment (rectangle), à sa hauteur, fondue dans le relief alentour.
 #[derive(Clone, Copy, Debug)]
-struct Pad { c: [f64; 2], half: [f64; 2], round: bool, h: i32 }
+pub(crate) struct Pad { pub c: [f64; 2], pub half: [f64; 2], pub round: bool, pub h: i32 }
 impl Pad { fn dist(&self, x: f64, z: f64) -> f64 { let (dx, dz) = ((x - self.c[0]).abs(), (z - self.c[1]).abs()); if self.round { (dx.hypot(dz) - self.half[0]).max(0.0) } else { (dx - self.half[0]).max(0.0).hypot((dz - self.half[1]).max(0.0)) } } }
 /// La hauteur du sol en ce point : le relief naturel, tiré vers chaque assise proche (la plus proche l'emporte), et la distance à l'assise la plus proche.
-fn shape(pads: &[Pad], nat: i32, x: f64, z: f64) -> (i32, f64) {
+pub(crate) fn shape(pads: &[Pad], nat: i32, x: f64, z: f64) -> (i32, f64) {
     let mut near: Vec<(f64, i32)> = pads.iter().map(|p| (p.dist(x, z), p.h)).filter(|(d, _)| *d < BLEND as f64).collect();
     near.sort_by(|a, b| b.0.total_cmp(&a.0)); let mut g = nat as f64;
     for (d, h) in &near { let t = d / BLEND as f64; let t = t * t * (3.0 - 2.0 * t); g = *h as f64 + (g - *h as f64) * t; }
@@ -59,7 +61,7 @@ fn wild(b: Id) -> bool { let k = &crate::blocks::BLOCKS[b as usize]; k.shape == 
 impl Site { /** Le décor fin du village. */ pub fn props(&self) -> &[Prop] { &self.props } }
 
 pub fn kind_label(k: &str) -> &'static str { match k { "prairie" => "prairie", "taiga" => "taïga", "aride" => "steppe", "desert" => "désert", "montagne" => "montagne", "port" => "port de pêche", _ => "hautes terres" } }
-fn id(n: &str) -> Id { by_name(n).unwrap_or_else(|| panic!("bloc inconnu : {n}")) }
+pub(crate) fn id(n: &str) -> Id { by_name(n).unwrap_or_else(|| panic!("bloc inconnu : {n}")) }
 fn dir(f: u8) -> (i32, i32) { [(0, 1), (1, 0), (0, -1), (-1, 0)][f as usize % 4] }
 const NAME_A: [&str; 16] = ["Haut", "Bel", "Clair", "Roche", "Val", "Mont", "Pré", "Bois", "Fond", "Gué", "Saule", "Brune", "Vieux", "Grand", "Pierre", "Chêne"];
 const NAME_B: [&str; 12] = ["val", "fort", "mont", "bourg", "lieu", "ville", "champ", "roche", "font", "court", "mesnil", "lande"];
@@ -126,7 +128,9 @@ impl WorldGen {
         for c in &cand { if crafts.len() >= 2 { break; } if !crafts.contains(&c.id) { crafts.push(c.id); } }
         crafts.truncate(if kind == "port" { 2 } else { 4 }); // un port de pêche reste un petit bourg
         let homes = 2 + (h(10) * 3.0) as usize; let name = format!("{}{}", NAME_A[(h(11) * 16.0) as usize % 16], NAME_B[(h(12) * 12.0) as usize % 12]);
-        let mut v = Village { id: (gx, gz), kind, name, c: [x, y0, z], r: 8, crafts: crafts.clone(), houses: Vec::new() };
+        // La civilisation médiévale passe par le nouveau générateur de plans ; les autres suivront (désert, côte, Nord).
+        if crate::bourg::civ_of(kind) == crate::bourg::Civ::Medieval { return crate::bourg::medieval(self, gx, gz, x, y0, z, kind, crafts, name); }
+        let mut v = Village { id: (gx, gz), kind, name, c: [x, y0, z], r: 8, crafts: crafts.clone(), houses: Vec::new(), ident: None };
         let nat = |x: i32, z: i32| self.column(x as f64 + 0.5, z as f64 + 0.5).h.ceil() as i32 - 1;
         let mut pads = vec![Pad { c: [x as f64 + 0.5, z as f64 + 0.5], half: [7.5, 7.5], round: true, h: y0 }]; let mut paths: Vec<[i32; 3]> = Vec::new();
         let st = style(kind); let mut plaza = Work::default(); let mut lanes = Work::default(); let mut works = Work::default();
@@ -191,7 +195,7 @@ impl WorldGen {
                 None => { put(w - 2, back, id("chest")); if plan == Plan::Tavern { put(du + 1, 2, id("barrel")); put(du - 1, back - 1, id("barrel")); } }
             }
             let fd = crate::shapes::facing_of(wx as f64, wz as f64);
-            v.houses.push(House { craft, area, door: door_out, inside: mid(du, 1, by + 1), spot: mid(du, back - 1, by + 1), bed: mid(2, back, by + 1), ring, back: fd });
+            v.houses.push(House { craft, area, door: door_out, inside: mid(du, 1, by + 1), spot: mid(du, back - 1, by + 1), bed: mid(2, back, by + 1), ring, back: fd, way: vec![ring] });
         }
         // Les champs, à la lisière : une terre labourée, des rangs de blé, de carottes ou de pommes de terre, une rigole d'eau
         // au milieu, une clôture avec son entrée. Les récoltes mûres sont à prendre.
@@ -391,7 +395,7 @@ impl Town {
         let rnd = |salt: u32, q: i32| hash_float(k as i32 * 7 + q, salt as i32, v.id.0, v.id.1);
         let plaza = |salt: u32| { let a = rnd(salt, 1) * TAU; let r = 2.6 + 2.3 * rnd(salt, 2); [v.c[0] as f64 + 0.5 + r * a.cos(), y, v.c[2] as f64 + 0.5 + r * a.sin()] };
         // Un point de la rue qui mène à une maison : entre le bord de la place et sa porte.
-        let street = |salt: u32| { let o = &v.houses[(rnd(salt, 3) * v.houses.len() as f64) as usize % v.houses.len()]; let t = 0.25 + 0.6 * rnd(salt, 4); [o.ring[0] + (o.door[0] - o.ring[0]) * t, o.ring[1] + (o.door[1] - o.ring[1]) * t, o.ring[2] + (o.door[2] - o.ring[2]) * t] };
+        let street = |salt: u32| { let o = &v.houses[(rnd(salt, 3) * v.houses.len() as f64) as usize % v.houses.len()]; if o.way.len() > 2 { return o.way[(rnd(salt, 4) * o.way.len() as f64) as usize % o.way.len()]; } let t = 0.25 + 0.6 * rnd(salt, 4); [o.ring[0] + (o.door[0] - o.ring[0]) * t, o.ring[1] + (o.door[1] - o.ring[1]) * t, o.ring[2] + (o.door[2] - o.ring[2]) * t] };
         let neighbour = |salt: u32| { let o = &v.houses[(rnd(salt, 5) * v.houses.len() as f64) as usize % v.houses.len()]; let side = (rnd(salt, 6) - 0.5) * 1.6; let (ex, ez) = (o.door[0] - o.ring[0], o.door[2] - o.ring[2]); let l = ex.hypot(ez).max(0.1); [o.door[0] - ex / l * 1.2 - ez / l * side, o.door[1], o.door[2] - ez / l * 1.2 + ex / l * side] };
         if !(6.5..21.5).contains(&hour) { return ((0, 0), h.bed); }
         let slot = (hour * 0.9 + rnd(9, 7) * 2.0) as u32;
@@ -404,8 +408,8 @@ impl Town {
     }
     fn route(&self, f: &Folk, to: [f64; 3], dest_house: Option<usize>) -> Vec<[f64; 3]> {
         let Some(v) = self.village(f.v) else { return vec![to] }; let mut r = Vec::new();
-        if let Some(h) = v.houses.iter().find(|h| inside(h, f.p)) { r.push(h.inside); r.push(h.door); r.push(h.ring); }
-        match dest_house { Some(i) if !inside(&v.houses[i], f.p) => { let h = &v.houses[i]; r.push(h.ring); r.push(h.door); r.push(h.inside); } _ => {} }
+        if let Some(h) = v.houses.iter().find(|h| inside(h, f.p)) { r.push(h.inside); r.push(h.door); r.extend(h.way.iter().copied()); }
+        match dest_house { Some(i) if !inside(&v.houses[i], f.p) => { let h = &v.houses[i]; r.extend(h.way.iter().rev().copied()); r.push(h.door); r.push(h.inside); } _ => {} }
         if let Some(i) = dest_house { if inside(&v.houses[i], f.p) { r.clear(); } }
         r.push(to);
         // Faire le tour du puits plutôt que le traverser.
@@ -453,6 +457,7 @@ impl Town {
     fn spawn(&mut self, v: &Village, hour: f64) {
         let mut n = 0u32; let base = self.folk.len();
         for (i, h) in v.houses.iter().enumerate() {
+            if self.folk.len() >= 100 { break; } // au plus cent villageois simulés à la fois
             let count = if h.craft.is_some() { 1 } else { 1 + (hash_float(v.id.0, v.id.1, i as i32, 91) < 0.6) as usize };
             for j in 0..count {
                 let pick = (hash_float(v.id.0 * 7 + i as i32, v.id.1, j as i32, 92) * FIRST.len() as f64) as usize % FIRST.len();

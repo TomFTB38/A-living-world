@@ -64,10 +64,17 @@ impl Work {
 /// Habille un chunk maillé du décor des villages proches dont le bloc d'appui est dans ce chunk et tient encore.
 pub fn dress(gen: &WorldGen, cx: i32, cz: i32, vox: &[Id], mesh: &mut Mesh) {
     let (ox, oz) = (cx * CX as i32, cz * CX as i32); let span = crate::village::SPAN; let cell = crate::village::CELL;
-    let mut o = VBuf { data: std::mem::take(&mut mesh.deco), n: mesh.n_d, scale: crate::mesher::POSK, rot: 0 }; let mut top = mesh.ymax;
     for gx in (ox - span).div_euclid(cell)..=(ox + CX as i32 + span).div_euclid(cell) { for gz in (oz - span).div_euclid(cell)..=(oz + CX as i32 + span).div_euclid(cell) {
-        let Some(s) = gen.site(gx, gz) else { continue };
-        for p in s.props() {
+        let Some(s) = gen.site(gx, gz) else { continue }; dress_props(s.props(), cx, cz, vox, mesh);
+    } }
+}
+/// Habille un chunk maillé d'un décor donné (ceux dont le bloc d'appui est dans ce chunk et tient encore).
+pub fn dress_props(props: &[Prop], cx: i32, cz: i32, vox: &[Id], mesh: &mut Mesh) {
+    let (ox, oz) = (cx * CX as i32, cz * CX as i32);
+    let mut o = VBuf { data: std::mem::take(&mut mesh.deco), n: mesh.n_d, scale: crate::mesher::POSK, rot: 0 }; let mut top = mesh.ymax;
+    {
+        {
+            for p in props {
             let (lx, lz) = (p.at[0] - ox, p.at[2] - oz); if lx < 0 || lz < 0 || lx >= CX as i32 || lz >= CX as i32 || p.at[1] < 0 || p.at[1] >= CH as i32 { continue; }
             if vox.get(idx(lx as usize, p.at[1] as usize, lz as usize)).copied().unwrap_or(0) == 0 { continue; }
             let off = [ox as f64, 0.0, oz as f64]; o.rot = p.rot;
@@ -121,29 +128,29 @@ impl Plan {
     pub fn dwelling(self) -> bool { !matches!(self, Plan::Church | Plan::Mill) }
 }
 /// Les ouvertures d'un mur : côté (0 devant, 1 droite, 2 fond, 3 gauche), case le long du mur vu de dehors, rangées couvertes.
-#[derive(Clone, Copy)] struct Gap { side: u8, t: i32, y0: i32, y1: i32, door: bool }
+#[derive(Clone, Copy)] pub(crate) struct Gap { pub side: u8, pub t: i32, pub y0: i32, pub y1: i32, pub door: bool }
 
-struct B<'a> { k: &'a mut Work, lot: Lot, w: i32, d: i32, s: Style, gaps: Vec<Gap>, paint: C3, h: f64 }
+pub(crate) struct B<'a> { pub k: &'a mut Work, pub lot: Lot, pub w: i32, pub d: i32, pub s: Style, pub gaps: Vec<Gap>, pub paint: C3, pub h: f64 }
 impl B<'_> {
-    fn put(&mut self, u: i32, y: i32, ww: i32, b: Id) { let c = self.lot.cell(u, y, ww); self.k.put(c, b); }
-    fn len(&self, side: u8) -> i32 { if side % 2 == 0 { self.w } else { self.d } }
+    pub(crate) fn put(&mut self, u: i32, y: i32, ww: i32, b: Id) { let c = self.lot.cell(u, y, ww); self.k.put(c, b); }
+    pub(crate) fn len(&self, side: u8) -> i32 { if side % 2 == 0 { self.w } else { self.d } }
     /// Le point (t, y) d'un mur vu de dehors, décollé de `out` de sa face.
-    fn on(&self, side: u8, t: f64, y: f64, out: f64) -> C3 {
+    pub(crate) fn on(&self, side: u8, t: f64, y: f64, out: f64) -> C3 {
         let (w, d) = (self.w as f64, self.d as f64);
         match side { 0 => self.lot.p(t, y, -out), 1 => self.lot.p(w + out, y, t), 2 => self.lot.p(w - t, y, d + out), _ => self.lot.p(-out, y, d - t) }
     }
-    fn normal(&self, side: u8) -> C3 { match side { 0 => self.lot.v(0.0, 0.0, -1.0), 1 => self.lot.v(1.0, 0.0, 0.0), 2 => self.lot.v(0.0, 0.0, 1.0), _ => self.lot.v(-1.0, 0.0, 0.0) } }
+    pub(crate) fn normal(&self, side: u8) -> C3 { match side { 0 => self.lot.v(0.0, 0.0, -1.0), 1 => self.lot.v(1.0, 0.0, 0.0), 2 => self.lot.v(0.0, 0.0, 1.0), _ => self.lot.v(-1.0, 0.0, 0.0) } }
     /// Le bloc de mur qui porte ce point.
-    fn anchor(&self, side: u8, t: f64, y: f64) -> [i32; 3] {
+    pub(crate) fn anchor(&self, side: u8, t: f64, y: f64) -> [i32; 3] {
         let k = t.floor() as i32; let y = y.floor() as i32; let (w, d) = (self.w, self.d);
         match side { 0 => self.lot.cell(k.clamp(0, w - 1), y, 0), 1 => self.lot.cell(w - 1, y, k.clamp(0, d - 1)), 2 => self.lot.cell((w - 1 - k).clamp(0, w - 1), y, d - 1), _ => self.lot.cell(0, y, (d - 1 - k).clamp(0, d - 1)) }
     }
     /// La case (u, ww) d'un mur, en position le long de ce mur.
-    fn t_of(&self, side: u8, u: i32, ww: i32) -> i32 { match side { 0 => u, 1 => ww, 2 => self.w - 1 - u, _ => self.d - 1 - ww } }
-    fn cell_of(&self, side: u8, t: i32) -> (i32, i32) { match side { 0 => (t, 0), 1 => (self.w - 1, t), 2 => (self.w - 1 - t, self.d - 1), _ => (0, self.d - 1 - t) } }
+    pub(crate) fn t_of(&self, side: u8, u: i32, ww: i32) -> i32 { match side { 0 => u, 1 => ww, 2 => self.w - 1 - u, _ => self.d - 1 - ww } }
+    pub(crate) fn cell_of(&self, side: u8, t: i32) -> (i32, i32) { match side { 0 => (t, 0), 1 => (self.w - 1, t), 2 => (self.w - 1 - t, self.d - 1), _ => (0, self.d - 1 - t) } }
 
     /// Murs pleins : une bande de `low` sur la première rangée, `mat` au-dessus, poteaux aux angles.
-    fn walls(&mut self, y0: i32, y1: i32, low: Id, mat: Id, post: Id) {
+    pub(crate) fn walls(&mut self, y0: i32, y1: i32, low: Id, mat: Id, post: Id) {
         for y in y0..=y1 { for u in 0..self.w { for ww in 0..self.d {
             let edge = u == 0 || ww == 0 || u == self.w - 1 || ww == self.d - 1; if !edge { continue; }
             let corner = (u == 0 || u == self.w - 1) && (ww == 0 || ww == self.d - 1);
@@ -153,15 +160,15 @@ impl B<'_> {
             self.put(u, y, ww, b);
         } } }
     }
-    fn window(&mut self, side: u8, t: i32, y: i32) {
+    pub(crate) fn window(&mut self, side: u8, t: i32, y: i32) {
         let (u, ww) = self.cell_of(side, t); let f = match side { 0 | 2 => 0u8, _ => 1u8 };
         let face = (self.lot_face() + f) % 4; let b = crate::shapes::variant(id("window"), face, false, false, false); self.put(u, y, ww, b);
         self.gaps.push(Gap { side, t, y0: y, y1: y, door: false });
     }
     /// Sens de la façade (celui des portes et fenêtres de devant).
-    fn lot_face(&self) -> u8 { crate::shapes::facing_of(self.lot.w.0 as f64, self.lot.w.1 as f64) }
-    fn door(&mut self, side: u8, t: i32, y: i32) {
-        let (u, ww) = self.cell_of(side, t); let f = self.lot_face(); let b = id("door");
+    pub(crate) fn lot_face(&self) -> u8 { crate::shapes::facing_of(self.lot.w.0 as f64, self.lot.w.1 as f64) }
+    pub(crate) fn door(&mut self, side: u8, t: i32, y: i32) {
+        let (u, ww) = self.cell_of(side, t); let nn = self.normal(side); let f = crate::shapes::facing_of(-nn[0], -nn[2]); let b = id("door");
         self.put(u, y, ww, crate::shapes::variant(b, f, false, false, false)); self.put(u, y + 1, ww, crate::shapes::variant(b, f, false, false, true));
         self.gaps.push(Gap { side, t, y0: y, y1: y + 1, door: true });
         // Chambranle et linteau de chêne.
@@ -171,7 +178,7 @@ impl B<'_> {
     }
     /// Colombages d'un mur entre les hauteurs `ya` et `yb` : sablière basse et haute, poteaux, écharpes en diagonale,
     /// appuis et linteaux des fenêtres.
-    fn frame(&mut self, side: u8, ya: f64, yb: f64) {
+    pub(crate) fn frame(&mut self, side: u8, ya: f64, yb: f64) {
         let len = self.len(side) as f64; let n = self.normal(side); let c = self.s.beam; let gaps: Vec<Gap> = self.gaps.iter().filter(|g| g.side == side).copied().collect();
         let mid = self.anchor(side, len * 0.5, ya + 0.5);
         for (y, hw) in [(ya + 0.09, 0.09), (yb - 0.09, 0.09)] { let (a, b) = (self.on(side, -0.02, y, 0.045), self.on(side, len + 0.02, y, 0.045)); self.k.bar(mid, a, b, n, hw, 0.05, c, -1.0); }
@@ -199,7 +206,7 @@ impl B<'_> {
         self.trims(side, ya, yb);
     }
     /// Appuis, linteaux et volets des fenêtres de ce mur entre `ya` et `yb`.
-    fn trims(&mut self, side: u8, ya: f64, yb: f64) {
+    pub(crate) fn trims(&mut self, side: u8, ya: f64, yb: f64) {
         let n = self.normal(side); let c = self.s.beam; let paint = self.paint;
         for g in self.gaps.clone().into_iter().filter(|g| g.side == side && !g.door && (g.y0 as f64) >= ya - 0.01 && (g.y0 as f64) < yb) {
             let (t, y) = (g.t as f64, g.y0 as f64); let at = self.anchor(side, t + 0.5, y);
@@ -216,7 +223,7 @@ impl B<'_> {
         }
     }
     /// Jardinière fleurie sous une fenêtre.
-    fn flowers(&mut self, side: u8, t: i32, y: i32) {
+    pub(crate) fn flowers(&mut self, side: u8, t: i32, y: i32) {
         let n = self.normal(side); let at = self.anchor(side, t as f64 + 0.5, y as f64);
         let (a, b) = (self.on(side, t as f64 - 0.05, y as f64 - 0.16, 0.2), self.on(side, t as f64 + 1.05, y as f64 - 0.16, 0.2)); self.k.bar(at, a, b, n, 0.12, 0.14, [0.42, 0.27, 0.15], -1.0);
         let cols = [[0.75, 0.16, 0.2], [0.95, 0.85, 0.3], [0.85, 0.45, 0.65], [0.95, 0.95, 0.9], [0.3, 0.55, 0.22]];
@@ -227,7 +234,7 @@ impl B<'_> {
 
     /// Toit à deux pans au-dessus de `yr` : âme en gradins (les blocs, pour l'intérieur et les collisions), pans inclinés
     /// à 45° posés dessus, faîtage, rives, pignons fermés, rangs de tuiles en relief.
-    fn roof(&mut self, yr: i32, cover: Id, gable: Id, thick: f64) {
+    pub(crate) fn roof(&mut self, yr: i32, cover: Id, gable: Id, thick: f64) {
         let (w, d) = (self.w, self.d); let core = if cover == self.s.thatch { cover } else { self.s.core };
         // L'âme en gradins reste à l'aplomb des murs : les débords du toit ne sont que le pan incliné, sans blocs dessous.
         // Au premier gradin, une sablière (poutre ou mur) ferme le haut des longs pans.
@@ -282,7 +289,7 @@ impl B<'_> {
     }
     /// Toit plat d'Afrique du Nord : une terrasse, un parapet crénelé, les poutres de palmier qui sortent du mur, une gargouille ;
     /// sur les grandes maisons, un coin de terrasse aménagé (tapis, jarres, auvent rayé sur quatre perches).
-    fn flat_roof(&mut self, yr: i32, terrace: bool) {
+    pub(crate) fn flat_roof(&mut self, yr: i32, terrace: bool) {
         let (w, d) = (self.w, self.d); let s = self.s;
         for u in 0..w { for ww in 0..d { self.put(u, yr, ww, s.core); let edge = u == 0 || ww == 0 || u == w - 1 || ww == d - 1;
             if edge { self.put(u, yr + 1, ww, s.ground); if (u + ww) % 2 == 0 && !((u == 0 || u == w - 1) && (ww == 0 || ww == d - 1)) { self.put(u, yr + 2, ww, s.ground); } } } }
@@ -297,13 +304,13 @@ impl B<'_> {
             let cols = [[0.82, 0.3, 0.18], [0.92, 0.84, 0.66]]; for k in 0..6 { let w0 = 0.8 + k as f64 * 0.4; self.k.quad(at, [lot.p(0.8, y + 1.9, w0), lot.p(3.2, y + 1.9, w0), lot.p(3.2, y + 1.85, w0 + 0.4), lot.p(0.8, y + 1.85, w0 + 0.4)], cols[k % 2], -1.0, 0); } }
     }
     /// Coupole enduite de blanc sur la terrasse, avec son épi doré.
-    fn dome(&mut self, y: i32, rad: f64) {
+    pub(crate) fn dome(&mut self, y: i32, rad: f64) {
         let (w, d) = (self.w as f64, self.d as f64); let lot = self.lot; let c = lot.p(w * 0.5, y as f64, d * 0.5); let at = lot.cell(self.w / 2, y - 1, self.d / 2);
         minaret_dome(self.k, at, c, rad);
     }
     /// Architecture du Nord : sur chaque pignon, deux rives croisées qui dépassent du faîte et finissent en têtes de dragon sculptées ;
     /// un bouclier rond peint de part et d'autre de la porte.
-    fn dragons(&mut self, yr: i32) {
+    pub(crate) fn dragons(&mut self, yr: i32) {
         let (w, d) = (self.w, self.d); let (wf, df, y) = (w as f64, d as f64, yr as f64); let lot = self.lot; let beam = self.s.beam; let (e, over) = (1.45, 1.3);
         let at = if w % 2 == 1 { lot.cell((w - 1) / 2, yr + (w + 1) / 2, d / 2) } else { lot.cell(w / 2 - 1, yr + w / 2, d / 2) };
         let peak = y + 2.0 + wf * 0.5;
@@ -325,7 +332,7 @@ impl B<'_> {
             let p = self.on(0, *t, y - 1.6, 0.05); self.k.solid(at, p, [mulv(cross_dir(n), 0.3), [0.0, 0.3, 0.0], mulv(n, 0.035)], [c1[0] * 0.9, c1[1] * 0.9, c1[2] * 0.9], -1.0, 1); }
     }
     /// Cheminée de pierre contre le mur du fond, qui dépasse le faîte ; chapeau de dalles.
-    fn chimney(&mut self, u: i32, y0: i32, top: i32) {
+    pub(crate) fn chimney(&mut self, u: i32, y0: i32, top: i32) {
         let d = self.d; let m = self.s.chimney; for y in y0..=top { self.put(u, y, d, m); }
         let at = self.lot.cell(u, top, d); let c = self.lot.p(u as f64 + 0.5, top as f64 + 1.05, d as f64 + 0.5);
         self.k.solid(at, c, [self.lot.v(0.62, 0.0, 0.0), [0.0, 0.06, 0.0], self.lot.v(0.0, 0.0, 0.62)], [0.55, 0.53, 0.5], -1.0, 0);
@@ -333,7 +340,7 @@ impl B<'_> {
         let c = self.lot.p(u as f64 + 0.5, top as f64 + 1.55, d as f64 + 0.5); self.k.solid(at, c, [self.lot.v(0.5, 0.0, 0.0), [0.0, 0.04, 0.0], self.lot.v(0.0, 0.0, 0.5)], [0.48, 0.46, 0.44], -1.0, 0);
     }
     /// Enseigne pendue à une potence de fer devant la façade : panneau et emblème du métier.
-    fn sign(&mut self, t: f64, y: f64, emblem: &str) {
+    pub(crate) fn sign(&mut self, t: f64, y: f64, emblem: &str) {
         let n = self.normal(0); let at = self.anchor(0, t, y - 0.5); let iron = [0.16, 0.16, 0.17];
         let (a, b) = (self.on(0, t, y, 0.0), self.on(0, t, y, 1.05)); self.k.bar(at, a, b, [0.0, 1.0, 0.0], 0.03, 0.03, iron, -1.0);
         let (a, b) = (self.on(0, t, y - 0.5, 0.0), self.on(0, t, y, 0.7)); self.k.bar(at, a, b, self.lot.v(1.0, 0.0, 0.0), 0.02, 0.02, iron, -1.0);
@@ -464,7 +471,7 @@ pub fn raise(k: &mut Work, lot: Lot, plan: Plan, y0: i32, s: Style, h: f64) -> (
     if floors == 2 { upstairs(&mut b, plan, y0); }
     let _ = craft; (du, d - 2)
 }
-fn cross_dir(n: C3) -> C3 { [-n[2], 0.0, n[0]] }
+pub(crate) fn cross_dir(n: C3) -> C3 { [-n[2], 0.0, n[0]] }
 /// Une coupole en anneaux superposés (enduit blanc), un tambour, un épi doré et son croissant.
 fn minaret_dome(k: &mut Work, at: [i32; 3], c: C3, rad: f64) {
     let pl = layer(id("plaster")); k.cube(at, add(c, [-rad, 0.0, -rad]), add(c, [rad, 0.35, rad]), [1.0, 0.98, 0.94], pl);
@@ -525,14 +532,14 @@ fn details(b: &mut B, plan: Plan, y0: i32, floors: i32, yr: i32, cover: Id) {
     if r.next() < 0.6 { b.put(du + 1, y0 + 1, -1, id("flower_pot")); }
 }
 /// Pyramide à base rectangulaire (flèche, toit conique du moulin) : quatre faces texturées.
-fn pyramid(k: &mut Work, at: [i32; 3], base: C3, lot: Lot, hu: f64, hw: f64, h: f64, cover: Id) {
+pub(crate) fn pyramid(k: &mut Work, at: [i32; 3], base: C3, lot: Lot, hu: f64, hw: f64, h: f64, cover: Id) {
     let c = [add(base, add(lot.v(-hu, 0.0, -hw), [0.0; 3])), add(base, lot.v(hu, 0.0, -hw)), add(base, lot.v(hu, 0.0, hw)), add(base, lot.v(-hu, 0.0, hw))];
     let apex = add(base, [0.0, h, 0.0]);
     for i in 0..4 { k.quad(at, [c[i], c[(i + 1) % 4], apex, apex], [1.0, 1.0, 1.0], layer(cover), 0); }
     k.quad(at, [c[0], c[1], c[2], c[3]], [0.7, 0.7, 0.7], layer(cover), 0);
 }
 /// Les quatre ailes du moulin, en croix de Saint-André, devant la tour : vergue, cadre en échelle, toile.
-fn sails(k: &mut Work, at: [i32; 3], lot: Lot, hub: C3, h: f64) {
+pub(crate) fn sails(k: &mut Work, at: [i32; 3], lot: Lot, hub: C3, h: f64) {
     let wood = [0.42, 0.29, 0.17]; let cloth = [0.86, 0.8, 0.68]; let fwd = lot.v(0.0, 0.0, -1.0);
     k.solid(at, hub, [mulv(lot.v(1.0, 0.0, 0.0), 0.22), [0.0, 0.22, 0.0], mulv(fwd, 0.3)], [0.3, 0.2, 0.12], -1.0, 0);
     let a0 = 0.785 + h * 0.6;
@@ -546,14 +553,14 @@ fn sails(k: &mut Work, at: [i32; 3], lot: Lot, hub: C3, h: f64) {
     }
 }
 /// Bûcher contre le flanc gauche : des piles de bûches (de vrais blocs, qu'on peut prendre).
-fn woodpile(k: &mut Work, lot: Lot, _w: i32, y0: i32) { let lp = id("log_pile"); for ww in 1..=3 { k.put(lot.cell(-1, y0 + 1, ww), lp); } k.put(lot.cell(-1, y0 + 2, 2), lp); }
+pub(crate) fn woodpile(k: &mut Work, lot: Lot, _w: i32, y0: i32) { let lp = id("log_pile"); for ww in 1..=3 { k.put(lot.cell(-1, y0 + 1, ww), lp); } k.put(lot.cell(-1, y0 + 2, 2), lp); }
 /// Caisses de planches et sacs à côté de la porte (de vrais blocs).
-fn crates(k: &mut Work, lot: Lot, u: f64, y0: i32, ww: f64, h: f64) {
+pub(crate) fn crates(k: &mut Work, lot: Lot, u: f64, y0: i32, ww: f64, h: f64) {
     let (u, ww) = (u.floor() as i32, ww.floor() as i32); let cr = id("crate");
     k.put(lot.cell(u, y0 + 1, ww), cr); k.put(lot.cell(u, y0 + 1, ww + 1), if h > 0.5 { cr } else { id("sack") }); if h > 0.3 { k.put(lot.cell(u, y0 + 2, ww), id(if h > 0.65 { "sack" } else { "crate" })); }
 }
 /// Bottes de foin contre le pignon d'une chaumière (de vrais blocs).
-fn hay(k: &mut Work, lot: Lot, w: i32, y0: i32, d: i32) { let hb = id("hay_bale"); for ww in [d - 3, d - 2] { k.put(lot.cell(w, y0 + 1, ww), hb); } k.put(lot.cell(w, y0 + 2, d - 2), hb); }
+pub(crate) fn hay(k: &mut Work, lot: Lot, w: i32, y0: i32, d: i32) { let hb = id("hay_bale"); for ww in [d - 3, d - 2] { k.put(lot.cell(w, y0 + 1, ww), hb); } k.put(lot.cell(w, y0 + 2, d - 2), hb); }
 
 /// Le puits : margelle de pierre (blocs), deux montants, traverse, treuil, petit toit, seau pendu.
 pub fn well(k: &mut Work, c: [i32; 3], tiles: Id) {
@@ -588,7 +595,7 @@ pub fn stall(k: &mut Work, at: [i32; 3], c: C3, facing: C3, stripes: [C3; 2], h:
 }
 
 /// Massifs le long de la façade (feuillage en touffes, fleurs), un banc contre le mur, deux buissons aux angles.
-fn garden(k: &mut Work, lot: Lot, w: i32, _d: i32, du: i32, y0: i32, h: f64) {
+pub(crate) fn garden(k: &mut Work, lot: Lot, w: i32, _d: i32, du: i32, y0: i32, h: f64) {
     let leaf = [[0.2, 0.36, 0.13], [0.26, 0.42, 0.16], [0.17, 0.3, 0.12]]; let flower = [[0.78, 0.2, 0.22], [0.95, 0.86, 0.35], [0.8, 0.5, 0.75], [0.95, 0.95, 0.92], [0.45, 0.4, 0.8]];
     let mut r = crate::noise::Rng::new((h * 1e6) as u32 + 7);
     for (i, (u0, u1)) in [(0.2, du as f64 - 0.25), (du as f64 + 1.25, w as f64 - 0.2)].into_iter().enumerate() { if u1 - u0 < 0.6 || (i == 0 && w >= 7) { continue; }
@@ -608,7 +615,7 @@ fn garden(k: &mut Work, lot: Lot, w: i32, _d: i32, du: i32, y0: i32, h: f64) {
 }
 
 /// Un meuble orientable dans le sens `f` (son dos vers cette direction).
-fn turned(n: &str, f: u8) -> Id { crate::shapes::variant(id(n), f % 4, false, false, false) }
+pub(crate) fn turned(n: &str, f: u8) -> Id { crate::shapes::variant(id(n), f % 4, false, false, false) }
 /// L'intérieur : table et bougie, chaise, armoire, tapis ; à l'auberge des tables rondes, des tabourets, un lustre ;
 /// chez l'artisan ses outils. Le mobilier du village (lit, coffre, poste) se pose ensuite et a priorité.
 /// L'escalier le long du mur de droite, du devant vers le fond (quatre marches, la dernière au niveau du plancher), la trémie ouverte

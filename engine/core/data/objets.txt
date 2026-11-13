@@ -190,6 +190,9 @@ mooring_post | Bitte d'amarrage | decor | 1.0 | 16 | Un pieu goudronné où l'on
 buoy | Bouée | decor | 1.0 | 16 | Rouge et blanche, pour marquer les filets. |
 net_pile | Tas de filets | decor | 1.0 | 16 | Des filets emmêlés qui attendent d'être ravaudés. |
 anchor | Ancre | decor | 1.0 | 16 | Une ancre de fer, à poser contre un mur. |
+cart | Charrette à bras | decor | 3.0 | 4 | Deux grandes roues, une caisse à ridelles : pour le foin, les sacs et les pierres. |
+trough | Abreuvoir | decor | 2.0 | 8 | Un bac de bois cerclé de fer sur ses tréteaux : les bêtes y boivent. |
+tool_rack | Râtelier d'outils | decor | 1.5 | 8 | Fourche, râteau, pelle et faux pendus au mur de la grange. |
 oars | Avirons | decor | 1.0 | 16 | Deux rames appuyées au mur. |
 rope_rail | Garde-corps de corde | decor | 1.0 | 16 | Deux poteaux et des cordes tendues, pour border un ponton. |
 sail | Voile | decor | 1.0 | 16 | Un pan de toile écrue gonflée par le vent : on en empile pour faire une voile entière. |
@@ -337,6 +340,23 @@ ashlar_vslab | Dalle verticale de pierre de taille | batir | 0.5 | 64 | Un demi-
 fieldstone_stairs | Escalier de moellons | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
 fieldstone_slab | Dalle de moellons | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
 fieldstone_vslab | Dalle verticale de moellons | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+limestone_masonry | Pierre calcaire appareillée | batir | 1.2 | 64 | Des assises de calcaire blond, inégales et bien jointoyées : maisons de pierre, manoirs, chapelles. |
+rubble_wall | Moellons gris | batir | 1.2 | 64 | Des pierres de carrière à peine équarries, montées au mortier : forges, granges, remparts. |
+barn_boards | Bardage de grange | batir | 0.9 | 64 | Des planches debout et leurs couvre-joints cloués : granges, appentis, hangars. |
+mossy_roof_tiles | Tuiles moussues | batir | 1.0 | 64 | Des tuiles qui ont vu passer cent hivers : la mousse a pris dans les recoins. |
+oak_beam | Poutre équarrie | batir | 1.4 | 64 | Une grosse poutre de chêne : se pose dans le sens où l'on regarde, debout ou couchée. |
+limestone_masonry_stairs | Escalier de pierre calcaire | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+limestone_masonry_slab | Dalle de pierre calcaire | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+limestone_masonry_vslab | Dalle verticale de pierre calcaire | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+rubble_wall_stairs | Escalier de moellons gris | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+rubble_wall_slab | Dalle de moellons gris | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+rubble_wall_vslab | Dalle verticale de moellons gris | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+mossy_roof_tiles_stairs | Escalier de tuiles moussues | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+mossy_roof_tiles_slab | Dalle de tuiles moussues | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+mossy_roof_tiles_vslab | Dalle verticale de tuiles moussues | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+barn_boards_stairs | Escalier de bardage | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
+barn_boards_slab | Dalle de bardage | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+barn_boards_vslab | Dalle verticale de bardage | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
 setts_stairs | Escalier de pavés | batir | 0.9 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. Pour les toits aussi. |
 setts_slab | Dalle de pavés | batir | 0.5 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
 setts_vslab | Dalle verticale de pavés | batir | 0.5 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |

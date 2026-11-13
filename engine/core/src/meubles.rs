@@ -9,7 +9,7 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 59] = ["fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 63] = ["cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
@@ -59,6 +59,35 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
         else { k.b([x - 0.13, y, z - 0.035, x + 0.1, y + 0.05, z + 0.035], bc); k.b([x - 0.1, y + 0.05, z - 0.02, x + 0.08, y + 0.06, z + 0.02], bd); k.b([x + 0.1, y + 0.005, z - 0.05, x + 0.16, y + 0.04, z + 0.05], bd); k.b([x - 0.12, y + 0.02, z - 0.036, x - 0.1, y + 0.035, z - 0.03], [0.05, 0.05, 0.05]); }
     };
     match m {
+        // Refonte des villages : charrette, abreuvoir, tas de charbon de bois, râtelier d'outils des champs.
+        "cart" => { // charrette à bras : caisse de planches à ridelles, deux grandes roues à rayons, brancards posés au sol, un peu de foin
+            k.b([0.12, 0.42, 0.08, 0.88, 0.48, 0.92], WOOD); for x in [0.12, 0.84] { k.b([x, 0.48, 0.08, x + 0.04, 0.7, 0.92], tone(WOOD, 0.9)); } for z in [0.08, 0.88] { k.b([0.12, 0.48, z, 0.88, 0.66, z + 0.04], tone(WOOD, 0.9)); }
+            for i in 0..4 { let z = 0.18 + i as f64 * 0.2; k.b([0.1, 0.5, z, 0.14, 0.72, z + 0.03], tone(WOOD, 0.8)); k.b([0.86, 0.5, z, 0.9, 0.72, z + 0.03], tone(WOOD, 0.8)); }
+            for sx in [0.02, 0.92] { // roue : jante en segments, moyeu, six rayons
+                let (cy, cz, rr) = (0.36, 0.5, 0.34); for a in 0..12 { let t = a as f64 / 12.0 * std::f64::consts::TAU; let (y, z) = (cy + rr * t.sin(), cz + rr * t.cos()); k.b([sx, y - 0.04, z - 0.04, sx + 0.06, y + 0.04, z + 0.04], DARK); }
+                for a in 0..6 { let t = a as f64 / 6.0 * std::f64::consts::PI; for j in 1..4 { let rj = j as f64 * 0.085; for sg in [-1.0, 1.0] { let (y, z) = (cy + sg * rj * t.sin(), cz + sg * rj * t.cos()); k.b([sx + 0.01, y - 0.018, z - 0.018, sx + 0.05, y + 0.018, z + 0.018], tone(WOOD, 0.85)); } } }
+                k.b([sx - 0.01, cy - 0.06, cz - 0.06, sx + 0.07, cy + 0.06, cz + 0.06], IRON); }
+            k.b([0.06, 0.32, 0.47, 0.94, 0.38, 0.53], tone(WOOD, 0.7)); // l'essieu
+            for x in [0.26, 0.7] { k.b([x, 0.04, -0.02, x + 0.05, 0.1, 0.1], WOOD); k.b([x, 0.1, 0.06, x + 0.05, 0.42, 0.11], tone(WOOD, 0.9)); } // brancards posés au sol
+            for _ in 0..14 { let x = r.range(0.2, 0.8); let z = r.range(0.2, 0.8); k.b([x - 0.08, 0.48, z - 0.06, x + 0.08, 0.48 + r.range(0.06, 0.16), z + 0.06], [0.82, 0.7, 0.36]); }
+        }
+        "trough" => { // abreuvoir de bois cerclé sur deux tréteaux, plein d'eau
+            for x in [0.1, 0.8] { k.b([x, 0.0, 0.2, x + 0.1, 0.32, 0.8], tone(WOOD, 0.85)); }
+            k.b([0.02, 0.3, 0.22, 0.98, 0.36, 0.78], WOOD); for z in [0.22, 0.72] { k.b([0.02, 0.36, z, 0.98, 0.6, z + 0.06], WOOD); } for x in [0.02, 0.92] { k.b([x, 0.36, 0.22, x + 0.06, 0.6, 0.78], WOOD); }
+            for x in [0.2, 0.75] { k.b([x, 0.3, 0.2, x + 0.04, 0.61, 0.8], IRON); } k.b([0.08, 0.5, 0.28, 0.92, 0.53, 0.72], [0.22, 0.36, 0.44]);
+        }
+        "coal_heap" => { // tas de charbon de bois : des morceaux noirs luisants en dôme, quelques braises éteintes
+            for _ in 0..40 { let a = r.range(0.0, std::f64::consts::TAU); let d = r.range(0.0, 0.42); let (x, z) = (0.5 + d * a.cos(), 0.5 + d * a.sin()); let top = 0.42 * (1.0 - (d / 0.45).powi(2)).max(0.0); let s = r.range(0.05, 0.1);
+                k.b([x - s, (top - s).max(0.0), z - s, x + s, top + s * 0.6, z + s], tone([0.1, 0.1, 0.11], r.range(0.7, 1.4))); }
+        }
+        "tool_rack" => { // râtelier contre le mur : une traverse, fourche, râteau, faux, pelle, pendus
+            k.b([0.04, 0.78, 0.86, 0.96, 0.86, 0.94], WOOD); for x in [0.08, 0.88] { k.b([x, 0.0, 0.88, x + 0.04, 0.9, 0.94], tone(WOOD, 0.85)); }
+            let handle = tone(WOOD, 1.2);
+            k.b([0.2, 0.05, 0.82, 0.24, 0.95, 0.86], handle); for t in 0..3 { let x = 0.17 + t as f64 * 0.035; k.b([x, 0.02, 0.81, x + 0.012, 0.22, 0.83], IRON); } k.b([0.16, 0.2, 0.81, 0.28, 0.23, 0.84], IRON); // fourche
+            k.b([0.42, 0.05, 0.82, 0.46, 0.95, 0.86], handle); k.b([0.32, 0.06, 0.8, 0.56, 0.1, 0.84], tone(WOOD, 0.8)); for t in 0..6 { let x = 0.33 + t as f64 * 0.04; k.b([x, 0.0, 0.8, x + 0.012, 0.06, 0.82], tone(WOOD, 0.8)); } // râteau
+            k.b([0.64, 0.15, 0.82, 0.68, 0.95, 0.86], handle); k.b([0.6, 0.02, 0.8, 0.72, 0.18, 0.83], IRON); // pelle
+            k.b([0.82, 0.3, 0.82, 0.85, 0.95, 0.86], handle); k.b([0.66, 0.84, 0.8, 0.84, 0.88, 0.83], tone(IRON, 1.2)); // faux
+        }
         // Mobilier de port : filets, séchoirs, nasses, bittes, bouées, ancre, avirons, garde-corps de corde, voiles, fanion.
         "fishing_net" => { // filet pendu contre le mur ou la clôture, en mailles lâches qui s'affaissent, flotteurs de liège en haut
             for i in 0..9 { let x = 0.06 + i as f64 * 0.11; let sag = |y: f64| 0.03 * (1.0 - (2.0 * y - 1.0).powi(2)); for j in 0..8 { let y = 0.1 + j as f64 * 0.11; k.b([x - 0.008, y, 0.9 - sag(y), x + 0.008, y + 0.11, 0.915 - sag(y)], NET); } }

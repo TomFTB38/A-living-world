@@ -254,6 +254,62 @@ fn cobble(t: &Tile, x: f64, y: f64) -> S {
     let (d1, d2, id) = t.vor(x, y, 4); let gap = smooth(0.0, 0.16, d2 - d1); let n = t.fbm(x, y, 8, 3); let tone = 0.3 + 0.45 * t.pi(id) + 0.3 * (n - 0.5);
     S { c: mul(pal(&STONE, tone), 0.35 + 0.65 * gap), h: 0.15 + 0.7 * gap * (0.7 + 0.3 * n), r: 0.85 }
 }
+
+// ------------------------------------------------------------------ refonte des villages : matériaux de construction
+const LIME: [C; 4] = pl!("#94866c", "#b2a385", "#c9bb9b", "#dcd0b3"); const GREYST: [C; 4] = pl!("#4a4845", "#66635e", "#84807a", "#a29d95");
+const BOARD: [C; 4] = pl!("#3b2a1d", "#56402e", "#725840", "#8b7256"); const TRAIL: [C; 4] = pl!("#5a432e", "#73573a", "#8a6c4b", "#a0835e");
+/// Pierre calcaire appareillée : des assises de hauteurs inégales, des pierres de longueurs variées, blondes,
+/// arêtes adoucies, joints de mortier creusés ; quelques pierres plus brutes ou plus claires.
+fn lime_masonry(t: &Tile, x: f64, y: f64) -> S {
+    let rows = [0.0, 13.0, 31.0, 45.0, 64.0]; let r = (0..4).find(|i| y < rows[i + 1]).unwrap_or(3); let (y0, y1) = (rows[r], rows[r + 1]);
+    let n = 2 + (t.pi(r as i64 * 5 + 1) * 3.0) as i64; let seg = 64.0 / n as f64; let off = t.pi(r as i64 * 7 + 3) * 64.0; let xr = (x + off).rem_euclid(64.0);
+    let jit = |i: i64| (t.pi(r as i64 * 31 + i.rem_euclid(n)) - 0.5) * seg * 0.4;
+    let mut k = (xr / seg).floor() as i64; if xr < k as f64 * seg + jit(k) { k -= 1; } if xr >= (k + 1) as f64 * seg + jit(k + 1) { k += 1; }
+    let (xa, xb) = (k as f64 * seg + jit(k), (k + 1) as f64 * seg + jit(k + 1));
+    let j = (xr - xa).min(xb - xr).min(y - y0).min(y1 - y); let m = smooth(0.6, 2.4, j); let id = r as i64 * 17 + k.rem_euclid(n);
+    let n2 = t.fbm(x, y, 8, 3); let pit = smooth(0.7, 0.85, t.val(x * 2.0, y * 2.0, 64)); let rough = t.pi(id + 40) > 0.75;
+    let tone = 0.25 + 0.5 * t.pi(id) + 0.25 * (n2 - 0.5) - 0.12 * pit - if rough { 0.08 } else { 0.0 };
+    if m < 0.25 { return S { c: mul([0.66, 0.62, 0.55], 0.8 + 0.2 * n2), h: 0.12, r: 0.95 }; }
+    S { c: mul(pal(&LIME, tone), 0.7 + 0.3 * m), h: 0.25 + 0.65 * m * (0.85 + 0.15 * n2) - 0.15 * pit, r: 0.88 }
+}
+/// Moellons gris équarris : des pierres anguleuses de tailles inégales, posées à plat, joints de mortier larges et creux.
+fn rubble(t: &Tile, x: f64, y: f64) -> S {
+    let (d1, d2, id) = t.vor(x * 0.8, y * 1.35, 4); let gap = smooth(0.03, 0.12, d2 - d1); let n = t.fbm(x, y, 8, 3);
+    if gap < 0.4 { return S { c: mul([0.6, 0.58, 0.54], 0.8 + 0.25 * n), h: 0.1, r: 0.95 }; }
+    let facet = smooth(0.12, 0.4, d2 - d1); let warm = t.pi(id + 13); let tone = 0.15 + 0.6 * t.pi(id) + 0.3 * (n - 0.5);
+    let c = pal(&GREYST, tone); S { c: [c[0] * (0.96 + 0.1 * warm), c[1] * (0.98 + 0.03 * warm), c[2] * (1.02 - 0.06 * warm)], h: 0.3 + 0.4 * facet + 0.2 * n, r: 0.84 }
+}
+/// Bout d'une poutre équarrie : des cernes presque carrés, une fente de séchage, l'arête sombre.
+fn beam_end(t: &Tile, x: f64, y: f64) -> S {
+    let (dx, dy) = (x - 32.0 + 3.0 * t.fbm(x, y, 4, 2), y - 32.0); let d = dx.abs().max(dy.abs()) * 0.7 + dx.hypot(dy) * 0.3;
+    let ring = (d * 0.85).sin() * 0.5 + 0.5; let crack = (1.0 - smooth(0.0, 1.2, (dx * 0.2 + dy).abs())) * smooth(4.0, 8.0, d) * (1.0 - smooth(20.0, 26.0, d));
+    let edge = 1.0 - smooth(1.0, 5.0, x.min(63.99 - x).min(y.min(63.99 - y)));
+    S { c: mul(pal(&TIMBER, 0.45 + 0.3 * ring), 1.0 - 0.4 * edge - 0.5 * crack), h: 0.5 + 0.2 * ring - 0.4 * crack - 0.3 * edge, r: 0.8 }
+}
+/// Bardage de grange : planches verticales vieillies, couvre-joints cloués sur les fentes, fil du bois, pointes rouillées.
+fn boards(t: &Tile, x: f64, y: f64) -> S {
+    let bw = 16.0; let k = (x / bw).floor(); let fx = x - k * bw; let id = k as i64;
+    let batten = fx < 2.5 || fx > bw - 2.5; let grain = t.val(x * 0.3 + id as f64 * 7.0, y * 3.0, 64); let n = t.fbm(x, y, 4, 3);
+    let weather = smooth(0.45, 0.8, t.fbm(x * 0.5 + 9.0, y * 0.3, 4, 3));
+    let tone = 0.25 + 0.4 * t.pi(id) + 0.25 * (grain - 0.5) + 0.15 * weather; let gap = smooth(0.0, 1.0, fx.min(bw - fx));
+    let nail = batten && ((y - 8.0).abs() < 1.2 || (y - 40.0).abs() < 1.2) && (fx - if fx < 8.0 { 1.2 } else { bw - 1.2 }).abs() < 1.2;
+    if nail { return S { c: [0.28, 0.2, 0.16], h: 1.0, r: 0.5 }; }
+    let c = pal(&BOARD, if batten { tone - 0.08 } else { tone }); let gr = 0.9 + 0.1 * weather;
+    S { c: [c[0] * gr, c[1] * gr, c[2] * (gr + 0.03 * weather)], h: if batten { 0.85 + 0.1 * n } else { 0.35 + 0.25 * grain } * (0.4 + 0.6 * gap), r: 0.82 }
+}
+/// Tuiles vieillies : la terre cuite d'un toit ancien, mangée par la mousse et les lichens dans les recoins.
+fn tiles_moss(t: &Tile, x: f64, y: f64) -> S {
+    let mut s = roof_tiles(t, x, y); let moss = smooth(0.52, 0.66, t.fbm(x + 17.0, y + 5.0, 4, 4)); let lich = smooth(0.9, 0.94, t.val(x * 2.0, y * 2.0, 64)) * smooth(0.4, 0.55, t.fbm(x + 3.0, y + 41.0, 4, 3));
+    let m = [0.3, 0.4, 0.16]; for i in 0..3 { s.c[i] = s.c[i] * (1.0 - 0.8 * moss) + m[i] * 0.8 * moss * (0.8 + 0.4 * t.val(x * 3.0, y * 3.0, 64)); s.c[i] = s.c[i] * (1.0 - 0.5 * lich) + 0.7 * 0.5 * lich; }
+    s.h += 0.15 * moss; s
+}
+/// Chemin de terre battue : la terre tassée et plus claire au milieu, des cailloux affleurants, un peu de poussière.
+fn path_top(t: &Tile, x: f64, y: f64) -> S {
+    let n = t.fbm(x, y, 4, 4); let fine = t.val(x * 2.0, y * 2.0, 64); let (d1, d2, id) = t.vor(x, y, 8);
+    let pebble = t.pi(id) > 0.8 && d1 < 0.3 * (0.6 + 0.6 * t.pi(id + 5)); let worn = smooth(0.4, 0.7, t.fbm(x * 0.5 + 3.0, y * 0.5, 2, 3));
+    if pebble { let tone = 0.3 + 0.5 * t.pi(id + 9); return S { c: pal(&GREYST, tone), h: 0.75 - d1 * 1.5 + 0.0 * d2, r: 0.8 }; }
+    S { c: mul(pal(&TRAIL, 0.3 + 0.35 * n + 0.15 * fine + 0.2 * worn), 1.0), h: 0.3 + 0.2 * n + 0.1 * fine - 0.1 * worn, r: 0.97 }
+}
 // ------------------------------------------------------------------ village médiéval
 const PLASTER: [C; 4] = pl!("#b9ad94", "#d3c8b0", "#e3dac6", "#efe8d8"); const TIMBER: [C; 4] = pl!("#3a2414", "#55361f", "#73502f", "#906942");
 const TILE: [C; 4] = pl!("#5a2a1e", "#743a29", "#8c4d38", "#a2634c"); const SLATE: [C; 4] = pl!("#2c3138", "#3b424b", "#4d555f", "#636b74");
@@ -473,6 +529,7 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "ore_copper" => ore(t, x, y, [0.32, 0.62, 0.48], [0.78, 0.46, 0.24]), "ore_tin" => ore(t, x, y, [0.8, 0.82, 0.84], [0.58, 0.6, 0.62]), "ore_iron" => ore(t, x, y, [0.7, 0.42, 0.28], [0.52, 0.28, 0.18]), "ore_coal" => ore(t, x, y, [0.07, 0.07, 0.08], [0.16, 0.16, 0.17]),
         "clay" => clay(t, x, y), "stone_bricks" => bricks(t, x, y, 16.0, 32.0, &CUT_STONE, [0.36, 0.34, 0.31]), "bricks" => bricks(t, x, y, 8.0, 16.0, &BRICK, [0.74, 0.7, 0.62]),
         "thatch" => thatch(t, x, y), "cobble" => cobble(t, x, y), "farmland_top" => farmland(t, x, y),
+        "lime_masonry" => lime_masonry(t, x, y), "rubble" => rubble(t, x, y), "beam_end" => beam_end(t, x, y), "boards" => boards(t, x, y), "tiles_moss" => tiles_moss(t, x, y), "path_top" => path_top(t, x, y),
         "plaster" => plaster(t, x, y), "dark_timber" => dark_timber(t, x, y), "roof_tiles" => roof_tiles(t, x, y), "slate" => slate(t, x, y),
         "marble" => marble(t, x, y), "ashlar" => ashlar(t, x, y), "fieldstone" => fieldstone(t, x, y), "setts" => setts(t, x, y), "polished_stone" => polished(t, x, y),
         "checker" => checker(t, x, y), "terracotta" => terracotta(t, x, y), "parquet" => parquet(t, x, y), "shingles" => shingles(t, x, y), "wool" => wool(t, x, y),
@@ -526,7 +583,7 @@ pub fn build_textures(size: usize) -> Textures {
 /// Relief propre à chaque matière : la maçonnerie, les toitures et le bois de charpente sont creusés plus franchement
 /// (joints, rangs de tuiles, planches qui se chevauchent) ; le reste garde un relief doux.
 fn relief(n: &str) -> f64 {
-    match n { "stone_bricks" | "bricks" | "cobble" | "fieldstone" | "ashlar" | "setts" | "chiseled" => 2.0, "roof_tiles" | "slate" | "shingles" | "thatch" => 2.2,
+    match n { "stone_bricks" | "bricks" | "cobble" | "fieldstone" | "ashlar" | "setts" | "chiseled" | "lime_masonry" => 2.0, "rubble" | "roof_tiles" | "slate" | "shingles" | "thatch" | "tiles_moss" => 2.2, "boards" => 1.8, "beam_end" => 1.5, "path_top" => 1.2,
         "dark_timber" | "planks" | "planks_birch" | "planks_spruce" | "planks_wreck" | "parquet" | "wattle" | "crate" | "books" => 1.7, "plaster" | "terracotta" | "wood_inner" | "iron_plate" => 1.4, _ => 1.0 }
 }
 /// Nombre de pixels d'art par côté de bloc.
