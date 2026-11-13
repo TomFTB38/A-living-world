@@ -189,7 +189,7 @@ impl Session {
         self.world_step(dt); // baies, blé, feux, dépouilles
         let changes = self.flow.step(dt, &self.world); if !changes.is_empty() { self.world.edit_many(&changes); self.dirty = true; }
         if let Some(mut f) = self.falling.take() { if f.step(dt, &self.world) { self.sound.tree_land(); } if !f.done() { self.falling = Some(f); } }
-        if self.world.loaded() > 0 {
+        if self.world.loaded() > 0 && !self.gen.flat { // un monde plat reste vide de bêtes : on y construit tranquille
             self.fauna.update(dt, &self.world, self.player.p, (self.sun_height() * 3.0).max(0.0));
             for e in std::mem::take(&mut self.fauna.ev) { match e { Ev::Bird(p, v) => self.sound.bird(p, v), Ev::Wings(p) => self.sound.wings(p), Ev::Hoof(p, f) => self.sound.hoof(p, f), Ev::Alarm(p) => self.sound.deer_alarm(p), Ev::Call(p) => self.sound.deer_call(p) } }
             let on = self.player.ground && !self.player.fly; self.wild.update(dt, &self.world, self.player.p, (self.sun_height() * 3.0).max(0.0), self.taiga, self.steppe, (1.0 - self.taiga - self.steppe - self.deep - self.desert).max(0.0) + 0.6 * self.highlands + 0.3 * self.mountains - self.sea, on, [self.deep, self.highlands.max(1.3 * self.mountains), self.desert, self.sea, self.sea_warm, self.ocean]); /* les bouquetins des hautes terres peuplent aussi la montagne, en plus grand nombre */

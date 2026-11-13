@@ -78,6 +78,8 @@ jobs:
           for k in 1 4 5 8 9 10; do shot onglet$k -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 onglet$k; done
           shot arc -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 arc
           shot arc_tiers -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 arc_tiers
+          shot plat_galerie 30 90 -30 95 55 30 11 7 1280 720 2048 plat
+          shot plat_pres 70 63 -4 82 58 18 11 6 1280 720 2048 plat
           shot bourg_vue -1478 104 1470 -1535 58 1525 15.5 7 1280 720 2048
           shot bourg_mairie -1522 68 1506 -1538 60 1484 16 6 1280 720 2048
           shot bourg_eglise -1522 70 1534 -1544 63 1514 16.5 6 1280 720 2048

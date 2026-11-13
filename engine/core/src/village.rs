@@ -70,6 +70,7 @@ const FIRST: [&str; 24] = ["Anselme", "Berthe", "Colin", "Denise", "Étienne", "
 impl WorldGen {
     /// Le village de cette case de la grille, s'il y en a un.
     pub fn site(&self, gx: i32, gz: i32) -> Option<Rc<Site>> {
+        if self.flat { return None; }
         if let Some(s) = self.towns.borrow().get(&(gx, gz)) { return s.clone(); }
         let s = self.trace(gx, gz).map(Rc::new); self.towns.borrow_mut().insert((gx, gz), s.clone()); s
     }

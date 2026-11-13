@@ -103,9 +103,9 @@ impl Default for Menu { fn default() -> Self { Menu::new() } }
 #[derive(Clone, Debug)] pub struct WorldInfo { pub name: String, pub seed: i32, pub profile: usize, pub hours: f64, pub age: String }
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum TPage { Main, Worlds, New }
 /// L'écran titre : page, mondes, monde choisi, champs du nouveau monde (nom, graine), profil, champ actif, suppression à confirmer.
-#[derive(Clone, Debug)] pub struct Title { pub page: TPage, pub worlds: Vec<WorldInfo>, pub sel: usize, pub name: String, pub seed: String, pub profile: usize, pub field: usize, pub confirm: bool, pub current: String, pub scroll: usize }
-impl Title { pub fn new(worlds: Vec<WorldInfo>, current: &str) -> Title { Title { page: TPage::Main, sel: 0, name: String::new(), seed: String::new(), profile: 1, field: 0, confirm: false, current: current.to_string(), scroll: 0, worlds } } }
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum T { Continue, New, Worlds, Settings, Quit, Row(usize), Play, Delete, Back, Field(usize), Profile(usize), Create }
+#[derive(Clone, Debug)] pub struct Title { pub page: TPage, pub worlds: Vec<WorldInfo>, pub sel: usize, pub name: String, pub seed: String, pub profile: usize, pub field: usize, pub confirm: bool, pub current: String, pub scroll: usize, /** monde plat, pour construire */ pub flat: bool }
+impl Title { pub fn new(worlds: Vec<WorldInfo>, current: &str) -> Title { Title { page: TPage::Main, sel: 0, name: String::new(), seed: String::new(), profile: 1, field: 0, confirm: false, current: current.to_string(), scroll: 0, worlds, flat: false } } }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum T { Continue, New, Worlds, Settings, Quit, Row(usize), Play, Delete, Back, Field(usize), Profile(usize), Create, Flat }
 const ROWS: usize = 7;
 pub fn title_layout(t: &Title, w: f32, h: f32) -> Vec<(T, [f32; 4])> {
     let k = scale(h); let mut o = Vec::new();
@@ -123,7 +123,7 @@ pub fn title_layout(t: &Title, w: f32, h: f32) -> Vec<(T, [f32; 4])> {
         }
         TPage::New => {
             let pw = (820.0 * k).min(w - 40.0); let x = (w - pw) * 0.5 + 20.0 * k; let iw = pw - 40.0 * k; let y = h * 0.16;
-            o.push((T::Field(0), [x, y + 104.0 * k, iw, 44.0 * k])); o.push((T::Field(1), [x, y + 190.0 * k, iw, 44.0 * k]));
+            o.push((T::Field(0), [x, y + 104.0 * k, iw, 44.0 * k])); let fw = iw * 0.6; o.push((T::Field(1), [x, y + 190.0 * k, fw, 44.0 * k])); o.push((T::Flat, [x + fw + 12.0 * k, y + 190.0 * k, iw - fw - 12.0 * k, 44.0 * k]));
             let b = (iw - 2.0 * 12.0 * k) / 3.0; for i in 0..PROFILES.len() { o.push((T::Profile(i), [x + i as f32 * (b + 12.0 * k), y + 276.0 * k, b, 96.0 * k])); }
             let b = (iw - 12.0 * k) / 2.0; o.push((T::Create, [x, y + 400.0 * k, b, 50.0 * k])); o.push((T::Back, [x + b + 12.0 * k, y + 400.0 * k, b, 50.0 * k]));
         }
@@ -382,6 +382,11 @@ impl Ui {
                             let act = t.field == f; self.panel(r, k, if act { [0.12, 0.16, 0.12, 1.0] } else { WELL }); let v = if f == 0 { &t.name } else { &t.seed };
                             let shown = if v.is_empty() && !act { if f == 0 { "Mon monde".to_string() } else { "au hasard".to_string() } } else { format!("{v}{}", if act { "_" } else { "" }) };
                             self.text(&shown, r[0] + 14.0 * k, r[1] + 11.0 * k, 18.0 * k, if v.is_empty() && !act { DIM } else { INK });
+                        }
+                        T::Flat => {
+                            self.text("Type de monde", r[0], r[1] - 26.0 * k, 16.0 * k, DIM);
+                            self.panel(r, k, if t.flat { [0.24, 0.36, 0.2, 1.0] } else if on { [0.16, 0.2, 0.15, 1.0] } else { WELL });
+                            self.centered(if t.flat { "Monde plat (construction)" } else { "Monde naturel" }, r, 17.0 * k, INK);
                         }
                         T::Profile(i) => {
                             if i == 0 { self.text("Survie", r[0], r[1] - 26.0 * k, 16.0 * k, DIM); }

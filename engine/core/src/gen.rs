@@ -23,8 +23,14 @@ const LIP: f64 = 0.55; // part du lit qui se déverse au bord d'un palier
 fn fdiv(a: i32, b: i32) -> i32 { a.div_euclid(b) }
 #[inline] fn ri(x: f64) -> i32 { round(x) as i32 }
 
+/// Les mondes plats, pour construire : une graine marquée (les bits 12 à 30 valent FLAT) ; tout le jeu dérive de la graine,
+/// la sauvegarde, la génération et les fils de calcul le savent donc d'eux-mêmes.
+pub const FLAT: i32 = 0x2F1A_7000; const FLAT_MASK: i32 = 0x7FFF_F000;
+pub fn is_flat(seed: i32) -> bool { seed & FLAT_MASK == FLAT }
+/// La hauteur du sol d'herbe d'un monde plat.
+pub const FLAT_Y: i32 = 54;
 pub struct WorldGen {
-    pub seed: i32,
+    pub seed: i32, /** monde plat : une prairie sans fin, sans relief, sans villages */ pub flat: bool, gallery: std::cell::OnceCell<Vec<(i32, i32, i32, Id)>>,
     n_base: Noise, n_hill: Noise, n_warp: Noise, n_river: Noise, n_path: Noise, n_forest: Noise, n_cliff: Noise, n_cave: Noise, pub n_deco: Noise,
     pub climate: Climate,
     ponds: RefCell<HashMap<(i32, i32), Option<Pond>>>,
@@ -36,7 +42,7 @@ pub struct WorldGen {
 impl WorldGen {
     pub fn new(seed: i32) -> Self {
         let s = seed; let n = |k: i32| Noise::new(s.wrapping_add(k));
-        WorldGen { seed: s, n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()), towns: RefCell::new(HashMap::new()) }
+        WorldGen { seed: s, flat: is_flat(s), gallery: std::cell::OnceCell::new(), n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()), towns: RefCell::new(HashMap::new()) }
     }
     fn raw_height(&self, x: f64, z: f64) -> Raw { let m = self.climate.at(x, z); let r = self.raw_land(x, z, &m); self.seafloor(r, &m) }
     /// Mer et océan : la côte se relève d'abord un peu (pas de terre sous le niveau de la mer qui resterait sèche à côté de l'eau),
@@ -114,6 +120,7 @@ impl WorldGen {
     /// Sommet de la chute qui tombe dans cette colonne : le palier voisin plus haut, s'il s'y déverse.
     fn fall_top(&self, x: f64, z: f64, water: f64) -> f64 { let mut t = 0.0f64; for (a, b) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)] { if let Some((l, k)) = self.river_level(x + a, z + b) { if l > water && k < LIP { t = t.max(l); } } } t }
     pub fn column(&self, x: f64, z: f64) -> Column {
+        if self.flat { return Column { mix: self.climate.at(x, z), wet: false, h: FLAT_Y as f64, water: 0.0, still: false, forest: 0.0, path: 0.0, bank: 0.0, cliff: 0.0 }; }
         let Raw { wx, wz, low, hs, massif } = self.raw_height(x, z); let mix = self.climate.at(x, z); let steppe = mix.strong(Biome::Steppe);
         let step_n = self.n_hill.n2(x / 52.0 + 11.0, z / 52.0 - 7.0); let s = 4.0;
         let q = hs / s; let fl = q.floor(); let fr = q - fl;
@@ -197,6 +204,10 @@ impl WorldGen {
     }
     /// Terrain, décor et empreintes, sans aucune dépendance à l'ordre de chargement.
     pub fn gen_chunk(&self, cx: i32, cz: i32) -> Vec<Id> {
+        if self.flat { let mut v: Vec<Id> = vec![0; CA]; let t = FLAT_Y as usize; for z in 0..CX { for x in 0..CX { for y in 0..=t { v[idx(x, y, z)] = if y == t { B::GRASS } else if y + 3 >= t { B::DIRT } else { B::STONE }; } } }
+            let (ox, oz) = (cx * CX as i32, cz * CX as i32);
+            for &(x, y, z, b) in self.gallery() { let (lx, lz) = (x - ox, z - oz); if lx >= 0 && lz >= 0 && lx < CX as i32 && lz < CX as i32 && y >= 0 && (y as usize) < CH { v[idx(lx as usize, y as usize, lz as usize)] = b; } }
+            return v; }
         let mut v: Vec<Id> = vec![0; CA]; let (ox, oz) = (cx * CX as i32, cz * CX as i32);
         let mut heights = vec![0i32; CX * CX]; let mut waters = vec![0i32; CX * CX]; let mut info = vec![(0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64); CX * CX];
         for z in 0..CX { for x in 0..CX {
@@ -549,6 +560,7 @@ impl WorldGen {
     }
     /// Les coffres d'épave à moins de `r` blocs, du plus proche au plus lointain (bancs d'essai, captures, carte).
     pub fn wrecks_near(&self, x: f64, z: f64, r: f64) -> Vec<[i32; 3]> {
+        if self.flat { return Vec::new(); }
         let (g0, g1) = (fdiv((x - r) as i32, WRECK_CELL), fdiv((x + r) as i32, WRECK_CELL)); let (h0, h1) = (fdiv((z - r) as i32, WRECK_CELL), fdiv((z + r) as i32, WRECK_CELL));
         let mut o: Vec<[i32; 3]> = Vec::new();
         for gx in g0..=g1 { for gz in h0..=h1 { if let Some(st) = self.cached(4, gx, gz) { for d in st.data.iter().filter(|d| d[3] == B::CHEST as i32) { if ((d[0] as f64 - x).hypot(d[2] as f64 - z)) <= r { o.push([d[0], d[1], d[2]]); } } } } }
@@ -845,4 +857,26 @@ fn grow_beech(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
         g.blob(tip[0], tip[1] + 1.0, tip[2], lerp(2.4, 3.8, age), lerp(2.0, 3.0, age), lf, r);
     }
     g.finish()
+}
+
+/// La galerie d'un monde plat : tous les bâtiments des villages, alignés devant le point d'arrivée, la façade tournée
+/// vers lui, pour les visiter, les modifier et les retravailler. Première rangée : les douze bâtiments médiévaux et un
+/// chantier ; deuxième rangée : les variantes de la maison de villageois et un puits. Une allée pavée les longe.
+impl WorldGen {
+    pub fn gallery(&self) -> &Vec<(i32, i32, i32, Id)> {
+        self.gallery.get_or_init(|| {
+            use crate::edifice::{raise, Arch, Cond, Spec}; let mut k = crate::batisse::Work::default(); let y0 = FLAT_Y;
+            let first: Vec<(Arch, u8, Option<&'static str>, Cond)> = vec![(Arch::House, 0, None, Cond::Kept), (Arch::Forge, 0, Some("forgeron"), Cond::Kept), (Arch::Inn, 0, None, Cond::Kept), (Arch::Mill, 0, None, Cond::Kept),
+                (Arch::Tannery, 0, Some("tanneur"), Cond::Kept), (Arch::Chapel, 0, None, Cond::Kept), (Arch::TownHall, 0, None, Cond::Kept), (Arch::Hall, 0, None, Cond::Kept), (Arch::Woodshop, 0, Some("maitre_menuisier"), Cond::Kept),
+                (Arch::Farm, 0, None, Cond::Kept), (Arch::Fold, 0, None, Cond::Kept), (Arch::Stable, 0, None, Cond::Kept), (Arch::House, 0, None, Cond::Building)];
+            let second: Vec<(Arch, u8, Option<&'static str>, Cond)> = (0..8).map(|v| (Arch::House, v, None, if v % 4 == 3 { Cond::Old } else { Cond::Kept })).collect();
+            for (z0, list) in [(12, first), (44, second)] { let mut cursor = 4;
+                for (arch, var, craft, cond) in list { let sp = Spec::new(arch, var, 0.4, if var % 2 == 1 { 0.8 } else { 0.4 }, craft, cond); let e = sp.extent();
+                    let lot = crate::batisse::Lot { o: (cursor - e[0], z0 - e[1]), u: (1, 0), w: (0, 1) }; let _ = raise(&mut k, lot, &sp, y0); cursor += e[2] - e[0] + 1 + 5; }
+                for x in 0..cursor { for dz in [-3, -2] { k.put([x, y0, z0 + dz], B::COBBLESTONE); } } // l'allée
+            }
+            crate::batisse::well(&mut k, [-6, y0, 46], crate::blocks::by_name("roof_tiles").unwrap_or(B::COBBLESTONE));
+            k.blocks
+        })
+    }
 }

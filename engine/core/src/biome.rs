@@ -16,12 +16,12 @@ impl Mix {
     pub fn strong(&self, b: Biome) -> f64 { crate::noise::smooth(0.3, 0.55, self.of(b)) }
     pub fn main(&self) -> usize { let mut m = 0; for i in 1..COUNT { if self.w[i] > self.w[m] { m = i; } } m }
 }
-pub struct Climate { a: Noise, b: Noise, c: Noise }
+pub struct Climate { a: Noise, b: Noise, c: Noise, flat: bool }
 impl Climate {
-    pub fn new(seed: i32) -> Self { Climate { a: Noise::new(seed.wrapping_add(21)), b: Noise::new(seed.wrapping_add(22)), c: Noise::new(seed.wrapping_add(23)) } }
+    pub fn new(seed: i32) -> Self { Climate { a: Noise::new(seed.wrapping_add(21)), b: Noise::new(seed.wrapping_add(22)), c: Noise::new(seed.wrapping_add(23)), flat: crate::gen::is_flat(seed) } }
     pub fn at(&self, x: f64, z: f64) -> Mix {
         let (wx, wz) = (x + 110.0 * self.b.n2(x / 1100.0, z / 1100.0), z + 110.0 * self.a.n2(x / 1100.0 + 30.0, z / 1100.0 - 70.0));
-        let home = crate::noise::smooth(HOME, HOME_FADE, hypot2(x, z));
+        let home = if self.flat { 0.0 } else { crate::noise::smooth(HOME, HOME_FADE, hypot2(x, z)) }; // monde plat : le climat doux du départ, partout
         let temp = ANCHORS[0].0 + ((self.a.fbm(wx / 3000.0, wz / 3000.0, 2) * 2.6).clamp(-1.0, 1.0) - ANCHORS[0].0) * home;
         let wet = ANCHORS[0].1 + ((self.b.fbm(wx / 3000.0 + 91.0, wz / 3000.0 - 37.0, 2) * 2.6).clamp(-1.05, 1.0) - ANCHORS[0].1) * home;
         let mut m = Mix { w: [0.0; COUNT], temp, wet, sea: 0.0, deep: 0.0, shore: 0.0 }; let mut sum = 0.0;

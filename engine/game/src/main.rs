@@ -19,6 +19,7 @@ pub fn report(msg: &str) { eprintln!("{msg}"); let _ = std::fs::write(beside_exe
 /// Un point de départ au sec : sur un chemin si possible, en spirale autour de l'origine.
 fn spawn_point(seed: i32) -> [f64; 3] {
     let g = WorldGen::new(seed); let mut best = [0.5, 80.0, 0.5];
+    if g.flat { return [6.5, alw_core::gen::FLAT_Y as f64 + 1.0, 2.5]; } // monde plat : devant la galerie des bâtiments
     for r in 0..40 { for k in 0..16 {
         let a = k as f64 / 16.0 * std::f64::consts::TAU; let (x, z) = ((a.cos() * r as f64 * 6.0).floor() + 0.5, (a.sin() * r as f64 * 6.0).floor() + 0.5);
         let c = g.column(x, z);
@@ -145,7 +146,7 @@ impl Game {
         self.save(); let text = std::fs::read_to_string(world_path(name)).ok();
         let seed = text.as_ref().and_then(|t| t.lines().find_map(|l| l.strip_prefix("seed ").and_then(|v| v.trim().parse().ok()))).or(seed).unwrap_or(SEED);
         let mut s = Session::new(seed, &self.preset, self.threads, spawn_point(seed));
-        match &text { Some(t) => if let Err(e) = s.load_text(t) { report(&format!("Sauvegarde illisible : {e}")); }, None => if let Some(p) = profile { s.profile = p; } }
+        match &text { Some(t) => if let Err(e) = s.load_text(t) { report(&format!("Sauvegarde illisible : {e}")); }, None => { if let Some(p) = profile { s.profile = p; } if s.gen.flat { s.set_creative(true); s.hour = 10.0; } } } // un monde plat commence en créatif, en plein jour
         std::mem::swap(&mut s.sound, &mut self.s.sound); self.gpu.forget_all(); self.s = s; self.world = name.to_string(); self.menu.profile = self.s.profile; self.apply();
         if text.is_none() { self.save(); } let _ = std::fs::write(worlds_dir().join("dernier.txt"), name);
         self.menu.title = None; self.held.clear(); self.keys.clear(); self.grab(true);
@@ -154,7 +155,7 @@ impl Game {
         let Some(t) = self.menu.title.as_mut() else { return }; if a != hud::T::Delete { t.confirm = false; }
         match a {
             hud::T::Continue => { if self.world.is_empty() { return; } self.menu.title = None; self.s.tour_end(); self.grab(true); }
-            hud::T::New => { t.page = hud::TPage::New; t.name.clear(); t.seed.clear(); t.field = 0; t.profile = 1; }
+            hud::T::New => { t.page = hud::TPage::New; t.name.clear(); t.seed.clear(); t.field = 0; t.profile = 1; t.flat = false; }
             hud::T::Worlds => { t.page = hud::TPage::Worlds; t.sel = t.worlds.iter().position(|w| w.name == t.current).unwrap_or(0); }
             hud::T::Settings => { self.menu.open = true; }
             hud::T::Quit => { self.save(); self.write_settings(); std::process::exit(0); }
@@ -171,7 +172,11 @@ impl Game {
             hud::T::Back => { t.page = hud::TPage::Main; }
             hud::T::Field(f) => { t.field = f; }
             hud::T::Profile(i) => { t.profile = i; }
-            hud::T::Create => { let (name, seed, p) = (fresh_name(&t.name), seed_of(&t.seed), t.profile); self.switch_world(&name, Some(seed), Some(p)); }
+            hud::T::Flat => { t.flat = !t.flat; }
+            hud::T::Create => { let (name, mut seed, p) = (fresh_name(&t.name), seed_of(&t.seed), t.profile);
+                // un monde plat porte sa marque dans la graine ; un monde naturel ne doit jamais la porter par hasard
+                if t.flat { seed = (seed & 0xFFF) | alw_core::gen::FLAT; } else if alw_core::gen::is_flat(seed) { seed ^= 0x1000; }
+                self.switch_world(&name, Some(seed), Some(p)); }
         }
     }
     fn frame(&mut self) {
@@ -384,7 +389,7 @@ fn capture(a: &[String]) {
     let (radius, w, h, shadow) = (n(8, 6.0) as i32, n(9, 1280.0) as u32, n(10, 720.0) as u32, n(11, 2048.0) as u32);
     let md = Models::build(); let scene = a.get(12).cloned().unwrap_or_default();
     let mut g = pollster::block_on(gpu::Gpu::new(None, w, h, gpu::Options { shadow, fallback: true, hole: (radius as f32 - 0.6) * 32.0, cascades: if scene == "ultra" { gpu::CASCADES_ULTRA } else { gpu::CASCADES } }, &md));
-    let mut s = Session::new(SEED, &(if scene == "ultra" { Preset { radius, ..ULTRA } } else { Preset { radius, lod1: 2.3, lod2: 4.6 } }), 4, [eye[0], eye[1] - 1.62, eye[2]]); s.hour = n(7, 16.4); s.player.fly = true; s.give_kit(); // les captures gardent l'ancien équipement
+    let seed = if scene.starts_with("plat") { alw_core::gen::FLAT | 1 } else { SEED }; let mut s = Session::new(seed, &(if scene == "ultra" { Preset { radius, ..ULTRA } } else { Preset { radius, lod1: 2.3, lod2: 4.6 } }), 4, [eye[0], eye[1] - 1.62, eye[2]]); s.hour = n(7, 16.4); s.player.fly = true; s.give_kit(); // les captures gardent l'ancien équipement
     let pump = |s: &mut Session, g: &mut gpu::Gpu| loop { let (b, f) = s.sync(); for c in b { g.upload(c); } for k in f { g.forget(k); } if s.world.waiting() == 0 { break; } std::thread::sleep(std::time::Duration::from_millis(5)); };
     let t0 = Instant::now(); pump(&mut s, &mut g); println!("{} chunks chargés en {:.1} s", s.world.loaded(), t0.elapsed().as_secs_f64());
     let f = view::norm([look[0] - eye[0], look[1] - eye[1], look[2] - eye[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();

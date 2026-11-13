@@ -658,7 +658,7 @@ impl Session {
         let sun = self.sun_height(); let night = ((0.05 - sun) / 0.15).clamp(0.0, 1.0);
         let sp = self.player.v[0].hypot(self.player.v[2]); let mut noise: f64 = if sp > 5.5 { 0.9 } else if sp > 0.5 { 0.45 } else { 0.1 }; if self.mine_t > 0.0 || self.hit_t > 0.0 { noise = noise.max(0.8); } if self.player.crouch { noise *= 0.3; }
         let lit = self.inv[self.sel].is_some_and(|s| matches!(s.item, "torch" | "lantern")) || self.light_at(self.player.p[0].floor() as i32, self.player.p[1].floor() as i32 + 1, self.player.p[2].floor() as i32) >= 10;
-        let can_spawn = !self.creative && self.dead.is_none() && self.tour.is_none();
+        let can_spawn = !self.creative && self.dead.is_none() && self.tour.is_none() && !self.gen.flat;
         let mut horde = std::mem::replace(&mut self.horde, Horde::new(0));
         { let gen = &self.gen; let protect = |x: f64, z: f64| gen.villages_near(x, z, 120.0).iter().any(|v| ((v.c[0] as f64 - x).hypot(v.c[2] as f64 - z)) < v.r as f64 + 10.0);
         let me: &Session = self; let light = |x: i32, y: i32, z: i32| me.light_at(x, y, z);

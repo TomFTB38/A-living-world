@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu creatif onglet4 bourg_vue bourg_mairie bourg_eglise bourg_moulin hameau_vue
+spawn jeu creatif onglet4 plat_galerie plat_pres bourg_vue bourg_mairie hameau_vue
