@@ -13,7 +13,10 @@ use crate::blocks::Id;
 use crate::shapes::{facing_of, variant};
 
 /// Le chantier d'un patron : la commande de pose dans le repère local.
-pub(crate) struct P<'a> { pub k: &'a mut Work, pub lot: Lot, pub y0: i32, pub mirror: bool, pub w: i32 }
+pub(crate) struct P<'a> { pub k: &'a mut Work, pub lot: Lot, pub y0: i32, pub mirror: bool, pub w: i32, pub d: i32, pub h: f64, pub rec: Rec }
+/// Ce que le patron a posé et que l'habillage en relief reprendra : fenêtres, portes, pans de bois, toits, sablières, cheminées.
+#[derive(Default)]
+pub(crate) struct Rec { wins: Vec<(i32, i32, i32, bool)>, doors: Vec<(i32, i32, i32, i32, i32)>, frames: Vec<((i32, i32), (i32, i32), (i32, i32), i32)>, roofs: Vec<((i32, i32), (i32, i32), i32, i32, bool, String)>, belts: Vec<((i32, i32), (i32, i32), i32)>, caps: Vec<(i32, i32, i32)> }
 impl P<'_> {
     fn lx(&self, x: i32) -> i32 { if self.mirror { self.w - 1 - x } else { x } }
     pub fn put(&mut self, x: i32, y: i32, z: i32, b: Id) { let c = self.lot.cell(self.lx(x), self.y0 + y, z); self.k.put(c, b); }
@@ -33,13 +36,14 @@ impl P<'_> {
         self.n(x, y, z, if world_x { "oak_log_x_c" } else { "oak_log_z_c" });
     }
     /// Porte de deux blocs dans un mur dont la normale locale (vers dehors) est (dx, dz).
-    pub fn door(&mut self, x: i32, y: i32, z: i32, dx: i32, dz: i32) { let f = self.face(-dx, -dz); let d = id("door"); self.put(x, y, z, variant(d, f, false, false, false)); self.put(x, y + 1, z, variant(d, f, false, false, true)); }
+    pub fn door(&mut self, x: i32, y: i32, z: i32, dx: i32, dz: i32) { self.rec.doors.push((x, y, z, dx, dz)); let f = self.face(-dx, -dz); let d = id("door"); self.put(x, y, z, variant(d, f, false, false, false)); self.put(x, y + 1, z, variant(d, f, false, false, true)); }
     /// Fenêtre dans un mur parallèle à x (`along_x`) ou à z.
-    pub fn win(&mut self, x: i32, y: i32, z: i32, along_x: bool) { let f = if along_x { self.face(0, 1) } else { self.face(1, 0) }; self.put(x, y, z, variant(id("window"), f, false, false, false)); }
+    pub fn win(&mut self, x: i32, y: i32, z: i32, along_x: bool) { self.rec.wins.push((x, y, z, along_x)); let f = if along_x { self.face(0, 1) } else { self.face(1, 0) }; self.put(x, y, z, variant(id("window"), f, false, false, false)); }
     /// Un toit à deux pans en gradins d'escaliers : faîte le long de z (`along_z`) ou de x, sur l'emprise des murs
     /// [a0, a1] × [b0, b1], à partir de la hauteur y, débord `ov`. Le pignon (aux deux bouts du faîte) est rempli de `gable`.
     #[allow(clippy::too_many_arguments)]
     pub fn roof(&mut self, x: (i32, i32), z: (i32, i32), y: i32, ov: i32, along_z: bool, mat: &str, gable: Option<&str>) {
+        self.rec.roofs.push((x, z, y, ov, along_z, mat.to_string()));
         let st = format!("{mat}_stairs"); let ((a0, a1), (b0, b1)) = if along_z { (x, z) } else { (z, x) };
         let xy = |a: i32, b: i32| if along_z { (a, b) } else { (b, a) }; let up = |s: i32| if along_z { (s, 0) } else { (0, s) };
         let mut k = 0;
@@ -64,12 +68,14 @@ impl P<'_> {
     }
     /// Un mur à pans de bois sur un rectangle : poteaux de chêne aux angles (et tous les `step`), torchis entre, de y0 à y1.
     pub fn frame(&mut self, x: (i32, i32), z: (i32, i32), y: (i32, i32), step: i32, infill: &str) {
+        self.rec.frames.push((x, z, y, step));
         for xx in x.0..=x.1 { for zz in z.0..=z.1 { let edge = xx == x.0 || xx == x.1 || zz == z.0 || zz == z.1; if !edge { continue; }
             let corner = (xx == x.0 || xx == x.1) && (zz == z.0 || zz == z.1); let post = corner || (zz == z.0 || zz == z.1) && (xx - x.0) % step == 0 || (xx == x.0 || xx == x.1) && (zz - z.0) % step == 0;
             for yy in y.0..=y.1 { if post { self.log(xx, yy, zz, 'y'); } else { self.n(xx, yy, zz, infill); } } } }
     }
     /// Une sablière (ceinture de poutres couchées) autour d'un rectangle, à la hauteur y.
     pub fn belt(&mut self, x: (i32, i32), z: (i32, i32), y: i32) {
+        self.rec.belts.push((x, z, y));
         for xx in x.0..=x.1 { for zz in [z.0, z.1] { self.log(xx, y, zz, 'x'); } } for zz in z.0 + 1..z.1 { for xx in [x.0, x.1] { self.log(xx, y, zz, 'z'); } }
         for (xx, zz) in [(x.0, z.0), (x.1, z.0), (x.0, z.1), (x.1, z.1)] { self.log(xx, y, zz, 'y'); }
     }
@@ -77,6 +83,112 @@ impl P<'_> {
     pub fn ground(&mut self, ext: [i32; 4], h: i32, body: [i32; 4], floor: &str, found: &str) {
         for x in ext[0]..=ext[2] { for z in ext[1]..=ext[3] { for y in 1..=h { self.put(x, y, z, 0); } } }
         for x in body[0]..=body[2] { for z in body[1]..=body[3] { for y in -3..0 { self.n(x, y, z, "cobblestone"); } let edge = x == body[0] || x == body[2] || z == body[1] || z == body[3]; self.n(x, 0, z, if edge { found } else { floor }); } }
+    }
+    pub fn cap(&mut self, x: i32, y: i32, z: i32) { self.rec.caps.push((x, y, z)); }
+    /// Le bloc posé en dernier sur une case (0 : rien).
+    fn at(&self, x: i32, y: i32, z: i32) -> Id { let c = self.lot.cell(self.lx(x), self.y0 + y, z); self.k.blocks.iter().rev().find(|b| (b.0, b.1, b.2) == (c[0], c[1], c[2])).map_or(0, |b| b.3) }
+    fn name(&self, x: i32, y: i32, z: i32) -> &'static str { crate::blocks::BLOCKS[self.at(x, y, z) as usize].name }
+    /// Un point du repère local, en continu (le miroir retourne x).
+    fn fp(&self, x: f64, y: f64, z: f64) -> [f64; 3] { self.lot.p(if self.mirror { self.w as f64 - x } else { x }, self.y0 as f64 + y, z) }
+    fn fv(&self, d: (f64, f64, f64)) -> [f64; 3] { self.lot.v(if self.mirror { -d.0 } else { d.0 }, d.1, d.2) }
+    fn cw(&self, c: (i32, i32, i32)) -> [i32; 3] { self.lot.cell(self.lx(c.0), self.y0 + c.1, c.2) }
+    /// Une pièce en relief de a à b, tenue par le bloc `at` : demi-largeur hw, demi-épaisseur ht selon `side`.
+    #[allow(clippy::too_many_arguments)]
+    fn piece(&mut self, at: (i32, i32, i32), a: (f64, f64, f64), b: (f64, f64, f64), side: (f64, f64, f64), hw: f64, ht: f64, col: [f64; 3]) {
+        let (c, p0, p1, n) = (self.cw(at), self.fp(a.0, a.1, a.2), self.fp(b.0, b.1, b.2), self.fv(side)); self.k.bar(c, p0, p1, n, hw, ht, col, -1.0);
+    }
+    fn block(&mut self, at: (i32, i32, i32), lo: (f64, f64, f64), hi: (f64, f64, f64), col: [f64; 3]) {
+        let (a, b) = (self.fp(lo.0, lo.1, lo.2), self.fp(hi.0, hi.1, hi.2)); let c = self.cw(at);
+        self.k.cube(c, [a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])], [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])], col, -1.0);
+    }
+    /// L'habillage en relief, une fois le gros œuvre posé : appuis, linteaux et volets peints des fenêtres, jardinières,
+    /// chambranles des portes, écharpes et lisses des pans de bois, abouts de poutres, rives et planches d'égout des toits,
+    /// faîtage, chapeaux de cheminée.
+    pub fn dress(&mut self) {
+        const OAK: [f64; 3] = [0.34, 0.22, 0.12]; const DARK: [f64; 3] = [0.24, 0.15, 0.08]; const END: [f64; 3] = [0.52, 0.38, 0.22]; const STONE: [f64; 3] = [0.52, 0.5, 0.47];
+        const PAINT: [[f64; 3]; 5] = [[0.24, 0.36, 0.26], [0.22, 0.3, 0.42], [0.5, 0.18, 0.14], [0.38, 0.3, 0.2], [0.3, 0.4, 0.42]];
+        let paint = PAINT[(self.h * 5.0) as usize % 5]; let rec = std::mem::take(&mut self.rec); let (cx, cz) = (self.w as f64 * 0.5, self.d as f64 * 0.5);
+        let wins: std::collections::HashSet<(i32, i32, i32)> = rec.wins.iter().map(|w| (w.0, w.1, w.2)).collect();
+        // Un point sur la face d'un mur : le mur suit x (`ax`) à la profondeur `z` ou suit z à l'abscisse `x` ; `s` : vers dehors.
+        let on = |ax: bool, cell: (i32, i32), s: f64, t: f64, y: f64, o: f64| -> (f64, f64, f64) { if ax { (t, y, if s < 0.0 { cell.1 as f64 - o } else { cell.1 as f64 + 1.0 + o }) } else { (if s < 0.0 { cell.0 as f64 - o } else { cell.0 as f64 + 1.0 + o }, y, t) } };
+        // ---- fenêtres
+        for &(x, y, z, ax) in &rec.wins { if !self.name(x, y, z).starts_with("window") { continue; }
+            let s = if ax { if (z as f64 + 0.5) < cz { -1.0 } else { 1.0 } } else if (x as f64 + 0.5) < cx { -1.0 } else { 1.0 };
+            let n = if ax { (0.0, 0.0, s) } else { (s, 0.0, 0.0) }; let t = if ax { x } else { z } as f64; let (yf, c) = (y as f64, (x, z)); let at = (x, y, z);
+            self.piece(at, on(ax, c, s, t - 0.14, yf - 0.03, 0.09), on(ax, c, s, t + 1.14, yf - 0.03, 0.09), n, 0.055, 0.09, OAK); // l'appui
+            self.piece(at, on(ax, c, s, t - 0.1, yf + 1.04, 0.05), on(ax, c, s, t + 1.1, yf + 1.04, 0.05), n, 0.07, 0.05, OAK); // le linteau
+            for (k, (t0, t1)) in [(t - 0.46, t - 0.03), (t + 1.03, t + 1.46)].into_iter().enumerate() { // les volets, s'il y a du mur à côté
+                let nb = if ax { (x + if k == 0 { -1 } else { 1 }, y, z) } else { (x, y, z + if k == 0 { -1 } else { 1 }) }; let nm = self.name(nb.0, nb.1, nb.2);
+                if wins.contains(&nb) || nm == "air" || nm.starts_with("door") || nm.contains("glass") { continue; }
+                self.piece(at, on(ax, c, s, (t0 + t1) * 0.5, yf + 0.05, 0.03), on(ax, c, s, (t0 + t1) * 0.5, yf + 0.95, 0.03), n, (t1 - t0) * 0.5, 0.025, paint);
+                for yy in [yf + 0.22, yf + 0.78] { self.piece(at, on(ax, c, s, t0 + 0.04, yy, 0.06), on(ax, c, s, t1 - 0.04, yy, 0.06), n, 0.035, 0.012, paint.map(|v| v * 0.65)); }
+            }
+            if y <= 2 && s < 0.0 && ax && (x + z + (self.h * 10.0) as i32) % 2 == 0 { // une jardinière fleurie sous les fenêtres de façade
+                self.piece(at, on(ax, c, s, t - 0.05, yf - 0.17, 0.2), on(ax, c, s, t + 1.05, yf - 0.17, 0.2), n, 0.12, 0.14, [0.42, 0.27, 0.15]);
+                let cols = [[0.75, 0.16, 0.2], [0.95, 0.85, 0.3], [0.85, 0.45, 0.65], [0.95, 0.95, 0.9], [0.3, 0.55, 0.22]];
+                for k in 0..7 { let tt = t + 0.08 + k as f64 * 0.14; let q = on(ax, c, s, tt, yf + 0.02, 0.21); let col = cols[(k + x as usize) % 5];
+                    self.block(at, (q.0 - 0.06, q.1 - 0.06, q.2 - 0.06), (q.0 + 0.06, q.1 + 0.06, q.2 + 0.06), [0.22, 0.4, 0.16]);
+                    let q = on(ax, c, s, tt + 0.04, yf + 0.1, 0.23); self.block(at, (q.0 - 0.05, q.1 - 0.04, q.2 - 0.05), (q.0 + 0.05, q.1 + 0.05, q.2 + 0.05), col); }
+            }
+        }
+        // ---- portes : chambranle et linteau de chêne
+        for &(x, y, z, dx, dz) in &rec.doors { if !self.name(x, y, z).starts_with("door") { continue; }
+            let ax = dz != 0; let s = (dx + dz) as f64; let n = (dx as f64, 0.0, dz as f64); let t = if ax { x } else { z } as f64; let (yf, c, at) = (y as f64, (x, z), (x, y, z));
+            for tt in [t - 0.06, t + 1.06] { self.piece(at, on(ax, c, s, tt, yf, 0.05), on(ax, c, s, tt, yf + 2.1, 0.05), n, 0.08, 0.06, OAK); }
+            self.piece(at, on(ax, c, s, t - 0.22, yf + 2.08, 0.06), on(ax, c, s, t + 1.22, yf + 2.08, 0.06), n, 0.1, 0.09, OAK);
+        }
+        // ---- pans de bois : écharpes en chevron et lisses sur le torchis
+        for &(xr, zr, yr, step) in &rec.frames {
+            let sides = [(true, zr.0, -1.0, xr), (true, zr.1, 1.0, xr), (false, xr.0, -1.0, zr), (false, xr.1, 1.0, zr)];
+            for (si, &(ax, fixed, s, span)) in sides.iter().enumerate() { let n = if ax { (0.0, 0.0, s) } else { (s, 0.0, 0.0) };
+                let mut posts: Vec<i32> = (span.0..=span.1).filter(|v| (v - span.0) % step == 0).collect(); if *posts.last().unwrap() != span.1 { posts.push(span.1); }
+                for (pi, w2) in posts.windows(2).enumerate() { let (p0, p1) = (w2[0], w2[1]); if p1 - p0 < 2 { continue; }
+                    let cell = |t: i32, y: i32| if ax { (t, y, fixed) } else { (fixed, y, t) };
+                    let infill = |me: &Self, t: i32, y: i32| { let c = cell(t, y); let nm = me.name(c.0, c.1, c.2); nm.starts_with("plaster") || nm == "barn_boards" };
+                    let rows: Vec<i32> = (yr.0..=yr.1).filter(|&y| (p0 + 1..p1).all(|t| infill(self, t, y))).collect(); if rows.len() < 2 { continue; }
+                    let (ya, yb) = (rows[0] as f64, *rows.last().unwrap() as f64 + 1.0); if rows.len() as f64 != yb - ya { continue; }
+                    let c2 = |t: i32| if ax { (t, fixed) } else { (fixed, t) }; let at = cell(p0 + 1, rows[0]); let (t0, t1) = (p0 as f64 + 1.06, p1 as f64 - 0.06);
+                    let flip = (pi + si) % 2 == 1; let (ya2, yb2) = (ya + 0.08, yb - 0.08);
+                    let (a, b) = if flip { ((t0, yb2), (t1, ya2)) } else { ((t0, ya2), (t1, yb2)) };
+                    self.piece(at, on(ax, c2(p0 + 1), s, a.0, a.1, 0.04), on(ax, c2(p0 + 1), s, b.0, b.1, 0.04), n, 0.075, 0.045, DARK);
+                    if rows.len() >= 3 { let ym = ya + 1.0; self.piece(at, on(ax, c2(p0 + 1), s, t0 - 0.06, ym, 0.04), on(ax, c2(p0 + 1), s, t1 + 0.06, ym, 0.04), n, 0.06, 0.045, DARK); }
+                }
+            }
+        }
+        // ---- abouts des poutres de plancher, qui dépassent des sablières sur les longs pans
+        for &(xr, zr, y) in &rec.belts { for x in (xr.0 + 1..xr.1).step_by(2) { for (z, s) in [(zr.0, -1.0), (zr.1, 1.0)] { if !self.name(x, y, z).starts_with("oak_log") { continue; }
+            let zf = if s < 0.0 { z as f64 } else { z as f64 + 1.0 }; self.block((x, y, z), (x as f64 + 0.32, y as f64 + 0.3, zf.min(zf + s * 0.22)), (x as f64 + 0.68, y as f64 + 0.7, zf.max(zf + s * 0.22)), END); } } }
+        // ---- toits : faîtage, rives le long des pignons, planches d'égout
+        for (xr, zr, y, ov, along_z, mat) in &rec.roofs { let (y, ov, along_z) = (*y, *ov, *along_z); let ((a0, a1), (b0, b1)) = if along_z { (*xr, *zr) } else { (*zr, *xr) };
+            let (lo, hi) = ((a0 - ov) as f64, (a1 + ov + 1) as f64); let half = (hi - lo) * 0.5; let ac = lo + half; let top = y as f64 + half; // la pente à 45° passe par le haut des marches
+            let tone: [f64; 3] = if mat.starts_with("slate") { [0.2, 0.22, 0.26] } else if mat.starts_with("mossy") { [0.36, 0.33, 0.22] } else { [0.5, 0.22, 0.15] };
+            let pt = |a: f64, yy: f64, b: f64| if along_z { (a, yy, b) } else { (b, yy, a) }; let bb = ((b0 - ov) as f64, (b1 + ov + 1) as f64);
+            let anc = |me: &Self, b: i32| { let (x, z) = if along_z { ((ac - 0.5).floor() as i32, b) } else { (b, (ac - 0.5).floor() as i32) }; let yy = (y..y + 30).rev().find(|&yy| me.at(x, yy, z) != 0).unwrap_or(y); (x, yy, z) };
+            let ridge_at = anc(self, b0); let up = (0.0, 1.0, 0.0);
+            self.piece(ridge_at, pt(ac, top + 0.58, bb.0 - 0.06), pt(ac, top + 0.58, bb.1 + 0.06), up, 0.24, 0.07, tone.map(|v| v * 0.8));
+            let across = if along_z { (0.0, 0.0, 1.0) } else { (1.0, 0.0, 0.0) };
+            for (b, o) in [(bb.0, -0.04), (bb.1, 0.04)] { let at = anc(self, if o < 0.0 { b0 } else { b1 });
+                for (e, sg) in [(lo, 1.0), (hi, -1.0)] { let _ = sg; self.piece(at, pt(e, y as f64 + 0.5, b + o), pt(ac, top + 0.5, b + o), across, 0.11, 0.04, OAK); } }
+            for e in [lo - 0.04, hi + 0.04] { let at = anc(self, b0); self.piece(at, pt(e, y as f64 + 0.3, bb.0), pt(e, y as f64 + 0.3, bb.1), if along_z { (1.0, 0.0, 0.0) } else { (0.0, 0.0, 1.0) }, 0.14, 0.03, OAK); }
+        }
+        // ---- chapeaux de cheminée
+        for &(x, y, z) in &rec.caps { let (xf, yf, zf) = (x as f64, y as f64 + 1.0, z as f64);
+            self.block((x, y, z), (xf - 0.12, yf, zf - 0.12), (xf + 1.12, yf + 0.16, zf + 1.12), STONE);
+            self.block((x, y, z), (xf + 0.3, yf + 0.16, zf + 0.3), (xf + 0.7, yf + 0.45, zf + 0.7), [0.55, 0.3, 0.22]); }
+    }
+    /// Une corniche de pierre en relief autour d'un rectangle de murs, au sommet de la rangée y.
+    pub fn cornice(&mut self, x: (i32, i32), z: (i32, i32), y: i32) {
+        const C: [f64; 3] = [0.58, 0.56, 0.52]; let (x0, x1, z0, z1, yf) = (x.0 as f64 - 0.12, x.1 as f64 + 1.12, z.0 as f64 - 0.12, z.1 as f64 + 1.12, y as f64 + 0.86);
+        self.block((x.0, y, z.0), (x0, yf, x0.min(z0).max(z0)), (x1, yf + 0.16, z.0 as f64 + 0.2), C); self.block((x.0, y, z.1), (x0, yf, z.1 as f64 + 0.8), (x1, yf + 0.16, z1), C);
+        self.block((x.0, y, z.0), (x0, yf, z0), (x.0 as f64 + 0.2, yf + 0.16, z1), C); self.block((x.1, y, z.0), (x.1 as f64 + 0.8, yf, z0), (x1, yf + 0.16, z1), C);
+    }
+    /// La charpente apparente d'un pignon : entrait, poinçon et deux jambes de force, sur la face z (dehors vers s).
+    pub fn truss(&mut self, x: (i32, i32), z: i32, s: f64, y: i32, top: f64) {
+        const OAK: [f64; 3] = [0.3, 0.19, 0.1]; let zf = if s < 0.0 { z as f64 - 0.05 } else { z as f64 + 1.05 }; let (a, b) = (x.0 as f64, x.1 as f64 + 1.0); let mid = (a + b) * 0.5; let at = (x.0, y, z); let n = (0.0, 0.0, s);
+        self.piece(at, (a, y as f64 + 0.15, zf), (b, y as f64 + 0.15, zf), n, 0.14, 0.06, OAK);
+        self.piece(at, (mid, y as f64 + 0.15, zf), (mid, top, zf), n, 0.12, 0.06, OAK);
+        for e in [a + 1.2, b - 1.2] { self.piece(at, (mid, y as f64 + 0.9, zf), (e, y as f64 + 0.25 + (mid - e).abs() * 0.0, zf), n, 0.09, 0.05, OAK); let _ = e; }
+        for e in [(a + mid) * 0.5, (b + mid) * 0.5] { self.piece(at, (e, y as f64 + 0.15, zf), (mid, y as f64 + 0.15 + (mid - a) * 0.75, zf), n, 0.08, 0.05, OAK); }
     }
     pub fn sconce(&mut self, x: i32, y: i32, z: i32, dx: i32, dz: i32) { self.turn(x, y, z, "wall_sconce", dx, dz); }
 }
@@ -101,7 +213,7 @@ pub(crate) fn maison(p: &mut P, d: i32, roof: &str, infill: &str, woodshed: bool
     p.roof((0, w - 1), (0, d - 1), 3, 1, true, roof, Some(infill));
     for z in [0, d - 1] { p.log(3, 4, z, 'y'); p.log(3, 5, z, 'y'); } p.win(2, 4, 0, true); p.win(4, 4, 0, true); // les deux fenêtres du pignon
     // la cheminée : foyer au fond à droite, conduit de pierre qui perce le toit
-    p.turn(5, 1, d - 2, "fireplace", 0, 1); for y in 2..=8 { p.n(5, y, d - 2, "stone_bricks"); }
+    p.turn(5, 1, d - 2, "fireplace", 0, 1); for y in 2..=8 { p.n(5, y, d - 2, "stone_bricks"); } p.cap(5, 8, d - 2);
     // l'intérieur : lit, coffre, table et chaise, étagère, lanterne
     p.turn(1, 1, d - 2, "bed", 0, 1); p.turn(1, 1, d - 3, "bed_foot", 0, 1); p.n(5, 1, 1, "chest"); p.n(4, 1, d - 3, "table"); p.n(4, 2, d - 3, "candle"); p.turn(3, 1, d - 3, "chair", 1, 0);
     p.turn(5, 2, 1, "wall_shelf", 1, 0); p.n(3, 3, 2, "lantern"); p.n(2, 1, 2, "carpet_red");
@@ -122,7 +234,7 @@ pub(crate) fn forge(p: &mut P, master: bool) -> Built {
     p.roof((0, w - 1), (0, d - 1), 4, 1, true, "slate", Some("plaster")); for z in [0, d - 1] { p.log(3, 5, z, 'y'); p.log(3, 6, z, 'y'); }
     p.turn(3, 6, -1, "banner_blue", 0, 1); p.sconce(-1, 2, 0, 1, 0);
     // le foyer : un massif de pierre, la gueule rougeoyante, la hotte, le conduit jusqu'au-dessus du faîte
-    p.fill((4, 5), (1, 2), (6, 7), "stone_bricks"); p.n(4, 1, 6, "furnace"); p.n(5, 1, 6, "coal_heap"); p.fill((4, 5), (3, 10), (7, 7), "stone_bricks"); p.fill((4, 5), (3, 3), (6, 6), "stone_bricks_slab");
+    p.fill((4, 5), (1, 2), (6, 7), "stone_bricks"); p.n(4, 1, 6, "furnace"); p.n(5, 1, 6, "coal_heap"); p.fill((4, 5), (3, 10), (7, 7), "stone_bricks"); p.cap(4, 10, 7); p.cap(5, 10, 7); p.fill((4, 5), (3, 3), (6, 6), "stone_bricks_slab");
     p.n(3, 1, 3, "anvil"); if master { p.n(2, 1, 5, "anvil"); } p.n(5, 1, 3, "cauldron"); p.turn(1, 1, 3, "grindstone", -1, 0); p.turn(1, 2, 5, "weapon_rack", -1, 0); p.n(3, 1, 7, "bucket"); p.n(3, 3, 2, "lantern"); p.n(3, 3, 6, "lantern");
     p.turn(1, 1, 7, "bed", 0, 1); p.turn(1, 1, 6, "bed_foot", 0, 1); p.n(2, 1, 1, "chest");
     // l'auvent du flanc gauche
@@ -152,7 +264,7 @@ pub(crate) fn auberge(p: &mut P) -> Built {
     for x in 4..=8 { p.n(x, 7, -1, if x == 4 || x == 8 { "oak_log_c" } else { "plaster" }); } for x in 5..=7 { p.n(x, 4, -1, "oak_log_c"); p.n(x, 5, -1, "plaster"); p.n(x, 6, -1, "plaster"); } p.win(6, 5, -1, true); p.win(5, 5, -1, true); p.win(7, 5, -1, true);
     p.turn(6, 3, -1, "banner_red", 0, 1); p.turn(8, 3, -1, "banner_gold", 0, 1); p.sconce(4, 2, -1, 0, 1); p.sconce(8, 2, -1, 0, 1);
     // les cheminées
-    for y in 1..=13 { p.n(w - 2, y, d - 2, "stone_bricks"); } p.turn(w - 2, 1, d - 3, "fireplace", 0, 1);
+    for y in 1..=13 { p.n(w - 2, y, d - 2, "stone_bricks"); } p.cap(w - 2, 13, d - 2); p.turn(w - 2, 1, d - 3, "fireplace", 0, 1);
     // les auvents des flancs, bancs et tables dessous
     for (side, x0) in [(-1, -1), (1, w)] { for z in 1..d - 1 { for k in 0..2 { let x = x0 + side * k; p.n(x, 0, z, "cobblestone"); p.stair(x, 4 - k, z, "slate_stairs", -side, 0, false); } }
         for z in [1, 4, d - 2] { for y in 1..=2 { p.n(x0 + side, y, z, "oak_log_c"); } } p.n(x0, 3, 2, "lantern"); p.n(x0, 1, 3, "round_table"); p.n(x0, 1, 2, "stool"); p.n(x0, 1, 6, "round_table"); p.n(x0, 1, 7, "stool"); p.n(x0 + side, 1, 5, "barrel"); }
@@ -209,7 +321,7 @@ pub(crate) fn tanneur(p: &mut P) -> Built {
     for (x, z) in [(11, 0), (11, 4), (11, d - 1), (w + 1, 0), (w + 1, d - 1)] { for y in 1..=4 { p.n(x, y, z, "oak_log_c"); } }
     for z in 1..d - 1 { if z != 4 { p.n(11, 1, z, "fence"); } } for x in w..11 { p.turn(x, 3, d - 1, "hides", 0, 1); } for z in [2, 6] { p.turn(10, 3, z, "hides", 1, 0); p.turn(10, 2, z, "hides", 1, 0); }
     p.n(9, 1, 2, "tanning_vat"); p.n(9, 1, 6, "lime_vat"); p.n(10, 1, 4, "barrel");
-    for y in 1..=8 { p.n(5, y, d - 2, "stone_bricks"); } p.turn(5, 1, d - 3, "fireplace", 0, 1);
+    for y in 1..=8 { p.n(5, y, d - 2, "stone_bricks"); } p.cap(5, 8, d - 2); p.turn(5, 1, d - 3, "fireplace", 0, 1);
     // dedans : cuves, établi (le tanneur s'y tient), peaux aux murs, coffre, lit
     p.n(2, 1, d - 2, "tanning_vat"); p.n(3, 1, d - 2, "lime_vat"); p.n(4, 1, 3, "workbench"); p.n(5, 1, 3, "table"); p.turn(1, 2, 5, "hides", -1, 0); p.turn(3, 2, d - 1 - 1, "chain", 0, 1);
     p.turn(1, 1, 2, "bed", 0, 1); p.turn(1, 1, 1, "bed_foot", 0, 1); p.n(6, 1, 1, "chest"); p.n(4, 3, 4, "lantern");
@@ -245,6 +357,7 @@ pub(crate) fn eglise(p: &mut P) -> Built {
     for x in tx0 + 1..tx1 { for z in tz0 + 1..tz1 { p.n(x, 12, z, "planks"); p.n(x, 17, z, "stone_bricks"); } }
     p.n(5, 16, 2, "chain"); p.n(5, 15, 2, "bell");
     p.pyramid(5, 2, 2, 18, "roof_tiles"); p.n(5, 21, 2, "cross");
+    for y in [7, 11, 16] { p.cornice((tx0, tx1), (tz0, tz1), y); } p.cornice((x0, x1), (z0, z1), 7);
     // dedans : l'allée au tapis rouge, les bancs, l'autel et ses cierges, lustres et bannières
     for z in 1..z1 { p.n(5, 1, z, "carpet_red"); } for z in (6..=12).step_by(2) { for x in [2, 3, 4, 6, 7, 8] { p.turn(x, 1, z, "bench", 0, -1); } }
     p.n(5, 1, z1 + 1, "table"); p.n(5, 2, z1 + 1, "candle"); p.n(4, 1, z1 + 1, "candle"); p.n(6, 1, z1 + 1, "candle");
@@ -296,7 +409,7 @@ pub(crate) fn grande_mairie(p: &mut P) -> Built {
     // perron, bannières, lanternes
     for x in 6..=12 { p.stair(x, 0, -1, "stone_bricks_stairs", 0, 1, false); }
     for x in [6, 12] { p.turn(x, 3, 1, "banner_blue", 0, 1); } for x in [2, 16] { p.turn(x, 7, -1, "banner_blue", 0, 1); } for x in [6, 12] { p.n(x, 1, -2, "fence"); p.n(x, 2, -2, "lantern"); }
-    for &(x, z) in &[(2, 6), (16, 6)] { for y in 1..=14 { p.n(x, y, z, "stone_bricks"); } p.turn(x, 1, z - 1, "fireplace", 0, 1); }
+    for &(x, z) in &[(2, 6), (16, 6)] { for y in 1..=14 { p.n(x, y, z, "stone_bricks"); } p.cap(x, 14, z); p.turn(x, 1, z - 1, "fireplace", 0, 1); }
     // la salle du conseil : tapis rouge depuis la porte, grande table et chaises, lustres ; l'escalier vers la salle haute
     for z in 1..=10 { p.n(9, 1, z, "carpet_red"); } for z in 5..=9 { p.n(8, 1, z, "table"); p.n(10, 1, z, "table"); p.turn(7, 1, z, "chair", -1, 0); p.turn(11, 1, z, "chair", 1, 0); } p.n(8, 2, 6, "books_pile"); p.n(10, 2, 8, "candle");
     for x in [6, 12] { p.n(x, 4, 7, "chandelier"); } for k in 0..4 { p.stair(16, 1 + k, 7 + k, "planks_stairs", 0, 1, false); if k < 3 { p.put(16, 5, 7 + k, 0); } }
@@ -317,7 +430,7 @@ pub(crate) fn atelier_bois(p: &mut P) -> Built {
     for (x, z) in [(13, 0), (13, 4), (13, d - 1), (10, 0), (10, d - 1)] { for y in 1..=4 { p.n(x, y, z, "oak_log_c"); } }
     p.turn(3, 3, -1, "banner_red", 0, 1); p.sconce(1, 3, -1, 0, 1); p.sconce(6, 3, -1, 0, 1); p.sconce(13, 3, -1, 0, 1);
     for x in 1..w - 1 { for z in 1..d - 1 { p.n(x, 4, z, "planks"); } } // le plafond de l'atelier
-    for y in 1..=8 { p.n(6, y, d - 2, "stone_bricks"); } p.turn(6, 1, d - 3, "fireplace", 0, 1);
+    for y in 1..=8 { p.n(6, y, d - 2, "stone_bricks"); } p.cap(6, 8, d - 2); p.turn(6, 1, d - 3, "fireplace", 0, 1);
     // l'appentis : piles de bûches, chevalets, billot, planches
     for z in 5..d - 1 { for x in [11, 12] { p.n(x, 1, z, "log_pile"); if z % 2 == 1 { p.n(x, 2, z, "log_pile"); } } } p.turn(9, 1, 2, "sawhorse", 1, 0); p.turn(11, 1, 2, "sawhorse", 1, 0); p.n(9, 1, 6, "chopping_block"); p.n(12, 1, 1, "planks"); p.n(12, 2, 1, "planks_slab");
     p.n(10, 3, 4, "lantern");
@@ -341,7 +454,7 @@ pub(crate) fn ferme(p: &mut P, roof: &str) -> Built {
     p.roof((x0, x1), (0, d - 1), 4, 1, true, roof, Some("plaster")); for z in [0, d - 1] { p.log(5, 5, z, 'y'); p.log(5, 6, z, 'y'); } p.win(4, 5, 0, true); p.win(6, 5, 0, true);
     for x in x0 + 1..x1 { for z in 5..d - 1 { p.n(x, 4, z, "planks"); } } for y in 1..=3 { p.put(3, y, 5, variant(id("ladder"), p.face(0, 1), false, false, false)); } p.n(3, 4, 5, "trapdoor");
     for (x, z) in [(4, 7), (4, 8), (6, 8)] { p.n(x, 5, z, "hay_bale"); } // le foin au grenier
-    for y in 1..=10 { p.n(7, y, 7, "stone_bricks"); } p.turn(7, 1, 6, "fireplace", 0, 1);
+    for y in 1..=10 { p.n(7, y, 7, "stone_bricks"); } p.cap(7, 10, 7); p.turn(7, 1, 6, "fireplace", 0, 1);
     p.turn(3, 1, 9, "bed", 0, 1); p.turn(3, 1, 8, "bed_foot", 0, 1); p.n(5, 1, 4, "table"); p.turn(4, 1, 4, "chair", 1, 0); p.n(5, 2, 4, "candle"); p.n(7, 1, 1, "chest"); p.n(7, 1, 2, "barrel"); p.n(3, 1, 1, "sack"); p.n(5, 3, 3, "lantern"); p.n(5, 1, 2, "carpet_green");
     // l'appentis du foin, à gauche
     for z in 1..d - 1 { p.stair(1, 4, z, &format!("{roof}_stairs"), 1, 0, false); p.stair(0, 3, z, &format!("{roof}_stairs"), 1, 0, false); }
@@ -369,6 +482,7 @@ fn halle(p: &mut P, w: i32, d: i32, roof: &str, sign: &str, gate: i32) {
     for x in 1..w - 1 { if x % 4 != 0 && x != gate { p.n(x, 1, 0, "fence"); } }
     p.belt((0, w - 1), (0, d - 1), 3); for z in 2..d - 2 { if z % 2 == 0 { p.win(0, 2, z, false); p.win(w - 1, 2, z, false); } }
     p.roof((0, w - 1), (0, d - 1), 3, 1, true, roof, Some("planks"));
+    for (z, sg) in [(0, -1.0), (d - 1, 1.0)] { p.truss((0, w - 1), z, sg, 4, 3.0 + (w + 2) as f64 * 0.5 - 0.6); }
     let mid = (w - 1) / 2; p.turn(mid, 5, -1, sign, 0, 1); p.win(mid, 5, d - 1, true); p.sconce(0, 2, -1, 0, 1); p.sconce(w - 1, 2, -1, 0, 1); p.n(mid, 2, 2, "lantern");
 }
 /// M-ETA-01 : l'étable et bergerie, 13 × 9 : deux cloisons de barrières font trois parcs, des auges au fond, le foin
@@ -414,13 +528,14 @@ pub fn plan(k: Kind, var: u8) -> Plan {
 pub struct Look { pub roof: &'static str, pub infill: &'static str }
 /// Bâtit le patron sur son terrain, le sol à y0 ; rend porte, poste et lit en coordonnées du terrain.
 pub(crate) fn build(k: &mut Work, lot: Lot, y0: i32, kind: Kind, var: u8, look: Look, h: f64) -> Built {
-    let pl = plan(kind, var); let mut p = P { k, lot, y0, mirror: pl.mirror, w: pl.w };
+    let pl = plan(kind, var); let mut p = P { k, lot, y0, mirror: pl.mirror, w: pl.w, d: pl.d, h, rec: Rec::default() };
     let b = match kind {
         Kind::Maison => maison(&mut p, pl.d, look.roof, look.infill, var & 2 != 0), Kind::Forge => forge(&mut p, h > 0.5), Kind::Auberge => auberge(&mut p),
         Kind::Moulin => moulin(&mut p, h), Kind::Tanneur => tanneur(&mut p), Kind::Eglise => eglise(&mut p), Kind::GrandeMairie => grande_mairie(&mut p),
         Kind::PetiteMairie => petite_mairie(&mut p), Kind::Atelier => atelier_bois(&mut p), Kind::Ferme => ferme(&mut p, look.roof),
         Kind::Etable => etable(&mut p, look.roof), Kind::Ecurie => ecurie(&mut p, look.roof),
     };
+    p.dress();
     let fx = |x: i32| p.lx(x);
     Built { door: b.door.map(fx), spot: b.spot.map(|(a, s)| ((fx(a.0), a.1), (fx(s.0), s.1))), bed: b.bed.map(|(x, z)| (fx(x), z)) }
 }
