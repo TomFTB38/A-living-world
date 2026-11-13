@@ -18,6 +18,8 @@ impl P<'_> {
     fn lx(&self, x: i32) -> i32 { if self.mirror { self.w - 1 - x } else { x } }
     pub fn put(&mut self, x: i32, y: i32, z: i32, b: Id) { let c = self.lot.cell(self.lx(x), self.y0 + y, z); self.k.put(c, b); }
     pub fn n(&mut self, x: i32, y: i32, z: i32, name: &str) { self.put(x, y, z, id(name)); }
+    /// La case porte-t-elle déjà un bloc ?
+    pub fn filled(&self, x: i32, y: i32, z: i32) -> bool { let c = self.lot.cell(self.lx(x), self.y0 + y, z); self.k.blocks.iter().rev().find(|b| (b.0, b.1, b.2) == (c[0], c[1], c[2])).is_some_and(|b| b.3 != 0) }
     pub fn fill(&mut self, x: (i32, i32), y: (i32, i32), z: (i32, i32), name: &str) { let b = id(name); for xx in x.0..=x.1 { for yy in y.0..=y.1 { for zz in z.0..=z.1 { self.put(xx, yy, zz, b); } } } }
     /// Le sens monde d'une direction locale.
     pub fn face(&self, dx: i32, dz: i32) -> u8 { let dx = if self.mirror { -dx } else { dx }; facing_of((dx * self.lot.u.0 + dz * self.lot.w.0) as f64, (dx * self.lot.u.1 + dz * self.lot.w.1) as f64) }
@@ -48,7 +50,7 @@ impl P<'_> {
                 self.stair(lx, yy, lz, &st, ux, uz, false); self.stair(rx, yy, rz, &st, vx, vz, false);
                 if k > 1 { self.stair(lx, yy - 1, lz, &st, vx, vz, true); self.stair(rx, yy - 1, rz, &st, ux, uz, true); }
             }
-            if let (Some(g), true) = (gable, k > 0) { for b in [b0, b1] { for a in (al + 1).max(a0)..=(ar - 1).min(a1) { let (px, pz) = xy(a, b); self.n(px, yy, pz, g); } } }
+            if let Some(g) = gable { for b in [b0, b1] { for a in (al + 1).max(a0)..=(ar - 1).min(a1) { let (px, pz) = xy(a, b); if k > 0 || !self.filled(px, yy, pz) { self.n(px, yy, pz, g); } } } }
             if al + 1 >= ar { if al + 1 == ar { for b in b0 - ov..=b1 + ov { let (px, pz) = xy(al, b); let (qx, qz) = xy(ar, b); self.n(px, yy + 1, pz, &format!("{mat}_slab")); self.n(qx, yy + 1, qz, &format!("{mat}_slab")); } } break; }
             k += 1;
         }
@@ -202,7 +204,8 @@ pub(crate) fn tanneur(p: &mut P) -> Built {
     p.belt((0, w - 1), (0, d - 1), 4); p.door(3, 1, 0, 0, -1); p.n(3, 3, 0, "plaster"); p.win(1, 2, 0, true); p.win(5, 2, 0, true); p.win(0, 2, 3, false); p.win(0, 2, 6, false); p.win(3, 2, d - 1, true);
     for x in 1..w - 1 { for z in 1..d - 1 { p.n(x, 4, z, "planks"); } }
     p.roof((0, 11), (0, d - 1), 4, 1, false, "roof_tiles", Some("plaster")); // un seul toit, faîte parallèle à la rue, sur la maison et le séchoir
-    for z in 2..d - 2 { for y in 1..=3 { p.put(w - 1, y, z, 0); } } // la maison s'ouvre sur le séchoir
+    p.door(w - 1, 1, 2, 1, 0); // une porte donne sur le séchoir
+    for x in w..12 { for z in 0..d { p.n(x, 4, z, "planks"); } } // le grenier au-dessus du séchoir // la maison s'ouvre sur le séchoir
     for (x, z) in [(11, 0), (11, 4), (11, d - 1), (w + 1, 0), (w + 1, d - 1)] { for y in 1..=4 { p.n(x, y, z, "oak_log_c"); } }
     for z in 1..d - 1 { if z != 4 { p.n(11, 1, z, "fence"); } } for x in w..11 { p.turn(x, 3, d - 1, "hides", 0, 1); } for z in [2, 6] { p.turn(10, 3, z, "hides", 1, 0); p.turn(10, 2, z, "hides", 1, 0); }
     p.n(9, 1, 2, "tanning_vat"); p.n(9, 1, 6, "lime_vat"); p.n(10, 1, 4, "barrel");
@@ -313,6 +316,7 @@ pub(crate) fn atelier_bois(p: &mut P) -> Built {
     p.roof((0, 13), (0, d - 1), 4, 1, false, "roof_tiles", Some("plaster"));
     for (x, z) in [(13, 0), (13, 4), (13, d - 1), (10, 0), (10, d - 1)] { for y in 1..=4 { p.n(x, y, z, "oak_log_c"); } }
     p.turn(3, 3, -1, "banner_red", 0, 1); p.sconce(1, 3, -1, 0, 1); p.sconce(6, 3, -1, 0, 1); p.sconce(13, 3, -1, 0, 1);
+    for x in 1..w - 1 { for z in 1..d - 1 { p.n(x, 4, z, "planks"); } } // le plafond de l'atelier
     for y in 1..=8 { p.n(6, y, d - 2, "stone_bricks"); } p.turn(6, 1, d - 3, "fireplace", 0, 1);
     // l'appentis : piles de bûches, chevalets, billot, planches
     for z in 5..d - 1 { for x in [11, 12] { p.n(x, 1, z, "log_pile"); if z % 2 == 1 { p.n(x, 2, z, "log_pile"); } } } p.turn(9, 1, 2, "sawhorse", 1, 0); p.turn(11, 1, 2, "sawhorse", 1, 0); p.n(9, 1, 6, "chopping_block"); p.n(12, 1, 1, "planks"); p.n(12, 2, 1, "planks_slab");
