@@ -128,5 +128,33 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
     // Flèche : hampe le long de +z, pointe de silex devant, empennage de fibre derrière. Bouchon rouge et blanc.
     let mut arrow = VBuf::new(60); b(&mut arrow, [-0.012, -0.012, -0.35, 0.012, 0.012, 0.3], [0.55, 0.4, 0.22]); b(&mut arrow, [-0.025, -0.02, 0.3, 0.025, 0.02, 0.4], [0.3, 0.32, 0.36]); b(&mut arrow, [-0.045, -0.004, -0.35, 0.045, 0.004, -0.22], [0.72, 0.66, 0.38]); b(&mut arrow, [-0.004, -0.045, -0.35, 0.004, 0.045, -0.22], [0.72, 0.66, 0.38]);
     let mut bobber = VBuf::new(60); b(&mut bobber, [-0.05, 0.0, -0.05, 0.05, 0.06, 0.05], [0.9, 0.12, 0.08]); b(&mut bobber, [-0.05, -0.06, -0.05, 0.05, 0.0, 0.05], [0.95, 0.94, 0.9]); b(&mut bobber, [-0.01, 0.06, -0.01, 0.01, 0.14, 0.01], [0.2, 0.2, 0.2]);
-    vec![("stash", o), ("arrow", arrow), ("bobber", bobber)]
+    let mut v = vec![("stash", o), ("arrow", arrow), ("bobber", bobber)];
+    for (k, n) in ["bow_0", "bow_1", "bow_2", "bow_3", "bow_4"].into_iter().enumerate() { v.push((n, bow_mesh(k as f64 / 4.0))); }
+    v
+}
+/// Le point d'encochage de la corde, dans le repère de l'arc, pour un bandage de 0 à 1 (la flèche s'y appuie).
+pub fn bow_nock(draw: f64) -> [f64; 3] { [0.0, 0.045, -(0.015 + BOW_BACK + 0.17 * draw) - 0.5 * draw] }
+const BOW_BACK: f64 = 0.11;
+/// L'arc droit tenu en main, bandé de 0 à 1 : la poignée gainée de cuir à l'origine, les branches effilées dans le plan
+/// y-z, courbées vers l'archer (vers -z) et d'autant plus que l'arc est bandé, des embouts de corne, la corde qui part
+/// des deux pointes et, l'arc bandé, recule en V jusqu'au point d'encochage.
+pub fn bow_mesh(draw: f64) -> VBuf {
+    use crate::hostile::Mat; let mut o = VBuf::new(600);
+    {
+        let mut p = crate::sculpt::Pen::new(&mut o, Mat::Grain, 0.012);
+        let (dark, light) = ([0.36, 0.21, 0.1], [0.6, 0.4, 0.2]); let (wrap, horn, cord) = ([0.24, 0.14, 0.08], [0.86, 0.8, 0.66], [0.9, 0.87, 0.78]);
+        let len = 0.66 * (1.0 - 0.07 * draw); let back = BOW_BACK + 0.17 * draw; let n = 10;
+        let pt = |t: f64, s: f64| [0.0, s * (0.085 + (len - 0.085) * t), -(0.015 + back * t * t)];
+        for s in [1.0, -1.0] {
+            for i in 0..n { let (t0, t1) = (i as f64 / n as f64, (i + 1) as f64 / n as f64); let r = |t: f64| [0.021 - 0.011 * t, 0.016 - 0.007 * t];
+                let c = |t: f64| [dark[0] + (light[0] - dark[0]) * (1.0 - t), dark[1] + (light[1] - dark[1]) * (1.0 - t), dark[2] + (light[2] - dark[2]) * (1.0 - t)];
+                p.tube(pt(t0, s), pt(t1, s), r(t0), r(t1), c(t0), c(t1)); }
+            let tip = pt(1.0, s); p.tube_m(tip, [tip[0], tip[1] + s * 0.03, tip[2] - 0.004], [0.011, 0.009], [0.006, 0.005], horn, horn, Mat::Bone); // l'embout de corne
+            let nock = bow_nock(draw); p.tube_m(tip, nock, [0.0035, 0.0035], [0.0035, 0.0035], cord, cord, Mat::Plain); // la corde
+        }
+        p.bm([-0.024, -0.095, -0.032, 0.024, 0.095, 0.014], [0.46, 0.28, 0.13], Mat::Grain); // la poignée
+        p.bm([-0.028, -0.058, -0.036, 0.028, 0.04, 0.018], wrap, Mat::Leather); // gainée de cuir
+        p.bm([0.024, 0.038, -0.02, 0.034, 0.05, 0.012], [0.3, 0.18, 0.09], Mat::Leather); // le repose-flèche
+    }
+    o
 }

@@ -76,10 +76,10 @@ pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
         "bow" => { let (dx, dy) = (x - 0.18, y - 0.82); let r = (dx * dx + dy * dy).sqrt(); if (r - 0.62).abs() < 0.035 && dx > 0.0 && dy < 0.0 { return Some((if (r - 0.62) > 0.0 { [0.62, 0.42, 0.22] } else { [0.44, 0.28, 0.14] }, FAT)); } let (s, p) = ((x + y) * R2, (y - x) * R2); if p.abs() < 0.008 && s > 0.3 && s < 1.12 && (x - y).abs() > 0.0 { return Some(([0.9, 0.88, 0.8], THIN)); } return None; }
         "arrow" => { let (s, p) = ((x + y) * R2, (y - x) * R2); if s > 1.02 && s < 1.24 && p.abs() < 0.05 * (1.24 - s) / 0.22 + 0.005 { return Some(([0.32, 0.34, 0.38], TH)); } if s > 0.24 && s <= 1.02 && p.abs() < 0.016 { return Some(([0.6, 0.45, 0.25], TH)); } if s > 0.14 && s < 0.38 && p.abs() < 0.07 && p.abs() > 0.012 { return Some(([0.8, 0.74, 0.46], THIN)); } return None; }
         "fishing_rod" => { let (s, p) = ((x + y) * R2, (y - x) * R2); if s > 0.12 && s < 1.25 && p.abs() < 0.02 - 0.008 * s { return Some((if s < 0.45 { [0.4, 0.26, 0.13] } else { [0.62, 0.46, 0.24] }, TH)); } if (x - 0.86).abs() < 0.004 && y > 0.18 && y < 0.62 { return Some(([0.85, 0.85, 0.85], THIN)); } let (bx, by) = (x - 0.86, y - 0.66); if bx * bx + by * by < 0.0016 { return Some((if by < 0.0 { [0.9, 0.12, 0.08] } else { [0.95, 0.94, 0.9] }, FAT)); } return None; }
-        "trout" | "perch" | "char" | "cooked_fish" => {
+        "trout" | "perch" | "char" | "cooked_fish" | "mackerel" | "sea_bream" => {
             // Un poisson de profil : corps fuselé, queue en éventail, œil ; la robe dépend de l'espèce, le poisson grillé est doré.
-            let (body, back, belly): (C, C, C) = match name { "trout" => ([0.6, 0.6, 0.5], [0.36, 0.4, 0.3], [0.86, 0.72, 0.68]), "perch" => ([0.6, 0.62, 0.3], [0.26, 0.34, 0.18], [0.86, 0.84, 0.6]), "char" => ([0.5, 0.52, 0.58], [0.28, 0.3, 0.38], [0.92, 0.5, 0.36]), _ => ([0.78, 0.55, 0.26], [0.56, 0.34, 0.14], [0.9, 0.74, 0.44]) };
-            let (dx, dy) = ((x - 0.46) / 0.32, (y - 0.5) / 0.15); if dx * dx + dy * dy < 1.0 { if (x - 0.68).hypot(y - 0.46) < 0.025 { return Some(([0.05, 0.05, 0.05], FAT)); } let stripe = name == "perch" && ((x * 14.0).floor() as i64) & 1 == 0 && dy < 0.2; return Some((if stripe { back } else if dy < -0.35 { back } else if dy > 0.45 { belly } else { body }, FAT)); }
+            let (body, back, belly): (C, C, C) = match name { "trout" => ([0.6, 0.6, 0.5], [0.36, 0.4, 0.3], [0.86, 0.72, 0.68]), "perch" => ([0.6, 0.62, 0.3], [0.26, 0.34, 0.18], [0.86, 0.84, 0.6]), "char" => ([0.5, 0.52, 0.58], [0.28, 0.3, 0.38], [0.92, 0.5, 0.36]), "mackerel" => ([0.5, 0.64, 0.68], [0.1, 0.3, 0.34], [0.9, 0.92, 0.94]), "sea_bream" => ([0.74, 0.72, 0.7], [0.46, 0.46, 0.5], [0.94, 0.9, 0.86]), _ => ([0.78, 0.55, 0.26], [0.56, 0.34, 0.14], [0.9, 0.74, 0.44]) };
+            let (dx, dy) = ((x - 0.46) / 0.32, (y - 0.5) / 0.15); if dx * dx + dy * dy < 1.0 { if (x - 0.68).hypot(y - 0.46) < 0.025 { return Some(([0.05, 0.05, 0.05], FAT)); } let stripe = (name == "perch" && ((x * 14.0).floor() as i64) & 1 == 0 && dy < 0.2) || (name == "mackerel" && dy < -0.05 && ((x * 26.0 + dy * 6.0).sin() > 0.35)) || (name == "sea_bream" && (x - 0.66).abs() < 0.02 && dy < -0.2); return Some((if stripe { back } else if dy < -0.35 { back } else if dy > 0.45 { belly } else { body }, FAT)); }
             if x < 0.2 && x > 0.04 && (y - 0.5).abs() < (0.2 - x) * 1.1 + 0.02 && (y - 0.5).abs() > (0.2 - x) * 0.2 { return Some((back, TH)); } return None;
         }
         "carrot" => { let (s, p) = ((x + y) * R2, (y - x) * R2); if s > 0.35 && s < 1.15 && p.abs() < 0.11 * (1.15 - s) / 0.8 + 0.01 { return Some((if ((s * 22.0).floor() as i64) & 1 == 0 { [0.92, 0.48, 0.12] } else { [0.84, 0.4, 0.1] }, FAT)); } if s > 0.12 && s <= 0.36 && p.abs() < 0.09 && ((p * 40.0).floor() as i64) & 1 == 0 { return Some(([0.3, 0.6, 0.2], TH)); } return None; }
@@ -117,6 +117,28 @@ pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
             let sp = crate::noise::hash_float((x * 9.0) as i32, (y * 9.0) as i32, 5, 77) < 0.28 && r < 0.9; let shade = 1.0 - 0.35 * r * r + if dx < -0.06 && dy > 0.06 { 0.15 } else { 0.0 };
             let c = if sp { spot } else { base }; return Some(([c[0] * shade, c[1] * shade, c[2] * shade], FAT));
         }
+        // Perle : une bille nacrée, des reflets roses et verts, un point de lumière.
+        "pearl" => { let r = disc(x, y, 0.5, 0.52, 0.2, 0.2); if r >= 1.0 { return None; } let t = (x - 0.42).hypot(y - 0.44); if t < 0.05 { return Some(([1.0, 1.0, 1.0], FAT)); }
+            let k = 1.0 - 0.35 * r; let tint = (x * 7.0 + y * 5.0).sin() * 0.04; Some(([(0.92 + tint) * k, (0.88 - tint) * k, (0.9 + tint * 0.5) * k], FAT)) }
+        // Dent de requin : un triangle d'ivoire aux bords dentelés, la racine plus sombre.
+        "shark_tooth" => { let (dx, h) = ((x - 0.5).abs(), (y - 0.18) / 0.62); if !(0.0..=1.0).contains(&h) { return None; } let half = 0.24 * h + if ((y * 40.0).floor() as i64) & 1 != 0 { 0.012 } else { 0.0 };
+            if dx > half { return None; } Some((if h > 0.82 { [0.62, 0.52, 0.4] } else if dx > half - 0.03 { [0.98, 0.96, 0.9] } else { [0.88, 0.85, 0.76] }, FAT)) }
+        // Croc de bête : un croc recourbé, l'émail blanc, la racine brune.
+        "beast_fang" => { let (cx, cy) = (0.2, 0.3); let d = (x - cx).hypot(y - cy); let a = (y - cy).atan2(x - cx); if !(-0.2..=1.45).contains(&a) { return None; } let t = (a + 0.2) / 1.65; let w = 0.09 * (1.0 - t) + 0.012;
+            if (d - 0.48).abs() > w { return None; } Some((if t < 0.22 { [0.55, 0.4, 0.28] } else if d > 0.48 + w * 0.4 { [0.98, 0.96, 0.9] } else { [0.86, 0.82, 0.72] }, FAT)) }
+        // Plaque de chitine : un écusson sombre et luisant, en segments, un reflet violet.
+        "chitin_plate" => { let (dx, dy) = ((x - 0.5).abs(), y - 0.5); if dx > 0.32 - (dy.abs() * 0.4) || dy.abs() > 0.3 { return None; } let seg = ((y * 7.0).fract() < 0.12) as i32;
+            let gl = (dx < 0.12 && dy < -0.05) as i32 as f64; Some((if seg == 1 { [0.06, 0.05, 0.08] } else { [0.2 + 0.2 * gl, 0.14 + 0.12 * gl, 0.26 + 0.25 * gl] }, FAT)) }
+        // Pièce usée : un disque de bronze terni, un cercle gravé, une effigie effacée, un éclat de lumière.
+        "worn_coin" => { let r = disc(x, y, 0.5, 0.5, 0.26, 0.26); if r >= 1.0 { return None; } let ring = (r - 0.72).abs() < 0.08; let mark = disc(x, y, 0.5, 0.48, 0.09, 0.12) < 1.0;
+            let glint = (x - 0.38).hypot(y - 0.36) < 0.05; Some((if glint { [0.96, 0.84, 0.5] } else if ring || mark { [0.48, 0.36, 0.16] } else { [0.7, 0.55, 0.26] }, FAT)) }
+        // Chiffon : un morceau d'étoffe usée, rayé, aux bords effilochés.
+        "rag" => { let (dx, dy) = ((x - 0.5).abs(), (y - 0.5).abs()); let fray = 0.03 * ((x * 37.0).sin() + (y * 41.0).cos()); if dx > 0.3 + fray || dy > 0.24 + fray { return None; }
+            if ((x * 29.0 + 3.0).sin() * (y * 23.0).sin()) > 0.75 { return None; } Some((if ((y * 10.0).floor() as i64) & 1 != 0 { [0.6, 0.55, 0.46] } else { [0.5, 0.45, 0.38] }, TH)) }
+        // Ferraille rouillée : une plaque de fer tordue, rongée de rouille orange, des trous de rivets.
+        "rusty_scrap" => { let (dx, dy) = (x - 0.5, y - 0.52); let edge = 0.28 + 0.05 * (dx * 19.0).sin() + 0.04 * (dy * 13.0).cos(); if dx.abs() > edge || dy.abs() > 0.22 + 0.04 * (dx * 11.0).sin() { return None; }
+            if (x - 0.34).hypot(y - 0.42) < 0.03 || (x - 0.66).hypot(y - 0.62) < 0.03 { return None; } let rust = ((x * 17.0).sin() * (y * 13.0).cos() + (x * 5.0 + y * 7.0).sin() * 0.6) > 0.1;
+            Some((if rust { [0.6, 0.3, 0.12] } else { [0.42, 0.4, 0.38] }, TH)) }
         _ => { // de quoi ne jamais rester sans image : un petit paquet
             if (x - 0.5).abs() < 0.22 && (y - 0.5).abs() < 0.22 { return Some(([0.6, 0.55, 0.45], FAT)); } None }
     }

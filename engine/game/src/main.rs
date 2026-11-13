@@ -392,6 +392,10 @@ fn capture(a: &[String]) {
     if scene == "tiers" { s.sel = 1; s.tick(0.0, none, Actions::default()); }
     if scene == "bras" { s.sel = 0; for _ in 0..6 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false, ..Default::default() }); } }
     if scene == "inv" { s.inv_open = true; s.grab_slot(5); s.tick(0.0, none, Actions::default()); }
+    // Un onglet du catalogue créatif, par son numéro : « onglet8 » pour les outils.
+    if let Some(k) = scene.strip_prefix("onglet").and_then(|k| k.parse::<usize>().ok()) { s.set_creative(true); s.inv_open = true; s.tab = k; s.tick(0.0, none, Actions::default()); }
+    // L'arc en main, une flèche encochée : vu par l'archer, ou de l'extérieur.
+    if scene == "arc" || scene == "arc_tiers" { s.inv[0] = Some(alw_core::session::Stack::new("bow", None)); s.sel = 0; s.add_item("arrow", 12); s.third = scene == "arc_tiers"; s.tick(0.0, none, Actions::default()); }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
     if scene == "abattage" {
@@ -695,6 +699,7 @@ fn capture(a: &[String]) {
     if scene == "titre" { menu.title = Some(hud::Title::new(vec![hud::WorldInfo { name: "Premier monde".into(), seed: SEED, profile: 1, hours: 130.0, age: "il y a 2 h".into() }], "Premier monde")); }
     let info = if scene == "f3" || scene == "foret" { debug_lines(&s, 240.0, 5_200_000, "Ultra") } else { Vec::new() };
     let t1 = Instant::now(); let mut tris = 0;
+    if scene == "arc" || scene == "arc_tiers" { s.anim.bow = 1.0; }
     for k in 0..10 { tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu, &info); g.settle(); }
     println!("10 images, {:.1} M triangles, {:.0} ms par image sur cette carte", tris as f64 / 1e6, t1.elapsed().as_secs_f64() * 100.0);
     let (w, h, px) = g.read_bgr();

@@ -31,9 +31,18 @@ fn hash13(q: vec3f) -> f32 { var p = fract(q * 0.1031); p += dot(p, p.zyx + 31.3
     if (kind == 1) { alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.8) * vec3f(0.74, 0.8, 0.74); }
   } else {
     alb *= alb * 1.25;
+    // un grain fin sur les aplats : bois, cuir, métal et étoffe ne paraissent pas en plastique
+    alb *= 0.9 + 0.2 * hash13(floor(pp * 46.0) + vec3f(7.0));
     if (kind == 3) { alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.72); }
     if (kind == 4) { alb *= 1.3; }
   }
-  let l = normalize(vec3f(-0.3, 0.72, 0.62)); let n = normalize(i.nv); let shade = 0.38 + 0.62 * max(dot(n, l), abs(n.z) * 0.35);
-  let c = sqrt(clamp(alb * i.ao * shade * 1.45, vec3f(0.0), vec3f(1.0))); return vec4f(c, 1.0);
+  // Lumière de studio : une lumière principale en haut à gauche, un contre-jour plus froid à droite, un liseré de lumière
+  // sur les bords qui fuient, un reflet. Les faces d'un bloc se lisent nettement : dessus clair, flanc gauche moyen, flanc droit sombre.
+  let n = normalize(i.nv); let key = normalize(vec3f(-0.42, 0.78, 0.48)); let fill = normalize(vec3f(0.7, 0.15, 0.7));
+  let diff = max(dot(n, key), 0.0); let back = max(dot(n, fill), 0.0);
+  let rim = pow(1.0 - clamp(abs(n.z), 0.0, 1.0), 3.0) * clamp(n.y + 0.4, 0.0, 1.0);
+  let spec = pow(max(dot(reflect(-key, n), vec3f(0.0, 0.0, 1.0)), 0.0), 22.0);
+  let light = 0.3 + 0.86 * diff + vec3f(0.16, 0.18, 0.22) * back + 0.2 * rim;
+  var c = alb * i.ao * light * 1.42 + vec3f(spec * 0.18);
+  c = sqrt(clamp(c, vec3f(0.0), vec3f(1.0))); return vec4f(c, 1.0);
 }

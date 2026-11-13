@@ -321,7 +321,7 @@ impl Models {
     pub fn part(&self, n: &str) -> Range { self.parts[n] }
     /// Cadrage d'une icône : vue de trois quarts pour les blocs, de face pour les outils, l'objet remplit sa case.
     pub fn icon_matrix(&self, id: &str) -> M4 {
-        let h = self.items[id]; let (yaw, tilt): (f64, f64) = match h.hold { Hold::Tool => (0.0, 0.0), Hold::Block => (std::f64::consts::FRAC_PI_4, 0.6155), Hold::Deco => (0.6, 0.3) };
+        let h = self.items[id]; let (yaw, tilt): (f64, f64) = match h.hold { Hold::Tool => (0.38, 0.22), Hold::Block => (std::f64::consts::FRAC_PI_4, 0.6155), Hold::Deco => (0.6, 0.3) };
         let (sy, cy, st, ct) = (yaw.sin(), yaw.cos(), tilt.sin(), tilt.cos()); let r = [[cy, 0.0, -sy], [-sy * st, ct, -cy * st], [sy * ct, st, cy * ct]];
         let (a, b) = (h.r.first as usize / 6 * 4, (h.r.first + h.r.count) as usize / 6 * 4); let (mut lo, mut hi) = ([f64::MAX; 3], [f64::MIN; 3]);
         for v in self.data[a * VSIZE..b * VSIZE].chunks_exact(VSIZE) {
@@ -365,6 +365,10 @@ impl Anim {
         let mut arm_l = armv + 0.08 - 1.0 * a * (0.5 + 0.5 * rise) - 0.3 * low; let mut elbow_l = -(elbow_rest * ground + 0.8 * a + 0.5 * low);
         let swing_a = if self.swing > 0.0 { -1.5 + cos(self.swing * 6.283) * 0.95 } else { 0.0 }; let punch_a = -sin(self.punch * pi) * 1.05;
         let mut arm_r = (if self.swing > 0.0 { swing_a } else { -0.2 - armv * 0.35 - 0.55 * a }) + punch_a; let mut elbow_r = if self.swing > 0.0 { -0.3 - 0.45 * sin(self.swing * pi) } else { -0.62 - 0.45 * run };
+        let archer = held.is_some_and(|h| md.held("bow").is_some_and(|bw| bw.r.first == h.r.first)); let bb = if archer { self.bow * self.bow * (3.0 - 2.0 * self.bow) } else { 0.0 };
+        // L'archer : le bras gauche se tend vers la cible, l'arc debout dans le poing ; le coude droit monte et la main droite
+        // ramène la corde jusque sous le menton.
+        if bb > 0.0 { arm_l += (-1.55 - arm_l) * bb; elbow_l += (-0.08 - elbow_l) * bb; arm_r += (-1.62 - arm_r) * bb; elbow_r += (-2.25 - elbow_r) * bb; }
         let g = self.guard; arm_l += (-1.25 - arm_l) * g; elbow_l += (-1.35 - elbow_l) * g; // garde : l'avant-bras gauche et le bouclier devant la poitrine
         let mut hip_y = 0.8 + c.abs() * 0.05 * w * ground - 0.27 * low - 0.15 * land + 0.03 * a; let mut lean = 0.05 * w + 0.26 * run + 0.46 * low + 0.16 * land - 0.08 * a * rise; let mut base = mul(&trs(p[0], p[1], p[2], yaw, 0.0, 1.0), &BULK);
         if let Some((t, d)) = roll {
@@ -383,7 +387,12 @@ impl Anim {
             if let Some(n) = wear(2, "thigh") { put(&n, m); } if let Some(n) = wear(3, "shin") { put(&n, sh); } }
         let ul = mul(&t, &trs(0.3, up_y, 0.0, 0.0, arm_l, 1.0)); put("upper", ul); if let Some(n) = wear(1, "arm") { put(&n, ul); } let fl = mul(&ul, &trs(0.0, -UPPER, 0.0, 0.0, elbow_l, 1.0)); put("fore", fl); if let Some(n) = wear(5, "shield") { put(&n, fl); }
         let ur = mul(&t, &trs(-0.3, up_y, 0.02, 0.0, arm_r, 1.0)); put("upper", ur); if let Some(n) = wear(1, "arm") { put(&n, ur); } let fr = mul(&ur, &trs(0.0, -UPPER, 0.0, 0.0, elbow_r, 1.0)); put("fore", fr);
-        if let Some(h) = held { out.push(Draw { m: mul(&mul(&fr, &trs(0.0, UPPER, 0.0, 0.0, 0.0, 1.0)), &hold_m(h.hold)), r: h.r, view: false, local: h.local, hero: true, dynamic: false, hurt: 0.0 }); }
+        if archer {
+            // l'arc dans le poing gauche : le long de l'avant-bras au repos, debout et perpendiculaire au bras tendu quand on bande
+            let stage = ((self.bow * 4.0).round() as usize).min(4); let m = mul(&mul(&mul(&fl, &trs(0.06 * (1.0 - bb), -UPPER + 0.06, 0.04, 0.0, -std::f64::consts::FRAC_PI_2 * bb + 0.12 * (1.0 - bb), 1.0)), &roll_z(REST_ROLL * (1.0 - bb))), &trs(0.0, 0.0, 0.0, std::f64::consts::PI, 0.0, 0.95));
+            out.push(Draw { m, r: md.parts[["bow_0", "bow_1", "bow_2", "bow_3", "bow_4"][stage]], view: false, local: false, hero: true, dynamic: false, hurt: 0.0 });
+            if self.bow > 0.0 { let nk = crate::survival::bow_nock(stage as f64 / 4.0); out.push(Draw { m: mul(&m, &trs(0.034, nk[1] + 0.012, nk[2] + 0.35, 0.0, 0.0, 1.0)), r: md.parts["arrow"], view: false, local: false, hero: true, dynamic: false, hurt: 0.0 }); }
+        } else if let Some(h) = held { out.push(Draw { m: mul(&mul(&fr, &trs(0.0, UPPER, 0.0, 0.0, 0.0, 1.0)), &hold_m(h.hold)), r: h.r, view: false, local: h.local, hero: true, dynamic: false, hurt: 0.0 }); }
         out
     }
     /// Première personne : poing si la main est vide, bloc seul s'il y en a un, bras et outil sinon.
@@ -399,6 +408,32 @@ impl Anim {
         let hand = |m: M4| Draw { m, r, view: true, local: false, hero: true, dynamic: false, hurt: 0.0 };
         match held {
             None => { let hit = strike.max(push); out.push(hand(mul(&v, &trs(-0.27 + bx_ + 0.08 * hit, -0.33 + by + 0.05 * hit, 0.2 + 0.2 * hit, 0.34 - 0.16 * hit, -2.06 - 0.3 * hit, 0.46)))); }
+            // L'arc, tenu comme un archer : dans la main gauche, presque vertical et le haut un peu penché vers la droite, la
+            // flèche encochée sur le côté gauche de la poignée ; bandé, il remonte au milieu de la vue, la corde recule en V
+            // jusqu'à la main droite qui l'ancre sous la joue. Au repos, il pend en bas à gauche, le haut penché en avant.
+            Some(h) if md.held("bow").is_some_and(|bw| bw.r.first == h.r.first) => {
+                let b = self.bow; let e = b * b * (3.0 - 2.0 * b); let shake = if b >= 1.0 { 0.003 * sin(self.phase * 23.0 + 1.0) } else { 0.0 }; let l = |a: f64, z: f64| a + (z - a) * e;
+                // le repère de la poignée : l'arc debout (y), la cible devant (z) ; on le voit un peu de biais pour lire sa courbe
+                let yaw = l(BW[3], BW[8]); let place = trs(l(BW[0], BW[5]) + bx_ * 0.4 + shake, l(BW[1], BW[6]) + by * 0.4, l(BW[2], BW[7]), yaw, l(BW[4], BW[9]), 0.46);
+                let f = mul(&v, &mul(&place, &roll_z(l(BW[10], BW[11]))));
+                // la main gauche serre la poignée ; l'avant-bras, tendu, monte d'en bas à gauche vers la poignée
+                let grip = trs(0.0, -0.58, 0.02, 0.0, std::f64::consts::FRAC_PI_2, 1.0);
+                out.push(hand(mul(&f, &mul(&trs(0.0, 0.0, 0.0, -yaw + ARM[0], ARM[1], 1.0), &invert(&grip)))));
+                let stage = ((b * 4.0).round() as usize).min(4); let bw = mul(&f, &trs(0.0, 0.0, 0.0, 0.0, 0.0, 0.82));
+                out.push(Draw { m: bw, r: md.parts[["bow_0", "bow_1", "bow_2", "bow_3", "bow_4"][stage]], view: true, local: false, hero: true, dynamic: false, hurt: 0.0 });
+                if b > 0.0 {
+                    // la flèche, posée sur le repose-flèche, vise droit devant ; son encoche recule avec la corde
+                    let iv = invert(&v); let rest = mul(&mul(&iv, &bw), &trs(0.034, 0.055, 0.0, 0.0, 0.0, 1.0)); let (rx, ry, rz) = (rest[12] as f64, rest[13] as f64, rest[14] as f64);
+                    // elle vise un point loin devant, dans l'axe du viseur : l'œil est au-dessus de la flèche
+                    let k = 0.46 * 0.82; let (ax, ay, az) = (-rx, -ry, 40.0 - rz); let d = (ax * ax + ay * ay + az * az).sqrt(); let (ux, uy, uz) = (ax / d, ay / d, az / d);
+                    let (fyaw, fpitch) = (ux.atan2(uz), -uy.asin()); let reach = 0.75 * k * (0.35 + 0.65 * e); // l'encoche recule avec la corde
+                                        let tip = [rx + ux * 0.04, ry + uy * 0.04, rz + uz * 0.04]; let ctr = [tip[0] - ux * 0.4 * k, tip[1] - uy * 0.4 * k, tip[2] - uz * 0.4 * k];
+                    let ctr = [ctr[0] - ux * (0.75 * k - reach), ctr[1] - uy * (0.75 * k - reach), ctr[2] - uz * (0.75 * k - reach)];
+                    out.push(Draw { m: mul(&v, &trs(ctr[0], ctr[1], ctr[2], fyaw, fpitch, k)), r: md.parts["arrow"], view: true, local: false, hero: true, dynamic: false, hurt: 0.0 });
+                    // la main droite pince l'encoche, sous la joue ; l'avant-bras part vers l'arrière, à droite
+                    let nock = [ctr[0] - ux * 0.35 * k, ctr[1] - uy * 0.35 * k, ctr[2] - uz * 0.35 * k]; let rh = trs(nock[0] - 0.012, nock[1] - 0.03, nock[2] - 0.015, RH[0], RH[1], 0.46);
+                    out.push(hand(mul(&v, &mul(&rh, &mul(&roll_z(RH[2]), &invert(&grip)))))); }
+            }
             // L'arc bandé : il se redresse au milieu de la vue, la flèche encochée recule avec la corde, la main tremble à fond.
             Some(h) if h.hold == Hold::Tool && self.bow > 0.0 => {
                 let b = self.bow; let shake = if b >= 1.0 { 0.004 * sin(self.phase * 23.0 + 1.0) } else { 0.0 };
@@ -426,4 +461,9 @@ impl Anim {
         out
     }
 }
+/// Pose de l'arc à la première personne : position x, y, z, lacet, tangage au repos puis bandé, inclinaison au repos et bandé.
+const BW: [f64; 12] = [0.3, -0.3, 0.5, 0.8, 0.5, 0.012, -0.11, 0.6, 0.22, 0.0, -0.35, 0.12];
+/// L'avant-bras gauche autour de la poignée (lacet, tangage) ; la main droite qui tire la corde (lacet, tangage, roulis).
+const REST_ROLL: f64 = 0.3;
+const ARM: [f64; 2] = [-0.45, -0.35]; const RH: [f64; 3] = [0.9, 0.1, 0.0];
 #[allow(dead_code)] fn _r(x: f64) -> f64 { round(x) }
