@@ -68,7 +68,7 @@ coal | Charbon | matieres | 0.4 | 64 | Brûle longtemps et très chaud : fours e
 charcoal | Charbon de bois | matieres | 0.25 | 64 | Du bois cuit à l'étouffée : un combustible de forge. | combustible=60
 copper_ore | Minerai de cuivre | roches | 1.2 | 64 | Une roche veinée de vert et d'orange. À fondre au four. |
 tin_ore | Minerai d'étain | roches | 1.2 | 64 | Des grains argentés dans la pierre. Allié au cuivre, il donne le bronze. |
-iron_ore | Minerai de fer | roches | 1.3 | 64 | Une roche rouille, dure à extraire : il faut une pioche de bronze au moins. |
+iron_ore | Minerai de fer | roches | 1.3 | 64 | Une roche rouille, dure à extraire : il faut une pioche de cuivre au moins. |
 copper_ingot | Lingot de cuivre | matieres | 1.0 | 64 | Coulé au four, à travailler à l'enclume. |
 tin_ingot | Lingot d'étain | matieres | 0.8 | 64 | Coulé au four. |
 bronze_ingot | Lingot de bronze | matieres | 1.0 | 64 | Trois parts de cuivre, une d'étain. |
