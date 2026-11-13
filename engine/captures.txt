@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu chat oeufs menagerie
+spawn jeu creatif village_rue hameau_vue bourg_vue plage

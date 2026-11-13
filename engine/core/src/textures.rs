@@ -552,33 +552,39 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
 pub struct Textures { pub albedo: Vec<u8>, pub nrm: Vec<u8>, pub layers: u32, pub size: u32 }
 /// Deux piles RGBA : albédo, puis normale XY et rugosité. Le motif vit dans un repère de 64 unités ; à 128 pixels, une octave fine ajoute un vrai détail.
 pub fn build_textures(size: usize) -> Textures {
-    // Rendu « pixel net » : chaque face est une grille de ART × ART pixels francs. Le motif est lu au centre de chaque pixel,
-    // la couleur y est uniforme, et le relief donne à chaque pixel une facette plate. Pas de grain aléatoire par texel ni de
-    // bosses fines : c'étaient elles qui donnaient l'aspect duveteux, « en laine », de près.
+    // Pleine résolution, net : le motif est lu en chaque texel (256 par bloc en jeu), sans grain aléatoire ajouté par texel —
+    // c'était lui, amplifié dans la carte de normales, qui donnait l'aspect duveteux « en laine ». Le relief se lit sur la
+    // hauteur légèrement lissée (noyau 3 × 3) : les joints, les arêtes et les fentes gardent leur modelé franc, le
+    // bruit fin de la matière ne crée plus de micro-bosses.
     let layers = MATERIALS.len() * VARIANTS as usize; let n = size * size * 4 * layers;
     let (mut albedo, mut nrm) = (vec![0u8; n], vec![0u8; n]);
-    let cells = size.min(ART); let per = size / cells; let k = TEX / cells as f64; let gain = 0.75 * cells as f64 / TEX;
+    let k = TEX / size as f64; let gain = 0.62 * size as f64 / TEX;
     let b8 = |v: f64| (clamp(v, 0.0, 1.0) * 255.0) as u8;
-    let mut cs = vec![S { c: [0.0; 3], h: 0.0, r: 0.0 }; cells * cells];
+    let mut hh = vec![0f64; size * size]; let mut sm = vec![0f64; size * size];
+    let wrap = |v: usize, d: i32| (v as i32 + d).rem_euclid(size as i32) as usize;
     for (m, name) in MATERIALS.iter().enumerate() {
         for v in 0..VARIANTS as usize {
             let t = Tile::new((1000 + m * 17 + v * 3) as u32); let layer = m * VARIANTS as usize + v; let base = layer * size * size * 4;
-            for y in 0..cells { for x in 0..cells { cs[x + y * cells] = gen(name, &t, (x as f64 + 0.5) * k, (y as f64 + 0.5) * k); } }
+            let amp = grain(name);
+            for y in 0..size { for x in 0..size { let (lx, ly) = ((x as f64 + 0.5) * k, (y as f64 + 0.5) * k); let mut c = gen(name, &t, lx, ly); let p = base + (x + y * size) * 4;
+                // Un grain doux de la matière (cellules de deux texels, pas de bruit texel par texel) : de la vie de près, sans duvet.
+                let d = t.val(lx * 2.0, ly * 2.0, 128) - 0.5 + 0.5 * (t.val(lx * 4.0 + 7.0, ly * 4.0, 256) - 0.5); let g = 1.0 + d * amp * 1.6; c.h += d * amp * 0.35;
+                albedo[p] = b8(c.c[0] * g); albedo[p + 1] = b8(c.c[1] * g); albedo[p + 2] = b8(c.c[2] * g); albedo[p + 3] = 255; nrm[p + 2] = (c.r * 255.0) as u8; nrm[p + 3] = 255; hh[x + y * size] = c.h; } }
+            for y in 0..size { for x in 0..size { let mut acc = 0.0; for (dy, wy) in [(-1, 1.0), (0, 2.0), (1, 1.0)] { for (dx, wx) in [(-1, 1.0), (0, 2.0), (1, 1.0)] { acc += hh[wrap(x, dx) + wrap(y, dy) * size] * wx * wy; } } sm[x + y * size] = acc / 16.0; } }
             let gain = gain * relief(name);
-            let at = |x: i32, y: i32| cs[(x.rem_euclid(cells as i32) + y.rem_euclid(cells as i32) * cells as i32) as usize].h;
-            for y in 0..cells { for x in 0..cells {
-                let c = cs[x + y * cells]; let (xi, yi) = (x as i32, y as i32);
-                let (dx, dy) = (at(xi + 1, yi) - at(xi - 1, yi), at(xi, yi + 1) - at(xi, yi - 1));
-                let (nx, ny) = (b8(0.5 - dx * gain), b8(0.5 - dy * gain));
-                for j in 0..per { for i in 0..per {
-                    let p = base + ((x * per + i) + (y * per + j) * size) * 4;
-                    albedo[p] = b8(c.c[0]); albedo[p + 1] = b8(c.c[1]); albedo[p + 2] = b8(c.c[2]); albedo[p + 3] = 255;
-                    nrm[p] = nx; nrm[p + 1] = ny; nrm[p + 2] = (c.r * 255.0) as u8; nrm[p + 3] = 255;
-                } }
-            } }
+            for y in 0..size { for x in 0..size { let p = base + (x + y * size) * 4;
+                let dx = sm[wrap(x, 1) + y * size] - sm[wrap(x, -1) + y * size]; let dy = sm[x + wrap(y, 1) * size] - sm[x + wrap(y, -1) * size];
+                nrm[p] = b8(0.5 - dx * gain); nrm[p + 1] = b8(0.5 - dy * gain); } }
         }
     }
     Textures { albedo, nrm, layers: layers as u32, size: size as u32 }
+}
+/// Le grain fin de chaque matière : marqué pour l'herbe, les feuilles, l'écorce, la roche brute, le sable ; discret pour la
+/// maçonnerie, les tuiles, les planches et les enduits.
+fn grain(n: &str) -> f64 {
+    if n.starts_with("leaf") || n.starts_with("grass") || n.contains("moss") { 0.16 } else if n.starts_with("bark") || n.starts_with("end_") { 0.12 }
+    else if matches!(n, "stone" | "granite" | "limestone" | "gravel" | "dirt" | "dry_earth" | "path" | "path_top" | "sand" | "sandstone" | "snow" | "lichen") { 0.11 }
+    else if matches!(n, "planks" | "planks_birch" | "planks_spruce" | "dark_timber" | "boards" | "wood_inner") { 0.07 } else { 0.05 }
 }
 /// Relief propre à chaque matière : la maçonnerie, les toitures et le bois de charpente sont creusés plus franchement
 /// (joints, rangs de tuiles, planches qui se chevauchent) ; le reste garde un relief doux.
