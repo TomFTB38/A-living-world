@@ -16,8 +16,9 @@ struct VO { @builtin(position) pos: vec4f, @location(0) uv: vec2f, @location(1) 
   // Le logo du jeu (couche -4), en alpha prémultiplié comme les icônes.
   if (i.layer == -4) { let g = (textureSampleLevel(t_logo, smp, i.uv - dx - dy, 0.0) + textureSampleLevel(t_logo, smp, i.uv + dx - dy, 0.0) + textureSampleLevel(t_logo, smp, i.uv - dx + dy, 0.0) + textureSampleLevel(t_logo, smp, i.uv + dx + dy, 0.0)) * 0.25; return vec4f(g.rgb / max(g.a, 0.001), g.a * i.col.a); }
   if (i.layer == -2) { return vec4f(i.col.rgb, i.col.a * f); }
-  // Icônes : un liseré sombre d'un pixel et une ombre portée en bas à droite, lus dans la case de l'atlas seulement.
-  let px = length(dx) * 4.0; let py = length(dy) * 4.0; // dérivées lues plus haut, hors des branches let cell = floor(i.uv * 24.0) / 24.0; let lo = cell + vec2f(0.0004); let hi = cell + vec2f(1.0 / 24.0 - 0.0004);
+  // Icônes : un liseré sombre d'un pixel et une ombre portée en bas à droite, lus dans la case de l'atlas seulement
+  // (les dérivées dx, dy sont lues plus haut, hors des branches).
+  let px = length(dx) * 4.0; let py = length(dy) * 4.0; let cell = floor(i.uv * 24.0) / 24.0; let lo = cell + vec2f(0.0004); let hi = cell + vec2f(1.0 / 24.0 - 0.0004);
   var ring = 0.0;
   for (var k = 0; k < 8; k++) { let a = f32(k) * 0.7853982; let q = clamp(i.uv + vec2f(cos(a) * px, sin(a) * py) * 1.1, lo, hi); ring = max(ring, textureSampleLevel(t_icons, smp, q, 0.0).a); }
   let sh = textureSampleLevel(t_icons, smp, clamp(i.uv - vec2f(px * 1.6, py * 2.2), lo, hi), 0.0).a;
