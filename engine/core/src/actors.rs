@@ -431,7 +431,7 @@ impl Anim {
                     let ctr = [ctr[0] - ux * (0.75 * k - reach), ctr[1] - uy * (0.75 * k - reach), ctr[2] - uz * (0.75 * k - reach)];
                     out.push(Draw { m: mul(&v, &trs(ctr[0], ctr[1], ctr[2], fyaw, fpitch, k)), r: md.parts["arrow"], view: true, local: false, hero: true, dynamic: false, hurt: 0.0 });
                     // la main droite pince l'encoche, sous la joue ; l'avant-bras part vers l'arrière, à droite
-                    let nock = [ctr[0] - ux * 0.35 * k, ctr[1] - uy * 0.35 * k, ctr[2] - uz * 0.35 * k]; let rh = trs(nock[0] - 0.012, nock[1] - 0.03, nock[2] - 0.015, RH[0], RH[1], 0.46);
+                    let nock = [ctr[0] - ux * 0.35 * k, ctr[1] - uy * 0.35 * k, ctr[2] - uz * 0.35 * k]; let rh = trs(nock[0] - 0.012 - 0.15 * e, nock[1] - 0.03 - 0.2 * e, nock[2] - 0.015 - 0.06 * e, RH[0] + 0.3 * e, RH[1], 0.46); // à fond, la main est à la joue : presque hors de la vue
                     out.push(hand(mul(&v, &mul(&rh, &mul(&roll_z(RH[2]), &invert(&grip)))))); }
             }
             // L'arc bandé : il se redresse au milieu de la vue, la flèche encochée recule avec la corde, la main tremble à fond.

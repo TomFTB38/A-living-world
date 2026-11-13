@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu creatif faune onglet1 onglet4 onglet5 onglet8 onglet9 onglet10 arc arc_tiers
+spawn jeu creatif arc
