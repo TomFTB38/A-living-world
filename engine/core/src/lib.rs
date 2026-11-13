@@ -40,4 +40,5 @@ pub mod betes;
 pub mod edifice;
 pub mod bourg;
 pub mod patrons;
+pub mod elevage;
 pub mod commande;

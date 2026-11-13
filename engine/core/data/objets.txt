@@ -499,3 +499,15 @@ planks_corner | Arêtier de planches | batir | 0.9 | 64 | L'angle sortant d'une 
 planks_valley | Noue de planches | batir | 0.9 | 64 | L'angle rentrant, là où deux pans de toit se rencontrent. R : un quart de tour. |
 planks_ridge | Faîtage de planches | batir | 0.6 | 64 | Le sommet en Λ d'un toit à deux pans, dans le sens du regard. |
 planks_peak | Épi de planches | batir | 0.4 | 64 | La pointe qui coiffe un toit en pyramide ou une tour. |
+# --- Élevage et compagnons ---
+milk_bucket | Seau de lait | vivres | 1.4 | 1 | Le lait frais d'une vache, traite au seau. Bu, il nourrit et désaltère ; le seau vide revient. | aliment=12:18:2 garde=1
+chicken_egg | Œuf de poule | vivres | 0.06 | 16 | Pondu par une poule. À cuire au feu. | aliment=4:0:0 garde=6 risque=0.2
+cooked_egg | Œuf au plat | vivres | 0.06 | 16 | Cuit sur le feu : un petit repas sûr. | aliment=10:0:1 garde=2
+feather | Plume | matieres | 0.01 | 64 | Une plume de poule : pour empenner les flèches. |
+shears | Cisailles | outils | 0.4 | 1 | Clic droit sur un mouton pour le tondre : de la laine, qui repousse en quelques jours. | usages=120
+saddle | Selle | outils | 3.0 | 1 | Clic droit sur un loup ou un cheval apprivoisé pour le seller, puis clic droit pour monter ; accroupi pour descendre. |
+egg_cow | Œuf : vache | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : vache. Pour essayer les créatures en créatif. |
+egg_sheep | Œuf : mouton | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : mouton. Pour essayer les créatures en créatif. |
+egg_pig | Œuf : cochon | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cochon. Pour essayer les créatures en créatif. |
+egg_horse | Œuf : cheval | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cheval. Pour essayer les créatures en créatif. |
+egg_chicken | Œuf : poule | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : poule. Pour essayer les créatures en créatif. |

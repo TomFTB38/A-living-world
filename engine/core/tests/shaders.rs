@@ -29,3 +29,25 @@ fn pas_de_code_avale_par_un_commentaire() {
     }
 }
 
+
+/// Même piège dans le Rust : une instruction collée après un `//` en fin de ligne n'est jamais exécutée.
+#[test]
+fn pas_d_instruction_rust_avalee_par_un_commentaire() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let mut bad = Vec::new();
+    for sub in ["core/src", "game/src"] {
+        for e in std::fs::read_dir(root.join(sub)).unwrap() {
+            let p = e.unwrap().path(); if p.extension().and_then(|x| x.to_str()) != Some("rs") { continue; }
+            for (k, l) in std::fs::read_to_string(&p).unwrap().lines().enumerate() {
+                let Some(i) = l.find("// ") else { continue }; if l[..i].matches('"').count() % 2 == 1 { continue; } // dans une chaîne
+                let tail = l[i + 3..].trim_end(); if !tail.ends_with(';') && !tail.ends_with("; }") { continue; }
+                // une affectation `a.b = …;`, un `let`, ou un appel de méthode `self.x(…);`
+                let w: Vec<&str> = tail.split_whitespace().collect();
+                let assign = w.windows(3).any(|t| (t[1] == "=" || t[1] == "+=" || t[1] == "-=") && t[0].contains('.') && t[0].chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '[' || c == ']'));
+                let call = tail.contains("self.") && tail.contains("(") && tail.contains(");");
+                if assign || tail.contains(" let ") || tail.starts_with("let ") || call { bad.push(format!("{} ligne {} : {}", p.display(), k + 1, tail)); }
+            }
+        }
+    }
+    assert!(bad.is_empty(), "du code derrière un commentaire :\n{}", bad.join("\n"));
+}

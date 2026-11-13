@@ -294,7 +294,7 @@ impl Session {
         let (loot, extra): (&[(&str, u32)], &[(&str, u32)]) = match prey {
             Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); let close = (at[0] - me[0]).hypot(at[2] - me[2]) < 2.4;
                 if self.fauna.strike(k, dmg, me) { (DEER_LOOT, DEER_KNIFE) } else { if close && hash_float((self.elapsed * 977.0) as i32, k as i32, self.seed, 13) < 0.3 { self.harm(6.0, "La ruade d'un cerf", true); } (&[], &[]) } }
-            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); if heavy { self.wild.stagger(k, me, 1.2); } match self.wild.strike(k, dmg, me) { Some(crate::wild::Kind::Fox) => (FOX_LOOT, FOX_KNIFE), Some(crate::wild::Kind::Hare) => (HARE_LOOT, HARE_KNIFE), Some(crate::wild::Kind::Wolf) => (WOLF_LOOT, &[("fur", 1)]), Some(crate::wild::Kind::Boar) => (BOAR_LOOT, &[("raw_meat", 1), ("leather", 1)]), Some(crate::wild::Kind::Bear) => (BEAR_LOOT, &[("raw_hide", 1)]), Some(crate::wild::Kind::Ibex) => (IBEX_LOOT, &[("raw_meat", 1)]), Some(crate::wild::Kind::Lizard) => (LIZARD_LOOT, &[]), Some(crate::wild::Kind::Fish) => (&[("mackerel", 1)], &[]), Some(crate::wild::Kind::Reef) => (&[("sea_bream", 1)], &[]), Some(crate::wild::Kind::Crab) => (&[("raw_meat", 1), ("shell", 1)], &[]), Some(crate::wild::Kind::Shark) => (&[("raw_meat", 3), ("shark_tooth", 2)], &[("raw_hide", 1)]), _ => (&[], &[]) } }
+            Prey::Wild(k) => { let at = self.wild.all[k].p; self.sound.thump(at); if heavy { self.wild.stagger(k, me, 1.2); } match self.wild.strike(k, dmg, me) { Some(crate::wild::Kind::Fox) => (FOX_LOOT, FOX_KNIFE), Some(crate::wild::Kind::Hare) => (HARE_LOOT, HARE_KNIFE), Some(crate::wild::Kind::Wolf) => (WOLF_LOOT, &[("fur", 1)]), Some(crate::wild::Kind::Boar) => (BOAR_LOOT, &[("raw_meat", 1), ("leather", 1)]), Some(crate::wild::Kind::Bear) => (BEAR_LOOT, &[("raw_hide", 1)]), Some(crate::wild::Kind::Ibex) => (IBEX_LOOT, &[("raw_meat", 1)]), Some(crate::wild::Kind::Lizard) => (LIZARD_LOOT, &[]), Some(crate::wild::Kind::Fish) => (&[("mackerel", 1)], &[]), Some(crate::wild::Kind::Reef) => (&[("sea_bream", 1)], &[]), Some(crate::wild::Kind::Crab) => (&[("raw_meat", 1), ("shell", 1)], &[]), Some(crate::wild::Kind::Shark) => (&[("raw_meat", 3), ("shark_tooth", 2)], &[("raw_hide", 1)]), Some(k @ (crate::wild::Kind::Cow | crate::wild::Kind::Sheep | crate::wild::Kind::Pig | crate::wild::Kind::Horse | crate::wild::Kind::Chicken)) => (crate::outdoors::wild_loot(k), &[("raw_meat", 1)]), _ => (&[], &[]) } }
             Prey::Foe(_) => (&[], &[]),
         };
         self.wear_tool(1);
@@ -310,6 +310,7 @@ impl Session {
     /// labourer, semer, remplir une gourde, manger, boire, se soigner. Vrai si le clic a servi.
     pub(crate) fn interact(&mut self) -> bool {
         if self.outdoor_use() { return true; } // l'arc tire, la canne lance ou ferre
+        if self.tend() { return true; } // traire, tondre, apprivoiser, seller, monter
         if self.greet() { return true; } // on parle aux villageois
         let held = self.inv[self.sel]; let hd = held.and_then(|s| def(s.item));
         // Un œuf d'apparition : la créature naît sur le bloc visé (dans l'eau pour les bêtes de mer).
@@ -362,7 +363,8 @@ impl Session {
             if self.vit[1] >= 99.0 && f.health >= 0.0 { if block { return false; } self.use_t = 1.5; self.notes.push("Vous n'avez plus faim".into()); return true; }
             let k = skill_bonus(self.skills[4]); self.vit[1] = (self.vit[1] + f.hunger * k).min(100.0); self.vit[2] = (self.vit[2] + f.thirst).clamp(0.0, 100.0);
             let risk = hd.map_or(0.0, |d| d.risk); if f.health < 0.0 || (risk > 0.0 && hash_float((self.elapsed * 331.0) as i32, 5, self.seed, 17) < risk) { self.harm(f.health.abs().max(3.0), "Une nourriture avariée", false); self.notes.push(format!("{} ne vous réussit pas", item(st.item).map_or("Ce repas", |i| i.label))); } else { self.vit[0] = (self.vit[0] + f.health).min(100.0); }
-            self.consume_held(); self.use_t = 0.7; self.anim.trigger(); self.sound.place("mushroom"); self.gain(1); return true;
+            self.consume_held(); if st.item == "milk_bucket" { self.add_item("bucket", 1); } // le seau vidé revient
+            self.use_t = 0.7; self.anim.trigger(); self.sound.place("mushroom"); self.gain(1); return true;
         }
         // Boire à la gourde : l'eau brute peut rendre malade ; la gourde se vide.
         if let (Some(_), Some((q, safe))) = (held, hd.and_then(|d| d.drink)) {
@@ -384,7 +386,7 @@ impl Session {
             Some(b) if is_solid(b) => return false, None => return false, _ => {} } t += 0.1; }
         false
     }
-    fn consume_held(&mut self) { if self.creative { return; } if let Some(st) = self.inv[self.sel] { let n = st.n.unwrap_or(1).saturating_sub(1); self.inv[self.sel] = if n == 0 { None } else { Some(Stack { n: Some(n), ..st }) }; self.dirty = true; } }
+    pub(crate) fn consume_held(&mut self) { if self.creative { return; } if let Some(st) = self.inv[self.sel] { let n = st.n.unwrap_or(1).saturating_sub(1); self.inv[self.sel] = if n == 0 { None } else { Some(Stack { n: Some(n), ..st }) }; self.dirty = true; } }
     /// Un besoin vient de changer : son icône se montre un moment (0 vie, 1 faim, 2 soif, 3 endurance, 4 chaleur, 5 fatigue).
     pub fn gain(&mut self, k: usize) { self.last_gain[k] = self.elapsed; }
     /// Ce qui se passe quand un bloc est posé : un feu commence à brûler, un coffre s'ouvre à vide.
@@ -597,7 +599,7 @@ impl Session {
         let mut fires: Vec<_> = self.fires.iter().collect(); fires.sort_by_key(|f| *f.0); for (p, t) in fires { s += &format!("fire {} {} {} {}\n", p[0], p[1], p[2], t); }
         let mut chests: Vec<_> = self.chests.iter().collect(); chests.sort_by_key(|c| *c.0);
         for (p, items) in chests { s += &format!("chest {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
-        s += &self.loose_save(); s += &self.regions_save();
+        s += &self.loose_save(); s += &self.regions_save(); s += &self.pets_save();
         for stv in &self.stashes { s += &format!("stash {} {} {} {}", stv.p[0], stv.p[1], stv.p[2], stv.born); for v in &stv.items { s += &format!(" {}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } s.push('\n'); }
         for (k, e) in self.world.edits() { s += &format!("chunk {} {}", k.0, k.1); let mut l: Vec<_> = e.into_iter().collect(); l.sort(); for (i, id) in l { s += &format!(" {i}:{id}"); } s.push('\n'); }
         s
@@ -635,6 +637,7 @@ impl Session {
                     self.chests.insert(p, v); }
                 Some("spawn") => { for k in 0..3 { self.spawn[k] = num(a.next())?; } }
                 Some("sol") => { let v: Vec<&str> = a.collect(); self.loose_load(&v); }
+                Some("pet") => { let v: Vec<&str> = a.collect(); self.pet_load(&v); }
                 Some("region") => { let v: Vec<&str> = a.collect(); self.region_load(&v); }
                 Some("stash") => { let p = [num(a.next())?, num(a.next())?, num(a.next())?]; let rest: Vec<&str> = a.collect();
                     // Ancien format (sans heure de la mort) : la dépouille repart de maintenant.

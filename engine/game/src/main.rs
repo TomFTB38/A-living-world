@@ -31,7 +31,7 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
     let (proj, vm) = (view::perspective(menu.fov() * (1.0 - 0.12 * s.anim.bow), w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
     let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let mut draws = s.draws(md, &vm); if menu.title.is_some() { draws.retain(|d| !d.view); } /* pas de main tendue derrière l'écran titre */ let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
     gpu.lights = s.lights(s.eye, gpu::LIGHTS);
-    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); let night = sky.night.clamp(0.0, 1.0); // la nuit, la direction est celle de la lune : elle ne dit pas l'heure env.flies = s.deep as f32 * (0.55 + 0.9 * night);
+    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); let night = sky.night.clamp(0.0, 1.0); env.flies = s.deep as f32 * (0.55 + 0.9 * night); // la nuit, la direction est celle de la lune : elle ne dit pas l'heure
     // Taïga : ciel froid, soleil pâle, neige qui tombe à la place de la pluie.
     let tg = s.taiga as f32; if tg > 0.01 { for k in 0..3 { sky.top[k] += ([0.5, 0.64, 0.82][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.35 * tg; sky.hor[k] += ([0.82, 0.88, 0.95][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.4 * tg; sky.col[k] *= 1.0 + ([0.12, 0.02, -0.16][k]) * tg * (1.0 - night); }
         // Soleil d'hiver : bas sur l'horizon, doré, aux ombres longues ; brume au fond des vallées le matin ; aurores la nuit.
@@ -146,7 +146,7 @@ impl Game {
         self.save(); let text = std::fs::read_to_string(world_path(name)).ok();
         let seed = text.as_ref().and_then(|t| t.lines().find_map(|l| l.strip_prefix("seed ").and_then(|v| v.trim().parse().ok()))).or(seed).unwrap_or(SEED);
         let mut s = Session::new(seed, &self.preset, self.threads, spawn_point(seed));
-        match &text { Some(t) => if let Err(e) = s.load_text(t) { report(&format!("Sauvegarde illisible : {e}")); }, None => { if let Some(p) = profile { s.profile = p; } if s.gen.flat { s.set_creative(true); s.hour = 10.0; } } } // un monde plat commence en créatif, en plein jour
+        match &text { Some(t) => if let Err(e) = s.load_text(t) { report(&format!("Sauvegarde illisible : {e}")); }, None => { if let Some(p) = profile { s.profile = p; } if alw_core::gen::is_flat(s.seed) { s.set_creative(true); s.hour = 10.0; } } } // un monde plat commence en créatif, en plein jour
         std::mem::swap(&mut s.sound, &mut self.s.sound); self.gpu.forget_all(); self.s = s; self.world = name.to_string(); self.menu.profile = self.s.profile; self.apply();
         if text.is_none() { self.save(); } let _ = std::fs::write(worlds_dir().join("dernier.txt"), name);
         self.menu.title = None; self.held.clear(); self.keys.clear(); self.grab(true);
@@ -401,6 +401,15 @@ fn capture(a: &[String]) {
     if let Some(k) = scene.strip_prefix("onglet").and_then(|k| k.parse::<usize>().ok()) { s.set_creative(true); s.inv_open = true; s.tab = k; s.tick(0.0, none, Actions::default()); }
     // L'arc en main, une flèche encochée : vu par l'archer, ou de l'extérieur.
     if scene == "arc" || scene == "arc_tiers" { s.inv[0] = Some(alw_core::session::Stack::new("bow", None)); s.sel = 0; s.add_item("arrow", 12); s.third = scene == "arc_tiers"; s.tick(0.0, none, Actions::default()); }
+    // La ferme : une bête de chaque, un cheval sellé, un loup apprivoisé assis ; puis le joueur en selle (3e personne).
+    if scene == "plat_ferme" || scene == "plat_monte" {
+        use alw_core::wild::Kind as K; let y = alw_core::gen::FLAT_Y as f64 + 1.0; s.wild.all.clear();
+        let herd: [(K, f64, f64, f64); 7] = [(K::Cow, -43.5, -22.0, 0.6), (K::Sheep, -41.0, -21.0, -0.4), (K::Sheep, -39.4, -22.6, 2.2), (K::Pig, -37.0, -23.5, -0.9), (K::Chicken, -38.6, -25.0, 1.4), (K::Horse, -45.5, -24.5, 1.2), (K::Wolf, -36.0, -26.0, -1.6)];
+        for (k, (kind, x, z, yaw)) in herd.into_iter().enumerate() { s.wild.put(kind, [x, y, z], yaw, false); let c = s.wild.all.last_mut().unwrap(); c.color = k as u8 % 3;
+            if k == 2 { c.farm.shorn = 400.0; } if kind == K::Horse { c.farm.tame = true; c.farm.saddle = true; } if kind == K::Wolf { c.farm.tame = true; c.farm.sit = true; } }
+        if scene == "plat_monte" { let h = s.wild.all.iter().position(|c| c.kind == K::Horse).unwrap(); s.wild.all[h].p = [s.player.p[0], y, s.player.p[2]]; s.wild.all[h].yaw = s.player.yaw; s.ride = Some(s.wild.all[h].farm.id); s.third = true; }
+        s.tick(0.0, none, Actions::default());
+    }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
     if scene == "abattage" {

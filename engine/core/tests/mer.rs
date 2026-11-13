@@ -46,13 +46,13 @@ impl Voxels for Sea { fn get(&self, _x: i32, y: i32, _z: i32) -> Option<u16> { S
 #[test]
 fn les_poissons_nagent_en_banc_et_restent_dans_l_eau() {
     let mut w = Wild::new(5); let p = [0.0, 21.0, 0.0];
-    for _ in 0..400 { w.update(0.05, &Sea, p, 1.0, 0.0, 0.0, 0.0, false, [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]); }
+    for _ in 0..400 { w.update(0.05, &Sea, p, 1.0, 0.0, 0.0, 0.0, false, [0.0, 0.0, 0.0, 1.0, 0.0, 0.0], 0.0); }
     let fish: Vec<&Critter> = w.all.iter().filter(|c| c.kind == Kind::Fish).collect(); println!("{} maquereaux, {} dauphins, {} goélands", fish.len(), w.all.iter().filter(|c| c.kind == Kind::Dolphin).count(), w.all.iter().filter(|c| c.kind == Kind::Gull).count());
     assert!(fish.len() >= 10, "des bancs apparaissent en mer"); assert!(w.all.iter().all(|c| c.kind != Kind::Fox && c.kind != Kind::Reef), "ni renard ni poisson tropical dans une mer fraîche");
     for f in &fish { assert!(f.p[1] > 10.0 && f.p[1] < 20.0, "dans l'eau : {:?}", f.p); }
     // Un banc reste groupé : chaque poisson est à moins de 6 blocs d'un autre.
     for f in &fish { assert!(fish.iter().any(|o| !std::ptr::eq(*o, *f) && (o.p[0] - f.p[0]).hypot(o.p[2] - f.p[2]) < 6.0)); }
-    let mut w = Wild::new(6); for _ in 0..300 { w.update(0.05, &Sea, p, 1.0, 0.0, 0.0, 0.0, false, [0.0, 0.0, 0.0, 1.0, 1.0, 0.0]); } assert!(w.all.iter().any(|c| c.kind == Kind::Reef), "mer chaude : poissons des récifs");
+    let mut w = Wild::new(6); for _ in 0..300 { w.update(0.05, &Sea, p, 1.0, 0.0, 0.0, 0.0, false, [0.0, 0.0, 0.0, 1.0, 1.0, 0.0], 0.0); } assert!(w.all.iter().any(|c| c.kind == Kind::Reef), "mer chaude : poissons des récifs");
 }
 #[test]
 fn epaves_grands_coraux_et_ports() {
@@ -76,10 +76,10 @@ fn epaves_grands_coraux_et_ports() {
 fn le_requin_chasse_le_nageur_et_la_baleine_reste_paisible() {
     let mut w = Wild::new(9); let p = [0.0, 14.0, 0.0]; // le joueur nage à mi-profondeur
     w.put_swim(Kind::Shark, [12.0, 14.0, 0.0], 0.0, 7, 0); w.put_swim(Kind::Whale, [-20.0, 14.5, 0.0], 0.0, 8, 0);
-    let mut bit = false; for _ in 0..400 { w.update(0.05, &Sea, p, 1.0, 0.0, 0.0, 0.0, false, [0.0; 6]); for e in std::mem::take(&mut w.ev) { if let Ev::Bite(_, d, cause) = e { bit = true; assert!(d > 0.0 && cause.contains("requin")); } } }
+    let mut bit = false; for _ in 0..400 { w.update(0.05, &Sea, p, 1.0, 0.0, 0.0, 0.0, false, [0.0; 6], 0.0); for e in std::mem::take(&mut w.ev) { if let Ev::Bite(_, d, cause) = e { bit = true; assert!(d > 0.0 && cause.contains("requin")); } } }
     assert!(bit, "le requin finit par mordre le nageur");
     let mut w = Wild::new(10); w.put_swim(Kind::Shark, [6.0, 14.0, 0.0], 0.0, 7, 0); let dry = [0.0, 21.0, 0.0]; // hors de l'eau : rien à craindre
-    for _ in 0..300 { w.update(0.05, &Sea, dry, 1.0, 0.0, 0.0, 0.0, false, [0.0; 6]); assert!(!w.ev.iter().any(|e| matches!(e, Ev::Bite(..)))); w.ev.clear(); }
+    for _ in 0..300 { w.update(0.05, &Sea, dry, 1.0, 0.0, 0.0, 0.0, false, [0.0; 6], 0.0); assert!(!w.ev.iter().any(|e| matches!(e, Ev::Bite(..)))); w.ev.clear(); }
     let wh = Wild::new(11); let _ = wh; // la baleine n'a pas de boîte de chasse : on ne la tue pas
     assert!(alw_core::outdoors::wild_box(Kind::Whale).is_none() && alw_core::outdoors::wild_box(Kind::Shark).is_some());
 }

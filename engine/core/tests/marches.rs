@@ -22,6 +22,6 @@ fn une_hostile_gravit_les_terrasses_et_redescend() {
 fn un_renard_monte_et_descend_les_marches() {
     let w = Steps; let mut wd = Wild::new(3); wd.put(Kind::Fox, [4.5, top(4.5), 0.5], std::f64::consts::FRAC_PI_2, false);
     let (mut lo, mut hi) = (f64::MAX, f64::MIN);
-    for _ in 0..(60.0 * 30.0) as usize { wd.update(1.0 / 30.0, &w, [12.0, 20.0, 40.0], 0.5, 0.0, 0.0, 0.5, true, [0.0; 6]); if let Some(c) = wd.all.first() { lo = lo.min(c.p[1]); hi = hi.max(c.p[1]); } }
-    assert!(hi - lo >= 1.9, "le renard reste à sa hauteur : de {lo} à {hi}");
+    for _ in 0..(60.0 * 30.0) as usize { wd.update(1.0 / 30.0, &w, [12.0, 20.0, 40.0], 0.5, 0.0, 0.0, 0.5, true, [0.0; 6], 0.0); if let Some(c) = wd.all.iter().find(|c| c.kind == Kind::Fox) { lo = lo.min(c.p[1]); hi = hi.max(c.p[1]); } }
+    assert!(hi - lo >= 1.9, "le renard reste à sa hauteur : de {lo} à {hi} — {:?}", wd.all.iter().map(|c| (c.kind, c.p)).collect::<Vec<_>>());
 }

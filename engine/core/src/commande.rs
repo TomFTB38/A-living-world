@@ -8,15 +8,16 @@ use crate::session::Session;
 use crate::wild::Kind;
 
 /// Les œufs d'apparition : identifiant de l'objet, nom de la créature.
-pub const EGGS: [(&str, &str); 20] = [
+pub const EGGS: [(&str, &str); 25] = [
     ("egg_rodeur", "rôdeur décharné"), ("egg_brigand", "brigand errant"), ("egg_rodeuse", "bête rôdeuse"), ("egg_rampant", "rampant nocturne"),
     ("egg_deer", "cerf"), ("egg_fox", "renard"), ("egg_hare", "lièvre"), ("egg_crow", "corbeau"), ("egg_wolf", "loup"), ("egg_boar", "sanglier"), ("egg_bear", "ours"),
     ("egg_ibex", "bouquetin"), ("egg_lizard", "lézard"), ("egg_mackerel", "maquereau"), ("egg_reef", "poisson de récif"), ("egg_dolphin", "dauphin"), ("egg_crab", "crabe"),
     ("egg_gull", "goéland"), ("egg_shark", "requin"), ("egg_whale", "baleine"),
+    ("egg_cow", "vache"), ("egg_sheep", "mouton"), ("egg_pig", "cochon"), ("egg_horse", "cheval"), ("egg_chicken", "poule"),
 ];
 fn kind_of(mob: &str) -> Option<Kind> {
     Some(match mob { "fox" => Kind::Fox, "hare" => Kind::Hare, "crow" => Kind::Crow, "wolf" => Kind::Wolf, "boar" => Kind::Boar, "bear" => Kind::Bear, "ibex" => Kind::Ibex, "lizard" => Kind::Lizard,
-        "mackerel" => Kind::Fish, "reef" => Kind::Reef, "dolphin" => Kind::Dolphin, "crab" => Kind::Crab, "gull" => Kind::Gull, "shark" => Kind::Shark, "whale" => Kind::Whale, _ => return None })
+        "mackerel" => Kind::Fish, "reef" => Kind::Reef, "dolphin" => Kind::Dolphin, "crab" => Kind::Crab, "gull" => Kind::Gull, "shark" => Kind::Shark, "whale" => Kind::Whale, "cow" => Kind::Cow, "sheep" => Kind::Sheep, "pig" => Kind::Pig, "horse" => Kind::Horse, "chicken" => Kind::Chicken, _ => return None })
 }
 /// Retire accents et majuscules.
 fn plain(s: &str) -> String { s.to_lowercase().chars().map(|c| match c { 'é' | 'è' | 'ê' | 'ë' => 'e', 'à' | 'â' => 'a', 'î' | 'ï' => 'i', 'ô' => 'o', 'ù' | 'û' => 'u', 'ç' => 'c', c => c }).collect() }

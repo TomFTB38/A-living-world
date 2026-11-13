@@ -112,7 +112,7 @@ pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
                 "deer" => ([0.68, 0.45, 0.26], [0.92, 0.84, 0.7]), "fox" => ([0.8, 0.38, 0.12], [0.94, 0.93, 0.9]), "hare" => ([0.52, 0.37, 0.24], [0.86, 0.8, 0.7]), "crow" => ([0.1, 0.1, 0.12], [0.3, 0.3, 0.36]), "wolf" => ([0.42, 0.41, 0.39], [0.72, 0.7, 0.66]),
                 "boar" => ([0.24, 0.17, 0.12], [0.5, 0.36, 0.3]), "bear" => ([0.32, 0.21, 0.13], [0.5, 0.38, 0.26]), "ibex" => ([0.6, 0.52, 0.4], [0.45, 0.4, 0.33]), "lizard" => ([0.5, 0.52, 0.3], [0.22, 0.42, 0.55]),
                 "mackerel" => ([0.2, 0.42, 0.42], [0.86, 0.88, 0.9]), "reef" => ([0.98, 0.45, 0.1], [0.94, 0.93, 0.9]), "dolphin" => ([0.42, 0.48, 0.55], [0.8, 0.82, 0.84]), "crab" => ([0.82, 0.32, 0.14], [0.9, 0.78, 0.6]),
-                "gull" => ([0.92, 0.92, 0.9], [0.62, 0.65, 0.7]), "shark" => ([0.4, 0.45, 0.5], [0.85, 0.86, 0.86]), _ => ([0.25, 0.3, 0.38], [0.8, 0.8, 0.82]) };
+                "gull" => ([0.92, 0.92, 0.9], [0.62, 0.65, 0.7]), "cow" => ([0.94, 0.93, 0.9], [0.1, 0.1, 0.1]), "sheep" => ([0.93, 0.91, 0.86], [0.2, 0.17, 0.15]), "pig" => ([0.9, 0.66, 0.62], [0.7, 0.45, 0.42]), "horse" => ([0.4, 0.22, 0.12], [0.1, 0.07, 0.05]), "chicken" => ([0.94, 0.92, 0.86], [0.8, 0.12, 0.1]), "shark" => ([0.4, 0.45, 0.5], [0.85, 0.86, 0.86]), _ => ([0.25, 0.3, 0.38], [0.8, 0.8, 0.82]) };
             let (dx, dy) = (x - 0.5, y - 0.52); let ry = if dy > 0.0 { 0.36 } else { 0.3 }; let r = (dx * dx / 0.075 + dy * dy / (ry * ry)).sqrt(); if r > 1.0 { return None; }
             let sp = crate::noise::hash_float((x * 9.0) as i32, (y * 9.0) as i32, 5, 77) < 0.28 && r < 0.9; let shade = 1.0 - 0.35 * r * r + if dx < -0.06 && dy > 0.06 { 0.15 } else { 0.0 };
             let c = if sp { spot } else { base }; return Some(([c[0] * shade, c[1] * shade, c[2] * shade], FAT));
@@ -139,6 +139,21 @@ pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
         "rusty_scrap" => { let (dx, dy) = (x - 0.5, y - 0.52); let edge = 0.28 + 0.05 * (dx * 19.0).sin() + 0.04 * (dy * 13.0).cos(); if dx.abs() > edge || dy.abs() > 0.22 + 0.04 * (dx * 11.0).sin() { return None; }
             if (x - 0.34).hypot(y - 0.42) < 0.03 || (x - 0.66).hypot(y - 0.62) < 0.03 { return None; } let rust = ((x * 17.0).sin() * (y * 13.0).cos() + (x * 5.0 + y * 7.0).sin() * 0.6) > 0.1;
             Some((if rust { [0.6, 0.3, 0.12] } else { [0.42, 0.4, 0.38] }, TH)) }
+        // Seau de lait : le seau de bois cerclé de fer, le lait blanc à ras bord.
+        "milk_bucket" => { let (dx, y0) = ((x - 0.5).abs(), 0.3); if y > y0 && y < 0.82 && dx < 0.2 + (y - y0) * 0.08 { return Some((if y < y0 + 0.06 { [0.96, 0.95, 0.9] } else if ((y * 10.0) as i64) % 3 == 0 { [0.45, 0.45, 0.48] } else { WOOD[1] }, FAT)); }
+            if (x - 0.5).hypot(y - 0.3) < 0.3 && (x - 0.5).hypot(y - 0.3) > 0.27 && y < 0.3 { return Some(([0.4, 0.4, 0.42], THIN)); } None }
+        // Œuf de poule, cru ou cuit (au plat : le blanc et le jaune).
+        "chicken_egg" => { let r = disc(x, y, 0.5, 0.52, 0.17, 0.22); if r < 1.0 { return Some(([0.92 - 0.2 * r, 0.82 - 0.2 * r, 0.66 - 0.2 * r], FAT)); } None }
+        "cooked_egg" => { if disc(x, y, 0.5, 0.52, 0.12, 0.1) < 1.0 { return Some(([0.98, 0.72, 0.1], FAT)); } if disc(x, y, 0.5, 0.52, 0.3, 0.24) < 1.0 + 0.15 * (x * 17.0).sin() { return Some(([0.97, 0.95, 0.9], TH)); } None }
+        // Plume : un rachis courbé, des barbes de part et d'autre.
+        "feather" => { let c = 0.5 + 0.12 * ((y - 0.5) * 3.0).sin(); let w = 0.1 * (1.0 - ((y - 0.45) / 0.4).powi(2)).max(0.0); if y > 0.12 && y < 0.88 && (x - c).abs() < 0.012 { return Some(([0.85, 0.82, 0.74], THIN)); }
+            if y > 0.12 && y < 0.8 && (x - c).abs() < w && ((y * 40.0 + (x - c).abs() * 30.0) as i64) % 2 == 0 { return Some(([0.96, 0.95, 0.92], THIN)); } None }
+        // Cisailles : deux lames de fer en V, la boucle de l'anneau.
+        "shears" => { let (s, p) = ((x + y) * R2, (y - x) * R2); for sg in [-1.0, 1.0] { let q = p - sg * (s - 0.62) * 0.18; if s > 0.62 && s < 1.2 && q.abs() < 0.045 * (1.25 - s) / 0.6 + 0.01 { return Some(([0.72, 0.74, 0.78], THIN)); } }
+            let r = crate::det::hypot2(s - 0.42, p); if r < 0.18 && r > 0.11 { return Some(([0.5, 0.5, 0.55], TH)); } if s > 0.55 && s <= 0.64 && p.abs() < 0.05 { return Some(([0.4, 0.4, 0.44], TH)); } None }
+        // Selle : le siège de cuir creusé, le pommeau, le quartier et l'étrier.
+        "saddle" => { let seat = disc(x, y, 0.5, 0.42, 0.32, 0.16) < 1.0 && !(disc(x, y, 0.5, 0.3, 0.2, 0.1) < 1.0); let flap = (x - 0.5).abs() < 0.12 && y > 0.45 && y < 0.72; let stir = (x - 0.5).abs() < 0.08 && y > 0.74 && y < 0.82;
+            if (x - 0.24).hypot(y - 0.3) < 0.05 { return Some(([0.3, 0.17, 0.08], FAT)); } if seat { return Some(([0.5, 0.29, 0.14], FAT)); } if flap { return Some(([0.4, 0.22, 0.1], FAT)); } if stir { return Some(([0.6, 0.6, 0.64], TH)); } None }
         _ => { // de quoi ne jamais rester sans image : un petit paquet
             if (x - 0.5).abs() < 0.22 && (y - 0.5).abs() < 0.22 { return Some(([0.6, 0.55, 0.45], FAT)); } None }
     }

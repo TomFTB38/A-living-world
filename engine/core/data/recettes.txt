@@ -361,3 +361,10 @@ planks_corner 4 | etabli | planks 3 | batir
 planks_valley 4 | etabli | planks 3 | batir
 planks_ridge 4 | etabli | planks 2 | batir
 planks_peak 2 | etabli | planks 1 | batir
+
+# --- Élevage et compagnons ---
+shears 1 | enclume | iron_ingot 2, !hammer 1 | outils
+shears 1 | enclume | copper_ingot 2, !hammer 1 | outils
+saddle 1 | etabli | leather 4, rope 2, iron_ingot 1, !knife 1 | outils
+cooked_egg 1 | feu | chicken_egg 1 | vivres
+arrow 6 | main | stick 2, flint 1, feather 2 | outils
