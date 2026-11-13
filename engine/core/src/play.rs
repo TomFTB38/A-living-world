@@ -312,6 +312,10 @@ impl Session {
         if self.outdoor_use() { return true; } // l'arc tire, la canne lance ou ferre
         if self.greet() { return true; } // on parle aux villageois
         let held = self.inv[self.sel]; let hd = held.and_then(|s| def(s.item));
+        // Un œuf d'apparition : la créature naît sur le bloc visé (dans l'eau pour les bêtes de mer).
+        if let (Some(st), Some(t)) = (held, self.target) { if st.item.starts_with("egg_") {
+            if self.use_t > 0.0 { return true; } let wet = crate::blocks::is_water(t.id); let p = [t.x as f64 + 0.5, (t.y + if wet { 0 } else { 1 }) as f64, t.z as f64 + 0.5];
+            if let Some(name) = self.hatch(st.item, p) { self.consume_held(); self.notes.push(format!("Apparition : {name}")); self.anim.trigger(); self.use_t = 0.3; } return true; } }
         if let Some(t) = self.target {
             let h = self.player.eye(); let near = ((t.x as f64 + 0.5 - h[0]).powi(2) + (t.y as f64 + 0.5 - h[1]).powi(2) + (t.z as f64 + 0.5 - h[2]).powi(2)).sqrt() <= 4.5;
             let name = BLOCKS[t.id as usize].name; let p = [t.x, t.y, t.z];

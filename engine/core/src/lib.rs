@@ -39,3 +39,4 @@ pub mod sculpt;
 pub mod betes;
 pub mod edifice;
 pub mod bourg;
+pub mod commande;

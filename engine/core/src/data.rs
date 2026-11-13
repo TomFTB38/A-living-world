@@ -55,7 +55,7 @@ impl Station {
 #[derive(Clone, Debug)] pub struct Craftsman { pub id: &'static str, pub name: &'static str, pub tier: u8, pub villages: Vec<&'static str>, pub services: Vec<&'static str>, pub price: Vec<(&'static str, u32)>, pub works: Vec<(Station, &'static str)> }
 pub struct Db { pub items: Vec<Def>, index: HashMap<&'static str, usize>, pub groups: Vec<(&'static str, &'static str, Vec<&'static str>)>, pub recipes: Vec<Recipe>, pub errors: Vec<String>, pub order: Vec<&'static str>, pub tabs: Vec<(&'static str, Vec<&'static str>)> , pub craftsmen: Vec<Craftsman>, pub trades: Vec<Trade> }
 /// Onglets du catalogue créatif : clé de catégorie et libellé court.
-pub const CATS: [(&str, &str); 12] = [("terrain", "Terrain"), ("roches", "Roches"), ("bois", "Bois"), ("plantes", "Plantes"), ("batir", "Bâtir"), ("mobilier", "Mobilier"), ("decor", "Décor"), ("ateliers", "Ateliers"), ("outils", "Outils"), ("matieres", "Matières"), ("vivres", "Vivres"), ("habits", "Habits")];
+pub const CATS: [(&str, &str); 13] = [("terrain", "Terrain"), ("roches", "Roches"), ("bois", "Bois"), ("plantes", "Plantes"), ("batir", "Bâtir"), ("mobilier", "Mobilier"), ("decor", "Décor"), ("ateliers", "Ateliers"), ("outils", "Outils"), ("matieres", "Matières"), ("vivres", "Vivres"), ("habits", "Habits"), ("oeufs", "Œufs")];
 
 impl Db {
     pub fn get(&self, id: &str) -> Option<&Def> { self.index.get(id).map(|i| &self.items[*i]) }

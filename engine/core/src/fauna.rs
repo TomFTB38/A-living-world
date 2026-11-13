@@ -31,7 +31,9 @@ pub(crate) fn fits(w: &impl Voxels, x: f64, y: f64, z: f64, yaw: f64, h: i32) ->
     let (s, c, yy) = (sin(yaw), cos(yaw), (y + 0.05).floor() as i32);
     for (f, l) in [(0.75, 0.0), (0.5, 0.25), (0.5, -0.25), (0.0, 0.25), (0.0, -0.25), (-0.6, 0.25), (-0.6, -0.25)] {
         let (bx, bz) = ((x + s * f + c * l).floor() as i32, (z + c * f - s * l).floor() as i32);
-        for k in 0..h { match w.get(bx, yy + k, bz) { None => return false, Some(b) => if is_solid(b) || is_water(b) { return false; } } }
+        // Une marche d'un bloc sous une patte (l'avant qui monte, l'arrière encore sur le rebord) ne gêne pas : le corps passe au-dessus.
+        let base = match w.get(bx, yy, bz) { None => return false, Some(b) if is_water(b) => return false, Some(b) if is_solid(b) => yy + 1, _ => yy };
+        for k in 0..h { match w.get(bx, base + k, bz) { None => return false, Some(b) => if is_solid(b) || is_water(b) { return false; } } }
     }
     true
 }

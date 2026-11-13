@@ -106,6 +106,17 @@ pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
         "fire_drill" => { let (dx, dy) = (x - 0.5, y - 0.32); let r = (dx * dx / 0.13 + dy * dy / 0.02).sqrt(); if (r - 1.0).abs() < 0.12 && dy < 0.02 { return Some((WOOD[1], FAT)); } if (y - 0.34).abs() < 0.008 && dx.abs() < 0.34 { return Some(([0.86, 0.8, 0.62], THIN)); }
             if (x - 0.5).abs() < 0.025 && y > 0.22 && y < 0.78 { return Some((WOOD[2], FAT)); } if y > 0.76 && y < 0.84 && (x - 0.5).abs() < 0.26 { return Some((WOOD[0], FAT)); } if (x - 0.5).hypot(y - 0.75) < 0.03 { return Some(([0.2, 0.1, 0.06], FAT)); } None }
         "bandage" => { let r = disc(x, y, 0.5, 0.5, 0.24, 0.24); if r < 1.0 { return Some((if r < 0.2 { [0.75, 0.73, 0.66] } else if ((r * 5.0) as i64 & 1) != 0 { [0.95, 0.93, 0.88] } else { [0.85, 0.83, 0.76] }, FAT)); } None }
+        // Œuf d'apparition : une coque ovale, la teinte de la créature, des taches de la couleur de son pelage ou de sa peau.
+        n if n.starts_with("egg_") => {
+            let (base, spot): (C, C) = match &n[4..] { "rodeur" => ([0.42, 0.44, 0.38], [0.2, 0.22, 0.2]), "brigand" => ([0.55, 0.42, 0.3], [0.3, 0.12, 0.1]), "rodeuse" => ([0.32, 0.26, 0.22], [0.75, 0.2, 0.1]), "rampant" => ([0.18, 0.2, 0.24], [0.5, 0.15, 0.55]),
+                "deer" => ([0.68, 0.45, 0.26], [0.92, 0.84, 0.7]), "fox" => ([0.8, 0.38, 0.12], [0.94, 0.93, 0.9]), "hare" => ([0.52, 0.37, 0.24], [0.86, 0.8, 0.7]), "crow" => ([0.1, 0.1, 0.12], [0.3, 0.3, 0.36]), "wolf" => ([0.42, 0.41, 0.39], [0.72, 0.7, 0.66]),
+                "boar" => ([0.24, 0.17, 0.12], [0.5, 0.36, 0.3]), "bear" => ([0.32, 0.21, 0.13], [0.5, 0.38, 0.26]), "ibex" => ([0.6, 0.52, 0.4], [0.45, 0.4, 0.33]), "lizard" => ([0.5, 0.52, 0.3], [0.22, 0.42, 0.55]),
+                "mackerel" => ([0.2, 0.42, 0.42], [0.86, 0.88, 0.9]), "reef" => ([0.98, 0.45, 0.1], [0.94, 0.93, 0.9]), "dolphin" => ([0.42, 0.48, 0.55], [0.8, 0.82, 0.84]), "crab" => ([0.82, 0.32, 0.14], [0.9, 0.78, 0.6]),
+                "gull" => ([0.92, 0.92, 0.9], [0.62, 0.65, 0.7]), "shark" => ([0.4, 0.45, 0.5], [0.85, 0.86, 0.86]), _ => ([0.25, 0.3, 0.38], [0.8, 0.8, 0.82]) };
+            let (dx, dy) = (x - 0.5, y - 0.52); let ry = if dy > 0.0 { 0.36 } else { 0.3 }; let r = (dx * dx / 0.075 + dy * dy / (ry * ry)).sqrt(); if r > 1.0 { return None; }
+            let sp = crate::noise::hash_float((x * 9.0) as i32, (y * 9.0) as i32, 5, 77) < 0.28 && r < 0.9; let shade = 1.0 - 0.35 * r * r + if dx < -0.06 && dy > 0.06 { 0.15 } else { 0.0 };
+            let c = if sp { spot } else { base }; return Some(([c[0] * shade, c[1] * shade, c[2] * shade], FAT));
+        }
         _ => { // de quoi ne jamais rester sans image : un petit paquet
             if (x - 0.5).abs() < 0.22 && (y - 0.5).abs() < 0.22 { return Some(([0.6, 0.55, 0.45], FAT)); } None }
     }

@@ -632,6 +632,10 @@ impl Ui {
         if let Some(d) = &s.dead { u.death(s, d, w, h, k, mouse); }
         if menu.open { u.menu(menu, w, h, mouse); }
         if let Some(m) = msg { let z = 20.0 * k; u.text(m, (w - Ui::text_width(m, z)) * 0.5, h * 0.16, z, w1); }
+        // Le chat des commandes, en bas à gauche, au-dessus de la barre d'objets.
+        if let Some(c) = &s.chat { let z = 20.0 * k; let line = format!("{c}_"); let (x, y) = (16.0 * k, h - 150.0 * k); let tw = Ui::text_width(&line, z).max(360.0 * k);
+            u.rect(x - 8.0 * k, y - 6.0 * k, tw + 16.0 * k, z + 12.0 * k, [0.0, 0.0, 0.0, 0.62]); u.text(&line, x, y, z, w1);
+            let hint = "Entrée : valider · Échap : fermer · /aide"; u.text(hint, x, y - 24.0 * k, 14.0 * k, [0.8, 0.8, 0.8, 0.9]); }
         let _ = (u.w, u.h); u
     }
 }

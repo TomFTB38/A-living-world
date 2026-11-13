@@ -1,6 +1,6 @@
 # A Living World — base des objets.
 # Une ligne par objet : identifiant | nom | catégorie | masse (kg) | pile | description | propriétés
-# Catégories (onglets du catalogue) : terrain, roches, bois, plantes, batir, mobilier, decor, ateliers, outils, matieres, vivres, habits.
+# Catégories (onglets du catalogue) : terrain, roches, bois, plantes, batir, mobilier, decor, ateliers, outils, matieres, vivres, habits, oeufs.
 # Un objet dont l'identifiant est un nom de bloc se pose comme ce bloc.
 # Propriétés :
 #   outil=<hache|pioche|pelle|couteau|faucille|houe|marteau|epee|lance> mat=<pierre|silex|cuivre|bronze|fer>  (vitesse, usure, palier : table des matières ci-dessous)
@@ -431,3 +431,25 @@ beast_fang | Croc de bête | matieres | 0.04 | 64 | Long et tranchant : une bonn
 chitin_plate | Plaque de chitine | matieres | 0.15 | 64 | La carapace d'un rampant nocturne, légère et dure. |
 chitin_vest | Plastron de chitine | habits | 2.2 | 1 | Des plaques de chitine cousues sur du cuir : léger et solide. | porte=torse armure=5 chaud=1
 worn_coin | Pièce usée | matieres | 0.01 | 99 | Une vieille pièce au profil effacé, trouvée sur un rôdeur. Les villageois la prennent encore en échange. |
+
+# Œufs d'apparition (mode créatif) : clic droit sur un bloc pour faire naître la créature.
+egg_rodeur | Œuf : rôdeur décharné | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : rôdeur décharné. Pour essayer les créatures en créatif. |
+egg_brigand | Œuf : brigand errant | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : brigand errant. Pour essayer les créatures en créatif. |
+egg_rodeuse | Œuf : bête rôdeuse | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : bête rôdeuse. Pour essayer les créatures en créatif. |
+egg_rampant | Œuf : rampant nocturne | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : rampant nocturne. Pour essayer les créatures en créatif. |
+egg_deer | Œuf : cerf | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cerf. Pour essayer les créatures en créatif. |
+egg_fox | Œuf : renard | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : renard. Pour essayer les créatures en créatif. |
+egg_hare | Œuf : lièvre | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : lièvre. Pour essayer les créatures en créatif. |
+egg_crow | Œuf : corbeau | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : corbeau. Pour essayer les créatures en créatif. |
+egg_wolf | Œuf : loup | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : loup. Pour essayer les créatures en créatif. |
+egg_boar | Œuf : sanglier | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : sanglier. Pour essayer les créatures en créatif. |
+egg_bear | Œuf : ours | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : ours. Pour essayer les créatures en créatif. |
+egg_ibex | Œuf : bouquetin | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : bouquetin. Pour essayer les créatures en créatif. |
+egg_lizard | Œuf : lézard | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : lézard. Pour essayer les créatures en créatif. |
+egg_mackerel | Œuf : maquereau | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : maquereau. Pour essayer les créatures en créatif. |
+egg_reef | Œuf : poisson de récif | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : poisson de récif. Pour essayer les créatures en créatif. |
+egg_dolphin | Œuf : dauphin | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : dauphin. Pour essayer les créatures en créatif. |
+egg_crab | Œuf : crabe | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : crabe. Pour essayer les créatures en créatif. |
+egg_gull | Œuf : goéland | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : goéland. Pour essayer les créatures en créatif. |
+egg_shark | Œuf : requin | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : requin. Pour essayer les créatures en créatif. |
+egg_whale | Œuf : baleine | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : baleine. Pour essayer les créatures en créatif. |

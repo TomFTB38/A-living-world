@@ -158,10 +158,12 @@ impl Horde {
     /// Une tentative d'apparition, loin des yeux du joueur, dans le noir, sur un sol où le corps tient, hors des lieux protégés.
     fn try_spawn(&mut self, w: &impl Voxels, c: &Ctx) {
         let r = &bestiary().rules; let me = c.feet;
-        if self.foes.len() >= r.cap { return; }
-        let near = self.foes.iter().filter(|f| hypot2(f.p[0] - me[0], f.p[2] - me[2]) < 24.0).count(); if near >= r.cap_near { return; }
+        // La nuit, elles sont plus nombreuses : la moitié de plus au plafond, autour du joueur aussi.
+        let (cap, cap_near) = if c.night > 0.5 { (r.cap * 3 / 2, r.cap_near * 3 / 2) } else { (r.cap, r.cap_near) };
+        if self.foes.len() >= cap { return; }
+        let near = self.foes.iter().filter(|f| hypot2(f.p[0] - me[0], f.p[2] - me[2]) < 24.0).count(); if near >= cap_near { return; }
         let Some((sp, vet)) = self.pick(c.main_biome, c.danger) else { return }; let s = &bestiary().species[sp];
-        for _ in 0..4 {
+        for _ in 0..if c.night > 0.5 { 8 } else { 4 } {
             let a = self.rng.range(0.0, std::f64::consts::TAU); let d = self.rng.range(r.ring.0, r.ring.1); let (x, z) = (me[0] + sin(a) * d, me[2] + cos(a) * d);
             if (c.protect)(x, z) { continue; }
             let Some(y) = ground(w, x, z, me[1] + 12.0).or_else(|| ground(w, x, z, me[1] - 8.0)) else { continue }; if (y - me[1]).abs() > 24.0 { continue; }
@@ -172,14 +174,14 @@ impl Horde {
             let yaw = self.rng.range(0.0, 6.283); let tall = (foe_box(s.body, s.size).1.ceil() as i32).max(1); if !fits(w, x, y, z, yaw, tall) { continue; }
             let n = self.rng.range(s.group.0 as f64, s.group.1 as f64 + 0.999).floor() as u32 + if c.danger >= 5 && self.rng.next() < 0.3 { 1 } else { 0 };
             let first = self.put(sp, [x, y, z], yaw, vet); let g = self.foes[first].group;
-            for k in 1..n { let o = [x + self.rng.range(-2.5, 2.5), y, z + self.rng.range(-2.5, 2.5)]; if let Some(oy) = ground(w, o[0], o[2], y + 2.0) { if (oy - y).abs() <= 2.0 && fits(w, o[0], oy, o[2], yaw, tall) { let i = self.put(sp, [o[0], oy, o[2]], yaw + k as f64, vet && k == 0); self.foes[i].group = g; } } }
+            for k in 1..n { let o = [x + self.rng.range(-2.5, 2.5), y, z + self.rng.range(-2.5, 2.5)]; if let Some(oy) = ground(w, o[0], o[2], y + 2.0) { if (oy - y).abs() <= 2.0 && (c.light)(o[0].floor() as i32, oy.floor() as i32, o[2].floor() as i32) < r.light && fits(w, o[0], oy, o[2], yaw, tall) { let i = self.put(sp, [o[0], oy, o[2]], yaw + k as f64, vet && k == 0); self.foes[i].group = g; } } }
             return;
         }
     }
 
     pub fn update(&mut self, dt: f64, w: &impl Voxels, c: &Ctx) {
         let r = &bestiary().rules; let me = c.feet;
-        if c.can_spawn { self.spawn_t -= dt; if self.spawn_t <= 0.0 { self.spawn_t = r.every * self.rng.range(0.7, 1.3); if c.night > 0.5 || (c.light)(me[0].floor() as i32, me[1].floor() as i32 + 1, me[2].floor() as i32) < 4 { self.try_spawn(w, c); } } }
+        if c.can_spawn { self.spawn_t -= dt; if self.spawn_t <= 0.0 { self.spawn_t = r.every * self.rng.range(0.7, 1.3) * if c.night > 0.5 { 0.55 } else { 1.0 }; if c.night > 0.5 || (c.light)(me[0].floor() as i32, me[1].floor() as i32 + 1, me[2].floor() as i32) < 4 { self.try_spawn(w, c); } } }
         let mut all = std::mem::take(&mut self.foes); let n = all.len();
         let groups: Vec<(u32, [f64; 3])> = all.iter().map(|f| (f.group, f.p)).collect();
         for i in 0..n { let f = &mut all[i]; self.think(f, dt, w, c, &groups); }
@@ -273,7 +275,7 @@ fn walk(f: &mut Foe, w: &impl Voxels, step: f64, climb: bool, body: Body) -> boo
     let tall = match body { Body::Rampant => 1, Body::Bete => 1, _ => 2 };
     for k in [0.0, 0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.8, -1.8] {
         let yaw = f.yaw + k; let (nx, nz) = (f.p[0] + sin(yaw) * step, f.p[2] + cos(yaw) * step);
-        if let Some(y) = ground(w, nx, nz, f.gy + 1.0) { if y - f.gy <= 1.05 && f.gy - y <= 3.0 && fits(w, nx, y, nz, yaw, tall) { f.p[0] = nx; f.p[2] = nz; f.gy = y; f.climbing = false; if k != 0.0 { f.yaw += k * 0.5; } return true; } }
+        if let Some(y) = ground(w, nx, nz, f.gy + 1.0) { if y - f.gy <= 1.05 && f.gy - y <= 3.0 && fits(w, nx, y.max(f.gy - 1.0), nz, yaw, tall) { f.p[0] = nx; f.p[2] = nz; f.gy = y; f.climbing = false; if k != 0.0 { f.yaw += k * 0.5; } return true; } }
         if climb && k == 0.0 { if let Some(y) = ground(w, nx, nz, f.gy + 4.5) { if y - f.gy > 1.0 && y - f.gy <= 4.5 && fits(w, nx, y, nz, yaw, tall) {
             // Le rampant monte le long du mur, puis passe dessus.
             f.climbing = true; f.p[1] += 2.6 * step / f.speed.max(0.1) * f.speed.min(3.0); if f.p[1] >= y { f.p = [nx, y, nz]; f.gy = y; f.climbing = false; } return true; } } }

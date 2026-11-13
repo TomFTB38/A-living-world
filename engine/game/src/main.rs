@@ -176,7 +176,7 @@ impl Game {
     }
     fn frame(&mut self) {
         let now = Instant::now(); let real = (now - self.last).as_secs_f64(); let dt = if self.menu.open { 0.0 } else { real.min(0.05) }; self.last = now; self.time += dt;
-        if self.run_time { self.s.pass_hours(dt * 24.0 / 1500.0); }
+        if self.run_time && !self.s.time_frozen { self.s.pass_hours(dt * 24.0 / 1500.0 * self.s.time_speed); }
         let k = |c: KeyCode| self.keys.contains(&c);
         // Regarder vers +z place +x à gauche de l'écran : la droite vaut -x.
         let ax = |a: bool, b: bool| (a as i32 - b as i32) as f64;
@@ -324,6 +324,16 @@ impl ApplicationHandler for App {
                     }
                     return;
                 }
+                // Le chat : les touches écrivent la commande ; Entrée l'exécute, Échap la ferme.
+                if g.s.chat.is_some() {
+                    match c {
+                        KeyCode::Escape => g.s.chat = None,
+                        KeyCode::Enter | KeyCode::NumpadEnter => { let line = g.s.chat.take().unwrap_or_default(); let r = g.s.command(&line); if !r.is_empty() { g.say(r); } }
+                        KeyCode::Backspace => { if let Some(l) = &mut g.s.chat { l.pop(); } }
+                        _ => if let Some(t) = &event.text { for ch in t.chars().filter(|ch| !ch.is_control()) { if let Some(l) = &mut g.s.chat { if l.chars().count() < 60 { l.push(ch); } } } }
+                    }
+                    return;
+                }
                 if !name.is_empty() { g.held.insert(name.clone()); }
                 // Recherche dans le livre de recettes : les touches écrivent au lieu de commander.
                 if g.s.inv_open && g.s.book.typing {
@@ -343,11 +353,9 @@ impl ApplicationHandler for App {
                     _ if g.menu.is(hud::A_DROP, &name) && !g.s.inv_open => { let all = g.keys.contains(&KeyCode::ShiftLeft) || g.keys.contains(&KeyCode::ShiftRight); g.s.throw_held(all); }
                     _ if g.menu.is(hud::A_INV, &name) => { let on = !g.s.inv_open; g.s.inv_open = on; if !on { g.s.drop_slot(None); g.s.close_chest(); } g.grab(!on); }
                     _ if g.menu.is(hud::A_VIEW, &name) => { g.s.third = !g.s.third; let m = if g.s.third { "Troisième personne" } else { "Première personne" }; g.say(m.into()); }
-                    KeyCode::KeyF => { if g.s.creative { g.s.player.fly = !g.s.player.fly; let m = if g.s.player.fly { "Vol activé" } else { "Vol désactivé" }; g.say(m.into()); } else { g.say("Le vol demande le mode créatif (G)".into()); } }
-                    KeyCode::KeyG => { let on = !g.s.creative; g.s.set_creative(on); g.say(if on { "Mode créatif : casse instantanée, blocs illimités, vol avec F" } else { "Mode survie" }.into()); }
                     _ if g.menu.is(hud::A_TURN, &name) => { let m = g.s.rotate(); g.say(m); }
-                    KeyCode::KeyT => g.s.pass_hours(1.0),
-                    KeyCode::KeyY => g.run_time = !g.run_time,
+                    // T (ou /) ouvre le chat des commandes : /jour, /nuit, /vitesse, /survie, /creatif, /vol… (/aide)
+                    KeyCode::KeyT | KeyCode::Slash | KeyCode::NumpadDivide if !g.s.inv_open => { g.s.chat = Some("/".into()); g.keys.clear(); g.held.clear(); }
                     KeyCode::F3 => g.debug = !g.debug,
                     // Outils de développement, seulement avec le panneau F3 ouvert : une créature devant soi, la nuit tout de suite.
                     KeyCode::F6 if g.debug => { let k = g.s.horde.spawned as usize; let n = g.s.debug_spawn(k); g.say(format!("Apparition : {n}")); }
@@ -598,7 +606,7 @@ fn capture(a: &[String]) {
         println!("casse : {} -> {:?}, objets {} -> {}", alw_core::blocks::BLOCKS[t.id as usize].name, alw_core::player::Voxels::get(&s.world, t.x, t.y, t.z), before, s.inv.iter().flatten().count());
         s.sel = 5; s.tick(0.0, none, Actions::default()); s.tick(0.0, none, Actions { mine: false, place: true, ..Default::default() }); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("pose : cible {:?}", s.target.map(|t| alw_core::blocks::BLOCKS[t.id as usize].name));
     }
-    if ["survie", "craft", "campement", "mort", "ramassage", "fissure", "construction", "faune", "combat", "tenue", "creatures", "titre", "menagerie"].contains(&scene.as_str()) {
+    if ["survie", "craft", "campement", "mort", "ramassage", "fissure", "construction", "faune", "combat", "tenue", "creatures", "titre", "menagerie", "chat", "oeufs"].contains(&scene.as_str()) {
         // Survie : on retombe au sol, un établi et un feu de camp devant soi, des jauges entamées.
         use alw_core::blocks::{is_solid, B}; use alw_core::player::Voxels;
         s.player.fly = false; s.third = false; s.sel = 2; for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); } if s.dead.is_some() { s.respawn(); } s.vit = [100.0; 3];
@@ -659,6 +667,8 @@ fn capture(a: &[String]) {
             for (k, l, kind) in [(7.0, -1.0, K::Wolf), (8.5, 0.6, K::Wolf), (9.5, -2.2, K::Wolf), (6.0, 3.2, K::Boar)] { let (x, z) = at(k, l); s.wild.put(kind, [x, gy(&s, x, z) as f64, z], s.player.yaw + 3.0 + l * 0.1, false); }
             let (ax, az) = at(3.0, 0.4); s.arrows.push(alw_core::outdoors::Arrow { p: [ax, gy(&s, ax, az) as f64 + 0.25, az], v: [s.player.yaw.sin() * 20.0, -14.0, s.player.yaw.cos() * 20.0], stuck: true, life: 0.0, pow: 1.0 });
         }
+        if scene == "chat" { s.chat = Some("/vitesse 20".into()); }
+        if scene == "oeufs" { s.set_creative(true); s.inv_open = true; s.tab = alw_core::session::tabs().iter().position(|t| t.0 == "Œufs").unwrap_or(0); }
         if scene == "menagerie" {
             // Toutes les bêtes sculptées en rang devant soi, en plein jour : ours, sanglier, loup, renard, bouquetin, lièvre, lézard, un cerf derrière.
             use alw_core::wild::Kind as K; s.hour = 14.5; s.player.pitch = -0.2; s.sel = 8; s.player.p[1] += 3.0;
