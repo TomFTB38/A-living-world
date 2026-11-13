@@ -16,7 +16,7 @@ use crate::shapes::{facing_of, variant};
 pub(crate) struct P<'a> { pub k: &'a mut Work, pub lot: Lot, pub y0: i32, pub mirror: bool, pub w: i32, pub d: i32, pub h: f64, pub rec: Rec }
 /// Ce que le patron a posé et que l'habillage en relief reprendra : fenêtres, portes, pans de bois, toits, sablières, cheminées.
 #[derive(Default)]
-pub(crate) struct Rec { wins: Vec<(i32, i32, i32, bool)>, doors: Vec<(i32, i32, i32, i32, i32)>, frames: Vec<((i32, i32), (i32, i32), (i32, i32), i32)>, roofs: Vec<((i32, i32), (i32, i32), i32, i32, bool, String)>, belts: Vec<((i32, i32), (i32, i32), i32)>, caps: Vec<(i32, i32, i32)> }
+pub(crate) struct Rec { wins: Vec<(i32, i32, i32, bool)>, doors: Vec<(i32, i32, i32, i32, i32)>, frames: Vec<((i32, i32), (i32, i32), (i32, i32), i32)>, roofs: Vec<((i32, i32), (i32, i32), i32, i32, bool, String, Option<String>)>, belts: Vec<((i32, i32), (i32, i32), i32)>, caps: Vec<(i32, i32, i32)>, pyrs: Vec<(i32, i32, i32, i32, String)> }
 impl P<'_> {
     fn lx(&self, x: i32) -> i32 { if self.mirror { self.w - 1 - x } else { x } }
     pub fn put(&mut self, x: i32, y: i32, z: i32, b: Id) { let c = self.lot.cell(self.lx(x), self.y0 + y, z); self.k.put(c, b); }
@@ -43,24 +43,25 @@ impl P<'_> {
     /// [a0, a1] × [b0, b1], à partir de la hauteur y, débord `ov`. Le pignon (aux deux bouts du faîte) est rempli de `gable`.
     #[allow(clippy::too_many_arguments)]
     pub fn roof(&mut self, x: (i32, i32), z: (i32, i32), y: i32, ov: i32, along_z: bool, mat: &str, gable: Option<&str>) {
-        self.rec.roofs.push((x, z, y, ov, along_z, mat.to_string()));
+        self.rec.roofs.push((x, z, y, ov, along_z, mat.to_string(), gable.map(|g| g.to_string())));
         let st = format!("{mat}_stairs"); let ((a0, a1), (b0, b1)) = if along_z { (x, z) } else { (z, x) };
         let xy = |a: i32, b: i32| if along_z { (a, b) } else { (b, a) }; let up = |s: i32| if along_z { (s, 0) } else { (0, s) };
         let mut k = 0;
         loop { let (al, ar, yy) = (a0 - ov + k, a1 + ov - k, y + k); if al > ar { break; }
-            for b in b0 - ov..=b1 + ov {
+            for b in b0..=b1 {
                 if al == ar { let (px, pz) = xy(al, b); self.n(px, yy, pz, mat); continue; }
                 let (lx, lz) = xy(al, b); let (rx, rz) = xy(ar, b); let (ux, uz) = up(1); let (vx, vz) = up(-1);
                 self.stair(lx, yy, lz, &st, ux, uz, false); self.stair(rx, yy, rz, &st, vx, vz, false);
                 if k > 1 { self.stair(lx, yy - 1, lz, &st, vx, vz, true); self.stair(rx, yy - 1, rz, &st, ux, uz, true); }
             }
             if let Some(g) = gable { for b in [b0, b1] { for a in (al + 1).max(a0)..=(ar - 1).min(a1) { let (px, pz) = xy(a, b); if k > 0 || !self.filled(px, yy, pz) { self.n(px, yy, pz, g); } } } }
-            if al + 1 >= ar { if al + 1 == ar { for b in b0 - ov..=b1 + ov { let (px, pz) = xy(al, b); let (qx, qz) = xy(ar, b); self.n(px, yy + 1, pz, &format!("{mat}_slab")); self.n(qx, yy + 1, qz, &format!("{mat}_slab")); } } break; }
+            if al + 1 >= ar { if al + 1 == ar { for b in b0..=b1 { let (px, pz) = xy(al, b); let (qx, qz) = xy(ar, b); self.n(px, yy + 1, pz, &format!("{mat}_slab")); self.n(qx, yy + 1, qz, &format!("{mat}_slab")); } } break; }
             k += 1;
         }
     }
     /// Un toit en pyramide (tour, clocher, moulin) de demi-côté r au-dessus de (cx, cz), à partir de y.
     pub fn pyramid(&mut self, cx: i32, cz: i32, r: i32, y: i32, mat: &str) {
+        self.rec.pyrs.push((cx, cz, r, y, mat.to_string()));
         let st = format!("{mat}_stairs");
         for k in 0..=r { let rr = r - k; if rr == 0 { self.n(cx, y + k, cz, mat); break; }
             for dx in -rr..=rr { for dz in -rr..=rr { if dx.abs().max(dz.abs()) != rr { continue; } let (sx, sz) = if dx.abs() >= dz.abs() { (-dx.signum(), 0) } else { (0, -dz.signum()) }; self.stair(cx + dx, y + k, cz + dz, &st, sx, sz, false); } }
@@ -158,18 +159,42 @@ impl P<'_> {
         // ---- abouts des poutres de plancher, qui dépassent des sablières sur les longs pans
         for &(xr, zr, y) in &rec.belts { for x in (xr.0 + 1..xr.1).step_by(2) { for (z, s) in [(zr.0, -1.0), (zr.1, 1.0)] { if !self.name(x, y, z).starts_with("oak_log") { continue; }
             let zf = if s < 0.0 { z as f64 } else { z as f64 + 1.0 }; self.block((x, y, z), (x as f64 + 0.32, y as f64 + 0.3, zf.min(zf + s * 0.22)), (x as f64 + 0.68, y as f64 + 0.7, zf.max(zf + s * 0.22)), END); } } }
-        // ---- toits : faîtage, rives le long des pignons, planches d'égout
-        for (xr, zr, y, ov, along_z, mat) in &rec.roofs { let (y, ov, along_z) = (*y, *ov, *along_z); let ((a0, a1), (b0, b1)) = if along_z { (*xr, *zr) } else { (*zr, *xr) };
-            let (lo, hi) = ((a0 - ov) as f64, (a1 + ov + 1) as f64); let half = (hi - lo) * 0.5; let ac = lo + half; let top = y as f64 + half; // la pente à 45° passe par le haut des marches
-            let tone: [f64; 3] = if mat.starts_with("slate") { [0.2, 0.22, 0.26] } else if mat.starts_with("mossy") { [0.36, 0.33, 0.22] } else { [0.5, 0.22, 0.15] };
-            let pt = |a: f64, yy: f64, b: f64| if along_z { (a, yy, b) } else { (b, yy, a) }; let bb = ((b0 - ov) as f64, (b1 + ov + 1) as f64);
-            let anc = |me: &Self, b: i32| { let (x, z) = if along_z { ((ac - 0.5).floor() as i32, b) } else { (b, (ac - 0.5).floor() as i32) }; let yy = (y..y + 30).rev().find(|&yy| me.at(x, yy, z) != 0).unwrap_or(y); (x, yy, z) };
-            let ridge_at = anc(self, b0); let up = (0.0, 1.0, 0.0);
-            self.piece(ridge_at, pt(ac, top + 0.58, bb.0 - 0.06), pt(ac, top + 0.58, bb.1 + 0.06), up, 0.24, 0.07, tone.map(|v| v * 0.8));
-            let across = if along_z { (0.0, 0.0, 1.0) } else { (1.0, 0.0, 0.0) };
-            for (b, o) in [(bb.0, -0.04), (bb.1, 0.04)] { let at = anc(self, if o < 0.0 { b0 } else { b1 });
-                for (e, sg) in [(lo, 1.0), (hi, -1.0)] { let _ = sg; self.piece(at, pt(e, y as f64 + 0.5, b + o), pt(ac, top + 0.5, b + o), across, 0.11, 0.04, OAK); } }
-            for e in [lo - 0.04, hi + 0.04] { let at = anc(self, b0); self.piece(at, pt(e, y as f64 + 0.3, bb.0), pt(e, y as f64 + 0.3, bb.1), if along_z { (1.0, 0.0, 0.0) } else { (0.0, 0.0, 1.0) }, 0.14, 0.03, OAK); }
+        // ---- toits : un vrai pan incliné à 45° posé sur les gradins d'escaliers (qui restent dessous pour l'intérieur et
+        // les collisions), des rangs de tuiles en relief, le faîtage en tuiles faîtières, de larges rives qui cachent les marches
+        let unit = |v: [f64; 3]| { let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-9); [v[0] / l, v[1] / l, v[2] / l] };
+        let add = |a: [f64; 3], b: [f64; 3]| [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; let mul = |a: [f64; 3], k: f64| [a[0] * k, a[1] * k, a[2] * k];
+        for (xr, zr, y, ov, along_z, mat, gab) in &rec.roofs { let (y, ov, along_z) = (*y, *ov, *along_z); let ((a0, a1), (b0, b1)) = if along_z { (*xr, *zr) } else { (*zr, *xr) };
+            let (lo, hi) = ((a0 - ov) as f64, (a1 + ov + 1) as f64); let half = (hi - lo) * 0.5; let ac = lo + half; let peak = y as f64 + 1.0 + half;
+            let pt = |a: f64, yy: f64, b: f64| if along_z { (a, yy, b) } else { (b, yy, a) }; let vec = |da: f64, dy: f64, db: f64| if along_z { (da, dy, db) } else { (db, dy, da) };
+            let bb = ((b0 - ov) as f64 - 0.08, (b1 + ov + 1) as f64 + 0.08); let bm = (bb.0 + bb.1) * 0.5;
+            let at = { let bmid = (b0 + b1) / 2; let am = (ac - 0.5).floor() as i32; let (x, z) = if along_z { (am, bmid) } else { (bmid, am) }; let yy = (y..y + 30).rev().find(|&yy| self.at(x, yy, z) != 0).unwrap_or(y); (x, yy, z) }; let ly = crate::batisse::layer(id(mat)); let slope_world = self.fv(vec(1.0, 0.0, 0.0)); let rot = if slope_world[0].abs() > 0.5 { 1 } else { 2 };
+            let along = self.fv(vec(0.0, 0.0, (bb.1 - bb.0) * 0.5)); let (t, e) = (0.16, 0.3);
+            for sd in [-1.0f64, 1.0] {
+                let (ae, ye) = (if sd < 0.0 { lo - e } else { hi + e }, y as f64 + 1.0 - e); // le bord de l'avant-toit
+                let nrm = unit(self.fv(vec(sd, 1.0, 0.0))); let sl = self.fv(vec(ac - ae, peak - ye, 0.0)); let len = (ac - ae).abs() * std::f64::consts::SQRT_2;
+                let p0 = pt((ae + ac) * 0.5, (ye + peak) * 0.5, bm); let c = add(self.fp(p0.0, p0.1, p0.2), mul(nrm, t * 0.5)); let cw = self.cw(at);
+                self.k.solid(cw, c, [along, mul(sl, 0.5), mul(nrm, t * 0.5)], [1.0, 1.0, 1.0], ly, rot);
+                let n = (len / 0.5) as i32; for i in 1..n { let f = i as f64 / n as f64; let q = pt(ae + (ac - ae) * f, ye + (peak - ye) * f, bm); let q = add(self.fp(q.0, q.1, q.2), mul(nrm, t + 0.02));
+                    self.k.solid(cw, q, [along, mul(unit(sl), 0.04), mul(nrm, 0.03)], [0.82, 0.82, 0.82], ly, rot); }
+                // les rives : une planche de chêne sous le bord du pan, au bout du débord
+                for (b, o) in [(bb.0, 0.02), (bb.1, -0.02)] { let (pa, pb) = (pt(ae, ye, b + o), pt(ac, peak, b + o)); let sh = mul(nrm, -0.1);
+                    let (wa, wb) = (add(self.fp(pa.0, pa.1, pa.2), sh), add(self.fp(pb.0, pb.1, pb.2), sh)); let side = self.fv(vec(0.0, 0.0, 1.0)); self.k.bar(cw, wa, wb, side, 0.2, 0.05, OAK, -1.0); }
+                // le haut des pignons : une bande de la matière du pignon cache les marches des escaliers sous le pan
+                if let Some(g) = gab { let gl = crate::batisse::layer(id(g)); let aw = if sd < 0.0 { a0 as f64 } else { (a1 + 1) as f64 }; let yw = y as f64 + 1.0 + (aw - lo).min(hi - aw);
+                    for bq in [b0 as f64 - 0.03, (b1 + 1) as f64 + 0.03] { let q = [pt(aw, yw - 0.02, bq), pt(ac, peak - 0.02, bq), pt(ac, peak - 2.1, bq), pt(aw, yw - 2.1, bq)];
+                        let q = q.map(|v| self.fp(v.0, v.1, v.2)); self.k.quad(cw, q, [1.0, 1.0, 1.0], gl, 0); } }
+            }
+            let r = 0.2; let cw = self.cw(at); let q = pt(ac, peak + t * 0.9, bm); let c = self.fp(q.0, q.1, q.2);
+            let (d1, d2) = (self.fv(vec(r, r, 0.0)), self.fv(vec(-r, r, 0.0))); self.k.solid(cw, c, [along, d1, d2], [0.78, 0.78, 0.78], ly, rot);
+        }
+        // ---- toits en pyramide : quatre faces lisses et les arêtiers
+        for (cx, cz, r, y, mat) in &rec.pyrs { let at = (*cx, *y + *r, *cz); let (cxf, czf, r, y) = (*cx as f64 + 0.5, *cz as f64 + 0.5, *r as f64, *y as f64); let ly = crate::batisse::layer(id(mat));
+            let e = 0.3; let (lo, yb) = (r + 0.5 + e, y + 1.0 - e); let apex = (cxf, y + 1.0 + r + 0.5 + 0.06, czf);
+            let cor = [(-lo, -lo), (lo, -lo), (lo, lo), (-lo, lo)]; let cw = self.cw(at); let ap = self.fp(apex.0, apex.1, apex.2);
+            for i in 0..4 { let (a, b) = (cor[i], cor[(i + 1) % 4]); let (pa, pb) = (self.fp(cxf + a.0, yb + 0.06, czf + a.1), self.fp(cxf + b.0, yb + 0.06, czf + b.1));
+                let face_x = (a.0 - b.0).abs() < 0.01; let wv = self.fv(if face_x { (1.0, 0.0, 0.0) } else { (0.0, 0.0, 1.0) }); let rot = if wv[0].abs() > 0.5 { 1 } else { 2 };
+                self.k.quad(cw, [pa, pb, ap, ap], [1.0, 1.0, 1.0], ly, rot);
+                self.k.bar(cw, pa, ap, [0.0, 1.0, 0.0], 0.09, 0.07, [0.72, 0.72, 0.72], ly); }
         }
         // ---- chapeaux de cheminée
         for &(x, y, z) in &rec.caps { let (xf, yf, zf) = (x as f64, y as f64 + 1.0, z as f64);
