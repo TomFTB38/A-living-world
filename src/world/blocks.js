@@ -320,6 +320,15 @@ const forms = (n, h, cat) => {
   defs.push([`${n}_slab`, 'deco', null, h * 0.6, { model: 'slab', solid: true, cat, drop: `${n}_slab` }], [`${n}_slab_top`, 'deco', null, h * 0.6, { model: 'slab', solid: true, cat, drop: `${n}_slab` }]);
   for (const f of ['', '_1', '_2', '_3']) defs.push([`${n}_vslab${f}`, 'deco', null, h * 0.6, { model: 'slab', solid: true, cat, drop: `${n}_vslab` }]);
 };
+// Couverture de toit : la pente à 45° (quatre sens, posée ou renversée), l'arêtier (angle sortant des croupes et des
+// pyramides), la noue (angle rentrant où deux toits se croisent), le faîtage en Λ (deux sens) et l'épi qui coiffe une pyramide.
+const slopes = (n, h, cat) => {
+  const add = (k, d) => defs.push([k, 'deco', null, h, { model: 'slope', solid: true, cat, drop: d }]);
+  for (const top of ['', '_top']) for (const f of ['', '_1', '_2', '_3']) add(`${n}_slope${top}${f}`, `${n}_slope`);
+  for (const k of ['corner', 'valley']) for (const f of ['', '_1', '_2', '_3']) add(`${n}_${k}${f}`, `${n}_${k}`);
+  for (const f of ['', '_1']) add(`${n}_ridge${f}`, `${n}_ridge`);
+  add(`${n}_peak`, `${n}_peak`);
+};
 // Meuble orientable : quatre sens, « nom », « nom@1 » à « nom@3 ».
 const turner = (n, h, cat, p = {}) => { for (const f of ['', '@1', '@2', '@3']) defs.push([`${n}${f}`, 'deco', null, h, { model: n, cat, drop: n, ...p }]); };
 const deco = (n, h, cat, p = {}) => defs.push([n, 'deco', null, h, { model: n, cat, ...p }]);
@@ -342,6 +351,7 @@ for (const [n, t] of [['plaster_ochre', [1.0, 0.82, 0.55]], ['plaster_rose', [1.
 for (const [n, t] of [['white', [1, 1, 1]], ['red', [0.75, 0.2, 0.18]], ['blue', [0.28, 0.4, 0.8]], ['green', [0.35, 0.6, 0.3]], ['yellow', [1.0, 0.85, 0.3]], ['black', [0.22, 0.22, 0.24]], ['brown', [0.55, 0.38, 0.25]], ['purple', [0.55, 0.3, 0.65]], ['orange', [1.0, 0.55, 0.22]]]) cube(`wool_${n}`, 'wool', 0.3, 'foliage', { tint: t });
 // Formes (escaliers, dalles, dalles verticales) des matières qui en ont besoin.
 for (const [n, h, c] of [['marble', 1.8, 'rock'], ['ashlar', 1.6, 'rock'], ['fieldstone', 1.5, 'rock'], ['setts', 1.5, 'rock'], ['polished_stone', 1.6, 'rock'], ['shingles', 0.8, 'wood'], ['roof_tiles', 0.9, 'rock'], ['slate', 1.1, 'rock'], ['copper_roof', 1.4, 'rock'], ['plaster', 0.7, 'rock'], ['timber', 0.9, 'wood'], ['limestone_masonry', 1.6, 'rock'], ['rubble_wall', 1.6, 'rock'], ['mossy_roof_tiles', 0.9, 'rock'], ['barn_boards', 0.8, 'wood']]) forms(n, h, c);
+for (const [n, h, c] of [['roof_tiles', 0.9, 'rock'], ['slate', 1.1, 'rock'], ['mossy_roof_tiles', 0.9, 'rock'], ['shingles', 0.8, 'wood'], ['thatch', 0.35, 'foliage'], ['copper_roof', 1.4, 'rock'], ['planks', 0.8, 'wood']]) slopes(n, h, c);
 // Mobilier : orientable vers celui qui le pose.
 for (const [n, h, p] of [['chair', 0.5, { solid: true }], ['bench', 0.6, { solid: true }], ['armchair', 0.6, { solid: true }], ['throne', 1.2, { solid: true }], ['cupboard', 0.9, { solid: true }],
   ['fireplace', 1.6, { solid: true, light: 13 }], ['loom', 0.8, { solid: true }], ['spinning_wheel', 0.6, { solid: true }], ['grindstone', 1.2, { solid: true }], ['signpost', 0.5, { solid: true }],

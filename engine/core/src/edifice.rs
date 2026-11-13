@@ -30,7 +30,7 @@ pub struct Spec { pub arch: Arch, pub var: u8, pub w: i32, pub d: i32, pub floor
 impl Spec {
     pub fn new(arch: Arch, var: u8, h: f64, rich: f64, craft: Option<&'static str>, cond: Cond) -> Spec {
         let k = |n: i32| (h * 7919.0).floor() as i32 % n; let var = var % arch.variants();
-        if let (Some(kd), false) = (arch.patron(), cond == Cond::Building) { let pl = crate::patrons::plan(kd, var); return Spec { arch, var, w: pl.w, d: pl.d, floors: 1, cond, h, rich, craft, door_side: 0 }; }
+        if let Some(kd) = arch.patron() { let pl = crate::patrons::plan(kd, var); return Spec { arch, var, w: pl.w, d: pl.d, floors: 1, cond, h, rich, craft, door_side: 0 }; }
         let (w, d, floors, door_side) = match arch {
             Arch::Cottage => (5 + k(3), 6 + k(2) + if var == 1 { 3 } else { 0 }, 1, 0),
             Arch::TimberHouse => match var { 1 => (5, 6 + k(2), 3, 0), 2 => (6 + k(2), 8, 2, 1), _ => (5 + k(3), 6 + k(3), 2, 0) },
@@ -48,7 +48,7 @@ impl Spec {
     pub fn dwelling(&self) -> bool { !matches!(self.arch, Arch::Barn | Arch::Chapel | Arch::Mill | Arch::Fold | Arch::Stable | Arch::TownHall | Arch::Hall) && !matches!(self.cond, Cond::Abandoned | Cond::Building) }
     /// L'emprise au sol, débords de toit, annexes et abords compris, en coordonnées du terrain : [u0, w0, u1, w1] inclus.
     pub fn extent(&self) -> [i32; 4] {
-        if let (Some(k), false) = (self.arch.patron(), self.cond == Cond::Building) { return crate::patrons::plan(k, self.var).ext; }
+        if let Some(k) = self.arch.patron() { return crate::patrons::plan(k, self.var).ext; }
         let (w, d) = (self.w, self.d); let mut e = [-1, -1, w, d];
         match (self.arch, self.var) {
             (Arch::Cottage, 2) => e[2] = w + 3, (Arch::Cottage, 4) => e[0] = -6, (Arch::Cottage, 5) => e[2] = w + 2, (Arch::Cottage, _) => e[2] = w + 1,
@@ -120,11 +120,13 @@ fn stair(b: &mut B, u: i32, ww0: i32, y: i32) {
 pub fn raise(k: &mut Work, lot: Lot, sp: &Spec, y0: i32) -> Made {
     const PAINT: [C3; 5] = [[0.24, 0.36, 0.26], [0.22, 0.3, 0.42], [0.5, 0.18, 0.14], [0.38, 0.3, 0.2], [0.3, 0.4, 0.42]];
     // Les patrons de construction : chaque bâtiment reproduit sa planche, bloc par bloc.
-    if let (Some(kind), false) = (sp.arch.patron(), sp.cond == Cond::Building) {
+    if let Some(kind) = sp.arch.patron() {
+        let start = k.blocks.len();
         let aged = matches!(sp.cond, Cond::Old | Cond::Damaged | Cond::Abandoned);
         let look = crate::patrons::Look { roof: if aged { "mossy_roof_tiles" } else if sp.rich > 0.72 { "slate" } else { "roof_tiles" }, infill: if sp.rich > 0.75 && sp.h > 0.7 { "plaster_ochre" } else { "plaster" } };
         let bt = crate::patrons::build(k, lot, y0, kind, sp.var, look, sp.h);
         if aged && sp.arch == Arch::House { let mut r = crate::noise::Rng::new((sp.h * 9.1e6) as u32 + 3); for _ in 0..3 { let u = r.int(0, sp.w - 1); for y in y0 + 1..=y0 + r.int(1, 2) { k.put(lot.cell(u, y, sp.d), id("vine")); } } } // le lierre gagne le mur du fond
+        if sp.cond == Cond::Building { site(k, lot, sp, y0, start); return Made::default(); }
         return Made { door: bt.door.map(|x| (0, x)), spot: bt.spot, bed: bt.bed };
     }
     // Les plans encore anciens : ateliers des autres métiers.
@@ -414,4 +416,18 @@ fn wear(b: &mut B, sp: &Spec, y0: i32) {
         for g in b.gaps.clone() { if !g.door && r.next() < 0.6 { let (u, ww) = b.cell_of(g.side, g.t); b.put(u, g.y0, ww, 0); } }
     }
     if sp.cond == Cond::Abandoned { for _ in 0..8 { let (u, ww) = (r.int(1, w - 2), r.int(1, d - 2)); b.put(u, y0 + 1, ww, id("tall_grass")); } }
+}
+
+/// Un bâtiment en construction, à partir de son patron : les murs montés jusqu'à hauteur d'homme, sans toit ni étage ;
+/// un échafaudage de poteaux et de planches le long de la façade, une échelle, des matériaux en tas. Tout en blocs.
+fn site(k: &mut Work, lot: Lot, sp: &Spec, y0: i32, start: usize) {
+    let top = y0 + 2; let keep: Vec<_> = k.blocks.drain(start..).filter(|b| b.1 <= top || b.3 == 0).filter(|b| { let n = crate::blocks::BLOCKS[b.3 as usize].name; !(b.1 == top && (n.starts_with("window") || n.starts_with("shutter"))) }).collect();
+    let cleared: Vec<_> = keep.iter().filter(|b| b.3 == 0).map(|b| (b.0, b.2)).collect(); k.blocks.extend(keep);
+    for (x, z) in cleared { for y in top + 1..=y0 + 14 { k.put([x, y, z], 0); } } // rien ne reste en l'air au-dessus du chantier
+    let (w, d) = (sp.w, sp.d); let put = |k: &mut Work, u: i32, y: i32, ww: i32, n: &str| k.put(lot.cell(u, y, ww), id(n));
+    for u in [-1, w / 2 - 2, w / 2 + 2, w] { for y in y0 + 1..=y0 + 4 { if !(u == w / 2 - 2 || u == w / 2 + 2) || y > y0 + 2 { put(k, u, y, -2, "fence"); } } }
+    for u in -1..=w { put(k, u, y0 + 3, -2, "planks_slab"); }
+    for y in y0 + 1..=y0 + 3 { k.put(lot.cell(w, y, -1), crate::shapes::variant(id("ladder"), crate::shapes::facing_of(lot.w.0 as f64, lot.w.1 as f64), false, false, false)); }
+    for (u, ww, n) in [(-2, 1, "cobblestone"), (-2, 2, "cobblestone"), (-2, 1, "cobblestone"), (w + 1, 1, "log_pile"), (w + 1, 2, "log_pile"), (w + 1, 3, "planks"), (w / 2, d / 2, "crate")] { put(k, u, y0 + 1, ww, n); }
+    put(k, -2, y0 + 2, 1, "cobblestone"); put(k, w + 1, y0 + 2, 2, "log_pile");
 }

@@ -233,7 +233,7 @@ impl Mesher {
             } else if is_leaf(b) && lod < 2 {
                 let exposed = [k + 1, k - 1, k + W, k - W, k + WW, k - WW].iter().any(|n| !is_solid(self.vk(*n)));
                 if exposed { leaf_cubes(&mut opaque, b, fx, fy, fz, cx * CX as i32 + x, y, cz * CX as i32 + z, self.sky[k as usize] as f64 * 17.0, self.blk[k as usize] as f64 * 17.0, lod); }
-            } else if is_deco(b) && (lod < 2 || emit(b) != 0 || b == B::FENCE) {
+            } else if is_deco(b) && (lod < 2 || emit(b) != 0 || b == B::FENCE || crate::shapes::is_roof(b)) { // les toits restent visibles de loin
                 let l = self.blk[k as usize].max(emit(b)) as f64 * 17.0;
                 self.deco_model(&mut deco, b, x, y, z, cx * CX as i32 + x, cz * CX as i32 + z, self.sky[k as usize] as f64 * 17.0, l, lod);
             }
@@ -255,6 +255,20 @@ impl Mesher {
                 let Some(i) = crate::shapes::info(b) else { return }; let layer = BLOCKS[crate::shapes::material(b) as usize].faces[0] as f64;
                 for bb in crate::shapes::geometry(i) { tbox(o, x, y, z, inset(bb), layer, s, l, 1.0); }
                 return;
+            }
+            // Couverture : pentes, arêtiers, noues, faîtages et épis, en vraies faces inclinées et en triangles, dans la matière du toit.
+            "slope" => {
+                let Some(i) = crate::shapes::info(b) else { return }; let layer = BLOCKS[crate::shapes::material(b) as usize].faces[0] as f64; let (faces, inner) = crate::shapes::roof_faces(i);
+                o.rot = if i.facing % 2 == 0 { 2 } else { 1 }; // les rangs de tuiles courent parallèles au faîte, sans tourner d'un bloc à l'autre
+                for q in faces {
+                    let (e1, e2) = ([q[1][0] - q[0][0], q[1][1] - q[0][1], q[1][2] - q[0][2]], [q[2][0] - q[0][0], q[2][1] - q[0][1], q[2][2] - q[0][2]]);
+                    let mut n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt().max(1e-9); n = n.map(|v| v / len);
+                    let c = [(q[0][0] + q[1][0] + q[2][0]) / 3.0 - inner[0], (q[0][1] + q[1][1] + q[2][1]) / 3.0 - inner[1], (q[0][2] + q[1][2] + q[2][2]) / 3.0 - inner[2]];
+                    if n[0] * c[0] + n[1] * c[1] + n[2] * c[2] < 0.0 { n = n.map(|v| -v); }
+                    let ao = if n[1] > 0.3 { 255.0 } else if n[1] < -0.5 { 170.0 } else { 220.0 };
+                    for p in q { o.v(x + p[0], y + p[1], z + p[2], layer, n[0], n[1], n[2], 0.0, ao, s, l, kind::TEX, 1.0, 1.0, 1.0); }
+                }
+                o.rot = 0; return;
             }
             "door" | "trapdoor" => {
                 // Battant de planches plus sombres, deux traverses, une poignée de fer du côté opposé aux gonds.

@@ -324,3 +324,40 @@ bandage 1 | main | rag 2 | vivres
 iron_ingot 1 | four | rusty_scrap 4, fuel 1 | matieres
 arrow 4 | etabli | stick 2, beast_fang 1, fiber 2 | outils
 chitin_vest 1 | etabli | chitin_plate 5, leather 2, fiber 3 | habits
+
+# --- Couvertures de toit ---
+roof_tiles_slope 4 | taille | roof_tiles 3, !hammer 1 | batir
+roof_tiles_corner 4 | taille | roof_tiles 3, !hammer 1 | batir
+roof_tiles_valley 4 | taille | roof_tiles 3, !hammer 1 | batir
+roof_tiles_ridge 4 | taille | roof_tiles 2, !hammer 1 | batir
+roof_tiles_peak 2 | taille | roof_tiles 1, !hammer 1 | batir
+slate_slope 4 | taille | slate 3, !hammer 1 | batir
+slate_corner 4 | taille | slate 3, !hammer 1 | batir
+slate_valley 4 | taille | slate 3, !hammer 1 | batir
+slate_ridge 4 | taille | slate 2, !hammer 1 | batir
+slate_peak 2 | taille | slate 1, !hammer 1 | batir
+mossy_roof_tiles_slope 4 | etabli | mossy_roof_tiles 3 | batir
+mossy_roof_tiles_corner 4 | etabli | mossy_roof_tiles 3 | batir
+mossy_roof_tiles_valley 4 | etabli | mossy_roof_tiles 3 | batir
+mossy_roof_tiles_ridge 4 | etabli | mossy_roof_tiles 2 | batir
+mossy_roof_tiles_peak 2 | etabli | mossy_roof_tiles 1 | batir
+shingles_slope 4 | etabli | shingles 3 | batir
+shingles_corner 4 | etabli | shingles 3 | batir
+shingles_valley 4 | etabli | shingles 3 | batir
+shingles_ridge 4 | etabli | shingles 2 | batir
+shingles_peak 2 | etabli | shingles 1 | batir
+thatch_slope 4 | etabli | thatch 3 | batir
+thatch_corner 4 | etabli | thatch 3 | batir
+thatch_valley 4 | etabli | thatch 3 | batir
+thatch_ridge 4 | etabli | thatch 2 | batir
+thatch_peak 2 | etabli | thatch 1 | batir
+copper_roof_slope 4 | taille | copper_roof 3, !hammer 1 | batir
+copper_roof_corner 4 | taille | copper_roof 3, !hammer 1 | batir
+copper_roof_valley 4 | taille | copper_roof 3, !hammer 1 | batir
+copper_roof_ridge 4 | taille | copper_roof 2, !hammer 1 | batir
+copper_roof_peak 2 | taille | copper_roof 1, !hammer 1 | batir
+planks_slope 4 | etabli | planks 3 | batir
+planks_corner 4 | etabli | planks 3 | batir
+planks_valley 4 | etabli | planks 3 | batir
+planks_ridge 4 | etabli | planks 2 | batir
+planks_peak 2 | etabli | planks 1 | batir

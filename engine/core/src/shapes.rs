@@ -5,7 +5,7 @@
 use crate::blocks::{Id, by_name, BLOCKS};
 use std::sync::OnceLock;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)] pub enum Kind { Slab, Stairs, Door, Trapdoor, Ladder, Window, Pillar, Wall, VSlab, Shutter, Turn }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)] pub enum Kind { Slab, Stairs, Door, Trapdoor, Ladder, Window, Pillar, Wall, VSlab, Shutter, Turn, /** pente à 45° */ Slope, /** arêtier */ Corner, /** noue */ Valley, /** faîtage */ Ridge, /** épi */ Peak }
 /// Ce qu'un bloc de forme est : sa famille, son sens (0 : +z, 1 : +x, 2 : -z, 3 : -x), moitié haute, ouvert, haut de porte,
 /// et la variante de base (l'objet posé), dont on dérive toutes les autres.
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Info { pub kind: Kind, pub facing: u8, pub top: bool, pub open: bool, pub upper: bool, pub base: Id }
@@ -20,6 +20,11 @@ fn parse(name: &str) -> Option<Info> {
     if let Some(m) = name.strip_suffix("_slab_top") { return Some(Info { kind: Kind::Slab, facing: 0, top: true, open: false, upper: false, base: base(&format!("{m}_slab")) }); }
     if name.ends_with("_slab") { return Some(Info { kind: Kind::Slab, facing: 0, top: false, open: false, upper: false, base: base(name) }); }
     if let Some(i) = name.find("_stairs") { let rest = &name[i + 7..]; let top = rest.starts_with("_top"); let rest = rest.strip_prefix("_top").unwrap_or(rest); let f = rest.strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::Stairs, facing: f, top, open: false, upper: false, base: base(&name[..i + 7]) }); }
+    // Couverture : « tuiles_slope[_top][_1…3] », « _corner_k », « _valley_k », « _ridge[_1] », « _peak ».
+    for (sfx, kind) in [("_slope", Kind::Slope), ("_corner", Kind::Corner), ("_valley", Kind::Valley), ("_ridge", Kind::Ridge), ("_peak", Kind::Peak)] {
+        if let Some(i) = name.find(sfx) { let rest = &name[i + sfx.len()..]; let top = rest.starts_with("_top"); let rest = rest.strip_prefix("_top").unwrap_or(rest);
+            let f = rest.strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind, facing: f, top, open: false, upper: false, base: base(&name[..i + sfx.len()]) }); }
+    }
     if let Some(i) = name.find("_vslab") { let f = name[i + 6..].strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::VSlab, facing: f, top: false, open: false, upper: false, base: base(&name[..i + 6]) }); }
     if let Some(r) = name.strip_prefix("shutter") { let open = r.starts_with("_open"); let r = r.strip_prefix("_open").unwrap_or(r); let f = r.strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::Shutter, facing: f, top: false, open, upper: false, base: base("shutter") }); }
     if name == "door" || name.starts_with("door_") {
@@ -61,6 +66,12 @@ pub fn geometry(i: Info) -> Vec<Bx> {
         Kind::Pillar => vec![[0.25, 0.0, 0.25, 0.75, 1.0, 0.75]],
         Kind::Wall => r(&[[0.0, 0.0, 0.3125, 1.0, 1.0, 0.6875]]),
         Kind::Turn => r(&turn_boxes(BLOCKS[i.base as usize].name)),
+        // Les couvertures se touchent en petites marches d'un quart : on y marche comme sur une pente, sans buter.
+        Kind::Slope => { let q = |k: usize| k as f64 * 0.25; if i.top { r(&(0..4).map(|k| [0.0, q(k), 1.0 - q(k + 1), 1.0, q(k + 1), 1.0]).collect::<Vec<_>>()) } else { r(&(0..4).map(|k| [0.0, q(k), q(k), 1.0, q(k + 1), 1.0]).collect::<Vec<_>>()) } }
+        Kind::Corner => r(&(0..4).map(|k| { let q = k as f64 * 0.25; [q, q, q, 1.0, q + 0.25, 1.0] }).collect::<Vec<_>>()),
+        Kind::Valley => r(&(0..4).flat_map(|k| { let q = k as f64 * 0.25; [[q, q, 0.0, 1.0, q + 0.25, 1.0], [0.0, q, q, 1.0, q + 0.25, 1.0]] }).collect::<Vec<_>>()),
+        Kind::Ridge => r(&[[0.0, 0.0, 0.0, 1.0, 0.25, 1.0], [0.0, 0.25, 0.25, 1.0, 0.5, 0.75]]),
+        Kind::Peak => vec![[0.0, 0.0, 0.0, 1.0, 0.25, 1.0], [0.25, 0.25, 0.25, 0.75, 0.5, 0.75]],
     }
 }
 /// Le volume d'un meuble orientable, pour le sens 0 (dos vers +z).
@@ -96,6 +107,10 @@ pub fn variant(base: Id, facing: u8, top: bool, open: bool, upper: bool) -> Id {
         Some(Kind::Ladder) => format!("ladder{}", sfx(f)),
         Some(Kind::Window) => if f % 2 == 0 { "window".into() } else { "window_x".into() },
         Some(Kind::Wall) => if f % 2 == 0 { "stone_wall".into() } else { "stone_wall_x".into() },
+        Some(Kind::Slope) => format!("{n}{}{}", if top { "_top" } else { "" }, sfx(f)),
+        Some(Kind::Corner) | Some(Kind::Valley) => format!("{n}{}", sfx(f)),
+        Some(Kind::Ridge) => if f % 2 == 0 { n.to_string() } else { format!("{n}_1") },
+        Some(Kind::Peak) => n.to_string(),
         Some(Kind::Turn) => if f == 0 { n.to_string() } else { format!("{n}@{f}") },
         _ => n.to_string(),
     };
@@ -106,9 +121,37 @@ pub fn facing_of(dx: f64, dz: f64) -> u8 { if dx.abs() > dz.abs() { if dx > 0.0 
 /// La matière d'un bloc de forme : le bloc plein dont il prend la texture.
 pub fn material(id: Id) -> Id {
     let n = BLOCKS[id as usize].name;
-    for sfx in ["_stairs", "_vslab", "_slab"] { if let Some(i) = n.find(sfx) { if let Some(b) = by_name(&n[..i]) { if BLOCKS[b as usize].faces[0] != 0 || b == crate::blocks::B::PLANKS { return b; } } } }
+    for sfx in ["_stairs", "_vslab", "_slab", "_slope", "_corner", "_valley", "_ridge", "_peak"] { if let Some(i) = n.find(sfx) { if let Some(b) = by_name(&n[..i]) { if BLOCKS[b as usize].faces[0] != 0 || b == crate::blocks::B::PLANKS { return b; } } } }
     let m = if n.starts_with("stone_bricks") || n == "stone_pillar" || n.starts_with("stone_wall") { "stone_bricks" } else if n.starts_with("cobblestone") { "cobblestone" } else if n.starts_with("thatch") { "thatch" } else { "planks" };
     by_name(m).unwrap_or(0)
 }
 /// Deux dalles de même matière l'une sur l'autre font un bloc plein.
 pub fn full_of_slab(base: Id) -> Option<Id> { BLOCKS[base as usize].name.strip_suffix("_slab").and_then(by_name) }
+
+/// Les faces d'une couverture (pente, arêtier, noue, faîtage, épi), dans le repère du bloc : des triangles et des
+/// quadrilatères (un triangle répète son dernier sommet). La pente monte vers le sens du bloc (+z dans le sens de base) ;
+/// l'arêtier monte vers le coin +x +z, la noue n'y descend que de ce coin ; le faîtage court le long de x.
+pub fn roof_faces(i: Info) -> (Vec<[[f64; 3]; 4]>, [f64; 3]) {
+    let t = |p: [f64; 3]| -> [f64; 3] { let mut p = p; for _ in 0..i.facing % 4 { p = [p[2], p[1], 1.0 - p[0]]; } p };
+    let tri = |a: [f64; 3], b: [f64; 3], c: [f64; 3]| [a, b, c, c];
+    let mut f: Vec<[[f64; 3]; 4]> = match i.kind {
+        Kind::Slope if !i.top => vec![[[0., 0., 0.], [1., 0., 0.], [1., 0., 1.], [0., 0., 1.]], [[0., 0., 1.], [1., 0., 1.], [1., 1., 1.], [0., 1., 1.]], [[0., 0., 0.], [1., 0., 0.], [1., 1., 1.], [0., 1., 1.]],
+            tri([0., 0., 0.], [0., 0., 1.], [0., 1., 1.]), tri([1., 0., 0.], [1., 0., 1.], [1., 1., 1.])],
+        Kind::Slope => vec![[[0., 1., 0.], [1., 1., 0.], [1., 1., 1.], [0., 1., 1.]], [[0., 0., 1.], [1., 0., 1.], [1., 1., 1.], [0., 1., 1.]], [[0., 1., 0.], [1., 1., 0.], [1., 0., 1.], [0., 0., 1.]],
+            tri([0., 1., 0.], [0., 1., 1.], [0., 0., 1.]), tri([1., 1., 0.], [1., 1., 1.], [1., 0., 1.])],
+        Kind::Corner => vec![[[0., 0., 0.], [1., 0., 0.], [1., 0., 1.], [0., 0., 1.]], tri([0., 0., 0.], [1., 1., 1.], [1., 0., 0.]), tri([0., 0., 0.], [0., 0., 1.], [1., 1., 1.]),
+            tri([1., 0., 0.], [1., 0., 1.], [1., 1., 1.]), tri([0., 0., 1.], [1., 0., 1.], [1., 1., 1.])],
+        Kind::Valley => vec![[[0., 0., 0.], [1., 0., 0.], [1., 0., 1.], [0., 0., 1.]], [[1., 0., 0.], [1., 0., 1.], [1., 1., 1.], [1., 1., 0.]], [[0., 0., 1.], [1., 0., 1.], [1., 1., 1.], [0., 1., 1.]],
+            tri([0., 0., 0.], [1., 1., 0.], [1., 1., 1.]), tri([0., 0., 0.], [1., 1., 1.], [0., 1., 1.]), tri([0., 0., 0.], [1., 0., 0.], [1., 1., 0.]), tri([0., 0., 0.], [0., 0., 1.], [0., 1., 1.])],
+        Kind::Ridge => vec![[[0., 0., 0.], [1., 0., 0.], [1., 0., 1.], [0., 0., 1.]], [[0., 0., 0.], [1., 0., 0.], [1., 0.5, 0.5], [0., 0.5, 0.5]], [[0., 0., 1.], [1., 0., 1.], [1., 0.5, 0.5], [0., 0.5, 0.5]],
+            tri([0., 0., 0.], [0., 0., 1.], [0., 0.5, 0.5]), tri([1., 0., 0.], [1., 0., 1.], [1., 0.5, 0.5])],
+        Kind::Peak => { let a = [0.5, 0.5, 0.5]; vec![[[0., 0., 0.], [1., 0., 0.], [1., 0., 1.], [0., 0., 1.]], tri([0., 0., 0.], [1., 0., 0.], a), tri([1., 0., 0.], [1., 0., 1.], a), tri([1., 0., 1.], [0., 0., 1.], a), tri([0., 0., 1.], [0., 0., 0.], a)] }
+        _ => Vec::new(),
+    };
+    for q in f.iter_mut() { for p in q.iter_mut() { *p = t(*p); } }
+    // un point dans le plein de la forme : il dit de quel côté chaque face regarde vers dehors
+    let inner = match i.kind { Kind::Slope if i.top => [0.5, 0.8, 0.8], Kind::Slope => [0.5, 0.2, 0.8], Kind::Corner => [0.8, 0.15, 0.8], Kind::Valley => [0.6, 0.3, 0.6], _ => [0.5, 0.12, 0.5] };
+    (f, t(inner))
+}
+/// Un bloc de couverture de toit ?
+pub fn is_roof(id: Id) -> bool { info(id).is_some_and(|i| matches!(i.kind, Kind::Slope | Kind::Corner | Kind::Valley | Kind::Ridge | Kind::Peak)) }

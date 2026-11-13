@@ -88,7 +88,7 @@ fn pose_rotation_dalles_et_sauvegarde() {
     let txt = s.save_text(); let mut o = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [0.5, 120.0, 0.5]); o.load_text(&txt).unwrap(); ready(&mut o);
     assert_eq!(o.world.get(0, y, -1), Some(B::PLANKS)); assert_eq!(o.world.get(0, y, 0), Some(B::STONE));
     // les modèles se dessinent
-    let m = alw_core::mesher::Mesher::new(); for b in BLOCKS.iter().filter(|b| shapes::info(b.id).is_some()) { let mut v = alw_core::mesher::VBuf::new(400); m.deco_model(&mut v, b.id, 0, 0, 0, 3, 5, 255.0, 0.0, 0); assert!(v.n >= 24, "{} se dessine", b.name); }
+    let m = alw_core::mesher::Mesher::new(); for b in BLOCKS.iter().filter(|b| shapes::info(b.id).is_some()) { let mut v = alw_core::mesher::VBuf::new(400); m.deco_model(&mut v, b.id, 0, 0, 0, 3, 5, 255.0, 0.0, 0); assert!(v.n >= if shapes::is_roof(b.id) { 20 } else { 24 }, "{} se dessine", b.name); } // une pente : fond, dos, pente, deux triangles
 }
 
 #[test]

@@ -463,3 +463,39 @@ egg_crab | Œuf : crabe | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire
 egg_gull | Œuf : goéland | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : goéland. Pour essayer les créatures en créatif. |
 egg_shark | Œuf : requin | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : requin. Pour essayer les créatures en créatif. |
 egg_whale | Œuf : baleine | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : baleine. Pour essayer les créatures en créatif. |
+# --- Couvertures de toit : pentes, arêtiers, noues, faîtages, épis ---
+roof_tiles_slope | Pente de tuiles | batir | 0.9 | 64 | Une pente de toit à 45°, posée vers où l'on regarde ; sous un plafond, elle se renverse. On y marche. |
+roof_tiles_corner | Arêtier de tuiles | batir | 0.9 | 64 | L'angle sortant d'une croupe ou d'une pyramide : il monte vers le coin opposé à soi. R : un quart de tour. |
+roof_tiles_valley | Noue de tuiles | batir | 0.9 | 64 | L'angle rentrant, là où deux pans de toit se rencontrent. R : un quart de tour. |
+roof_tiles_ridge | Faîtage de tuiles | batir | 0.6 | 64 | Le sommet en Λ d'un toit à deux pans, dans le sens du regard. |
+roof_tiles_peak | Épi de tuiles | batir | 0.4 | 64 | La pointe qui coiffe un toit en pyramide ou une tour. |
+slate_slope | Pente d'ardoise | batir | 0.9 | 64 | Une pente de toit à 45°, posée vers où l'on regarde ; sous un plafond, elle se renverse. On y marche. |
+slate_corner | Arêtier d'ardoise | batir | 0.9 | 64 | L'angle sortant d'une croupe ou d'une pyramide : il monte vers le coin opposé à soi. R : un quart de tour. |
+slate_valley | Noue d'ardoise | batir | 0.9 | 64 | L'angle rentrant, là où deux pans de toit se rencontrent. R : un quart de tour. |
+slate_ridge | Faîtage d'ardoise | batir | 0.6 | 64 | Le sommet en Λ d'un toit à deux pans, dans le sens du regard. |
+slate_peak | Épi d'ardoise | batir | 0.4 | 64 | La pointe qui coiffe un toit en pyramide ou une tour. |
+mossy_roof_tiles_slope | Pente de tuiles moussues | batir | 0.9 | 64 | Une pente de toit à 45°, posée vers où l'on regarde ; sous un plafond, elle se renverse. On y marche. |
+mossy_roof_tiles_corner | Arêtier de tuiles moussues | batir | 0.9 | 64 | L'angle sortant d'une croupe ou d'une pyramide : il monte vers le coin opposé à soi. R : un quart de tour. |
+mossy_roof_tiles_valley | Noue de tuiles moussues | batir | 0.9 | 64 | L'angle rentrant, là où deux pans de toit se rencontrent. R : un quart de tour. |
+mossy_roof_tiles_ridge | Faîtage de tuiles moussues | batir | 0.6 | 64 | Le sommet en Λ d'un toit à deux pans, dans le sens du regard. |
+mossy_roof_tiles_peak | Épi de tuiles moussues | batir | 0.4 | 64 | La pointe qui coiffe un toit en pyramide ou une tour. |
+shingles_slope | Pente de bardeaux | batir | 0.9 | 64 | Une pente de toit à 45°, posée vers où l'on regarde ; sous un plafond, elle se renverse. On y marche. |
+shingles_corner | Arêtier de bardeaux | batir | 0.9 | 64 | L'angle sortant d'une croupe ou d'une pyramide : il monte vers le coin opposé à soi. R : un quart de tour. |
+shingles_valley | Noue de bardeaux | batir | 0.9 | 64 | L'angle rentrant, là où deux pans de toit se rencontrent. R : un quart de tour. |
+shingles_ridge | Faîtage de bardeaux | batir | 0.6 | 64 | Le sommet en Λ d'un toit à deux pans, dans le sens du regard. |
+shingles_peak | Épi de bardeaux | batir | 0.4 | 64 | La pointe qui coiffe un toit en pyramide ou une tour. |
+thatch_slope | Pente de chaume | batir | 0.9 | 64 | Une pente de toit à 45°, posée vers où l'on regarde ; sous un plafond, elle se renverse. On y marche. |
+thatch_corner | Arêtier de chaume | batir | 0.9 | 64 | L'angle sortant d'une croupe ou d'une pyramide : il monte vers le coin opposé à soi. R : un quart de tour. |
+thatch_valley | Noue de chaume | batir | 0.9 | 64 | L'angle rentrant, là où deux pans de toit se rencontrent. R : un quart de tour. |
+thatch_ridge | Faîtage de chaume | batir | 0.6 | 64 | Le sommet en Λ d'un toit à deux pans, dans le sens du regard. |
+thatch_peak | Épi de chaume | batir | 0.4 | 64 | La pointe qui coiffe un toit en pyramide ou une tour. |
+copper_roof_slope | Pente de cuivre | batir | 0.9 | 64 | Une pente de toit à 45°, posée vers où l'on regarde ; sous un plafond, elle se renverse. On y marche. |
+copper_roof_corner | Arêtier de cuivre | batir | 0.9 | 64 | L'angle sortant d'une croupe ou d'une pyramide : il monte vers le coin opposé à soi. R : un quart de tour. |
+copper_roof_valley | Noue de cuivre | batir | 0.9 | 64 | L'angle rentrant, là où deux pans de toit se rencontrent. R : un quart de tour. |
+copper_roof_ridge | Faîtage de cuivre | batir | 0.6 | 64 | Le sommet en Λ d'un toit à deux pans, dans le sens du regard. |
+copper_roof_peak | Épi de cuivre | batir | 0.4 | 64 | La pointe qui coiffe un toit en pyramide ou une tour. |
+planks_slope | Pente de planches | batir | 0.9 | 64 | Une pente de toit à 45°, posée vers où l'on regarde ; sous un plafond, elle se renverse. On y marche. |
+planks_corner | Arêtier de planches | batir | 0.9 | 64 | L'angle sortant d'une croupe ou d'une pyramide : il monte vers le coin opposé à soi. R : un quart de tour. |
+planks_valley | Noue de planches | batir | 0.9 | 64 | L'angle rentrant, là où deux pans de toit se rencontrent. R : un quart de tour. |
+planks_ridge | Faîtage de planches | batir | 0.6 | 64 | Le sommet en Λ d'un toit à deux pans, dans le sens du regard. |
+planks_peak | Épi de planches | batir | 0.4 | 64 | La pointe qui coiffe un toit en pyramide ou une tour. |

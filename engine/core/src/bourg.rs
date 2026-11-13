@@ -64,7 +64,7 @@ struct Want { spec: Spec, pref: u8 }
 struct Placed { spec: Spec, lot: Lot, by: i32, body: [i32; 4], made: Made, road: usize, at: usize, link: Vec<(i32, i32)> }
 
 /// La porte attendue d'une fiche : côté et case le long du mur (pour aligner la façade sur la rue avant de bâtir).
-fn door_of(sp: &Spec) -> (u8, i32) { if let (Some(k), false) = (sp.arch.patron(), sp.cond == Cond::Building) { return (0, crate::patrons::plan(k, sp.var).door); } match sp.arch { Arch::Forge => (0, sp.w - 2), Arch::Mill => (0, 1), Arch::TimberHouse if sp.door_side == 1 => (1, sp.d / 2), _ => (0, sp.w / 2) } }
+fn door_of(sp: &Spec) -> (u8, i32) { if let Some(k) = sp.arch.patron() { return (0, crate::patrons::plan(k, sp.var).door); } match sp.arch { Arch::Forge => (0, sp.w - 2), Arch::Mill => (0, 1), Arch::TimberHouse if sp.door_side == 1 => (1, sp.d / 2), _ => (0, sp.w / 2) } }
 
 /// Trace un village médiéval : identité, routes, bâtiments, champs, décor ; rend le site à poser dans le monde.
 #[allow(clippy::too_many_arguments)]
@@ -123,7 +123,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
     for i in 0..homes { let hh = nh(); let centre = i < homes / 3; let timber = hh < if centre { 0.35 + 0.5 * ident.wealth } else { 0.15 + 0.3 * ident.wealth };
         let _ = timber; wants.push(Want { spec: mk(Arch::House, nh(), None, cond(nh())), pref: if centre { 0 } else if hh < 0.5 { 1 } else { 2 } }); }
     // L'histoire du village : une maison en chantier quand il s'agrandit, une ruine quand il décline.
-    if ident.outlook == Outlook::Expansion || (ident.outlook == Outlook::Prosperity && h(73) < 0.5) { wants.push(Want { spec: mk(if h(74) < 0.5 { Arch::Cottage } else { Arch::TimberHouse }, nh(), None, Cond::Building), pref: 2 }); }
+    if ident.outlook == Outlook::Expansion || (ident.outlook == Outlook::Prosperity && h(73) < 0.5) { wants.push(Want { spec: mk(Arch::House, nh(), None, Cond::Building), pref: 2 }); }
     if ident.size >= Size::Small && ident.wealth < 0.45 && ident.outlook != Outlook::Expansion && h(75) < 0.6 { wants.push(Want { spec: mk(Arch::Cottage, nh(), None, Cond::Abandoned), pref: 3 }); }
     // ---- le placement : pour chaque demande, l'emplacement libre le mieux venu le long des rues
     let total: f64 = roads.iter().map(|r| r.pts.len() as f64 * 2.0).fold(0.0, f64::max) + pr;
