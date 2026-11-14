@@ -318,7 +318,7 @@ impl WorldGen {
                         let f = rr / (if lit { 1.0 } else { 0.45 }); cv.set(x, y, z, if f < 0.28 { B::TALL_GRASS } else if f < 0.42 { B::FERN } else if f < 0.48 { B::PINK_FLOWER } else if f < 0.52 { B::YELLOW_FLOWER } else if f < 0.54 { B::MUSHROOM } else { 0 });
                     }
                     Under::Fungal => { cv.set(x, y, z, if rr < 0.12 { B::MUSHROOM } else if rr < 0.17 { [B::GLOWCAP_PINK, B::GLOWCAP_VIOLET, B::GLOWCAP_CYAN, B::GLOWCAP][(r2 * 4.0) as usize % 4] } else { 0 }); }
-                    Under::Glow => { if rr < 0.45 { cv.set(x, y - 1, z, B::GLOW_MOSS); } cv.set(x, y, z, if rr < 0.08 { [B::GLOWCAP_CYAN, B::GLOWCAP_BLUE, B::GLOWCAP_VIOLET][(r2 * 3.0) as usize % 3] } else if rr > 0.97 { B::CRYSTAL_BLUE_POINT_UP_2 } else { 0 }); }
+                    Under::Glow => { if n.n2(xf / 5.0 + 3.0, zf / 5.0) > 0.28 || (wet_edge && rr < 0.5) { cv.set(x, y - 1, z, B::GLOW_MOSS); } cv.set(x, y, z, if rr < 0.08 { [B::GLOWCAP_CYAN, B::GLOWCAP_BLUE, B::GLOWCAP_VIOLET][(r2 * 3.0) as usize % 3] } else if rr > 0.97 { B::CRYSTAL_BLUE_POINT_UP_2 } else { 0 }); }
                     Under::Crystal => { if rr < 0.05 { cv.set(x, y, z, [B::CRYSTAL_VIOLET_POINT_UP_2, B::CRYSTAL_PINK_POINT_UP_2, B::CRYSTAL_BLUE_POINT_UP_2, B::CRYSTAL_VIOLET_POINT_UP_1][(r2 * 4.0) as usize % 4]); } }
                     Under::Ice => { if rr < 0.5 { cv.set(x, y, z, by_name(&format!("snow_layer{}", if r2 < 0.5 { String::new() } else { format!("_{}", 2 + (r2 * 4.0) as i32) })).unwrap_or(B::SNOW_LAYER)); } else if rr > 0.985 { cv.set(x, y, z, B::CRYSTAL_WHITE_POINT_UP_1); } }
                     Under::Volcanic => { if rr < 0.01 && y > wl { cv.set(x, y, z, B::OBSIDIAN); } }

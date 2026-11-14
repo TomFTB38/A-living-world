@@ -223,7 +223,7 @@ fn cave_mat(name: &str, t: &Tile, x: f64, y: f64) -> Option<(S, f64)> {
     let crystal = |c: [C; 4], t: &Tile| { // des facettes : de grandes cellules, une arête claire, un cœur qui luit
         let (d1, d2, id) = t.vor(x, y, 5); let edge = 1.0 - smooth(0.02, 0.09, d2 - d1); let k = (id % 7) as f64 / 7.0; let inner = t.fbm(x, y, 8, 3);
         let tone = 0.32 + 0.3 * k + 0.2 * (inner - 0.5) + 0.38 * edge; let core = smooth(0.25, 0.0, d1) * 0.6 + 0.25 * inner;
-        (S { c: pal(&c, tone), h: 0.6 - 0.25 * (1.0 - edge) + 0.15 * k, r: 0.12 }, (0.35 + 0.45 * core) * (1.0 - edge * 0.5)) };
+        (S { c: pal(&c, tone * 0.92), h: 0.6 - 0.25 * (1.0 - edge) + 0.15 * k, r: 0.12 }, (0.15 + 0.4 * core) * (1.0 - edge * 0.6)) };
     Some(match name {
         "basalt" => { // des colonnes : un pavage de cellules aux joints creux, grain sombre et bleuté
             let (d1, d2, id) = t.vor(x, y, 4); let joint = 1.0 - smooth(0.03, 0.08, d2 - d1); let k = (id % 5) as f64 / 5.0; let g = t.fbm(x, y, 16, 3);

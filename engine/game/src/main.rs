@@ -599,8 +599,10 @@ fn capture(a: &[String]) {
         let w = WorldGen::new(SEED); let want_mine = scene != "bouche"; let mut best: Option<(f64, [f64; 3], [f64; 3])> = None;
         for i in -12..=12 { for j in -12..=12 { if let Some(h) = w.hall(i, j) { if let Some(alw_core::karst::Way::Path { from, to, mine }) = h.way { if mine == want_mine { let d = from[0].hypot(from[2]); if best.is_none_or(|b| d < b.0) { best = Some((d, from, to)); } } } } } }
         if let Some((_, from, to)) = best { let (ux, uz) = (to[0] - from[0], to[2] - from[2]); let l = ux.hypot(uz); let (ux, uz) = (ux / l, uz / l);
-            let (p, t) = if scene == "mine_galerie" { let a = 0.35; let fy = (from[1] - 1.0 + (to[1] - from[1] + 1.0) * a).round(); ([from[0] + ux * l * a + 0.5, fy, from[2] + uz * l * a + 0.5], [from[0] + ux * l * 0.6, fy - 4.0, from[2] + uz * l * 0.6]) }
-                else { let (x, z) = (from[0] - ux * 7.0 - uz * 3.0, from[2] - uz * 7.0 + ux * 3.0); ([x, w.column(x, z).h + 1.0, z], [from[0] + ux * 4.0, from[1] - 1.0, from[2] + uz * 4.0]) };
+            // dans la galerie : entre deux étais, dans l'axe, le regard qui suit la pente ; dehors : dans l'axe, quelques pas avant l'entrée
+            let fy = |a: f64| (from[1] - 1.0 + (to[1] - from[1] + 1.0) * a).round(); let a = ((l * 0.3 / 4.0).floor() * 4.0 + 2.0) / l;
+            let (p, t) = if scene == "mine_galerie" { ([from[0] + ux * l * a, fy(a), from[2] + uz * l * a], [from[0] + ux * l * (a + 0.25), fy(a + 0.25) + 1.4, from[2] + uz * l * (a + 0.25)]) }
+                else { let (x, z) = (from[0] - ux * 6.0, from[2] - uz * 6.0); ([x, w.column(x, z).h + 1.0, z], [from[0] + ux * 6.0, fy(6.0 / l) + 1.2, from[2] + uz * 6.0]) };
             println!("{scene} : {from:?} → {to:?}"); s.third = false; s.sel = 8; s.player.p = p; pump(&mut s, &mut g); for _ in 0..30 { s.tick(0.1, none, Actions::default()); }
             let e = s.player.eye(); s.eye = e; s.look = view::norm([t[0] - e[0], t[1] - e[1], t[2] - e[2]]); }
     }

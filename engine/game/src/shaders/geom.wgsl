@@ -56,7 +56,7 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
     let snowy = i.tint.b > 1.98 && i.tint.r < 1.02; let tn = select(i.tint, vec3f(1.0), snowy);
     alb = a.rgb * a.rgb * tn;
     // Les matières qui luisent d'elles-mêmes (lave, fissures du magma, cristaux, mousse lumineuse) : l'alpha de l'albédo.
-    let em = 1.0 - a.a; if (em > 0.03) { let q = floor(i.w * 0.5); emis = 0.52 + 0.44 * em * (0.9 + 0.1 * sin(u.cam.w * 1.3 + q.x * 0.7 + q.z * 1.1)); }
+    let em = 1.0 - a.a; if (em > 0.03) { let q = floor(i.w * 0.5); emis = 0.505 + 0.27 * em * (0.9 + 0.1 * sin(u.cam.w * 1.3 + q.x * 0.7 + q.z * 1.1)); }
     alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.86);
     if (layer0 >= 4 && layer0 < 16) { alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.74) * vec3f(0.84, 0.82, 0.86); } // terre : brune, pas orange
     let bark = layer0 >= BARK0 && layer0 < LEAF0;
