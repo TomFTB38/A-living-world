@@ -36,7 +36,7 @@
     let rr = u.lights[k * 2].w; let r2 = select(30.0, rr * rr, rr > 0.0);
     let dv = u.lights[k * 2].xyz - wp; let d2 = dot(dv, dv); if (d2 > r2) { continue; }
     let fade = 1.0 - d2 / r2; let face = select(0.35, 0.15, rr > 0.0) + select(0.65, 0.85, rr > 0.0) * sat(dot(n, dv * inverseSqrt(max(d2, 0.01))));
-    glow += u.lights[k * 2 + 1].rgb * face * fade * fade / (1.0 + d2 * 27.0 / r2);
+    glow += u.lights[k * 2 + 1].rgb * face * fade * fade / (1.0 + d2 * 27.0 / r2) * select(0.62, 1.0, rr > 0.0); /* les champignons colorent sans saturer la roche */
   }
   var c = alb * (direct + amb_c + blkc + glow * 3.2 * vao) + bl;
   let hv = normalize(u.sun.xyz - vv); let nh = sat(dot(n, hv));

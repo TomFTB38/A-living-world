@@ -178,11 +178,14 @@ impl WorldGen {
                 let (x, z) = (ox + lx, oz + lz); let (xf, zf) = (x as f64 + 0.5, z as f64 + 0.5); let c = self.cut(hl, xf, zf); if c.q > 1.0 { continue; }
                 let lightd = hl.shaft.map_or(99.0, |[sx, sz, sr]| (hypot2(xf - sx, zf - sz) - sr).max(0.0));
                 let rr = hash_float(x, z, s, 360);
+                // les lanternes d'anciens explorateurs, posées çà et là sur le chemin : une par case de neuf blocs au plus
+                let (gx, gz) = (x.div_euclid(9), z.div_euclid(9)); let lamp = hash_float(gx, gz, s, 370) < 0.32 && x == gx * 9 + 2 + (hash_float(gx, gz, s, 371) * 5.0) as i32 && z == gz * 9 + 2 + (hash_float(gx, gz, s, 372) * 5.0) as i32 && c.q < 0.85;
                 // le sol : la première case vide au-dessus d'un bloc plein, dans la tranche de la salle
                 for y in (c.fl - 2).max(2)..(c.ce + 2).min(CH as i32 - 2) {
                     let (Some(here), Some(under)) = (get(v, x, y, z), get(v, x, y - 1, z)) else { continue }; if here != 0 || !is_opaque(under) { continue; }
                     let wet_edge = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|(a, b)| get(v, x + a, y - 1, z + b) == Some(B::WATER));
-                    if lightd < 7.0 + 3.0 * n.n2(xf / 3.0, zf / 3.0) { set(v, x, y - 1, z, B::MOSSY_STONE);
+                    if lamp && lightd > 6.0 && y > wl { set(v, x, y, z, B::LANTERN); }
+                    else if lightd < 7.0 + 3.0 * n.n2(xf / 3.0, zf / 3.0) { set(v, x, y - 1, z, B::MOSSY_STONE);
                         if rr < 0.22 { set(v, x, y, z, B::FERN); } else if rr < 0.3 { set(v, x, y, z, B::TALL_GRASS); } }
                     else if wet_edge && rr < 0.05 { set(v, x, y, z, [B::GLOWCAP_BLUE, B::GLOWCAP_CYAN, B::GLOWCAP][(hash_float(x, z, s, 361) * 3.0) as usize % 3]); }
                     else if rr < 0.006 { set(v, x, y, z, B::GLOWCAP_VIOLET); }
