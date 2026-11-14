@@ -79,14 +79,14 @@ pub struct Session {
     /// Premiers pas : étape du guide et temps passé dessus.
     pub guide: usize, pub(crate) guide_t: f64,
     /// Combat : coup chargé (temps tenu depuis le dernier coup, -1 sans), garde levée (depuis quand, -1 sans).
-    pub charge: f64, pub guard_t: f64, guard_cd: f64, /** corde de l'arc tendue depuis (s) */ pub bow_t: f64, /** la monture chevauchée (numéro de la bête) */ pub ride: Option<u32>, /** les deux coins de la boîte à exporter (`/coin1`, `/coin2`) */ pub coins: [Option<[i32; 3]>; 2], /** fichiers à écrire : (nom, texte), que le jeu range dans « structures » */ pub exports: Vec<(String, String)>,
+    pub charge: f64, pub guard_t: f64, guard_cd: f64, /** corde de l'arc tendue depuis (s) */ pub bow_t: f64, /** la monture chevauchée (numéro de la bête) */ pub ride: Option<u32>, /** sous terre, de 0 à 1, lissé comme un œil qui s'habitue (voir `cave_step`) */ pub cave: f64, cave_t: f64, cave_goal: f64, /** les deux coins de la boîte à exporter (`/coin1`, `/coin2`) */ pub coins: [Option<[i32; 3]>; 2], /** fichiers à écrire : (nom, texte), que le jeu range dans « structures » */ pub exports: Vec<(String, String)>,
 }
 impl Session {
     pub fn new(seed: i32, p: &Preset, threads: usize, at: [f64; 3]) -> Self {
         let inv = [None; INV_SIZE]; // on commence les mains vides
         Session { chat: None, time_speed: 1.0, time_frozen: false, world: Streamer::new(seed, p, threads), player: Player::new(at[0], at[1], at[2]), inv, sel: 0, creative: false, target: None, orient: 0, hour: 16.4, vit: [100.0; 3], seed, third: true, cam_dist: 4.2, eye: [0.0; 3], look: [0.0, 0.0, 1.0], anim: Anim::default(), inv_open: false, cursor: None, from: None, mine_key: None, mine_t: 0.0, cool: 0.0, axis: None, dirty: false, tab: 0, cat_row: 0, deep: 0.0, taiga: 0.0, steppe: 0.0, desert: 0.0, highlands: 0.0, mountains: 0.0, sea: 0.0, sea_warm: 0.0, ocean: 0.0, glows: HashMap::new(), scanned: Default::default(), fauna: Fauna::new(seed), wild: crate::wild::Wild::new(seed), horde: crate::hostile::Horde::new(seed), regions: HashMap::new(), danger: Default::default(), branch_t: 10.0, weather: Weather::new(seed), sound: SoundScape::new(None), gen: WorldGen::new(seed), elapsed: 0.0, hurt_at: -99.0, built: Vec::new(), swing_t: 0.0, dig_t: 0.0, step_t: 0.0, water_t: 0.0, env_t: 0.0, was_wet: false, was_ground: false, fall_v: 0.0, brook: None, fall: None, felling: None, falling: None, fall_serial: 0, flow: Flow::default(),
             stamina: 100.0, air: 100.0, fatigue: 0.0, body: 37.0, exposure: 0.0, winded: false, spent_t: 9.0, dead: None, stashes: Vec::new(), spawn: at, bed: None, notes: Vec::new(), prey: None, cause: "", low_v: 0.0, pain_t: 0.0, use_t: 0.0, hit_t: 0.0, mine_need: 1.0, climate_t: 0.0,
-            hours: 0.0, regrow: Vec::new(), crops: Vec::new(), grow_t: 0.0, equip: [None; 6], chests: HashMap::new(), lamps: HashMap::new(), chest2: None, lids: Vec::new(), at_station: None, job: None, tour: None, lit: Vec::new(), chest: None, fires: HashMap::new(), profile: 1, skills: [0.0; 5], bow_t: 0.0, ride: None, coins: [None; 2], exports: Vec::new(), loose: Vec::new(), arrows: Vec::new(), line: None, turn: 0, ray_t: 0.0, taught: HashSet::new(), seen: HashSet::new(), fav: HashSet::new(), last_gain: [-99.0; 6], gauge: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0], book: Default::default(), town: Default::default(), map: Default::default(), guide: 0, guide_t: 0.0, charge: -1.0, guard_t: -1.0, guard_cd: 0.0 }
+            hours: 0.0, regrow: Vec::new(), crops: Vec::new(), grow_t: 0.0, equip: [None; 6], chests: HashMap::new(), lamps: HashMap::new(), chest2: None, lids: Vec::new(), at_station: None, job: None, tour: None, lit: Vec::new(), chest: None, fires: HashMap::new(), profile: 1, skills: [0.0; 5], bow_t: 0.0, ride: None, cave: 0.0, cave_t: 0.0, cave_goal: 0.0, coins: [None; 2], exports: Vec::new(), loose: Vec::new(), arrows: Vec::new(), line: None, turn: 0, ray_t: 0.0, taught: HashSet::new(), seen: HashSet::new(), fav: HashSet::new(), last_gain: [-99.0; 6], gauge: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0], book: Default::default(), town: Default::default(), map: Default::default(), guide: 0, guide_t: 0.0, charge: -1.0, guard_t: -1.0, guard_cd: 0.0 }
     }
     /// L'ancien équipement de départ : outils de fer, lanternes et quelques blocs. Pour les bancs d'essai et les captures.
     pub fn give_kit(&mut self) { for (i, (it, n)) in [("pickaxe", None), ("axe", None), ("sword", None), ("lantern", Some(32)), ("dirt", Some(16)), ("stone", Some(16)), ("planks", Some(16))].into_iter().enumerate() { self.inv[i] = Some(Stack::new(it, n)); self.seen.insert(it); } }
@@ -185,6 +185,7 @@ impl Session {
         let mining = (a.mine && !open) || self.job.is_some_and(|j| j.swings()); self.anim.update(dt, AnimIn { speed: self.player.speed, ground: self.player.ground, vy: self.player.v[1], crouch: self.player.crouch && self.ride.is_none(), seated: self.ride.is_some(), fly: self.player.fly, mining, guard: self.guard_t >= 0.0 });
         if alive && !self.creative { self.survive(dt, i, jumped, roll_start, mining, was_ground); } else { self.low_v = 0.0; }
         self.outdoors(dt); self.loose_tick(dt); self.town_tick(dt); self.map_tick(dt); self.guide_tick(dt);
+        self.cave_step(dt);
         self.elapsed += dt; self.weather.update(dt); let t = self.mix().strong(crate::biome::Biome::DeepForest); self.deep += (t - self.deep) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Taiga); self.taiga += (t - self.taiga) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Steppe); self.steppe += (t - self.steppe) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Desert); self.desert += (t - self.desert) * (dt / 2.5).min(1.0); let t = self.mix().strong(crate::biome::Biome::Highlands); self.highlands += (t - self.highlands) * (dt / 2.5).min(1.0); let m = self.mix(); let t = m.strong(crate::biome::Biome::Mountains); self.mountains += (t - self.mountains) * (dt / 2.5).min(1.0); self.sea += (m.sea - self.sea) * (dt / 2.5).min(1.0); self.ocean += (m.sea * m.deep - self.ocean) * (dt / 2.5).min(1.0); let t = crate::noise::smooth(0.2, 0.45, m.temp); self.sea_warm += (t - self.sea_warm) * (dt / 2.5).min(1.0);
         self.world_step(dt); // baies, blé, feux, dépouilles
         let changes = self.flow.step(dt, &self.world); if !changes.is_empty() { self.world.edit_many(&changes); self.dirty = true; }
@@ -235,6 +236,17 @@ impl Session {
     }
     /// Hauteur du soleil, négative la nuit.
     pub fn sun_height(&self) -> f64 { crate::det::sin((self.hour - 6.0) / 12.0 * std::f64::consts::PI) }
+    /// Sous terre ? Neuf colonnes autour de l'œil : plus bas que le sol naturel et couvertes de roche. L'œil s'y fait en
+    /// quelques secondes, dans un sens comme dans l'autre ; sous l'aven, la lumière du jour reprend le dessus.
+    fn cave_step(&mut self, dt: f64) {
+        self.cave_t -= dt;
+        if self.cave_t <= 0.0 { self.cave_t = 0.25; let e = self.eye; let mut n = 0.0;
+            for (dx, dz) in [(0, 0), (4, 0), (-4, 0), (0, 4), (0, -4), (3, 3), (-3, 3), (3, -3), (-3, -3)] {
+                let (x, z) = (e[0].floor() as i32 + dx, e[2].floor() as i32 + dz); let ground = self.gen.column(x as f64, z as f64).h;
+                if e[1] < ground - 3.0 && (e[1].floor() as i32 + 1..e[1].floor() as i32 + 48).any(|y| self.world.get(x, y, z).is_some_and(|b| is_opaque(b) && BLOCKS[b as usize].cat != "foliage")) { n += 1.0; } }
+            self.cave_goal = n / 9.0; }
+        let k = 1.0 - (-dt * if self.cave_goal > self.cave { 0.9 } else { 1.6 }).exp(); self.cave += (self.cave_goal - self.cave) * k;
+    }
     /// La caméra est-elle sous l'eau ?
     pub fn under(&self) -> bool { self.world.get(self.eye[0].floor() as i32, self.eye[1].floor() as i32, self.eye[2].floor() as i32).is_some_and(is_wet) }
     /// Sous un toit ou dans une grotte, il ne pleut pas ; le feuillage laisse passer.

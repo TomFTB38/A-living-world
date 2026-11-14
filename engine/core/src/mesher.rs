@@ -251,7 +251,7 @@ impl Mesher {
             // Meubles et objets de décor : meubles.rs, tournés vers celui qui les a posés.
             _ if crate::meubles::has(m) => { crate::meubles::draw(o, m, BLOCKS[b as usize].name, x, y, z, s, l, r_); return; }
             // Construction : la géométrie vient de shapes.rs (la même que les collisions), texturée dans sa matière.
-            "slab" | "stairs" | "pillar" | "wall" => {
+            "slab" | "stairs" | "pillar" | "wall" | "dripstone" => {
                 let Some(i) = crate::shapes::info(b) else { return }; let layer = BLOCKS[crate::shapes::material(b) as usize].faces[0] as f64;
                 for bb in crate::shapes::geometry(i) { tbox(o, x, y, z, inset(bb), layer, s, l, 1.0); }
                 return;

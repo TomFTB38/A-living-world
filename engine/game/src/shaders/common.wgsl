@@ -7,7 +7,7 @@ struct F {
 // jit.xy gigue · jit.zw taille · misc : image, voile, trou de l'horizon lointain, remise à zéro du TAA
 // weather : densification de la brume, pluie, luminosité choisie par le joueur, sous l'eau
 // extra.x : lucioles · extra.y : nombre de lumières colorées (position, couleur) · extra.z : neige
-// extra2.x : brume de vallée · extra2.y : aurores boréales
+// extra2.x : brume de vallée · extra2.y : aurores boréales · extra2.z : sous terre (0 à l'air libre, 1 au fond d'une grotte)
 @group(0) @binding(0) var<uniform> u: F;
 @group(0) @binding(1) var t_noise: texture_3d<f32>;
 @group(0) @binding(2) var s_rep: sampler;

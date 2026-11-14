@@ -34,18 +34,20 @@ pub fn is_flat(seed: i32) -> bool { seed & FLAT_MASK == FLAT }
 pub const FLAT_Y: i32 = 54;
 pub struct WorldGen {
     pub seed: i32, /** monde plat : une prairie sans fin, sans relief, sans villages */ pub flat: bool, gallery: std::cell::OnceCell<(Vec<(i32, i32, i32, Id)>, Vec<Exhibit>)>,
-    n_base: Noise, n_hill: Noise, n_warp: Noise, n_river: Noise, n_path: Noise, n_forest: Noise, n_cliff: Noise, n_cave: Noise, pub n_deco: Noise,
+    n_base: Noise, n_hill: Noise, n_warp: Noise, n_river: Noise, n_path: Noise, n_forest: Noise, n_cliff: Noise, pub(crate) n_cave: Noise, pub n_deco: Noise,
     pub climate: Climate,
     ponds: RefCell<HashMap<(i32, i32), Option<Pond>>>,
     stamps: RefCell<HashMap<(u8, i32, i32), Option<Rc<Stamp>>>>,
     /// Villages déjà tracés, par case de la grille des villages.
     pub(crate) towns: RefCell<HashMap<(i32, i32), Option<Rc<crate::village::Site>>>>,
+    /// Grandes salles karstiques déjà tracées, par case.
+    pub(crate) halls: RefCell<HashMap<(i32, i32), Option<crate::karst::Hall>>>,
 }
 
 impl WorldGen {
     pub fn new(seed: i32) -> Self {
         let s = seed; let n = |k: i32| Noise::new(s.wrapping_add(k));
-        WorldGen { seed: s, flat: is_flat(s), gallery: std::cell::OnceCell::new(), n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()), towns: RefCell::new(HashMap::new()) }
+        WorldGen { seed: s, flat: is_flat(s), gallery: std::cell::OnceCell::new(), n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()), towns: RefCell::new(HashMap::new()), halls: RefCell::new(HashMap::new()) }
     }
     fn raw_height(&self, x: f64, z: f64) -> Raw { let m = self.climate.at(x, z); let r = self.raw_land(x, z, &m); self.seafloor(r, &m) }
     /// Mer et océan : la côte se relève d'abord un peu (pas de terre sous le niveau de la mer qui resterait sèche à côté de l'eau),
@@ -294,6 +296,7 @@ impl WorldGen {
         self.stamp_all(&mut v, cx, cz, &mut heights);
         self.scatter_deco(&mut v, ox, oz, &heights, &waters, &info);
         self.hang_vines(&mut v, ox, oz); self.snow_cover(&mut v, ox, oz);
+        self.karst(&mut v, ox, oz, &heights);
         v
     }
     fn scatter_deco(&self, v: &mut [Id], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64, f64, f64, f64)]) {

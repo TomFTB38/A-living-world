@@ -31,7 +31,7 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
     let (proj, vm) = (view::perspective(menu.fov() * (1.0 - 0.12 * s.anim.bow), w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
     let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let mut draws = s.draws(md, &vm); if menu.title.is_some() { draws.retain(|d| !d.view); } /* pas de main tendue derrière l'écran titre */ let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
     gpu.lights = s.lights(s.eye, gpu::LIGHTS);
-    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); let night = sky.night.clamp(0.0, 1.0); env.flies = s.deep as f32 * (0.55 + 0.9 * night); // la nuit, la direction est celle de la lune : elle ne dit pas l'heure
+    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); env.cave = s.cave as f32; let night = sky.night.clamp(0.0, 1.0); env.flies = s.deep as f32 * (0.55 + 0.9 * night); // la nuit, la direction est celle de la lune : elle ne dit pas l'heure
     // Taïga : ciel froid, soleil pâle, neige qui tombe à la place de la pluie.
     let tg = s.taiga as f32; if tg > 0.01 { for k in 0..3 { sky.top[k] += ([0.5, 0.64, 0.82][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.35 * tg; sky.hor[k] += ([0.82, 0.88, 0.95][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.4 * tg; sky.col[k] *= 1.0 + ([0.12, 0.02, -0.16][k]) * tg * (1.0 - night); }
         // Soleil d'hiver : bas sur l'horizon, doré, aux ombres longues ; brume au fond des vallées le matin ; aurores la nuit.
@@ -582,6 +582,22 @@ fn capture(a: &[String]) {
         // La plus proche chute de rivière : un palier où le niveau change entre deux colonnes voisines.
         let w = WorldGen::new(SEED); let mut found = None; 'f: for r in 2..500i32 { for k in 0..(r * 6) { let a = k as f64 / (r * 6) as f64 * std::f64::consts::TAU; let (x, z) = ((a.cos() * r as f64 * 3.0).floor(), (a.sin() * r as f64 * 3.0).floor()); let c = w.column(x, z); if c.water == 0.0 || c.still { continue; } for (dx, dz) in [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)] { let n = w.column(x + dx, z + dz); if n.water - c.water >= 4.0 { found = Some((x, z, dx, dz, c.water)); break 'f; } } } }
         println!("chute : {found:?}"); if let Some((x, z, dx, dz, l)) = found { s.sel = 8; s.third = false; let e = [x - dx * 8.0 + dz * 5.0, l + 5.0, z - dz * 8.0 + dx * 5.0]; s.player.p = [e[0], e[1] - 1.62, e[2]]; pump(&mut s, &mut g); let f = view::norm([x - e[0], l + 1.5 - e[1], z - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
+    }
+    // Grotte karstique : la salle la plus proche qui a ce qu'il faut montrer (aven, cascade), vue depuis l'autre bout.
+    if scene.starts_with("karst") {
+        let w = WorldGen::new(SEED); let want_shaft = scene == "karst_aven"; let mut best: Option<(f64, alw_core::karst::Hall)> = None;
+        for i in -8..=8 { for j in -8..=8 { if let Some(h) = w.hall(i, j) { if want_shaft && h.shaft.is_none() || h.fall.is_none() { continue; } let d = h.x.hypot(h.z); if best.is_none_or(|b| d < b.0) { best = Some((d, h)); } } } }
+        if let Some((_, h)) = best {
+            let (fall, _) = h.fall.unwrap(); let target = match (scene, h.shaft) { ("karst_aven", Some(sh)) => [sh[0], h.floor as f64 + h.h * 0.55, sh[1]], _ => [fall[0] as f64 + 0.5, fall[1] as f64 - 3.0, fall[2] as f64 + 0.5] };
+            let (dx, dz) = (target[0] - h.x, target[2] - h.z); let l = dx.hypot(dz).max(1.0); let from = [h.x - dx / l * h.rx * 0.5, h.z - dz / l * h.rz * 0.5];
+            println!("{scene} : salle {:.0} {:.0}, cible {target:?}", h.x, h.z);
+            if let Some(sp) = w.hall_spot(&h, from) {
+                s.third = false; s.sel = 8; s.player.p = sp; pump(&mut s, &mut g);
+                if scene == "karst_lanterne" { s.inv[8] = Some(alw_core::session::Stack::new("lantern", Some(1))); }
+                for _ in 0..50 { s.tick(0.1, none, Actions::default()); }
+                let e = s.player.eye(); s.eye = e; s.look = view::norm([target[0] - e[0], target[1] - e[1], target[2] - e[2]]); println!("sous terre : {:.2}", s.cave);
+            }
+        }
     }
     if scene == "grotte" {
         // Une vraie entrée : la colonne creusée la plus proche, on descend dedans.

@@ -5,7 +5,7 @@
 use crate::blocks::{Id, by_name, BLOCKS};
 use std::sync::OnceLock;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)] pub enum Kind { Slab, Stairs, Door, Trapdoor, Ladder, Window, Pillar, Wall, VSlab, Shutter, Turn, /** pente à 45° */ Slope, /** arêtier */ Corner, /** noue */ Valley, /** faîtage */ Ridge, /** épi */ Peak }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)] pub enum Kind { Slab, Stairs, Door, Trapdoor, Ladder, Window, Pillar, Wall, VSlab, Shutter, Turn, /** pente à 45° */ Slope, /** arêtier */ Corner, /** noue */ Valley, /** faîtage */ Ridge, /** épi */ Peak, /** pointe de stalactite (haut : pend du plafond) ou de stalagmite ; sens : 0 la base, 2 la pointe */ Drip }
 /// Ce qu'un bloc de forme est : sa famille, son sens (0 : +z, 1 : +x, 2 : -z, 3 : -x), moitié haute, ouvert, haut de porte,
 /// et la variante de base (l'objet posé), dont on dérive toutes les autres.
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Info { pub kind: Kind, pub facing: u8, pub top: bool, pub open: bool, pub upper: bool, pub base: Id }
@@ -35,6 +35,7 @@ fn parse(name: &str) -> Option<Info> {
     if let Some(r) = name.strip_prefix("trapdoor_open") { let f = r.strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::Trapdoor, facing: f, top: false, open: true, upper: false, base: base("trapdoor") }); }
     if let Some(r) = name.strip_prefix("ladder") { let f = r.strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::Ladder, facing: f, top: false, open: false, upper: false, base: base("ladder") }); }
     if name == "window" || name == "window_x" { return Some(Info { kind: Kind::Window, facing: if name == "window" { 0 } else { 1 }, top: false, open: false, upper: false, base: base("window") }); }
+    if let Some(r) = name.strip_prefix("dripstone_") { let (d, k) = r.split_once('_')?; return Some(Info { kind: Kind::Drip, facing: digit(k)?.min(2), top: d == "down", open: false, upper: false, base: base(name) }); }
     if name.ends_with("_pillar") { return Some(Info { kind: Kind::Pillar, facing: 0, top: false, open: false, upper: false, base: base(name) }); }
     if name == "stone_wall" || name == "stone_wall_x" { return Some(Info { kind: Kind::Wall, facing: if name == "stone_wall" { 0 } else { 1 }, top: false, open: false, upper: false, base: base("stone_wall") }); }
     None
@@ -64,6 +65,9 @@ pub fn geometry(i: Info) -> Vec<Bx> {
         Kind::Ladder => Vec::new(),
         Kind::Window => r(&[[0.0, 0.0, 0.4375, 1.0, 1.0, 0.5625]]),
         Kind::Pillar => vec![[0.25, 0.0, 0.25, 0.75, 1.0, 0.75]],
+        // Les pointes s'effilent de leur attache vers le vide : des tranches de plus en plus fines.
+        Kind::Drip => { let steps: &[(f64, f64, f64)] = match i.facing { 0 => &[(0.0, 0.35, 0.36), (0.35, 1.0, 0.42)], 1 => &[(0.0, 0.5, 0.2), (0.5, 1.0, 0.28)], _ => &[(0.0, 0.28, 0.06), (0.28, 0.62, 0.12), (0.62, 1.0, 0.18)] };
+            steps.iter().map(|&(a, b, w)| { let (y0, y1) = if i.top { (a, b) } else { (1.0 - b, 1.0 - a) }; [0.5 - w, y0, 0.5 - w, 0.5 + w, y1, 0.5 + w] }).collect() }
         Kind::Wall => r(&[[0.0, 0.0, 0.3125, 1.0, 1.0, 0.6875]]),
         Kind::Turn => r(&turn_boxes(BLOCKS[i.base as usize].name)),
         // Les couvertures se touchent en petites marches d'un quart : on y marche comme sur une pente, sans buter.
@@ -106,6 +110,7 @@ pub fn variant(base: Id, facing: u8, top: bool, open: bool, upper: bool) -> Id {
         Some(Kind::Trapdoor) => if open { format!("trapdoor_open{}", sfx(f)) } else { "trapdoor".into() },
         Some(Kind::Ladder) => format!("ladder{}", sfx(f)),
         Some(Kind::Window) => if f % 2 == 0 { "window".into() } else { "window_x".into() },
+        Some(Kind::Drip) => format!("dripstone_{}_{}", if top { "down" } else { "up" }, f.min(2)),
         Some(Kind::Wall) => if f % 2 == 0 { "stone_wall".into() } else { "stone_wall_x".into() },
         Some(Kind::Slope) => format!("{n}{}{}", if top { "_top" } else { "" }, sfx(f)),
         Some(Kind::Corner) | Some(Kind::Valley) => format!("{n}{}", sfx(f)),
@@ -122,7 +127,7 @@ pub fn facing_of(dx: f64, dz: f64) -> u8 { if dx.abs() > dz.abs() { if dx > 0.0 
 pub fn material(id: Id) -> Id {
     let n = BLOCKS[id as usize].name;
     for sfx in ["_stairs", "_vslab", "_slab", "_slope", "_corner", "_valley", "_ridge", "_peak"] { if let Some(i) = n.find(sfx) { if let Some(b) = by_name(&n[..i]) { if BLOCKS[b as usize].faces[0] != 0 || b == crate::blocks::B::PLANKS { return b; } } } }
-    let m = if n.starts_with("stone_bricks") || n == "stone_pillar" || n.starts_with("stone_wall") { "stone_bricks" } else if n.starts_with("cobblestone") { "cobblestone" } else if n.starts_with("thatch") { "thatch" } else { "planks" };
+    let m = if n.starts_with("dripstone") { "flowstone" } else if n.starts_with("stone_bricks") || n == "stone_pillar" || n.starts_with("stone_wall") { "stone_bricks" } else if n.starts_with("cobblestone") { "cobblestone" } else if n.starts_with("thatch") { "thatch" } else { "planks" };
     by_name(m).unwrap_or(0)
 }
 /// Deux dalles de même matière l'une sur l'autre font un bloc plein.

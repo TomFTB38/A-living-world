@@ -17,13 +17,16 @@ fn pos(p: vec2f, d: f32) -> vec3f { return world_from(p, max(d, 1e-6)); }
   let ruv = suv + n.xz * 0.03 * min(1.0, depth * 0.6) / (1.0 + dist * 0.03);
   var scene = textureSampleLevel(t_scene, s_clamp, ruv, 0.0).rgb; let rd = depth_at(t_d, ruv);
   if (length(pos(ruv, rd) - u.cam.xyz) < dist - 0.05) { scene = textureSampleLevel(t_scene, s_clamp, suv, 0.0).rgb; }
-  let deep = vec3f(0.015, 0.075, 0.085); let shallow = vec3f(0.19, 0.42, 0.36);
+  let cave = u.extra2.z; let deep = vec3f(0.015, 0.075, 0.085); let shallow = mix(vec3f(0.19, 0.42, 0.36), vec3f(0.08, 0.5, 0.56), cave); /* sous terre, sur le calcaire : turquoise */
+  // Lanternes et lueurs colorées : l'eau des grottes les reçoit et les renvoie.
+  var glow = vec3f(1.0, 0.62, 0.28) * pow(i.lit.z, 2.1) * 2.2;
+  for (var k = 0; k < i32(u.extra.y); k++) { let rr = u.lights[k * 2].w; let r2 = select(30.0, rr * rr, rr > 0.0); let dv = u.lights[k * 2].xyz - i.w; let d2 = dot(dv, dv); if (d2 > r2 * 1.6) { continue; } let f = 1.0 - d2 / (r2 * 1.6); glow += u.lights[k * 2 + 1].rgb * f * f * 2.5; }
   let absorb = exp(-depth * 0.42); let tint = mix(deep, shallow, exp(-depth * 0.28));
   var sh = shadow_at(i.w, vec3f(0.0, 1.0, 0.0), dist, i.clip.xy, 4); if (fall > 0.5) { sh = 0.5 + 0.2 * sh; }
-  let water = mix(tint * (u.sun_col.rgb * 0.35 * sh + mix(u.hor.rgb, u.top.rgb, 0.5) * 0.7 * i.lit.y), scene, absorb * 0.82);
+  let water = mix(tint * (u.sun_col.rgb * 0.35 * sh + mix(u.hor.rgb, u.top.rgb, 0.5) * 0.7 * i.lit.y + glow), scene, absorb * 0.82);
   var r = reflect(v, n); r.y = abs(r.y);
   let fr = 0.07 + 0.93 * pow(1.0 - sat(dot(-v, n)), 4.0); // assez de reflet, même vu d'au-dessus
-  var refl = sky_color(r) * mix(0.22, 1.0, i.lit.y);
+  var refl = sky_color(r) * mix(0.22 * (1.0 - cave), 1.0, i.lit.y);
   if (fall < 0.5) {
     var q = i.w + r * 0.8; var st = 1.8; var hit = vec2f(-1.0);
     for (var k = 0; k < 30; k++) {

@@ -24,6 +24,10 @@
   let sky_amb = mix(u.ground.rgb * 0.9, mix(u.hor.rgb, u.top.rgb, 0.4) * vec3f(1.0, 0.95, 0.82) * 0.78, n.y * 0.5 + 0.5);
   let canopy = vec3f(0.27, 0.36, 0.13) * mix(1.0, 0.5, n.y * 0.5 + 0.5);
   let amb = mix(canopy * 1.75, sky_amb, sky2 * 0.8 + 0.2) * (0.6 + 0.4 * sky_l) * vis * 0.82; /* moins d'ambiance : les ombres ont du corps */
+  // Sous terre : l'ambiance du ciel s'éteint là où il ne parvient pas ; reste une pénombre froide qui garde la roche lisible,
+  // et les lumières chaudes (lanternes, torches) ou colorées (champignons) tranchent dessus.
+  let cave = u.extra2.z * (1.0 - smoothstep(0.0, 0.45, sky_l));
+  let amb_c = mix(amb, vec3f(0.05, 0.062, 0.085) * (0.75 + 0.25 * (n.y * 0.5 + 0.5)) * vis, cave);
   let blkc = vec3f(1.0, 0.62, 0.28) * pow(blk, 2.1) * 2.2 * vao;
   // Champignons lumineux : une lueur fluorescente de leur couleur, sans ombre, qui meurt en quelques blocs.
   var glow = vec3f(0.0);
@@ -34,7 +38,7 @@
     let fade = 1.0 - d2 / r2; let face = select(0.35, 0.15, rr > 0.0) + select(0.65, 0.85, rr > 0.0) * sat(dot(n, dv * inverseSqrt(max(d2, 0.01))));
     glow += u.lights[k * 2 + 1].rgb * face * fade * fade / (1.0 + d2 * 27.0 / r2);
   }
-  var c = alb * (direct + amb + blkc + glow * 3.2 * vao) + bl;
+  var c = alb * (direct + amb_c + blkc + glow * 3.2 * vao) + bl;
   let hv = normalize(u.sun.xyz - vv); let nh = sat(dot(n, hv));
   let fres = 0.04 + 0.96 * pow(1.0 - sat(dot(n, -vv)), 5.0);
   c += u.sun_col.rgb * pow(nh, mix(140.0, 10.0, rough)) * (1.0 - rough) * (1.0 - rough) * 1.6 * sh * sat(nol) * (0.4 + fres);

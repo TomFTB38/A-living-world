@@ -22,7 +22,7 @@ export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'm
   // Mer : corail massif (teinté par bloc) et bordages d'épave rongés d'algues.
   'coral', 'planks_wreck',
   // Refonte des villages : pierre calcaire appareillée, moellons gris, bout de poutre, bardage de grange, tuiles moussues, chemin de terre.
-  'lime_masonry', 'rubble', 'beam_end', 'boards', 'tiles_moss', 'path_top'];
+  'lime_masonry', 'rubble', 'beam_end', 'boards', 'tiles_moss', 'path_top', 'flowstone'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -395,6 +395,11 @@ defs.push(['coal_heap', 'deco', null, 0.6, { model: 'coal_heap', cat: 'rock', dr
 // Port de pêche : filets, séchoirs, nasses, bittes, bouées, ancre, avirons, garde-corps de corde, voiles, fanion.
 for (const [n, h, p] of [['fishing_net', 0.2, {}], ['fish_rack', 0.5, {}], ['anchor', 1.5, {}], ['oars', 0.4, {}], ['rope_rail', 0.5, { solid: true }], ['sail', 0.2, {}], ['boat_bench', 0.4, {}]]) turner(n, h, 'wood', p);
 for (const [n, h, p] of [['creel', 0.3, {}], ['mooring_post', 1.0, { solid: true }], ['buoy', 0.3, {}], ['net_pile', 0.2, {}], ['pennant', 0.3, {}], ['fish_crate', 0.5, {}]]) defs.push([n, 'deco', null, h, { model: n, cat: 'wood', ...p }]);
+
+// Grottes karstiques : la calcite des concrétions, et les pointes des stalactites (vers le bas) et des stalagmites (vers le haut),
+// trois épaisseurs de la base à la pointe : une vraie géométrie, avec ses collisions, qui se casse et rend de la calcite.
+cube('flowstone', 'flowstone', 1.3, 'rock');
+for (const d of ['down', 'up']) for (const k of [0, 1, 2]) defs.push([`dripstone_${d}_${k}`, 'deco', null, 0.8, { model: 'dripstone', solid: true, cat: 'rock', drop: 'flowstone' }]);
 
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,

@@ -170,6 +170,7 @@ water | Eau | terrain | 0.6 | 64 | |
 stone | Pierre | roches | 1.5 | 64 | |
 mossy_stone | Pierre moussue | roches | 1.5 | 64 | |
 limestone | Calcaire | roches | 1.4 | 64 | |
+flowstone | Calcite | roches | 1.3 | 64 | La pierre crème des grottes, déposée goutte à goutte : stalactites, stalagmites, coulées. Lisse et humide. |
 granite | Granit | roches | 1.6 | 64 | |
 lichen_stone | Pierre à lichens | roches | 1.5 | 64 | |
 sandstone | Grès | roches | 1.3 | 64 | |

@@ -38,6 +38,7 @@ fn pal(a: &[C], t: f64) -> C { let t = clamp(t, 0.0, 0.9999) * (a.len() - 1) as 
 fn mul(c: C, k: f64) -> C { [c[0] * k, c[1] * k, c[2] * k] }
 
 const GRASS: [C; 4] = pl!("#556b2a", "#6f8834", "#8ba042", "#a9b658"); const DIRT: [C; 4] = pl!("#4d3019", "#6e4725", "#8a5f35", "#a57c4d");
+const FLOW: [C; 4] = pl!("#a8987d", "#cbbb9d", "#e2d6bd", "#f4ede0");
 const STONE: [C; 4] = pl!("#5c564c", "#7f786b", "#a0998b", "#bfb8aa"); const LEAF: [C; 4] = pl!("#2f5518", "#4f7f25", "#86ac38", "#c6d862");
 const MOSS: [C; 4] = pl!("#37561d", "#55792a", "#7a9c37", "#a6bd4f");
 const OAK: [C; 4] = pl!("#4a2c14", "#7a4f29", "#a8743f", "#cf9d62"); const BEECH: [C; 4] = pl!("#726c60", "#938c7f", "#b0a99b", "#c9c3b5");
@@ -167,6 +168,14 @@ fn limestone(t: &Tile, x: f64, y: f64) -> S {
     let v = 0.72 + 0.08 * (big - 0.5) + 0.07 * (mid - 0.5) + 0.03 * (fine - 0.5) + 0.025 * (bed - 0.5);
     let c = [v * (1.0 - 0.1 * stain) * (1.0 - 0.35 * pit), v * 0.96 * (1.0 - 0.1 * stain) * (1.0 - 0.35 * pit), v * 0.86 * (1.0 - 0.06 * stain) * (1.0 - 0.35 * pit)];
     S { c, h: 0.5 + 0.15 * (mid - 0.5) + 0.05 * bed - 0.4 * pit, r: 0.85 }
+}
+/// Calcite des concrétions : une crème humide, coulée en traînées verticales qui ondulent, de fines vagues de croissance
+/// en travers, quelques gouttes plus claires ; lisse et mouillée, elle accroche la lumière.
+fn flowstone(t: &Tile, x: f64, y: f64) -> S {
+    let bend = 7.0 * (t.fbm(x, y, 2, 2) - 0.5); let streak = t.fbm(x + bend, 0.0, 16, 3); let broad = t.fbm(x + bend * 0.5, 0.0, 4, 2);
+    let n = t.fbm(x, y, 8, 3); let ripple = 0.5 + 0.5 * sin((y + 3.0 * n) * std::f64::consts::PI * 2.0 * 6.0 / 64.0); let bead = smooth(0.86, 0.93, t.val(x - 9.0, y + 4.0, 32));
+    let tone = 0.3 + 0.42 * streak + 0.18 * (broad - 0.5) + 0.08 * ripple + 0.12 * (n - 0.5) + 0.12 * bead;
+    S { c: pal(&FLOW, tone), h: 0.45 + 0.28 * streak + 0.1 * ripple + 0.15 * bead, r: 0.42 - 0.12 * bead }
 }
 /// Gravier : des galets arrondis serrés, de tailles et de couleurs variées, ombrés comme des petits dômes, avec du sable sombre entre eux.
 fn gravel(t: &Tile, x: f64, y: f64) -> S {
@@ -521,7 +530,7 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
     let b_oak = |a: &Tile, b: f64, c: f64| bark(a, b, c, &OAK, 1.0); let b_beech = |a: &Tile, b: f64, c: f64| bark(a, b, c, &BEECH, 0.28);
     match name {
         "grass_top" => grass_top(t, x, y), "grass_side" => grass_side(t, x, y), "dirt" => dirt(t, x, y, &DIRT), "path" => dirt(t, x, y, &PATH), "forest_soil" => dirt(t, x, y, &SOIL),
-        "stone" => stone(t, x, y, &STONE, 5), "mossy_stone" => mossy(t, x, y), "limestone" => limestone(t, x, y), "granite" => granite(t, x, y), "gravel" => gravel(t, x, y), "sand" => dirt(t, x, y, &SAND),
+        "stone" => stone(t, x, y, &STONE, 5), "mossy_stone" => mossy(t, x, y), "limestone" => limestone(t, x, y), "flowstone" => flowstone(t, x, y), "granite" => granite(t, x, y), "gravel" => gravel(t, x, y), "sand" => dirt(t, x, y, &SAND),
         "bark_oak" => b_oak(t, x, y), "bark_birch" => birch(t, x, y), "bark_beech" => b_beech(t, x, y),
         "leaf_oak" => leaf(t, x, y, [1.0, 1.0, 1.0]), "leaf_birch" => leaf(t, x, y, [1.2, 1.12, 0.9]), "leaf_beech" => leaf(t, x, y, [0.86, 1.0, 0.82]),
         "end_oak" => wood_end(t, x, y, &OAK_W, 0.78, &b_oak), "end_birch" => wood_end(t, x, y, &BIRCH_W, 0.95, &birch), "end_beech" => wood_end(t, x, y, &BEECH_W, 0.85, &b_beech),

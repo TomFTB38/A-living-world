@@ -100,6 +100,9 @@ jobs:
           shot prairie -38.5 53 0.5 -20 52 -30 16.4 5 1280 720 2048 prairie
           shot chute -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 chute
           shot grotte -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 grotte
+          shot karst_salle 0 60 0 0 60 10 12 4 1280 720 2048 karst_salle
+          shot karst_aven 0 60 0 0 60 10 12.5 4 1280 720 2048 karst_aven
+          shot karst_lanterne 0 60 0 0 60 10 23 4 1280 720 2048 karst_lanterne
           shot ultra -38.5 53 0.5 -20 52 -30 16.4 8 1280 720 2048 ultra
           shot pluie -62 47 -55 -54 42 -51 16.4 4 1280 720 2048 pluie
           for sc in survie craft mort ramassage fissure construction combat creatures tenue; do shot $sc -38.5 53 0.5 -20 52 -30 16.4 4 1280 720 2048 $sc; done
