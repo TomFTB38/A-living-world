@@ -273,11 +273,11 @@ fn cave_mat(name: &str, t: &Tile, x: f64, y: f64) -> Option<(S, f64)> {
             (S { c: pal(&pl!("#0e1119", "#1f2433", "#323a50", "#6f8fc0"), 0.32 + 0.25 * (g - 0.5) + 0.06 * (fine - 0.5) + 0.12 * vein + 0.7 * spark), h: 0.5 + 0.2 * (g - 0.5) + 0.1 * vein, r: 0.7 }, spark * 0.7) }
         "glow_moss" => { // un coussin de mousse bleu-vert, touffu ; des perles luminescentes en grappes, chacune avec son halo
             let g = t.fbm(x, y, 8, 3); let tuft = t.val(x, y, 32); let fine = t.val(x + 5.0, y, 64); let clump = smooth(0.42, 0.62, t.fbm(x, y + 9.0, 4, 2));
-            let (d1, _, id) = t.vor(x, y, 14); let on = (t.pi(id + 500) < 0.25 + 0.6 * clump) as i32 as f64; let rad = 0.16 + 0.16 * t.pi(id + 700);
+            let (d1, _, id) = t.vor(x, y, 14); let on = (t.pi(id + 500) < 0.06 + 0.3 * clump) as i32 as f64; let rad = 0.16 + 0.16 * t.pi(id + 700);
             let pearl = smooth(rad, rad * 0.35, d1) * on; let halo = smooth(rad * 2.4, rad, d1) * on * 0.45;
             let moss = pal(&pl!("#06140f", "#0f2a22", "#17423a", "#2a6457"), 0.15 + 0.5 * g + 0.3 * tuft + 0.12 * (fine - 0.5));
             let c = if pearl > 0.2 { pal(&pl!("#1a8f86", "#45d6c6", "#a5fff1", "#f2fffd"), 0.3 + 0.7 * pearl) } else { [moss[0] + halo * 0.08, moss[1] + halo * 0.45, moss[2] + halo * 0.42] };
-            (S { c, h: 0.35 + 0.35 * tuft + 0.2 * g + 0.25 * pearl, r: if pearl > 0.2 { 0.3 } else { 0.95 } }, (pearl * 0.85).max(halo * 0.5)) }
+            (S { c, h: 0.35 + 0.35 * tuft + 0.2 * g + 0.25 * pearl, r: if pearl > 0.2 { 0.3 } else { 0.95 } }, (pearl * 0.6).max(halo * 0.3)) }
         "mycelium" => { // un tapis gris-violet, parcouru de fils blancs
             let g = t.fbm(x, y, 12, 3); let thread = 1.0 - smooth(0.0, 0.05, (t.fbm(x, y + 7.0, 8, 3) - 0.5).abs());
             (S { c: pal(&pl!("#3a2f3c", "#5a4a5e", "#7d6c82", "#d9d0dc"), 0.3 + 0.35 * g + 0.45 * thread), h: 0.5 + 0.25 * g + 0.15 * thread, r: 0.92 }, 0.0) }
