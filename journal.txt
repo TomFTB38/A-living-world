@@ -1,0 +1,54 @@
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+137 chunks chargés en 1.6 s
+10 images, 4.7 M triangles, 5660 ms par image sur cette carte
+== spawn : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+69 chunks chargés en 1.0 s
+casse : forest_soil -> Some(0), objets 7 -> 7
+pose : cible None
+10 images, 4.8 M triangles, 6571 ms par image sur cette carte
+== jeu : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+69 chunks chargés en 1.0 s
+10 images, 3.9 M triangles, 5663 ms par image sur cette carte
+== creatif : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+69 chunks chargés en 1.0 s
+10 images, 3.9 M triangles, 5359 ms par image sur cette carte
+== onglet4 : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+177 chunks chargés en 0.1 s
+10 images, 0.3 M triangles, 3198 ms par image sur cette carte
+== plat_galerie : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+137 chunks chargés en 0.1 s
+10 images, 0.4 M triangles, 3251 ms par image sur cette carte
+== plat_pres : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+69 chunks chargés en 0.1 s
+10 images, 0.1 M triangles, 3222 ms par image sur cette carte
+== plat_ferme : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+69 chunks chargés en 0.1 s
+10 images, 0.1 M triangles, 3189 ms par image sur cette carte
+== plat_chevaux : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+69 chunks chargés en 0.1 s
+10 images, 0.1 M triangles, 3178 ms par image sur cette carte
+== plat_galop : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+69 chunks chargés en 0.1 s
+10 images, 0.1 M triangles, 3086 ms par image sur cette carte
+== plat_loup : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+177 chunks chargés en 1.3 s
+10 images, 2.9 M triangles, 4657 ms par image sur cette carte
+== bourg_vue : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+137 chunks chargés en 1.1 s
+10 images, 2.1 M triangles, 4162 ms par image sur cette carte
+== bourg_mairie : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+97 chunks chargés en 1.3 s
+10 images, 4.5 M triangles, 5548 ms par image sur cette carte
+== hameau_vue : code 0 (essai 1)
