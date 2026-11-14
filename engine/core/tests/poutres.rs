@@ -7,10 +7,10 @@ fn chaque_poutre_a_sa_forme_et_retrouve_ses_variantes() {
         for (base, kind, n) in [(format!("{sp}_post"), Kind::Post, 3u8), (format!("{sp}_post_diag"), Kind::Brace, 4), (format!("{sp}_post_angle"), Kind::Elbow, 4)] {
             let b = by_name(&base).unwrap_or_else(|| panic!("{base} manque")); let i = shapes::info(b).expect("forme");
             assert_eq!(i.kind, kind, "{base}"); assert_eq!(shapes::material(b), by_name(&format!("{sp}_log")).unwrap(), "{base} : matière du rondin");
-            for top in [false, true] { for f in 0..n {
+            for top in [false, true] { for f in 0..if kind == Kind::Brace && top { 2 } else { n } { // la diagonale à plat n'a que deux sens
                 let v = shapes::variant(b, f, top, false, false); let vi = shapes::info(v).unwrap();
                 assert_eq!((vi.kind, vi.facing, vi.base), (kind, f, b), "{base} {f} {top} → {}", BLOCKS[v as usize].name);
-                if kind == Kind::Elbow { assert_eq!(vi.top, top); }
+                if kind != Kind::Post { assert_eq!(vi.top, top && kind != Kind::Post); }
                 let g = shapes::geometry(vi); assert!(!g.is_empty());
                 for bb in &g { assert!(bb.iter().all(|c| (-1e-9..=1.0 + 1e-9).contains(c)), "{} déborde : {bb:?}", BLOCKS[v as usize].name);
                     // plus fine qu'un bloc : jamais plus de 0,4 dans deux directions sur trois

@@ -4,7 +4,7 @@ use crate::blocks::{Block, Shape};
 pub const VARIANTS: u32 = 4;
 pub const MATERIALS: [&str; 113] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm", "ore_copper", "ore_tin", "ore_iron", "ore_coal", "clay", "stone_bricks", "bricks", "thatch", "planks_birch", "planks_spruce", "cobble", "farmland_top", "plaster", "dark_timber", "roof_tiles", "slate", "marble", "ashlar", "fieldstone", "setts", "polished_stone", "checker", "terracotta", "parquet", "shingles", "wool", "rug", "frame_square", "frame_cross", "frame_diag", "wattle", "books", "hay", "crate", "chiseled", "stained_glass", "iron_plate", "verdigris", "coral", "planks_wreck", "lime_masonry", "rubble", "beam_end", "boards", "tiles_moss", "path_top", "flowstone", "basalt", "obsidian", "lava", "magma", "crystal_violet", "crystal_blue", "crystal_pink", "crystal_white", "abyss_rock", "glow_moss", "mycelium", "mushroom_stem", "cap_red", "cap_violet", "cap_blue", "gills", "ice_blue", "rail_bed"];
 
-pub const BLOCKS: [Block; 1068] = [
+pub const BLOCKS: [Block; 1078] = [
     Block { id: 0, name: "air", shape: Shape::Air, hardness: 0.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "decor", drop: Some("air") },
     Block { id: 1, name: "grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
     Block { id: 2, name: "dirt", shape: Shape::Cube, hardness: 0.45, faces: [8,8,8], dir_faces: [8,8,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
@@ -953,126 +953,136 @@ pub const BLOCKS: [Block; 1068] = [
     Block { id: 945, name: "oak_post_diag_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_diag") },
     Block { id: 946, name: "oak_post_diag_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_diag") },
     Block { id: 947, name: "oak_post_diag_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_diag") },
-    Block { id: 948, name: "oak_post_angle", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
-    Block { id: 949, name: "oak_post_angle_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
-    Block { id: 950, name: "oak_post_angle_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
-    Block { id: 951, name: "oak_post_angle_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
-    Block { id: 952, name: "oak_post_angle_top", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
-    Block { id: 953, name: "oak_post_angle_top_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
-    Block { id: 954, name: "oak_post_angle_top_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
-    Block { id: 955, name: "oak_post_angle_top_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
-    Block { id: 956, name: "birch_post", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post") },
-    Block { id: 957, name: "birch_post_x", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post") },
-    Block { id: 958, name: "birch_post_z", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post") },
-    Block { id: 959, name: "birch_post_diag", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_diag") },
-    Block { id: 960, name: "birch_post_diag_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_diag") },
-    Block { id: 961, name: "birch_post_diag_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_diag") },
-    Block { id: 962, name: "birch_post_diag_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_diag") },
-    Block { id: 963, name: "birch_post_angle", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
-    Block { id: 964, name: "birch_post_angle_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
-    Block { id: 965, name: "birch_post_angle_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
-    Block { id: 966, name: "birch_post_angle_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
-    Block { id: 967, name: "birch_post_angle_top", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
-    Block { id: 968, name: "birch_post_angle_top_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
-    Block { id: 969, name: "birch_post_angle_top_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
-    Block { id: 970, name: "birch_post_angle_top_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
-    Block { id: 971, name: "beech_post", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post") },
-    Block { id: 972, name: "beech_post_x", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post") },
-    Block { id: 973, name: "beech_post_z", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post") },
-    Block { id: 974, name: "beech_post_diag", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_diag") },
-    Block { id: 975, name: "beech_post_diag_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_diag") },
-    Block { id: 976, name: "beech_post_diag_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_diag") },
-    Block { id: 977, name: "beech_post_diag_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_diag") },
-    Block { id: 978, name: "beech_post_angle", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
-    Block { id: 979, name: "beech_post_angle_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
-    Block { id: 980, name: "beech_post_angle_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
-    Block { id: 981, name: "beech_post_angle_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
-    Block { id: 982, name: "beech_post_angle_top", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
-    Block { id: 983, name: "beech_post_angle_top_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
-    Block { id: 984, name: "beech_post_angle_top_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
-    Block { id: 985, name: "beech_post_angle_top_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
-    Block { id: 986, name: "spruce_post", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post") },
-    Block { id: 987, name: "spruce_post_x", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post") },
-    Block { id: 988, name: "spruce_post_z", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post") },
-    Block { id: 989, name: "spruce_post_diag", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_diag") },
-    Block { id: 990, name: "spruce_post_diag_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_diag") },
-    Block { id: 991, name: "spruce_post_diag_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_diag") },
-    Block { id: 992, name: "spruce_post_diag_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_diag") },
-    Block { id: 993, name: "spruce_post_angle", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
-    Block { id: 994, name: "spruce_post_angle_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
-    Block { id: 995, name: "spruce_post_angle_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
-    Block { id: 996, name: "spruce_post_angle_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
-    Block { id: 997, name: "spruce_post_angle_top", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
-    Block { id: 998, name: "spruce_post_angle_top_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
-    Block { id: 999, name: "spruce_post_angle_top_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
-    Block { id: 1000, name: "spruce_post_angle_top_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
-    Block { id: 1001, name: "acacia_post", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post") },
-    Block { id: 1002, name: "acacia_post_x", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post") },
-    Block { id: 1003, name: "acacia_post_z", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post") },
-    Block { id: 1004, name: "acacia_post_diag", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_diag") },
-    Block { id: 1005, name: "acacia_post_diag_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_diag") },
-    Block { id: 1006, name: "acacia_post_diag_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_diag") },
-    Block { id: 1007, name: "acacia_post_diag_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_diag") },
-    Block { id: 1008, name: "acacia_post_angle", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
-    Block { id: 1009, name: "acacia_post_angle_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
-    Block { id: 1010, name: "acacia_post_angle_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
-    Block { id: 1011, name: "acacia_post_angle_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
-    Block { id: 1012, name: "acacia_post_angle_top", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
-    Block { id: 1013, name: "acacia_post_angle_top_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
-    Block { id: 1014, name: "acacia_post_angle_top_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
-    Block { id: 1015, name: "acacia_post_angle_top_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
-    Block { id: 1016, name: "stone_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
-    Block { id: 1017, name: "stone_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
-    Block { id: 1018, name: "stone_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
-    Block { id: 1019, name: "stone_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
-    Block { id: 1020, name: "stone_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
-    Block { id: 1021, name: "stone_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
-    Block { id: 1022, name: "ice_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
-    Block { id: 1023, name: "ice_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
-    Block { id: 1024, name: "ice_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
-    Block { id: 1025, name: "ice_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
-    Block { id: 1026, name: "ice_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
-    Block { id: 1027, name: "ice_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
-    Block { id: 1028, name: "basalt_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
-    Block { id: 1029, name: "basalt_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
-    Block { id: 1030, name: "basalt_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
-    Block { id: 1031, name: "basalt_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
-    Block { id: 1032, name: "basalt_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
-    Block { id: 1033, name: "basalt_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
-    Block { id: 1034, name: "sandstone_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
-    Block { id: 1035, name: "sandstone_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
-    Block { id: 1036, name: "sandstone_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
-    Block { id: 1037, name: "sandstone_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
-    Block { id: 1038, name: "sandstone_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
-    Block { id: 1039, name: "sandstone_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
-    Block { id: 1040, name: "crystal_violet_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
-    Block { id: 1041, name: "crystal_violet_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
-    Block { id: 1042, name: "crystal_violet_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
-    Block { id: 1043, name: "crystal_violet_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
-    Block { id: 1044, name: "crystal_violet_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
-    Block { id: 1045, name: "crystal_violet_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
-    Block { id: 1046, name: "crystal_blue_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
-    Block { id: 1047, name: "crystal_blue_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
-    Block { id: 1048, name: "crystal_blue_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
-    Block { id: 1049, name: "crystal_blue_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
-    Block { id: 1050, name: "crystal_blue_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
-    Block { id: 1051, name: "crystal_blue_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
-    Block { id: 1052, name: "crystal_pink_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
-    Block { id: 1053, name: "crystal_pink_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
-    Block { id: 1054, name: "crystal_pink_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
-    Block { id: 1055, name: "crystal_pink_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
-    Block { id: 1056, name: "crystal_pink_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
-    Block { id: 1057, name: "crystal_pink_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
-    Block { id: 1058, name: "crystal_white_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
-    Block { id: 1059, name: "crystal_white_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
-    Block { id: 1060, name: "crystal_white_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
-    Block { id: 1061, name: "crystal_white_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
-    Block { id: 1062, name: "crystal_white_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
-    Block { id: 1063, name: "crystal_white_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
-    Block { id: 1064, name: "glow_vine", shape: Shape::Deco, hardness: 0.05, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("glow_vine"), cat: "foliage", drop: Some("glow_vine") },
-    Block { id: 1065, name: "roots", shape: Shape::Deco, hardness: 0.1, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("roots"), cat: "foliage", drop: Some("stick") },
-    Block { id: 1066, name: "rail_x", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rail"), cat: "wood", drop: Some("rail") },
-    Block { id: 1067, name: "rail_z", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rail"), cat: "wood", drop: Some("rail") },
+    Block { id: 948, name: "oak_post_diag_flat", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_diag") },
+    Block { id: 949, name: "oak_post_diag_flat_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_diag") },
+    Block { id: 950, name: "oak_post_angle", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
+    Block { id: 951, name: "oak_post_angle_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
+    Block { id: 952, name: "oak_post_angle_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
+    Block { id: 953, name: "oak_post_angle_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
+    Block { id: 954, name: "oak_post_angle_top", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
+    Block { id: 955, name: "oak_post_angle_top_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
+    Block { id: 956, name: "oak_post_angle_top_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
+    Block { id: 957, name: "oak_post_angle_top_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("oak_post_angle") },
+    Block { id: 958, name: "birch_post", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post") },
+    Block { id: 959, name: "birch_post_x", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post") },
+    Block { id: 960, name: "birch_post_z", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post") },
+    Block { id: 961, name: "birch_post_diag", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_diag") },
+    Block { id: 962, name: "birch_post_diag_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_diag") },
+    Block { id: 963, name: "birch_post_diag_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_diag") },
+    Block { id: 964, name: "birch_post_diag_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_diag") },
+    Block { id: 965, name: "birch_post_diag_flat", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_diag") },
+    Block { id: 966, name: "birch_post_diag_flat_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_diag") },
+    Block { id: 967, name: "birch_post_angle", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
+    Block { id: 968, name: "birch_post_angle_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
+    Block { id: 969, name: "birch_post_angle_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
+    Block { id: 970, name: "birch_post_angle_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
+    Block { id: 971, name: "birch_post_angle_top", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
+    Block { id: 972, name: "birch_post_angle_top_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
+    Block { id: 973, name: "birch_post_angle_top_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
+    Block { id: 974, name: "birch_post_angle_top_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("birch_post_angle") },
+    Block { id: 975, name: "beech_post", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post") },
+    Block { id: 976, name: "beech_post_x", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post") },
+    Block { id: 977, name: "beech_post_z", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post") },
+    Block { id: 978, name: "beech_post_diag", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_diag") },
+    Block { id: 979, name: "beech_post_diag_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_diag") },
+    Block { id: 980, name: "beech_post_diag_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_diag") },
+    Block { id: 981, name: "beech_post_diag_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_diag") },
+    Block { id: 982, name: "beech_post_diag_flat", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_diag") },
+    Block { id: 983, name: "beech_post_diag_flat_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_diag") },
+    Block { id: 984, name: "beech_post_angle", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
+    Block { id: 985, name: "beech_post_angle_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
+    Block { id: 986, name: "beech_post_angle_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
+    Block { id: 987, name: "beech_post_angle_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
+    Block { id: 988, name: "beech_post_angle_top", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
+    Block { id: 989, name: "beech_post_angle_top_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
+    Block { id: 990, name: "beech_post_angle_top_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
+    Block { id: 991, name: "beech_post_angle_top_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("beech_post_angle") },
+    Block { id: 992, name: "spruce_post", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post") },
+    Block { id: 993, name: "spruce_post_x", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post") },
+    Block { id: 994, name: "spruce_post_z", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post") },
+    Block { id: 995, name: "spruce_post_diag", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_diag") },
+    Block { id: 996, name: "spruce_post_diag_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_diag") },
+    Block { id: 997, name: "spruce_post_diag_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_diag") },
+    Block { id: 998, name: "spruce_post_diag_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_diag") },
+    Block { id: 999, name: "spruce_post_diag_flat", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_diag") },
+    Block { id: 1000, name: "spruce_post_diag_flat_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_diag") },
+    Block { id: 1001, name: "spruce_post_angle", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
+    Block { id: 1002, name: "spruce_post_angle_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
+    Block { id: 1003, name: "spruce_post_angle_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
+    Block { id: 1004, name: "spruce_post_angle_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
+    Block { id: 1005, name: "spruce_post_angle_top", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
+    Block { id: 1006, name: "spruce_post_angle_top_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
+    Block { id: 1007, name: "spruce_post_angle_top_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
+    Block { id: 1008, name: "spruce_post_angle_top_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("spruce_post_angle") },
+    Block { id: 1009, name: "acacia_post", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post") },
+    Block { id: 1010, name: "acacia_post_x", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post") },
+    Block { id: 1011, name: "acacia_post_z", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post") },
+    Block { id: 1012, name: "acacia_post_diag", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_diag") },
+    Block { id: 1013, name: "acacia_post_diag_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_diag") },
+    Block { id: 1014, name: "acacia_post_diag_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_diag") },
+    Block { id: 1015, name: "acacia_post_diag_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_diag") },
+    Block { id: 1016, name: "acacia_post_diag_flat", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_diag") },
+    Block { id: 1017, name: "acacia_post_diag_flat_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_diag") },
+    Block { id: 1018, name: "acacia_post_angle", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
+    Block { id: 1019, name: "acacia_post_angle_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
+    Block { id: 1020, name: "acacia_post_angle_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
+    Block { id: 1021, name: "acacia_post_angle_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
+    Block { id: 1022, name: "acacia_post_angle_top", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
+    Block { id: 1023, name: "acacia_post_angle_top_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
+    Block { id: 1024, name: "acacia_post_angle_top_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
+    Block { id: 1025, name: "acacia_post_angle_top_3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("post"), cat: "wood", drop: Some("acacia_post_angle") },
+    Block { id: 1026, name: "stone_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 1027, name: "stone_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 1028, name: "stone_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 1029, name: "stone_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 1030, name: "stone_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 1031, name: "stone_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 1032, name: "ice_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 1033, name: "ice_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 1034, name: "ice_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 1035, name: "ice_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 1036, name: "ice_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 1037, name: "ice_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 1038, name: "basalt_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 1039, name: "basalt_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 1040, name: "basalt_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 1041, name: "basalt_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 1042, name: "basalt_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 1043, name: "basalt_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 1044, name: "sandstone_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 1045, name: "sandstone_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 1046, name: "sandstone_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 1047, name: "sandstone_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 1048, name: "sandstone_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 1049, name: "sandstone_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 1050, name: "crystal_violet_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 1051, name: "crystal_violet_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 1052, name: "crystal_violet_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 1053, name: "crystal_violet_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 1054, name: "crystal_violet_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 1055, name: "crystal_violet_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 1056, name: "crystal_blue_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 1057, name: "crystal_blue_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 1058, name: "crystal_blue_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 1059, name: "crystal_blue_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 1060, name: "crystal_blue_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 1061, name: "crystal_blue_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 1062, name: "crystal_pink_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 1063, name: "crystal_pink_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 1064, name: "crystal_pink_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 1065, name: "crystal_pink_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 1066, name: "crystal_pink_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 1067, name: "crystal_pink_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 1068, name: "crystal_white_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 1069, name: "crystal_white_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 1070, name: "crystal_white_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 1071, name: "crystal_white_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 1072, name: "crystal_white_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 1073, name: "crystal_white_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 1074, name: "glow_vine", shape: Shape::Deco, hardness: 0.05, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("glow_vine"), cat: "foliage", drop: Some("glow_vine") },
+    Block { id: 1075, name: "roots", shape: Shape::Deco, hardness: 0.1, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("roots"), cat: "foliage", drop: Some("stick") },
+    Block { id: 1076, name: "rail_x", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rail"), cat: "wood", drop: Some("rail") },
+    Block { id: 1077, name: "rail_z", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rail"), cat: "wood", drop: Some("rail") },
 ];
 
 #[allow(non_snake_case)]
@@ -1920,124 +1930,134 @@ pub mod B {
     pub const OAK_POST_DIAG_1: crate::blocks::Id = 945;
     pub const OAK_POST_DIAG_2: crate::blocks::Id = 946;
     pub const OAK_POST_DIAG_3: crate::blocks::Id = 947;
-    pub const OAK_POST_ANGLE: crate::blocks::Id = 948;
-    pub const OAK_POST_ANGLE_1: crate::blocks::Id = 949;
-    pub const OAK_POST_ANGLE_2: crate::blocks::Id = 950;
-    pub const OAK_POST_ANGLE_3: crate::blocks::Id = 951;
-    pub const OAK_POST_ANGLE_TOP: crate::blocks::Id = 952;
-    pub const OAK_POST_ANGLE_TOP_1: crate::blocks::Id = 953;
-    pub const OAK_POST_ANGLE_TOP_2: crate::blocks::Id = 954;
-    pub const OAK_POST_ANGLE_TOP_3: crate::blocks::Id = 955;
-    pub const BIRCH_POST: crate::blocks::Id = 956;
-    pub const BIRCH_POST_X: crate::blocks::Id = 957;
-    pub const BIRCH_POST_Z: crate::blocks::Id = 958;
-    pub const BIRCH_POST_DIAG: crate::blocks::Id = 959;
-    pub const BIRCH_POST_DIAG_1: crate::blocks::Id = 960;
-    pub const BIRCH_POST_DIAG_2: crate::blocks::Id = 961;
-    pub const BIRCH_POST_DIAG_3: crate::blocks::Id = 962;
-    pub const BIRCH_POST_ANGLE: crate::blocks::Id = 963;
-    pub const BIRCH_POST_ANGLE_1: crate::blocks::Id = 964;
-    pub const BIRCH_POST_ANGLE_2: crate::blocks::Id = 965;
-    pub const BIRCH_POST_ANGLE_3: crate::blocks::Id = 966;
-    pub const BIRCH_POST_ANGLE_TOP: crate::blocks::Id = 967;
-    pub const BIRCH_POST_ANGLE_TOP_1: crate::blocks::Id = 968;
-    pub const BIRCH_POST_ANGLE_TOP_2: crate::blocks::Id = 969;
-    pub const BIRCH_POST_ANGLE_TOP_3: crate::blocks::Id = 970;
-    pub const BEECH_POST: crate::blocks::Id = 971;
-    pub const BEECH_POST_X: crate::blocks::Id = 972;
-    pub const BEECH_POST_Z: crate::blocks::Id = 973;
-    pub const BEECH_POST_DIAG: crate::blocks::Id = 974;
-    pub const BEECH_POST_DIAG_1: crate::blocks::Id = 975;
-    pub const BEECH_POST_DIAG_2: crate::blocks::Id = 976;
-    pub const BEECH_POST_DIAG_3: crate::blocks::Id = 977;
-    pub const BEECH_POST_ANGLE: crate::blocks::Id = 978;
-    pub const BEECH_POST_ANGLE_1: crate::blocks::Id = 979;
-    pub const BEECH_POST_ANGLE_2: crate::blocks::Id = 980;
-    pub const BEECH_POST_ANGLE_3: crate::blocks::Id = 981;
-    pub const BEECH_POST_ANGLE_TOP: crate::blocks::Id = 982;
-    pub const BEECH_POST_ANGLE_TOP_1: crate::blocks::Id = 983;
-    pub const BEECH_POST_ANGLE_TOP_2: crate::blocks::Id = 984;
-    pub const BEECH_POST_ANGLE_TOP_3: crate::blocks::Id = 985;
-    pub const SPRUCE_POST: crate::blocks::Id = 986;
-    pub const SPRUCE_POST_X: crate::blocks::Id = 987;
-    pub const SPRUCE_POST_Z: crate::blocks::Id = 988;
-    pub const SPRUCE_POST_DIAG: crate::blocks::Id = 989;
-    pub const SPRUCE_POST_DIAG_1: crate::blocks::Id = 990;
-    pub const SPRUCE_POST_DIAG_2: crate::blocks::Id = 991;
-    pub const SPRUCE_POST_DIAG_3: crate::blocks::Id = 992;
-    pub const SPRUCE_POST_ANGLE: crate::blocks::Id = 993;
-    pub const SPRUCE_POST_ANGLE_1: crate::blocks::Id = 994;
-    pub const SPRUCE_POST_ANGLE_2: crate::blocks::Id = 995;
-    pub const SPRUCE_POST_ANGLE_3: crate::blocks::Id = 996;
-    pub const SPRUCE_POST_ANGLE_TOP: crate::blocks::Id = 997;
-    pub const SPRUCE_POST_ANGLE_TOP_1: crate::blocks::Id = 998;
-    pub const SPRUCE_POST_ANGLE_TOP_2: crate::blocks::Id = 999;
-    pub const SPRUCE_POST_ANGLE_TOP_3: crate::blocks::Id = 1000;
-    pub const ACACIA_POST: crate::blocks::Id = 1001;
-    pub const ACACIA_POST_X: crate::blocks::Id = 1002;
-    pub const ACACIA_POST_Z: crate::blocks::Id = 1003;
-    pub const ACACIA_POST_DIAG: crate::blocks::Id = 1004;
-    pub const ACACIA_POST_DIAG_1: crate::blocks::Id = 1005;
-    pub const ACACIA_POST_DIAG_2: crate::blocks::Id = 1006;
-    pub const ACACIA_POST_DIAG_3: crate::blocks::Id = 1007;
-    pub const ACACIA_POST_ANGLE: crate::blocks::Id = 1008;
-    pub const ACACIA_POST_ANGLE_1: crate::blocks::Id = 1009;
-    pub const ACACIA_POST_ANGLE_2: crate::blocks::Id = 1010;
-    pub const ACACIA_POST_ANGLE_3: crate::blocks::Id = 1011;
-    pub const ACACIA_POST_ANGLE_TOP: crate::blocks::Id = 1012;
-    pub const ACACIA_POST_ANGLE_TOP_1: crate::blocks::Id = 1013;
-    pub const ACACIA_POST_ANGLE_TOP_2: crate::blocks::Id = 1014;
-    pub const ACACIA_POST_ANGLE_TOP_3: crate::blocks::Id = 1015;
-    pub const STONE_POINT_DOWN_0: crate::blocks::Id = 1016;
-    pub const STONE_POINT_DOWN_1: crate::blocks::Id = 1017;
-    pub const STONE_POINT_DOWN_2: crate::blocks::Id = 1018;
-    pub const STONE_POINT_UP_0: crate::blocks::Id = 1019;
-    pub const STONE_POINT_UP_1: crate::blocks::Id = 1020;
-    pub const STONE_POINT_UP_2: crate::blocks::Id = 1021;
-    pub const ICE_POINT_DOWN_0: crate::blocks::Id = 1022;
-    pub const ICE_POINT_DOWN_1: crate::blocks::Id = 1023;
-    pub const ICE_POINT_DOWN_2: crate::blocks::Id = 1024;
-    pub const ICE_POINT_UP_0: crate::blocks::Id = 1025;
-    pub const ICE_POINT_UP_1: crate::blocks::Id = 1026;
-    pub const ICE_POINT_UP_2: crate::blocks::Id = 1027;
-    pub const BASALT_POINT_DOWN_0: crate::blocks::Id = 1028;
-    pub const BASALT_POINT_DOWN_1: crate::blocks::Id = 1029;
-    pub const BASALT_POINT_DOWN_2: crate::blocks::Id = 1030;
-    pub const BASALT_POINT_UP_0: crate::blocks::Id = 1031;
-    pub const BASALT_POINT_UP_1: crate::blocks::Id = 1032;
-    pub const BASALT_POINT_UP_2: crate::blocks::Id = 1033;
-    pub const SANDSTONE_POINT_DOWN_0: crate::blocks::Id = 1034;
-    pub const SANDSTONE_POINT_DOWN_1: crate::blocks::Id = 1035;
-    pub const SANDSTONE_POINT_DOWN_2: crate::blocks::Id = 1036;
-    pub const SANDSTONE_POINT_UP_0: crate::blocks::Id = 1037;
-    pub const SANDSTONE_POINT_UP_1: crate::blocks::Id = 1038;
-    pub const SANDSTONE_POINT_UP_2: crate::blocks::Id = 1039;
-    pub const CRYSTAL_VIOLET_POINT_DOWN_0: crate::blocks::Id = 1040;
-    pub const CRYSTAL_VIOLET_POINT_DOWN_1: crate::blocks::Id = 1041;
-    pub const CRYSTAL_VIOLET_POINT_DOWN_2: crate::blocks::Id = 1042;
-    pub const CRYSTAL_VIOLET_POINT_UP_0: crate::blocks::Id = 1043;
-    pub const CRYSTAL_VIOLET_POINT_UP_1: crate::blocks::Id = 1044;
-    pub const CRYSTAL_VIOLET_POINT_UP_2: crate::blocks::Id = 1045;
-    pub const CRYSTAL_BLUE_POINT_DOWN_0: crate::blocks::Id = 1046;
-    pub const CRYSTAL_BLUE_POINT_DOWN_1: crate::blocks::Id = 1047;
-    pub const CRYSTAL_BLUE_POINT_DOWN_2: crate::blocks::Id = 1048;
-    pub const CRYSTAL_BLUE_POINT_UP_0: crate::blocks::Id = 1049;
-    pub const CRYSTAL_BLUE_POINT_UP_1: crate::blocks::Id = 1050;
-    pub const CRYSTAL_BLUE_POINT_UP_2: crate::blocks::Id = 1051;
-    pub const CRYSTAL_PINK_POINT_DOWN_0: crate::blocks::Id = 1052;
-    pub const CRYSTAL_PINK_POINT_DOWN_1: crate::blocks::Id = 1053;
-    pub const CRYSTAL_PINK_POINT_DOWN_2: crate::blocks::Id = 1054;
-    pub const CRYSTAL_PINK_POINT_UP_0: crate::blocks::Id = 1055;
-    pub const CRYSTAL_PINK_POINT_UP_1: crate::blocks::Id = 1056;
-    pub const CRYSTAL_PINK_POINT_UP_2: crate::blocks::Id = 1057;
-    pub const CRYSTAL_WHITE_POINT_DOWN_0: crate::blocks::Id = 1058;
-    pub const CRYSTAL_WHITE_POINT_DOWN_1: crate::blocks::Id = 1059;
-    pub const CRYSTAL_WHITE_POINT_DOWN_2: crate::blocks::Id = 1060;
-    pub const CRYSTAL_WHITE_POINT_UP_0: crate::blocks::Id = 1061;
-    pub const CRYSTAL_WHITE_POINT_UP_1: crate::blocks::Id = 1062;
-    pub const CRYSTAL_WHITE_POINT_UP_2: crate::blocks::Id = 1063;
-    pub const GLOW_VINE: crate::blocks::Id = 1064;
-    pub const ROOTS: crate::blocks::Id = 1065;
-    pub const RAIL_X: crate::blocks::Id = 1066;
-    pub const RAIL_Z: crate::blocks::Id = 1067;
+    pub const OAK_POST_DIAG_FLAT: crate::blocks::Id = 948;
+    pub const OAK_POST_DIAG_FLAT_1: crate::blocks::Id = 949;
+    pub const OAK_POST_ANGLE: crate::blocks::Id = 950;
+    pub const OAK_POST_ANGLE_1: crate::blocks::Id = 951;
+    pub const OAK_POST_ANGLE_2: crate::blocks::Id = 952;
+    pub const OAK_POST_ANGLE_3: crate::blocks::Id = 953;
+    pub const OAK_POST_ANGLE_TOP: crate::blocks::Id = 954;
+    pub const OAK_POST_ANGLE_TOP_1: crate::blocks::Id = 955;
+    pub const OAK_POST_ANGLE_TOP_2: crate::blocks::Id = 956;
+    pub const OAK_POST_ANGLE_TOP_3: crate::blocks::Id = 957;
+    pub const BIRCH_POST: crate::blocks::Id = 958;
+    pub const BIRCH_POST_X: crate::blocks::Id = 959;
+    pub const BIRCH_POST_Z: crate::blocks::Id = 960;
+    pub const BIRCH_POST_DIAG: crate::blocks::Id = 961;
+    pub const BIRCH_POST_DIAG_1: crate::blocks::Id = 962;
+    pub const BIRCH_POST_DIAG_2: crate::blocks::Id = 963;
+    pub const BIRCH_POST_DIAG_3: crate::blocks::Id = 964;
+    pub const BIRCH_POST_DIAG_FLAT: crate::blocks::Id = 965;
+    pub const BIRCH_POST_DIAG_FLAT_1: crate::blocks::Id = 966;
+    pub const BIRCH_POST_ANGLE: crate::blocks::Id = 967;
+    pub const BIRCH_POST_ANGLE_1: crate::blocks::Id = 968;
+    pub const BIRCH_POST_ANGLE_2: crate::blocks::Id = 969;
+    pub const BIRCH_POST_ANGLE_3: crate::blocks::Id = 970;
+    pub const BIRCH_POST_ANGLE_TOP: crate::blocks::Id = 971;
+    pub const BIRCH_POST_ANGLE_TOP_1: crate::blocks::Id = 972;
+    pub const BIRCH_POST_ANGLE_TOP_2: crate::blocks::Id = 973;
+    pub const BIRCH_POST_ANGLE_TOP_3: crate::blocks::Id = 974;
+    pub const BEECH_POST: crate::blocks::Id = 975;
+    pub const BEECH_POST_X: crate::blocks::Id = 976;
+    pub const BEECH_POST_Z: crate::blocks::Id = 977;
+    pub const BEECH_POST_DIAG: crate::blocks::Id = 978;
+    pub const BEECH_POST_DIAG_1: crate::blocks::Id = 979;
+    pub const BEECH_POST_DIAG_2: crate::blocks::Id = 980;
+    pub const BEECH_POST_DIAG_3: crate::blocks::Id = 981;
+    pub const BEECH_POST_DIAG_FLAT: crate::blocks::Id = 982;
+    pub const BEECH_POST_DIAG_FLAT_1: crate::blocks::Id = 983;
+    pub const BEECH_POST_ANGLE: crate::blocks::Id = 984;
+    pub const BEECH_POST_ANGLE_1: crate::blocks::Id = 985;
+    pub const BEECH_POST_ANGLE_2: crate::blocks::Id = 986;
+    pub const BEECH_POST_ANGLE_3: crate::blocks::Id = 987;
+    pub const BEECH_POST_ANGLE_TOP: crate::blocks::Id = 988;
+    pub const BEECH_POST_ANGLE_TOP_1: crate::blocks::Id = 989;
+    pub const BEECH_POST_ANGLE_TOP_2: crate::blocks::Id = 990;
+    pub const BEECH_POST_ANGLE_TOP_3: crate::blocks::Id = 991;
+    pub const SPRUCE_POST: crate::blocks::Id = 992;
+    pub const SPRUCE_POST_X: crate::blocks::Id = 993;
+    pub const SPRUCE_POST_Z: crate::blocks::Id = 994;
+    pub const SPRUCE_POST_DIAG: crate::blocks::Id = 995;
+    pub const SPRUCE_POST_DIAG_1: crate::blocks::Id = 996;
+    pub const SPRUCE_POST_DIAG_2: crate::blocks::Id = 997;
+    pub const SPRUCE_POST_DIAG_3: crate::blocks::Id = 998;
+    pub const SPRUCE_POST_DIAG_FLAT: crate::blocks::Id = 999;
+    pub const SPRUCE_POST_DIAG_FLAT_1: crate::blocks::Id = 1000;
+    pub const SPRUCE_POST_ANGLE: crate::blocks::Id = 1001;
+    pub const SPRUCE_POST_ANGLE_1: crate::blocks::Id = 1002;
+    pub const SPRUCE_POST_ANGLE_2: crate::blocks::Id = 1003;
+    pub const SPRUCE_POST_ANGLE_3: crate::blocks::Id = 1004;
+    pub const SPRUCE_POST_ANGLE_TOP: crate::blocks::Id = 1005;
+    pub const SPRUCE_POST_ANGLE_TOP_1: crate::blocks::Id = 1006;
+    pub const SPRUCE_POST_ANGLE_TOP_2: crate::blocks::Id = 1007;
+    pub const SPRUCE_POST_ANGLE_TOP_3: crate::blocks::Id = 1008;
+    pub const ACACIA_POST: crate::blocks::Id = 1009;
+    pub const ACACIA_POST_X: crate::blocks::Id = 1010;
+    pub const ACACIA_POST_Z: crate::blocks::Id = 1011;
+    pub const ACACIA_POST_DIAG: crate::blocks::Id = 1012;
+    pub const ACACIA_POST_DIAG_1: crate::blocks::Id = 1013;
+    pub const ACACIA_POST_DIAG_2: crate::blocks::Id = 1014;
+    pub const ACACIA_POST_DIAG_3: crate::blocks::Id = 1015;
+    pub const ACACIA_POST_DIAG_FLAT: crate::blocks::Id = 1016;
+    pub const ACACIA_POST_DIAG_FLAT_1: crate::blocks::Id = 1017;
+    pub const ACACIA_POST_ANGLE: crate::blocks::Id = 1018;
+    pub const ACACIA_POST_ANGLE_1: crate::blocks::Id = 1019;
+    pub const ACACIA_POST_ANGLE_2: crate::blocks::Id = 1020;
+    pub const ACACIA_POST_ANGLE_3: crate::blocks::Id = 1021;
+    pub const ACACIA_POST_ANGLE_TOP: crate::blocks::Id = 1022;
+    pub const ACACIA_POST_ANGLE_TOP_1: crate::blocks::Id = 1023;
+    pub const ACACIA_POST_ANGLE_TOP_2: crate::blocks::Id = 1024;
+    pub const ACACIA_POST_ANGLE_TOP_3: crate::blocks::Id = 1025;
+    pub const STONE_POINT_DOWN_0: crate::blocks::Id = 1026;
+    pub const STONE_POINT_DOWN_1: crate::blocks::Id = 1027;
+    pub const STONE_POINT_DOWN_2: crate::blocks::Id = 1028;
+    pub const STONE_POINT_UP_0: crate::blocks::Id = 1029;
+    pub const STONE_POINT_UP_1: crate::blocks::Id = 1030;
+    pub const STONE_POINT_UP_2: crate::blocks::Id = 1031;
+    pub const ICE_POINT_DOWN_0: crate::blocks::Id = 1032;
+    pub const ICE_POINT_DOWN_1: crate::blocks::Id = 1033;
+    pub const ICE_POINT_DOWN_2: crate::blocks::Id = 1034;
+    pub const ICE_POINT_UP_0: crate::blocks::Id = 1035;
+    pub const ICE_POINT_UP_1: crate::blocks::Id = 1036;
+    pub const ICE_POINT_UP_2: crate::blocks::Id = 1037;
+    pub const BASALT_POINT_DOWN_0: crate::blocks::Id = 1038;
+    pub const BASALT_POINT_DOWN_1: crate::blocks::Id = 1039;
+    pub const BASALT_POINT_DOWN_2: crate::blocks::Id = 1040;
+    pub const BASALT_POINT_UP_0: crate::blocks::Id = 1041;
+    pub const BASALT_POINT_UP_1: crate::blocks::Id = 1042;
+    pub const BASALT_POINT_UP_2: crate::blocks::Id = 1043;
+    pub const SANDSTONE_POINT_DOWN_0: crate::blocks::Id = 1044;
+    pub const SANDSTONE_POINT_DOWN_1: crate::blocks::Id = 1045;
+    pub const SANDSTONE_POINT_DOWN_2: crate::blocks::Id = 1046;
+    pub const SANDSTONE_POINT_UP_0: crate::blocks::Id = 1047;
+    pub const SANDSTONE_POINT_UP_1: crate::blocks::Id = 1048;
+    pub const SANDSTONE_POINT_UP_2: crate::blocks::Id = 1049;
+    pub const CRYSTAL_VIOLET_POINT_DOWN_0: crate::blocks::Id = 1050;
+    pub const CRYSTAL_VIOLET_POINT_DOWN_1: crate::blocks::Id = 1051;
+    pub const CRYSTAL_VIOLET_POINT_DOWN_2: crate::blocks::Id = 1052;
+    pub const CRYSTAL_VIOLET_POINT_UP_0: crate::blocks::Id = 1053;
+    pub const CRYSTAL_VIOLET_POINT_UP_1: crate::blocks::Id = 1054;
+    pub const CRYSTAL_VIOLET_POINT_UP_2: crate::blocks::Id = 1055;
+    pub const CRYSTAL_BLUE_POINT_DOWN_0: crate::blocks::Id = 1056;
+    pub const CRYSTAL_BLUE_POINT_DOWN_1: crate::blocks::Id = 1057;
+    pub const CRYSTAL_BLUE_POINT_DOWN_2: crate::blocks::Id = 1058;
+    pub const CRYSTAL_BLUE_POINT_UP_0: crate::blocks::Id = 1059;
+    pub const CRYSTAL_BLUE_POINT_UP_1: crate::blocks::Id = 1060;
+    pub const CRYSTAL_BLUE_POINT_UP_2: crate::blocks::Id = 1061;
+    pub const CRYSTAL_PINK_POINT_DOWN_0: crate::blocks::Id = 1062;
+    pub const CRYSTAL_PINK_POINT_DOWN_1: crate::blocks::Id = 1063;
+    pub const CRYSTAL_PINK_POINT_DOWN_2: crate::blocks::Id = 1064;
+    pub const CRYSTAL_PINK_POINT_UP_0: crate::blocks::Id = 1065;
+    pub const CRYSTAL_PINK_POINT_UP_1: crate::blocks::Id = 1066;
+    pub const CRYSTAL_PINK_POINT_UP_2: crate::blocks::Id = 1067;
+    pub const CRYSTAL_WHITE_POINT_DOWN_0: crate::blocks::Id = 1068;
+    pub const CRYSTAL_WHITE_POINT_DOWN_1: crate::blocks::Id = 1069;
+    pub const CRYSTAL_WHITE_POINT_DOWN_2: crate::blocks::Id = 1070;
+    pub const CRYSTAL_WHITE_POINT_UP_0: crate::blocks::Id = 1071;
+    pub const CRYSTAL_WHITE_POINT_UP_1: crate::blocks::Id = 1072;
+    pub const CRYSTAL_WHITE_POINT_UP_2: crate::blocks::Id = 1073;
+    pub const GLOW_VINE: crate::blocks::Id = 1074;
+    pub const ROOTS: crate::blocks::Id = 1075;
+    pub const RAIL_X: crate::blocks::Id = 1076;
+    pub const RAIL_Z: crate::blocks::Id = 1077;
 }

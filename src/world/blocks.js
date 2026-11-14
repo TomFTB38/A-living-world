@@ -415,6 +415,7 @@ cube('ice_blue', 'ice_blue', 0.8, 'terrain');
 for (const sp of ['oak', 'birch', 'beech', 'spruce', 'acacia']) {
   for (const a of ['', '_x', '_z']) defs.push([`${sp}_post${a}`, 'deco', null, 0.8, { model: 'post', solid: true, cat: 'wood', drop: `${sp}_post` }]);
   for (const f of ['', '_1', '_2', '_3']) defs.push([`${sp}_post_diag${f}`, 'deco', null, 0.8, { model: 'post', solid: true, cat: 'wood', drop: `${sp}_post_diag` }]);
+  for (const f of ['', '_1']) defs.push([`${sp}_post_diag_flat${f}`, 'deco', null, 0.8, { model: 'post', solid: true, cat: 'wood', drop: `${sp}_post_diag` }]); // à plat : la diagonale d'un plancher ou d'un plafond
   for (const t of ['', '_top']) for (const f of ['', '_1', '_2', '_3']) defs.push([`${sp}_post_angle${t}${f}`, 'deco', null, 0.8, { model: 'post', solid: true, cat: 'wood', drop: `${sp}_post_angle` }]);
 }
 // Pointes (stalactites vers le bas, stalagmites vers le haut) de chaque roche de grotte : la forme est celle des concrétions.

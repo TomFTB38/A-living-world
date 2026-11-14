@@ -278,7 +278,7 @@ impl WorldGen {
                 let Some(b) = cv.get(x, y, z) else { continue }; if b != B::STONE && b != B::GRANITE && b != B::DIRT { continue; }
                 let wet = n.n3(xf / 7.0 + 11.0, y as f64 / 3.0, zf / 7.0 - 5.0); let up = cv.get(x, y + 1, z); let open_up = up == Some(0) || up.is_some_and(is_water) || up == Some(B::LAVA) || up == Some(B::ICE);
                 let vein = n.n3(xf / 11.0 - 3.0, y as f64 / 9.0, zf / 11.0 + 8.0).abs() < 0.06;
-                let mut nb = if (open_up && wet > 0.05) || (hl.kind == Under::Karst && wet > 0.42) { st.crust } else if vein || wet > 0.5 { st.wall2 } else { st.wall };
+                let mut nb = if (open_up && wet > if hl.kind == Under::Glow { 0.34 } else { 0.05 }) || (hl.kind == Under::Karst && wet > 0.42) { st.crust } /* la mousse lumineuse en plaques, pas en tapis */ else if vein || wet > 0.5 { st.wall2 } else { st.wall };
                 if hl.kind == Under::Mineral && !open_up { let o = hash_float(x, y * 7 + z, s, 390); let deep = y < 30; // des gisements, pas un semis uniforme
                     let lode = n.n3(xf / 6.0 + 21.0, y as f64 / 5.0, zf / 6.0 - 4.0); if lode > 0.38 { nb = if o < 0.35 { B::COAL_ORE } else if o < 0.65 { B::COPPER_ORE } else if o < 0.85 || !deep { B::TIN_ORE } else { B::IRON_ORE }; } }
                 if hl.kind == Under::Volcanic && open_up && wet > 0.35 { nb = B::MAGMA; }
@@ -364,7 +364,7 @@ impl WorldGen {
                         let f = rr / (if lit { 1.0 } else { 0.45 }); cv.set(x, y, z, if f < 0.28 { B::TALL_GRASS } else if f < 0.42 { B::FERN } else if f < 0.48 { B::PINK_FLOWER } else if f < 0.52 { B::YELLOW_FLOWER } else if f < 0.54 { B::MUSHROOM } else { 0 });
                     }
                     Under::Fungal => { cv.set(x, y, z, if rr < 0.12 { B::MUSHROOM } else if rr < 0.17 { [B::GLOWCAP_PINK, B::GLOWCAP_VIOLET, B::GLOWCAP_CYAN, B::GLOWCAP][(r2 * 4.0) as usize % 4] } else { 0 }); }
-                    Under::Glow => { if n.n2(xf / 5.0 + 3.0, zf / 5.0) > 0.28 || (wet_edge && rr < 0.5) { cv.set(x, y - 1, z, B::GLOW_MOSS); } cv.set(x, y, z, if rr < 0.08 { [B::GLOWCAP_CYAN, B::GLOWCAP_BLUE, B::GLOWCAP_VIOLET][(r2 * 3.0) as usize % 3] } else if rr > 0.97 { B::CRYSTAL_BLUE_POINT_UP_2 } else { 0 }); }
+                    Under::Glow => { if n.n2(xf / 5.0 + 3.0, zf / 5.0) > 0.45 || (wet_edge && rr < 0.5) { cv.set(x, y - 1, z, B::GLOW_MOSS); } cv.set(x, y, z, if rr < 0.08 { [B::GLOWCAP_CYAN, B::GLOWCAP_BLUE, B::GLOWCAP_VIOLET][(r2 * 3.0) as usize % 3] } else if rr > 0.97 { B::CRYSTAL_BLUE_POINT_UP_2 } else { 0 }); }
                     Under::Crystal => { if rr < 0.05 { cv.set(x, y, z, [B::CRYSTAL_VIOLET_POINT_UP_2, B::CRYSTAL_PINK_POINT_UP_2, B::CRYSTAL_BLUE_POINT_UP_2, B::CRYSTAL_VIOLET_POINT_UP_1][(r2 * 4.0) as usize % 4]); } }
                     Under::Ice => { if rr < 0.5 { cv.set(x, y, z, by_name(&format!("snow_layer{}", if r2 < 0.5 { String::new() } else { format!("_{}", 2 + (r2 * 4.0) as i32) })).unwrap_or(B::SNOW_LAYER)); } else if rr > 0.985 { cv.set(x, y, z, B::CRYSTAL_WHITE_POINT_UP_1); } }
                     Under::Volcanic => { if rr < 0.01 && y > wl { cv.set(x, y, z, B::OBSIDIAN); } }
@@ -564,7 +564,7 @@ impl crate::session::Session {
         if let Some(relic) = match arg.as_deref() { Some("camp") => Some(Relic::Camp), Some("autel") => Some(Relic::Altar), Some("caveau") => Some(Relic::Vault), _ => None } {
             let Some((h, st)) = self.gen.nearest_site(p[0], p[2], 12, Some(relic)) else { return "Aucun vestige de ce genre dans les parages".into() };
             // on arrive à quelques pas, face au vestige
-            let (dx, dz) = match relic { Relic::Vault => (0.5, -5.5), _ => (0.5, 5.5) }; self.player.p = [st.x as f64 + dx, st.fl as f64 + 0.2, st.z as f64 + dz]; self.player.v = [0.0; 3];
+            let (dx, dz) = match relic { Relic::Vault => (0.5, -1.5) /* dans le caveau, face au coffre */, Relic::Altar => (0.5, 4.5), Relic::Camp => (0.5, 3.5) }; self.player.p = [st.x as f64 + dx, st.fl as f64 + 0.2, st.z as f64 + dz]; self.player.v = [0.0; 3];
             self.player.yaw = if dz > 0.0 { std::f64::consts::PI } else { 0.0 }; self.player.pitch = -0.1;
             return format!("{} dans une {}, à {}, {}, {}", match relic { Relic::Camp => "Camp de mineurs abandonné", Relic::Altar => "Autel de cristal", Relic::Vault => "Caveau" }, h.kind.name(), st.x, st.fl, st.z);
         }

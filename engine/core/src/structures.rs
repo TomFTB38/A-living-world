@@ -142,7 +142,9 @@ pub fn orient(b: Id, m: [[i32; 2]; 2]) -> Id {
     let f = match i.kind {
         // un angle couvre deux directions : f et f + 1
         Shape::Corner | Shape::Valley => { let (a, c) = (map(i.facing), map(i.facing + 1)); if (a + 1) % 4 == c { a } else { c } }
-        Shape::Peak | Shape::Drip | Shape::Post => return b, // une poutre droite a déjà suivi son axe
+        Shape::Peak | Shape::Drip | Shape::Post => return b,
+        // une diagonale à plat : son sens (+x +z ou +x -z) suit la rotation et la symétrie
+        Shape::Brace if i.top => { let (a, c) = if i.facing % 2 == 0 { (1, 1) } else { (1, -1) }; let (u, w) = (m[0][0] * a + m[1][0] * c, m[0][1] * a + m[1][1] * c); if u * w > 0 { 0 } else { 1 } } // une poutre droite a déjà suivi son axe
         _ => map(i.facing),
     };
     variant(i.base, f, i.top, i.open, i.upper)

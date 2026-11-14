@@ -533,6 +533,20 @@ fn capture(a: &[String]) {
         for _ in 0..10 { s.tick(0.05, none, Actions::default()); }
         let (tx, tz) = at(6, -1); let e = s.player.eye(); s.eye = e; s.look = view::norm([tx as f64 + 0.5 - e[0], y0 as f64 + 1.6 - e[1], tz as f64 + 0.5 - e[2]]);
     }
+    // Les vestiges souterrains : on arrive devant, comme avec /grotte camp, autel ou caveau.
+    if let Some(k) = scene.strip_prefix("vestige_") { pump(&mut s, &mut g); let m = s.goto_hall(Some(k)); println!("{scene} : {m}"); s.third = false; s.sel = 8; pump(&mut s, &mut g); let (yaw, pitch) = (s.player.yaw, s.player.pitch);
+        for _ in 0..40 { s.tick(0.1, none, Actions::default()); } s.player.yaw = yaw; s.player.pitch = pitch; s.tick(0.0, none, Actions::default()); }
+    if scene == "ronds" {
+        // Les meubles ronds en rang devant la caméra, sur une dalle : table, tabouret, tonneau, chaudron, seau, amphore, pot, fromage, ruche, billot.
+        use alw_core::blocks::{by_name, is_solid, B}; use alw_core::player::Voxels; pump(&mut s, &mut g);
+        let (fx, fz) = (s.player.yaw.sin(), s.player.yaw.cos()); let (dx, dz) = if fx.abs() > fz.abs() { (fx.signum() as i32, 0) } else { (0, fz.signum() as i32) }; let (lx, lz) = (-dz, dx);
+        let p = s.player.p; let (px, pz) = (p[0].floor() as i32, p[2].floor() as i32); let mut y0 = 120; while y0 > 2 && !s.world.get(px, y0, pz).is_some_and(is_solid) { y0 -= 1; } y0 += 1;
+        let at = |d: i32, k: i32| (px + dx * d + lx * k, pz + dz * d + lz * k); let mut e = Vec::new();
+        for d in -2..=8 { for k in -6..=6 { let (x, z) = at(d, k); e.push((x, y0 - 1, z, B::STONE)); for h in 0..6 { e.push((x, y0 + h, z, 0)); } } }
+        for (i, n) in ["round_table", "stool", "barrel", "cauldron", "bucket", "amphora", "flower_pot", "cheese", "beehive", "chopping_block"].iter().enumerate() { let (x, z) = at(3 + (i as i32 % 2), i as i32 - 5 + 1); e.push((x, y0, z, by_name(n).unwrap())); }
+        s.world.edit_many(&e); s.third = false; s.sel = 8; let (x, z) = at(-1, 0); s.player.p = [x as f64 + 0.5, y0 as f64, z as f64 + 0.5]; pump(&mut s, &mut g); for _ in 0..10 { s.tick(0.05, none, Actions::default()); }
+        let (tx, tz) = at(4, 0); let ey = s.player.eye(); s.eye = ey; s.look = view::norm([tx as f64 + 0.5 - ey[0], y0 as f64 + 0.3 - ey[1], tz as f64 + 0.5 - ey[2]]);
+    }
     if scene == "desert" || scene == "oasis" {
         // Le cœur du désert, vu d'un peu haut ; pour l'oasis, le premier point d'eau du désert.
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Desert) > 0.97 && (if scene == "oasis" { c.water != 0.0 } else { c.water == 0.0 && c.path == 0.0 }) { found = Some((x, z, a, c.h.max(c.water))); break 'p; } } }
@@ -627,7 +641,7 @@ fn capture(a: &[String]) {
             // dans la galerie : entre deux étais, dans l'axe, le regard qui suit la pente ; dehors : dans l'axe, quelques pas avant l'entrée
             let fy = |a: f64| (from[1] - 1.0 + (to[1] - from[1] + 1.0) * a).round(); let a = ((l * 0.3 / 4.0).floor() * 4.0 + 2.0) / l;
             let (p, t) = if scene == "mine_galerie" { ([from[0] + ux * l * a, fy(a), from[2] + uz * l * a], [from[0] + ux * l * (a + 0.25), fy(a + 0.25) + 1.4, from[2] + uz * l * (a + 0.25)]) }
-                else { let (x, z) = (from[0] - ux * 6.0, from[2] - uz * 6.0); ([x, w.column(x, z).h + 1.0, z], [from[0] + ux * 6.0, fy(6.0 / l) + 1.2, from[2] + uz * 6.0]) };
+                else { let (x, z) = (from[0] - ux * 2.5, from[2] - uz * 2.5); ([x, w.column(x, z).h + 1.0, z], [from[0] + ux * 5.0, fy(5.0 / l) + 1.6, from[2] + uz * 5.0]) }; // tout près du premier cadre, le regard dans la descente
             println!("{scene} : {from:?} → {to:?}"); s.third = false; s.sel = 8; s.player.p = p; pump(&mut s, &mut g); for _ in 0..30 { s.tick(0.1, none, Actions::default()); }
             let e = s.player.eye(); s.eye = e; s.look = view::norm([t[0] - e[0], t[1] - e[1], t[2] - e[2]]); }
     }

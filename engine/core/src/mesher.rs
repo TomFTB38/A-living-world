@@ -491,6 +491,13 @@ impl Mesher {
                 // Poutre fine : la géométrie de shapes.rs, dans l'écorce et le bois de bout du rondin de son essence. Chaque bras
                 // prend le rondin couché dans son sens, de sorte que l'écorce file le long de la poutre et que le bout montre ses cernes.
                 let Some(i) = crate::shapes::info(b) else { return }; let sp = species(b);
+                if i.kind == crate::shapes::Kind::Brace && i.top { // à plat : un rondin couché en diagonale dans le plan du sol
+                    let lb = BLOCKS[post_log(sp, 0) as usize]; let (h, w) = ((std::f64::consts::SQRT_2 + 2.0 * crate::shapes::BRACE_EXT) * 0.5, crate::shapes::POST); let r2 = std::f64::consts::FRAC_1_SQRT_2; let sg = if i.facing % 2 == 0 { 1.0 } else { -1.0 };
+                    let a = [[r2 * h, 0.0, sg * r2 * h], [0.0, w, 0.0], [-sg * r2 * w, 0.0, r2 * w]];
+                    let (top, side, end) = ((lb.dir_faces[1] as f64, lb.grain[1]), (lb.dir_faces[3] as f64, lb.grain[3]), (lb.dir_faces[0] as f64, lb.grain[0]));
+                    wood_obox(o, [x + 0.5, y + 0.5, z + 0.5], a, [top, top, side, side, end, end], s, l);
+                    return;
+                }
                 if i.kind == crate::shapes::Kind::Brace {
                     let lb = BLOCKS[post_log(sp, 1) as usize]; let (h, w) = ((std::f64::consts::SQRT_2 + 2.0 * crate::shapes::BRACE_EXT) * 0.5, crate::shapes::POST);
                     let (dx, dz) = [(0.0, 1.0), (1.0, 0.0), (0.0, -1.0), (-1.0, 0.0)][i.facing as usize % 4]; let r2 = std::f64::consts::FRAC_1_SQRT_2;

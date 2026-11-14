@@ -39,6 +39,7 @@ fn parse(name: &str) -> Option<Info> {
     if let Some(r) = name.strip_prefix("dripstone_") { let (d, k) = r.split_once('_')?; return Some(Info { kind: Kind::Drip, facing: digit(k)?.min(2), top: d == "down", open: false, upper: false, base: base(name) }); }
     // Poutres fines : « chêne_post[_x|_z] », « chêne_post_diag[_k] », « chêne_post_angle[_top][_k] ».
     if let Some(i) = name.find("_post") { if WOODS.contains(&&name[..i]) { let (sp, r) = (&name[..i], &name[i + 5..]);
+        if let Some(r) = r.strip_prefix("_diag_flat") { return Some(Info { kind: Kind::Brace, facing: r.strip_prefix('_').and_then(digit).unwrap_or(0) % 2, top: true, open: false, upper: false, base: base(&format!("{sp}_post_diag")) }); }
         if let Some(r) = r.strip_prefix("_diag") { return Some(Info { kind: Kind::Brace, facing: r.strip_prefix('_').and_then(digit).unwrap_or(0), top: false, open: false, upper: false, base: base(&format!("{sp}_post_diag")) }); }
         if let Some(r) = r.strip_prefix("_angle") { let top = r.starts_with("_top"); let r = r.strip_prefix("_top").unwrap_or(r);
             return Some(Info { kind: Kind::Elbow, facing: r.strip_prefix('_').and_then(digit).unwrap_or(0), top, open: false, upper: false, base: base(&format!("{sp}_post_angle")) }); }
@@ -85,6 +86,9 @@ pub fn geometry(i: Info) -> Vec<Bx> {
         Kind::Pillar => vec![[0.25, 0.0, 0.25, 0.75, 1.0, 0.75]],
         Kind::Post => { let (a, b) = (0.5 - POST, 0.5 + POST); vec![match f { 1 => [0.0, a, a, 1.0, b, b], 2 => [a, a, 0.0, b, b, 1.0], _ => [a, 0.0, a, b, 1.0, b] }] }
         // La diagonale, pour les collisions : quatre marches qui suivent la pente (on ne passe pas au travers, on n'y bute pas plus).
+        // À plat (`top`) : la diagonale court dans le plan du sol, de -x -z vers +x +z (sens 0) ou de -x +z vers +x -z (sens 1).
+        Kind::Brace if i.top => { let (a, b, t) = (0.5 - POST, 0.5 + POST, POST * std::f64::consts::SQRT_2);
+            (0..4).map(|k| { let (x0, x1) = (k as f64 * 0.25, (k + 1) as f64 * 0.25); let zc = (x0 + x1) * 0.5; let (z0, z1) = ((zc - t).max(0.0), (zc + t).min(1.0)); if f % 2 == 0 { [x0, a, z0, x1, b, z1] } else { [x0, a, 1.0 - z1, x1, b, 1.0 - z0] } }).collect() }
         Kind::Brace => { let (a, b, t) = (0.5 - POST, 0.5 + POST, POST * std::f64::consts::SQRT_2);
             r(&(0..4).map(|k| { let (z0, z1) = (k as f64 * 0.25, (k + 1) as f64 * 0.25); let yc = (z0 + z1) * 0.5; [a, (yc - t).max(0.0), z0, b, (yc + t).min(1.0), z1] }).collect::<Vec<_>>()) }
         Kind::Elbow => { let (a, b) = (0.5 - POST, 0.5 + POST); r(&[if i.top { [a, 0.0, a, b, b, b] } else { [a, a, a, b, 1.0, b] }, [a, a, b, b, b, 1.0]]) }
@@ -137,7 +141,7 @@ pub fn variant(base: Id, facing: u8, top: bool, open: bool, upper: bool) -> Id {
         Some(Kind::Window) => if f % 2 == 0 { "window".into() } else { "window_x".into() },
         Some(Kind::Drip) => match n.find("_point") { Some(i) => format!("{}_point_{}_{}", &n[..i], if top { "down" } else { "up" }, f.min(2)), None => format!("dripstone_{}_{}", if top { "down" } else { "up" }, f.min(2)) },
         Some(Kind::Post) => format!("{n}{}", ["", "_x", "_z"][f.min(2) as usize]),
-        Some(Kind::Brace) => format!("{n}{}", sfx(f)),
+        Some(Kind::Brace) => if top { format!("{n}_flat{}", if f % 2 == 0 { "" } else { "_1" }) } else { format!("{n}{}", sfx(f)) },
         Some(Kind::Elbow) => format!("{n}{}{}", if top { "_top" } else { "" }, sfx(f)),
         Some(Kind::Wall) => if f % 2 == 0 { "stone_wall".into() } else { "stone_wall_x".into() },
         Some(Kind::Slope) => format!("{n}{}{}", if top { "_top" } else { "" }, sfx(f)),
@@ -303,4 +307,17 @@ pub fn join_roofs(blocks: &mut [(i32, i32, i32, Id)]) {
     let last: std::collections::HashMap<(i32, i32, i32), Id> = blocks.iter().map(|b| ((b.0, b.1, b.2), b.3)).collect();
     for b in blocks.iter_mut() { if last.get(&(b.0, b.1, b.2)) != Some(&b.3) || !is_roof(b.3) { continue; }
         let (x, y, z) = (b.0, b.1, b.2); b.3 = roof_join(b.3, |dx, dz| last.get(&(x + dx, y, z + dz)).copied().unwrap_or(0)); }
+}
+
+/// Un arêtier ou une noue que ses voisines ne justifient plus (le pan perpendiculaire a été retiré) redevient une pente.
+/// `nb` : les voisins d'aujourd'hui ; `was` : les mêmes avec le bloc qu'on vient de retirer. On ne touche qu'aux angles
+/// que ce bloc justifiait : un angle posé à la main, sans raison d'être pour la règle, reste comme on l'a posé.
+pub fn roof_unjoin(b: Id, nb: impl Fn(i32, i32) -> Id, was: impl Fn(i32, i32) -> Id) -> Id {
+    let Some(i) = info(b).filter(|i| matches!(i.kind, Kind::Corner | Kind::Valley)) else { return b };
+    let n = BLOCKS[i.base as usize].name; let m = n.strip_suffix("_corner").or_else(|| n.strip_suffix("_valley")).unwrap_or(n);
+    let Some(slope) = by_name(&format!("{m}_slope")) else { return b }; let cands = [i.facing % 4, (i.facing + 1) % 4].map(|g| variant(slope, g, i.top, false, false));
+    if !cands.iter().any(|c| roof_join(*c, &was) == b) || cands.iter().any(|c| roof_join(*c, &nb) == b) { return b; }
+    // la pente qui reste : celle du pan encore là (une voisine de même sens), ou qui se lie autrement à ce qui l'entoure
+    let same = |c: Id| DIRS.iter().any(|(dx, dz)| nb(*dx, *dz) == c);
+    let keep = cands.iter().copied().find(|c| same(*c)).unwrap_or(cands[0]); roof_join(keep, &nb)
 }

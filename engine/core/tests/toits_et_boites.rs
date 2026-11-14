@@ -66,3 +66,22 @@ fn on_vise_et_on_bute_la_ou_le_bloc_est_dessiné() {
     for b in BLOCKS.iter().filter(|b| b.shape == Shape::Deco && b.solid && shapes::info(b.id).is_none()) {
         if let Some(v) = shapes::own_boxes(b.id, true) { for bb in v { assert!(bb[0] < bb[3] && bb[1] < bb[4] && bb[2] < bb[5] && bb.iter().all(|c| (0.0..=1.0).contains(c)), "{} : {bb:?}", b.name); } } }
 }
+
+#[test]
+fn un_angle_redevient_pente_quand_son_pan_disparait() {
+    // un arêtier formé par une pente vers +x au-dessus (côté +z) ; un pan parallèle reste à côté (-x)
+    let side = slope(1, false); let corner = shapes::roof_join(slope(0, false), |dx, dz| if (dx, dz) == (0, 1) { side } else { 0 }); assert_eq!(shapes::info(corner).unwrap().kind, Kind::Corner);
+    let now = |dx: i32, dz: i32| if (dx, dz) == (-1, 0) { slope(0, false) } else { 0 }; let was = |dx: i32, dz: i32| if (dx, dz) == (0, 1) { side } else { now(dx, dz) };
+    assert_eq!(shapes::roof_unjoin(corner, now, was), slope(0, false), "le pan retiré : l'arêtier redevient la pente de son rang");
+    // tant que le pan est là, ou si l'angle n'a jamais été justifié (posé à la main), rien ne bouge
+    assert_eq!(shapes::roof_unjoin(corner, was, was), corner); assert_eq!(shapes::roof_unjoin(corner, |_, _| 0, |_, _| 0), corner);
+}
+
+#[test]
+fn la_jambe_de_force_se_couche_a_plat() {
+    for sp in shapes::WOODS { for f in 0..2u8 {
+        let b = shapes::variant(by_name(&format!("{sp}_post_diag")).unwrap(), f, true, false, false); let i = shapes::info(b).unwrap(); assert!(i.top && i.facing == f && i.kind == Kind::Brace, "{}", BLOCKS[b as usize].name);
+        let g = shapes::geometry(i); assert!(g.iter().all(|bb| (bb[4] - bb[1] - 0.4).abs() < 1e-9), "à plat : toujours 0,4 de haut");
+        let first = g.iter().min_by(|a, c| a[0].partial_cmp(&c[0]).unwrap()).unwrap(); let zc = (first[2] + first[5]) * 0.5; assert!(if f == 0 { zc < 0.4 } else { zc > 0.6 }, "sens {f} : {first:?}");
+    } }
+}

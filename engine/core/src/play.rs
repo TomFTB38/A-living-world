@@ -408,6 +408,10 @@ impl Session {
         self.world.edit_many(&edits); self.sound.place("planks"); self.anim.trigger(); self.dirty = true;
     }
     pub(crate) fn on_broken(&mut self, p: [i32; 3], id: Id) {
+        // Un pan de toit retiré : les arêtiers et les noues qu'il justifiait redeviennent des pentes.
+        if crate::shapes::is_roof(id) { for (dx, dz) in crate::shapes::DIRS { let q = [p[0] + dx, p[1], p[2] + dz]; let Some(b) = self.world.get(q[0], q[1], q[2]) else { continue }; let w = &self.world;
+            let nb = |a: i32, c: i32| w.get(q[0] + a, q[1], q[2] + c).unwrap_or(0); let was = |a: i32, c: i32| if (q[0] + a, q[2] + c) == (p[0], p[2]) { id } else { nb(a, c) };
+            let j = crate::shapes::roof_unjoin(b, nb, was); if j != b { self.world.edit(q[0], q[1], q[2], j); } } }
         // Une plante marine arrachée laisse sa case à la mer.
         if is_aquatic(id) { self.world.edit(p[0], p[1], p[2], B::WATER); }
         // Un lit se casse en entier : l'autre moitié part avec, sans rendre un second lit.

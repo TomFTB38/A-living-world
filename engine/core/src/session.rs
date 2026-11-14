@@ -137,6 +137,8 @@ impl Session {
         // Poutres : la droite suit le regard comme un rondin (debout, en long, en travers : le mode de R) ; la diagonale monte
         // devant soi ; l'angle a son bras devant soi, et pend d'un plafond ou du haut d'un montant (vise la moitié haute).
         let top = top || (si.kind == Kind::Elbow && (t.py < t.y || (t.py == t.y && hit_y > 0.5)));
+        // La jambe de force posée sur un sol ou sous un plafond se couche à plat, dans la diagonale du regard (R la bascule) ; contre un flanc, elle monte.
+        let (top, face) = if si.kind == Kind::Brace && t.py != t.y { (true, (if f[0] * f[2] >= 0.0 { 0 } else { 1 } + self.turn) % 2) } else { (top, face) };
         let face = if si.kind == Kind::Post { match crate::blocks::gaze_axis(f[0], f[1], f[2], self.orient, self.axis) { 'x' => 1, 'z' => 2, _ => 0 } } else { face };
         let mut v = vec![([x, y, z], variant(si.base, face, top, false, false))];
         // Un lit : la tête là où l'on vise, le pied vers soi.

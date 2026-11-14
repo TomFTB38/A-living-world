@@ -62,6 +62,8 @@ jobs:
           shot tronc_creux -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 tronc_creux
           shot materiaux -38.5 53 0.5 -20 52 -30 14 4 1280 720 2048 materiaux
           shot poutres -38.5 53 0.5 -20 52 -30 14 4 1280 720 2048 poutres
+          shot ronds -38.5 53 0.5 -20 52 -30 14 4 1280 720 2048 ronds
+          for k in camp autel caveau; do shot vestige_$k 0 60 0 0 60 10 12 3 1280 720 2048 vestige_$k; done
           shot desert -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 desert
           shot oasis -38.5 53 0.5 -20 52 -30 16.5 4 1280 720 2048 oasis
           shot cactus -38.5 53 0.5 -20 52 -30 16 4 1280 720 2048 cactus
