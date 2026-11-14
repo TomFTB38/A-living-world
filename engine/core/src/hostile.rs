@@ -288,7 +288,7 @@ fn walk(f: &mut Foe, w: &impl Voxels, step: f64, climb: bool, body: Body) -> boo
 /// Chaque face d'une pièce est découpée en petits pixels (environ 3 cm) dont la teinte suit la matière : trame et
 /// effilochures de l'étoffe, grain et coutures du cuir, reflets, rayures et rouille du fer, marbrures de la chair, fissures
 /// de l'os, poil de la bête, reflets de la chitine. Les très petites pièces (yeux, dents, rivets) restent unies.
-#[derive(Clone, Copy, PartialEq)] pub(crate) enum Mat { Plain, Grain, Cloth, Leather, Metal, Flesh, Bone, Fur, Chitin, /** peau lisse de cétacé */ Skin, /** peau de requin, grenue */ Shark, /** peau de baleine semée de bernacles */ Barnacle, /** plumes en rangs d'écailles */ Feather, /** écailles en losanges */ Scale, /** cheveux, crins : des mèches */ Hair, /** peau humaine, douce et unie */ Human, /** laine bouclée */ Wool }
+#[derive(Clone, Copy, PartialEq)] pub(crate) enum Mat { Plain, Grain, Cloth, Leather, Metal, Flesh, Bone, Fur, Chitin, /** peau lisse de cétacé */ Skin, /** poil ras et luisant (cheval) */ Coat, /** peau de requin, grenue */ Shark, /** peau de baleine semée de bernacles */ Barnacle, /** plumes en rangs d'écailles */ Feather, /** écailles en losanges */ Scale, /** cheveux, crins : des mèches */ Hair, /** peau humaine, douce et unie */ Human, /** laine bouclée */ Wool }
 const PIX: f64 = 0.0625;
 fn mat_of(c: [f64; 3]) -> Mat {
     if c == EYE || c == GEYE || c == RED_EYE || c == EYEO { return Mat::Plain; }
@@ -308,6 +308,7 @@ fn shade(m: Mat, c: [f64; 3], i: i32, j: i32, nu: i32, nv: i32, side: bool, seed
         Mat::Flesh => { f = 0.8 + 0.26 * h(1); if h(10) < 0.09 { f *= 0.74; out = [c[0] * 1.08, c[1] * 0.92, c[2] * 0.9]; } if h(11) < 0.04 { f *= 1.15; } }
         Mat::Bone => { f = 0.9 + 0.14 * h(1); if h(12) < 0.07 { f *= 0.6; } }
         Mat::Fur => { f = 0.83 + 0.24 * ((h(1) + crate::noise::hash_float(i, j / 2, seed, 13)) * 0.5); if h(14) < 0.08 { f *= 1.25; } }
+        Mat::Coat => { f = 0.93 + 0.07 * crate::noise::hash_float(i, j / 3, seed, 28) + 0.03 * h(1); if v > 0.72 && !side { f *= 1.05; } if h(29) < 0.03 { f *= 0.93; } }
         Mat::Skin => { f = 0.93 + 0.08 * h(1); if h(16) < 0.05 { f *= 1.12; } if h(17) < 0.03 { f *= 0.86; } }
         Mat::Shark => { f = 0.86 + 0.16 * h(1); if (i + 2 * j) % 5 == 0 { f *= 0.94; } if h(18) < 0.05 { f *= 0.78; } }
         Mat::Barnacle => { f = 0.88 + 0.12 * h(1); if h(19) < 0.07 { let k = 0.6 + 0.3 * h(20); out = [0.78 * k + c[0] * 0.2, 0.76 * k + c[1] * 0.2, 0.7 * k + c[2] * 0.2]; } if h(21) < 0.04 { f *= 0.7; } }

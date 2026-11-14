@@ -413,6 +413,12 @@ fn capture(a: &[String]) {
         if scene == "plat_monte" { let h = s.wild.all.iter().position(|c| c.kind == K::Horse).unwrap(); s.wild.all[h].p = [s.player.p[0], y, s.player.p[2]]; s.wild.all[h].yaw = s.player.yaw; s.ride = Some(s.wild.all[h].farm.id); s.third = true; }
         s.tick(0.0, none, Actions::default());
     }
+    // Les trois robes du cheval, de profil, à l'arrêt.
+    if scene == "plat_chevaux" {
+        use alw_core::wild::Kind as K; let y = alw_core::gen::FLAT_Y as f64 + 1.0; s.wild.all.clear(); s.sel = 8;
+        for v in 0..3u8 { s.wild.put(K::Horse, [-44.0 + v as f64 * 3.2, y, -24.0 + (v as f64 - 1.0).abs() * 1.2], std::f64::consts::FRAC_PI_2 * if v == 1 { -1.0 } else { 1.0 }, false); let c = s.wild.all.last_mut().unwrap(); c.color = v; c.farm.tame = true; c.farm.sit = true; }
+        s.tick(0.0, none, Actions::default()); let e = [-40.8, y + 1.7, -32.0]; s.eye = e; s.look = view::norm([-40.8 - e[0], y + 0.9 - e[1], -24.0 - e[2]]);
+    }
     // Au galop : le cheval (ou le grand loup sellé) lancé à fond, vu de côté, en pleine foulée.
     if scene == "plat_galop" || scene == "plat_loup" {
         use alw_core::wild::Kind as K; let y = alw_core::gen::FLAT_Y as f64 + 1.0; s.wild.all.clear(); let kind = if scene == "plat_galop" { K::Horse } else { K::Wolf };

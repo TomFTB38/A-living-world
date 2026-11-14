@@ -281,21 +281,86 @@ pub fn farm() -> Vec<(&'static str, VBuf)> {
         let mut leg = VBuf::new(1000); { let mut p = Pen::new(&mut leg, Mat::Skin, 0.02); p.tube([0.0, 0.03, 0.0], [0.0, -0.17, 0.0], [0.045, 0.05], [0.035, 0.038], skin, skin); p.bm([-0.036, -0.2, -0.032, 0.036, -0.17, 0.04], HOOF, Mat::Bone); }
         out.extend([(["pig0", "pig1", "pig2"][k], pig), (["pigHead0", "pigHead1", "pigHead2"][k], head), (["pigLeg0", "pigLeg1", "pigLeg2"][k], leg)]);
     }
-    // ---- Cheval : bai, alezan, gris pommelé ; longue encolure et tête, crinière et queue de crins, balzanes et sabots.
-    for (k, (coat, hair)) in [([0.4, 0.22, 0.12], [0.08, 0.06, 0.05]), ([0.62, 0.33, 0.15], [0.7, 0.42, 0.2]), ([0.72, 0.72, 0.7], [0.3, 0.3, 0.3])].into_iter().enumerate() {
-        let mut horse = VBuf::new(10000); { let mut p = Pen::new(&mut horse, Mat::Fur, 0.035);
-            p.body(&[(-0.42, 0.12, 0.3, 0.04), (-0.32, 0.165, 0.33, 0.0), (0.0, 0.165, 0.32, -0.01), (0.22, 0.17, 0.34, 0.0), (0.4, 0.13, 0.33, 0.06)], dk(coat, 0.85), coat, mix(coat, WHITE, 0.1));
-            if k == 2 { for (x, y, z) in [(0.15, 0.2, -0.2), (-0.15, 0.22, 0.05), (0.14, 0.15, 0.25), (-0.12, 0.3, -0.3)] { p.blob([x, y, z], [0.03, 0.06, 0.06], dk(coat, 0.7), dk(coat, 0.7)); } } // pommelures
-            p.tube_m([0.0, 0.3, -0.43], [0.0, 0.0, -0.52], [0.04, 0.03], [0.03, 0.02], hair, hair, Mat::Hair); p.tube_m([0.0, 0.0, -0.52], [0.0, -0.18, -0.5], [0.03, 0.02], [0.015, 0.012], hair, hair, Mat::Hair); }
-        let mut head = VBuf::new(7000); { let mut p = Pen::new(&mut head, Mat::Fur, 0.025);
-            p.tube([0.0, 0.0, 0.0], [0.0, 0.32, 0.16], [0.09, 0.1], [0.06, 0.07], coat, coat); // l'encolure, qui monte vers l'avant
-            p.tube([0.0, 0.34, 0.12], [0.0, 0.22, 0.38], [0.065, 0.075], [0.04, 0.05], coat, dk(coat, 0.85)); p.blob_m([0.0, 0.22, 0.38], [0.045, 0.045, 0.03], dk(coat, 0.6), dk(coat, 0.6), Mat::Plain);
-            for i in 0..8 { let t = i as f64 / 7.0; p.bm([-0.025, 0.06 + 0.3 * t, -0.03 + 0.18 * t - 0.03, 0.025, 0.12 + 0.3 * t, -0.03 + 0.18 * t + 0.03], hair, Mat::Hair); } // la crinière
-            if k != 2 { p.bm([-0.02, 0.3, 0.22, 0.02, 0.33, 0.33], WHITE, Mat::Plain); } // la liste blanche
-            for sx in [-1.0f64, 1.0] { eye(&mut p, sx * 0.06, 0.33, 0.2, 0.014, [0.08, 0.05, 0.04]); ear(&mut p, sx * 0.04, 0.4, 0.12, 0.035, 0.08, 0.01, coat, dk(coat, 0.7), dk(coat, 0.7)); } }
-        let mut leg = VBuf::new(1500); { let mut p = Pen::new(&mut leg, Mat::Fur, 0.025); let sock = if k == 0 { WHITE } else { coat };
-            p.tube([0.0, 0.04, 0.0], [0.0, -0.22, 0.0], [0.055, 0.065], [0.03, 0.034], coat, coat); p.tube([0.0, -0.22, 0.0], [0.0, -0.4, 0.01], [0.03, 0.032], [0.028, 0.03], coat, sock); p.bm([-0.036, -0.45, -0.032, 0.036, -0.4, 0.045], HOOF, Mat::Bone); }
-        out.extend([(["horse0", "horse1", "horse2"][k], horse), (["horseHead0", "horseHead1", "horseHead2"][k], head), (["horseLeg0", "horseLeg1", "horseLeg2"][k], leg)]);
+    // ---- Cheval : bai (crins et bas des membres noirs), alezan crins lavés (liste et balzanes), gris pommelé.
+    // Un garrot marqué, le dos qui se creuse, une croupe ronde et musclée, un ventre profond ; une encolure arquée qui
+    // porte une tête fine (ganaches, chanfrein, bout du nez doux, naseaux) ; des membres secs : avant-bras, genou, canon,
+    // boulet, paturon, sabot évasé ; les postérieurs coudés au jarret ; la queue de crins à part, pour qu'elle balance.
+    for k in 0..3 {
+        let (coat, hair, low, mark): (C, C, C, C) = match k {
+            0 => ([0.43, 0.24, 0.13], [0.07, 0.055, 0.05], [0.09, 0.07, 0.06], [0.43, 0.24, 0.13]),
+            1 => ([0.66, 0.36, 0.16], [0.9, 0.78, 0.55], [0.66, 0.36, 0.16], WHITE),
+            _ => ([0.62, 0.62, 0.61], [0.3, 0.29, 0.28], [0.36, 0.35, 0.34], [0.58, 0.58, 0.57]) };
+        let back = dk(coat, 0.86); let belly = mix(coat, if k == 1 { [0.85, 0.66, 0.45] } else { coat }, 0.5);
+        let mut horse = VBuf::new(16000); { let mut p = Pen::new(&mut horse, Mat::Coat, 0.024);
+            p.body(&[(-0.45, 0.07, 0.27, 0.13), (-0.41, 0.12, 0.315, 0.07), (-0.3, 0.14, 0.335, 0.035), (-0.14, 0.135, 0.31, 0.005), (0.06, 0.145, 0.31, -0.005),
+                (0.22, 0.14, 0.345, 0.015), (0.33, 0.12, 0.345, 0.06), (0.4, 0.08, 0.3, 0.1)], back, coat, belly);
+            for sx in [-1.0f64, 1.0] {
+                p.blob([sx * 0.095, 0.21, -0.3], [0.058, 0.12, 0.14], coat, dk(coat, 0.93)); // la cuisse et la fesse
+                p.blob([sx * 0.095, 0.21, 0.29], [0.052, 0.12, 0.085], coat, dk(coat, 0.93)); // l'épaule
+                p.blob([sx * 0.085, 0.08, 0.32], [0.045, 0.06, 0.05], coat, dk(coat, 0.9)); // le haut de l'avant-bras
+            }
+            p.blob([0.0, 0.335, 0.27], [0.055, 0.03, 0.09], back, back); // le garrot
+            if k == 2 { // les pommelures : de petites taches claires sur un gris plus soutenu, posées à la surface des flancs
+                let prof = [(-0.45, 0.07, 0.27, 0.13), (-0.41, 0.12, 0.315, 0.07), (-0.3, 0.14, 0.335, 0.035), (-0.14, 0.135, 0.31, 0.005), (0.06, 0.145, 0.31, -0.005), (0.22, 0.14, 0.345, 0.015), (0.33, 0.12, 0.345, 0.06), (0.4, 0.08, 0.3, 0.1)];
+                let at = |z: f64| { let w = prof.windows(2).find(|w| z >= w[0].0 && z <= w[1].0).unwrap_or(&prof[3..5]); let t = (z - w[0].0) / (w[1].0 - w[0].0); (w[0].1 + (w[1].1 - w[0].1) * t, w[0].2 + (w[1].2 - w[0].2) * t, w[0].3 + (w[1].3 - w[0].3) * t) };
+                for n in 0..70 { let h = |s: u32| crate::noise::hash_float(n, s as i32, 77, 5);
+                    let z = -0.42 + 0.78 * ((n as f64 * 0.618034 + 0.31 * h(1)).fract()); let (hw, top, bot) = at(z); let um = -0.7 + 1.3 * h(2); let y = bot + (top - bot) * (um + 1.0) * 0.5;
+                    let mut x = hw * (1.0 - um * um * 0.86).max(0.1).sqrt();
+                    for (cy, cz, ry, rz) in [(0.21, -0.3, 0.12, 0.14), (0.21, 0.29, 0.12, 0.085)] { let q = 1.0 - ((y - cy) / ry).powi(2) - ((z - cz) / rz).powi(2); if q > 0.0 { x = x.max(0.095 + 0.058 * q.sqrt() * 0.92); } } // cuisse et épaule
+                    let r = 0.012 + 0.014 * h(3); let c = mix([0.84, 0.84, 0.82], [0.92, 0.92, 0.9], h(4));
+                    for sx in [-1.0f64, 1.0] { p.bm([sx * x - 0.005, y - r, z - r, sx * x + 0.005, y + r, z + r], c, Mat::Coat); } }
+            }
+        }
+        let mut tail = VBuf::new(4000); { let mut p = Pen::new(&mut tail, Mat::Hair, 0.022); // le pivot : la base de la queue
+            p.tube([0.0, 0.0, 0.0], [0.0, -0.06, -0.08], [0.035, 0.03], [0.04, 0.035], hair, hair);
+            for (dx, len) in [(-0.025, 0.42), (0.0, 0.47), (0.025, 0.4), (-0.012, 0.36), (0.012, 0.44)] {
+                p.tube([dx * 0.5, -0.05, -0.08], [dx * 1.6, -len, -0.1 - len * 0.12], [0.022, 0.02], [0.012, 0.014], hair, dk(hair, 0.85)); }
+        }
+        let mut head = VBuf::new(14000); { let mut p = Pen::new(&mut head, Mat::Coat, 0.02);
+            // l'encolure, large et profonde à la base, qui monte en s'arquant vers la nuque
+            p.tube([0.0, -0.03, -0.05], [0.0, 0.17, 0.04], [0.075, 0.115], [0.062, 0.09], coat, coat);
+            p.tube([0.0, 0.17, 0.04], [0.0, 0.37, 0.13], [0.062, 0.09], [0.047, 0.062], coat, coat);
+            p.blob([0.0, 0.13, 0.09], [0.05, 0.13, 0.045], belly, belly); // la gorge, plus claire
+            // la tête : la nuque, les ganaches, le chanfrein qui descend vers l'avant, le bout du nez
+            p.blob([0.0, 0.39, 0.15], [0.048, 0.046, 0.058], coat, coat);
+            for sx in [-1.0f64, 1.0] { p.blob([sx * 0.032, 0.33, 0.19], [0.026, 0.05, 0.05], coat, dk(coat, 0.9)); }
+            let (fa, fb) = ([0.0, 0.375, 0.17], [0.0, 0.265, 0.37]); p.tube(fa, fb, [0.045, 0.046], [0.033, 0.036], coat, coat);
+            let nose = if k == 2 { [0.32, 0.32, 0.32] } else { dk(coat, 0.55) }; p.blob_m([0.0, 0.25, 0.378], [0.038, 0.036, 0.038], nose, dk(nose, 0.8), Mat::Skin);
+            for sx in [-1.0f64, 1.0] { p.bm([sx * 0.022 - 0.008, 0.252, 0.411, sx * 0.022 + 0.008, 0.272, 0.418], NOSE, Mat::Plain); } // les naseaux
+            p.bm([-0.028, 0.222, 0.37, 0.028, 0.229, 0.414], dk(nose, 0.5), Mat::Plain); // la bouche
+            // la liste (alezan) ou l'étoile (bai), blanches, posées sur le chanfrein
+            // posée tranche par tranche sur le dessus du chanfrein (mêmes tranches que le tube), pour l'épouser sans marches
+            let n = (((fb[2] - fa[2]).hypot(fb[1] - fa[1]) / (0.02 * 1.2)).round() as usize).clamp(1, 14); let last = if k == 1 { n } else if k == 0 { 2 } else { 0 };
+            for i in 0..last { let (t0, t1) = (i as f64 / n as f64, (i + 1) as f64 / n as f64); let tm = (t0 + t1) * 0.5;
+                let (y, z0, z1) = (fa[1] + (fb[1] - fa[1]) * tm, fa[2] + (fb[2] - fa[2]) * t0, fa[2] + (fb[2] - fa[2]) * t1); let top = y + 0.046 + (0.036 - 0.046) * tm; let w = 0.016 - 0.004 * tm;
+                p.bm([-w, top - 0.03, z0, w, top + 0.009, z1 + 0.009], WHITE, Mat::Plain); } // la contremarche aussi, sinon elle coupe la liste vue de face
+            for sx in [-1.0f64, 1.0] { eye(&mut p, sx * 0.046, 0.375, 0.2, 0.012, [0.07, 0.045, 0.03]); ear(&mut p, sx * 0.027, 0.42, 0.14, 0.028, 0.072, 0.008, coat, dk(coat, 0.65), dk(coat, 0.6)); }
+            // la crinière : une crête de crins sur le dessus de l'encolure, tombée à droite, et le toupet sur le front
+            p.m = Mat::Hair;
+            for i in 0..13 { let t = i as f64 / 12.0; let y = -0.02 + 0.42 * t; let z = if t < 0.48 { -0.05 + 0.09 * t / 0.48 - (0.115 - 0.025 * t / 0.48) } else { 0.04 + 0.09 * (t - 0.48) / 0.52 - (0.09 - 0.028 * (t - 0.48) / 0.52) };
+                let fall = 0.09 - 0.045 * t; let c = dk(hair, if i % 2 == 0 { 1.0 } else { 0.86 });
+                p.bx([-0.024, y - 0.015, z - 0.035, 0.024, y + 0.03, z + 0.012], c); p.bx([0.012, y - fall, z - 0.028, 0.042, y + 0.02, z + 0.008], c); }
+            p.bx([-0.032, 0.35, 0.19, 0.032, 0.44, 0.215], hair); p.bx([-0.02, 0.33, 0.205, 0.02, 0.36, 0.225], dk(hair, 0.9)); }
+        let legs = |hind: bool| { let mut leg = VBuf::new(5000); { let mut p = Pen::new(&mut leg, Mat::Coat, 0.018);
+            let (lowc, hoof) = (low, if k == 2 { [0.3, 0.29, 0.28] } else { HOOF });
+            let sock = |y: f64| if k == 1 && !hind || k == 1 && y < -0.3 { mark } else if y < -0.18 { lowc } else { coat };
+            if hind { // la jambe, le jarret coudé vers l'arrière, le canon
+                p.tube([0.0, 0.05, 0.0], [0.0, -0.15, -0.05], [0.055, 0.08], [0.035, 0.045], coat, coat);
+                p.blob([0.0, -0.165, -0.06], [0.034, 0.04, 0.05], sock(-0.165), sock(-0.165));
+                p.tube([0.0, -0.18, -0.05], [0.0, -0.36, -0.025], [0.026, 0.03], [0.025, 0.028], sock(-0.25), sock(-0.35));
+            } else { // l'avant-bras, le genou, le canon
+                p.tube([0.0, 0.05, 0.0], [0.0, -0.17, 0.0], [0.052, 0.065], [0.034, 0.04], coat, coat);
+                p.blob([0.0, -0.185, 0.0], [0.035, 0.034, 0.038], sock(-0.185), sock(-0.185));
+                p.tube([0.0, -0.2, 0.0], [0.0, -0.36, 0.005], [0.025, 0.028], [0.024, 0.027], sock(-0.25), sock(-0.35));
+            }
+            let z0 = if hind { -0.025 } else { 0.005 };
+            p.blob([0.0, -0.375, z0], [0.032, 0.026, 0.036], sock(-0.375), sock(-0.375)); // le boulet
+            p.tube([0.0, -0.385, z0 + 0.005], [0.0, -0.415, z0 + 0.02], [0.026, 0.026], [0.03, 0.03], sock(-0.4), sock(-0.4)); // le paturon
+            p.bm([-0.036, -0.45, z0 - 0.02, 0.036, -0.415, z0 + 0.055], hoof, Mat::Bone); p.bm([-0.03, -0.42, z0 - 0.012, 0.03, -0.41, z0 + 0.045], dk(hoof, 0.8), Mat::Bone); } // le sabot évasé
+            leg };
+        let (fore, hind) = (legs(false), legs(true));
+        out.extend([(["horse0", "horse1", "horse2"][k], horse), (["horseHead0", "horseHead1", "horseHead2"][k], head), (["horseLeg0", "horseLeg1", "horseLeg2"][k], fore),
+            (["horseHind0", "horseHind1", "horseHind2"][k], hind), (["horseTail0", "horseTail1", "horseTail2"][k], tail)]);
     }
     // ---- Poule : blanche, rousse, noire ; crête et barbillons rouges, bec jaune, queue relevée, pattes jaunes.
     for (k, plume) in [[0.94, 0.92, 0.86], [0.62, 0.32, 0.14], [0.12, 0.12, 0.14]].into_iter().enumerate() {

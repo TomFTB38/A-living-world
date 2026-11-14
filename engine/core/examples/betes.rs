@@ -46,6 +46,13 @@ fn main() {
             for (i, n) in ["hare0", "hare1", "hare2", "hare3"].iter().enumerate() { put(n, trs(0.6 + i as f64 * 0.55, 0.0, 0.0, 0.0, 0.0, 1.35)); }
             put("lizard", trs(3.2, 0.0, 0.0, 0.0, 0.0, 1.6));
         }
+        w0 if w0.starts_with("cheva") => { let only: Option<usize> = w0.strip_prefix("cheval").and_then(|x| x.parse().ok());
+            for v in (0..3usize).filter(|v| only.is_none_or(|o| o == *v)) { let base = trs(if only.is_some() { 0.0 } else { -3.0 + v as f64 * 3.0 }, 0.0, 0.0, 0.0, 0.0, 2.5); let hip = 0.45;
+                put(&format!("horse{v}"), mul(&base, &trs(0.0, hip, 0.0, 0.0, 0.0, 1.0))); put(&format!("horseHead{v}"), mul(&base, &trs(0.0, hip + 0.2, 0.38, 0.0, if v == 1 { 0.35 } else { 0.0 }, 1.0)));
+                for (k, (x, z)) in [(-0.1, 0.3), (0.1, 0.3), (-0.1, -0.3), (0.1, -0.3)].iter().enumerate() { let a = [0.3, -0.25, -0.2, 0.3][k]; put(&format!("{}{v}", if k < 2 { "horseLeg" } else { "horseHind" }), mul(&base, &trs(*x, hip, *z, 0.0, a, 1.0))); }
+                put(&format!("horseTail{v}"), mul(&base, &trs(0.0, hip + 0.29, -0.46, 0.15, -0.1, 1.0)));
+                if v == 2 && only.is_none() { put("saddle", mul(&base, &trs(0.0, hip + 0.33, 0.04, 0.0, 0.0, 1.0))); } }
+        }
         "oiseaux" => {
             bird(&mut put, -2.0, 0.0, "bird", "wing", 1.7, 0.055, -1.25); bird(&mut put, -1.0, 0.0, "bird", "wing", 1.7, 0.055, 0.3);
             bird(&mut put, 0.0, 0.0, "crow", "crowWing", 1.9, 0.06, -1.25); bird(&mut put, 1.0, 0.0, "crow", "crowWing", 1.9, 0.06, 0.3);

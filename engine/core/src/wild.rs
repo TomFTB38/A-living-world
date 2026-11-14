@@ -378,7 +378,11 @@ impl Wild {
                     let base = trs(c.p[0], c.p[1] + bob + flinch(c.hit) * 0.3, c.p[2], c.yaw, tilt - flinch(c.hit) * 0.5, sc);
                     put(body, mul(&base, &trs(0.0, hip, 0.0, 0.0, 0.0, 1.0))); let graze = if c.state == State::Idle && c.kind != Kind::Horse { 0.7 } else if c.state == State::Idle { 0.35 } else { nod };
                     put(head, mul(&base, &trs(0.0, hip + hy, hz, 0.0, graze, 1.0))); // la tête baissée qui broute, ou qui balance au galop
-                    for ((x, z), a) in [(-lx, lz), (lx, lz), (-lx, -lz), (lx, -lz)].into_iter().zip(legs) { put(leg, mul(&base, &trs(x, hip, z, 0.0, a, 1.0))); }
+                    let hind = if c.kind == Kind::Horse { ["horseHind0", "horseHind1", "horseHind2"][v] } else { leg };
+                    for (k, ((x, z), a)) in [(-lx, lz), (lx, lz), (-lx, -lz), (lx, -lz)].into_iter().zip(legs).enumerate() { put(if k < 2 { leg } else { hind }, mul(&base, &trs(x, hip, z, 0.0, a, 1.0))); }
+                    if c.kind == Kind::Horse { // la queue de crins : elle chasse les mouches à l'arrêt, se relève et flotte au galop
+                        let swish = sin(self.t * 1.7 + c.farm.id as f64 * 2.3) * if c.speed > 0.0 { 0.12 } else { 0.35 }; let lift = if c.speed > GALLOP { 0.75 + sin(c.phase) * 0.12 } else { c.speed.min(6.0) * 0.04 };
+                        put(["horseTail0", "horseTail1", "horseTail2"][v], mul(&base, &trs(0.0, hip + 0.29, -0.46, swish, -lift, 1.0))); }
                     if c.farm.saddle { put("saddle", mul(&base, &trs(0.0, hip + 0.33, 0.04, 0.0, 0.0, 1.0))); }
                 }
                 Kind::Chicken => { let peck = if c.state == State::Idle { (sin(c.life * 0.0 + c.t * 5.0)).max(0.0) * 0.4 } else { 0.0 }; let hop = if c.speed > 0.0 { sin(c.phase).abs() * 0.04 } else { 0.0 };
