@@ -1,7 +1,7 @@
 //! Meubles et objets de décor : des modèles fins, bâtis dans le cube unité pour le sens 0 (le dos vers +z, la face vers
 //! le joueur qui les pose), puis tournés au quart de tour (suffixe « @1 » à « @3 » du nom de bloc) et posés dans le chunk.
 use crate::blocks::{by_name, BLOCKS};
-use crate::mesher::{bx, kind, obox, VBuf, VSIZE};
+use crate::mesher::{bx, cyl, kind, obox, VBuf, VSIZE};
 use crate::noise::Rng;
 
 type C = [f64; 3];
@@ -27,6 +27,12 @@ impl K {
     fn t(&mut self, bb: [f64; 6], m: &str, c: C) { let h = [(bb[3] - bb[0]) * 0.5, (bb[4] - bb[1]) * 0.5, (bb[5] - bb[2]) * 0.5]; obox(&mut self.o, [bb[0] + h[0], bb[1] + h[1], bb[2] + h[2]], [[h[0], 0.0, 0.0], [0.0, h[1], 0.0], [0.0, 0.0, h[2]]], c, layer(m), self.s, self.l); }
     /// Boîte orientée (centre, demi-axes), couleur unie.
     fn r(&mut self, c: [f64; 3], a: [[f64; 3]; 3], col: C) { let mut a = a; let d = a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0]) + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]); if d < 0.0 { a[2] = [-a[2][0], -a[2][1], -a[2][2]]; } obox(&mut self.o, c, a, col, -1.0, self.s, self.l); }
+    /// Pièce ronde entre deux centres (cylindre, tronc de cône ; `hole` : anneau), matière devinée à la couleur.
+    fn cy(&mut self, p0: [f64; 3], p1: [f64; 3], r0: f64, r1: f64, hole: f64, c: C) { let n = if r0.max(r1) < 0.1 { 10 } else { 16 }; cyl(&mut self.o, p0, p1, r0, r1, hole, c, -1.0, self.s, self.l, n); }
+    /// Pièce tournée d'axe vertical en (cx, cz) : un profil (hauteur, rayon), d'une seule couleur.
+    fn lathe(&mut self, cx: f64, cz: f64, prof: &[(f64, f64)], c: C) { for w in prof.windows(2) { self.cy([cx, w[0].0, cz], [cx, w[1].0, cz], w[0].1, w[1].1, 0.0, c); } }
+    /// Pièce tournée dans une matière donnée (« hay »…), teintée.
+    fn lathe_t(&mut self, cx: f64, cz: f64, prof: &[(f64, f64)], m: &str, c: C) { for w in prof.windows(2) { cyl(&mut self.o, [cx, w[0].0, cz], [cx, w[1].0, cz], w[0].1, w[1].1, 0.0, c, layer(m), self.s, self.l, 16); } }
     /// Une flamme : cœur clair dans une enveloppe orangée.
     fn flame(&mut self, x: f64, y: f64, z: f64, h: f64) { let w = h * 0.32; self.e([x - w, y, z - w, x + w, y + h, z + w], FLAME); self.e([x - w * 0.5, y + h * 0.15, z - w * 0.5, x + w * 0.5, y + h * 1.15, z + w * 0.5], CORE); }
     fn candle(&mut self, x: f64, y: f64, z: f64, h: f64) { self.b([x - 0.035, y, z - 0.035, x + 0.035, y + h, z + 0.035], WAX); self.b([x - 0.006, y + h, z - 0.006, x + 0.006, y + h + 0.03, z + 0.006], [0.1, 0.08, 0.06]); self.flame(x, y + h + 0.02, z, 0.09); }
@@ -60,14 +66,14 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
     };
     match m {
         // Patrons médiévaux : cloche, chaîne, horloge murale, croix, drapeau, cuves du tanneur, peaux qui sèchent, chevalet, billot.
-        "bell" => { // cloche de bronze sous son joug de chêne, battant de fer
-            k.b([0.05, 0.9, 0.44, 0.95, 1.0, 0.56], DARK); k.b([0.44, 0.8, 0.46, 0.56, 0.9, 0.54], IRON);
-            for (i, (r0, y0)) in [(0.12, 0.72), (0.16, 0.6), (0.2, 0.46), (0.24, 0.32), (0.29, 0.2)].iter().enumerate() { let bz = [0.72, 0.5, 0.24]; let c = tone(bz, 1.0 + i as f64 * 0.04); k.b([0.5 - r0, *y0, 0.5 - r0, 0.5 + r0, y0 + 0.14, 0.5 + r0], c); }
-            k.b([0.19, 0.16, 0.19, 0.81, 0.21, 0.81], tone([0.72, 0.5, 0.24], 1.2)); k.b([0.47, 0.08, 0.47, 0.53, 0.3, 0.53], IRON);
+        "bell" => { // cloche de bronze tournée sous son joug de chêne, lèvre évasée, battant de fer
+            let bz = [0.72, 0.5, 0.24]; k.b([0.05, 0.9, 0.44, 0.95, 1.0, 0.56], DARK); k.b([0.44, 0.8, 0.46, 0.56, 0.9, 0.54], IRON);
+            k.lathe(0.5, 0.5, &[(0.2, 0.31), (0.24, 0.27), (0.4, 0.23), (0.6, 0.18), (0.74, 0.13), (0.82, 0.06)], bz); k.cy([0.5, 0.16, 0.5], [0.5, 0.21, 0.5], 0.33, 0.31, 0.8, tone(bz, 1.2));
+            k.b([0.47, 0.08, 0.47, 0.53, 0.3, 0.53], IRON);
         }
         "chain" => { for i in 0..8 { let y = i as f64 * 0.125; if i % 2 == 0 { k.b([0.44, y, 0.47, 0.56, y + 0.15, 0.53], IRON); } else { k.b([0.47, y, 0.44, 0.53, y + 0.15, 0.56], tone(IRON, 1.3)); } } }
         "wall_clock" => { // horloge : cadran blanc cerclé de pierre, chiffres, aiguilles de fer
-            k.b([0.04, 0.04, 0.86, 0.96, 0.96, 0.98], [0.62, 0.6, 0.56]); k.b([0.12, 0.12, 0.84, 0.88, 0.88, 0.86], [0.85, 0.66, 0.26]); k.b([0.16, 0.16, 0.82, 0.84, 0.84, 0.84], [0.93, 0.9, 0.82]);
+            k.cy([0.5, 0.5, 0.86], [0.5, 0.5, 0.98], 0.46, 0.46, 0.0, [0.62, 0.6, 0.56]); k.cy([0.5, 0.5, 0.84], [0.5, 0.5, 0.86], 0.39, 0.39, 0.0, [0.85, 0.66, 0.26]); k.cy([0.5, 0.5, 0.82], [0.5, 0.5, 0.84], 0.35, 0.35, 0.0, [0.93, 0.9, 0.82]);
             for h in 0..12 { let a = h as f64 / 12.0 * std::f64::consts::TAU; let (x, y) = (0.5 + 0.27 * a.sin(), 0.5 + 0.27 * a.cos()); k.b([x - 0.02, y - 0.02, 0.81, x + 0.02, y + 0.02, 0.82], IRON); }
             k.b([0.48, 0.48, 0.8, 0.52, 0.74, 0.81], IRON); k.b([0.48, 0.48, 0.79, 0.68, 0.52, 0.8], IRON); k.b([0.46, 0.46, 0.78, 0.54, 0.54, 0.8], GOLD);
         }
@@ -92,8 +98,8 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
             k.b([0.2, 0.55, 0.0, 0.8, 0.85, 1.0], [0.5, 0.36, 0.22]); k.b([0.24, 0.85, 0.0, 0.76, 0.88, 0.05], [0.8, 0.68, 0.48]); k.b([0.24, 0.85, 0.95, 0.76, 0.88, 1.0], [0.8, 0.68, 0.48]);
             k.b([0.35, 0.86, 0.3, 0.38, 0.98, 0.9], [0.7, 0.72, 0.76]); k.b([0.33, 0.86, 0.9, 0.4, 1.0, 1.0], WOOD);
         }
-        "chopping_block" => { // billot : un gros rond de chêne, la hache plantée
-            k.b([0.18, 0.0, 0.18, 0.82, 0.55, 0.82], [0.48, 0.34, 0.2]); k.b([0.2, 0.55, 0.2, 0.8, 0.57, 0.8], [0.76, 0.62, 0.42]);
+        "chopping_block" => { // billot : un gros rond de chêne, sa tranche claire, la hache plantée
+            k.lathe(0.5, 0.5, &[(0.0, 0.34), (0.06, 0.32), (0.55, 0.32)], [0.48, 0.34, 0.2]); k.cy([0.5, 0.55, 0.5], [0.5, 0.57, 0.5], 0.3, 0.3, 0.0, [0.76, 0.62, 0.42]);
             k.b([0.48, 0.5, 0.45, 0.62, 0.66, 0.55], [0.7, 0.72, 0.76]); k.b([0.55, 0.6, 0.48, 0.6, 1.05, 0.52], WOOD);
         }
         // Refonte des villages : charrette, abreuvoir, tas de charbon de bois, râtelier d'outils des champs.
@@ -101,9 +107,9 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
             k.b([0.12, 0.42, 0.08, 0.88, 0.48, 0.92], WOOD); for x in [0.12, 0.84] { k.b([x, 0.48, 0.08, x + 0.04, 0.7, 0.92], tone(WOOD, 0.9)); } for z in [0.08, 0.88] { k.b([0.12, 0.48, z, 0.88, 0.66, z + 0.04], tone(WOOD, 0.9)); }
             for i in 0..4 { let z = 0.18 + i as f64 * 0.2; k.b([0.1, 0.5, z, 0.14, 0.72, z + 0.03], tone(WOOD, 0.8)); k.b([0.86, 0.5, z, 0.9, 0.72, z + 0.03], tone(WOOD, 0.8)); }
             for sx in [0.02, 0.92] { // roue : jante en segments, moyeu, six rayons
-                let (cy, cz, rr) = (0.36, 0.5, 0.34); for a in 0..12 { let t = a as f64 / 12.0 * std::f64::consts::TAU; let (y, z) = (cy + rr * t.sin(), cz + rr * t.cos()); k.b([sx, y - 0.04, z - 0.04, sx + 0.06, y + 0.04, z + 0.04], DARK); }
+                let (cy, cz, rr) = (0.36, 0.5, 0.34); k.cy([sx, cy, cz], [sx + 0.06, cy, cz], rr + 0.04, rr + 0.04, 0.8, DARK); // une jante ronde
                 for a in 0..6 { let t = a as f64 / 6.0 * std::f64::consts::PI; for j in 1..4 { let rj = j as f64 * 0.085; for sg in [-1.0, 1.0] { let (y, z) = (cy + sg * rj * t.sin(), cz + sg * rj * t.cos()); k.b([sx + 0.01, y - 0.018, z - 0.018, sx + 0.05, y + 0.018, z + 0.018], tone(WOOD, 0.85)); } } }
-                k.b([sx - 0.01, cy - 0.06, cz - 0.06, sx + 0.07, cy + 0.06, cz + 0.06], IRON); }
+                k.cy([sx - 0.01, cy, cz], [sx + 0.07, cy, cz], 0.06, 0.06, 0.0, IRON); }
             k.b([0.06, 0.32, 0.47, 0.94, 0.38, 0.53], tone(WOOD, 0.7)); // l'essieu
             for x in [0.26, 0.7] { k.b([x, 0.04, -0.02, x + 0.05, 0.1, 0.1], WOOD); k.b([x, 0.1, 0.06, x + 0.05, 0.42, 0.11], tone(WOOD, 0.9)); } // brancards posés au sol
             for _ in 0..14 { let x = r.range(0.2, 0.8); let z = r.range(0.2, 0.8); k.b([x - 0.08, 0.48, z - 0.06, x + 0.08, 0.48 + r.range(0.06, 0.16), z + 0.06], [0.82, 0.7, 0.36]); }
@@ -143,14 +149,14 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
             for z in [0.2, 0.42, 0.6, 0.78] { for i in 0..7 { let a = i as f64 / 6.0 * std::f64::consts::PI; let (cx, cy) = (0.5 - 0.35 * a.cos(), 0.37 * a.sin()); k.b([cx - 0.02, cy - 0.01, z, cx + 0.02, cy + 0.05, z + 0.02], tone(WICK, 0.75)); } }
             k.b([0.42, 0.12, 0.16, 0.58, 0.26, 0.2], [0.18, 0.12, 0.07]); k.b([0.46, 0.36, 0.5, 0.54, 0.42, 0.9], ROPE);
         }
-        "mooring_post" => { // bitte d'amarrage : un gros pieu goudronné à tête bombée, une corde lovée autour
-            const TAR: C = [0.2, 0.15, 0.11]; k.b([0.3, 0.0, 0.3, 0.7, 0.78, 0.7], TAR); k.b([0.26, 0.78, 0.26, 0.74, 0.86, 0.74], tone(TAR, 1.2)); k.b([0.32, 0.86, 0.32, 0.68, 0.9, 0.68], tone(TAR, 1.1));
-            for (i, y) in [0.42, 0.48, 0.54].iter().enumerate() { let w = 0.25 - i as f64 * 0.01; k.b([0.5 - w, *y, 0.5 - w, 0.5 + w, y + 0.05, 0.5 + w], if i % 2 == 0 { ROPE } else { ROPE2 }); }
+        "mooring_post" => { // bitte d'amarrage : un gros pieu rond goudronné à tête bombée, une corde lovée autour
+            const TAR: C = [0.2, 0.15, 0.11]; k.lathe(0.5, 0.5, &[(0.0, 0.2), (0.78, 0.2)], TAR); k.lathe(0.5, 0.5, &[(0.78, 0.24), (0.86, 0.24), (0.9, 0.16)], tone(TAR, 1.2));
+            for (i, y) in [0.42, 0.48, 0.54].iter().enumerate() { let w = 0.25 - i as f64 * 0.01; k.cy([0.5, *y, 0.5], [0.5, y + 0.05, 0.5], w, w, 0.75, if i % 2 == 0 { ROPE } else { ROPE2 }); }
             k.b([0.66, 0.0, 0.4, 0.95, 0.06, 0.6], ROPE); k.b([0.72, 0.06, 0.45, 0.9, 0.09, 0.55], ROPE2); // la corde qui traîne
         }
-        "buoy" => { // bouée : une sphère rouge et blanche en tranches, un anneau et un bout de corde
-            let cols = [[0.85, 0.2, 0.15], [0.92, 0.9, 0.86], [0.85, 0.2, 0.15]];
-            for (i, (y0, y1, rr)) in [(0.0, 0.08, 0.14), (0.08, 0.18, 0.22), (0.18, 0.32, 0.26), (0.32, 0.44, 0.22), (0.44, 0.52, 0.14)].iter().enumerate() { k.b([0.5 - rr, *y0, 0.5 - rr, 0.5 + rr, *y1, 0.5 + rr], cols[(i / 2).min(2)]); }
+        "buoy" => { // bouée : une sphère rouge à bande blanche, un anneau et un bout de corde
+            let (red, white) = ([0.85, 0.2, 0.15], [0.92, 0.9, 0.86]);
+            k.lathe(0.5, 0.5, &[(0.0, 0.1), (0.07, 0.2), (0.18, 0.26)], red); k.lathe(0.5, 0.5, &[(0.18, 0.26), (0.26, 0.275), (0.34, 0.26)], white); k.lathe(0.5, 0.5, &[(0.34, 0.26), (0.45, 0.2), (0.52, 0.1)], red);
             k.b([0.47, 0.52, 0.47, 0.53, 0.62, 0.53], IRON); k.b([0.5, 0.0, 0.48, 0.92, 0.04, 0.52], ROPE);
         }
         "net_pile" => { // un tas de filets emmêlés, quelques flotteurs, sur le sol
@@ -280,13 +286,13 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
         "spinning_wheel" => {
             k.b([0.1, 0.18, 0.25, 0.9, 0.26, 0.75], WOOD); for (a, b) in [(0.12, 0.3), (0.12, 0.65), (0.82, 0.48)] { k.b([a, 0.0, b, a + 0.05, 0.2, b + 0.05], DARK); }
             k.b([0.3, 0.26, 0.47, 0.35, 0.7, 0.53], DARK); let (cx, cy, rr) = (0.4, 0.7, 0.28);
-            for i in 0..16 { let a = i as f64 * std::f64::consts::TAU / 16.0; let (ca, sa) = (a.cos(), a.sin()); k.r([cx + ca * rr, cy + sa * rr, 0.5], [[-sa * 0.06, ca * 0.06, 0.0], [ca * 0.025, sa * 0.025, 0.0], [0.0, 0.0, 0.025]], WOOD); }
+            k.cy([cx, cy, 0.475], [cx, cy, 0.525], rr + 0.025, rr + 0.025, 0.84, WOOD); k.cy([cx, cy, 0.46], [cx, cy, 0.54], 0.04, 0.04, 0.0, DARK); // une roue ronde et son moyeu
             for i in 0..4 { let a = i as f64 * std::f64::consts::FRAC_PI_4 * 2.0 + 0.3; k.r([cx, cy, 0.5], [[a.cos() * rr, a.sin() * rr, 0.0], [-a.sin() * 0.012, a.cos() * 0.012, 0.0], [0.0, 0.0, 0.012]], DARK); }
             k.b([0.7, 0.26, 0.45, 0.76, 0.6, 0.55], DARK); k.b([0.68, 0.55, 0.42, 0.82, 0.62, 0.58], [0.85, 0.8, 0.66]);
         }
-        "grindstone" => {
+        "grindstone" => { // une meule de grès ronde sur son bâti, l'axe et la manivelle
             for a in [0.15, 0.78] { k.b([a, 0.0, 0.2, a + 0.07, 0.62, 0.8], WOOD); } k.b([0.15, 0.1, 0.45, 0.85, 0.16, 0.55], DARK);
-            for i in 0..8 { let a = i as f64 * std::f64::consts::PI / 8.0; k.r([0.5, 0.55, 0.5], [[0.08, 0.0, 0.0], [0.0, a.cos() * 0.34, a.sin() * 0.34], [0.0, -a.sin() * 0.14, a.cos() * 0.14]], [0.62, 0.6, 0.55]); }
+            k.cy([0.42, 0.55, 0.5], [0.58, 0.55, 0.5], 0.34, 0.34, 0.0, [0.62, 0.6, 0.55]);
             k.b([0.08, 0.53, 0.47, 0.92, 0.57, 0.53], IRON); k.b([0.04, 0.5, 0.47, 0.08, 0.72, 0.53], IRON); k.b([0.0, 0.68, 0.45, 0.08, 0.76, 0.55], DARK);
         }
         "signpost" => {
@@ -310,13 +316,13 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
             for (a, b) in [(0.06, 0.06), (0.86, 0.06), (0.06, 0.86), (0.86, 0.86)] { k.b([a, 0.0, b, a + 0.08, 0.82, b + 0.08], DARK); }
             k.b([0.1, 0.16, 0.47, 0.9, 0.22, 0.53], WOOD);
         }
-        "round_table" => {
-            for a in [0.0f64, 0.785] { k.r([0.5, 0.88, 0.5], [[a.cos() * 0.46, 0.0, a.sin() * 0.46], [0.0, 0.04, 0.0], [-a.sin() * 0.46, 0.0, a.cos() * 0.46]], WOOD); }
-            k.b([0.44, 0.06, 0.44, 0.56, 0.84, 0.56], DARK); for a in [0.0f64, 1.571] { k.r([0.5, 0.04, 0.5], [[a.cos() * 0.3, 0.0, a.sin() * 0.3], [0.0, 0.04, 0.0], [-a.sin() * 0.06, 0.0, a.cos() * 0.06]], DARK); }
+        "round_table" => { // un vrai plateau rond, un fût tourné, un pied évasé
+            k.cy([0.5, 0.84, 0.5], [0.5, 0.92, 0.5], 0.46, 0.46, 0.0, WOOD); k.cy([0.5, 0.8, 0.5], [0.5, 0.84, 0.5], 0.3, 0.4, 0.0, DARK);
+            k.lathe(0.5, 0.5, &[(0.0, 0.3), (0.05, 0.28), (0.1, 0.1), (0.2, 0.07), (0.45, 0.09), (0.7, 0.06), (0.8, 0.1)], DARK);
         }
-        "stool" => {
-            for a in [0.0f64, 0.785] { k.r([0.5, 0.5, 0.5], [[a.cos() * 0.2, 0.0, a.sin() * 0.2], [0.0, 0.035, 0.0], [-a.sin() * 0.2, 0.0, a.cos() * 0.2]], WOOD); }
-            for i in 0..3 { let a = i as f64 * 2.094; let (cx, cz) = (0.5 + a.cos() * 0.13, 0.5 + a.sin() * 0.13); k.b([cx - 0.03, 0.0, cz - 0.03, cx + 0.03, 0.47, cz + 0.03], DARK); }
+        "stool" => { // assise ronde, trois pieds tournés
+            k.cy([0.5, 0.465, 0.5], [0.5, 0.535, 0.5], 0.21, 0.21, 0.0, WOOD);
+            for i in 0..3 { let a = i as f64 * 2.094; let (ca, sa) = (a.cos(), a.sin()); k.cy([0.5 + ca * 0.17, 0.0, 0.5 + sa * 0.17], [0.5 + ca * 0.12, 0.47, 0.5 + sa * 0.12], 0.03, 0.03, 0.0, DARK); }
         }
         "candle" => { k.b([0.38, 0.0, 0.38, 0.62, 0.03, 0.62], [0.55, 0.42, 0.2]); k.candle(0.5, 0.03, 0.5, 0.26); }
         "candelabra" => {
@@ -325,7 +331,7 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
         }
         "chandelier" => {
             k.b([0.48, 0.55, 0.48, 0.52, 1.0, 0.52], IRON);
-            for i in 0..8 { let a = i as f64 * std::f64::consts::TAU / 8.0; let (ca, sa) = (a.cos(), a.sin()); k.r([0.5 + ca * 0.36, 0.42, 0.5 + sa * 0.36], [[-sa * 0.15, 0.0, ca * 0.15], [0.0, 0.04, 0.0], [ca * 0.04, 0.0, sa * 0.04]], DARK); }
+            k.cy([0.5, 0.38, 0.5], [0.5, 0.46, 0.5], 0.4, 0.4, 0.8, DARK); // une couronne ronde
             for i in 0..4 { let a = i as f64 * std::f64::consts::FRAC_PI_2 + 0.39; let (cx, cz) = (0.5 + a.cos() * 0.36, 0.5 + a.sin() * 0.36); k.b([0.48, 0.44, 0.48, cx.max(0.52), 0.47, cz.max(0.52)].map(|v| v), IRON); k.candle(cx, 0.46, cz, 0.12); }
             for i in 0..4 { let a = i as f64 * std::f64::consts::FRAC_PI_2; let (cx, cz) = (0.5 + a.cos() * 0.34, 0.5 + a.sin() * 0.34); k.r([(cx + 0.5) * 0.5, 0.72, (cz + 0.5) * 0.5], [[(cx - 0.5) * 0.5, 0.28, (cz - 0.5) * 0.5], [0.008, 0.0, 0.0], [0.0, 0.0, 0.008]], IRON); }
         }
@@ -339,26 +345,28 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
             let c = [0.62, 0.52, 0.36]; k.b([0.2, 0.0, 0.22, 0.8, 0.45, 0.78], c); k.b([0.24, 0.45, 0.26, 0.76, 0.6, 0.74], tone(c, 0.95)); k.b([0.34, 0.6, 0.36, 0.66, 0.68, 0.64], tone(c, 0.9));
             k.b([0.38, 0.68, 0.4, 0.62, 0.72, 0.6], [0.4, 0.3, 0.18]); k.b([0.36, 0.72, 0.38, 0.64, 0.8, 0.62], tone(c, 0.85));
         }
-        "amphora" => {
-            for (y0, y1, rr) in [(0.0, 0.06, 0.1), (0.06, 0.2, 0.18), (0.2, 0.5, 0.24), (0.5, 0.66, 0.18), (0.66, 0.8, 0.09), (0.8, 0.86, 0.12)] { k.b([0.5 - rr, y0, 0.5 - rr, 0.5 + rr, y1, 0.5 + rr], CLAY); }
-            k.b([0.28, 0.58, 0.47, 0.33, 0.78, 0.53], tone(CLAY, 0.9)); k.b([0.67, 0.58, 0.47, 0.72, 0.78, 0.53], tone(CLAY, 0.9)); k.b([0.25, 0.35, 0.25, 0.75, 0.39, 0.75], [0.25, 0.12, 0.07]);
+        "amphora" => { // panse tournée, col étroit, lèvre, deux anses, une bande peinte
+            k.lathe(0.5, 0.5, &[(0.0, 0.09), (0.05, 0.1), (0.18, 0.2), (0.34, 0.25), (0.5, 0.22), (0.64, 0.12), (0.78, 0.075), (0.82, 0.12), (0.86, 0.12)], CLAY);
+            k.cy([0.5, 0.35, 0.5], [0.5, 0.39, 0.5], 0.256, 0.25, 0.9, [0.25, 0.12, 0.07]);
+            k.b([0.28, 0.58, 0.47, 0.33, 0.78, 0.53], tone(CLAY, 0.9)); k.b([0.67, 0.58, 0.47, 0.72, 0.78, 0.53], tone(CLAY, 0.9)); k.b([0.33, 0.74, 0.47, 0.42, 0.78, 0.53], tone(CLAY, 0.9)); k.b([0.58, 0.74, 0.47, 0.67, 0.78, 0.53], tone(CLAY, 0.9));
         }
         "flower_pot" | "potted_fern" => {
-            k.b([0.3, 0.0, 0.3, 0.7, 0.3, 0.7], CLAY); k.b([0.27, 0.27, 0.27, 0.73, 0.33, 0.73], tone(CLAY, 1.1)); k.b([0.32, 0.3, 0.32, 0.68, 0.31, 0.68], [0.25, 0.17, 0.1]);
+            k.lathe(0.5, 0.5, &[(0.0, 0.15), (0.27, 0.21)], CLAY); k.lathe(0.5, 0.5, &[(0.27, 0.235), (0.33, 0.235)], tone(CLAY, 1.1)); k.cy([0.5, 0.33, 0.5], [0.5, 0.335, 0.5], 0.2, 0.2, 0.0, [0.25, 0.17, 0.1]);
             let cols = [[0.8, 0.15, 0.18], [0.95, 0.85, 0.3], [0.75, 0.45, 0.85], [0.95, 0.95, 0.9]]; let fl = cols[r.int(0, 3) as usize];
             let n = if m == "potted_fern" { 9 } else { 6 };
             for i in 0..n { let a = i as f64 * std::f64::consts::TAU / n as f64 + r.range(0.0, 0.5); let len = r.range(0.2, 0.32); let (ca, sa) = (a.cos(), a.sin());
                 let c = [0.5 + ca * len * 0.5, 0.42 + len * 0.3, 0.5 + sa * len * 0.5]; k.r(c, [[ca * len * 0.5, len * 0.3, sa * len * 0.5], [-sa * 0.05, 0.0, ca * 0.05], [0.0, 0.01, 0.0]], [0.2, 0.42, 0.15]);
                 if m == "flower_pot" { let p = [0.5 + ca * len * 0.9, 0.5 + len * 0.6, 0.5 + sa * len * 0.9]; k.b([p[0] - 0.05, p[1], p[2] - 0.05, p[0] + 0.05, p[1] + 0.07, p[2] + 0.05], fl); } }
         }
-        "cauldron" => {
-            for (y0, y1, rr) in [(0.08, 0.16, 0.3), (0.16, 0.5, 0.38), (0.5, 0.62, 0.35)] { k.b([0.5 - rr, y0, 0.5 - rr, 0.5 + rr, y1, 0.5 + rr], IRON); }
-            k.b([0.17, 0.56, 0.17, 0.83, 0.6, 0.83], [0.35, 0.42, 0.18]); for (a, b) in [(0.2, 0.2), (0.74, 0.2), (0.47, 0.76)] { k.b([a, 0.0, b, a + 0.06, 0.1, b + 0.06], IRON); }
+        "cauldron" => { // un chaudron de fer rond et ventru, son bouillon, trois pieds, deux oreilles
+            k.lathe(0.5, 0.5, &[(0.08, 0.22), (0.16, 0.34), (0.34, 0.39), (0.5, 0.37), (0.58, 0.34), (0.62, 0.36)], IRON);
+            k.cy([0.5, 0.56, 0.5], [0.5, 0.6, 0.5], 0.33, 0.33, 0.0, [0.35, 0.42, 0.18]); k.cy([0.5, 0.58, 0.5], [0.5, 0.625, 0.5], 0.37, 0.37, 0.88, tone(IRON, 1.3));
+            for i in 0..3 { let a = i as f64 * 2.094 + 0.5; let (ca, sa) = (a.cos(), a.sin()); k.cy([0.5 + ca * 0.27, 0.0, 0.5 + sa * 0.27], [0.5 + ca * 0.24, 0.12, 0.5 + sa * 0.24], 0.035, 0.04, 0.0, IRON); }
             k.b([0.1, 0.55, 0.47, 0.15, 0.62, 0.53], IRON); k.b([0.85, 0.55, 0.47, 0.9, 0.62, 0.53], IRON);
         }
-        "bucket" => {
-            k.b([0.32, 0.0, 0.32, 0.68, 0.4, 0.68], WOOD); for y in [0.06, 0.32] { k.b([0.31, y, 0.31, 0.69, y + 0.04, 0.69], IRON); }
-            k.b([0.34, 0.38, 0.34, 0.66, 0.39, 0.66], [0.3, 0.45, 0.6]); k.b([0.3, 0.4, 0.48, 0.33, 0.55, 0.52], IRON); k.b([0.67, 0.4, 0.48, 0.7, 0.55, 0.52], IRON); k.b([0.3, 0.55, 0.48, 0.7, 0.58, 0.52], IRON);
+        "bucket" => { // un seau de douelles, évasé, deux cercles de fer, de l'eau, une anse
+            k.cy([0.5, 0.0, 0.5], [0.5, 0.4, 0.5], 0.16, 0.2, 0.0, WOOD); for (y, rr) in [(0.06, 0.172), (0.32, 0.196)] { k.cy([0.5, y, 0.5], [0.5, y + 0.04, 0.5], rr, rr + 0.002, 0.9, IRON); }
+            k.cy([0.5, 0.39, 0.5], [0.5, 0.405, 0.5], 0.17, 0.17, 0.0, [0.3, 0.45, 0.6]); k.b([0.3, 0.38, 0.48, 0.33, 0.55, 0.52], IRON); k.b([0.67, 0.38, 0.48, 0.7, 0.55, 0.52], IRON); k.b([0.3, 0.55, 0.48, 0.7, 0.58, 0.52], IRON);
         }
         "log_pile" => {
             for row in 0..3 { for i in 0..(4 - row) { let (y, x) = (0.13 + row as f64 * 0.24, 0.13 + i as f64 * 0.25 + row as f64 * 0.125);
@@ -380,13 +388,14 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
             for (i, (bx_, bz)) in [(0.3, 0.35), (0.55, 0.3), (0.42, 0.62), (0.7, 0.58)].iter().enumerate() { let c = cols[(i + r.int(0, 3) as usize) % 4]; let h = r.range(0.28, 0.4);
                 k.b([bx_ - 0.07, 0.0, bz - 0.07, bx_ + 0.07, h, bz + 0.07], c); k.b([bx_ - 0.03, h, bz - 0.03, bx_ + 0.03, h + 0.12, bz + 0.03], c); k.b([bx_ - 0.025, h + 0.12, bz - 0.025, bx_ + 0.025, h + 0.15, bz + 0.025], [0.6, 0.45, 0.3]); }
         }
-        "beehive" => {
-            for (i, (y0, rr)) in [(0.0, 0.36), (0.14, 0.38), (0.28, 0.35), (0.42, 0.3), (0.56, 0.22), (0.68, 0.12)].iter().enumerate() { k.t([0.5 - rr, *y0, 0.5 - rr, 0.5 + rr, y0 + 0.15, 0.5 + rr], "hay", [0.9 - 0.04 * i as f64; 3]); }
-            k.b([0.43, 0.02, 0.12, 0.57, 0.1, 0.15], [0.08, 0.06, 0.04]);
+        "beehive" => { // une ruche de paille tressée en dôme, son trou d'envol
+            k.lathe_t(0.5, 0.5, &[(0.0, 0.36), (0.16, 0.39), (0.32, 0.37), (0.46, 0.31), (0.58, 0.23), (0.7, 0.13), (0.8, 0.0)], "hay", [0.82, 0.82, 0.82]);
+            for y in [0.15, 0.31, 0.45, 0.57] { let rr = 0.39 - (y - 0.15f64).max(0.0) * 0.36; k.cy([0.5, y, 0.5], [0.5, y + 0.012, 0.5], rr + 0.012, rr + 0.012, 0.92, [0.5, 0.4, 0.2]); }
+            k.b([0.43, 0.02, 0.1, 0.57, 0.1, 0.15], [0.08, 0.06, 0.04]);
         }
-        "cheese" => {
+        "cheese" => { // deux meules rondes empilées, croûte et dessus plus clair
             let (c, rind) = ([0.95, 0.78, 0.3], [0.8, 0.55, 0.18]);
-            for (y, rr) in [(0.0, 0.3), (0.18, 0.26)] { for a in [0.0f64, 0.785] { k.r([0.5, y + 0.09, 0.5], [[a.cos() * rr, 0.0, a.sin() * rr], [0.0, 0.09, 0.0], [-a.sin() * rr, 0.0, a.cos() * rr]], rind); } k.b([0.5 - rr * 0.6, y + 0.18, 0.5 - rr * 0.6, 0.5 + rr * 0.6, y + 0.181, 0.5 + rr * 0.6], c); }
+            for (y, rr) in [(0.0, 0.3), (0.18, 0.26)] { k.lathe(0.5, 0.5, &[(y, rr - 0.02), (y + 0.03, rr), (y + 0.15, rr), (y + 0.18, rr - 0.02)], rind); k.cy([0.5, y + 0.18, 0.5], [0.5, y + 0.183, 0.5], rr - 0.05, rr - 0.05, 0.0, c); }
         }
         "bread_basket" => {
             k.t([0.15, 0.0, 0.2, 0.85, 0.22, 0.8], "wattle", [1.2, 1.1, 0.9]); k.b([0.18, 0.2, 0.23, 0.82, 0.21, 0.77], [0.4, 0.3, 0.18]);

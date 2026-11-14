@@ -311,15 +311,11 @@ impl Mesher {
                 return;
             }
             "barrel" => {
-                // Douze douelles bombées sur trois hauteurs, deux cercles de fer, un fond de planches.
-                let (cx, cz) = (x + 0.5, z + 0.5); let wood = [0.5, 0.33, 0.18];
-                for k in 0..12 { let a = k as f64 * std::f64::consts::TAU / 12.0; let (ca, sa) = (cos(a), sin(a)); let t = 0.85 + 0.25 * r_.next();
-                    for (y0, y1, rr) in [(0.0, 0.3, 0.36), (0.3, 0.7, 0.41), (0.7, 1.0, 0.36)] {
-                        obox(o, [cx + ca * rr, y + (y0 + y1) * 0.5, cz + sa * rr], [[sa * 0.1, 0.0, -ca * 0.1], [0.0, (y1 - y0) * 0.5, 0.0], [ca * 0.03, 0.0, sa * 0.03]], [wood[0] * t, wood[1] * t, wood[2] * t], -1.0, s, l);
-                    } }
-                for (hy, rr) in [(0.2, 0.39), (0.8, 0.39)] { for k in 0..12 { let a = (k as f64 + 0.5) * std::f64::consts::TAU / 12.0; let (ca, sa) = (cos(a), sin(a));
-                    obox(o, [cx + ca * rr, y + hy, cz + sa * rr], [[sa * 0.11, 0.0, -ca * 0.11], [0.0, 0.035, 0.0], [ca * 0.02, 0.0, sa * 0.02]], [0.2, 0.2, 0.22], -1.0, s, l); } }
-                bx3(o, cx - 0.3, y + 0.94, cz - 0.3, cx + 0.3, y + 0.97, cz + 0.3, 0.42, 0.28, 0.15, 0.0, s, l);
+                // Un fût rond et bombé (trois tronçons tournés), deux cercles de fer, un fond de planches en retrait.
+                let (cx, cz) = (x + 0.5, z + 0.5); let t = 0.9 + 0.2 * r_.next(); let wood = [0.5 * t, 0.33 * t, 0.18 * t];
+                for (y0, y1, ra, rb) in [(0.0, 0.3, 0.35, 0.41), (0.3, 0.7, 0.41, 0.41), (0.7, 1.0, 0.41, 0.35)] { cyl(o, [cx, y + y0, cz], [cx, y + y1, cz], ra, rb, if y0 > 0.0 && y1 < 1.0 { 0.0 } else { 0.0 }, wood, mat_layer("planks") as f64, s, l, 16); }
+                for hy in [0.2, 0.8] { cyl(o, [cx, y + hy - 0.035, cz], [cx, y + hy + 0.035, cz], 0.405, 0.405, 0.9, [0.2, 0.2, 0.22], -1.0, s, l, 16); }
+                cyl(o, [cx, y + 0.955, cz], [cx, y + 1.0, cz], 0.355, 0.355, 0.86, [wood[0] * 0.8, wood[1] * 0.8, wood[2] * 0.8], mat_layer("planks") as f64, s, l, 16);
                 return;
             }
             "lantern" => {
@@ -1031,6 +1027,36 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32) -> (Vec<u8>, usize) {
 fn mat_avg2() -> &'static Vec<[f64; 3]> {
     static A: std::sync::OnceLock<Vec<[f64; 3]>> = std::sync::OnceLock::new();
     A.get_or_init(|| { let t = crate::textures::build_textures(16); let n = 16 * 16; (0..t.layers as usize).map(|l| { let mut s = [0.0f64; 3]; for i in 0..n { for k in 0..3 { let v = t.albedo[(l * n + i) * 4 + k] as f64 / 255.0; s[k] += v * v; } } s.map(|v| (v / n as f64).max(1e-3)) }).collect() })
+}
+/// Une pièce ronde : cylindre ou tronc de cône à `n` pans lissés entre deux centres, bouts fermés. `hole` (0 à 1) : la part
+/// du rayon évidée (un anneau : jante de roue, cercle de lustre). `layer` < 0 : la matière se devine à la couleur (auto_tex),
+/// sinon couleur unie. Remplace les ronds faits de boîtes croisées, qui dessinaient des étoiles.
+#[allow(clippy::too_many_arguments)]
+pub fn cyl(o: &mut VBuf, p0: [f64; 3], p1: [f64; 3], r0: f64, r1: f64, hole: f64, col: [f64; 3], layer: f64, s: f64, l: f64, n: usize) {
+    let d = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]]; let len = hypot3(d[0], d[1], d[2]).max(1e-9); let d = [d[0] / len, d[1] / len, d[2] / len];
+    let u = if d[1].abs() > 0.9 { [1.0, 0.0, 0.0] } else { let m = (d[0] * d[0] + d[2] * d[2]).sqrt(); [d[2] / m, 0.0, -d[0] / m] };
+    let v = [d[1] * u[2] - d[2] * u[1], d[2] * u[0] - d[0] * u[2], d[0] * u[1] - d[1] * u[0]];
+    let (kd, ly, col) = if layer >= 0.0 { (TEX, layer, col) } else { match auto_tex(col, r0.max(r1) * 2.0) { Some((ly, t)) => (TEX, ly, t), None => (FLAT, 0.0, col) } };
+    let n = n.max(6) & !1; let ang = |i: usize| (i % n) as f64 * std::f64::consts::TAU / n as f64;
+    let rad = |a: f64| { let (c, sn) = (cos(a), sin(a)); [u[0] * c + v[0] * sn, u[1] * c + v[1] * sn, u[2] * c + v[2] * sn] };
+    let pt = |c: [f64; 3], r: f64, a: f64| { let q = rad(a); [c[0] + q[0] * r, c[1] + q[1] * r, c[2] + q[2] * r] };
+    let mut put = |o: &mut VBuf, q: [f64; 3], nn: [f64; 3]| { let ao = if nn[1] > 0.5 { 255.0 } else if nn[1] < -0.5 { 170.0 } else { 220.0 }; let k = if kd == FLAT { 0.86 + 0.14 * nn[1] + 0.05 * nn[0] } else { 1.0 };
+        o.v(q[0], q[1], q[2], ly, nn[0], nn[1], nn[2], 0.0, ao, s, l, kd, col[0] * k, col[1] * k, col[2] * k); };
+    let slope = (r0 - r1) / len; // un cône : la normale se couche vers le petit bout
+    let side = |a: f64, sg: f64| { let q = rad(a); let nn = [q[0] * sg + d[0] * slope, q[1] * sg + d[1] * slope, q[2] * sg + d[2] * slope]; let m = hypot3(nn[0], nn[1], nn[2]).max(1e-9); [nn[0] / m, nn[1] / m, nn[2] / m] };
+    let neg = [-d[0], -d[1], -d[2]];
+    for i in 0..n { let (a0, a1) = (ang(i), ang(i + 1));
+        // le flanc, puis (pour un anneau) la paroi intérieure
+        put(o, pt(p0, r0, a0), side(a0, 1.0)); put(o, pt(p0, r0, a1), side(a1, 1.0)); put(o, pt(p1, r1, a1), side(a1, 1.0)); put(o, pt(p1, r1, a0), side(a0, 1.0));
+        if hole > 0.0 {
+            put(o, pt(p0, r0 * hole, a1), side(a1, -1.0)); put(o, pt(p0, r0 * hole, a0), side(a0, -1.0)); put(o, pt(p1, r1 * hole, a0), side(a0, -1.0)); put(o, pt(p1, r1 * hole, a1), side(a1, -1.0));
+            if r1 > 1e-6 { put(o, pt(p1, r1 * hole, a0), d); put(o, pt(p1, r1, a0), d); put(o, pt(p1, r1, a1), d); put(o, pt(p1, r1 * hole, a1), d); }
+            if r0 > 1e-6 { put(o, pt(p0, r0 * hole, a1), neg); put(o, pt(p0, r0, a1), neg); put(o, pt(p0, r0, a0), neg); put(o, pt(p0, r0 * hole, a0), neg); }
+        } else if i % 2 == 0 { let a2 = ang(i + 2); // les bouts : un éventail de quadrilatères autour du centre
+            if r1 > 1e-6 { put(o, p1, d); put(o, pt(p1, r1, a0), d); put(o, pt(p1, r1, a1), d); put(o, pt(p1, r1, a2), d); }
+            if r0 > 1e-6 { put(o, p0, neg); put(o, pt(p0, r0, a2), neg); put(o, pt(p0, r0, a1), neg); put(o, pt(p0, r0, a0), neg); }
+        }
+    }
 }
 /// Une pièce de décor de couleur unie reçoit la vraie matière qui lui ressemble — bois sombre des poutres, bois clair des
 /// meubles, fer, pierre, enduit, étoffe — teintée pour garder sa couleur : grain, veines, joints et relief de la texture,
