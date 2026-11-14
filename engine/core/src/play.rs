@@ -487,7 +487,7 @@ impl Session {
         if !self.stashes.is_empty() { self.notes.push("Vos affaires vous attendent là où vous êtes tombé".into()); }
     }
     pub(crate) fn gate(&self, mut i: Input) -> Input {
-        if self.creative { return i; }
+        if self.creative || self.ride.is_some() { return i; } // en selle, c'est la monture qui court et qui porte
         if self.winded || self.stamina <= 0.0 { i.sprint = false; } if self.winded || self.stamina < STAMINA_ROLL { i.roll = false; }
         // Trop chargé, on avance plus lentement ; bien trop chargé, on ne court ni ne saute plus.
         let over = self.carried() / self.capacity(); if over > 1.0 { let k = if over > 1.5 { 0.45 } else { 0.75 }; i.x *= k; i.z *= k; if over > 1.5 { i.sprint = false; i.jump = false; } }

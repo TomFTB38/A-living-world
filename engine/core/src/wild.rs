@@ -62,6 +62,21 @@ pub fn snow_at(w: &impl Voxels, x: f64, y: f64, z: f64) -> Option<f64> {
     if w.get(fx, fy - 1, fz)? == B::SNOW { return Some(fy as f64); } None
 }
 fn hp_of(k: Kind) -> f64 { match k { Kind::Cow => 20.0, Kind::Sheep => 12.0, Kind::Pig => 14.0, Kind::Horse => 26.0, Kind::Chicken => 4.0, Kind::Fox => crate::survival::FOX_HP, Kind::Hare => crate::survival::HARE_HP, Kind::Wolf => crate::survival::WOLF_HP, Kind::Boar => crate::survival::BOAR_HP, Kind::Bear => crate::survival::BEAR_HP, Kind::Ibex => crate::survival::IBEX_HP, Kind::Lizard => crate::survival::LIZARD_HP, Kind::Fish | Kind::Reef => 2.0, Kind::Crab => 4.0, Kind::Dolphin => 30.0, Kind::Gull => 3.0, Kind::Shark => 26.0, Kind::Whale => 400.0, _ => 1.0 } }
+/// Au-delà, cheval et loup ne trottent plus : ils galopent.
+pub const GALLOP: f64 = 6.5;
+/// Un loup sellé est un grand loup de monte : la moitié plus grand.
+pub const WOLF_MOUNT: f64 = 1.45;
+/// L'allure d'une bête qui marche : soulèvement du corps (en blocs), tangage, angles des pattes (avant gauche, avant droite,
+/// arrière gauche, arrière droite) et hochement de tête. Au trot, les pattes vont par diagonales ; au galop, l'avant puis
+/// l'arrière lancés ensemble, le dos qui tangue comme un cheval de bois.
+pub fn gait(kind: Kind, speed: f64, phase: f64, amp: f64) -> (f64, f64, [f64; 4], f64) {
+    if speed <= 0.0 { return (0.0, 0.0, [0.0; 4], 0.0); }
+    if speed > GALLOP && matches!(kind, Kind::Horse | Kind::Wolf) {
+        let pitch = sin(phase + 0.9) * 0.13; let bob = (0.5 + 0.5 * sin(phase - 1.3)) * if kind == Kind::Horse { 0.16 } else { 0.12 };
+        return (bob, pitch, [sin(phase) * 1.05, sin(phase + 0.45) * 1.05, sin(phase + 2.6) * 0.95, sin(phase + 3.05) * 0.95], -pitch * 0.9 - 0.12);
+    }
+    let a = sin(phase) * amp; (sin(phase).abs() * 0.03, 0.0, [a, -a, -a, a], 0.0)
+}
 const WOLF: f64 = 1.75; const BOAR: f64 = 1.25; const COW: f64 = 2.4; const SHEEP: f64 = 1.7; const PIG: f64 = 1.7; const HORSE: f64 = 2.5; const HEN: f64 = 1.3; const BEAR: f64 = 2.3; const IBEX: f64 = 1.5;
 impl Wild {
     /// Un coup porté à l'animal `i` : il détale, ou tombe. Renvoie son espèce s'il est mort (il disparaît alors).
@@ -220,8 +235,8 @@ impl Wild {
         let top = match c.kind { Kind::Horse => if gallop { 11.0 } else { 6.0 }, _ => if gallop { 9.0 } else { 5.0 } };
         if m > 0.05 { let want = dir[0].atan2(dir[1]); let mut dy = want - c.yaw; while dy > std::f64::consts::PI { dy -= std::f64::consts::TAU; } while dy < -std::f64::consts::PI { dy += std::f64::consts::TAU; } c.yaw += dy.clamp(-5.0 * dt, 5.0 * dt); }
         let sp = top * m.min(1.0); c.speed += (sp - c.speed) * (dt * 4.0).min(1.0);
-        if c.speed > 0.05 { c.phase += dt * (4.0 + c.speed * 1.6); c.state = State::Walk; if !steer(c, w, c.speed * dt) { c.speed *= 0.3; } } else { c.phase = 0.0; c.state = State::Idle; }
-        c.p[1] += (c.gy - c.p[1]) * (dt * 12.0).min(1.0); Some(c.p)
+        if c.speed > 0.05 { c.phase += dt * if c.speed > GALLOP { 5.0 + c.speed * 0.8 } else { 4.0 + c.speed * 1.6 }; c.state = State::Walk; if !steer(c, w, c.speed * dt) { c.speed *= 0.3; } } else { c.phase = 0.0; c.state = State::Idle; }
+        c.p[1] += (c.gy - c.p[1]) * (dt * 12.0).min(1.0); let bob = gait(c.kind, c.speed, c.phase, 0.6).0; Some([c.p[0], c.p[1] + bob, c.p[2]])
     }
     /// L'animal au numéro donné.
     pub fn by_id(&self, id: u32) -> Option<usize> { self.all.iter().position(|c| c.farm.id == id) }
@@ -317,11 +332,12 @@ impl Wild {
                     put("crow", base); put("crowWing", mul(&base, &mul(&trs(0.06 * CROW, 0.08 * CROW, 0.0, 0.0, 0.0, 1.0), &roll_z(f)))); put("crowWing", mul(&base, &mul(&trs(-0.06 * CROW, 0.08 * CROW, 0.0, 0.0, 0.0, 1.0), &roll_z(std::f64::consts::PI - f))));
                 }
                 Kind::Wolf | Kind::Boar => {
-                    let wolf = c.kind == Kind::Wolf; let (sc, hip, n) = if wolf { (WOLF, 0.32, "wolf") } else { (BOAR, 0.2, "boar") };
-                    let sitting = c.farm.sit && wolf; let base = trs(c.p[0], c.p[1] + flinch(c.hit) * 0.3 - if sitting { 0.12 } else { 0.0 }, c.p[2], c.yaw, -flinch(c.hit) * 0.6 - if sitting { 0.45 } else { 0.0 }, sc); let s = if c.speed > 0.0 { sin(c.phase) * 0.8 } else { 0.0 };
+                    let wolf = c.kind == Kind::Wolf; let (sc, hip, n) = if wolf { (WOLF * if c.farm.saddle { WOLF_MOUNT } else { 1.0 }, 0.32, "wolf") } else { (BOAR, 0.2, "boar") };
+                    let (bob, tilt, legs, nod) = gait(c.kind, c.speed, c.phase, 0.8);
+                    let sitting = c.farm.sit && wolf; let base = trs(c.p[0], c.p[1] + bob + flinch(c.hit) * 0.3 - if sitting { 0.12 } else { 0.0 }, c.p[2], c.yaw, tilt - flinch(c.hit) * 0.6 - if sitting { 0.45 } else { 0.0 }, sc);
                     put(n, mul(&base, &trs(0.0, hip, 0.0, 0.0, 0.0, 1.0))); let lunge = if c.cd > 1.0 { 0.25 } else { 0.0 };
-                    put(if wolf { "wolfHead" } else { "boarHead" }, mul(&base, &trs(0.0, hip + if wolf { 0.14 } else { 0.08 }, if wolf { 0.32 } else { 0.32 } + lunge * 0.3, 0.0, if c.state == State::Idle { 0.3 } else { -lunge }, 1.0)));
-                    for (x, z, a) in [(-0.08, 0.22, s), (0.08, 0.22, -s), (-0.08, -0.24, -s), (0.08, -0.24, s)] { put(if wolf { "wolfLeg" } else { "boarLeg" }, mul(&base, &trs(x * if wolf { 1.0 } else { 1.4 }, hip, z, 0.0, a, 1.0))); }
+                    put(if wolf { "wolfHead" } else { "boarHead" }, mul(&base, &trs(0.0, hip + if wolf { 0.14 } else { 0.08 }, if wolf { 0.32 } else { 0.32 } + lunge * 0.3, 0.0, if c.state == State::Idle { 0.3 } else { nod - lunge }, 1.0)));
+                    for ((x, z), a) in [(-0.08, 0.22), (0.08, 0.22), (-0.08, -0.24), (0.08, -0.24)].into_iter().zip(legs) { put(if wolf { "wolfLeg" } else { "boarLeg" }, mul(&base, &trs(x * if wolf { 1.0 } else { 1.4 }, hip, z, 0.0, a, 1.0))); }
                     if wolf && c.farm.tame { put("collar", mul(&base, &trs(0.0, hip + 0.2, 0.27, 0.0, -0.5, 1.0))); if c.farm.saddle { put("saddle", mul(&base, &trs(0.0, hip + 0.25, 0.0, 0.0, 0.0, 0.8))); } }
                 }
                 Kind::Bear => {
@@ -358,10 +374,11 @@ impl Wild {
                         Kind::Sheep => (SHEEP, 0.31, if c.farm.shorn > 0.0 { ["sheepShorn0", "sheepShorn1", "sheepShorn2"][v] } else { ["sheep0", "sheep1", "sheep2"][v] }, ["sheepHead0", "sheepHead1", "sheepHead2"][v], ["sheepLeg0", "sheepLeg1", "sheepLeg2"][v], 0.3, 0.2, 0.09, 0.2),
                         Kind::Pig => (PIG, 0.2, ["pig0", "pig1", "pig2"][v], ["pigHead0", "pigHead1", "pigHead2"][v], ["pigLeg0", "pigLeg1", "pigLeg2"][v], 0.32, 0.12, 0.1, 0.22),
                         _ => (HORSE, 0.45, ["horse0", "horse1", "horse2"][v], ["horseHead0", "horseHead1", "horseHead2"][v], ["horseLeg0", "horseLeg1", "horseLeg2"][v], 0.38, 0.2, 0.1, 0.3) };
-                    let base = trs(c.p[0], c.p[1] + flinch(c.hit) * 0.3, c.p[2], c.yaw, -flinch(c.hit) * 0.5, sc); let s = if c.speed > 0.0 { sin(c.phase) * if c.speed > 5.0 { 0.9 } else { 0.6 } } else { 0.0 };
-                    put(body, mul(&base, &trs(0.0, hip, 0.0, 0.0, 0.0, 1.0))); let graze = if c.state == State::Idle && c.kind != Kind::Horse { 0.7 } else if c.state == State::Idle { 0.35 } else { 0.0 };
-                    put(head, mul(&base, &trs(0.0, hip + hy, hz, 0.0, graze, 1.0))); // la tête baissée qui broute
-                    for (x, z, a) in [(-lx, lz, s), (lx, lz, -s), (-lx, -lz, -s), (lx, -lz, s)] { put(leg, mul(&base, &trs(x, hip, z, 0.0, a, 1.0))); }
+                    let (bob, tilt, legs, nod) = gait(c.kind, c.speed, c.phase, if c.speed > 5.0 { 0.9 } else { 0.6 });
+                    let base = trs(c.p[0], c.p[1] + bob + flinch(c.hit) * 0.3, c.p[2], c.yaw, tilt - flinch(c.hit) * 0.5, sc);
+                    put(body, mul(&base, &trs(0.0, hip, 0.0, 0.0, 0.0, 1.0))); let graze = if c.state == State::Idle && c.kind != Kind::Horse { 0.7 } else if c.state == State::Idle { 0.35 } else { nod };
+                    put(head, mul(&base, &trs(0.0, hip + hy, hz, 0.0, graze, 1.0))); // la tête baissée qui broute, ou qui balance au galop
+                    for ((x, z), a) in [(-lx, lz), (lx, lz), (-lx, -lz), (lx, -lz)].into_iter().zip(legs) { put(leg, mul(&base, &trs(x, hip, z, 0.0, a, 1.0))); }
                     if c.farm.saddle { put("saddle", mul(&base, &trs(0.0, hip + 0.33, 0.04, 0.0, 0.0, 1.0))); }
                 }
                 Kind::Chicken => { let peck = if c.state == State::Idle { (sin(c.life * 0.0 + c.t * 5.0)).max(0.0) * 0.4 } else { 0.0 }; let hop = if c.speed > 0.0 { sin(c.phase).abs() * 0.04 } else { 0.0 };

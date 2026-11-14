@@ -33,3 +33,23 @@ fn apprivoiser_seller_et_chevaucher_un_loup() {
     let txt = s.save_text(); let mut o = Session::new(FLAT | 5, &Preset { radius: 1, lod1: 1.5, lod2: 2.5 }, 1, AT); o.load_text(&txt).unwrap();
     assert!(o.wild.all.iter().any(|c| c.kind == Kind::Wolf && c.farm.tame && c.farm.saddle), "le loup sellé est revenu");
 }
+
+#[test]
+fn le_cheval_galope_au_sprint() {
+    // l'allure : au trot, les pattes vont par diagonales ; au galop, les deux avant ensemble, le dos tangue
+    let (_, t0, trot, _) = alw_core::wild::gait(Kind::Horse, 4.0, 1.0, 0.6); assert!(t0 == 0.0 && (trot[0] + trot[1]).abs() < 1e-9, "trot : {trot:?}");
+    let (_, _, gal, _) = alw_core::wild::gait(Kind::Horse, 10.0, 1.0, 0.6); assert!(gal[0] * gal[1] > 0.0, "galop : les antérieurs ensemble {gal:?}");
+    assert!((0..40).any(|k| alw_core::wild::gait(Kind::Horse, 10.0, k as f64 * 0.2, 0.6).1.abs() > 0.1), "le dos tangue");
+    let run = |sprint: bool| {
+        let mut s = session(); s.player.pitch = -0.6; beast(&mut s, Kind::Horse); { let c = &mut s.wild.all[0].farm; c.tame = true; c.saddle = true; }
+        s.inv[0] = None; right(&mut s); assert!(s.ride.is_some(), "en selle : {:?}", s.notes);
+        s.set_creative(false); s.stamina = 1.0; // un cavalier épuisé : c'est la monture qui court
+        let p0 = s.wild.all[0].p; let mut ys = Vec::new();
+        for _ in 0..60 { s.tick(0.05, Input { z: 1.0, sprint, ..Default::default() }, Actions::default()); ys.push(s.player.p[1] - s.wild.all[0].p[1]); }
+        let p1 = s.wild.all[0].p; ((p1[0] - p0[0]).hypot(p1[2] - p0[2]), ys)
+    };
+    let ((trot, _), (gallop, ys)) = (run(false), run(true));
+    assert!(gallop > trot * 1.5, "le galop va bien plus vite : {gallop:.1} contre {trot:.1}");
+    let (lo, hi) = ys[20..].iter().fold((f64::MAX, f64::MIN), |a, y| (a.0.min(*y), a.1.max(*y))); assert!(hi - lo > 0.08, "le cavalier est secoué par le galop : {lo:.2}..{hi:.2}");
+    assert!(alw_core::elevage::seat(Kind::Wolf) > 1.0, "un loup de monte est grand");
+}

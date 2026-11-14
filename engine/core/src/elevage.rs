@@ -7,7 +7,8 @@ use crate::wild::Kind;
 /// Les bêtes qu'on peut monter, une fois apprivoisées et sellées.
 pub fn mount(k: Kind) -> bool { matches!(k, Kind::Horse | Kind::Wolf) }
 /// La hauteur de la selle au-dessus du sol.
-pub fn seat(k: Kind) -> f64 { if k == Kind::Horse { 1.05 } else { 0.72 } }
+/// (On ne monte un loup que sellé : c'est alors un grand loup de monte, voir `wild::WOLF_MOUNT`.)
+pub fn seat(k: Kind) -> f64 { if k == Kind::Horse { 1.05 } else { 0.72 * crate::wild::WOLF_MOUNT } }
 
 impl Session {
     /// Près d'un village (0 à 1) : c'est là que paissent les bêtes de ferme.

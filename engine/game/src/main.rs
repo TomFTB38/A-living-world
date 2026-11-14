@@ -413,6 +413,14 @@ fn capture(a: &[String]) {
         if scene == "plat_monte" { let h = s.wild.all.iter().position(|c| c.kind == K::Horse).unwrap(); s.wild.all[h].p = [s.player.p[0], y, s.player.p[2]]; s.wild.all[h].yaw = s.player.yaw; s.ride = Some(s.wild.all[h].farm.id); s.third = true; }
         s.tick(0.0, none, Actions::default());
     }
+    // Au galop : le cheval (ou le grand loup sellé) lancé à fond, vu de côté, en pleine foulée.
+    if scene == "plat_galop" || scene == "plat_loup" {
+        use alw_core::wild::Kind as K; let y = alw_core::gen::FLAT_Y as f64 + 1.0; s.wild.all.clear(); let kind = if scene == "plat_galop" { K::Horse } else { K::Wolf };
+        s.wild.put(kind, [s.player.p[0], y, s.player.p[2]], 0.0, false); { let c = s.wild.all.last_mut().unwrap(); c.farm.tame = true; c.farm.saddle = true; c.color = 1; }
+        s.player.yaw = 0.0; s.ride = Some(s.wild.all[0].farm.id); s.third = true; s.sel = 8;
+        for _ in 0..47 { s.tick(1.0 / 30.0, Input { z: 1.0, sprint: true, ..none }, Actions::default()); } pump(&mut s, &mut g);
+        let p = s.wild.all[0].p; let e = [p[0] + 6.5, p[1] + 1.6, p[2] - 1.0]; s.eye = e; s.look = view::norm([p[0] - e[0], p[1] + 1.0 - e[1], p[2] + 0.4 - e[2]]);
+    }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
     if scene == "abattage" {

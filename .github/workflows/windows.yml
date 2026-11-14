@@ -82,6 +82,8 @@ jobs:
           shot plat_pres 70 63 -4 82 58 18 11 6 1280 720 2048 plat
           shot plat_ferme -40 57.4 -31 -40.5 55.6 -23 10 4 1280 720 2048 plat_ferme
           shot plat_monte -41 56.62 -18 -41 56.2 -12 10 4 1280 720 2048 plat_monte
+          shot plat_galop -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_galop
+          shot plat_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_loup
           shot bourg_vue -1478 104 1470 -1535 58 1525 15.5 7 1280 720 2048
           shot bourg_mairie -1522 68 1506 -1538 60 1484 16 6 1280 720 2048
           shot bourg_eglise -1522 70 1534 -1544 63 1514 16.5 6 1280 720 2048
