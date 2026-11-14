@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu sous_volcan sous_lumineuse
+spawn jeu bourg_vue bourg_mairie bourg_rue poutres

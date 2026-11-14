@@ -234,7 +234,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
     }
     // Les artisans d'abord, comme dans les anciens villages.
     v.houses.sort_by_key(|h| h.craft.is_none());
-    let mut blocks = ground.blocks; blocks.extend(works.blocks); let mut props = ground.props; props.extend(works.props);
+    let mut blocks = ground.blocks; blocks.extend(works.blocks); crate::shapes::join_roofs(&mut blocks); /* les pans de toit qui se croisent font leurs arêtiers et leurs noues */ let mut props = ground.props; props.extend(works.props);
     for dx in -1..=1 { for dz in -1..=1 { let edge = dx != 0 || dz != 0; if edge { blocks.push((x + dx, y0 + 1, z + dz, cob)); } blocks.push((x + dx, y0, z + dz, if edge { cob } else { water })); } }
     Site { v, blocks, props, pads, paths }
 }

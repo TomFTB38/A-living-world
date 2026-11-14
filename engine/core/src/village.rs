@@ -308,7 +308,7 @@ impl WorldGen {
             let c = [x as f64 + 0.5 + m.cos() * 6.0, (y0 + 1) as f64, z as f64 + 0.5 + m.sin() * 6.0]; let at = [c[0].floor() as i32, y0, c[2].floor() as i32];
             crate::batisse::stall(&mut plaza, at, c, [-m.cos(), 0.0, -m.sin()], stripes[(placed + (h(16) * 4.0) as usize) % 4], h(50 + i as i32)); placed += 1;
         }
-        let mut out = plaza.blocks; out.extend(lanes.blocks); out.extend(works.blocks);
+        let mut out = plaza.blocks; out.extend(lanes.blocks); out.extend(works.blocks); crate::shapes::join_roofs(&mut out); /* les pans de toit qui se croisent font leurs arêtiers et leurs noues */
         // Le puits et les lanternes, posés en dernier : aucune rue ne les recouvre.
         for dx in -1..=1 { for dz in -1..=1 { let edge = dx != 0 || dz != 0; if edge { out.push((x + dx, y0 + 1, z + dz, cob)); } out.push((x + dx, y0, z + dz, if edge { cob } else { water })); } }
         let mut props = plaza.props; props.extend(works.props);

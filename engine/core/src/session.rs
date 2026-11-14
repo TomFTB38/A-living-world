@@ -147,6 +147,12 @@ impl Session {
         if v.iter().any(|(p, id)| self.blocks_player(*p, *id)) { return None; }
         Some(v)
     }
+    /// Une pente posée et ses quatre voisines se lient : arêtier sur un angle sortant, noue sur un angle rentrant.
+    pub fn join_roofs_at(&mut self, p: [i32; 3]) {
+        for (dx, dz) in std::iter::once((0, 0)).chain(crate::shapes::DIRS) { let q = [p[0] + dx, p[1], p[2] + dz];
+            let Some(b) = self.world.get(q[0], q[1], q[2]) else { continue }; let w = &self.world;
+            let j = crate::shapes::roof_join(b, |a, c| w.get(q[0] + a, q[1], q[2] + c).unwrap_or(0)); if j != b { self.world.edit(q[0], q[1], q[2], j); } }
+    }
     /// Le bloc posé là rentrerait-il dans le joueur ? (Une dalle au ras du sol, non ; une porte, oui.)
     fn blocks_player(&self, c: [i32; 3], id: Id) -> bool {
         let boxes = crate::shapes::own_boxes(id, true).unwrap_or_else(|| vec![[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]]); let p = self.player.p;
@@ -158,6 +164,8 @@ impl Session {
         let edits: Vec<(i32, i32, i32, Id)> = plan.iter().map(|(p, id)| (p[0], p[1], p[2], *id)).collect();
         if self.world.edit_many(&edits) == 0 { return false; }
         for (p, id) in &plan { self.flow.touch(p[0], p[1], p[2]); self.on_placed(*p, *id); }
+        // un pan de toit posé : lui et ses voisins prennent la forme qu'ils appellent (arêtier, noue), sans vide entre les pans
+        for (p, id) in &plan { if crate::shapes::is_roof(*id) { self.join_roofs_at(*p); } }
         if !self.creative { let n = st.n.unwrap_or(0) - 1; self.inv[self.sel] = if n == 0 { None } else { Some(Stack { n: Some(n), ..st }) }; }
         self.sound.place(BLOCKS[plan[0].1 as usize].name); self.built.push(self.elapsed); self.dirty = true; true
     }

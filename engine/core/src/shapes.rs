@@ -281,3 +281,26 @@ pub fn ray_hit(w: &impl Voxels, x: i32, y: i32, z: i32, b: Id, o: [f64; 3], d: [
         Some(v) => { let t = v.iter().filter_map(|bb| ray_box(o, d, *bb)).fold(f64::MAX, f64::min); (t < f64::MAX).then(|| (t, union(&v))) }
     }
 }
+
+// ------------------------------------------------------------------ toits qui se lient
+/// Les sens (dx, dz) des quatre directions : 0 +z, 1 +x, 2 -z, 3 -x.
+pub const DIRS: [(i32, i32); 4] = [(0, 1), (1, 0), (0, -1), (-1, 0)];
+/// Une pente de toit prend la forme qu'appellent ses voisines, comme des escaliers qui tournent : si la pente d'au-dessus
+/// (côté où elle monte) est une pente perpendiculaire de même matière, c'est un arêtier (angle sortant) ; si celle d'en dessous
+/// l'est, c'est une noue (angle rentrant). `nb(dx, dz)` : le bloc voisin à la même hauteur. Les autres blocs ne changent pas.
+pub fn roof_join(b: Id, nb: impl Fn(i32, i32) -> Id) -> Id {
+    let Some(i) = info(b).filter(|i| i.kind == Kind::Slope) else { return b };
+    let f = i.facing % 4; let slope_g = |d: u8| { let (dx, dz) = DIRS[d as usize % 4]; info(nb(dx, dz)).filter(|j| j.kind == Kind::Slope && j.base == i.base && j.top == i.top).map(|j| j.facing % 4) };
+    let perp = |g: u8| (g + 1) % 4 == f || (f + 1) % 4 == g; let cover = |g: u8| if (f + 1) % 4 == g { f } else { g };
+    let n = BLOCKS[i.base as usize].name; let m = n.strip_suffix("_slope").unwrap_or(n);
+    let shape = |k: &str, g: u8| by_name(&format!("{m}_{k}")).map(|base| variant(base, cover(g), i.top, false, false)).unwrap_or(b);
+    if let Some(g) = slope_g(f).filter(|g| perp(*g)) { return shape("corner", g); }
+    if let Some(g) = slope_g((f + 2) % 4).filter(|g| perp(*g)) { return shape("valley", g); }
+    b
+}
+/// Lie les toits d'une liste de blocs posés (un village, un bourg) : la dernière écriture de chaque case compte.
+pub fn join_roofs(blocks: &mut [(i32, i32, i32, Id)]) {
+    let last: std::collections::HashMap<(i32, i32, i32), Id> = blocks.iter().map(|b| ((b.0, b.1, b.2), b.3)).collect();
+    for b in blocks.iter_mut() { if last.get(&(b.0, b.1, b.2)) != Some(&b.3) || !is_roof(b.3) { continue; }
+        let (x, y, z) = (b.0, b.1, b.2); b.3 = roof_join(b.3, |dx, dz| last.get(&(x + dx, y, z + dz)).copied().unwrap_or(0)); }
+}
