@@ -22,7 +22,8 @@ export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'm
   // Mer : corail massif (teinté par bloc) et bordages d'épave rongés d'algues.
   'coral', 'planks_wreck',
   // Refonte des villages : pierre calcaire appareillée, moellons gris, bout de poutre, bardage de grange, tuiles moussues, chemin de terre.
-  'lime_masonry', 'rubble', 'beam_end', 'boards', 'tiles_moss', 'path_top', 'flowstone'];
+  'lime_masonry', 'rubble', 'beam_end', 'boards', 'tiles_moss', 'path_top', 'flowstone',
+  'basalt', 'obsidian', 'lava', 'magma', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white', 'abyss_rock', 'glow_moss', 'mycelium', 'mushroom_stem', 'cap_red', 'cap_violet', 'cap_blue', 'gills', 'ice_blue', 'rail_bed'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -401,13 +402,27 @@ for (const [n, h, p] of [['creel', 0.3, {}], ['mooring_post', 1.0, { solid: true
 cube('flowstone', 'flowstone', 1.3, 'rock');
 for (const d of ['down', 'up']) for (const k of [0, 1, 2]) defs.push([`dripstone_${d}_${k}`, 'deco', null, 0.8, { model: 'dripstone', solid: true, cat: 'rock', drop: 'flowstone' }]);
 
+// Les grottes : roche volcanique, cristaux, abysses, champignons géants, glace bleue. La lave est un cube qu'on traverse,
+// qui éclaire et qui brûle ; le magma est une croûte où rougeoient des fissures.
+cube('basalt', 'basalt', 1.8, 'rock'); cube('obsidian', 'obsidian', 6.0, 'rock'); cube('lava', 'lava', 100.0, 'liquid', { solid: false, light: 15, drop: null }); cube('magma', 'magma', 1.6, 'rock', { light: 9 });
+for (const c of ['violet', 'blue', 'pink', 'white']) cube(`crystal_${c}`, `crystal_${c}`, 1.2, 'rock');
+cube('abyss_rock', 'abyss_rock', 2.2, 'rock'); cube('glow_moss', 'glow_moss', 0.6, 'terrain'); cube('mycelium', ['mycelium', 'dirt', 'mycelium'], 0.6, 'terrain');
+cube('mushroom_stem', 'mushroom_stem', 0.6, 'wood'); for (const c of ['red', 'violet', 'blue']) cube(`mushroom_cap_${c}`, `cap_${c}`, 0.5, 'wood'); cube('mushroom_gills', 'gills', 0.4, 'wood', { light: 10 });
+cube('ice_blue', 'ice_blue', 0.8, 'terrain');
+// Pointes (stalactites vers le bas, stalagmites vers le haut) de chaque roche de grotte : la forme est celle des concrétions.
+for (const m of ['stone', 'ice', 'basalt', 'sandstone', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white']) for (const d of ['down', 'up']) for (const k of [0, 1, 2])
+  defs.push([`${m}_point_${d}_${k}`, 'deco', null, 0.8, { model: 'dripstone', solid: true, cat: 'rock', drop: m }]);
+// Lianes lumineuses (turquoise), racines qui percent les voûtes, rails des vieilles mines (dans les deux sens).
+defs.push(['glow_vine', 'deco', null, 0.05, { model: 'glow_vine', cat: 'foliage', drop: 'glow_vine' }], ['roots', 'deco', null, 0.1, { model: 'roots', cat: 'foliage', drop: 'stick' }],
+  ['rail_x', 'deco', null, 0.6, { model: 'rail', cat: 'wood', drop: 'rail' }], ['rail_z', 'deco', null, 0.6, { model: 'rail', cat: 'wood', drop: 'rail' }]);
+
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,
   // Matériau par direction [X, Y+, Y-, Z], et sens du fil : 0 libre, 1 tourné d'un quart, 2 fixe.
   dirFaces: !mats ? null : p.axis === 'x' || p.axis === 'z' ? [mats[1], mats[0], mats[0], mats[2]].map(matLayer) : [mats[1], mats[0], mats[2], mats[1]].map(matLayer),
   grain: (p.axis === 'x' ? [0, 1, 1, 1] : p.axis === 'z' ? [1, 2, 2, 0] : p.axis === 'pz' ? [0, 1, 1, 0] : p.axis === 'py' ? [1, 0, 0, 1] : name.endsWith('planks') ? [0, 2, 2, 0] : [0, 0, 0, 0]).map((g) => g + (p.clean ? 4 : 0)),
-  solid: shape === 'cube' || shape === 'leaf' || !!p.solid,
+  solid: p.solid === false ? false : shape === 'cube' || shape === 'leaf' || !!p.solid,
   opaque: shape === 'cube',
   light: p.light || 0,
   tint: p.tint || [1, 1, 1],

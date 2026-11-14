@@ -35,6 +35,7 @@ fn parse(name: &str) -> Option<Info> {
     if let Some(r) = name.strip_prefix("trapdoor_open") { let f = r.strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::Trapdoor, facing: f, top: false, open: true, upper: false, base: base("trapdoor") }); }
     if let Some(r) = name.strip_prefix("ladder") { let f = r.strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::Ladder, facing: f, top: false, open: false, upper: false, base: base("ladder") }); }
     if name == "window" || name == "window_x" { return Some(Info { kind: Kind::Window, facing: if name == "window" { 0 } else { 1 }, top: false, open: false, upper: false, base: base("window") }); }
+    if let Some(i) = name.find("_point_") { let (d, k) = name[i + 7..].split_once('_')?; return Some(Info { kind: Kind::Drip, facing: digit(k)?.min(2), top: d == "down", open: false, upper: false, base: base(name) }); }
     if let Some(r) = name.strip_prefix("dripstone_") { let (d, k) = r.split_once('_')?; return Some(Info { kind: Kind::Drip, facing: digit(k)?.min(2), top: d == "down", open: false, upper: false, base: base(name) }); }
     if name.ends_with("_pillar") { return Some(Info { kind: Kind::Pillar, facing: 0, top: false, open: false, upper: false, base: base(name) }); }
     if name == "stone_wall" || name == "stone_wall_x" { return Some(Info { kind: Kind::Wall, facing: if name == "stone_wall" { 0 } else { 1 }, top: false, open: false, upper: false, base: base("stone_wall") }); }
@@ -110,7 +111,7 @@ pub fn variant(base: Id, facing: u8, top: bool, open: bool, upper: bool) -> Id {
         Some(Kind::Trapdoor) => if open { format!("trapdoor_open{}", sfx(f)) } else { "trapdoor".into() },
         Some(Kind::Ladder) => format!("ladder{}", sfx(f)),
         Some(Kind::Window) => if f % 2 == 0 { "window".into() } else { "window_x".into() },
-        Some(Kind::Drip) => format!("dripstone_{}_{}", if top { "down" } else { "up" }, f.min(2)),
+        Some(Kind::Drip) => match n.find("_point") { Some(i) => format!("{}_point_{}_{}", &n[..i], if top { "down" } else { "up" }, f.min(2)), None => format!("dripstone_{}_{}", if top { "down" } else { "up" }, f.min(2)) },
         Some(Kind::Wall) => if f % 2 == 0 { "stone_wall".into() } else { "stone_wall_x".into() },
         Some(Kind::Slope) => format!("{n}{}{}", if top { "_top" } else { "" }, sfx(f)),
         Some(Kind::Corner) | Some(Kind::Valley) => format!("{n}{}", sfx(f)),
@@ -127,7 +128,7 @@ pub fn facing_of(dx: f64, dz: f64) -> u8 { if dx.abs() > dz.abs() { if dx > 0.0 
 pub fn material(id: Id) -> Id {
     let n = BLOCKS[id as usize].name;
     for sfx in ["_stairs", "_vslab", "_slab", "_slope", "_corner", "_valley", "_ridge", "_peak"] { if let Some(i) = n.find(sfx) { if let Some(b) = by_name(&n[..i]) { if BLOCKS[b as usize].faces[0] != 0 || b == crate::blocks::B::PLANKS { return b; } } } }
-    let m = if n.starts_with("dripstone") { "flowstone" } else if n.starts_with("stone_bricks") || n == "stone_pillar" || n.starts_with("stone_wall") { "stone_bricks" } else if n.starts_with("cobblestone") { "cobblestone" } else if n.starts_with("thatch") { "thatch" } else { "planks" };
+    let m = if let Some(i) = n.find("_point_") { &n[..i] } else if n.starts_with("dripstone") { "flowstone" } else if n.starts_with("stone_bricks") || n == "stone_pillar" || n.starts_with("stone_wall") { "stone_bricks" } else if n.starts_with("cobblestone") { "cobblestone" } else if n.starts_with("thatch") { "thatch" } else { "planks" };
     by_name(m).unwrap_or(0)
 }
 /// Deux dalles de même matière l'une sur l'autre font un bloc plein.

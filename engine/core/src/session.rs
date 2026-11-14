@@ -208,7 +208,7 @@ impl Session {
         let p = self.player.p; let (built, gone) = self.world.update(p[0], p[2]);
         for g in &gone { self.scanned.remove(g); self.glows.remove(g); self.lamps.remove(g); }
         // Champignons lumineux de chaque chunk reçu : leur lumière colorée en dépend.
-        for c in &built { if c.lod == crate::stream::FAR { continue; } let n = CX as i32; let mut l = Vec::new(); for (i, b) in c.voxels.iter().enumerate() { if let Some(k) = glow_index(*b) { let i = i as i32; l.push([c.key.0 * n + i % n, i / (n * n), c.key.1 * n + (i / n) % n, k as i32]); } } if l.is_empty() { self.glows.remove(&c.key); } else { self.glows.insert(c.key, l); } }
+        for c in &built { if c.lod == crate::stream::FAR { continue; } let n = CX as i32; let mut l = Vec::new(); for (i, b) in c.voxels.iter().enumerate() { if let Some(k) = glow_index(*b) { let i = i as i32; let p = [c.key.0 * n + i % n, i / (n * n), c.key.1 * n + (i / n) % n, k as i32]; if k >= 5 && (p[0] * 7 + p[1] * 3 + p[2] * 5).rem_euclid(if k >= 9 { 5 } else { 3 }) != 0 { continue; } l.push(p); } } if l.is_empty() { self.glows.remove(&c.key); } else { self.glows.insert(c.key, l); } }
         // Toutes les lumières posées : elles décident où la nuit peut enfanter ses créatures.
         for c in &built { if c.lod == crate::stream::FAR { continue; } let n = CX as i32; let l: Vec<[i32; 4]> = c.voxels.iter().enumerate().filter(|(_, b)| emit(**b) > 0).map(|(i, b)| { let i = i as i32; [c.key.0 * n + i % n, i / (n * n), c.key.1 * n + (i / n) % n, emit(*b) as i32] }).collect();
             if l.is_empty() { self.lamps.remove(&c.key); } else { self.lamps.insert(c.key, l); } }
@@ -232,7 +232,7 @@ impl Session {
         let max = max - out.len();
         let mut v: Vec<(f64, [i32; 4])> = self.glows.values().flatten().map(|p| ((p[0] as f64 + 0.5 - e[0]).powi(2) + (p[1] as f64 + 0.3 - e[1]).powi(2) + (p[2] as f64 + 0.5 - e[2]).powi(2), *p)).filter(|q| q.0 < 32.0 * 32.0).collect();
         v.sort_by(|a, b| a.0.total_cmp(&b.0)); v.truncate(max);
-        out.extend(v.into_iter().map(|(_, p)| { let c = crate::mesher::GLOW[p[3] as usize]; ([p[0] as f32 + 0.5, p[1] as f32 + 0.35, p[2] as f32 + 0.5, 0.0], [c[0] as f32, c[1] as f32, c[2] as f32]) })); out
+        out.extend(v.into_iter().map(|(_, p)| { let c = crate::mesher::GLOW[p[3] as usize]; ([p[0] as f32 + 0.5, p[1] as f32 + 0.35, p[2] as f32 + 0.5, crate::mesher::glow_range(p[3] as usize)], [c[0] as f32, c[1] as f32, c[2] as f32]) })); out
     }
     /// Hauteur du soleil, négative la nuit.
     pub fn sun_height(&self) -> f64 { crate::det::sin((self.hour - 6.0) / 12.0 * std::f64::consts::PI) }

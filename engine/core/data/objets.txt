@@ -171,6 +171,24 @@ stone | Pierre | roches | 1.5 | 64 | |
 mossy_stone | Pierre moussue | roches | 1.5 | 64 | |
 limestone | Calcaire | roches | 1.4 | 64 | |
 flowstone | Calcite | roches | 1.3 | 64 | La pierre crème des grottes, déposée goutte à goutte : stalactites, stalagmites, coulées. Lisse et humide. |
+basalt | Basalte | roches | 1.8 | 64 | La roche sombre des grottes volcaniques, en colonnes serrées. |
+obsidian | Obsidienne | roches | 2.0 | 64 | Un verre noir né de la lave refroidie. Très dur à extraire. |
+magma | Magma | roches | 1.8 | 64 | Une croûte qui rougeoie par ses fissures. Elle brûle les pieds de qui ne s'accroupit pas. |
+crystal_violet | Cristal violet | roches | 1.0 | 64 | Un cristal qui luit de lui-même, au fond des grottes cristallines. |
+crystal_blue | Cristal bleu | roches | 1.0 | 64 | Un cristal bleu, froid, lumineux. |
+crystal_pink | Cristal rose | roches | 1.0 | 64 | Un cristal rose, lumineux. |
+crystal_white | Cristal blanc | roches | 1.0 | 64 | Un cristal clair comme le givre, qui luit doucement. |
+abyss_rock | Roche abyssale | roches | 2.2 | 64 | La roche presque noire des abîmes, parsemée d'éclats froids. |
+glow_moss | Mousse lumineuse | plantes | 0.4 | 64 | Une mousse où courent des filaments turquoise qui éclairent le noir. |
+mycelium | Mycélium | terrain | 0.8 | 64 | Le tapis de fils blancs des grottes fongiques. |
+mushroom_stem | Pied de champignon géant | plantes | 0.6 | 64 | Une chair pâle et fibreuse. |
+mushroom_cap_red | Chapeau rouge | plantes | 0.5 | 64 | Rouge à pois blancs, d'un champignon géant. |
+mushroom_cap_violet | Chapeau violet | plantes | 0.5 | 64 | D'un champignon géant des profondeurs. |
+mushroom_cap_blue | Chapeau bleu | plantes | 0.5 | 64 | D'un champignon géant ; ses pois luisent. |
+mushroom_gills | Lamelles lumineuses | plantes | 0.4 | 64 | Le dessous d'un chapeau géant, qui éclaire d'une lumière chaude. |
+ice_blue | Glace bleue | roches | 0.9 | 64 | Une glace dense, vieille de siècles. |
+glow_vine | Liane lumineuse | plantes | 0.1 | 64 | Ses perles turquoise luisent dans le noir. |
+rail | Rail de mine | outils | 0.6 | 64 | Des fers sur des traverses de bois, comme dans les vieilles mines. |
 granite | Granit | roches | 1.6 | 64 | |
 lichen_stone | Pierre à lichens | roches | 1.5 | 64 | |
 sandstone | Grès | roches | 1.3 | 64 | |

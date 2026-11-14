@@ -6,7 +6,11 @@ use crate::noise::{hash_int, Rng};
 
 pub const VSIZE: usize = 20;
 /// Couleur d'un champignon lumineux, fixée par sa position : le maillage et sa lumière colorée s'accordent.
-pub const GLOW: [[f64; 3]; 5] = [[0.3, 0.85, 0.3], [0.18, 0.42, 0.95], [0.95, 0.32, 0.7], [0.62, 0.3, 0.95], [0.15, 0.75, 0.78]];
+/// Les couleurs des lumières colorées : les champignons (0 à 4), les cristaux violet, bleu, rose, blanc (5 à 8),
+/// les lianes et la mousse lumineuses (9, 10).
+pub const GLOW: [[f64; 3]; 11] = [[0.3, 0.85, 0.3], [0.18, 0.42, 0.95], [0.95, 0.32, 0.7], [0.62, 0.3, 0.95], [0.15, 0.75, 0.78], [0.66, 0.32, 1.0], [0.25, 0.6, 1.0], [1.0, 0.42, 0.78], [0.75, 0.85, 1.0], [0.2, 0.95, 0.85], [0.25, 0.85, 0.7]];
+/// La portée d'une lumière colorée (0 : la portée courte des champignons).
+pub fn glow_range(k: usize) -> f32 { match k { 5..=8 => 7.5, 9 | 10 => 4.0, _ => 0.0 } }
 pub fn glow_color(x: i32, y: i32, z: i32) -> [f64; 3] { GLOW[(crate::noise::hash_int(x, y, z, 93) % 5) as usize] }
 pub mod kind { pub const TEX: u8 = 0; pub const LEAF: u8 = 1; pub const FLAT: u8 = 2; pub const FOLIAGE: u8 = 3; pub const EMIT: u8 = 4; }
 use kind::*;
@@ -320,6 +324,33 @@ impl Mesher {
                 bx3(o, x + 0.32, y, z + 0.32, x + 0.68, y + 0.08, z + 0.68, 0.16, 0.1, 0.06, 0.0, s, l);
                 bx(o, x + 0.36, y + 0.08, z + 0.36, x + 0.64, y + 0.54, z + 0.64, 2.0, 1.3, 0.5, 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
                 bx3(o, x + 0.32, y + 0.54, z + 0.32, x + 0.68, y + 0.62, z + 0.68, 0.16, 0.1, 0.06, 0.0, s, l);
+                return;
+            }
+            "glow_vine" => {
+                // Liane lumineuse : un fil sombre, des perles turquoise qui luisent dans le noir.
+                for _ in 0..r_.int(1, 2) {
+                    let a = x + r_.range(0.2, 0.8); let c = z + r_.range(0.2, 0.8);
+                    bx(o, a - 0.018, y, c - 0.018, a + 0.018, y + 1.0, c + 0.018, 0.08, 0.22, 0.2, 70.0, s, l, FOLIAGE, false, 90.0, 255.0);
+                    for k in 0..3 { let yy = y + 0.12 + k as f64 * 0.31 + r_.range(-0.04, 0.04); let q = r_.range(0.03, 0.05); let (dx, dz) = (r_.range(-0.07, 0.07), r_.range(-0.07, 0.07));
+                        let c2 = GLOW[9]; bx(o, a + dx - q, yy, c + dz - q, a + dx + q, yy + q * 1.6, c + dz + q, c2[0], c2[1], c2[2], 60.0, s, 255.0, EMIT, true, 60.0, 255.0); }
+                }
+                return;
+            }
+            "roots" => {
+                // Racines qui percent la voûte : des brins bruns qui se tordent et s'effilent vers le bas.
+                for _ in 0..r_.int(2, 3) {
+                    let (mut a, mut c) = (x + r_.range(0.25, 0.75), z + r_.range(0.25, 0.75)); let mut w = r_.range(0.04, 0.07); let t = r_.range(0.8, 1.1);
+                    for k in 0..4 { let (y0, y1) = (y + 1.0 - (k + 1) as f64 * 0.25, y + 1.0 - k as f64 * 0.25);
+                        bx(o, a - w, y0, c - w, a + w, y1, c + w, 0.33 * t, 0.22 * t, 0.13 * t, 0.0, s, l, FLAT, false, 0.0, 255.0); a += r_.range(-0.05, 0.05); c += r_.range(-0.05, 0.05); w *= 0.82; }
+                }
+                return;
+            }
+            "rail" => {
+                // Rail de mine : des traverses de bois, deux fers sur le dessus ; dans le sens du bloc.
+                let along_x = BLOCKS[b as usize].name.ends_with("_x");
+                let q = |o: &mut VBuf, a0: f64, b0: f64, y0: f64, a1: f64, b1: f64, y1: f64, cr: f64, cg: f64, cb: f64| if along_x { bx3(o, x + a0, y + y0, z + b0, x + a1, y + y1, z + b1, cr, cg, cb, 0.0, s, l) } else { bx3(o, x + b0, y + y0, z + a0, x + b1, y + y1, z + a1, cr, cg, cb, 0.0, s, l) };
+                for k in 0..3 { let a0 = 0.06 + k as f64 * 0.33; q(o, a0, 0.08, 0.0, a0 + 0.2, 0.92, 0.06, 0.36, 0.24, 0.13); }
+                for b0 in [0.2, 0.72] { q(o, 0.0, b0, 0.06, 1.0, b0 + 0.08, 0.13, 0.42, 0.4, 0.38); }
                 return;
             }
             "vine" => {

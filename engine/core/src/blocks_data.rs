@@ -2,9 +2,9 @@
 use crate::blocks::{Block, Shape};
 
 pub const VARIANTS: u32 = 4;
-pub const MATERIALS: [&str; 95] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm", "ore_copper", "ore_tin", "ore_iron", "ore_coal", "clay", "stone_bricks", "bricks", "thatch", "planks_birch", "planks_spruce", "cobble", "farmland_top", "plaster", "dark_timber", "roof_tiles", "slate", "marble", "ashlar", "fieldstone", "setts", "polished_stone", "checker", "terracotta", "parquet", "shingles", "wool", "rug", "frame_square", "frame_cross", "frame_diag", "wattle", "books", "hay", "crate", "chiseled", "stained_glass", "iron_plate", "verdigris", "coral", "planks_wreck", "lime_masonry", "rubble", "beam_end", "boards", "tiles_moss", "path_top", "flowstone"];
+pub const MATERIALS: [&str; 113] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm", "ore_copper", "ore_tin", "ore_iron", "ore_coal", "clay", "stone_bricks", "bricks", "thatch", "planks_birch", "planks_spruce", "cobble", "farmland_top", "plaster", "dark_timber", "roof_tiles", "slate", "marble", "ashlar", "fieldstone", "setts", "polished_stone", "checker", "terracotta", "parquet", "shingles", "wool", "rug", "frame_square", "frame_cross", "frame_diag", "wattle", "books", "hay", "crate", "chiseled", "stained_glass", "iron_plate", "verdigris", "coral", "planks_wreck", "lime_masonry", "rubble", "beam_end", "boards", "tiles_moss", "path_top", "flowstone", "basalt", "obsidian", "lava", "magma", "crystal_violet", "crystal_blue", "crystal_pink", "crystal_white", "abyss_rock", "glow_moss", "mycelium", "mushroom_stem", "cap_red", "cap_violet", "cap_blue", "gills", "ice_blue", "rail_bed"];
 
-pub const BLOCKS: [Block; 847] = [
+pub const BLOCKS: [Block; 916] = [
     Block { id: 0, name: "air", shape: Shape::Air, hardness: 0.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "decor", drop: Some("air") },
     Block { id: 1, name: "grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
     Block { id: 2, name: "dirt", shape: Shape::Cube, hardness: 0.45, faces: [8,8,8], dir_faces: [8,8,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
@@ -852,6 +852,75 @@ pub const BLOCKS: [Block; 847] = [
     Block { id: 844, name: "dripstone_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("flowstone") },
     Block { id: 845, name: "dripstone_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("flowstone") },
     Block { id: 846, name: "dripstone_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("flowstone") },
+    Block { id: 847, name: "basalt", shape: Shape::Cube, hardness: 1.8, faces: [380,380,380], dir_faces: [380,380,380,380], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("basalt") },
+    Block { id: 848, name: "obsidian", shape: Shape::Cube, hardness: 6.0, faces: [384,384,384], dir_faces: [384,384,384,384], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("obsidian") },
+    Block { id: 849, name: "lava", shape: Shape::Cube, hardness: 100.0, faces: [388,388,388], dir_faces: [388,388,388,388], grain: [0,0,0,0], solid: false, opaque: true, light: 15, tint: [1.0,1.0,1.0], model: None, cat: "liquid", drop: None },
+    Block { id: 850, name: "magma", shape: Shape::Cube, hardness: 1.6, faces: [392,392,392], dir_faces: [392,392,392,392], grain: [0,0,0,0], solid: true, opaque: true, light: 9, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("magma") },
+    Block { id: 851, name: "crystal_violet", shape: Shape::Cube, hardness: 1.2, faces: [396,396,396], dir_faces: [396,396,396,396], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 852, name: "crystal_blue", shape: Shape::Cube, hardness: 1.2, faces: [400,400,400], dir_faces: [400,400,400,400], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 853, name: "crystal_pink", shape: Shape::Cube, hardness: 1.2, faces: [404,404,404], dir_faces: [404,404,404,404], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 854, name: "crystal_white", shape: Shape::Cube, hardness: 1.2, faces: [408,408,408], dir_faces: [408,408,408,408], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("crystal_white") },
+    Block { id: 855, name: "abyss_rock", shape: Shape::Cube, hardness: 2.2, faces: [412,412,412], dir_faces: [412,412,412,412], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "rock", drop: Some("abyss_rock") },
+    Block { id: 856, name: "glow_moss", shape: Shape::Cube, hardness: 0.6, faces: [416,416,416], dir_faces: [416,416,416,416], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("glow_moss") },
+    Block { id: 857, name: "mycelium", shape: Shape::Cube, hardness: 0.6, faces: [420,8,420], dir_faces: [8,420,420,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("mycelium") },
+    Block { id: 858, name: "mushroom_stem", shape: Shape::Cube, hardness: 0.6, faces: [424,424,424], dir_faces: [424,424,424,424], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("mushroom_stem") },
+    Block { id: 859, name: "mushroom_cap_red", shape: Shape::Cube, hardness: 0.5, faces: [428,428,428], dir_faces: [428,428,428,428], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("mushroom_cap_red") },
+    Block { id: 860, name: "mushroom_cap_violet", shape: Shape::Cube, hardness: 0.5, faces: [432,432,432], dir_faces: [432,432,432,432], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("mushroom_cap_violet") },
+    Block { id: 861, name: "mushroom_cap_blue", shape: Shape::Cube, hardness: 0.5, faces: [436,436,436], dir_faces: [436,436,436,436], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("mushroom_cap_blue") },
+    Block { id: 862, name: "mushroom_gills", shape: Shape::Cube, hardness: 0.4, faces: [440,440,440], dir_faces: [440,440,440,440], grain: [0,0,0,0], solid: true, opaque: true, light: 10, tint: [1.0,1.0,1.0], model: None, cat: "wood", drop: Some("mushroom_gills") },
+    Block { id: 863, name: "ice_blue", shape: Shape::Cube, hardness: 0.8, faces: [444,444,444], dir_faces: [444,444,444,444], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("ice_blue") },
+    Block { id: 864, name: "stone_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 865, name: "stone_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 866, name: "stone_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 867, name: "stone_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 868, name: "stone_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 869, name: "stone_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("stone") },
+    Block { id: 870, name: "ice_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 871, name: "ice_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 872, name: "ice_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 873, name: "ice_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 874, name: "ice_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 875, name: "ice_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("ice") },
+    Block { id: 876, name: "basalt_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 877, name: "basalt_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 878, name: "basalt_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 879, name: "basalt_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 880, name: "basalt_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 881, name: "basalt_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("basalt") },
+    Block { id: 882, name: "sandstone_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 883, name: "sandstone_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 884, name: "sandstone_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 885, name: "sandstone_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 886, name: "sandstone_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 887, name: "sandstone_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("sandstone") },
+    Block { id: 888, name: "crystal_violet_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 889, name: "crystal_violet_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 890, name: "crystal_violet_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 891, name: "crystal_violet_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 892, name: "crystal_violet_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 893, name: "crystal_violet_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_violet") },
+    Block { id: 894, name: "crystal_blue_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 895, name: "crystal_blue_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 896, name: "crystal_blue_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 897, name: "crystal_blue_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 898, name: "crystal_blue_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 899, name: "crystal_blue_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_blue") },
+    Block { id: 900, name: "crystal_pink_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 901, name: "crystal_pink_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 902, name: "crystal_pink_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 903, name: "crystal_pink_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 904, name: "crystal_pink_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 905, name: "crystal_pink_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_pink") },
+    Block { id: 906, name: "crystal_white_point_down_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 907, name: "crystal_white_point_down_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 908, name: "crystal_white_point_down_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 909, name: "crystal_white_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 910, name: "crystal_white_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 911, name: "crystal_white_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
+    Block { id: 912, name: "glow_vine", shape: Shape::Deco, hardness: 0.05, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("glow_vine"), cat: "foliage", drop: Some("glow_vine") },
+    Block { id: 913, name: "roots", shape: Shape::Deco, hardness: 0.1, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("roots"), cat: "foliage", drop: Some("stick") },
+    Block { id: 914, name: "rail_x", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rail"), cat: "wood", drop: Some("rail") },
+    Block { id: 915, name: "rail_z", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rail"), cat: "wood", drop: Some("rail") },
 ];
 
 #[allow(non_snake_case)]
@@ -1598,4 +1667,73 @@ pub mod B {
     pub const DRIPSTONE_UP_0: crate::blocks::Id = 844;
     pub const DRIPSTONE_UP_1: crate::blocks::Id = 845;
     pub const DRIPSTONE_UP_2: crate::blocks::Id = 846;
+    pub const BASALT: crate::blocks::Id = 847;
+    pub const OBSIDIAN: crate::blocks::Id = 848;
+    pub const LAVA: crate::blocks::Id = 849;
+    pub const MAGMA: crate::blocks::Id = 850;
+    pub const CRYSTAL_VIOLET: crate::blocks::Id = 851;
+    pub const CRYSTAL_BLUE: crate::blocks::Id = 852;
+    pub const CRYSTAL_PINK: crate::blocks::Id = 853;
+    pub const CRYSTAL_WHITE: crate::blocks::Id = 854;
+    pub const ABYSS_ROCK: crate::blocks::Id = 855;
+    pub const GLOW_MOSS: crate::blocks::Id = 856;
+    pub const MYCELIUM: crate::blocks::Id = 857;
+    pub const MUSHROOM_STEM: crate::blocks::Id = 858;
+    pub const MUSHROOM_CAP_RED: crate::blocks::Id = 859;
+    pub const MUSHROOM_CAP_VIOLET: crate::blocks::Id = 860;
+    pub const MUSHROOM_CAP_BLUE: crate::blocks::Id = 861;
+    pub const MUSHROOM_GILLS: crate::blocks::Id = 862;
+    pub const ICE_BLUE: crate::blocks::Id = 863;
+    pub const STONE_POINT_DOWN_0: crate::blocks::Id = 864;
+    pub const STONE_POINT_DOWN_1: crate::blocks::Id = 865;
+    pub const STONE_POINT_DOWN_2: crate::blocks::Id = 866;
+    pub const STONE_POINT_UP_0: crate::blocks::Id = 867;
+    pub const STONE_POINT_UP_1: crate::blocks::Id = 868;
+    pub const STONE_POINT_UP_2: crate::blocks::Id = 869;
+    pub const ICE_POINT_DOWN_0: crate::blocks::Id = 870;
+    pub const ICE_POINT_DOWN_1: crate::blocks::Id = 871;
+    pub const ICE_POINT_DOWN_2: crate::blocks::Id = 872;
+    pub const ICE_POINT_UP_0: crate::blocks::Id = 873;
+    pub const ICE_POINT_UP_1: crate::blocks::Id = 874;
+    pub const ICE_POINT_UP_2: crate::blocks::Id = 875;
+    pub const BASALT_POINT_DOWN_0: crate::blocks::Id = 876;
+    pub const BASALT_POINT_DOWN_1: crate::blocks::Id = 877;
+    pub const BASALT_POINT_DOWN_2: crate::blocks::Id = 878;
+    pub const BASALT_POINT_UP_0: crate::blocks::Id = 879;
+    pub const BASALT_POINT_UP_1: crate::blocks::Id = 880;
+    pub const BASALT_POINT_UP_2: crate::blocks::Id = 881;
+    pub const SANDSTONE_POINT_DOWN_0: crate::blocks::Id = 882;
+    pub const SANDSTONE_POINT_DOWN_1: crate::blocks::Id = 883;
+    pub const SANDSTONE_POINT_DOWN_2: crate::blocks::Id = 884;
+    pub const SANDSTONE_POINT_UP_0: crate::blocks::Id = 885;
+    pub const SANDSTONE_POINT_UP_1: crate::blocks::Id = 886;
+    pub const SANDSTONE_POINT_UP_2: crate::blocks::Id = 887;
+    pub const CRYSTAL_VIOLET_POINT_DOWN_0: crate::blocks::Id = 888;
+    pub const CRYSTAL_VIOLET_POINT_DOWN_1: crate::blocks::Id = 889;
+    pub const CRYSTAL_VIOLET_POINT_DOWN_2: crate::blocks::Id = 890;
+    pub const CRYSTAL_VIOLET_POINT_UP_0: crate::blocks::Id = 891;
+    pub const CRYSTAL_VIOLET_POINT_UP_1: crate::blocks::Id = 892;
+    pub const CRYSTAL_VIOLET_POINT_UP_2: crate::blocks::Id = 893;
+    pub const CRYSTAL_BLUE_POINT_DOWN_0: crate::blocks::Id = 894;
+    pub const CRYSTAL_BLUE_POINT_DOWN_1: crate::blocks::Id = 895;
+    pub const CRYSTAL_BLUE_POINT_DOWN_2: crate::blocks::Id = 896;
+    pub const CRYSTAL_BLUE_POINT_UP_0: crate::blocks::Id = 897;
+    pub const CRYSTAL_BLUE_POINT_UP_1: crate::blocks::Id = 898;
+    pub const CRYSTAL_BLUE_POINT_UP_2: crate::blocks::Id = 899;
+    pub const CRYSTAL_PINK_POINT_DOWN_0: crate::blocks::Id = 900;
+    pub const CRYSTAL_PINK_POINT_DOWN_1: crate::blocks::Id = 901;
+    pub const CRYSTAL_PINK_POINT_DOWN_2: crate::blocks::Id = 902;
+    pub const CRYSTAL_PINK_POINT_UP_0: crate::blocks::Id = 903;
+    pub const CRYSTAL_PINK_POINT_UP_1: crate::blocks::Id = 904;
+    pub const CRYSTAL_PINK_POINT_UP_2: crate::blocks::Id = 905;
+    pub const CRYSTAL_WHITE_POINT_DOWN_0: crate::blocks::Id = 906;
+    pub const CRYSTAL_WHITE_POINT_DOWN_1: crate::blocks::Id = 907;
+    pub const CRYSTAL_WHITE_POINT_DOWN_2: crate::blocks::Id = 908;
+    pub const CRYSTAL_WHITE_POINT_UP_0: crate::blocks::Id = 909;
+    pub const CRYSTAL_WHITE_POINT_UP_1: crate::blocks::Id = 910;
+    pub const CRYSTAL_WHITE_POINT_UP_2: crate::blocks::Id = 911;
+    pub const GLOW_VINE: crate::blocks::Id = 912;
+    pub const ROOTS: crate::blocks::Id = 913;
+    pub const RAIL_X: crate::blocks::Id = 914;
+    pub const RAIL_Z: crate::blocks::Id = 915;
 }

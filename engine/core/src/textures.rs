@@ -216,6 +216,58 @@ fn flowstone(t: &Tile, x: f64, y: f64) -> S {
     let lip = (1.0 - smooth(0.0, 0.1, (band - 0.5).abs())) + 0.6 * (1.0 - smooth(0.0, 0.08, (band - 0.95).abs()));
     S { c: pal(&FLOW, tone), h: clamp(0.5 + 0.22 * lip + 0.12 * milk - 0.1 * honey + 0.1 * (drip - 0.5) * col, 0.0, 1.0), r: 0.28 + 0.12 * honey }
 }
+// ------------------------------------------------------------------ les grottes
+// Chaque matière rend aussi sa part de lumière propre (0 à 1, par texel) : la lave, les fissures du magma, le cœur des
+// cristaux, les filaments de la mousse lumineuse brillent dans le noir. Elle est rangée dans l'alpha de l'albédo.
+fn cave_mat(name: &str, t: &Tile, x: f64, y: f64) -> Option<(S, f64)> {
+    let crystal = |c: [C; 4], t: &Tile| { // des facettes : de grandes cellules, une arête claire, un cœur qui luit
+        let (d1, d2, id) = t.vor(x, y, 5); let edge = 1.0 - smooth(0.02, 0.09, d2 - d1); let k = (id % 7) as f64 / 7.0; let inner = t.fbm(x, y, 8, 3);
+        let tone = 0.32 + 0.3 * k + 0.2 * (inner - 0.5) + 0.38 * edge; let core = smooth(0.25, 0.0, d1) * 0.6 + 0.25 * inner;
+        (S { c: pal(&c, tone), h: 0.6 - 0.25 * (1.0 - edge) + 0.15 * k, r: 0.12 }, (0.35 + 0.45 * core) * (1.0 - edge * 0.5)) };
+    Some(match name {
+        "basalt" => { // des colonnes : un pavage de cellules aux joints creux, grain sombre et bleuté
+            let (d1, d2, id) = t.vor(x, y, 4); let joint = 1.0 - smooth(0.03, 0.08, d2 - d1); let k = (id % 5) as f64 / 5.0; let g = t.fbm(x, y, 16, 3);
+            (S { c: pal(&pl!("#1d1f24", "#2f3239", "#43464e", "#595c63"), 0.35 + 0.25 * k + 0.25 * (g - 0.5) - 0.3 * joint), h: 0.6 - 0.5 * joint + 0.1 * (g - 0.5), r: 0.78 }, 0.0) }
+        "obsidian" => { // un verre noir, des volutes violettes, des éclats qui accrochent la lumière
+            let swirl = t.fbm(x + 6.0 * t.fbm(x, y, 2, 2), y, 4, 3); let glint = smooth(0.9, 0.96, t.val(x, y, 32));
+            (S { c: pal(&pl!("#07060b", "#14101e", "#2b1f42", "#5a4a7c"), 0.18 + 0.4 * smooth(0.45, 0.8, swirl) + 0.5 * glint), h: 0.5 + 0.1 * (swirl - 0.5), r: 0.06 }, 0.0) }
+        "lava" => { // une pâte orange qui coule, des plaques sombres qui flottent dessus
+            let flow = t.fbm(x + 5.0 * t.fbm(x, y, 2, 2), y + 3.0 * t.fbm(x + 9.0, y, 3, 2), 4, 4); let (d1, d2, _) = t.vor(x, y, 3); let crust = smooth(0.18, 0.05, d2 - d1).max(0.0) * smooth(0.5, 0.7, flow);
+            let hot = 1.0 - 0.75 * crust; (S { c: pal(&pl!("#3a0d02", "#a8300a", "#f2701a", "#ffd25a"), 0.25 + 0.6 * hot * flow + 0.25 * hot), h: 0.5 - 0.3 * crust, r: 0.6 }, 0.55 + 0.45 * hot) }
+        "magma" => { // une croûte noire, ses fissures rougeoient
+            let (d1, d2, _) = t.vor(x, y, 6); let crack = 1.0 - smooth(0.02, 0.07, d2 - d1); let g = t.fbm(x, y, 8, 3);
+            (S { c: if crack > 0.3 { pal(&pl!("#5a1405", "#c2410f", "#ff8a24", "#ffd060"), 0.4 + 0.5 * crack) } else { pal(&pl!("#140c0a", "#26170f", "#3a2618", "#4e3524"), 0.4 + 0.4 * (g - 0.5) + 0.3 * d1) }, h: 0.6 - 0.5 * crack, r: 0.85 }, crack * 0.95) }
+        "crystal_violet" => crystal(pl!("#3a1a63", "#7a3fc2", "#b98af0", "#f0dcff"), t),
+        "crystal_blue" => crystal(pl!("#0d2c5c", "#2a72c8", "#79c4f5", "#dff6ff"), t),
+        "crystal_pink" => crystal(pl!("#5a1a40", "#c04d92", "#f29ccc", "#ffe6f4"), t),
+        "crystal_white" => crystal(pl!("#6c7a88", "#b8c7d6", "#e2edf6", "#ffffff"), t),
+        "abyss_rock" => { // une roche presque noire, bleutée, parsemée de minuscules éclats froids
+            let g = t.fbm(x, y, 6, 4); let fine = t.val(x, y, 64); let spark = smooth(0.95, 0.985, t.val(x + 17.0, y - 3.0, 64)); let vein = 1.0 - smooth(0.0, 0.05, (t.fbm(x, y, 3, 3) - 0.5).abs());
+            (S { c: pal(&pl!("#0e1119", "#1f2433", "#323a50", "#6f8fc0"), 0.32 + 0.25 * (g - 0.5) + 0.06 * (fine - 0.5) + 0.12 * vein + 0.7 * spark), h: 0.5 + 0.2 * (g - 0.5) + 0.1 * vein, r: 0.7 }, spark * 0.7) }
+        "glow_moss" => { // une mousse sombre où courent des filaments turquoise lumineux
+            let g = t.fbm(x, y, 16, 3); let thread = 1.0 - smooth(0.0, 0.04, (t.fbm(x + 3.0, y, 6, 3) - 0.5).abs()); let dot = smooth(0.86, 0.94, t.val(x, y, 32));
+            let lit = (thread * 0.8 + dot).min(1.0); (S { c: if lit > 0.25 { pal(&pl!("#0b5b5b", "#19b5a8", "#6ff3df", "#d8fff8"), 0.35 + 0.6 * lit) } else { pal(&pl!("#0e1d16", "#173226", "#22472f", "#2f5c3a"), 0.3 + 0.5 * g) }, h: 0.45 + 0.3 * g, r: 0.9 }, lit * 0.9) }
+        "mycelium" => { // un tapis gris-violet, parcouru de fils blancs
+            let g = t.fbm(x, y, 12, 3); let thread = 1.0 - smooth(0.0, 0.05, (t.fbm(x, y + 7.0, 8, 3) - 0.5).abs());
+            (S { c: pal(&pl!("#3a2f3c", "#5a4a5e", "#7d6c82", "#d9d0dc"), 0.3 + 0.35 * g + 0.45 * thread), h: 0.5 + 0.25 * g + 0.15 * thread, r: 0.92 }, 0.0) }
+        "mushroom_stem" => { // la chair pâle, fibreuse, en long
+            let f = t.fbm(x, 0.0, 24, 3); let g = t.fbm(x, y, 6, 3); (S { c: pal(&pl!("#b8ab92", "#d6cbb4", "#e9e1cf", "#f6f1e6"), 0.35 + 0.35 * f + 0.2 * (g - 0.5)), h: 0.5 + 0.3 * f, r: 0.8 }, 0.0) }
+        "cap_red" => { let (d1, _, id) = t.vor(x, y, 3); let spot = smooth(0.3, 0.2, d1) * ((id % 3 != 0) as i32 as f64); let g = t.fbm(x, y, 6, 3);
+            (S { c: if spot > 0.5 { pal(&pl!("#d8cfc0", "#ece4d6", "#f8f2e8", "#ffffff"), 0.5 + 0.3 * g) } else { pal(&pl!("#5c0d0b", "#9d1a14", "#cf3324", "#ee6a4c"), 0.4 + 0.35 * (g - 0.5) + 0.2 * d1) }, h: 0.5 + 0.25 * spot + 0.1 * g, r: 0.55 }, 0.0) }
+        "cap_violet" => { let g = t.fbm(x, y, 5, 4); let ring = 0.5 + 0.5 * sin(t.fbm(x, y, 2, 2) * 20.0); let (d1, _, id) = t.vor(x, y, 4); let spot = smooth(0.22, 0.14, d1) * ((id % 2) as f64);
+            (S { c: if spot > 0.5 { pal(&pl!("#b48ad8", "#d4b4f0", "#ecdcff", "#ffffff"), 0.6) } else { pal(&pl!("#2a1240", "#4d2275", "#7a3cab", "#a66fd6"), 0.35 + 0.3 * (g - 0.5) + 0.1 * ring) }, h: 0.5 + 0.2 * g + 0.2 * spot, r: 0.5 }, spot * 0.6) }
+        "cap_blue" => { let g = t.fbm(x, y, 5, 4); let (d1, _, id) = t.vor(x, y, 4); let spot = smooth(0.24, 0.12, d1) * ((id % 2) as f64);
+            (S { c: if spot > 0.5 { pal(&pl!("#7fd8ff", "#b6ecff", "#e2f9ff", "#ffffff"), 0.6) } else { pal(&pl!("#0b1f45", "#163d7a", "#2a63b0", "#4f93dd"), 0.35 + 0.3 * (g - 0.5)) }, h: 0.5 + 0.2 * g + 0.2 * spot, r: 0.5 }, 0.15 + spot * 0.75) }
+        "gills" => { // le dessous du chapeau : des lamelles rayonnantes, chaudes, qui luisent
+            let l = 0.5 + 0.5 * sin((x + 2.5 * t.fbm(x, y, 2, 2)) * std::f64::consts::TAU * 12.0 / 64.0); let g = t.fbm(x, y, 8, 2);
+            (S { c: pal(&pl!("#8a4a12", "#d98a2c", "#ffc35c", "#fff0b8"), 0.35 + 0.45 * l + 0.15 * (g - 0.5)), h: 0.4 + 0.4 * l, r: 0.6 }, 0.35 + 0.45 * l) }
+        "ice_blue" => { // une glace dense et bleue, des bulles prises, des fêlures blanches
+            let g = t.fbm(x, y, 4, 4); let bub = smooth(0.88, 0.95, t.val(x, y, 32)); let (d1, d2, _) = t.vor(x, y, 3); let crack = 1.0 - smooth(0.0, 0.04, d2 - d1);
+            (S { c: pal(&pl!("#1b4f8c", "#3b86c8", "#8cc8ef", "#eaf8ff"), 0.4 + 0.25 * (g - 0.5) + 0.4 * bub + 0.35 * crack + 0.1 * d1), h: 0.55 + 0.1 * g - 0.2 * crack, r: 0.08 }, 0.0) }
+        "rail_bed" => { let g = t.fbm(x, 0.0, 24, 2); (S { c: pal(&pl!("#3a2614", "#5c3d20", "#7a5532", "#97704a"), 0.4 + 0.4 * g), h: 0.5 + 0.3 * g, r: 0.85 }, 0.0) }
+        _ => return None,
+    })
+}
 /// Gravier : des galets arrondis serrés, de tailles et de couleurs variées, ombrés comme des petits dômes, avec du sable sombre entre eux.
 fn gravel(t: &Tile, x: f64, y: f64) -> S {
     let (d1, d2, id) = t.vor(x + 3.0 * t.fbm(x, y, 6, 2), y + 3.0 * t.fbm(x + 9.0, y, 6, 2), 13); let k = t.pi(id); let k2 = t.pi(id + 300);
@@ -566,6 +618,7 @@ fn leaf_snow(t: &Tile, x: f64, y: f64) -> S {
     if y < fringe { let s = snow(t, x, y); return S { c: s.c, h: 0.75, r: 0.6 }; } needles(t, x, y)
 }
 fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
+    if let Some((m, _)) = cave_mat(name, t, x, y) { return m; }
     let b_oak = |a: &Tile, b: f64, c: f64| bark(a, b, c, &OAK, 1.0); let b_beech = |a: &Tile, b: f64, c: f64| bark(a, b, c, &BEECH, 0.28);
     match name {
         "grass_top" => grass_top(t, x, y), "grass_side" => grass_side(t, x, y), "dirt" => dirt(t, x, y, &DIRT), "path" => dirt(t, x, y, &PATH), "forest_soil" => dirt(t, x, y, &SOIL),
@@ -617,7 +670,7 @@ pub fn build_textures(size: usize) -> Textures {
             for y in 0..size { for x in 0..size { let (lx, ly) = ((x as f64 + 0.5) * k, (y as f64 + 0.5) * k); let mut c = gen(name, &t, lx, ly); let p = base + (x + y * size) * 4;
                 // Un grain doux de la matière (cellules de deux texels, pas de bruit texel par texel) : de la vie de près, sans duvet.
                 let d = t.val(lx * 2.0, ly * 2.0, 128) - 0.5 + 0.5 * (t.val(lx * 4.0 + 7.0, ly * 4.0, 256) - 0.5); let g = 1.0 + d * amp * 1.6; c.h += d * amp * 0.35;
-                albedo[p] = b8(c.c[0] * g); albedo[p + 1] = b8(c.c[1] * g); albedo[p + 2] = b8(c.c[2] * g); albedo[p + 3] = 255; nrm[p + 2] = (c.r * 255.0) as u8; nrm[p + 3] = 255; hh[x + y * size] = c.h; } }
+                albedo[p] = b8(c.c[0] * g); albedo[p + 1] = b8(c.c[1] * g); albedo[p + 2] = b8(c.c[2] * g); albedo[p + 3] = 255 - (cave_mat(name, &t, lx, ly).map_or(0.0, |m| m.1).clamp(0.0, 1.0) * 255.0) as u8; nrm[p + 2] = (c.r * 255.0) as u8; nrm[p + 3] = 255; hh[x + y * size] = c.h; } }
             for y in 0..size { for x in 0..size { let mut acc = 0.0; for (dy, wy) in [(-1, 1.0), (0, 2.0), (1, 1.0)] { for (dx, wx) in [(-1, 1.0), (0, 2.0), (1, 1.0)] { acc += hh[wrap(x, dx) + wrap(y, dy) * size] * wx * wy; } } sm[x + y * size] = acc / 16.0; } }
             let gain = gain * relief(name);
             for y in 0..size { for x in 0..size { let p = base + (x + y * size) * 4;

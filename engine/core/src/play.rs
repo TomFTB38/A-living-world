@@ -498,6 +498,9 @@ impl Session {
     fn touching(&self) -> Option<Id> {
         let p = self.player.p; let fl = |v: f64| v.floor() as i32; let get = |x, y, z| self.world.get(x, y, z).unwrap_or(0);
         for y in fl(p[1] + 0.05)..=fl(p[1] + 0.5) { for z in fl(p[2] - 0.22)..=fl(p[2] + 0.22) { for x in fl(p[0] - 0.22)..=fl(p[0] + 0.22) { if get(x, y, z) == B::CAMPFIRE { return Some(B::CAMPFIRE); } } } }
+        // la lave où l'on entre, le magma sous les pieds
+        for y in fl(p[1] - 0.05)..=fl(p[1] + 1.2) { for z in fl(p[2] - 0.3)..=fl(p[2] + 0.3) { for x in fl(p[0] - 0.3)..=fl(p[0] + 0.3) { if get(x, y, z) == B::LAVA { return Some(B::LAVA); } } } }
+        if get(fl(p[0]), fl(p[1] - 0.05), fl(p[2])) == B::MAGMA && !self.player.crouch { return Some(B::MAGMA); }
         for y in fl(p[1] + 0.05)..=fl(p[1] + 1.7) { for z in fl(p[2] - 0.38)..=fl(p[2] + 0.38) { for x in fl(p[0] - 0.38)..=fl(p[0] + 0.38) { if get(x, y, z) == B::CACTUS { return Some(B::CACTUS); } } } }
         None
     }
@@ -505,7 +508,7 @@ impl Session {
     fn fire_heat(&self) -> f64 {
         let p = self.player.p; let (bx, by, bz) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32); let mut best = 0.0f64;
         for y in by - 2..=by + 2 { for z in bz - 5..=bz + 5 { for x in bx - 5..=bx + 5 { let b = self.world.get(x, y, z).unwrap_or(0);
-            let k = if b == B::CAMPFIRE { 20.0 } else if b == B::FURNACE || b == B::FURNACE_LIT { 14.0 } else if b == B::TORCH { 4.0 } else { continue };
+            let k = if b == B::LAVA { 26.0 } else if b == B::MAGMA { 10.0 } else if b == B::CAMPFIRE { 20.0 } else if b == B::FURNACE || b == B::FURNACE_LIT { 14.0 } else if b == B::TORCH { 4.0 } else { continue };
             let d = ((x as f64 + 0.5 - p[0]).powi(2) + (z as f64 + 0.5 - p[2]).powi(2)).sqrt(); best = best.max(k * (1.0 - d / 6.0).max(0.0)); } } }
         best
     }
@@ -539,7 +542,7 @@ impl Session {
         if self.player.ground || self.player.in_water || self.player.fly { self.low_v = 0.0; } else { self.low_v = self.low_v.min(self.player.v[1]); }
         self.pain_t -= dt;
         if self.pain_t <= 0.0 {
-            let pain = if sub && self.air <= 0.0 { Some((8.0, "La noyade", 1.0)) } else if let Some(b) = self.touching() { if b == B::CACTUS { Some((3.0, "Les épines d'un cactus", 0.7)) } else { Some((5.0, "Les flammes", 0.7)) } }
+            let pain = if sub && self.air <= 0.0 { Some((8.0, "La noyade", 1.0)) } else if let Some(b) = self.touching() { if b == B::CACTUS { Some((3.0, "Les épines d'un cactus", 0.7)) } else if b == B::LAVA { Some((14.0, "La lave", 0.35)) } else if b == B::MAGMA { Some((2.0, "Le magma brûlant", 0.9)) } else { Some((5.0, "Les flammes", 0.7)) } }
                 else if self.body < 33.5 { Some((2.0, "Le froid", 2.0)) } else if self.body > 40.0 { Some((2.0, "La chaleur", 2.0)) }
                 else if self.vit[2] <= 0.0 { Some((2.0, "La soif", 3.0)) } else if self.vit[1] <= 0.0 { Some((2.0, "La faim", 4.0)) } else if self.fatigue >= 100.0 { Some((1.0, "L'épuisement", 6.0)) } else { None };
             if let Some((n, c, every)) = pain { self.pain_t = every; self.harm(n, c, false); }

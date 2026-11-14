@@ -583,6 +583,27 @@ fn capture(a: &[String]) {
         let w = WorldGen::new(SEED); let mut found = None; 'f: for r in 2..500i32 { for k in 0..(r * 6) { let a = k as f64 / (r * 6) as f64 * std::f64::consts::TAU; let (x, z) = ((a.cos() * r as f64 * 3.0).floor(), (a.sin() * r as f64 * 3.0).floor()); let c = w.column(x, z); if c.water == 0.0 || c.still { continue; } for (dx, dz) in [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)] { let n = w.column(x + dx, z + dz); if n.water - c.water >= 4.0 { found = Some((x, z, dx, dz, c.water)); break 'f; } } } }
         println!("chute : {found:?}"); if let Some((x, z, dx, dz, l)) = found { s.sel = 8; s.third = false; let e = [x - dx * 8.0 + dz * 5.0, l + 5.0, z - dz * 8.0 + dx * 5.0]; s.player.p = [e[0], e[1] - 1.62, e[2]]; pump(&mut s, &mut g); let f = view::norm([x - e[0], l + 1.5 - e[1], z - e[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
     }
+    // Les biomes souterrains : la salle la plus proche de chaque biome, vue depuis l'autre bout vers sa cascade, son aven ou son centre.
+    if let Some(key) = scene.strip_prefix("sous_") {
+        let w = WorldGen::new(SEED);
+        if let Some(kind) = alw_core::karst::UNDERS.iter().find(|k| k.key() == key) { if let Some(h) = w.nearest_hall_of(0.0, 0.0, 14, Some(*kind)) {
+            let target = match (h.fall, h.shaft) { (Some((f, _)), _) => [f[0] as f64 + 0.5, f[1] as f64 - 3.0, f[2] as f64 + 0.5], (None, Some(sh)) => [sh[0], h.floor as f64 + h.h * 0.55, sh[1]], _ => [h.x + h.rx * 0.4, h.floor as f64 + h.h * 0.3, h.z] };
+            let (dx, dz) = (target[0] - h.x, target[2] - h.z); let l = dx.hypot(dz).max(1.0); let from = [h.x - dx / l * h.rx * 0.45, h.z - dz / l * h.rz * 0.45];
+            println!("{scene} : salle {:.0} {:.0}", h.x, h.z);
+            if let Some(sp) = w.hall_spot(&h, from) { s.third = false; s.sel = 8; s.player.p = sp; pump(&mut s, &mut g); for _ in 0..50 { s.tick(0.1, none, Actions::default()); }
+                let e = s.player.eye(); s.eye = e; s.look = view::norm([target[0] - e[0], target[1] - e[1], target[2] - e[2]]); println!("sous terre : {:.2}", s.cave); }
+        } }
+    }
+    // Les accès : l'entrée d'une vieille mine vue de dehors, sa galerie vue de dedans, une bouche de grotte.
+    if scene == "mine_entree" || scene == "mine_galerie" || scene == "bouche" {
+        let w = WorldGen::new(SEED); let want_mine = scene != "bouche"; let mut best: Option<(f64, [f64; 3], [f64; 3])> = None;
+        for i in -12..=12 { for j in -12..=12 { if let Some(h) = w.hall(i, j) { if let Some(alw_core::karst::Way::Path { from, to, mine }) = h.way { if mine == want_mine { let d = from[0].hypot(from[2]); if best.is_none_or(|b| d < b.0) { best = Some((d, from, to)); } } } } } }
+        if let Some((_, from, to)) = best { let (ux, uz) = (to[0] - from[0], to[2] - from[2]); let l = ux.hypot(uz); let (ux, uz) = (ux / l, uz / l);
+            let (p, t) = if scene == "mine_galerie" { let a = 0.35; let fy = (from[1] - 1.0 + (to[1] - from[1] + 1.0) * a).round(); ([from[0] + ux * l * a + 0.5, fy, from[2] + uz * l * a + 0.5], [from[0] + ux * l * 0.6, fy - 4.0, from[2] + uz * l * 0.6]) }
+                else { let (x, z) = (from[0] - ux * 7.0 - uz * 3.0, from[2] - uz * 7.0 + ux * 3.0); ([x, w.column(x, z).h + 1.0, z], [from[0] + ux * 4.0, from[1] - 1.0, from[2] + uz * 4.0]) };
+            println!("{scene} : {from:?} → {to:?}"); s.third = false; s.sel = 8; s.player.p = p; pump(&mut s, &mut g); for _ in 0..30 { s.tick(0.1, none, Actions::default()); }
+            let e = s.player.eye(); s.eye = e; s.look = view::norm([t[0] - e[0], t[1] - e[1], t[2] - e[2]]); }
+    }
     // Grotte karstique : la salle la plus proche qui a ce qu'il faut montrer (aven, cascade), vue depuis l'autre bout.
     if scene.starts_with("karst") {
         let w = WorldGen::new(SEED); let want_shaft = scene == "karst_aven"; let mut best: Option<(f64, alw_core::karst::Hall)> = None;

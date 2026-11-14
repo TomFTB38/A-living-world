@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu creatif onglet4 plat_galerie plat_pres plat_ferme plat_chevaux plat_galop plat_loup bourg_vue bourg_mairie hameau_vue grotte karst_salle karst_aven karst_lanterne
+spawn jeu karst_salle karst_aven sous_rocheuse sous_verte sous_champignons sous_lumineuse sous_cristal sous_glace sous_volcan sous_minerale sous_desert sous_abime sous_corail mine_entree mine_galerie bouche
