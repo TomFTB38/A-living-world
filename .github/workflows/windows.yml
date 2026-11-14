@@ -104,17 +104,17 @@ jobs:
           shot karst_salle 0 60 0 0 60 10 12 4 1280 720 2048 karst_salle
           shot karst_aven 0 60 0 0 60 10 12.5 4 1280 720 2048 karst_aven
           shot karst_lanterne 0 60 0 0 60 10 23 4 1280 720 2048 karst_lanterne
-          shot sous_rocheuse 0 60 0 0 60 10 12 4 1280 720 2048 sous_rocheuse
-          shot sous_verte 0 60 0 0 60 10 12 4 1280 720 2048 sous_verte
-          shot sous_champignons 0 60 0 0 60 10 12 4 1280 720 2048 sous_champignons
-          shot sous_lumineuse 0 60 0 0 60 10 12 4 1280 720 2048 sous_lumineuse
-          shot sous_cristal 0 60 0 0 60 10 12 4 1280 720 2048 sous_cristal
-          shot sous_glace 0 60 0 0 60 10 12 4 1280 720 2048 sous_glace
-          shot sous_volcan 0 60 0 0 60 10 12 4 1280 720 2048 sous_volcan
-          shot sous_minerale 0 60 0 0 60 10 12 4 1280 720 2048 sous_minerale
-          shot sous_desert 0 60 0 0 60 10 12 4 1280 720 2048 sous_desert
-          shot sous_abime 0 60 0 0 60 10 12 4 1280 720 2048 sous_abime
-          shot sous_corail 0 60 0 0 60 10 12 4 1280 720 2048 sous_corail
+          shot sous_rocheuse 0 60 0 0 60 10 12 3 1280 720 2048 sous_rocheuse
+          shot sous_verte 0 60 0 0 60 10 12 3 1280 720 2048 sous_verte
+          shot sous_champignons 0 60 0 0 60 10 12 3 1280 720 2048 sous_champignons
+          shot sous_lumineuse 0 60 0 0 60 10 12 3 1280 720 2048 sous_lumineuse
+          shot sous_cristal 0 60 0 0 60 10 12 3 1280 720 2048 sous_cristal
+          shot sous_glace 0 60 0 0 60 10 12 3 1280 720 2048 sous_glace
+          shot sous_volcan 0 60 0 0 60 10 12 3 1280 720 2048 sous_volcan
+          shot sous_minerale 0 60 0 0 60 10 12 3 1280 720 2048 sous_minerale
+          shot sous_desert 0 60 0 0 60 10 12 3 1280 720 2048 sous_desert
+          shot sous_abime 0 60 0 0 60 10 12 3 1280 720 2048 sous_abime
+          shot sous_corail 0 60 0 0 60 10 12 3 1280 720 2048 sous_corail
           shot mine_entree 0 60 0 0 60 10 15 4 1280 720 2048 mine_entree
           shot mine_galerie 0 60 0 0 60 10 15 4 1280 720 2048 mine_galerie
           shot bouche 0 60 0 0 60 10 15 4 1280 720 2048 bouche
