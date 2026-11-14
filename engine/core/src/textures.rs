@@ -219,11 +219,33 @@ fn flowstone(t: &Tile, x: f64, y: f64) -> S {
 // ------------------------------------------------------------------ les grottes
 // Chaque matière rend aussi sa part de lumière propre (0 à 1, par texel) : la lave, les fissures du magma, le cœur des
 // cristaux, les filaments de la mousse lumineuse brillent dans le noir. Elle est rangée dans l'alpha de l'albédo.
+/// Un amas de cristaux : des prismes hexagonaux pointus, en éventail, qui se chevauchent ; chaque prisme a trois faces
+/// (ombre, plein jour, reflet), des arêtes vives, un cœur qui luit et des stries de croissance. Entre eux, une gangue sombre.
+fn shards(t: &Tile, x: f64, y: f64, c: &[C; 4]) -> (S, f64) {
+    let mut best: Option<(f64, f64, f64, f64, f64, i64)> = None; // (profondeur, u, côté, demi-largeur, demi-longueur, id)
+    for i in 0..26i64 {
+        let r = |j: i64| t.pi(i * 11 + j + 40 + t.v as i64 * 293); let (cx, cy) = (r(0) * 64.0, r(1) * 64.0); let ang = std::f64::consts::FRAC_PI_2 + (r(2) - 0.5) * 1.5;
+        let hl = 9.0 + 15.0 * r(3); let wid = 3.0 + 4.5 * r(4); let depth = r(5); let (ca, sa) = (ang.cos(), ang.sin());
+        for ox in [-64.0, 0.0, 64.0] { for oy in [-64.0, 0.0, 64.0] {
+            let (dx, dy) = (x - cx - ox, y - cy - oy); let u = dx * ca + dy * sa; if u.abs() >= hl { continue; }
+            let w = -dx * sa + dy * ca; let hw = wid * ((hl - u.abs()) / (wid * 1.3)).min(1.0); if w.abs() >= hw { continue; }
+            if best.map_or(true, |b| depth > b.0) { best = Some((depth, u, w / hw, hw, hl, i)); }
+        } }
+    }
+    let grain = t.val(x, y, 32);
+    let Some((_, u, side, hw, hl, id)) = best else { // la gangue : roche sombre teintée, piquée d'éclats minuscules
+        let g = t.fbm(x, y, 8, 3); let spark = smooth(0.93, 0.98, t.val(x + 9.0, y, 64));
+        return (S { c: pal(c, 0.04 + 0.12 * g + 0.5 * spark), h: 0.1 + 0.1 * g, r: 0.8 }, spark * 0.4);
+    };
+    let k = t.pi(id + 900 + t.v as i64 * 53); let face = if side < -0.34 { 0.3 } else if side < 0.34 { 0.58 } else { 0.82 };
+    let ridge = smooth(0.1, 0.0, (side.abs() - 0.34).abs()); let rim = smooth(0.82, 1.0, side.abs()) * smooth(1.2, 0.4, hw * (1.0 - side.abs()));
+    let tip = smooth(hl * 0.4, hl, u.abs()); let bands = 0.5 + 0.5 * sin(u * 1.6 + 3.0 * t.val(x, y, 8));
+    let core = (1.0 - side.abs()).powf(2.0) * (0.55 + 0.45 * bands);
+    let tone = face + 0.12 * (k - 0.5) + 0.25 * ridge + 0.15 * tip + 0.06 * (grain - 0.5) - 0.45 * rim;
+    (S { c: pal(c, tone.clamp(0.02, 0.98)), h: 0.55 + 0.25 * (1.0 - side.abs()) - 0.4 * rim, r: 0.08 }, ((0.08 + 0.3 * core + 0.2 * tip) * (1.0 - rim)).min(0.6))
+}
 fn cave_mat(name: &str, t: &Tile, x: f64, y: f64) -> Option<(S, f64)> {
-    let crystal = |c: [C; 4], t: &Tile| { // des facettes : de grandes cellules, une arête claire, un cœur qui luit
-        let (d1, d2, id) = t.vor(x, y, 5); let edge = 1.0 - smooth(0.02, 0.09, d2 - d1); let k = (id % 7) as f64 / 7.0; let inner = t.fbm(x, y, 8, 3);
-        let tone = 0.32 + 0.3 * k + 0.2 * (inner - 0.5) + 0.38 * edge; let core = smooth(0.25, 0.0, d1) * 0.6 + 0.25 * inner;
-        (S { c: pal(&c, tone * 0.92), h: 0.6 - 0.25 * (1.0 - edge) + 0.15 * k, r: 0.12 }, (0.15 + 0.4 * core) * (1.0 - edge * 0.6)) };
+    let crystal = |c: [C; 4], t: &Tile| shards(t, x, y, &c);
     Some(match name {
         "basalt" => { // des colonnes : un pavage de cellules aux joints creux, grain sombre et bleuté
             let (d1, d2, id) = t.vor(x, y, 4); let joint = 1.0 - smooth(0.03, 0.08, d2 - d1); let k = (id % 5) as f64 / 5.0; let g = t.fbm(x, y, 16, 3);
@@ -234,9 +256,14 @@ fn cave_mat(name: &str, t: &Tile, x: f64, y: f64) -> Option<(S, f64)> {
         "lava" => { // une pâte orange qui coule, des plaques sombres qui flottent dessus
             let flow = t.fbm(x + 5.0 * t.fbm(x, y, 2, 2), y + 3.0 * t.fbm(x + 9.0, y, 3, 2), 4, 4); let (d1, d2, _) = t.vor(x, y, 3); let crust = smooth(0.18, 0.05, d2 - d1).max(0.0) * smooth(0.5, 0.7, flow);
             let hot = 1.0 - 0.75 * crust; (S { c: pal(&pl!("#3a0d02", "#a8300a", "#f2701a", "#ffd25a"), 0.25 + 0.6 * hot * flow + 0.25 * hot), h: 0.5 - 0.3 * crust, r: 0.6 }, 0.55 + 0.45 * hot) }
-        "magma" => { // une croûte noire, ses fissures rougeoient
-            let (d1, d2, _) = t.vor(x, y, 6); let crack = 1.0 - smooth(0.02, 0.07, d2 - d1); let g = t.fbm(x, y, 8, 3);
-            (S { c: if crack > 0.3 { pal(&pl!("#5a1405", "#c2410f", "#ff8a24", "#ffd060"), 0.4 + 0.5 * crack) } else { pal(&pl!("#140c0a", "#26170f", "#3a2618", "#4e3524"), 0.4 + 0.4 * (g - 0.5) + 0.3 * d1) }, h: 0.6 - 0.5 * crack, r: 0.85 }, crack * 0.95) }
+        "magma" => { // une croûte noire cordée (des plis de lave refroidie) ; entre les cordes, des rigoles de lave qui serpentent et des flaques qui bouillonnent
+            let wx = x + 7.0 * t.fbm(x, y, 2, 2); let wy = y + 5.0 * t.fbm(x + 13.0, y, 3, 2);
+            let tau = std::f64::consts::TAU / 64.0; let rope = 0.5 + 0.5 * sin((wy + 4.0 * sin(wx * tau * 2.0)) * tau * 9.0); let flow = t.fbm(wx, wy, 3, 3);
+            let rill = 1.0 - smooth(0.0, 0.035, (flow - 0.5).abs()); let pool = smooth(0.71, 0.76, t.fbm(x + 30.0 + 17.0 * t.v as f64, y, 3, 3)); let hot = rill.max(pool) * (0.75 + 0.25 * t.val(x, y, 16));
+            let crust = pal(&pl!("#0d0908", "#1d1410", "#2f2119", "#47322a"), 0.25 + 0.45 * rope + 0.15 * (t.val(x, y, 32) - 0.5));
+            let fire = pal(&pl!("#6a1404", "#d3420c", "#ff9a2a", "#fff0a0"), 0.35 + 0.6 * hot);
+            let glow_rim = smooth(0.45, 0.0, (rill.max(pool) - 0.15).abs()) * 0.3; let c = if hot > 0.3 { fire } else { [crust[0] + glow_rim * 0.5, crust[1] + glow_rim * 0.12, crust[2]] };
+            (S { c, h: if hot > 0.3 { 0.15 } else { 0.35 + 0.45 * rope }, r: if hot > 0.3 { 0.5 } else { 0.9 } }, if hot > 0.3 { 0.5 + 0.5 * hot } else { glow_rim }) }
         "crystal_violet" => crystal(pl!("#3a1a63", "#7a3fc2", "#b98af0", "#f0dcff"), t),
         "crystal_blue" => crystal(pl!("#0d2c5c", "#2a72c8", "#79c4f5", "#dff6ff"), t),
         "crystal_pink" => crystal(pl!("#5a1a40", "#c04d92", "#f29ccc", "#ffe6f4"), t),
@@ -244,9 +271,13 @@ fn cave_mat(name: &str, t: &Tile, x: f64, y: f64) -> Option<(S, f64)> {
         "abyss_rock" => { // une roche presque noire, bleutée, parsemée de minuscules éclats froids
             let g = t.fbm(x, y, 6, 4); let fine = t.val(x, y, 64); let spark = smooth(0.95, 0.985, t.val(x + 17.0, y - 3.0, 64)); let vein = 1.0 - smooth(0.0, 0.05, (t.fbm(x, y, 3, 3) - 0.5).abs());
             (S { c: pal(&pl!("#0e1119", "#1f2433", "#323a50", "#6f8fc0"), 0.32 + 0.25 * (g - 0.5) + 0.06 * (fine - 0.5) + 0.12 * vein + 0.7 * spark), h: 0.5 + 0.2 * (g - 0.5) + 0.1 * vein, r: 0.7 }, spark * 0.7) }
-        "glow_moss" => { // une mousse sombre où courent des filaments turquoise lumineux
-            let g = t.fbm(x, y, 16, 3); let thread = (1.0 - smooth(0.0, 0.018, (t.fbm(x + 3.0, y, 5, 3) - 0.5).abs())) * smooth(0.45, 0.6, t.fbm(x, y + 11.0, 3, 2)); let dot = smooth(0.92, 0.97, t.val(x, y, 32));
-            let lit = (thread * 0.7 + dot).min(1.0); (S { c: if lit > 0.25 { pal(&pl!("#0b4f4f", "#139a8f", "#4fd8c4", "#a8f0e4"), 0.3 + 0.5 * lit) } else { pal(&pl!("#0e1d16", "#173226", "#22472f", "#2f5c3a"), 0.3 + 0.5 * g) }, h: 0.45 + 0.3 * g, r: 0.9 }, lit * 0.5) }
+        "glow_moss" => { // un coussin de mousse bleu-vert, touffu ; des perles luminescentes en grappes, chacune avec son halo
+            let g = t.fbm(x, y, 8, 3); let tuft = t.val(x, y, 32); let fine = t.val(x + 5.0, y, 64); let clump = smooth(0.42, 0.62, t.fbm(x, y + 9.0, 4, 2));
+            let (d1, _, id) = t.vor(x, y, 14); let on = (t.pi(id + 500) < 0.25 + 0.6 * clump) as i32 as f64; let rad = 0.16 + 0.16 * t.pi(id + 700);
+            let pearl = smooth(rad, rad * 0.35, d1) * on; let halo = smooth(rad * 2.4, rad, d1) * on * 0.45;
+            let moss = pal(&pl!("#06140f", "#0f2a22", "#17423a", "#2a6457"), 0.15 + 0.5 * g + 0.3 * tuft + 0.12 * (fine - 0.5));
+            let c = if pearl > 0.2 { pal(&pl!("#1a8f86", "#45d6c6", "#a5fff1", "#f2fffd"), 0.3 + 0.7 * pearl) } else { [moss[0] + halo * 0.08, moss[1] + halo * 0.45, moss[2] + halo * 0.42] };
+            (S { c, h: 0.35 + 0.35 * tuft + 0.2 * g + 0.25 * pearl, r: if pearl > 0.2 { 0.3 } else { 0.95 } }, (pearl * 0.85).max(halo * 0.5)) }
         "mycelium" => { // un tapis gris-violet, parcouru de fils blancs
             let g = t.fbm(x, y, 12, 3); let thread = 1.0 - smooth(0.0, 0.05, (t.fbm(x, y + 7.0, 8, 3) - 0.5).abs());
             (S { c: pal(&pl!("#3a2f3c", "#5a4a5e", "#7d6c82", "#d9d0dc"), 0.3 + 0.35 * g + 0.45 * thread), h: 0.5 + 0.25 * g + 0.15 * thread, r: 0.92 }, 0.0) }
