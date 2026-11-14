@@ -240,13 +240,13 @@ fn cave_mat(name: &str, t: &Tile, x: f64, y: f64) -> Option<(S, f64)> {
         "crystal_violet" => crystal(pl!("#3a1a63", "#7a3fc2", "#b98af0", "#f0dcff"), t),
         "crystal_blue" => crystal(pl!("#0d2c5c", "#2a72c8", "#79c4f5", "#dff6ff"), t),
         "crystal_pink" => crystal(pl!("#5a1a40", "#c04d92", "#f29ccc", "#ffe6f4"), t),
-        "crystal_white" => crystal(pl!("#6c7a88", "#b8c7d6", "#e2edf6", "#ffffff"), t),
+        "crystal_white" => { let (s, e) = crystal(pl!("#4c5a6a", "#8698ad", "#bccbd9", "#e6eef5"), t); (s, e * 0.5) }
         "abyss_rock" => { // une roche presque noire, bleutée, parsemée de minuscules éclats froids
             let g = t.fbm(x, y, 6, 4); let fine = t.val(x, y, 64); let spark = smooth(0.95, 0.985, t.val(x + 17.0, y - 3.0, 64)); let vein = 1.0 - smooth(0.0, 0.05, (t.fbm(x, y, 3, 3) - 0.5).abs());
             (S { c: pal(&pl!("#0e1119", "#1f2433", "#323a50", "#6f8fc0"), 0.32 + 0.25 * (g - 0.5) + 0.06 * (fine - 0.5) + 0.12 * vein + 0.7 * spark), h: 0.5 + 0.2 * (g - 0.5) + 0.1 * vein, r: 0.7 }, spark * 0.7) }
         "glow_moss" => { // une mousse sombre où courent des filaments turquoise lumineux
-            let g = t.fbm(x, y, 16, 3); let thread = 1.0 - smooth(0.0, 0.04, (t.fbm(x + 3.0, y, 6, 3) - 0.5).abs()); let dot = smooth(0.86, 0.94, t.val(x, y, 32));
-            let lit = (thread * 0.8 + dot).min(1.0); (S { c: if lit > 0.25 { pal(&pl!("#0b5b5b", "#19b5a8", "#6ff3df", "#d8fff8"), 0.35 + 0.6 * lit) } else { pal(&pl!("#0e1d16", "#173226", "#22472f", "#2f5c3a"), 0.3 + 0.5 * g) }, h: 0.45 + 0.3 * g, r: 0.9 }, lit * 0.9) }
+            let g = t.fbm(x, y, 16, 3); let thread = (1.0 - smooth(0.0, 0.018, (t.fbm(x + 3.0, y, 5, 3) - 0.5).abs())) * smooth(0.45, 0.6, t.fbm(x, y + 11.0, 3, 2)); let dot = smooth(0.92, 0.97, t.val(x, y, 32));
+            let lit = (thread * 0.7 + dot).min(1.0); (S { c: if lit > 0.25 { pal(&pl!("#0b4f4f", "#139a8f", "#4fd8c4", "#a8f0e4"), 0.3 + 0.5 * lit) } else { pal(&pl!("#0e1d16", "#173226", "#22472f", "#2f5c3a"), 0.3 + 0.5 * g) }, h: 0.45 + 0.3 * g, r: 0.9 }, lit * 0.5) }
         "mycelium" => { // un tapis gris-violet, parcouru de fils blancs
             let g = t.fbm(x, y, 12, 3); let thread = 1.0 - smooth(0.0, 0.05, (t.fbm(x, y + 7.0, 8, 3) - 0.5).abs());
             (S { c: pal(&pl!("#3a2f3c", "#5a4a5e", "#7d6c82", "#d9d0dc"), 0.3 + 0.35 * g + 0.45 * thread), h: 0.5 + 0.25 * g + 0.15 * thread, r: 0.92 }, 0.0) }

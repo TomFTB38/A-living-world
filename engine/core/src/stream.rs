@@ -51,7 +51,7 @@ impl Streamer {
     pub fn new(seed: i32, p: &Preset, threads: usize) -> Self {
         let sh = Arc::new(Shared { queue: Mutex::new(Vec::new()), wake: Condvar::new(), voxels: Mutex::new(HashMap::new()), edits: Mutex::new(HashMap::new()), stop: AtomicBool::new(false) });
         let (tx, rx) = channel();
-        let threads = (0..threads.max(1)).map(|_| { let (s, t) = (sh.clone(), tx.clone()); std::thread::spawn(move || worker(s, t, seed)) }).collect();
+        let threads = (0..threads.max(1)).map(|_| { let (s, t) = (sh.clone(), tx.clone()); std::thread::Builder::new().name("generation".into()).stack_size(16 << 20).spawn(move || worker(s, t, seed)).expect("fil de génération") }).collect();
         Streamer { sh, rx, threads, radius: p.radius, lods: (p.lod1, p.lod2), loaded: HashMap::new(), pending: HashSet::new(), vox: HashMap::new(), last: None, far_at: None }
     }
     fn lod_for(&self, d: f64) -> u8 { if d < self.lods.0 { 0 } else if d < self.lods.1 { 1 } else { 2 } }
