@@ -11,9 +11,9 @@ const fn hd(b: u8) -> u32 { if b >= b'a' { (b - b'a') as u32 + 10 } else { (b - 
 const fn hx(s: &str) -> C { let b = s.as_bytes(); [((hd(b[1]) * 16 + hd(b[2])) as f64) / 255.0, ((hd(b[3]) * 16 + hd(b[4])) as f64) / 255.0, ((hd(b[5]) * 16 + hd(b[6])) as f64) / 255.0] }
 macro_rules! pl { ($($h:expr),*) => { [$(hx($h)),*] } }
 
-struct Tile { n: f64, p: Vec<f32> }
+struct Tile { n: f64, p: Vec<f32>, /** la variante (0 à VARIANTS - 1) : certaines matières en font des faciès différents */ v: usize }
 impl Tile {
-    fn new(seed: u32) -> Self { let mut r = Rng::new(seed); Tile { n: TEX, p: (0..1024).map(|_| r.next() as f32).collect() } }
+    fn new(seed: u32) -> Self { let mut r = Rng::new(seed); Tile { n: TEX, p: (0..1024).map(|_| r.next() as f32).collect(), v: 0 } }
     #[inline] fn pi(&self, i: i64) -> f64 { self.p[(i & 1023) as usize] as f64 }
     fn val(&self, x: f64, y: f64, f: i64) -> f64 {
         let ff = f as f64; let (fx, fy) = (x * ff / self.n, y * ff / self.n); let (xf, yf) = (fx.floor(), fy.floor()); let (a, b) = (fx - xf, fy - yf); let (xi, yi) = (xf as i64, yf as i64);
@@ -38,7 +38,9 @@ fn pal(a: &[C], t: f64) -> C { let t = clamp(t, 0.0, 0.9999) * (a.len() - 1) as 
 fn mul(c: C, k: f64) -> C { [c[0] * k, c[1] * k, c[2] * k] }
 
 const GRASS: [C; 4] = pl!("#556b2a", "#6f8834", "#8ba042", "#a9b658"); const DIRT: [C; 4] = pl!("#4d3019", "#6e4725", "#8a5f35", "#a57c4d");
-const FLOW: [C; 4] = pl!("#a8987d", "#cbbb9d", "#e2d6bd", "#f4ede0");
+const FLOW: [C; 4] = pl!("#9a5718", "#cf8a3c", "#ead2a8", "#fbf3e4");
+const LIME_F: [C; 4] = pl!("#5f5341", "#97856a", "#c0ae8d", "#e2d6ba");
+const LIME_P: [C; 4] = pl!("#a6916f", "#cdb995", "#e2d2b0", "#f1e6cc");
 const STONE: [C; 4] = pl!("#5c564c", "#7f786b", "#a0998b", "#bfb8aa"); const LEAF: [C; 4] = pl!("#2f5518", "#4f7f25", "#86ac38", "#c6d862");
 const MOSS: [C; 4] = pl!("#37561d", "#55792a", "#7a9c37", "#a6bd4f");
 const OAK: [C; 4] = pl!("#4a2c14", "#7a4f29", "#a8743f", "#cf9d62"); const BEECH: [C; 4] = pl!("#726c60", "#938c7f", "#b0a99b", "#c9c3b5");
@@ -162,20 +164,57 @@ fn granite(t: &Tile, x: f64, y: f64) -> S {
     S { c: [lerp(c[0] * k, gray, patina), lerp(c[1] * k, gray * 0.99, patina), lerp(c[2] * k, gray * 0.98, patina)], h: h * (0.6 + 0.4 * edge), r }
 }
 /// Calcaire : une pierre crème, lisse, aux lits à peine marqués, tachée de gris et piquée de petites cavités.
-fn limestone(t: &Tile, x: f64, y: f64) -> S {
-    let big = t.fbm(x, y, 2, 3); let mid = t.fbm(x + 41.0, y + 3.0, 6, 4); let fine = t.val(x, y, 48); let bed = 0.5 + 0.5 * sin((y + 6.0 * t.fbm(x, y + 9.0, 3, 2)) * std::f64::consts::PI * 4.0 / 64.0);
-    let stain = smooth(0.5, 0.75, t.fbm(x - 13.0, y + 40.0, 4, 3)); let pit = smooth(0.82, 0.9, t.val(x + 5.0, y - 3.0, 32));
-    let v = 0.72 + 0.08 * (big - 0.5) + 0.07 * (mid - 0.5) + 0.03 * (fine - 0.5) + 0.025 * (bed - 0.5);
-    let c = [v * (1.0 - 0.1 * stain) * (1.0 - 0.35 * pit), v * 0.96 * (1.0 - 0.1 * stain) * (1.0 - 0.35 * pit), v * 0.86 * (1.0 - 0.06 * stain) * (1.0 - 0.35 * pit)];
-    S { c, h: 0.5 + 0.15 * (mid - 0.5) + 0.05 * bed - 0.4 * pit, r: 0.85 }
+fn limestone(t: &Tile, x: f64, y: f64) -> S { if t.v < 2 { limestone_fossil(t, x, y) } else { limestone_pale(t, x, y) } }
+/// Calcaire coquillier : une pierre grise et beige, marbrée, criblée de pores ; çà et là un coquillage en relief
+/// (une coquille Saint-Jacques à côtes, une ammonite enroulée), plus claire que la roche.
+fn limestone_fossil(t: &Tile, x: f64, y: f64) -> S {
+    let big = t.fbm(x, y, 2, 3); let mid = t.fbm(x + 41.0, y + 3.0, 6, 4); let grain = t.fbm(x - 7.0, y + 19.0, 24, 2); let fine = t.val(x, y, 64);
+    let mottle = smooth(0.35, 0.75, t.fbm(x + 13.0, y - 31.0, 4, 3));
+    // les pores : de petits trous serrés, et de plus grands, rares
+    let pore = smooth(0.8, 0.88, t.val(x + 5.0, y - 3.0, 64)) * 0.8 + smooth(0.84, 0.9, t.fbm(x - 21.0, y + 11.0, 16, 2)) * 0.6;
+    let mut tone = 0.6 + 0.14 * (big - 0.5) + 0.12 * (mid - 0.5) + 0.08 * (grain - 0.5) + 0.05 * (fine - 0.5) + 0.1 * mottle;
+    let mut h = 0.5 + 0.18 * (mid - 0.5) + 0.08 * (grain - 0.5) - 0.45 * pore.min(1.0);
+    tone -= 0.28 * pore.min(1.0);
+    // les fossiles, à des places fixes selon la variante, toujours entiers dans la case
+    let fossils: [(f64, f64, f64, f64, u8); 2] = if t.v == 0 { [(40.0, 42.0, 11.0, 0.3, 1), (19.0, 18.0, 6.0, -0.5, 0)] } else { [(22.0, 40.0, 7.5, 2.6, 0), (45.0, 17.0, 5.5, 0.0, 0)] };
+    let mut shell = 0.0f64; let mut rim = 0.0f64;
+    for (cx, cy, r, a, kind) in fossils {
+        let (dx, dy) = (x - cx, y - cy); let d = hypot2(dx, dy); if d > r + 1.5 { continue; }
+        let (ca, sa) = (crate::det::cos(a), crate::det::sin(a)); let (u, w) = (dx * ca - dy * sa, dx * sa + dy * ca);
+        if kind == 1 { // l'ammonite : un enroulement en spirale, côtes rayonnantes, un ourlet
+            let ang = w.atan2(u); let turn = (d / r * 3.2 - ang / std::f64::consts::TAU).rem_euclid(1.0); let ribs = 0.5 + 0.5 * (ang * 22.0).cos();
+            let body = 1.0 - smooth(r - 1.2, r + 0.4, d); let groove = smooth(0.0, 0.12, turn) * (1.0 - smooth(0.82, 1.0, turn));
+            shell = shell.max(body * (0.55 + 0.3 * groove + 0.15 * ribs)); rim = rim.max(body * (1.0 - groove) * 0.7);
+        } else { // la coquille : un éventail de côtes, l'oreillette à la charnière
+            let ang = u.atan2(-w); let fan = 1.0 - smooth(1.1, 1.3, ang.abs()); let body = fan * (1.0 - smooth(r - 0.8, r + 0.5, d)) * smooth(0.2, 1.4, d);
+            let ribs = 0.5 + 0.5 * (ang * 9.0).cos(); let ear = (1.0 - smooth(0.0, 1.6, (w + 0.6).abs())) * (1.0 - smooth(1.2, 2.8, u.abs()));
+            shell = shell.max(body * (0.6 + 0.4 * ribs)).max(ear * 0.7); rim = rim.max(body * (1.0 - ribs) * 0.5);
+        }
+    }
+    tone = lerp(tone, 0.86 + 0.08 * (grain - 0.5), shell.min(1.0) * 0.9) - 0.3 * rim; h = lerp(h, 0.72 + 0.25 * shell, shell.min(1.0)) - 0.15 * rim;
+    let c = pal(&LIME_F, tone); S { c, h: clamp(h, 0.0, 1.0), r: 0.88 }
 }
-/// Calcite des concrétions : une crème humide, coulée en traînées verticales qui ondulent, de fines vagues de croissance
-/// en travers, quelques gouttes plus claires ; lisse et mouillée, elle accroche la lumière.
+/// Calcaire pâle : une pierre crème presque lisse, à peine marbrée, quelques creux irréguliers, et un fin lit de
+/// sédimentation qui la traverse en travers.
+fn limestone_pale(t: &Tile, x: f64, y: f64) -> S {
+    let big = t.fbm(x, y, 2, 3); let mid = t.fbm(x + 41.0, y + 3.0, 6, 4); let grain = t.fbm(x - 7.0, y + 19.0, 32, 2);
+    let hole = smooth(0.74, 0.84, t.fbm(x + 3.0, y - 17.0, 8, 3)) + 0.6 * smooth(0.82, 0.9, t.fbm(x - 5.0, y + 9.0, 16, 2)); let hole = hole.min(1.0); let speck = smooth(0.84, 0.92, t.val(x + 9.0, y + 2.0, 64));
+    let lines = if t.v == 2 { [22.0, 47.0] } else { [12.0, 38.0] }; let mut bed = 0.0f64;
+    for l in lines { let yy = l + 3.0 * (t.fbm(x, l, 4, 2) - 0.5) * 2.0; let gap = (y - yy).abs(); let broken = smooth(0.3, 0.55, t.fbm(x + l, 7.0, 8, 2)); bed = bed.max((1.0 - smooth(0.4, 1.3, gap)) * broken); }
+    let mottle = smooth(0.4, 0.7, t.fbm(x + 17.0, y + 5.0, 4, 3)); let tone = 0.7 + 0.1 * (big - 0.5) + 0.12 * (mid - 0.5) - 0.08 * mottle + 0.05 * (grain - 0.5) - 0.3 * hole - 0.16 * bed - 0.12 * speck;
+    S { c: pal(&LIME_P, tone), h: clamp(0.55 + 0.12 * (mid - 0.5) + 0.05 * (grain - 0.5) - 0.5 * hole - 0.3 * bed - 0.2 * speck, 0.0, 1.0), r: 0.82 }
+}
+/// Calcite des concrétions : des lits de croissance ondulés, miel, caramel, crème et blanc laiteux, que coupent des
+/// coulées verticales ; chaque lit fait un petit bourrelet ; mouillée et luisante.
 fn flowstone(t: &Tile, x: f64, y: f64) -> S {
-    let bend = 7.0 * (t.fbm(x, y, 2, 2) - 0.5); let streak = t.fbm(x + bend, 0.0, 16, 3); let broad = t.fbm(x + bend * 0.5, 0.0, 4, 2);
-    let n = t.fbm(x, y, 8, 3); let ripple = 0.5 + 0.5 * sin((y + 3.0 * n) * std::f64::consts::PI * 2.0 * 6.0 / 64.0); let bead = smooth(0.86, 0.93, t.val(x - 9.0, y + 4.0, 32));
-    let tone = 0.3 + 0.42 * streak + 0.18 * (broad - 0.5) + 0.08 * ripple + 0.12 * (n - 0.5) + 0.12 * bead;
-    S { c: pal(&FLOW, tone), h: 0.45 + 0.28 * streak + 0.1 * ripple + 0.15 * bead, r: 0.42 - 0.12 * bead }
+    let wave = 2.6 * crate::det::sin(x * std::f64::consts::TAU / 64.0 + 4.0 * t.fbm(x, y, 2, 2)) + 3.0 * (t.fbm(x, y, 3, 3) - 0.5);
+    let drip = t.fbm(x + 3.0 * (t.fbm(x, y, 4, 2) - 0.5), 0.0, 8, 3); let col = smooth(0.45, 0.75, t.fbm(x - 9.0, 0.0, 4, 2));
+    let yy = y + wave + 2.2 * col * (drip - 0.5) * 2.0; let band = (yy * 6.0 / 64.0 + 0.35 * t.fbm(x + 30.0, y, 4, 2)).rem_euclid(1.0);
+    let honey = smooth(0.0, 0.18, band) * (1.0 - smooth(0.32, 0.5, band)); let dark = smooth(0.2, 0.28, band) * (1.0 - smooth(0.3, 0.4, band));
+    let milk = smooth(0.62, 0.8, band); let fine = t.val(x, y, 64); let n = t.fbm(x, y, 8, 3);
+    let streak = smooth(0.55, 0.8, drip) * col; let tone = 0.64 + 0.28 * milk - 0.36 * honey - 0.08 * dark + 0.16 * streak - 0.06 * (1.0 - col) * (drip - 0.5) + 0.07 * (n - 0.5) + 0.05 * (fine - 0.5);
+    let lip = (1.0 - smooth(0.0, 0.1, (band - 0.5).abs())) + 0.6 * (1.0 - smooth(0.0, 0.08, (band - 0.95).abs()));
+    S { c: pal(&FLOW, tone), h: clamp(0.5 + 0.22 * lip + 0.12 * milk - 0.1 * honey + 0.1 * (drip - 0.5) * col, 0.0, 1.0), r: 0.28 + 0.12 * honey }
 }
 /// Gravier : des galets arrondis serrés, de tailles et de couleurs variées, ombrés comme des petits dômes, avec du sable sombre entre eux.
 fn gravel(t: &Tile, x: f64, y: f64) -> S {
@@ -573,7 +612,7 @@ pub fn build_textures(size: usize) -> Textures {
     let wrap = |v: usize, d: i32| (v as i32 + d).rem_euclid(size as i32) as usize;
     for (m, name) in MATERIALS.iter().enumerate() {
         for v in 0..VARIANTS as usize {
-            let t = Tile::new((1000 + m * 17 + v * 3) as u32); let layer = m * VARIANTS as usize + v; let base = layer * size * size * 4;
+            let mut t = Tile::new((1000 + m * 17 + v * 3) as u32); t.v = v; let layer = m * VARIANTS as usize + v; let base = layer * size * size * 4;
             let amp = grain(name);
             for y in 0..size { for x in 0..size { let (lx, ly) = ((x as f64 + 0.5) * k, (y as f64 + 0.5) * k); let mut c = gen(name, &t, lx, ly); let p = base + (x + y * size) * 4;
                 // Un grain doux de la matière (cellules de deux texels, pas de bruit texel par texel) : de la vie de près, sans duvet.
