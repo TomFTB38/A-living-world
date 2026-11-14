@@ -4,7 +4,7 @@ fn main() {
     let md = Models::build(); let (w, h) = (960usize, 270usize); let mut img = vec![[90u8, 120, 150]; w * h]; let mut zb = vec![f32::MAX; w * h];
     let mut a = alw_core::actors::Anim::default(); let id: alw_core::view::M4 = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0];
     for (k, g) in [0.0, 1.0].iter().enumerate() {
-        a.guard = *g; let held = md.held("sword"); let d = a.first(&md, &id, held, Some("iron"));
+        a.guard = *g; let held = md.held("sword"); let d = a.first(&md, &id, held, Some("iron"), Some("steel"));
         for dr in d { let m = dr.m.map(|x| x as f64); let (s0, s1) = (dr.r.first as usize / 6 * 4, (dr.r.first + dr.r.count) as usize / 6 * 4);
             for q in (s0..s1).step_by(4) { let mut pts = Vec::new(); let mut col = [0f32; 3];
                 for j in 0..4 { let v = &md.data[(q + j) * VSIZE..(q + j + 1) * VSIZE]; let p = [0, 2, 4].map(|i| i16::from_le_bytes([v[i], v[i + 1]]) as f64 / 128.0);

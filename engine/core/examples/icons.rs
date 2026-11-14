@@ -1,7 +1,7 @@
 //! Rend la planche d'icônes sur le processeur (couleurs plates, sans textures) pour vérifier leur sens.
 use alw_core::{actors::Models, mesher::VSIZE, session::order};
 fn main() {
-    let md = Models::build(); let ids = order(); let cell = 48usize; let cols = 16usize; let rows = ids.len().div_ceil(cols);
+    let md = Models::build(); let only = std::env::args().nth(2); let ids: Vec<_> = order().into_iter().filter(|i| only.as_deref().is_none_or(|o| o.split(",").any(|p| i.contains(p)))).collect(); let cell = 48usize; let cols = 16usize; let rows = ids.len().div_ceil(cols);
     let (w, h) = (cols * cell, rows * (cell + 12)); let mut img = vec![[40u8, 44, 40]; w * h];
     for (n, id) in ids.iter().enumerate() {
         let Some(hd) = md.held(id) else { continue }; let m = md.icon_matrix(id); let (ox, oy) = ((n % cols) * cell, (n / cols) * (cell + 12));

@@ -288,7 +288,7 @@ impl Session {
     pub fn draws(&self, md: &Models, view: &crate::view::M4) -> Vec<Draw> {
         let held = self.inv[self.sel].and_then(|s| md.held(s.item)); let p = &self.player;
         let roll = p.rolling().then_some((p.roll_t / crate::player::ROLL_TIME, p.roll_local));
-        let mut o = if self.third { self.anim.third(md, p.p, if p.speed > 0.2 && roll.is_none() { p.move_yaw } else { p.yaw }, p.pitch, held, roll, self.equip.map(|e| e.map(|st| crate::actors::family(st.item)))) } else { self.anim.first(md, view, held, self.shield().map(|st| crate::actors::family(st.item))) };
+        let mut o = if self.third { self.anim.third(md, p.p, if p.speed > 0.2 && roll.is_none() { p.move_yaw } else { p.yaw }, p.pitch, held, roll, self.equip.map(|e| e.map(|st| crate::actors::family(st.item)))) } else { self.anim.first(md, view, held, self.shield().map(|st| crate::actors::family(st.item)), self.equip[1].as_ref().map(|st| crate::actors::family(st.item))) };
         let n0 = o.len(); o.extend(self.fauna.draws(md)); o.extend(self.wild.draws(md)); o.extend(self.horde.draws(md)); o.extend(self.town.draws(md)); o.extend(self.loose_draws(md));
         // Les torches et les feux éclairent aussi les bêtes, les créatures et les villageois : le niveau de lumière posée
         // là où se tient chaque pièce part avec elle (la partie entière paire de `hurt`, lue par le shader).

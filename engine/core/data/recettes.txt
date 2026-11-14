@@ -122,6 +122,22 @@ iron_hammer 1 | enclume | iron_ingot 2, stick 1, !hammer 1 | outils
 sword 1 | enclume | iron_ingot 3, stick 1, leather 1, !hammer 1 | outils
 iron_helmet 1 | enclume | iron_ingot 4, leather 1, !hammer 1 | habits
 iron_chestplate 1 | enclume | iron_ingot 7, leather 2, !hammer 1 | habits
+chitin_helmet 1 | etabli | chitin_plate 3, leather 1, fiber 2, !needle 1 | habits
+chitin_leggings 1 | etabli | chitin_plate 4, leather 2, fiber 2, !needle 1 | habits
+chitin_boots 1 | etabli | chitin_plate 2, leather 2, fiber 1, !needle 1 | habits
+copper_helmet 1 | enclume | copper_ingot 4, leather 1, !hammer 1 | habits
+copper_chestplate 1 | enclume | copper_ingot 7, leather 2, !hammer 1 | habits
+copper_leggings 1 | enclume | copper_ingot 5, leather 1, !hammer 1 | habits
+copper_boots 1 | enclume | copper_ingot 3, leather 1, !hammer 1 | habits
+bronze_helmet 1 | enclume | bronze_ingot 4, leather 1, !hammer 1 | habits
+bronze_chestplate 1 | enclume | bronze_ingot 7, leather 2, !hammer 1 | habits
+bronze_leggings 1 | enclume | bronze_ingot 5, leather 1, !hammer 1 | habits
+bronze_boots 1 | enclume | bronze_ingot 3, leather 1, !hammer 1 | habits
+iron_leggings 1 | enclume | iron_ingot 5, leather 1, !hammer 1 | habits
+iron_boots 1 | enclume | iron_ingot 3, leather 1, !hammer 1 | habits
+steel_helmet 1 | enclume | steel_ingot 4, leather 1, !hammer 1 | habits | artisan=armurier
+steel_leggings 1 | enclume | steel_ingot 5, leather 1, !hammer 1 | habits | artisan=armurier
+steel_boots 1 | enclume | steel_ingot 3, leather 1, !hammer 1 | habits | artisan=armurier
 
 # --- Chez les artisans des villages (palier 4 et 5) : le cinquième champ nomme le métier ---
 steel_ingot 1 | enclume | iron_ingot 2, fuel 2 | matieres | artisan=forgeron

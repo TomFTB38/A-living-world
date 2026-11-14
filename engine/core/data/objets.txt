@@ -99,16 +99,33 @@ bandage | Bandage | vivres | 0.05 | 16 | Fibres tressées : soigne une blessure.
 straw_hat | Chapeau de paille | habits | 0.2 | 1 | Protège du soleil du désert. | porte=tete frais=3
 fiber_tunic | Tunique de fibre | habits | 0.6 | 1 | Un vêtement rudimentaire, à peine chaud. | porte=torse chaud=2 armure=1
 fiber_pants | Jambières de fibre | habits | 0.5 | 1 | Protègent un peu des épines. | porte=jambes chaud=1 armure=1
-leather_cap | Bonnet de cuir | habits | 0.3 | 1 | Protège la tête. | porte=tete chaud=1 armure=2
-leather_jacket | Veste de cuir | habits | 1.6 | 1 | Solide : protège des coups et du vent. | porte=torse chaud=3 armure=4
-leather_pants | Pantalon de cuir | habits | 1.2 | 1 | Solide et souple. | porte=jambes chaud=2 armure=3
-leather_boots | Bottes de cuir | habits | 0.8 | 1 | Pour marcher loin. | porte=pieds chaud=1 armure=1
+leather_cap | Coiffe de cuir | habits | 0.4 | 1 | Une coiffe cloutée à rabats, lacée sous le menton. | porte=tete chaud=1 armure=2
+leather_jacket | Brigandine de cuir | habits | 1.8 | 1 | Cuir épais clouté de rivets, col montant et épaulières : la tenue du sergent. | porte=torse chaud=3 armure=5
+leather_pants | Chausses de cuir | habits | 1.2 | 1 | Renforcées aux genoux, souples pour courir. | porte=jambes chaud=2 armure=3
+leather_boots | Bottes de cuir | habits | 0.8 | 1 | De hautes bottes à revers et à boucle. | porte=pieds chaud=1 armure=2
 fur_hat | Toque de fourrure | habits | 0.4 | 1 | Indispensable en taïga. | porte=tete chaud=4
 fur_coat | Manteau de fourrure | habits | 2.4 | 1 | Le froid ne passe plus ; trop chaud au désert. | porte=torse chaud=9 armure=2
 fur_boots | Bottes fourrées | habits | 1.0 | 1 | Les pieds au chaud dans la neige. | porte=pieds chaud=4 armure=1
 backpack | Sac à dos | habits | 1.2 | 1 | Porter quarante kilos de plus sans peine. | porte=dos sac=40
-iron_helmet | Casque en fer | habits | 2.0 | 1 | Lourd et froid, mais il arrête les coups. | porte=tete chaud=-1 armure=6
-iron_chestplate | Plastron en fer | habits | 7.0 | 1 | Une protection redoutable, au prix du poids. | porte=torse chaud=-2 armure=12
+iron_helmet | Grand heaume de fer | habits | 2.2 | 1 | Clos, fendu pour les yeux, renforcé d'une croix d'or. On n'y voit guère, on y craint peu. | porte=tete chaud=-1 armure=6
+iron_chestplate | Haubert et cotte d'armes | habits | 7.0 | 1 | Un haubert de mailles sous une cotte azur à la croix d'or : l'équipement du chevalier. | porte=torse chaud=-2 armure=12
+# --- Les armures : une complète par matière ---
+chitin_helmet | Heaume de chitine | habits | 0.7 | 1 | Une tête d'insecte : crête, cornes d'os et mandibules. Léger et dur. | porte=tete armure=3
+chitin_leggings | Cuissots de chitine | habits | 1.4 | 1 | Des segments de carapace, une rotule pointue. | porte=jambes armure=4
+chitin_boots | Grèves de chitine | habits | 0.8 | 1 | Plaquées de carapace, l'orteil armé d'un ergot d'os. | porte=pieds armure=2
+copper_helmet | Casque normand de cuivre | habits | 1.4 | 1 | Conique, à nasal, prolongé d'un camail d'écailles. | porte=tete chaud=0 armure=3
+copper_chestplate | Cotte d'écailles de cuivre | habits | 5.0 | 1 | Des centaines d'écailles rivées en rangs, qui tintent au pas. | porte=torse chaud=-1 armure=7
+copper_leggings | Cuissards d'écailles | habits | 3.0 | 1 | Des rangs d'écailles sur des chausses de cuir. | porte=jambes armure=5
+copper_boots | Jambières de cuivre | habits | 1.6 | 1 | Des plaques cerclées sur des bottes de cuir. | porte=pieds armure=3
+bronze_helmet | Casque à cimier de bronze | habits | 1.6 | 1 | Couvre-nuque évasé, joues mobiles et cimier de crins rouges. | porte=tete chaud=0 armure=4
+bronze_chestplate | Cuirasse musclée de bronze | habits | 5.5 | 1 | Le torse d'un héros, moulé dans le bronze ; ptéruges de cuir et de drap rouge. | porte=torse chaud=-1 armure=9
+bronze_leggings | Cuissards de bronze | habits | 3.4 | 1 | Des plaques moulées sur des braies de cuir. | porte=jambes armure=6
+bronze_boots | Cnémides de bronze | habits | 1.8 | 1 | Des jambières moulées sur le mollet, des sandales lacées. | porte=pieds armure=3
+iron_leggings | Chausses de mailles | habits | 4.0 | 1 | Des mailles jusqu'aux genoux, des genouillères de fer. | porte=jambes chaud=-1 armure=8
+iron_boots | Solerets de fer | habits | 2.0 | 1 | Des pieds de fer sur des mailles, et des éperons d'or. | porte=pieds armure=4
+steel_helmet | Armet d'acier | habits | 1.8 | 1 | Le bec de passereau, la visière fendue, un plumet rouge et blanc. | porte=tete chaud=-1 armure=7
+steel_leggings | Cuissots d'acier | habits | 3.5 | 1 | Cuissots et genouillères à ailerons. | porte=jambes chaud=-1 armure=10
+steel_boots | Grèves et solerets d'acier | habits | 1.8 | 1 | Des grèves closes et des solerets articulés, à éperons d'or. | porte=pieds armure=5
 
 # --- Ateliers et mobilier ---
 workbench | Établi | ateliers | 12 | 8 | Le premier atelier : outils, coffres, vêtements. |
@@ -249,7 +266,7 @@ steel_ingot | Lingot d'acier | matieres | 1.0 | 64 | Du fer affiné au charbon p
 steel_pickaxe | Pioche en acier | outils | 1.8 | 1 | Forgée par un forgeron : extrait les roches les plus résistantes. | outil=pioche mat=acier
 steel_axe | Hache en acier | outils | 1.7 | 1 | Forgée par un forgeron : un fil qui ne s'émousse presque pas. | outil=hache mat=acier
 steel_sword | Épée en acier | outils | 1.9 | 1 | L'arme d'un forgeron confirmé. | outil=epee mat=acier
-steel_chestplate | Cuirasse en acier | habits | 6.0 | 1 | Ajustée par un armurier : protège mieux que le fer, pèse moins. | porte=torse chaud=-1 armure=16
+steel_chestplate | Harnois d'acier | habits | 6.0 | 1 | Cuirasse, pansière bordée d'or, tassettes et spalières : le harnois blanc. | porte=torse chaud=-1 armure=16
 master_pickaxe | Pioche de maître | outils | 1.7 | 1 | Une pièce d'exception, équilibrée par un maître forgeron. | outil=pioche mat=maitre
 master_axe | Hache de maître | outils | 1.6 | 1 | Une pièce d'exception, équilibrée par un maître forgeron. | outil=hache mat=maitre
 lined_fur_coat | Manteau de fourrure doublé | habits | 3.0 | 1 | Cousu par un tanneur : tient chaud par grand froid. | porte=torse chaud=9
@@ -439,7 +456,7 @@ rag | Lambeaux d'étoffe | matieres | 0.05 | 64 | Des haillons arrachés à un r
 rusty_scrap | Ferraille rouillée | matieres | 0.3 | 64 | Des bouts d'armure et de lame rongés de rouille ; au four, ils redonnent du fer. |
 beast_fang | Croc de bête | matieres | 0.04 | 64 | Long et tranchant : une bonne pointe de flèche. |
 chitin_plate | Plaque de chitine | matieres | 0.15 | 64 | La carapace d'un rampant nocturne, légère et dure. |
-chitin_vest | Plastron de chitine | habits | 2.2 | 1 | Des plaques de chitine cousues sur du cuir : léger et solide. | porte=torse armure=5 chaud=1
+chitin_vest | Carapace de chitine | habits | 2.2 | 1 | Des plaques de chitine chevauchées sur du cuir, épines d'os le long du dos. | porte=torse armure=6 chaud=1
 worn_coin | Pièce usée | matieres | 0.01 | 99 | Une vieille pièce au profil effacé, trouvée sur un rôdeur. Les villageois la prennent encore en échange. |
 
 # Œufs d'apparition (mode créatif) : clic droit sur un bloc pour faire naître la créature.

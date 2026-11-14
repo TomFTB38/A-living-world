@@ -42,4 +42,5 @@ pub mod bourg;
 pub mod patrons;
 pub mod elevage;
 pub mod structures;
+pub mod armures;
 pub mod commande;

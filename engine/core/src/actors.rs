@@ -57,7 +57,7 @@ const THIGH: f64 = 0.38; const UPPER: f64 = 0.29;
 /// Le personnage un peu plus étoffé : 15 % plus large et plus épais, même taille.
 const BULK: M4 = [1.15, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.15, 0.0, 0.0, 0.0, 0.0, 1.0];
 /// Habits portés, par matière : fourrure, cuir, fer, acier, paille, bois, étoffe. Des coques un peu plus larges que le corps.
-pub const FAMILIES: [&str; 7] = ["fur", "leather", "iron", "steel", "straw", "wooden", "cloth"];
+pub const FAMILIES: [&str; 10] = ["fur", "leather", "iron", "steel", "straw", "wooden", "cloth", "copper", "bronze", "chitin"];
 pub fn family(id: &str) -> &'static str { FAMILIES.iter().find(|f| id.contains(*f)).copied().unwrap_or(if id == "backpack" { "leather" } else { "cloth" }) }
 /// Le bouclier dans son repère : `u` en largeur, `v` en hauteur, `w` en épaisseur (la face peinte vers -w, la poignée vers +w).
 /// Des planches de teintes un peu différentes, joints sombres, cerclage riveté, umbo bombé, sangle et poignée ; un écu à la pointe arrondie.
@@ -78,14 +78,19 @@ fn shield_mesh(q: &mut VBuf, a: C, d: C, metal: bool, map: &dyn Fn([f64; 6]) -> 
     bx_([-0.022, -0.05, 0.015, 0.022, 0.15, 0.045], [0.3, 0.19, 0.11]); bx_([-0.026, -0.03, 0.015, 0.026, -0.01, 0.05], [0.2, 0.13, 0.08]); bx_([-0.026, 0.11, 0.015, 0.026, 0.13, 0.05], [0.2, 0.13, 0.08]);
 }
 fn outfit_parts() -> Vec<(&'static str, VBuf)> {
-    const SLOT: [&str; 8] = ["head", "torso", "arm", "thigh", "shin", "back", "shield", "fpshield"];
+    const SLOT: [&str; 10] = ["head", "torso", "arm", "fore", "fparm", "thigh", "shin", "back", "shield", "fpshield"];
     let mut o = Vec::new();
     for f in FAMILIES {
-        let (a, d): (C, C) = match f { "fur" => ([0.6, 0.47, 0.32], [0.78, 0.68, 0.52]), "leather" => ([0.44, 0.27, 0.14], [0.3, 0.18, 0.09]), "iron" => ([0.6, 0.6, 0.62], [0.4, 0.4, 0.42]), "steel" => ([0.5, 0.55, 0.62], [0.32, 0.35, 0.4]), "straw" => ([0.82, 0.7, 0.4], [0.68, 0.56, 0.3]), "wooden" => ([0.55, 0.37, 0.19], [0.32, 0.22, 0.12]), _ => ([0.5, 0.52, 0.38], [0.36, 0.38, 0.27]) };
-        let metal = f == "iron" || f == "steel"; let hi = [(a[0] * 1.18).min(1.0), (a[1] * 1.18).min(1.0), (a[2] * 1.18).min(1.0)]; let dark = [d[0] * 0.7, d[1] * 0.7, d[2] * 0.7];
+        let (a, d): (C, C) = match f { "fur" => ([0.6, 0.47, 0.32], [0.78, 0.68, 0.52]), "leather" => ([0.44, 0.27, 0.14], [0.3, 0.18, 0.09]), "iron" => ([0.6, 0.6, 0.62], [0.4, 0.4, 0.42]), "steel" => ([0.5, 0.55, 0.62], [0.32, 0.35, 0.4]), "straw" => ([0.82, 0.7, 0.4], [0.68, 0.56, 0.3]), "wooden" => ([0.55, 0.37, 0.19], [0.32, 0.22, 0.12]), "copper" => ([0.78, 0.45, 0.25], [0.5, 0.26, 0.13]), "bronze" => ([0.74, 0.56, 0.27], [0.46, 0.33, 0.14]), "chitin" => ([0.2, 0.26, 0.17], [0.11, 0.14, 0.09]), _ => ([0.5, 0.52, 0.38], [0.36, 0.38, 0.27]) };
+        let metal = matches!(f, "iron" | "steel" | "copper" | "bronze"); let hi = [(a[0] * 1.18).min(1.0), (a[1] * 1.18).min(1.0), (a[2] * 1.18).min(1.0)]; let dark = [d[0] * 0.7, d[1] * 0.7, d[2] * 0.7];
         for slot in SLOT {
+            // Les six armures complètes ont leur propre dessin (voir `armures`).
+            if let Some(m) = crate::armures::piece(f, slot) { o.push((Box::leak(format!("wear_{slot}_{f}").into_boxed_str()) as &'static str, m)); continue; }
             let mut m = VBuf::new(300); let q = &mut m;
             match slot {
+                // Habits : un poignet d'étoffe ou de fourrure, et la manche vue en première personne.
+                "fore" => { b(q, [-0.08, -0.08, -0.082, 0.08, 0.03, 0.082], a); b(q, [-0.084, -0.1, -0.086, 0.084, -0.07, 0.086], d); }
+                "fparm" => { b(q, [-0.078, -0.32, -0.078, 0.078, 0.0, 0.078], a); b(q, [-0.082, -0.34, -0.082, 0.082, -0.3, 0.082], d); }
                 // Tous les couvre-chefs enveloppent la chevelure (qui monte à 0,5 et déborde de 0,215 devant et derrière).
                 "head" => if f == "straw" { b(q, [-0.2, 0.3, -0.21, 0.2, 0.52, 0.22], a); b(q, [-0.34, 0.3, -0.35, 0.34, 0.335, 0.36], d); b(q, [-0.205, 0.335, -0.215, 0.205, 0.375, 0.225], [0.36, 0.18, 0.12]); }
                     else if metal { b(q, [-0.21, 0.2, -0.225, 0.21, 0.47, 0.232], a); b(q, [-0.17, 0.47, -0.185, 0.17, 0.53, 0.195], hi); b(q, [-0.215, 0.18, -0.23, 0.215, 0.24, 0.237], d);
@@ -268,7 +273,7 @@ fn wear_icon(parts: &[(&'static str, VBuf)], slot: crate::data::Slot, f: &str) -
     let get = |n: &str| parts.iter().find(|(k, _)| *k == format!("wear_{n}_{f}")).map(|(_, v)| v);
     let pieces: Vec<(&VBuf, [f64; 3])> = match slot {
         Slot::Head => vec![(get("head")?, [0.0; 3])],
-        Slot::Torso => vec![(get("torso")?, [0.0; 3]), (get("arm")?, [0.31, 0.56, 0.0]), (get("arm")?, [-0.31, 0.56, 0.0])],
+        Slot::Torso => vec![(get("torso")?, [0.0; 3]), (get("arm")?, [0.31, 0.56, 0.0]), (get("arm")?, [-0.31, 0.56, 0.0]), (get("fore")?, [0.31, 0.56 - UPPER, 0.0]), (get("fore")?, [-0.31, 0.56 - UPPER, 0.0])],
         Slot::Legs => vec![(get("thigh")?, [0.14, 0.0, 0.0]), (get("thigh")?, [-0.14, 0.0, 0.0])],
         Slot::Feet => vec![(get("shin")?, [0.15, 0.0, 0.0]), (get("shin")?, [-0.15, 0.0, 0.0])],
         Slot::Back => vec![(get("back")?, [0.0; 3])],
@@ -388,8 +393,8 @@ impl Anim {
         for (x, h, k) in [(0.105f64, hip_l, knee_l), (-0.105, hip_r, knee_r)] { let splay = crate::view::rot_axis([0.0; 3], [0.0, 0.0, 1.0], x.signum() * 0.62 * sit, 1.0);
             let m = mul(&mul(&base, &mul(&trs(x * (1.0 + 0.6 * sit), hip_y, 0.0, 0.0, 0.0, 1.0), &splay)), &trs(0.0, 0.0, 0.0, 0.0, h, 1.0)); put("thigh", m); let sh = mul(&m, &trs(0.0, -THIGH, 0.0, 0.0, k, 1.0)); put("shin", sh);
             if let Some(n) = wear(2, "thigh") { put(&n, m); } if let Some(n) = wear(3, "shin") { put(&n, sh); } }
-        let ul = mul(&t, &trs(0.3, up_y, 0.0, 0.0, arm_l, 1.0)); put("upper", ul); if let Some(n) = wear(1, "arm") { put(&n, ul); } let fl = mul(&ul, &trs(0.0, -UPPER, 0.0, 0.0, elbow_l, 1.0)); put("fore", fl); if let Some(n) = wear(5, "shield") { put(&n, fl); }
-        let ur = mul(&t, &trs(-0.3, up_y, 0.02, 0.0, arm_r, 1.0)); put("upper", ur); if let Some(n) = wear(1, "arm") { put(&n, ur); } let fr = mul(&ur, &trs(0.0, -UPPER, 0.0, 0.0, elbow_r, 1.0)); put("fore", fr);
+        let ul = mul(&t, &trs(0.3, up_y, 0.0, 0.0, arm_l, 1.0)); put("upper", ul); if let Some(n) = wear(1, "arm") { put(&n, ul); } let fl = mul(&ul, &trs(0.0, -UPPER, 0.0, 0.0, elbow_l, 1.0)); put("fore", fl); if let Some(n) = wear(1, "fore") { put(&n, fl); } if let Some(n) = wear(5, "shield") { put(&n, fl); }
+        let ur = mul(&t, &trs(-0.3, up_y, 0.02, 0.0, arm_r, 1.0)); put("upper", ur); if let Some(n) = wear(1, "arm") { put(&n, ur); } let fr = mul(&ur, &trs(0.0, -UPPER, 0.0, 0.0, elbow_r, 1.0)); put("fore", fr); if let Some(n) = wear(1, "fore") { put(&n, fr); }
         if archer {
             // l'arc dans le poing gauche : le long de l'avant-bras au repos, debout et perpendiculaire au bras tendu quand on bande
             let stage = ((self.bow * 4.0).round() as usize).min(4); let m = mul(&mul(&mul(&fl, &trs(0.06 * (1.0 - bb), -UPPER + 0.06, 0.04, 0.0, -std::f64::consts::FRAC_PI_2 * bb + 0.12 * (1.0 - bb), 1.0)), &roll_z(REST_ROLL * (1.0 - bb))), &trs(0.0, 0.0, 0.0, std::f64::consts::PI, 0.0, 0.95));
@@ -400,7 +405,7 @@ impl Anim {
     }
     /// Première personne : poing si la main est vide, bloc seul s'il y en a un, bras et outil sinon.
     /// `shield` : la matière du bouclier porté au bras gauche (voir `family`), visible en bas à gauche et levé en garde.
-    pub fn first(&self, md: &Models, view: &M4, held: Option<Held>, shield: Option<&'static str>) -> Vec<Draw> {
+    pub fn first(&self, md: &Models, view: &M4, held: Option<Held>, shield: Option<&'static str>, sleeve: Option<&'static str>) -> Vec<Draw> {
         let s = sin(self.phase); let c = cos(self.phase * 0.5); let w = self.walk * (1.0 - self.air); let pi = std::f64::consts::PI; let v = mul(&invert(view), &trs(0.0, 0.0, 0.0, pi, 0.0, 1.0));
         let (mut strike, mut push) = (if self.swing > 0.0 { sin(self.swing * pi) } else { 0.0 }, sin(self.punch * pi)); let r = md.parts["fist"]; let mut out = Vec::new();
         // À l'atelier, le geste du métier : le marteau qui monte et s'abat, la scie qui va et vient, le ciseau à petits coups,
@@ -460,6 +465,10 @@ impl Anim {
             // Au repos, sur la gauche, à moitié dans le champ ; en garde, il passe devant soi, un peu à gauche, et couvre le buste.
             let m = mul(&v, &trs(lerp(0.46, 0.15) + bx_ * 0.6, lerp(-0.47, -0.2) + by, lerp(0.5, 0.6), lerp(-0.62, -0.1), lerp(0.38, 0.04), lerp(0.95, 1.0)));
             out.push(Draw { m, r: md.parts[format!("wear_fpshield_{f}").as_str()], view: true, local: false, hero: true, dynamic: false, hurt: 0.0 });
+        }
+        // La manche, le brassard et le gant de ce que l'on porte au torse, sur chaque bras vu.
+        if let Some(rs) = sleeve.and_then(|f| md.parts.get(format!("wear_fparm_{f}").as_str()).copied()) {
+            let fist = md.parts["fist"]; let extra: Vec<Draw> = out.iter().filter(|d| d.r.first == fist.first && d.r.count == fist.count).map(|d| Draw { r: rs, ..*d }).collect(); out.extend(extra);
         }
         out
     }

@@ -6,7 +6,7 @@ fn main() {
     let mut a = alw_core::actors::Anim::default(); let id: alw_core::view::M4 = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0];
     let foc = 1.0 / (0.55f64).tan(); let sun = { let s = [0.4f64, 0.8, 0.45]; let l = (s[0] * s[0] + s[1] * s[1] + s[2] * s[2]).sqrt(); s.map(|x| x / l) };
     for (k, b) in [0.0, 0.5, 1.0].iter().enumerate() {
-        a.bow = *b; let held = md.held("bow"); let d = a.first(&md, &id, held, None); let ox = (k * pw) as f64;
+        a.bow = *b; let held = md.held("bow"); let d = a.first(&md, &id, held, None, None); let ox = (k * pw) as f64;
         for dr in d { let m = dr.m.map(|x| x as f64); let (s0, s1) = (dr.r.first as usize / 6 * 4, (dr.r.first + dr.r.count) as usize / 6 * 4);
             for q in (s0..s1).step_by(4) { let mut pts = Vec::new(); let mut col = [0f64; 3]; let mut wp = Vec::new();
                 for j in 0..4 { let v = &md.data[(q + j) * VSIZE..(q + j + 1) * VSIZE]; let p = [0, 2, 4].map(|i| i16::from_le_bytes([v[i], v[i + 1]]) as f64 / 128.0);
