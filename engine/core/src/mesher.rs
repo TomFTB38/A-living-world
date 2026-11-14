@@ -56,6 +56,8 @@ pub struct Mesher { vol: Vec<Id>, sky: Vec<u8>, blk: Vec<u8>, m1: Vec<i64>, m2: 
 impl Default for Mesher { fn default() -> Self { Self::new() } }
 impl Mesher {
     pub fn new() -> Self { let n = (WW * CHI) as usize; Mesher { vol: vec![0; n], sky: vec![0; n], blk: vec![0; n], m1: vec![0; CX * CH], m2: vec![0; CX * CH] } }
+    /// Pose un bloc dans le volume de travail (tests, aperçus) ; coordonnées locales au chunk.
+    pub fn set(&mut self, x: i32, y: i32, z: i32, id: Id) { if let Some(v) = self.vol.get_mut(at(x, y, z) as usize) { *v = id; } }
     #[inline(always)] fn vk(&self, k: i32) -> Id { *self.vol.get(k as usize).unwrap_or(&0) }
 
     fn fill_volume(&mut self, get: &mut dyn FnMut(i32, i32) -> std::sync::Arc<Vec<Id>>, cx: i32, cz: i32) -> (i32, Vec<i32>) {
@@ -489,19 +491,43 @@ impl Mesher {
                 bx3(o, x + 0.58, y + 0.96, z + 0.5, x + 0.86, y + 0.975, z + 0.66, 0.7, 0.7, 0.72, 0.0, s, l); bx3(o, x + 0.5, y + 0.96, z + 0.54, x + 0.6, y + 1.0, z + 0.62, 0.3, 0.18, 0.1, 0.0, s, l); // scie
                 return;
             }
+            "post" => {
+                // Poutre fine : la géométrie de shapes.rs, dans l'écorce et le bois de bout du rondin de son essence. Chaque bras
+                // prend le rondin couché dans son sens, de sorte que l'écorce file le long de la poutre et que le bout montre ses cernes.
+                let Some(i) = crate::shapes::info(b) else { return }; let sp = species(b);
+                if i.kind == crate::shapes::Kind::Brace {
+                    let lb = BLOCKS[post_log(sp, 1) as usize]; let (h, w) = ((std::f64::consts::SQRT_2 + 2.0 * crate::shapes::BRACE_EXT) * 0.5, crate::shapes::POST);
+                    let (dx, dz) = [(0.0, 1.0), (1.0, 0.0), (0.0, -1.0), (-1.0, 0.0)][i.facing as usize % 4]; let r2 = std::f64::consts::FRAC_1_SQRT_2;
+                    let a = [[dx * r2 * h, r2 * h, dz * r2 * h], [-dx * r2 * w, r2 * w, -dz * r2 * w], [dz.abs() * w, 0.0, dx.abs() * w]];
+                    let side = (lb.dir_faces[0] as f64, lb.grain[0]); let end = (lb.dir_faces[1] as f64, lb.grain[1]);
+                    wood_obox(o, [x + 0.5, y + 0.5, z + 0.5], a, [side, side, side, side, end, end], s, l);
+                    return;
+                }
+                for bb in crate::shapes::geometry(i) {
+                    let ext = [bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2]]; let ax = if ext[0] > ext[1] + 0.01 && ext[0] > ext[2] { 0 } else if ext[2] > ext[1] + 0.01 { 2 } else { 1 };
+                    log_box(o, x, y, z, inset(bb), BLOCKS[post_log(sp, ax) as usize], s, l);
+                }
+                return;
+            }
             "fence" => {
+                // Un poteau, et vers chaque côté qui peut le tenir (une autre clôture, un bloc plein, une poutre, un pilier, un mur,
+                // un rondin) deux lisses qui vont jusqu'au bord de la case : la voisine fait l'autre moitié, ou le bloc les reçoit.
                 let wood =|o: &mut VBuf, a: f64, e: f64, c: f64, a1: f64, e1: f64, c1: f64, k: f64| bx3(o, a, e, c, a1, e1, c1, 0.46 * k, 0.31 * k, 0.18 * k, 0.0, s, l);
                 wood(o, x + 0.39, y, z + 0.39, x + 0.61, y + 1.0, z + 0.61, 1.0);
-                wood(o, x + 0.35, y + 0.97, z + 0.35, x + 0.65, y + 1.04, z + 0.65, 1.12);
-                let con = |b2: Id| b2 == B::FENCE || BLOCKS[b2 as usize].opaque;
-                if voxel(0, -1, 0) == B::FENCE || (voxel(0, 1, 0) == B::FENCE && voxel(0, 2, 0) == B::FENCE) { return; }
+                if voxel(0, 1, 0) != B::FENCE { wood(o, x + 0.35, y + 0.97, z + 0.35, x + 0.65, y + 1.04, z + 0.65, 1.12); }
+                let con = |b2: Id| b2 == B::FENCE || BLOCKS[b2 as usize].opaque || is_log(b2) || crate::shapes::info(b2).is_some_and(|i| matches!(i.kind, crate::shapes::Kind::Post | crate::shapes::Kind::Elbow | crate::shapes::Kind::Pillar | crate::shapes::Kind::Wall));
+                let side = [con(voxel(1, 0, 0)), con(voxel(-1, 0, 0)), con(voxel(0, 0, 1)), con(voxel(0, 0, -1))];
                 for yy in [0.34, 0.72] {
-                    if con(voxel(1, 0, 0)) { wood(o, x + 0.66, y + yy, z + 0.42, x + 1.34, y + yy + 0.13, z + 0.58, 0.92); }
-                    if con(voxel(0, 0, 1)) { wood(o, x + 0.42, y + yy, z + 0.66, x + 0.58, y + yy + 0.13, z + 1.34, 0.92); }
-                    for dzi in [-1, 1] { if voxel(1, 0, dzi) == B::FENCE && !con(voxel(1, 0, 0)) && !con(voxel(0, 0, dzi)) {
+                    let (y0, y1) = (y + yy, y + yy + 0.13);
+                    if side[0] { wood(o, x + 0.61, y0, z + 0.43, x + 1.0, y1, z + 0.57, 0.92); }
+                    if side[1] { wood(o, x, y0, z + 0.43, x + 0.39, y1, z + 0.57, 0.92); }
+                    if side[2] { wood(o, x + 0.43, y0, z + 0.61, x + 0.57, y1, z + 1.0, 0.92); }
+                    if side[3] { wood(o, x + 0.43, y0, z, x + 0.57, y1, z + 0.39, 0.92); }
+                    // une clôture en biais (voisine seulement en diagonale) : un coude par la case libre côté +x
+                    for dzi in [-1, 1] { if voxel(1, 0, dzi) == B::FENCE && !side[0] && !con(voxel(0, 0, dzi)) && !con(voxel(1, 0, 0)) {
                         let dz = dzi as f64;
-                        wood(o, x + 0.61, y + yy, z + 0.42, x + 1.58, y + yy + 0.13, z + 0.58, 0.92);
-                        wood(o, x + 1.42, y + yy, (z + 0.42).min(z + 0.5 + dz), x + 1.58, y + yy + 0.13, (z + 0.58).max(z + 0.5 + dz), 0.92);
+                        wood(o, x + 0.61, y0, z + 0.43, x + 1.57, y1, z + 0.57, 0.92);
+                        wood(o, x + 1.43, y0, (z + 0.43).min(z + 0.5 + dz), x + 1.57, y1, (z + 0.57).max(z + 0.5 + dz), 0.92);
                     } }
                 }
                 return;
@@ -1029,6 +1055,35 @@ pub fn obox(o: &mut VBuf, c: [f64; 3], a: [[f64; 3]; 3], col: [f64; 3], layer: f
         ([p(1., -1., 1.), p(1., -1., -1.), p(1., 1., -1.), p(1., 1., 1.)], nrm(a[0], 1.0), 215.0), ([p(-1., -1., -1.), p(-1., -1., 1.), p(-1., 1., 1.), p(-1., 1., -1.)], nrm(a[0], -1.0), 215.0),
     ];
     for (q, n, ao) in faces { let k = if layer < 0.0 { 0.86 + 0.14 * n[1] + 0.05 * n[0] } else { 1.0 }; for v in q { o.v(v[0], v[1], v[2], ly, n[0], n[1], n[2], 0.0, ao, s, l, kd, col[0] * k, col[1] * k, col[2] * k); } }
+}
+/// Le rondin (de préférence écorcé net, sans mousse) d'une essence couché selon l'axe `ax` (0 : x, 1 : debout, 2 : z).
+fn post_log(sp: &str, ax: usize) -> Id {
+    let a = ["_x", "", "_z"][ax.min(2)]; by_name(&format!("{sp}_log{a}_c")).or_else(|| by_name(&format!("{sp}_log{a}"))).unwrap_or(B::OAK_LOG)
+}
+/// Une boîte habillée comme un rondin : chaque face prend la texture et le sens du fil du rondin dans sa direction.
+fn log_box(o: &mut VBuf, x: f64, y: f64, z: f64, bb: [f64; 6], lb: crate::blocks::Block, s: f64, l: f64) {
+    let (a, b, f, e, c, d) = (x + bb[0], x + bb[3], y + bb[1], y + bb[4], z + bb[2], z + bb[5]);
+    let faces: [([[f64; 3]; 4], [f64; 3], f64, usize); 6] = [
+        ([[a, e, d], [b, e, d], [b, e, c], [a, e, c]], [0.0, 1.0, 0.0], 255.0, 1), ([[a, f, c], [b, f, c], [b, f, d], [a, f, d]], [0.0, -1.0, 0.0], 170.0, 2),
+        ([[a, f, d], [b, f, d], [b, e, d], [a, e, d]], [0.0, 0.0, 1.0], 225.0, 3), ([[b, f, c], [a, f, c], [a, e, c], [b, e, c]], [0.0, 0.0, -1.0], 225.0, 3),
+        ([[b, f, d], [b, f, c], [b, e, c], [b, e, d]], [1.0, 0.0, 0.0], 215.0, 0), ([[a, f, c], [a, f, d], [a, e, d], [a, e, c]], [-1.0, 0.0, 0.0], 215.0, 0),
+    ];
+    for (p, n, ao, di) in faces { o.rot = lb.grain[di]; for v in p { o.v(v[0], v[1], v[2], lb.dir_faces[di] as f64, n[0], n[1], n[2], 0.0, ao, s, l, kind::TEX, 1.0, 1.0, 1.0); } }
+    o.rot = 0;
+}
+/// Une boîte orientée texturée face par face (couche, sens du fil) : faces ±a1, ±a2, puis les deux bouts ±a0.
+fn wood_obox(o: &mut VBuf, c: [f64; 3], a: [[f64; 3]; 3], tex: [(f64, u8); 6], s: f64, l: f64) {
+    let p = |i: f64, j: f64, k: f64| [c[0] + a[0][0] * i + a[1][0] * j + a[2][0] * k, c[1] + a[0][1] * i + a[1][1] * j + a[2][1] * k, c[2] + a[0][2] * i + a[1][2] * j + a[2][2] * k];
+    let nrm = |v: [f64; 3], sg: f64| { let m = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-9); [v[0] / m * sg, v[1] / m * sg, v[2] / m * sg] };
+    let faces: [[[f64; 3]; 4]; 6] = [
+        [p(-1., 1., 1.), p(1., 1., 1.), p(1., 1., -1.), p(-1., 1., -1.)], [p(-1., -1., -1.), p(1., -1., -1.), p(1., -1., 1.), p(-1., -1., 1.)],
+        [p(-1., -1., 1.), p(1., -1., 1.), p(1., 1., 1.), p(-1., 1., 1.)], [p(1., -1., -1.), p(-1., -1., -1.), p(-1., 1., -1.), p(1., 1., -1.)],
+        [p(1., -1., 1.), p(1., -1., -1.), p(1., 1., -1.), p(1., 1., 1.)], [p(-1., -1., -1.), p(-1., -1., 1.), p(-1., 1., 1.), p(-1., 1., -1.)],
+    ];
+    let ns = [nrm(a[1], 1.0), nrm(a[1], -1.0), nrm(a[2], 1.0), nrm(a[2], -1.0), nrm(a[0], 1.0), nrm(a[0], -1.0)];
+    for k in 0..6 { let n = ns[k]; let ao = if n[1] > 0.5 { 255.0 } else if n[1] < -0.5 { 170.0 } else { 220.0 }; o.rot = tex[k].1;
+        for v in faces[k] { o.v(v[0], v[1], v[2], tex[k].0, n[0], n[1], n[2], 0.0, ao, s, l, kind::TEX, 1.0, 1.0, 1.0); } }
+    o.rot = 0;
 }
 /// Une forme de construction contre le bord de sa case : ses faces s'en écartent d'un rien, sans quoi elles se battraient
 /// avec celles du bloc voisin (qui reste dessiné, la forme n'étant pas opaque) et la texture scintillerait.

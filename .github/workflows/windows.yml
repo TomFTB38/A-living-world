@@ -61,6 +61,7 @@ jobs:
           shot virevoltant -38.5 53 0.5 -20 52 -30 16 4 1280 720 2048 virevoltant
           shot tronc_creux -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 tronc_creux
           shot materiaux -38.5 53 0.5 -20 52 -30 14 4 1280 720 2048 materiaux
+          shot poutres -38.5 53 0.5 -20 52 -30 14 4 1280 720 2048 poutres
           shot desert -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 desert
           shot oasis -38.5 53 0.5 -20 52 -30 16.5 4 1280 720 2048 oasis
           shot cactus -38.5 53 0.5 -20 52 -30 16 4 1280 720 2048 cactus

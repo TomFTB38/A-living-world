@@ -416,7 +416,14 @@ impl WorldGen {
                 let sdist = (t * len).round() as i32; let support = sdist % 4 == 0; let edge = lat.abs() > 1.5;
                 for y in fy..=fy + 3 { if y < CH as i32 - 1 { cv.set(x, y, z, 0); } }
                 if cv.get(x, fy - 1, z).is_some_and(|b| b == 0 || is_water(b) || b == B::LAVA) { cv.set(x, fy - 1, z, B::PLANKS); } // un plancher là où le couloir croise un vide
-                if support { if edge { for y in fy..fy + 3 { cv.set(x, y, z, B::OAK_BEAM); } } cv.set(x, fy + 3, z, if along_x { B::OAK_BEAM_Z } else { B::OAK_BEAM_X }); }
+                // Un cadre de boisage en rondins fins : deux montants, une traverse, des coudes aux angles, deux jambes de force.
+                if support {
+                    let inward = crate::shapes::facing_of(lat.signum() * uz, -lat.signum() * ux) as usize; // vers l'axe du couloir
+                    const ELBOW: [Id; 4] = [B::OAK_POST_ANGLE_TOP, B::OAK_POST_ANGLE_TOP_1, B::OAK_POST_ANGLE_TOP_2, B::OAK_POST_ANGLE_TOP_3];
+                    const BRACE: [Id; 4] = [B::OAK_POST_DIAG, B::OAK_POST_DIAG_1, B::OAK_POST_DIAG_2, B::OAK_POST_DIAG_3];
+                    if edge { for y in fy..fy + 3 { cv.set(x, y, z, B::OAK_POST); } cv.set(x, fy + 3, z, ELBOW[inward]); }
+                    else { cv.set(x, fy + 3, z, if along_x { B::OAK_POST_Z } else { B::OAK_POST_X }); if lat.abs() > 0.5 { cv.set(x, fy + 2, z, BRACE[inward]); } }
+                }
                 if lat.abs() < 0.5 && !support { cv.set(x, fy, z, if along_x { B::RAIL_X } else { B::RAIL_Z }); }
                 if lat.abs() < 0.5 && support && sdist % 12 == 0 && fy + 4 < surf { cv.set(x, fy + 2, z, B::LANTERN); }
                 // les parois de la mine : le filon qu'on suivait

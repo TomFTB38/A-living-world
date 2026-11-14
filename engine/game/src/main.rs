@@ -508,6 +508,31 @@ fn capture(a: &[String]) {
         for (i, b) in [B::SAGEBRUSH, B::DEAD_BUSH, B::ROWAN, B::BLUEBERRY, B::GLOWCAP, B::GLOWCAP_BLUE, B::GLOWCAP_PINK, B::GLOWCAP_VIOLET, B::GLOWCAP_CYAN].iter().enumerate() { let (x, z) = (p[0] + fx * 2.6 + sx * (i as f64 * 0.9 - 3.6), p[2] + fz * 2.6 + sz * (i as f64 * 0.9 - 3.6)); let y = gy(&s, x, z); edits.push((x.floor() as i32, y + 1, z.floor() as i32, *b)); }
         s.world.edit_many(&edits); pump(&mut s, &mut g); s.player.pitch = -0.32; s.tick(0.0, none, Actions::default());
     }
+    if scene == "poutres" {
+        // Deux cadres de poutres fines (chêne, épicéa) : montants, traverse, coudes, jambes de force, une longrine de l'un à l'autre ;
+        // devant, une clôture qui part d'un bloc de pierre, tourne et vient finir contre un montant.
+        use alw_core::blocks::{by_name, is_solid, B}; use alw_core::player::Voxels; use alw_core::shapes::{facing_of, variant}; pump(&mut s, &mut g);
+        let (fx, fz) = (s.player.yaw.sin(), s.player.yaw.cos()); let (dx, dz) = if fx.abs() > fz.abs() { (fx.signum() as i32, 0) } else { (0, fz.signum() as i32) }; let (lx, lz) = (-dz, dx);
+        let p = s.player.p; let (px, pz) = (p[0].floor() as i32, p[2].floor() as i32); let mut y0 = 120; while y0 > 2 && !s.world.get(px, y0, pz).is_some_and(is_solid) { y0 -= 1; } y0 += 1;
+        let at = |d: i32, k: i32| (px + dx * d + lx * k, pz + dz * d + lz * k); let mut e = Vec::new();
+        for d in -2..=11 { for k in -6..=6 { let (x, z) = at(d, k); e.push((x, y0 - 1, z, B::STONE)); for h in 0..7 { e.push((x, y0 + h, z, 0)); } } }
+        let id = |n: &str| by_name(n).unwrap();
+        for (d, sp) in [(5, "oak"), (9, "spruce")] {
+            let post = id(&format!("{sp}_post")); let cross = id(&format!("{sp}_post{}", if lx != 0 { "_x" } else { "_z" }));
+            for (k, sg) in [(-2, 1), (2, -1)] { let (x, z) = at(d, k); let inward = facing_of((lx * sg) as f64, (lz * sg) as f64);
+                for h in 0..3 { e.push((x, y0 + h, z, post)); } e.push((x, y0 + 3, z, variant(id(&format!("{sp}_post_angle")), inward, true, false, false)));
+                let (bx, bz) = at(d, k + sg); e.push((bx, y0 + 2, bz, variant(id(&format!("{sp}_post_diag")), inward, false, false, false))); }
+            for k in -1..=1 { let (x, z) = at(d, k); e.push((x, y0 + 3, z, cross)); }
+        }
+        let along = id(if dx != 0 { "oak_post_x" } else { "oak_post_z" }); for d in 6..=8 { let (x, z) = at(d, 0); e.push((x, y0 + 4, z, along)); }
+        // la clôture : pierre, quatre clôtures, un coude, et un montant au bout
+        let (x, z) = at(2, -5); e.push((x, y0, z, B::STONE)); for k in -4..=-1 { let (x, z) = at(2, k); e.push((x, y0, z, B::FENCE)); }
+        for d in [3, 4] { let (x, z) = at(d, -1); e.push((x, y0, z, B::FENCE)); }
+        let (x, z) = at(2, 0); e.push((x, y0, z, B::OAK_POST));
+        s.world.edit_many(&e); s.third = false; s.sel = 8; let (x, z) = at(-1, 3); s.player.p = [x as f64 + 0.5, y0 as f64, z as f64 + 0.5]; pump(&mut s, &mut g);
+        for _ in 0..10 { s.tick(0.05, none, Actions::default()); }
+        let (tx, tz) = at(6, -1); let e = s.player.eye(); s.eye = e; s.look = view::norm([tx as f64 + 0.5 - e[0], y0 as f64 + 1.6 - e[1], tz as f64 + 0.5 - e[2]]);
+    }
     if scene == "desert" || scene == "oasis" {
         // Le cœur du désert, vu d'un peu haut ; pour l'oasis, le premier point d'eau du désert.
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Desert) > 0.97 && (if scene == "oasis" { c.water != 0.0 } else { c.water == 0.0 && c.path == 0.0 }) { found = Some((x, z, a, c.h.max(c.water))); break 'p; } } }

@@ -386,3 +386,18 @@ cooked_egg 1 | feu | chicken_egg 1 | vivres
 arrow 6 | main | stick 2, flint 1, feather 2 | outils
 
 rail 8 | enclume | iron_ingot 3, planks 2, !hammer 1 | outils
+oak_post 3 | etabli | oak_log 1 | batir
+oak_post_diag 1 | etabli | oak_post 1 | batir
+oak_post_angle 1 | etabli | oak_post 1 | batir
+birch_post 3 | etabli | birch_log 1 | batir
+birch_post_diag 1 | etabli | birch_post 1 | batir
+birch_post_angle 1 | etabli | birch_post 1 | batir
+beech_post 3 | etabli | beech_log 1 | batir
+beech_post_diag 1 | etabli | beech_post 1 | batir
+beech_post_angle 1 | etabli | beech_post 1 | batir
+spruce_post 3 | etabli | spruce_log 1 | batir
+spruce_post_diag 1 | etabli | spruce_post 1 | batir
+spruce_post_angle 1 | etabli | spruce_post 1 | batir
+acacia_post 3 | etabli | acacia_log 1 | batir
+acacia_post_diag 1 | etabli | acacia_post 1 | batir
+acacia_post_angle 1 | etabli | acacia_post 1 | batir

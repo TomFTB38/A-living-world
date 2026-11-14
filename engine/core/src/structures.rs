@@ -141,7 +141,7 @@ pub fn orient(b: Id, m: [[i32; 2]; 2]) -> Id {
     let f = match i.kind {
         // un angle couvre deux directions : f et f + 1
         Shape::Corner | Shape::Valley => { let (a, c) = (map(i.facing), map(i.facing + 1)); if (a + 1) % 4 == c { a } else { c } }
-        Shape::Peak | Shape::Drip => return b,
+        Shape::Peak | Shape::Drip | Shape::Post => return b, // une poutre droite a déjà suivi son axe
         _ => map(i.facing),
     };
     variant(i.base, f, i.top, i.open, i.upper)

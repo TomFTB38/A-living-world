@@ -130,6 +130,10 @@ impl Session {
         let [x, y, z] = Self::place_spot(t); let cur = self.world.get(x, y, z)?; if is_solid(cur) { return None; }
         let hit_y = self.eye[1] + self.look[1] * self.ray_t - t.y as f64;
         let top = matches!(si.kind, Kind::Slab | Kind::Stairs) && (t.py < t.y || (t.py == t.y && hit_y > 0.5)); // sous un plafond ou sur le haut d'un mur : dalle haute, escalier renversé
+        // Poutres : la droite suit le regard comme un rondin (debout, en long, en travers : le mode de R) ; la diagonale monte
+        // devant soi ; l'angle a son bras devant soi, et pend d'un plafond ou du haut d'un montant (vise la moitié haute).
+        let top = top || (si.kind == Kind::Elbow && (t.py < t.y || (t.py == t.y && hit_y > 0.5)));
+        let face = if si.kind == Kind::Post { match crate::blocks::gaze_axis(f[0], f[1], f[2], self.orient, self.axis) { 'x' => 1, 'z' => 2, _ => 0 } } else { face };
         let mut v = vec![([x, y, z], variant(si.base, face, top, false, false))];
         // Un lit : la tête là où l'on vise, le pied vers soi.
         if crate::shapes::is_bed(si.base) { let (dx, dz) = [(0, 1), (1, 0), (0, -1), (-1, 0)][face as usize % 4]; let q = [x - dx, y, z - dz];
@@ -146,7 +150,7 @@ impl Session {
     }
     pub fn place(&mut self) -> bool {
         let Some(plan) = self.plan() else { return false }; let Some(st) = self.inv[self.sel] else { return false };
-        if crate::shapes::info(plan[0].1).is_none() { let f = self.player.forward(); self.axis = Some(gaze_axis(f[0], f[1], f[2], self.orient, self.axis)); }
+        if crate::shapes::info(plan[0].1).is_none_or(|i| i.kind == crate::shapes::Kind::Post) { let f = self.player.forward(); self.axis = Some(gaze_axis(f[0], f[1], f[2], self.orient, self.axis)); }
         let edits: Vec<(i32, i32, i32, Id)> = plan.iter().map(|(p, id)| (p[0], p[1], p[2], *id)).collect();
         if self.world.edit_many(&edits) == 0 { return false; }
         for (p, id) in &plan { self.flow.touch(p[0], p[1], p[2]); self.on_placed(*p, *id); }
@@ -155,7 +159,7 @@ impl Session {
     }
     /// Touche R : un quart de tour pour les blocs de forme, sinon le mode d'orientation des rondins et planches. Le message à afficher.
     pub fn rotate(&mut self) -> String {
-        if self.inv[self.sel].and_then(|s| item(s.item)).and_then(|i| i.block).is_some_and(|b| crate::shapes::info(b).is_some()) { self.turn = (self.turn + 1) % 4; return format!("Rotation : {} °", self.turn as u32 * 90); }
+        if self.inv[self.sel].and_then(|s| item(s.item)).and_then(|i| i.block).is_some_and(|b| crate::shapes::info(b).is_some_and(|i| i.kind != crate::shapes::Kind::Post)) { self.turn = (self.turn + 1) % 4; return format!("Rotation : {} °", self.turn as u32 * 90); }
         self.orient = (self.orient + 1) % MODES.len() as u8; format!("Orientation : {}", MODES[self.orient as usize])
     }
     /// Une étape de jeu. Le reste (rendu, son) lit l'état.

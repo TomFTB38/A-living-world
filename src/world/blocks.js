@@ -409,6 +409,14 @@ for (const c of ['violet', 'blue', 'pink', 'white']) cube(`crystal_${c}`, `cryst
 cube('abyss_rock', 'abyss_rock', 2.2, 'rock'); cube('glow_moss', 'glow_moss', 0.6, 'terrain'); cube('mycelium', ['mycelium', 'dirt', 'mycelium'], 0.6, 'terrain');
 cube('mushroom_stem', 'mushroom_stem', 0.6, 'wood'); for (const c of ['red', 'violet', 'blue']) cube(`mushroom_cap_${c}`, `cap_${c}`, 0.5, 'wood'); cube('mushroom_gills', 'gills', 0.4, 'wood', { light: 10 });
 cube('ice_blue', 'ice_blue', 0.8, 'terrain');
+// Poutres fines en rondin (section de 0,4 bloc), dans l'écorce et le bois de bout de leur essence : droites (debout, en long
+// selon x ou z), en diagonale (une jambe de force qui monte vers son sens) et en angle (un coude, bras vers le bas pour le haut
+// d'un cadre, vers le haut pour le pied). Chaque forme rend la poutre de base qu'on a posée.
+for (const sp of ['oak', 'birch', 'beech', 'spruce', 'acacia']) {
+  for (const a of ['', '_x', '_z']) defs.push([`${sp}_post${a}`, 'deco', null, 0.8, { model: 'post', solid: true, cat: 'wood', drop: `${sp}_post` }]);
+  for (const f of ['', '_1', '_2', '_3']) defs.push([`${sp}_post_diag${f}`, 'deco', null, 0.8, { model: 'post', solid: true, cat: 'wood', drop: `${sp}_post_diag` }]);
+  for (const t of ['', '_top']) for (const f of ['', '_1', '_2', '_3']) defs.push([`${sp}_post_angle${t}${f}`, 'deco', null, 0.8, { model: 'post', solid: true, cat: 'wood', drop: `${sp}_post_angle` }]);
+}
 // Pointes (stalactites vers le bas, stalagmites vers le haut) de chaque roche de grotte : la forme est celle des concrétions.
 for (const m of ['stone', 'ice', 'basalt', 'sandstone', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white']) for (const d of ['down', 'up']) for (const k of [0, 1, 2])
   defs.push([`${m}_point_${d}_${k}`, 'deco', null, 0.8, { model: 'dripstone', solid: true, cat: 'rock', drop: m }]);

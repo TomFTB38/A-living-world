@@ -5,7 +5,7 @@
 use crate::blocks::{Id, by_name, BLOCKS};
 use std::sync::OnceLock;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)] pub enum Kind { Slab, Stairs, Door, Trapdoor, Ladder, Window, Pillar, Wall, VSlab, Shutter, Turn, /** pente à 45° */ Slope, /** arêtier */ Corner, /** noue */ Valley, /** faîtage */ Ridge, /** épi */ Peak, /** pointe de stalactite (haut : pend du plafond) ou de stalagmite ; sens : 0 la base, 2 la pointe */ Drip }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)] pub enum Kind { /** poutre droite (sens : 0 debout, 1 selon x, 2 selon z) */ Post, /** poutre en diagonale, qui monte vers son sens */ Brace, /** poutre en angle : un coude, bras vers le bas si `top` */ Elbow, Slab, Stairs, Door, Trapdoor, Ladder, Window, Pillar, Wall, VSlab, Shutter, Turn, /** pente à 45° */ Slope, /** arêtier */ Corner, /** noue */ Valley, /** faîtage */ Ridge, /** épi */ Peak, /** pointe de stalactite (haut : pend du plafond) ou de stalagmite ; sens : 0 la base, 2 la pointe */ Drip }
 /// Ce qu'un bloc de forme est : sa famille, son sens (0 : +z, 1 : +x, 2 : -z, 3 : -x), moitié haute, ouvert, haut de porte,
 /// et la variante de base (l'objet posé), dont on dérive toutes les autres.
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Info { pub kind: Kind, pub facing: u8, pub top: bool, pub open: bool, pub upper: bool, pub base: Id }
@@ -37,6 +37,13 @@ fn parse(name: &str) -> Option<Info> {
     if name == "window" || name == "window_x" { return Some(Info { kind: Kind::Window, facing: if name == "window" { 0 } else { 1 }, top: false, open: false, upper: false, base: base("window") }); }
     if let Some(i) = name.find("_point_") { let (d, k) = name[i + 7..].split_once('_')?; return Some(Info { kind: Kind::Drip, facing: digit(k)?.min(2), top: d == "down", open: false, upper: false, base: base(name) }); }
     if let Some(r) = name.strip_prefix("dripstone_") { let (d, k) = r.split_once('_')?; return Some(Info { kind: Kind::Drip, facing: digit(k)?.min(2), top: d == "down", open: false, upper: false, base: base(name) }); }
+    // Poutres fines : « chêne_post[_x|_z] », « chêne_post_diag[_k] », « chêne_post_angle[_top][_k] ».
+    if let Some(i) = name.find("_post") { if WOODS.contains(&&name[..i]) { let (sp, r) = (&name[..i], &name[i + 5..]);
+        if let Some(r) = r.strip_prefix("_diag") { return Some(Info { kind: Kind::Brace, facing: r.strip_prefix('_').and_then(digit).unwrap_or(0), top: false, open: false, upper: false, base: base(&format!("{sp}_post_diag")) }); }
+        if let Some(r) = r.strip_prefix("_angle") { let top = r.starts_with("_top"); let r = r.strip_prefix("_top").unwrap_or(r);
+            return Some(Info { kind: Kind::Elbow, facing: r.strip_prefix('_').and_then(digit).unwrap_or(0), top, open: false, upper: false, base: base(&format!("{sp}_post_angle")) }); }
+        return Some(Info { kind: Kind::Post, facing: match r { "_x" => 1, "_z" => 2, _ => 0 }, top: false, open: false, upper: false, base: base(&format!("{sp}_post")) });
+    } }
     if name.ends_with("_pillar") { return Some(Info { kind: Kind::Pillar, facing: 0, top: false, open: false, upper: false, base: base(name) }); }
     if name == "stone_wall" || name == "stone_wall_x" { return Some(Info { kind: Kind::Wall, facing: if name == "stone_wall" { 0 } else { 1 }, top: false, open: false, upper: false, base: base("stone_wall") }); }
     None
@@ -50,6 +57,12 @@ pub fn info(id: Id) -> Option<Info> { table()[id as usize] }
 /// Un quart de tour vers la droite, vu d'en haut : +z devient +x.
 pub fn turn(b: Bx, f: u8) -> Bx { let mut b = b; for _ in 0..f % 4 { b = [b[2], b[1], 1.0 - b[3], b[5], b[4], 1.0 - b[0]]; } b }
 pub const PANEL: f64 = 0.1875;
+/// Les essences dont on taille des poutres fines.
+pub const WOODS: [&str; 5] = ["oak", "birch", "beech", "spruce", "acacia"];
+/// Demi-section d'une poutre fine : 0,4 bloc de côté, centrée dans sa case.
+pub const POST: f64 = 0.2;
+/// La diagonale déborde de chaque bout de sa case pour venir mordre dans la poutre voisine (montant ou traverse).
+pub const BRACE_EXT: f64 = 0.42;
 /// La géométrie, dans le repère du bloc [0, 1]³. Ce sont aussi les boîtes de collision (l'échelle n'en a pas : on y grimpe).
 pub fn geometry(i: Info) -> Vec<Bx> {
     let f = i.facing; let r = |v: &[Bx]| v.iter().map(|b| turn(*b, f)).collect::<Vec<_>>();
@@ -66,6 +79,11 @@ pub fn geometry(i: Info) -> Vec<Bx> {
         Kind::Ladder => Vec::new(),
         Kind::Window => r(&[[0.0, 0.0, 0.4375, 1.0, 1.0, 0.5625]]),
         Kind::Pillar => vec![[0.25, 0.0, 0.25, 0.75, 1.0, 0.75]],
+        Kind::Post => { let (a, b) = (0.5 - POST, 0.5 + POST); vec![match f { 1 => [0.0, a, a, 1.0, b, b], 2 => [a, a, 0.0, b, b, 1.0], _ => [a, 0.0, a, b, 1.0, b] }] }
+        // La diagonale, pour les collisions : quatre marches qui suivent la pente (on ne passe pas au travers, on n'y bute pas plus).
+        Kind::Brace => { let (a, b, t) = (0.5 - POST, 0.5 + POST, POST * std::f64::consts::SQRT_2);
+            r(&(0..4).map(|k| { let (z0, z1) = (k as f64 * 0.25, (k + 1) as f64 * 0.25); let yc = (z0 + z1) * 0.5; [a, (yc - t).max(0.0), z0, b, (yc + t).min(1.0), z1] }).collect::<Vec<_>>()) }
+        Kind::Elbow => { let (a, b) = (0.5 - POST, 0.5 + POST); r(&[if i.top { [a, 0.0, a, b, b, b] } else { [a, a, a, b, 1.0, b] }, [a, a, b, b, b, 1.0]]) }
         // Les pointes s'effilent de leur attache vers le vide : des tranches de plus en plus fines.
         Kind::Drip => { let steps: &[(f64, f64, f64)] = match i.facing { 0 => &[(0.0, 0.35, 0.36), (0.35, 1.0, 0.42)], 1 => &[(0.0, 0.5, 0.2), (0.5, 1.0, 0.28)], _ => &[(0.0, 0.28, 0.06), (0.28, 0.62, 0.12), (0.62, 1.0, 0.18)] };
             steps.iter().map(|&(a, b, w)| { let (y0, y1) = if i.top { (a, b) } else { (1.0 - b, 1.0 - a) }; [0.5 - w, y0, 0.5 - w, 0.5 + w, y1, 0.5 + w] }).collect() }
@@ -112,6 +130,9 @@ pub fn variant(base: Id, facing: u8, top: bool, open: bool, upper: bool) -> Id {
         Some(Kind::Ladder) => format!("ladder{}", sfx(f)),
         Some(Kind::Window) => if f % 2 == 0 { "window".into() } else { "window_x".into() },
         Some(Kind::Drip) => match n.find("_point") { Some(i) => format!("{}_point_{}_{}", &n[..i], if top { "down" } else { "up" }, f.min(2)), None => format!("dripstone_{}_{}", if top { "down" } else { "up" }, f.min(2)) },
+        Some(Kind::Post) => format!("{n}{}", ["", "_x", "_z"][f.min(2) as usize]),
+        Some(Kind::Brace) => format!("{n}{}", sfx(f)),
+        Some(Kind::Elbow) => format!("{n}{}{}", if top { "_top" } else { "" }, sfx(f)),
         Some(Kind::Wall) => if f % 2 == 0 { "stone_wall".into() } else { "stone_wall_x".into() },
         Some(Kind::Slope) => format!("{n}{}{}", if top { "_top" } else { "" }, sfx(f)),
         Some(Kind::Corner) | Some(Kind::Valley) => format!("{n}{}", sfx(f)),
@@ -127,6 +148,7 @@ pub fn facing_of(dx: f64, dz: f64) -> u8 { if dx.abs() > dz.abs() { if dx > 0.0 
 /// La matière d'un bloc de forme : le bloc plein dont il prend la texture.
 pub fn material(id: Id) -> Id {
     let n = BLOCKS[id as usize].name;
+    if let Some(i) = info(id).filter(|i| matches!(i.kind, Kind::Post | Kind::Brace | Kind::Elbow)) { let _ = i; return by_name(&format!("{}_log", &n[..n.find("_post").unwrap_or(0)])).unwrap_or(0); }
     for sfx in ["_stairs", "_vslab", "_slab", "_slope", "_corner", "_valley", "_ridge", "_peak"] { if let Some(i) = n.find(sfx) { if let Some(b) = by_name(&n[..i]) { if BLOCKS[b as usize].faces[0] != 0 || b == crate::blocks::B::PLANKS { return b; } } } }
     let m = if let Some(i) = n.find("_point_") { &n[..i] } else if n.starts_with("dripstone") { "flowstone" } else if n.starts_with("stone_bricks") || n == "stone_pillar" || n.starts_with("stone_wall") { "stone_bricks" } else if n.starts_with("cobblestone") { "cobblestone" } else if n.starts_with("thatch") { "thatch" } else { "planks" };
     by_name(m).unwrap_or(0)

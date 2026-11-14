@@ -547,3 +547,18 @@ egg_sheep | Œuf : mouton | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y fai
 egg_pig | Œuf : cochon | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cochon. Pour essayer les créatures en créatif. |
 egg_horse | Œuf : cheval | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cheval. Pour essayer les créatures en créatif. |
 egg_chicken | Œuf : poule | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : poule. Pour essayer les créatures en créatif. |
+oak_post | Poutre de chêne | batir | 0.5 | 64 | Un rondin fin : debout, en long ou en travers selon le regard (R change le mode). |
+oak_post_diag | Jambe de force de chêne | batir | 0.5 | 64 | Une poutre fine en diagonale, qui monte devant soi (R la tourne) : elle rejoint un montant et une traverse. |
+oak_post_angle | Poutre d'angle de chêne | batir | 0.5 | 64 | Un coude de poutre fine, bras devant soi ; visée haute ou sous un plafond, il pend du haut d'un montant. |
+birch_post | Poutre de bouleau | batir | 0.5 | 64 | Un rondin fin : debout, en long ou en travers selon le regard (R change le mode). |
+birch_post_diag | Jambe de force de bouleau | batir | 0.5 | 64 | Une poutre fine en diagonale, qui monte devant soi (R la tourne) : elle rejoint un montant et une traverse. |
+birch_post_angle | Poutre d'angle de bouleau | batir | 0.5 | 64 | Un coude de poutre fine, bras devant soi ; visée haute ou sous un plafond, il pend du haut d'un montant. |
+beech_post | Poutre de hêtre | batir | 0.5 | 64 | Un rondin fin : debout, en long ou en travers selon le regard (R change le mode). |
+beech_post_diag | Jambe de force de hêtre | batir | 0.5 | 64 | Une poutre fine en diagonale, qui monte devant soi (R la tourne) : elle rejoint un montant et une traverse. |
+beech_post_angle | Poutre d'angle de hêtre | batir | 0.5 | 64 | Un coude de poutre fine, bras devant soi ; visée haute ou sous un plafond, il pend du haut d'un montant. |
+spruce_post | Poutre d'épicéa | batir | 0.5 | 64 | Un rondin fin : debout, en long ou en travers selon le regard (R change le mode). |
+spruce_post_diag | Jambe de force d'épicéa | batir | 0.5 | 64 | Une poutre fine en diagonale, qui monte devant soi (R la tourne) : elle rejoint un montant et une traverse. |
+spruce_post_angle | Poutre d'angle d'épicéa | batir | 0.5 | 64 | Un coude de poutre fine, bras devant soi ; visée haute ou sous un plafond, il pend du haut d'un montant. |
+acacia_post | Poutre d'acacia | batir | 0.5 | 64 | Un rondin fin : debout, en long ou en travers selon le regard (R change le mode). |
+acacia_post_diag | Jambe de force d'acacia | batir | 0.5 | 64 | Une poutre fine en diagonale, qui monte devant soi (R la tourne) : elle rejoint un montant et une traverse. |
+acacia_post_angle | Poutre d'angle d'acacia | batir | 0.5 | 64 | Un coude de poutre fine, bras devant soi ; visée haute ou sous un plafond, il pend du haut d'un montant. |
