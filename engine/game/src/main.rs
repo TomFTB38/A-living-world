@@ -588,7 +588,7 @@ fn capture(a: &[String]) {
         let w = WorldGen::new(SEED); let want_shaft = scene == "karst_aven"; let mut best: Option<(f64, alw_core::karst::Hall)> = None;
         for i in -8..=8 { for j in -8..=8 { if let Some(h) = w.hall(i, j) { if want_shaft && h.shaft.is_none() || h.fall.is_none() { continue; } let d = h.x.hypot(h.z); if best.is_none_or(|b| d < b.0) { best = Some((d, h)); } } } }
         if let Some((_, h)) = best {
-            let (fall, _) = h.fall.unwrap(); let target = match (scene, h.shaft) { ("karst_aven", Some(sh)) => [sh[0], h.floor as f64 + h.h * 0.55, sh[1]], _ => [fall[0] as f64 + 0.5, fall[1] as f64 - 3.0, fall[2] as f64 + 0.5] };
+            let (fall, _) = h.fall.unwrap(); let target = match (scene.as_str(), h.shaft) { ("karst_aven", Some(sh)) => [sh[0], h.floor as f64 + h.h * 0.55, sh[1]], _ => [fall[0] as f64 + 0.5, fall[1] as f64 - 3.0, fall[2] as f64 + 0.5] };
             let (dx, dz) = (target[0] - h.x, target[2] - h.z); let l = dx.hypot(dz).max(1.0); let from = [h.x - dx / l * h.rx * 0.5, h.z - dz / l * h.rz * 0.5];
             println!("{scene} : salle {:.0} {:.0}, cible {target:?}", h.x, h.z);
             if let Some(sp) = w.hall_spot(&h, from) {
