@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu karst_salle karst_aven sous_rocheuse sous_verte sous_champignons sous_lumineuse sous_cristal sous_glace sous_volcan sous_minerale sous_desert sous_abime sous_corail mine_entree mine_galerie bouche
+spawn karst_salle sous_verte sous_champignons sous_volcan sous_minerale mine_galerie

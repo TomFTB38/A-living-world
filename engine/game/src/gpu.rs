@@ -94,7 +94,9 @@ impl Gpu {
         let mut config = wgpu::SurfaceConfiguration { usage: wgpu::TextureUsages::RENDER_ATTACHMENT, format, width: width.max(1), height: height.max(1), present_mode: wgpu::PresentMode::AutoNoVsync, desired_maximum_frame_latency: 2, alpha_mode: wgpu::CompositeAlphaMode::Auto, view_formats: vec![] };
         if let Some(s) = &surface { config.alpha_mode = s.get_capabilities(&adapter).alpha_modes[0]; s.configure(&device, &config); }
         let d = &device;
-        let tex = textures::build_textures(256); /* 256 pixels par bloc : un grain de roche net de près */
+        // 256 pixels par bloc : un grain de roche net de près. Sur un rendu sans carte graphique (le rendu logiciel des
+        // captures), 128 : les 450 calques de matières tiennent alors en 80 Mo au lieu de 320.
+        let cpu = adapter.get_info().device_type == wgpu::DeviceType::Cpu; let tex = textures::build_textures(if cpu { 128 } else { 256 });
         let alb = texture_array(d, &queue, &tex.albedo, tex.size, tex.layers); let nrm = texture_array(d, &queue, &tex.nrm, tex.size, tex.layers);
         const NZ: u32 = 40;
         let noise_t = d.create_texture(&wgpu::TextureDescriptor { label: Some("bruit"), size: wgpu::Extent3d { width: NZ, height: NZ, depth_or_array_layers: NZ }, mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D3, format: wgpu::TextureFormat::R8Unorm, usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST, view_formats: &[] });
