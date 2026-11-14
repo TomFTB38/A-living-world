@@ -1,0 +1,2 @@
+# Les structures retouchées dans le monde plat et exportées par /exporter : chacune remplace le patron du même nom
+# (« maison » pour toutes les maisons, « maison_3 » pour la seule variante 3). On les colle ici l'une après l'autre.

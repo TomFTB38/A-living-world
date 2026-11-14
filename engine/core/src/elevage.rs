@@ -19,7 +19,7 @@ impl Session {
         let Some(Prey::Wild(i)) = self.prey else { return false }; let Some(c) = self.wild.all.get(i) else { return false };
         let (kind, farm, at) = (c.kind, c.farm, c.p); let held = self.inv[self.sel].map(|s| s.item); if self.use_t > 0.0 { return true; }
         let name = match kind { Kind::Cow => "La vache", Kind::Sheep => "Le mouton", Kind::Pig => "Le cochon", Kind::Horse => "Le cheval", Kind::Chicken => "La poule", Kind::Wolf => "Le loup", _ => return false };
-        let mut done = |s: &mut Session, note: String| { s.notes.push(note); s.use_t = 0.4; s.anim.trigger(); true };
+        let done = |s: &mut Session, note: String| { s.notes.push(note); s.use_t = 0.4; s.anim.trigger(); true };
         match (kind, held) {
             (Kind::Cow, Some("bucket")) => { if farm.milk > 0.0 { return done(self, "La vache n'a plus de lait pour l'instant".into()); }
                 self.wild.all[i].farm.milk = 180.0; self.consume_held(); if self.add_item("milk_bucket", 1) > 0 { self.spill("milk_bucket", 1, at); } done(self, "Un seau de lait frais".into()) }

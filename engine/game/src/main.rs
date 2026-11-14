@@ -191,6 +191,9 @@ impl Game {
         self.place_t -= dt; let place = self.rmb && self.place_t <= 0.0; if place { self.place_t = 0.22; }
         self.s.player.autostep = self.menu.autostep; self.s.tick(dt, input, if talking { Actions::default() } else { Actions { mine: self.lmb, place, guard: self.rmb } });
         for n in std::mem::take(&mut self.s.notes) { self.say(n); }
+        // les structures relevées par /exporter : un fichier par structure, dans « structures » à côté du jeu
+        for (name, text) in std::mem::take(&mut self.s.exports) { let dir = beside_exe("structures"); let _ = std::fs::create_dir_all(&dir); let p = dir.join(&name);
+            if let Err(e) = std::fs::write(&p, text) { self.say(format!("Impossible d'écrire {} : {e}", p.display())); } }
         if (self.s.dead.is_some() || self.s.inv_open || self.s.town.talk.is_some() || self.s.map.open) && self.grabbed && !self.menu.open { self.grab(false); }
         if talking && !titled && self.s.town.talk.is_none() && !self.s.map.open && !self.s.inv_open && !self.menu.open && self.s.dead.is_none() { self.grab(true); } // le villageois s'est éloigné // écran de mort, coffre ouvert d'un clic droit : il faut le pointeur
         let (built, gone) = self.s.sync();
@@ -724,10 +727,20 @@ fn capture(a: &[String]) {
     std::fs::write(&a[0], b).expect("écriture de la capture");
     std::process::exit(0); // la carte logicielle peut caler en se fermant : rien à attendre, l'image est écrite
 }
+/// Les structures exportées des parties précédentes (dossier « structures » à côté du jeu) remplacent leurs patrons.
+fn load_structures() {
+    let mut bad = Vec::new();
+    for e in std::fs::read_dir(beside_exe("structures")).into_iter().flatten().flatten() {
+        let p = e.path(); if p.extension().and_then(|x| x.to_str()) != Some("txt") { continue; }
+        if let Err(err) = std::fs::read_to_string(&p).map_err(|e| e.to_string()).and_then(|t| alw_core::structures::register(&t)) { bad.push(format!("{} : {err}", p.display())); }
+    }
+    if !bad.is_empty() { report(&format!("Structures illisibles (ignorées) :\n{}", bad.join("\n"))); }
+}
 fn main() {
     std::panic::set_hook(Box::new(|i| report(&format!("Erreur : {i}"))));
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).map(String::as_str) == Some("--capture") { capture(&args[2..]); return; }
+    load_structures();
     let el = EventLoop::new().expect("boucle d'évènements"); el.set_control_flow(ControlFlow::Poll);
     let mut app = App::default();
     el.run_app(&mut app).expect("boucle principale");

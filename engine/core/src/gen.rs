@@ -26,11 +26,14 @@ fn fdiv(a: i32, b: i32) -> i32 { a.div_euclid(b) }
 /// Les mondes plats, pour construire : une graine marquée (les bits 12 à 30 valent FLAT) ; tout le jeu dérive de la graine,
 /// la sauvegarde, la génération et les fils de calcul le savent donc d'eux-mêmes.
 pub const FLAT: i32 = 0x2F1A_7000; const FLAT_MASK: i32 = 0x7FFF_F000;
+/// Un bâtiment de la galerie du monde plat.
+#[derive(Clone, Copy, Debug)]
+pub struct Exhibit { pub kind: crate::patrons::Kind, pub var: u8, pub lot: crate::batisse::Lot, pub y0: i32, /** emprise [x0, z0, x1, z1] dans le repère du patron */ pub ext: [i32; 4] }
 pub fn is_flat(seed: i32) -> bool { seed & FLAT_MASK == FLAT }
 /// La hauteur du sol d'herbe d'un monde plat.
 pub const FLAT_Y: i32 = 54;
 pub struct WorldGen {
-    pub seed: i32, /** monde plat : une prairie sans fin, sans relief, sans villages */ pub flat: bool, gallery: std::cell::OnceCell<Vec<(i32, i32, i32, Id)>>,
+    pub seed: i32, /** monde plat : une prairie sans fin, sans relief, sans villages */ pub flat: bool, gallery: std::cell::OnceCell<(Vec<(i32, i32, i32, Id)>, Vec<Exhibit>)>,
     n_base: Noise, n_hill: Noise, n_warp: Noise, n_river: Noise, n_path: Noise, n_forest: Noise, n_cliff: Noise, n_cave: Noise, pub n_deco: Noise,
     pub climate: Climate,
     ponds: RefCell<HashMap<(i32, i32), Option<Pond>>>,
@@ -863,8 +866,11 @@ fn grow_beech(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
 /// vers lui, pour les visiter, les modifier et les retravailler. Première rangée : les douze bâtiments médiévaux et un
 /// chantier ; deuxième rangée : les variantes de la maison de villageois et un puits. Une allée pavée les longe.
 impl WorldGen {
-    pub fn gallery(&self) -> &Vec<(i32, i32, i32, Id)> {
-        self.gallery.get_or_init(|| {
+    pub fn gallery(&self) -> &Vec<(i32, i32, i32, Id)> { &self.gallery_all().0 }
+    /// Les bâtiments de la galerie : patron, variante, terrain et sol (pour `/exporter`).
+    pub fn exhibits(&self) -> &Vec<Exhibit> { &self.gallery_all().1 }
+    fn gallery_all(&self) -> &(Vec<(i32, i32, i32, Id)>, Vec<Exhibit>) {
+        self.gallery.get_or_init(|| { let mut shown = Vec::new();
             use crate::edifice::{raise, Arch, Cond, Spec}; let mut k = crate::batisse::Work::default(); let y0 = FLAT_Y;
             let first: Vec<(Arch, u8, Option<&'static str>, Cond)> = vec![(Arch::House, 0, None, Cond::Kept), (Arch::Forge, 0, Some("forgeron"), Cond::Kept), (Arch::Inn, 0, None, Cond::Kept), (Arch::Mill, 0, None, Cond::Kept),
                 (Arch::Tannery, 0, Some("tanneur"), Cond::Kept), (Arch::Chapel, 0, None, Cond::Kept), (Arch::TownHall, 0, None, Cond::Kept), (Arch::Hall, 0, None, Cond::Kept), (Arch::Woodshop, 0, Some("maitre_menuisier"), Cond::Kept),
@@ -872,11 +878,12 @@ impl WorldGen {
             let second: Vec<(Arch, u8, Option<&'static str>, Cond)> = (0..8).map(|v| (Arch::House, v, None, if v % 4 == 3 { Cond::Old } else { Cond::Kept })).collect();
             for (z0, list) in [(12, first), (44, second)] { let mut cursor = 4;
                 for (arch, var, craft, cond) in list { let sp = Spec::new(arch, var, 0.4, if var % 2 == 1 { 0.8 } else { 0.4 }, craft, cond); let e = sp.extent();
-                    let lot = crate::batisse::Lot { o: (cursor - e[0], z0 - e[1]), u: (1, 0), w: (0, 1) }; let _ = raise(&mut k, lot, &sp, y0); cursor += e[2] - e[0] + 1 + 5; }
+                    let lot = crate::batisse::Lot { o: (cursor - e[0], z0 - e[1]), u: (1, 0), w: (0, 1) }; let _ = raise(&mut k, lot, &sp, y0);
+                    if let (Some(kind), Cond::Kept | Cond::Old) = (arch.patron(), cond) { shown.push(Exhibit { kind, var, lot, y0, ext: e }); } cursor += e[2] - e[0] + 1 + 5; }
                 for x in 0..cursor { for dz in [-3, -2] { k.put([x, y0, z0 + dz], B::COBBLESTONE); } } // l'allée
             }
             crate::batisse::well(&mut k, [-6, y0, 46], crate::blocks::by_name("roof_tiles").unwrap_or(B::COBBLESTONE));
-            k.blocks
+            (k.blocks, shown)
         })
     }
 }

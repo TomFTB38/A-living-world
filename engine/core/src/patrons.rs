@@ -472,6 +472,8 @@ pub fn plan(k: Kind, var: u8) -> Plan {
         Kind::Etable => (13, 9, 6, [-1, -1, 13, 9]), Kind::Ecurie => (14, 9, 7, [-1, -1, 14, 9]),
     };
     let mirror = if k == Kind::Maison { var & 4 != 0 } else { var & 1 != 0 };
+    // une structure exportée remplace l'emprise et la porte du patron
+    let (door, ext) = match crate::structures::find(k, var) { Some(st) => (st.door().unwrap_or(door), st.ext()), None => (door, ext) };
     if !mirror { return Plan { w, d, door, ext, mirror }; }
     Plan { w, d, door: w - 1 - door, ext: [w - 1 - ext[2], ext[1], w - 1 - ext[0], ext[3]], mirror }
 }
@@ -479,15 +481,28 @@ pub fn plan(k: Kind, var: u8) -> Plan {
 #[derive(Clone, Copy, Debug)]
 pub struct Look { pub roof: &'static str, pub infill: &'static str }
 /// Bâtit le patron sur son terrain, le sol à y0 ; rend porte, poste et lit en coordonnées du terrain.
-pub(crate) fn build(k: &mut Work, lot: Lot, y0: i32, kind: Kind, var: u8, look: Look, h: f64) -> Built {
+pub fn build(k: &mut Work, lot: Lot, y0: i32, kind: Kind, var: u8, look: Look, h: f64) -> Built {
     let pl = plan(kind, var); let mut p = P { k, lot, y0, mirror: pl.mirror, w: pl.w, d: pl.d, h, rec: Rec::default() };
-    let b = match kind {
-        Kind::Maison => maison(&mut p, pl.d, look.roof, look.infill, var & 2 != 0), Kind::Forge => forge(&mut p, h > 0.5), Kind::Auberge => auberge(&mut p),
-        Kind::Moulin => moulin(&mut p, h), Kind::Tanneur => tanneur(&mut p), Kind::Eglise => eglise(&mut p), Kind::GrandeMairie => grande_mairie(&mut p),
-        Kind::PetiteMairie => petite_mairie(&mut p), Kind::Atelier => atelier_bois(&mut p), Kind::Ferme => ferme(&mut p, look.roof),
-        Kind::Etable => etable(&mut p, look.roof), Kind::Ecurie => ecurie(&mut p, look.roof),
-    };
-    p.dress();
-    let fx = |x: i32| p.lx(x);
+    // Une structure exportée du monde plat : posée telle quelle, tournée selon le terrain ; le patron d'origine ne sert
+    // plus qu'à savoir où se tiennent l'artisan et son poste.
+    if let Some(st) = crate::structures::find(kind, var) {
+        let mut scratch = Work::default(); let base = build_patron(&mut P { k: &mut scratch, lot, y0, mirror: pl.mirror, w: pl.w, d: pl.d, h, rec: Rec::default() }, kind, var, look, h);
+        let s = if pl.mirror { -1 } else { 1 }; let m = [[lot.u.0 * s, lot.u.1 * s], [lot.w.0, lot.w.1]];
+        for (q, c) in st.each() { if let crate::structures::Cell::Block(b) = c { p.put(q[0], q[1], q[2], crate::structures::orient(b, m)); } }
+        let fx = |x: i32| p.lx(x);
+        return Built { door: st.door().or(base.door).map(fx), spot: base.spot.map(|(a, s)| ((fx(a.0), a.1), (fx(s.0), s.1))), bed: base.bed.map(|(x, z)| (fx(x), z)) };
+    }
+    let b = build_patron(&mut p, kind, var, look, h); let fx = |x: i32| p.lx(x);
     Built { door: b.door.map(fx), spot: b.spot.map(|(a, s)| ((fx(a.0), a.1), (fx(s.0), s.1))), bed: b.bed.map(|(x, z)| (fx(x), z)) }
+}
+/// Le patron d'origine, habillage compris ; rend porte, poste et lit en repère local.
+fn build_patron(p: &mut P, kind: Kind, var: u8, look: Look, h: f64) -> Built {
+    let pl = plan(kind, var);
+    let b = match kind {
+        Kind::Maison => maison(p, pl.d, look.roof, look.infill, var & 2 != 0), Kind::Forge => forge(p, h > 0.5), Kind::Auberge => auberge(p),
+        Kind::Moulin => moulin(p, h), Kind::Tanneur => tanneur(p), Kind::Eglise => eglise(p), Kind::GrandeMairie => grande_mairie(p),
+        Kind::PetiteMairie => petite_mairie(p), Kind::Atelier => atelier_bois(p), Kind::Ferme => ferme(p, look.roof),
+        Kind::Etable => etable(p, look.roof), Kind::Ecurie => ecurie(p, look.roof),
+    };
+    p.dress(); b
 }
