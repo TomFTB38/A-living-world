@@ -336,12 +336,12 @@ impl Models {
 /// Un morceau à dessiner : matrice, plage d'indices, et la façon de le traiter.
 #[derive(Clone, Copy, Debug)] pub struct Draw { pub m: M4, pub r: Range, pub view: bool, pub local: bool, pub hero: bool, pub dynamic: bool, /** coup reçu, de 0 à 1 : la bête rougit */ pub hurt: f32 }
 pub(crate) fn hold_m(h: Hold) -> M4 { match h { Hold::Tool => mul(&trs(0.0, -0.58, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.0), &roll_z(-std::f64::consts::FRAC_PI_4)), Hold::Block => trs(-0.14, -0.76, -0.14, 0.0, 0.0, 0.28), Hold::Deco => trs(-0.28, -0.72, -0.1, 0.0, 0.0, 0.55) } }
-#[derive(Default, Clone, Copy)] pub struct AnimIn { pub speed: f64, pub ground: bool, pub vy: f64, pub crouch: bool, pub fly: bool, pub mining: bool, pub guard: bool }
-#[derive(Default)] pub struct Anim { /** ouvrage à l'atelier : (atelier, temps du geste de 0 à 1) */ pub work: Option<(u8, f64)>, /** arc bandé, de 0 à 1 */ pub bow: f64, phase: f64, walk: f64, run: f64, low: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64, /** garde levée, de 0 à 1 */ pub guard: f64 }
+#[derive(Default, Clone, Copy)] pub struct AnimIn { pub speed: f64, pub ground: bool, pub vy: f64, pub crouch: bool, /** en selle : assis, jambes de part et d'autre */ pub seated: bool, pub fly: bool, pub mining: bool, pub guard: bool }
+#[derive(Default)] pub struct Anim { /** ouvrage à l'atelier : (atelier, temps du geste de 0 à 1) */ pub work: Option<(u8, f64)>, /** arc bandé, de 0 à 1 */ pub bow: f64, phase: f64, walk: f64, run: f64, low: f64, sit: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64, /** garde levée, de 0 à 1 */ pub guard: f64 }
 impl Anim {
     pub fn update(&mut self, dt: f64, s: AnimIn) {
         let ease = |c: f64, t: f64, k: f64| c + (t - c) * (dt * k).min(1.0); let was = self.air;
-        self.walk = ease(self.walk, (s.speed / 4.5).min(1.0), 10.0); self.run = ease(self.run, if s.speed > 5.2 { 1.0 } else { 0.0 }, 8.0); self.low = ease(self.low, if s.crouch { 1.0 } else { 0.0 }, 13.0);
+        self.walk = ease(self.walk, (s.speed / 4.5).min(1.0), 10.0); self.run = ease(self.run, if s.speed > 5.2 { 1.0 } else { 0.0 }, 8.0); self.low = ease(self.low, if s.crouch { 1.0 } else { 0.0 }, 13.0); self.sit = ease(self.sit, if s.seated { 1.0 } else { 0.0 }, 10.0);
         self.air = ease(self.air, if s.ground || s.fly { 0.0 } else { 1.0 }, 12.0); self.rise = ease(self.rise, if s.vy > 0.0 { 1.0 } else { 0.0 }, 12.0);
         if was > 0.5 && self.air <= 0.5 { self.landed = 1.0; } self.guard = ease(self.guard, if s.guard { 1.0 } else { 0.0 }, 16.0);
         self.landed = (self.landed - dt * 5.0).max(0.0);
@@ -369,6 +369,8 @@ impl Anim {
         // L'archer : le bras gauche se tend vers la cible, l'arc debout dans le poing ; le coude droit monte et la main droite
         // ramène la corde jusque sous le menton.
         if bb > 0.0 { arm_l += (-1.55 - arm_l) * bb; elbow_l += (-0.08 - elbow_l) * bb; arm_r += (-1.62 - arm_r) * bb; elbow_r += (-2.25 - elbow_r) * bb; }
+        // En selle : cuisses écartées qui serrent les flancs, genoux pliés, pieds ramenés sous le ventre de la monture.
+        let sit = self.sit; for (h, k) in [(&mut hip_l, &mut knee_l), (&mut hip_r, &mut knee_r)] { *h += (-0.75 - *h) * sit; *k += (1.05 - *k) * sit; }
         let g = self.guard; arm_l += (-1.25 - arm_l) * g; elbow_l += (-1.35 - elbow_l) * g; // garde : l'avant-bras gauche et le bouclier devant la poitrine
         let mut hip_y = 0.8 + c.abs() * 0.05 * w * ground - 0.27 * low - 0.15 * land + 0.03 * a; let mut lean = 0.05 * w + 0.26 * run + 0.46 * low + 0.16 * land - 0.08 * a * rise; let mut base = mul(&trs(p[0], p[1], p[2], yaw, 0.0, 1.0), &BULK);
         if let Some((t, d)) = roll {
@@ -383,7 +385,8 @@ impl Anim {
         let wear = |slot: usize, n: &str| outfit[slot].map(|f| format!("wear_{n}_{f}"));
         let hd = mul(&t, &trs(0.0, 0.66, 0.0, 0.0, -lean * 0.75 - pitch * 0.5, 1.0)); put("torso", t); put("head", hd);
         if let Some(n) = wear(0, "head") { put(&n, hd); } if let Some(n) = wear(1, "torso") { put(&n, t); } if let Some(n) = wear(4, "back") { put(&n, t); }
-        for (x, h, k) in [(0.105, hip_l, knee_l), (-0.105, hip_r, knee_r)] { let m = mul(&base, &trs(x, hip_y, 0.0, 0.0, h, 1.0)); put("thigh", m); let sh = mul(&m, &trs(0.0, -THIGH, 0.0, 0.0, k, 1.0)); put("shin", sh);
+        for (x, h, k) in [(0.105f64, hip_l, knee_l), (-0.105, hip_r, knee_r)] { let splay = crate::view::rot_axis([0.0; 3], [0.0, 0.0, 1.0], x.signum() * 0.62 * sit, 1.0);
+            let m = mul(&mul(&base, &mul(&trs(x * (1.0 + 0.6 * sit), hip_y, 0.0, 0.0, 0.0, 1.0), &splay)), &trs(0.0, 0.0, 0.0, 0.0, h, 1.0)); put("thigh", m); let sh = mul(&m, &trs(0.0, -THIGH, 0.0, 0.0, k, 1.0)); put("shin", sh);
             if let Some(n) = wear(2, "thigh") { put(&n, m); } if let Some(n) = wear(3, "shin") { put(&n, sh); } }
         let ul = mul(&t, &trs(0.3, up_y, 0.0, 0.0, arm_l, 1.0)); put("upper", ul); if let Some(n) = wear(1, "arm") { put(&n, ul); } let fl = mul(&ul, &trs(0.0, -UPPER, 0.0, 0.0, elbow_l, 1.0)); put("fore", fl); if let Some(n) = wear(5, "shield") { put(&n, fl); }
         let ur = mul(&t, &trs(-0.3, up_y, 0.02, 0.0, arm_r, 1.0)); put("upper", ur); if let Some(n) = wear(1, "arm") { put(&n, ur); } let fr = mul(&ur, &trs(0.0, -UPPER, 0.0, 0.0, elbow_r, 1.0)); put("fore", fr);
