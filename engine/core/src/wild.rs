@@ -9,9 +9,9 @@ use crate::noise::Rng;
 use crate::player::Voxels;
 use crate::view::{mul, roll_z, rot_axis, trs, M4};
 
-const CROW: f64 = 1.9; const FOX: f64 = 1.45; /* un renard roux adulte : environ 40 cm au garrot */ const MAX_PRINTS: usize = 160; const PRINT_LIFE: f64 = 150.0;
+const CROW: f64 = 1.9; const BAT: f64 = 1.25; const FOX: f64 = 1.45; /* un renard roux adulte : environ 40 cm au garrot */ const MAX_PRINTS: usize = 160; const PRINT_LIFE: f64 = 150.0;
 pub fn parts() -> Vec<(&'static str, VBuf)> {
-    let mut out = crate::betes::land(CROW);
+    let mut out = crate::betes::land(CROW); out.extend(crate::betes::bat(BAT));
     // Virevoltant : une boule de brindilles emmêlées, des arcs de petits cubes sur une sphère.
     let mut tumble = VBuf::new(4000); { let o = &mut tumble; let mut r = Rng::new(77);
         for _ in 0..14 {
@@ -25,7 +25,7 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
     out.extend([("tumble", tumble), ("print", print)]); out.extend(crate::betes::farm()); out.into_iter().chain(sea_parts()).collect()
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum Kind { Fox, Hare, Crow, Tumble, Wolf, Boar, Bear, Ibex, Lizard, /** maquereau des mers fraîches, en bancs */ Fish, /** poissons des récifs chauds */ Reef, Dolphin, Crab, Gull, /** chasse le nageur en eau profonde */ Shark, /** baleine à bosse, paisible, au grand large */ Whale, /** bêtes de ferme */ Cow, Sheep, Pig, Horse, Chicken }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum Kind { Fox, Hare, Crow, Tumble, Wolf, Boar, Bear, Ibex, Lizard, /** maquereau des mers fraîches, en bancs */ Fish, /** poissons des récifs chauds */ Reef, Dolphin, Crab, Gull, /** chasse le nageur en eau profonde */ Shark, /** baleine à bosse, paisible, au grand large */ Whale, /** bêtes de ferme */ Cow, Sheep, Pig, Horse, Chicken, /** chauve-souris des grottes */ Bat }
 #[derive(Clone, Copy, PartialEq, Debug)] enum State { Idle, Walk, Flee, Fly, Gone, Chase }
 /** L'élevage et la compagnie : apprivoisé, sellé, assis, la laine qui repousse (s), le lait (s avant la prochaine traite), l'œuf qui vient (s), un numéro stable. */
 #[derive(Clone, Copy, Debug, Default)] pub struct Farm { pub tame: bool, pub saddle: bool, pub sit: bool, pub shorn: f64, pub milk: f64, pub lay: f64, pub id: u32, pub ridden: bool }
@@ -136,7 +136,7 @@ impl Wild {
         let mut schools: Vec<(u32, [f64; 3], [f64; 2], f64)> = Vec::new();
         for c in all.iter().filter(|c| c.school != 0) { let (sy, cy) = (sin(c.yaw), cos(c.yaw)); match schools.iter_mut().find(|s| s.0 == c.school) { Some(s) => { for k in 0..3 { s.1[k] += c.p[k]; } s.2[0] += sy; s.2[1] += cy; s.3 += 1.0; } None => schools.push((c.school, c.p, [sy, cy], 1.0)) } }
         for s in schools.iter_mut() { for k in 0..3 { s.1[k] /= s.3; } }
-        for c in all.iter_mut() { c.hit = (c.hit - dt).max(0.0); match c.kind { Kind::Fish | Kind::Reef | Kind::Dolphin | Kind::Shark | Kind::Whale => { let sc = schools.iter().find(|s| s.0 == c.school).map(|s| (s.1, s.2)); self.swim(c, dt, w, p, sc) } Kind::Fox | Kind::Hare | Kind::Ibex | Kind::Lizard | Kind::Crab => self.walker(c, dt, w, p), Kind::Crow | Kind::Gull => self.crow(c, dt, w, p), Kind::Tumble => self.tumble(c, dt, w), Kind::Wolf if c.farm.tame => if !c.farm.ridden { self.pet(c, dt, w, p) }, Kind::Wolf | Kind::Boar | Kind::Bear => self.beast(c, dt, w, p), Kind::Cow | Kind::Sheep | Kind::Pig | Kind::Horse | Kind::Chicken => if !c.farm.ridden { self.grazer(c, dt, w, p) } } c.farm.ridden = false; }
+        for c in all.iter_mut() { c.hit = (c.hit - dt).max(0.0); match c.kind { Kind::Fish | Kind::Reef | Kind::Dolphin | Kind::Shark | Kind::Whale => { let sc = schools.iter().find(|s| s.0 == c.school).map(|s| (s.1, s.2)); self.swim(c, dt, w, p, sc) } Kind::Fox | Kind::Hare | Kind::Ibex | Kind::Lizard | Kind::Crab => self.walker(c, dt, w, p), Kind::Crow | Kind::Gull => self.crow(c, dt, w, p), Kind::Tumble => self.tumble(c, dt, w), Kind::Wolf if c.farm.tame => if !c.farm.ridden { self.pet(c, dt, w, p) }, Kind::Wolf | Kind::Boar | Kind::Bear => self.beast(c, dt, w, p), Kind::Cow | Kind::Sheep | Kind::Pig | Kind::Horse | Kind::Chicken => if !c.farm.ridden { self.grazer(c, dt, w, p) }, Kind::Bat => self.bat(c, dt, w, p) } c.farm.ridden = false; }
         all.retain(|c| c.farm.tame || (c.state != State::Gone && hypot2(c.p[0] - p[0], c.p[2] - p[2]) < 90.0 && w.get(c.p[0].floor() as i32, c.p[1].floor() as i32, c.p[2].floor() as i32).is_some())); self.all = all; // un compagnon ne se perd jamais
         // Les pas du joueur s'impriment dans la neige, en alternant pied gauche et pied droit.
         if player_ground { self.foot(w, p, None, false); } else { self.last_print = None; }
@@ -284,6 +284,41 @@ impl Wild {
         if !steer(c, w, sp * dt) && c.state != State::Chase { c.yaw += r.range(1.0, 3.0); }
         c.p[1] += (c.gy - c.p[1]) * (dt * 9.0).min(1.0);
     }
+    /// La faune des grottes : chauves-souris sous les voûtes, lézards des salles sèches et chaudes, crabes des salles d'eau.
+    /// `under` : le biome de la salle (rien : une galerie ordinaire) ; elle ne peuple que le sous-sol autour du joueur.
+    pub fn cave_life(&mut self, dt: f64, w: &impl Voxels, p: [f64; 3], under: Option<crate::karst::Under>) {
+        use crate::karst::Under::*; let k = under.unwrap_or(Ordinary);
+        let want = |kind: Kind| -> usize { match (kind, k) {
+            (Kind::Bat, Ordinary | Karst | Abyss) => 5, (Kind::Bat, Mineral | Desert) => 3, (Kind::Bat, Verdant | Fungal | Glow | Crystal) => 2,
+            (Kind::Lizard, Desert) => 3, (Kind::Lizard, Volcanic | Verdant) => 2, (Kind::Lizard, Karst | Ordinary) => 1,
+            (Kind::Crab, Coral) => 3, (Kind::Crab, Karst | Verdant) => 2, _ => 0 } };
+        let below = |c: &Critter| (c.p[1] - p[1]).abs() < 30.0;
+        for kind in [Kind::Bat, Kind::Lizard, Kind::Crab] {
+            if self.all.iter().filter(|c| c.kind == kind && below(c)).count() >= want(kind) || self.rng.next() > dt * 0.7 { continue; }
+            let r = &mut self.rng; let (a, d) = (r.range(0.0, 6.283), r.range(7.0, 24.0)); let (x, z) = (p[0] + sin(a) * d, p[2] + cos(a) * d);
+            let Some((fl, ce)) = crate::fauna::cave_floor(w, x, z, p[1]) else { continue }; if (fl - p[1]).abs() > 14.0 { continue; } let yaw = r.range(0.0, 6.283);
+            if kind == Kind::Bat { if ce - fl < 3.0 { continue; } let y = fl + (ce - fl) * r.range(0.55, 0.8); let ax = [r.range(-1.0, 1.0), 0.0, r.range(-1.0, 1.0)]; let n = self.all.len(); self.put(Kind::Bat, [x, y, z], yaw, true);
+                let c = &mut self.all[n]; c.hp = 2.0; c.state = State::Fly; c.t = 0.0; c.axis = ax; }
+            else if fits(w, x, fl, z, yaw, 1) { let n = self.all.len(); self.put(kind, [x, fl, z], yaw, false); self.all[n].hp = hp_of(kind); }
+        }
+    }
+    /// Chauve-souris : elle volette sous la voûte en zigzags, tourne court devant la roche, file quand on l'approche ou qu'on la touche.
+    fn bat(&mut self, c: &mut Critter, dt: f64, w: &impl Voxels, p: [f64; 3]) {
+        let r = &mut self.rng; c.phase += dt * 22.0; c.t -= dt; c.life += dt;
+        if c.t <= 0.0 { c.t = r.range(0.35, 1.4); c.axis = [r.range(-1.0, 1.0), r.range(-1.0, 1.0), 0.0]; }
+        let d = hypot2(c.p[0] - p[0], c.p[2] - p[2]); let scared = d < 3.0 || c.hit > 0.0;
+        if scared { let away = (c.p[0] - p[0]).atan2(c.p[2] - p[2]); let mut da = away - c.yaw; while da > std::f64::consts::PI { da -= std::f64::consts::TAU; } while da < -std::f64::consts::PI { da += std::f64::consts::TAU; } c.yaw += da.clamp(-5.0 * dt, 5.0 * dt); }
+        else if d > 26.0 { let to = (p[0] - c.p[0]).atan2(p[2] - c.p[2]); let mut da = to - c.yaw; while da > std::f64::consts::PI { da -= std::f64::consts::TAU; } while da < -std::f64::consts::PI { da += std::f64::consts::TAU; } c.yaw += da.clamp(-2.0 * dt, 2.0 * dt); } // elle reste dans la salle
+        else { c.yaw += dt * 2.6 * c.axis[0]; }
+        let sp = if scared { 6.5 } else { 4.2 }; c.speed = sp;
+        // sa hauteur : entre le sol et la voûte, plutôt haut, avec ses caprices
+        let target = match crate::fauna::cave_floor(w, c.p[0], c.p[2], c.p[1]) { Some((fl, ce)) => (fl + (ce - fl) * 0.68 + c.axis[1] * 1.2).clamp(fl + 1.2, (ce - 0.8).max(fl + 1.2)), None => c.p[1] };
+        c.v = [sin(c.yaw) * sp, ((target - c.p[1]) * 2.0).clamp(-3.0, 3.0), cos(c.yaw) * sp];
+        let n = [c.p[0] + c.v[0] * dt, c.p[1] + c.v[1] * dt, c.p[2] + c.v[2] * dt]; let solid = |q: [f64; 3]| w.get(q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32).is_none_or(|b| b > 0 && (is_solid(b) || is_water(b) || b == B::LAVA));
+        let ahead = [n[0] + sin(c.yaw) * 0.9, n[1], n[2] + cos(c.yaw) * 0.9];
+        if solid(n) || solid(ahead) { c.yaw += dt * 7.0 * if c.axis[0] >= 0.0 { 1.0 } else { -1.0 }; if !solid([c.p[0], n[1], c.p[2]]) { c.p[1] = n[1]; } } else { c.p = n; }
+        if r.next() < dt * 0.05 { self.ev.push(Ev::Rustle(c.p)); }
+    }
     fn crow(&mut self, c: &mut Critter, dt: f64, w: &impl Voxels, p: [f64; 3]) {
         let r = &mut self.rng; c.phase += dt * if c.state == State::Fly { 11.0 } else { 0.0 }; c.t -= dt;
         if r.next() < dt * 0.12 { self.ev.push(if c.kind == Kind::Gull { Ev::Cry(c.p) } else { Ev::Caw(c.p) }); }
@@ -387,6 +422,10 @@ impl Wild {
                 }
                 Kind::Chicken => { let peck = if c.state == State::Idle { (sin(c.life * 0.0 + c.t * 5.0)).max(0.0) * 0.4 } else { 0.0 }; let hop = if c.speed > 0.0 { sin(c.phase).abs() * 0.04 } else { 0.0 };
                     put(["hen0", "hen1", "hen2"][(c.color % 3) as usize], trs(c.p[0], c.p[1] + hop + flinch(c.hit) * 0.3, c.p[2], c.yaw, peck, HEN)); }
+                Kind::Bat => { // un vol nerveux : des ailes de peau qui battent vite, le corps qui tangue
+                    let base = trs(c.p[0], c.p[1] + 0.03 * sin(c.phase * 0.5), c.p[2], c.yaw, 0.0, 1.0); let f = 0.1 + 0.85 * sin(c.phase);
+                    put("bat", base); put("batWing", mul(&base, &mul(&trs(0.04 * BAT, 0.07 * BAT, 0.0, 0.0, 0.0, 1.0), &roll_z(f)))); put("batWing", mul(&base, &mul(&trs(-0.04 * BAT, 0.07 * BAT, 0.0, 0.0, 0.0, 1.0), &roll_z(std::f64::consts::PI - f))));
+                }
                 Kind::Gull => {
                     let base = trs(c.p[0], c.p[1] + 0.05, c.p[2], c.yaw, 0.0, 1.0); let f = if c.state == State::Fly { 0.15 + 0.4 * sin(c.phase * 0.7) } else { -1.3 };
                     put("gull", base); put("gullWing", mul(&base, &mul(&trs(0.05 * GULL, 0.08 * GULL, 0.0, 0.0, 0.0, 1.0), &roll_z(f)))); put("gullWing", mul(&base, &mul(&trs(-0.05 * GULL, 0.08 * GULL, 0.0, 0.0, 0.0, 1.0), &roll_z(std::f64::consts::PI - f))));

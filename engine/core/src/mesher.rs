@@ -1040,7 +1040,7 @@ pub fn cyl(o: &mut VBuf, p0: [f64; 3], p1: [f64; 3], r0: f64, r1: f64, hole: f64
     let n = n.max(6) & !1; let ang = |i: usize| (i % n) as f64 * std::f64::consts::TAU / n as f64;
     let rad = |a: f64| { let (c, sn) = (cos(a), sin(a)); [u[0] * c + v[0] * sn, u[1] * c + v[1] * sn, u[2] * c + v[2] * sn] };
     let pt = |c: [f64; 3], r: f64, a: f64| { let q = rad(a); [c[0] + q[0] * r, c[1] + q[1] * r, c[2] + q[2] * r] };
-    let mut put = |o: &mut VBuf, q: [f64; 3], nn: [f64; 3]| { let ao = if nn[1] > 0.5 { 255.0 } else if nn[1] < -0.5 { 170.0 } else { 220.0 }; let k = if kd == FLAT { 0.86 + 0.14 * nn[1] + 0.05 * nn[0] } else { 1.0 };
+    let put = |o: &mut VBuf, q: [f64; 3], nn: [f64; 3]| { let ao = if nn[1] > 0.5 { 255.0 } else if nn[1] < -0.5 { 170.0 } else { 220.0 }; let k = if kd == FLAT { 0.86 + 0.14 * nn[1] + 0.05 * nn[0] } else { 1.0 };
         o.v(q[0], q[1], q[2], ly, nn[0], nn[1], nn[2], 0.0, ao, s, l, kd, col[0] * k, col[1] * k, col[2] * k); };
     let slope = (r0 - r1) / len; // un cône : la normale se couche vers le petit bout
     let side = |a: f64, sg: f64| { let q = rad(a); let nn = [q[0] * sg + d[0] * slope, q[1] * sg + d[1] * slope, q[2] * sg + d[2] * slope]; let m = hypot3(nn[0], nn[1], nn[2]).max(1e-9); [nn[0] / m, nn[1] / m, nn[2] / m] };

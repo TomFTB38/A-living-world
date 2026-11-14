@@ -16,7 +16,7 @@ pub const EGGS: [(&str, &str); 25] = [
     ("egg_cow", "vache"), ("egg_sheep", "mouton"), ("egg_pig", "cochon"), ("egg_horse", "cheval"), ("egg_chicken", "poule"),
 ];
 fn kind_of(mob: &str) -> Option<Kind> {
-    Some(match mob { "fox" => Kind::Fox, "hare" => Kind::Hare, "crow" => Kind::Crow, "wolf" => Kind::Wolf, "boar" => Kind::Boar, "bear" => Kind::Bear, "ibex" => Kind::Ibex, "lizard" => Kind::Lizard,
+    Some(match mob { "fox" => Kind::Fox, "hare" => Kind::Hare, "crow" => Kind::Crow, "wolf" => Kind::Wolf, "boar" => Kind::Boar, "bear" => Kind::Bear, "ibex" => Kind::Ibex, "lizard" => Kind::Lizard, "bat" => Kind::Bat,
         "mackerel" => Kind::Fish, "reef" => Kind::Reef, "dolphin" => Kind::Dolphin, "crab" => Kind::Crab, "gull" => Kind::Gull, "shark" => Kind::Shark, "whale" => Kind::Whale, "cow" => Kind::Cow, "sheep" => Kind::Sheep, "pig" => Kind::Pig, "horse" => Kind::Horse, "chicken" => Kind::Chicken, _ => return None })
 }
 /// Retire accents et majuscules.

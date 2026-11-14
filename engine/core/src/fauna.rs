@@ -27,6 +27,18 @@ pub(crate) fn ground(w: &impl Voxels, x: f64, z: f64, y0: f64) -> Option<f64> {
     None
 }
 /// Le corps tient-il là ? Pattes, flancs, tête et croupe doivent rester hors des blocs solides.
+/// Sous terre : le sol et la voûte de la galerie autour de la hauteur `y0`, à la verticale de (x, z). Rien si la colonne
+/// est pleine, noyée, sous la lave, ou ouverte sur le ciel (ce n'est plus une grotte).
+pub(crate) fn cave_floor(w: &impl Voxels, x: f64, z: f64, y0: f64) -> Option<(f64, f64)> {
+    let (fx, fz, base) = (x.floor() as i32, z.floor() as i32, y0.floor() as i32);
+    let free = |y: i32| w.get(fx, y, fz).is_some_and(|b| !is_solid(b) && !is_water(b) && b != B::LAVA);
+    let start = [1, 4, -2, 8, -6].into_iter().map(|d| base + d).find(|y| *y > 2 && free(*y))?;
+    let mut lo = start; while lo > 2 && start - lo < 24 && free(lo - 1) { lo -= 1; }
+    let under = w.get(fx, lo - 1, fz)?; if !is_solid(under) || under == B::MAGMA { return None; }
+    let mut hi = start; while hi - start < 40 && free(hi + 1) { hi += 1; }
+    if !w.get(fx, hi + 1, fz).is_some_and(is_solid) { return None; }
+    Some((lo as f64, (hi + 1) as f64))
+}
 pub(crate) fn fits(w: &impl Voxels, x: f64, y: f64, z: f64, yaw: f64, h: i32) -> bool {
     let (s, c, yy) = (sin(yaw), cos(yaw), (y + 0.05).floor() as i32);
     for (f, l) in [(0.75, 0.0), (0.5, 0.25), (0.5, -0.25), (0.0, 0.25), (0.0, -0.25), (-0.6, 0.25), (-0.6, -0.25)] {

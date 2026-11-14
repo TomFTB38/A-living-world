@@ -120,6 +120,11 @@ impl WorldGen {
         best.map(|b| b.1)
     }
     pub fn nearest_hall(&self, x: f64, z: f64, cells: i32) -> Option<Hall> { self.nearest_hall_of(x, z, cells, None) }
+    /// Le biome de la salle où se trouve ce point, s'il est dans une salle (un peu de marge : ses abords en font partie).
+    pub fn hall_at(&self, p: [f64; 3]) -> Option<Under> {
+        let h = self.nearest_hall(p[0], p[2], 1)?; let (u, v) = h.local(p[0], p[2]);
+        ((u / (h.rx + 6.0)).powi(2) + (v / (h.rz + 6.0)).powi(2) <= 1.0 && p[1] > h.floor as f64 - 14.0 && p[1] < h.floor as f64 + h.h + 8.0).then_some(h.kind)
+    }
 
     fn trace_hall(&self, i: i32, j: i32) -> Option<Hall> {
         if self.flat { return None; }

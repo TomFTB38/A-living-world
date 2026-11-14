@@ -13,7 +13,7 @@ fn une_hostile_gravit_les_terrasses_et_redescend() {
     let light = |_: i32, _: i32, _: i32| 0u8; let protect = |_: f64, _: f64| false;
     let mut feet = [26.5, top(26.5), 0.5];
     for i in 0..(70.0 * 30.0) as usize { if i == 450 { feet = [1.5, top(1.5), 4.5]; }
-        let c = Ctx { eye: [feet[0], feet[1] + 1.6, feet[2]], feet, look: [1.0, 0.0, 0.0], noise: 1.0, lit: false, crouch: false, alive: true, night: 1.0, danger: 2, can_spawn: false, light: &light, protect: &protect, main_biome: 0 };
+        let c = Ctx { eye: [feet[0], feet[1] + 1.6, feet[2]], feet, cave: 0.0, under: None, look: [1.0, 0.0, 0.0], noise: 1.0, lit: false, crouch: false, alive: true, night: 1.0, danger: 2, can_spawn: false, light: &light, protect: &protect, main_biome: 0 };
         hd.update(1.0 / 30.0, &w, &c); if i == 449 { let f = &hd.foes[0]; assert!(f.p[0] > 16.0 && f.p[1] > top(1.5) + 3.0, "elle n'a pas monté : {:?}", f.p); } }
     let f = &hd.foes[0]; assert!(f.p[0] < 8.0 && f.p[1] < top(1.5) + 2.5, "elle n'est pas redescendue : {:?}", f.p);
 }

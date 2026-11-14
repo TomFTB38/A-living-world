@@ -23,6 +23,8 @@ pub struct Species {
     /// Biomes où elle vit (indices de `biome::NAMES`) ; vide : partout.
     pub biomes: Vec<usize>, pub weight: f64, pub group: (u32, u32), pub flee: f64,
     pub leap: bool, pub climb: bool, pub ambush: bool, pub bursts: bool, pub flank: bool,
+    /// Créature des grottes : les biomes souterrains où elle vit (« toutes » : partout sous terre) ; vide : une créature de surface, qui descend aussi sous terre.
+    pub caves: Vec<&'static str>,
     pub loot: Vec<(&'static str, u32, u32, f64)>,
 }
 /// Règles d'apparition et de difficulté (voir `data/creatures.txt`).
@@ -55,7 +57,7 @@ fn parse(t: &'static str) -> Bestiary {
         }
         let Some(rest) = line.strip_prefix("espece ") else { continue };
         let f: Vec<&'static str> = rest.split('|').map(str::trim).collect(); if f.len() < 3 { continue; }
-        let mut s = Species { id: f[0], name: f[1], tier: 1, body: Body::Rodeur, size: 1.0, hp: 25.0, dmg: 6.0, walk: 1.0, run: 4.5, reach: 1.5, sight: 16.0, hear: 10.0, cd: 1.6, windup: 0.5, armor: 0.0, weak: "", biomes: Vec::new(), weight: 1.0, group: (1, 1), flee: 0.0, leap: false, climb: false, ambush: false, bursts: false, flank: false, loot: Vec::new() };
+        let mut s = Species { id: f[0], name: f[1], tier: 1, body: Body::Rodeur, size: 1.0, hp: 25.0, dmg: 6.0, walk: 1.0, run: 4.5, reach: 1.5, sight: 16.0, hear: 10.0, cd: 1.6, windup: 0.5, armor: 0.0, weak: "", biomes: Vec::new(), weight: 1.0, group: (1, 1), flee: 0.0, leap: false, climb: false, ambush: false, bursts: false, flank: false, caves: Vec::new(), loot: Vec::new() };
         for kv in f[2].split_whitespace() { let Some((k, v)) = kv.split_once('=') else { continue }; let x = v.parse::<f64>().unwrap_or(0.0);
             match k {
                 "niveau" => s.tier = x as u8, "corps" => s.body = match v { "brigand" => Body::Brigand, "bete" => Body::Bete, "rampant" => Body::Rampant, _ => Body::Rodeur },
@@ -63,6 +65,7 @@ fn parse(t: &'static str) -> Bestiary {
                 "recharge" => s.cd = x, "armement" => s.windup = x, "armure" => s.armor = x.clamp(0.0, 0.8), "faible" => s.weak = v, "poids" => s.weight = x, "fuite" => s.flee = x,
                 "groupe" => { let (a, b) = v.split_once('-').unwrap_or((v, v)); s.group = (a.parse().unwrap_or(1), b.parse().unwrap_or(1)); }
                 "biomes" => if v != "tous" { s.biomes = v.split(',').filter_map(|n| crate::biome::NAMES.iter().position(|b| b.replace(' ', "_").eq_ignore_ascii_case(n) || *b == n)).collect(); },
+                "grottes" => s.caves = v.split(',').collect(),
                 "talents" => for t in v.split(',') { match t { "bond" => s.leap = true, "grimpe" => s.climb = true, "embuscade" => s.ambush = true, "poussees" => s.bursts = true, "contourne" => s.flank = true, _ => {} } },
                 "butin" => s.loot = v.split(',').filter_map(|e| { let p: Vec<&'static str> = e.split(':').collect(); if p.len() < 3 { return None; } let (a, b) = p[1].split_once('-').unwrap_or((p[1], p[1])); Some((p[0], a.parse().ok()?, b.parse().ok()?, p[2].parse().ok()?)) }).collect(),
                 _ => {}
@@ -105,6 +108,8 @@ pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv
 pub struct Ctx<'a> {
     pub eye: [f64; 3], pub feet: [f64; 3], pub look: [f64; 3], pub noise: f64, pub lit: bool, pub crouch: bool, pub alive: bool,
     pub night: f64, pub danger: i32, pub can_spawn: bool, pub light: &'a dyn Fn(i32, i32, i32) -> u8, pub protect: &'a dyn Fn(f64, f64) -> bool, pub main_biome: usize,
+    /// Sous terre (0 à 1), et le biome souterrain où l'on se trouve (sa clé : « karst », « cristal »…).
+    pub cave: f64, pub under: Option<&'static str>,
 }
 
 fn sees(w: &impl Voxels, a: [f64; 3], b: [f64; 3]) -> bool {
@@ -149,9 +154,9 @@ impl Horde {
     pub fn alive(&self) -> usize { self.foes.iter().filter(|f| f.dead == 0.0).count() }
 
     /// Choisit l'espèce à faire naître ici : les communes partout, celles du biome en plus ; le danger élève parfois la créature en vétéran.
-    fn pick(&mut self, biome: usize, danger: i32) -> Option<(usize, bool)> {
+    fn pick(&mut self, biome: usize, danger: i32, under: Option<&str>) -> Option<(usize, bool)> {
         let bs = bestiary(); let tier_w = |t: u8| match t { 1 => 1.0, 2 => (danger - 2).max(0) as f64 * 0.22, 3 => (danger - 4).max(0) as f64 * 0.12, _ => (danger - 5).max(0) as f64 * 0.03 };
-        let c: Vec<(usize, f64)> = bs.species.iter().enumerate().filter(|(_, s)| s.biomes.is_empty() || s.biomes.contains(&biome)).map(|(i, s)| (i, s.weight * tier_w(s.tier))).filter(|x| x.1 > 0.0).collect();
+        let c: Vec<(usize, f64)> = bs.species.iter().enumerate().filter(|(_, s)| if s.caves.is_empty() { s.biomes.is_empty() || s.biomes.contains(&biome) } else { under.is_some_and(|u| s.caves.iter().any(|k| *k == "toutes" || *k == u)) }).map(|(i, s)| (i, s.weight * tier_w(s.tier))).filter(|x| x.1 > 0.0).collect();
         let sum: f64 = c.iter().map(|x| x.1).sum(); if sum <= 0.0 { return None; } let mut r = self.rng.next() * sum;
         let sp = c.iter().find(|x| { r -= x.1; r <= 0.0 }).unwrap_or(&c[c.len() - 1]).0; let vet = self.rng.next() < ((danger - 2).max(0) as f64 * 0.07).min(0.45); Some((sp, vet))
     }
@@ -159,14 +164,16 @@ impl Horde {
     fn try_spawn(&mut self, w: &impl Voxels, c: &Ctx) {
         let r = &bestiary().rules; let me = c.feet;
         // La nuit, elles sont plus nombreuses : la moitié de plus au plafond, autour du joueur aussi.
-        let (cap, cap_near) = if c.night > 0.5 { (r.cap * 3 / 2, r.cap_near * 3 / 2) } else { (r.cap, r.cap_near) };
+        let deep = c.cave > 0.5; let (cap, cap_near) = if c.night > 0.5 || deep { (r.cap * 3 / 2, r.cap_near * 3 / 2) } else { (r.cap, r.cap_near) };
         if self.foes.len() >= cap { return; }
         let near = self.foes.iter().filter(|f| hypot2(f.p[0] - me[0], f.p[2] - me[2]) < 24.0).count(); if near >= cap_near { return; }
-        let Some((sp, vet)) = self.pick(c.main_biome, c.danger) else { return }; let s = &bestiary().species[sp];
-        for _ in 0..if c.night > 0.5 { 8 } else { 4 } {
+        let Some((sp, vet)) = self.pick(c.main_biome, c.danger, if deep { Some(c.under.unwrap_or("rocheuse")) } else { None }) else { return }; let s = &bestiary().species[sp];
+        for _ in 0..if c.night > 0.5 || deep { 8 } else { 4 } {
             let a = self.rng.range(0.0, std::f64::consts::TAU); let d = self.rng.range(r.ring.0, r.ring.1); let (x, z) = (me[0] + sin(a) * d, me[2] + cos(a) * d);
             if (c.protect)(x, z) { continue; }
-            let Some(y) = ground(w, x, z, me[1] + 12.0).or_else(|| ground(w, x, z, me[1] - 8.0)) else { continue }; if (y - me[1]).abs() > 24.0 { continue; }
+            // sous terre, la créature naît dans la galerie (son sol, sous sa voûte), pas sur la colline au-dessus
+            let found = if deep { crate::fauna::cave_floor(w, x, z, me[1]).map(|f| f.0) } else { ground(w, x, z, me[1] + 12.0).or_else(|| ground(w, x, z, me[1] - 8.0)) };
+            let Some(y) = found else { continue }; if (y - me[1]).abs() > 24.0 { continue; }
             let (bx, by, bz) = (x.floor() as i32, y.floor() as i32, z.floor() as i32); if (c.light)(bx, by, bz) >= r.light { continue; }
             // Jamais sous les yeux du joueur : hors de son champ, ou cachée par le relief.
             let (dx, dy, dz) = (x - c.eye[0], y + 1.0 - c.eye[1], z - c.eye[2]); let l = (dx * dx + dy * dy + dz * dz).sqrt().max(0.1);
@@ -181,12 +188,12 @@ impl Horde {
 
     pub fn update(&mut self, dt: f64, w: &impl Voxels, c: &Ctx) {
         let r = &bestiary().rules; let me = c.feet;
-        if c.can_spawn { self.spawn_t -= dt; if self.spawn_t <= 0.0 { self.spawn_t = r.every * self.rng.range(0.7, 1.3) * if c.night > 0.5 { 0.55 } else { 1.0 }; if c.night > 0.5 || (c.light)(me[0].floor() as i32, me[1].floor() as i32 + 1, me[2].floor() as i32) < 4 { self.try_spawn(w, c); } } }
+        if c.can_spawn { self.spawn_t -= dt; if self.spawn_t <= 0.0 { self.spawn_t = r.every * self.rng.range(0.7, 1.3) * if c.night > 0.5 { 0.55 } else if c.cave > 0.5 { 0.8 } else { 1.0 }; if c.night > 0.5 || c.cave > 0.5 || (c.light)(me[0].floor() as i32, me[1].floor() as i32 + 1, me[2].floor() as i32) < 4 { self.try_spawn(w, c); } } }
         let mut all = std::mem::take(&mut self.foes); let n = all.len();
         let groups: Vec<(u32, [f64; 3])> = all.iter().map(|f| (f.group, f.p)).collect();
         for i in 0..n { let f = &mut all[i]; self.think(f, dt, w, c, &groups); }
         // Au lever du jour, celles qui ne se battent pas s'éloignent et s'effacent hors de vue ; les mortes, une fois tombées ; les trop lointaines.
-        let day = c.night < 0.2;
+        let day = c.night < 0.2 && c.cave < 0.5; // sous terre, il n'y a pas de lever du jour
         all.retain(|f| { let d = hypot2(f.p[0] - me[0], f.p[2] - me[2]); !(f.dead > 1.6 || d > r.forget || (day && f.state != Ai::Combat && d > 20.0 && f.dead == 0.0) || f.p[1] < -20.0 || w.get(f.p[0].floor() as i32, f.p[1].floor() as i32, f.p[2].floor() as i32).is_none()) });
         self.foes = all;
     }
@@ -663,7 +670,7 @@ impl Session {
         let mut horde = std::mem::replace(&mut self.horde, Horde::new(0));
         { let gen = &self.gen; let protect = |x: f64, z: f64| gen.villages_near(x, z, 120.0).iter().any(|v| ((v.c[0] as f64 - x).hypot(v.c[2] as f64 - z)) < v.r as f64 + 10.0);
         let me: &Session = self; let light = |x: i32, y: i32, z: i32| me.light_at(x, y, z);
-        let ctx = Ctx { eye: self.player.eye(), feet: self.player.p, look: self.look, noise, lit, crouch: self.player.crouch, alive: self.dead.is_none() && !self.creative, night, danger: self.danger.total, can_spawn, light: &light, protect: &protect, main_biome: self.danger.region.2 as usize };
+        let ctx = Ctx { eye: self.player.eye(), feet: self.player.p, look: self.look, noise, lit, crouch: self.player.crouch, alive: self.dead.is_none() && !self.creative, night, danger: self.danger.total, can_spawn, light: &light, protect: &protect, main_biome: self.danger.region.2 as usize, cave: self.cave, under: self.under_kind.map(|k| k.key()) };
         horde.update(dt, &self.world, &ctx); }
         self.horde = horde;
         for e in std::mem::take(&mut self.horde.ev) {
