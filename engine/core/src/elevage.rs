@@ -47,7 +47,7 @@ impl Session {
         let Some(k) = self.wild.by_id(id) else { self.ride = None; return false }; let kind = self.wild.all[k].kind;
         if i.crouch { self.ride = None; let p = self.wild.all[k].p; let side = self.player.yaw + std::f64::consts::FRAC_PI_2; self.player.p = [p[0] + side.sin() * 1.2, p[1] + 0.2, p[2] + side.cos() * 1.2]; self.player.v = [0.0; 3]; self.notes.push("Vous mettez pied à terre".into()); return false; }
         let (sy, cy) = (self.player.yaw.sin(), self.player.yaw.cos()); let dir = [sy * i.z + cy * i.x * -1.0, cy * i.z - sy * i.x * -1.0];
-        let Some(p) = self.wild.ride(id, dir, i.sprint, dt, &self.world) else { self.ride = None; return false };
+        let Some(p) = self.wild.ride(id, dir, i.sprint, i.jump, dt, &self.world) else { self.ride = None; return false };
         self.player.p = [p[0], p[1] + seat(kind), p[2]]; self.player.v = [0.0; 3]; self.player.ground = true; self.player.speed = 0.0; true
     }
     /// Les compagnons gardés dans la sauvegarde : espèce, position, sellé, assis, robe.

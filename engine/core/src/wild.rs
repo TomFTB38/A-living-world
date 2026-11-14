@@ -230,13 +230,22 @@ impl Wild {
     }
     /// La monture sous le cavalier : elle va dans la direction voulue (x, z du monde, longueur 0 à 1), au galop si l'on
     /// presse, franchit une marche d'un bloc. Rend sa position.
-    pub fn ride(&mut self, id: u32, dir: [f64; 2], gallop: bool, dt: f64, w: &impl Voxels) -> Option<[f64; 3]> {
+    /// La monture obéit au cavalier : cap, allure, et saut (un bloc et demi pour le cheval, un peu moins pour le loup).
+    pub fn ride(&mut self, id: u32, dir: [f64; 2], gallop: bool, jump: bool, dt: f64, w: &impl Voxels) -> Option<[f64; 3]> {
         let c = self.all.iter_mut().find(|c| c.farm.id == id)?; c.farm.ridden = true; let m = hypot2(dir[0], dir[1]);
         let top = match c.kind { Kind::Horse => if gallop { 11.0 } else { 6.0 }, _ => if gallop { 9.0 } else { 5.0 } };
         if m > 0.05 { let want = dir[0].atan2(dir[1]); let mut dy = want - c.yaw; while dy > std::f64::consts::PI { dy -= std::f64::consts::TAU; } while dy < -std::f64::consts::PI { dy += std::f64::consts::TAU; } c.yaw += dy.clamp(-5.0 * dt, 5.0 * dt); }
         let sp = top * m.min(1.0); c.speed += (sp - c.speed) * (dt * 4.0).min(1.0);
-        if c.speed > 0.05 { c.phase += dt * if c.speed > GALLOP { 5.0 + c.speed * 0.8 } else { 4.0 + c.speed * 1.6 }; c.state = State::Walk; if !steer(c, w, c.speed * dt) { c.speed *= 0.3; } } else { c.phase = 0.0; c.state = State::Idle; }
-        c.p[1] += (c.gy - c.p[1]) * (dt * 12.0).min(1.0); let bob = gait(c.kind, c.speed, c.phase, 0.6).0; Some([c.p[0], c.p[1] + bob, c.p[2]])
+        let mut air = c.p[1] > c.gy + 0.03 || c.v[1] > 0.0;
+        if jump && !air { c.v[1] = if c.kind == Kind::Horse { 9.0 } else { 8.0 }; air = true; }
+        if c.speed > 0.05 { c.phase += dt * if c.speed > GALLOP { 5.0 + c.speed * 0.8 } else { 4.0 + c.speed * 1.6 }; c.state = State::Walk;
+            if air { // en l'air, elle file droit et passe au-dessus de ce qui est plus bas que ses sabots
+                let (nx, nz) = (c.p[0] + sin(c.yaw) * c.speed * dt, c.p[2] + cos(c.yaw) * c.speed * dt);
+                match ground(w, nx, nz, c.p[1] + 0.5) { Some(y) if y <= c.p[1] + 0.35 && fits(w, nx, y.max(c.p[1]), nz, c.yaw, 1) => { c.p[0] = nx; c.p[2] = nz; c.gy = y; } _ => c.speed *= 0.3 }
+            } else if !steer(c, w, c.speed * dt) { c.speed *= 0.3; }
+        } else { c.phase = 0.0; c.state = State::Idle; }
+        if air { c.p[1] += c.v[1] * dt; c.v[1] -= 26.0 * dt; if c.p[1] <= c.gy && c.v[1] <= 0.0 { c.p[1] = c.gy; c.v[1] = 0.0; } }
+        else { c.p[1] += (c.gy - c.p[1]) * (dt * 12.0).min(1.0); } let bob = gait(c.kind, c.speed, c.phase, 0.6).0; Some([c.p[0], c.p[1] + bob, c.p[2]])
     }
     /// L'animal au numéro donné.
     pub fn by_id(&self, id: u32) -> Option<usize> { self.all.iter().position(|c| c.farm.id == id) }

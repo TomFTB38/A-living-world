@@ -25,3 +25,20 @@ fn un_renard_monte_et_descend_les_marches() {
     for _ in 0..(60.0 * 30.0) as usize { wd.update(1.0 / 30.0, &w, [12.0, 20.0, 40.0], 0.5, 0.0, 0.0, 0.5, true, [0.0; 6], 0.0); if let Some(c) = wd.all.iter().find(|c| c.kind == Kind::Fox) { lo = lo.min(c.p[1]); hi = hi.max(c.p[1]); } }
     assert!(hi - lo >= 1.9, "le renard reste à sa hauteur : de {lo} à {hi} — {:?}", wd.all.iter().map(|c| (c.kind, c.p)).collect::<Vec<_>>());
 }
+
+/// Un sol plat à y = 10, avec un muret d'un bloc en x = 8.
+struct Wall;
+impl Voxels for Wall { fn get(&self, x: i32, y: i32, _z: i32) -> Option<u16> { Some(if y <= 10 || (x == 8 && y == 11) { B::STONE } else { 0 }) } }
+
+#[test]
+fn la_monture_saute_et_franchit_un_muret() {
+    for (kind, min) in [(Kind::Horse, 1.3), (Kind::Wolf, 1.0)] {
+        let w = Wall; let mut wd = Wild::new(3); wd.put(kind, [2.5, 11.0, 0.5], std::f64::consts::FRAC_PI_2, false); let id = wd.all[0].farm.id;
+        // sans sauter, le muret arrête ou détourne : on ne le traverse pas tout droit ; d'un saut, on passe par-dessus
+        let (mut top, mut crossed_high) = (11.0f64, false);
+        for i in 0..240 { let x = wd.all[0].p[0]; let jump = x > 5.6 && x < 6.4; let p = wd.ride(id, [1.0, 0.0], true, jump, 1.0 / 60.0, &w).unwrap(); top = top.max(p[1]);
+            if (8.0..9.0).contains(&p[0]) && p[2].abs() < 1.5 && p[1] > 11.9 { crossed_high = true; } let _ = i; }
+        assert!(top - 11.0 >= min, "{kind:?} : saut de {:.2} bloc", top - 11.0); assert!(crossed_high, "{kind:?} n'a pas franchi le muret en sautant");
+        let c = &wd.all[0]; assert!(c.p[0] > 10.0 && (c.p[1] - 11.0).abs() < 0.2, "{kind:?} retombe de l'autre côté : {:?}", c.p);
+    }
+}
