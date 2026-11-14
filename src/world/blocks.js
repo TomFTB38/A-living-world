@@ -326,9 +326,9 @@ const forms = (n, h, cat) => {
 const slopes = (n, h, cat) => {
   const add = (k, d) => defs.push([k, 'deco', null, h, { model: 'slope', solid: true, cat, drop: d }]);
   for (const top of ['', '_top']) for (const f of ['', '_1', '_2', '_3']) add(`${n}_slope${top}${f}`, `${n}_slope`);
-  for (const k of ['corner', 'valley']) for (const f of ['', '_1', '_2', '_3']) add(`${n}_${k}${f}`, `${n}_${k}`);
-  for (const f of ['', '_1']) add(`${n}_ridge${f}`, `${n}_ridge`);
-  add(`${n}_peak`, `${n}_peak`);
+  for (const k of ['corner', 'valley']) for (const top of ['', '_top']) for (const f of ['', '_1', '_2', '_3']) add(`${n}_${k}${top}${f}`, `${n}_${k}`);
+  for (const top of ['', '_top']) for (const f of ['', '_1']) add(`${n}_ridge${top}${f}`, `${n}_ridge`);
+  for (const top of ['', '_top']) add(`${n}_peak${top}`, `${n}_peak`);
 };
 // Meuble orientable : quatre sens, « nom », « nom@1 » à « nom@3 ».
 const turner = (n, h, cat, p = {}) => { for (const f of ['', '@1', '@2', '@3']) defs.push([`${n}${f}`, 'deco', null, h, { model: n, cat, drop: n, ...p }]); };

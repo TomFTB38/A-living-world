@@ -7,7 +7,7 @@ use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 use crate::{font_data as fd, hud};
 
-const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; pub const LIGHTS: usize = 48; const FLOATS: usize = 200 + LIGHTS * 8 + 16; /* + les boîtes de l'aperçu de pose */ const MAX_ACTORS: u64 = 512; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 400_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 72.0;
+const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; pub const LIGHTS: usize = 48; const FLOATS: usize = 200 + LIGHTS * 8 + 24; /* + les boîtes de l'aperçu de pose */ const MAX_ACTORS: u64 = 512; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 400_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 72.0;
 pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 24; // 576 icônes au plus (atlas 3072 × 3072)
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32, pub cascades: [f64; 3] }
@@ -256,7 +256,7 @@ impl Gpu {
     /// Oublie tous les chunks : on change de monde.
     pub fn forget_all(&mut self) { let keys: Vec<(i32, i32)> = self.chunks.keys().copied().collect(); for k in keys { self.forget(k); } self.far = None; self.reset = true; }
     /// Une image complète. Rend le nombre de triangles envoyés.
-    pub fn render(&mut self, vp: &M4, view_m: &M4, proj: &M4, eye: [f64; 3], time: f64, s: &Sky, env: Env, aim: Option<([i32; 3], f32)>, ghost: Option<([i32; 3], bool)>, gbox: &[[f64; 6]], draws: &[Draw], ui: &hud::Ui) -> usize {
+    pub fn render(&mut self, vp: &M4, view_m: &M4, proj: &M4, eye: [f64; 3], time: f64, s: &Sky, env: Env, aim: Option<([i32; 3], f32)>, ghost: Option<([i32; 3], bool)>, gbox: &[[f64; 6]], abox: [f64; 6], draws: &[Draw], ui: &hud::Ui) -> usize {
         let frame = match &self.surface { Some(sf) => match sf.get_current_texture() { Ok(f) => Some(f), Err(_) => { sf.configure(&self.device, &self.config); return 0; } }, None => None };
         let out_view = frame.as_ref().map(|f| f.texture.create_view(&Default::default()));
         let (w, h) = (self.config.width as f32, self.config.height as f32); self.frame += 1; let fr = self.frame; let mut tris = 0usize;
@@ -293,6 +293,8 @@ impl Gpu {
         for k in 0..LIGHTS { let (p, c) = self.lights.get(k).copied().unwrap_or(([0.0; 4], [0.0; 3])); u.extend_from_slice(&[p[0], p[1], p[2], p[3], c[0], c[1], c[2], 0.0]); }
         // Forme de l'aperçu de pose : deux boîtes au plus, relatives à sa case (un cube plein par défaut).
         for k in 0..2 { let b = gbox.get(k).copied().unwrap_or(if k == 0 { [0.0, 0.0, 0.0, 1.0, 1.0, 1.0] } else { [0.0; 6] }); u.extend_from_slice(&[b[0] as f32, b[1] as f32, b[2] as f32, 0.0, b[3] as f32, b[4] as f32, b[5] as f32, 0.0]); }
+        // Contour du bloc visé : le bord de son dessin (une dalle, une poutre, une fleur), pas toute la case.
+        u.extend_from_slice(&[abox[0] as f32, abox[1] as f32, abox[2] as f32, 0.0, abox[3] as f32, abox[4] as f32, abox[5] as f32, 0.0]);
         self.queue.write_buffer(&self.ubuf, 0, &bytes_f32(&u));
         let list: Vec<&ChunkGpu> = list_all.iter().copied().filter(|c| view::visible(vp, c.min, c.max)).collect();
         let t = &self.t; let g0 = &self.frame0;

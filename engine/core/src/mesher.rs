@@ -515,7 +515,7 @@ impl Mesher {
                 let wood =|o: &mut VBuf, a: f64, e: f64, c: f64, a1: f64, e1: f64, c1: f64, k: f64| bx3(o, a, e, c, a1, e1, c1, 0.46 * k, 0.31 * k, 0.18 * k, 0.0, s, l);
                 wood(o, x + 0.39, y, z + 0.39, x + 0.61, y + 1.0, z + 0.61, 1.0);
                 if voxel(0, 1, 0) != B::FENCE { wood(o, x + 0.35, y + 0.97, z + 0.35, x + 0.65, y + 1.04, z + 0.65, 1.12); }
-                let con = |b2: Id| b2 == B::FENCE || BLOCKS[b2 as usize].opaque || is_log(b2) || crate::shapes::info(b2).is_some_and(|i| matches!(i.kind, crate::shapes::Kind::Post | crate::shapes::Kind::Elbow | crate::shapes::Kind::Pillar | crate::shapes::Kind::Wall));
+                let con = crate::shapes::fence_joins;
                 let side = [con(voxel(1, 0, 0)), con(voxel(-1, 0, 0)), con(voxel(0, 0, 1)), con(voxel(0, 0, -1))];
                 for yy in [0.34, 0.72] {
                     let (y0, y1) = (y + yy, y + yy + 0.13);

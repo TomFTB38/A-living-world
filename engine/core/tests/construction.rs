@@ -57,7 +57,7 @@ fn porte_echelle_et_mur_fin() {
     s.player.yaw = 0.0; s.player.pitch = 0.0; walk(&mut s, 1.5, Input { z: 1.0, ..none() }); assert!(s.player.p[2] > 1.0, "porte ouverte : on passe, z = {:.2}", s.player.p[2]);
     // casser le haut : toute la porte part, une seule porte revient
     s.inv = [None; INV_SIZE]; s.player.p = [0.5, y as f64, -2.5]; s.inv[0] = Some(Stack::new("axe", None)); s.sel = 0; idle(&mut s, 0.3);
-    look_at(&mut s, [0.5, y as f64 + 1.5, 0.5]); let mut k = 0; while s.world.get(0, y + 1, 0).is_some_and(|b| b != 0) && k < 2000 { s.stamina = 100.0; s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); k += 1; }
+    look_at(&mut s, [0.09, y as f64 + 1.5, 0.5]); /* la porte ouverte : on vise son battant, contre le côté */ let mut k = 0; while s.world.get(0, y + 1, 0).is_some_and(|b| b != 0) && k < 2000 { s.stamina = 100.0; s.tick(DT, none(), Actions { mine: true, place: false, ..Default::default() }); k += 1; }
     assert_eq!((s.world.get(0, y, 0), s.world.get(0, y + 1, 0)), (Some(0), Some(0)), "la porte part en entier"); assert_eq!(s.count("door"), 1, "une porte rendue");
     // échelle contre un mur : avancer fait grimper, sans sauter
     let (mut s, [_, y, _]) = site(); let mut e = Vec::new(); for h in 0..5 { e.push((0, y + h, -1, B::STONE)); e.push((0, y + h, -2, by_name("ladder").unwrap())); } s.world.edit_many(&e);
@@ -82,7 +82,7 @@ fn pose_rotation_dalles_et_sauvegarde() {
     let (mut s, [_, y, _]) = site(); s.player.p = [0.5, y as f64, -2.5]; s.world.edit(0, y, 0, B::STONE); s.inv[0] = Some(Stack::new("planks_slab", Some(8))); s.sel = 0;
     let e = s.player.eye(); s.player.pitch = ((y as f64 + 0.8 - e[1]) / (0.0 - e[2])).atan(); s.tick(0.0, none(), Actions::default()); put(&mut s); assert_eq!(s.world.get(0, y, -1), by_name("planks_slab_top"), "visée haute : dalle haute");
     s.world.edit(0, y, -1, 0); s.player.pitch = ((y as f64 + 0.2 - e[1]) / (0.0 - e[2])).atan(); s.tick(0.0, none(), Actions::default()); put(&mut s); assert_eq!(s.world.get(0, y, -1), by_name("planks_slab"), "visée basse : dalle basse");
-    s.player.pitch = ((y as f64 + 0.99 - e[1]) / (-0.5 - e[2])).atan(); s.tick(0.0, none(), Actions::default()); assert_eq!(s.target.map(|t| (t.x, t.y, t.z)), Some((0, y, -1))); put(&mut s);
+    s.player.p = [0.5, y as f64, -1.6]; idle(&mut s, 0.1); let e = s.player.eye(); s.player.pitch = ((y as f64 + 0.5 - e[1]) / (-0.3 - e[2])).atan(); s.tick(0.0, none(), Actions::default()); assert_eq!(s.target.map(|t| (t.x, t.y, t.z)), Some((0, y, -1)), "on vise le dessus de la dalle"); put(&mut s);
     assert_eq!(s.world.get(0, y, -1), Some(B::PLANKS), "deux dalles font un bloc"); assert_eq!(s.count("planks_slab"), 5);
     // tout reste après rechargement
     let txt = s.save_text(); let mut o = Session::new(20261104, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [0.5, 120.0, 0.5]); o.load_text(&txt).unwrap(); ready(&mut o);

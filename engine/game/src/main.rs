@@ -46,7 +46,7 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
     let mtn = s.mountains as f32; if mtn > 0.01 { for k in 0..3 { sky.top[k] += ([0.24, 0.4, 0.74][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.4 * mtn; sky.hor[k] += ([0.76, 0.84, 0.94][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.3 * mtn; sky.col[k] *= 1.0 + ([0.04, 0.03, 0.06][k]) * mtn * (1.0 - night); }
         let h = s.hour as f32; env.valley = env.valley.max(mtn * ((h - 4.5) / 2.0).clamp(0.0, 1.0) * (1.0 - ((h - 9.5) / 2.5).clamp(0.0, 1.0)) * 0.5); env.snow = env.snow.max(mtn * (0.25 * env.cloud + 0.75 * s.weather.state.rain as f32)); env.rain *= 1.0 - mtn; env.fog_k *= 1.0 - 0.3 * mtn; }
     env.bright *= 1.0 - 0.42 * s.deep as f32; env.fog_k += 2.6 * s.deep as f32; env.mist += 0.0035 * s.deep as f32; for v in &mut sky.top { *v *= 1.0 - 0.3 * s.deep as f32; }
-    gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], if alw_core::blocks::is_deco(t.id) { 0.0 } else { s.progress() as f32 })) /* fissures sur les blocs pleins seulement */, s.ghost(), &s.ghost_boxes(), &draws, &ui)
+    gpu.render(&vp, &vm, &proj, s.eye, time, &sky, env, s.target.map(|t| ([t.x, t.y, t.z], if alw_core::blocks::is_deco(t.id) { 0.0 } else { s.progress() as f32 })) /* fissures sur les blocs pleins seulement */, s.ghost(), &s.ghost_boxes(), s.target.map_or([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], |t| t.bx), &draws, &ui)
 }
 /// Le nom d'une touche telle qu'elle est écrite dessus (disposition du clavier respectée, sans Maj) : c'est ce qu'on attribue aux actions.
 fn key_name(e: &winit::event::KeyEvent) -> String {

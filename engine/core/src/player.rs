@@ -10,8 +10,8 @@ pub const ROLL_TIME: f64 = 0.62; const ROLL_SPEED: f64 = 5.5; /* trois blocs au 
 pub struct Player { /** Franchir un bloc entier sans sauter (saut automatique). */ pub autostep: bool, pub p: [f64; 3], pub v: [f64; 3], pub yaw: f64, pub pitch: f64, pub ground: bool, pub crouch: bool, pub in_water: bool, pub speed: f64, pub fly: bool, pub move_yaw: f64, pub roll_t: f64, roll_dir: [f64; 2], pub roll_local: [f64; 2], roll_wait: f64 }
 impl Player {
     pub fn new(x: f64, y: f64, z: f64) -> Self { Player { autostep: true, p: [x, y, z], v: [0.0; 3], yaw: 0.0, pitch: 0.0, ground: false, crouch: false, in_water: false, speed: 0.0, fly: false, move_yaw: 0.0, roll_t: 0.0, roll_dir: [0.0; 2], roll_local: [0.0, 1.0], roll_wait: 0.0 } }
-    /// Le corps (une boîte de 0,6 × 1,8) rencontre-t-il quelque chose ? Les blocs de forme (dalle, escalier, porte…) arrêtent
-    /// exactement là où ils sont dessinés ; les autres blocs pleins occupent toute leur case.
+    /// Le corps (une boîte de 0,6 × 1,8) rencontre-t-il quelque chose ? Chaque bloc arrête exactement là où il est dessiné :
+    /// les formes de construction par leur géométrie, les meubles et objets par leur dessin, la clôture par son poteau et ses lisses.
     fn hits(&self, w: &impl Voxels, x: f64, y: f64, z: f64) -> bool { self.top_hit(w, x, y, z).is_some() }
     /// Le haut de la plus haute boîte rencontrée (pour se poser dessus), si le corps en rencontre une.
     fn top_hit(&self, w: &impl Voxels, x: f64, y: f64, z: f64) -> Option<f64> {
@@ -20,7 +20,7 @@ impl Player {
         for by in fl(y - 0.5)..=fl(y + h - 0.001) { for bz in fl(z - HALF)..=fl(z + HALF) { for bx in fl(x - HALF)..=fl(x + HALF) {
             let o = [bx as f64, by as f64, bz as f64];
             let mut test = |b: [f64; 6]| { let (a, c) = ([o[0] + b[0], o[1] + b[1], o[2] + b[2]], [o[0] + b[3], o[1] + b[4], o[2] + b[5]]); if (0..3).all(|k| a[k] < hi[k] - E && c[k] > lo[k] + E) { top = Some(top.map_or(c[1], |t: f64| t.max(c[1]))); } };
-            match w.get(bx, by, bz) { None => test([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]), Some(b) => match crate::shapes::boxes(b) { Some(v) => { for bb in v { test(bb); } } None => if is_solid(b) { test([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]); } } }
+            match w.get(bx, by, bz) { None => test([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]), Some(b) => match crate::shapes::cell_boxes(w, bx, by, bz, b, true) { Some(v) => { for bb in v { test(bb); } } None => if is_solid(b) { test([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]); } } }
         } } }
         top
     }

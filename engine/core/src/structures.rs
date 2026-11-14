@@ -136,7 +136,8 @@ pub fn orient(b: Id, m: [[i32; 2]; 2]) -> Id {
     let map = |f: u8| { let (x, z) = dir(f); fac((m[0][0] * x + m[1][0] * z, m[0][1] * x + m[1][1] * z)) };
     // une poutre couchée suit son axe
     let n = BLOCKS[b as usize].name; let swap = m[0][0] == 0;
-    if swap { if let Some(r) = n.strip_suffix("_x") { if let Some(o) = by_name(&format!("{r}_z")) { return o; } } if let Some(r) = n.strip_suffix("_z") { if let Some(o) = by_name(&format!("{r}_x")) { return o; } } }
+    if swap { for (a, b) in [("_x", "_z"), ("_z", "_x")] { for c in ["", "_c"] { // « oak_log_x » comme « oak_log_x_c » (rondin net, sans mousse)
+        if let Some(r) = n.strip_suffix(&format!("{a}{c}") as &str) { if let Some(o) = by_name(&format!("{r}{b}{c}")) { return o; } } } } }
     let Some(i) = info(b) else { return b };
     let f = match i.kind {
         // un angle couvre deux directions : f et f + 1

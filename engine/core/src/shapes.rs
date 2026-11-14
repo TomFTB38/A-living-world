@@ -57,6 +57,10 @@ pub fn info(id: Id) -> Option<Info> { table()[id as usize] }
 /// Un quart de tour vers la droite, vu d'en haut : +z devient +x.
 pub fn turn(b: Bx, f: u8) -> Bx { let mut b = b; for _ in 0..f % 4 { b = [b[2], b[1], 1.0 - b[3], b[5], b[4], 1.0 - b[0]]; } b }
 pub const PANEL: f64 = 0.1875;
+/// Marches des pentes de toit (collisions et visée approchée).
+const RS: usize = 8;
+/// Une forme renversée : la même, retournée de haut en bas dans sa case.
+fn flip(top: bool, v: Vec<Bx>) -> Vec<Bx> { if top { v.into_iter().map(|b| [b[0], 1.0 - b[4], b[2], b[3], 1.0 - b[1], b[5]]).collect() } else { v } }
 /// Les essences dont on taille des poutres fines.
 pub const WOODS: [&str; 5] = ["oak", "birch", "beech", "spruce", "acacia"];
 /// Demi-section d'une poutre fine : 0,4 bloc de côté, centrée dans sa case.
@@ -89,12 +93,14 @@ pub fn geometry(i: Info) -> Vec<Bx> {
             steps.iter().map(|&(a, b, w)| { let (y0, y1) = if i.top { (a, b) } else { (1.0 - b, 1.0 - a) }; [0.5 - w, y0, 0.5 - w, 0.5 + w, y1, 0.5 + w] }).collect() }
         Kind::Wall => r(&[[0.0, 0.0, 0.3125, 1.0, 1.0, 0.6875]]),
         Kind::Turn => r(&turn_boxes(BLOCKS[i.base as usize].name)),
-        // Les couvertures se touchent en petites marches d'un quart : on y marche comme sur une pente, sans buter.
-        Kind::Slope => { let q = |k: usize| k as f64 * 0.25; if i.top { r(&(0..4).map(|k| [0.0, q(k), 1.0 - q(k + 1), 1.0, q(k + 1), 1.0]).collect::<Vec<_>>()) } else { r(&(0..4).map(|k| [0.0, q(k), q(k), 1.0, q(k + 1), 1.0]).collect::<Vec<_>>()) } }
-        Kind::Corner => r(&(0..4).map(|k| { let q = k as f64 * 0.25; [q, q, q, 1.0, q + 0.25, 1.0] }).collect::<Vec<_>>()),
-        Kind::Valley => r(&(0..4).flat_map(|k| { let q = k as f64 * 0.25; [[q, q, 0.0, 1.0, q + 0.25, 1.0], [0.0, q, q, 1.0, q + 0.25, 1.0]] }).collect::<Vec<_>>()),
-        Kind::Ridge => r(&[[0.0, 0.0, 0.0, 1.0, 0.25, 1.0], [0.0, 0.25, 0.25, 1.0, 0.5, 0.75]]),
-        Kind::Peak => vec![[0.0, 0.0, 0.0, 1.0, 0.25, 1.0], [0.25, 0.25, 0.25, 0.75, 0.5, 0.75]],
+        // Les couvertures se touchent en petites marches d'un huitième : on y marche comme sur une pente, et elles collent à la
+        // surface dessinée (une marche ne dépasse jamais de plus d'un huitième de bloc). Renversées, elles pendent du haut.
+        Kind::Slope => { let q = |k: usize| k as f64 / RS as f64; if i.top { r(&(0..RS).map(|k| [0.0, q(k), 1.0 - q(k + 1), 1.0, q(k + 1), 1.0]).collect::<Vec<_>>()) } else { r(&(0..RS).map(|k| [0.0, q(k), q(k), 1.0, q(k + 1), 1.0]).collect::<Vec<_>>()) } }
+        Kind::Corner => flip(i.top, r(&(0..RS).map(|k| { let q = k as f64 / RS as f64; [q, q, q, 1.0, q + 1.0 / RS as f64, 1.0] }).collect::<Vec<_>>())),
+        Kind::Valley => flip(i.top, r(&(0..RS).flat_map(|k| { let (q, s) = (k as f64 / RS as f64, 1.0 / RS as f64); [[q, q, 0.0, 1.0, q + s, 1.0], [0.0, q, q, 1.0, q + s, 1.0]] }).collect::<Vec<_>>())),
+        // Faîtage (un Λ de demi-hauteur le long de x) et épi (une pyramide) : quatre marches qui suivent leurs pans.
+        Kind::Ridge => flip(i.top, r(&(0..4).map(|k| { let q = k as f64 * 0.125; [0.0, q, q, 1.0, q + 0.125, 1.0 - q] }).collect::<Vec<_>>())),
+        Kind::Peak => flip(i.top, (0..4).map(|k| { let q = k as f64 * 0.125; [q, q, q, 1.0 - q, q + 0.125, 1.0 - q] }).collect()),
     }
 }
 /// Le volume d'un meuble orientable, pour le sens 0 (dos vers +z).
@@ -135,9 +141,9 @@ pub fn variant(base: Id, facing: u8, top: bool, open: bool, upper: bool) -> Id {
         Some(Kind::Elbow) => format!("{n}{}{}", if top { "_top" } else { "" }, sfx(f)),
         Some(Kind::Wall) => if f % 2 == 0 { "stone_wall".into() } else { "stone_wall_x".into() },
         Some(Kind::Slope) => format!("{n}{}{}", if top { "_top" } else { "" }, sfx(f)),
-        Some(Kind::Corner) | Some(Kind::Valley) => format!("{n}{}", sfx(f)),
-        Some(Kind::Ridge) => if f % 2 == 0 { n.to_string() } else { format!("{n}_1") },
-        Some(Kind::Peak) => n.to_string(),
+        Some(Kind::Corner) | Some(Kind::Valley) => format!("{n}{}{}", if top { "_top" } else { "" }, sfx(f)),
+        Some(Kind::Ridge) => format!("{n}{}{}", if top { "_top" } else { "" }, if f % 2 == 0 { "" } else { "_1" }),
+        Some(Kind::Peak) => format!("{n}{}", if top { "_top" } else { "" }),
         Some(Kind::Turn) => if f == 0 { n.to_string() } else { format!("{n}@{f}") },
         _ => n.to_string(),
     };
@@ -177,9 +183,101 @@ pub fn roof_faces(i: Info) -> (Vec<[[f64; 3]; 4]>, [f64; 3]) {
         _ => Vec::new(),
     };
     for q in f.iter_mut() { for p in q.iter_mut() { *p = t(*p); } }
+    // arêtier, noue, faîtage, épi renversés : retournés de haut en bas (la pente a ses propres faces renversées)
+    let mirror = i.top && i.kind != Kind::Slope; if mirror { for q in f.iter_mut() { for p in q.iter_mut() { p[1] = 1.0 - p[1]; } } }
     // un point dans le plein de la forme : il dit de quel côté chaque face regarde vers dehors
     let inner = match i.kind { Kind::Slope if i.top => [0.5, 0.8, 0.8], Kind::Slope => [0.5, 0.2, 0.8], Kind::Corner => [0.8, 0.15, 0.8], Kind::Valley => [0.6, 0.3, 0.6], _ => [0.5, 0.12, 0.5] };
-    (f, t(inner))
+    let mut c = t(inner); if mirror { c[1] = 1.0 - c[1]; } (f, c)
 }
 /// Un bloc de couverture de toit ?
 pub fn is_roof(id: Id) -> bool { info(id).is_some_and(|i| matches!(i.kind, Kind::Slope | Kind::Corner | Kind::Valley | Kind::Ridge | Kind::Peak)) }
+
+// ------------------------------------------------------------------ ce qui arrête et ce qui se vise
+// Un seul principe : la boîte d'un bloc est le bord de son dessin. Les formes de construction ont leur géométrie (ci-dessus) ;
+// les blocs de décor prennent la boîte englobante de leur modèle ; la clôture et la branche suivent leurs bras vers les voisins.
+use crate::player::Voxels;
+use crate::blocks::{is_solid, is_log, is_branch, is_leaf, Shape, B};
+
+/// Une clôture se lie à une autre clôture, à un bloc plein, à un rondin, à une poutre, à un pilier, à un mur.
+pub fn fence_joins(b: Id) -> bool { b == B::FENCE || BLOCKS[b as usize].opaque || is_log(b) || info(b).is_some_and(|i| matches!(i.kind, Kind::Post | Kind::Elbow | Kind::Pillar | Kind::Wall)) }
+
+/// La boîte englobante du dessin d'un bloc de décor sans forme, dans sa case (plusieurs tirages : certains modèles varient
+/// d'une case à l'autre). Un dessin trop mince pour être visé garde au moins un huitième de bloc d'épaisseur.
+pub fn model_box(b: Id) -> Option<Bx> {
+    static T: OnceLock<Vec<Option<Bx>>> = OnceLock::new();
+    T.get_or_init(|| { let m = crate::mesher::Mesher::new(); BLOCKS.iter().map(|k| {
+        if k.shape != Shape::Deco || info(k.id).is_some() { return None; }
+        let (mut lo, mut hi) = ([f64::MAX; 3], [f64::MIN; 3]);
+        for s in 0..6 { let mut o = crate::mesher::VBuf::new(256); m.deco_model(&mut o, k.id, 5, 5, 5, 37 * s + 3, 11 + 53 * s, 255.0, 0.0, 0);
+            for v in o.data.chunks(crate::mesher::VSIZE) { for a in 0..3 { let p = i16::from_le_bytes([v[2 * a], v[2 * a + 1]]) as f64 / o.scale - 5.0; lo[a] = lo[a].min(p); hi[a] = hi[a].max(p); } } }
+        if lo[0] > hi[0] { return None; }
+        let mut b = [lo[0], lo[1], lo[2], hi[0], hi[1], hi[2]].map(|v| v.clamp(0.0, 1.0));
+        for a in 0..3 { if b[a + 3] - b[a] < 0.125 { let c = ((b[a] + b[a + 3]) * 0.5).clamp(0.0625, 0.9375); b[a] = c - 0.0625; b[a + 3] = c + 0.0625; } }
+        Some(b) }).collect() })[b as usize]
+}
+/// Les boîtes propres d'un bloc, sans regarder ses voisins. `solid` : ce qui arrête le corps (rien pour un bloc qu'on traverse).
+/// `None` : la case entière.
+pub fn own_boxes(b: Id, solid: bool) -> Option<Vec<Bx>> {
+    if !solid { if let Some(i) = info(b).filter(|i| i.kind == Kind::Ladder) { return Some(vec![ladder_box(i.facing)]); } } // on la traverse, mais on la vise
+    if let Some(v) = boxes(b) { return Some(v); }
+    if solid && !is_solid(b) { return Some(Vec::new()); }
+    if BLOCKS[b as usize].shape != Shape::Deco { return None; }
+    if BLOCKS[b as usize].model == Some("fence") { return Some(vec![[0.39, 0.0, 0.39, 0.61, 1.0, 0.61]]); }
+    model_box(b).map(|bb| vec![bb])
+}
+/// Les boîtes d'un bloc posé dans le monde : la clôture a ses lisses vers les voisins qui la tiennent, la branche ses bras.
+pub fn cell_boxes(w: &impl Voxels, x: i32, y: i32, z: i32, b: Id, solid: bool) -> Option<Vec<Bx>> {
+    let model = BLOCKS[b as usize].model; let nb = |dx: i32, dy: i32, dz: i32| w.get(x + dx, y + dy, z + dz).unwrap_or(0);
+    if solid && !is_solid(b) { return own_boxes(b, solid); }
+    match model {
+        Some("fence") => {
+            let mut v = vec![[0.39, 0.0, 0.39, 0.61, 1.0, 0.61]];
+            for (dx, dz, bb) in [(1, 0, [0.61, 0.34, 0.43, 1.0, 0.85, 0.57]), (-1, 0, [0.0, 0.34, 0.43, 0.39, 0.85, 0.57]), (0, 1, [0.43, 0.34, 0.61, 0.57, 0.85, 1.0]), (0, -1, [0.43, 0.34, 0.0, 0.57, 0.85, 0.39])] {
+                if fence_joins(nb(dx, 0, dz)) { v.push(bb); } }
+            Some(v)
+        }
+        Some("branch") => {
+            let (a, c) = (0.34, 0.66); let joins = |b2: Id| is_log(b2) || is_branch(b2) || is_leaf(b2); let mut v = vec![[a, a, a, c, c, c]]; let n0 = v.len();
+            for (d, bb) in [((1, 0, 0), [c, a, a, 1.0, c, c]), ((-1, 0, 0), [0.0, a, a, a, c, c]), ((0, 0, 1), [a, a, c, c, c, 1.0]), ((0, 0, -1), [a, a, 0.0, c, c, a]), ((0, 1, 0), [a, c, a, c, 1.0, c])] {
+                if joins(nb(d.0, d.1, d.2)) { v.push(bb); } }
+            let below = nb(0, -1, 0); if joins(below) || BLOCKS[below as usize].opaque { v.push([a, 0.0, a, c, a, c]); }
+            if v.len() == n0 { v = vec![[a, 0.0, a, c, 1.0, c]]; }
+            Some(v)
+        }
+        _ => own_boxes(b, solid),
+    }
+}
+/// Rayon contre boîte (méthode des tranches) : le paramètre d'entrée (0 si l'origine est dedans).
+pub fn ray_box(o: [f64; 3], d: [f64; 3], b: Bx) -> Option<f64> {
+    let (mut t0, mut t1) = (0.0f64, f64::MAX);
+    for a in 0..3 {
+        if d[a].abs() < 1e-12 { if o[a] < b[a] || o[a] > b[a + 3] { return None; } continue; }
+        let (mut u, mut v) = ((b[a] - o[a]) / d[a], (b[a + 3] - o[a]) / d[a]); if u > v { std::mem::swap(&mut u, &mut v); }
+        t0 = t0.max(u); t1 = t1.min(v); if t0 > t1 { return None; }
+    }
+    Some(t0)
+}
+fn ray_tri(o: [f64; 3], d: [f64; 3], a: [f64; 3], b: [f64; 3], c: [f64; 3]) -> Option<f64> {
+    let sub = |p: [f64; 3], q: [f64; 3]| [p[0] - q[0], p[1] - q[1], p[2] - q[2]]; let cross = |p: [f64; 3], q: [f64; 3]| [p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0]];
+    let dot = |p: [f64; 3], q: [f64; 3]| p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+    let (e1, e2) = (sub(b, a), sub(c, a)); let h = cross(d, e2); let det = dot(e1, h); if det.abs() < 1e-12 { return None; }
+    let f = 1.0 / det; let s = sub(o, a); let u = f * dot(s, h); if !(-1e-9..=1.0 + 1e-9).contains(&u) { return None; }
+    let q = cross(s, e1); let v = f * dot(d, q); if v < -1e-9 || u + v > 1.0 + 1e-9 { return None; }
+    let t = f * dot(e2, q); (t >= 0.0).then_some(t)
+}
+/// La boîte qui englobe une liste de boîtes (le contour qu'on dessine autour du bloc visé).
+pub fn union(v: &[Bx]) -> Bx { v.iter().fold([1.0, 1.0, 1.0, 0.0, 0.0, 0.0], |u, b| [u[0].min(b[0]), u[1].min(b[1]), u[2].min(b[2]), u[3].max(b[3]), u[4].max(b[4]), u[5].max(b[5])]) }
+/// Le rayon (origine relative à la case) touche-t-il ce bloc là où il est dessiné ? Le paramètre et le contour du bloc.
+/// Les toits se visent sur leurs vraies faces inclinées ; le reste sur ses boîtes.
+pub fn ray_hit(w: &impl Voxels, x: i32, y: i32, z: i32, b: Id, o: [f64; 3], d: [f64; 3]) -> Option<(f64, Bx)> {
+    if let Some(i) = info(b).filter(|_| is_roof(b)) {
+        let (faces, _) = roof_faces(i); let mut best: Option<f64> = None;
+        for q in faces { for (p, r) in [(q[1], q[2]), (q[2], q[3])] { if let Some(t) = ray_tri(o, d, q[0], p, r) { best = Some(best.map_or(t, |u| u.min(t))); } } }
+        return best.map(|t| (t, union(&geometry(i))));
+    }
+    match cell_boxes(w, x, y, z, b, false) {
+        None => ray_box(o, d, [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]).map(|t| (t, [0.0, 0.0, 0.0, 1.0, 1.0, 1.0])),
+        Some(v) if v.is_empty() => None,
+        Some(v) => { let t = v.iter().filter_map(|bb| ray_box(o, d, *bb)).fold(f64::MAX, f64::min); (t < f64::MAX).then(|| (t, union(&v))) }
+    }
+}

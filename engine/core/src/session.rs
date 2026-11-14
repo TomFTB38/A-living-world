@@ -31,8 +31,9 @@ pub fn item(id: &str) -> Option<Item> { def(id).map(|d| Item { id: d.id, label: 
 pub struct Stack { pub item: &'static str, pub n: Option<u32>, pub wear: u32 }
 impl Stack { pub fn new(item: &'static str, n: Option<u32>) -> Stack { Stack { item, n, wear: 0 } } }
 #[derive(Clone, Copy, Debug)]
-pub struct Target { pub x: i32, pub y: i32, pub z: i32, pub px: i32, pub py: i32, pub pz: i32, pub id: Id }
-/// Parcours de grille : premier bloc ciblable et case d'avant.
+pub struct Target { pub x: i32, pub y: i32, pub z: i32, pub px: i32, pub py: i32, pub pz: i32, pub id: Id, /** le contour du bloc visé, dans sa case : le bord de son dessin */ pub bx: [f64; 6] }
+/// Parcours de grille : premier bloc ciblable et case d'avant. Un bloc n'est touché que là où il est dessiné : on passe à côté
+/// d'une poutre, au-dessus d'une dalle, entre les tiges d'une fleur, et le rayon continue vers ce qui est derrière.
 pub fn raycast(w: &impl Voxels, o: [f64; 3], d: [f64; 3], max: f64, skip: &dyn Fn(i32, i32, i32, Id) -> bool) -> Option<(Target, f64)> {
     let (mut x, mut y, mut z) = (o[0].floor() as i32, o[1].floor() as i32, o[2].floor() as i32);
     let sg = |v: f64| if v > 0.0 { 1 } else if v < 0.0 { -1 } else { 0 };
@@ -43,7 +44,10 @@ pub fn raycast(w: &impl Voxels, o: [f64; 3], d: [f64; 3], max: f64, skip: &dyn F
     for _ in 0..80 {
         if t > max { break; }
         let b = w.get(x, y, z)?;
-        if b > 0 && !is_water(b) && !skip(x, y, z, b) { return Some((Target { x, y, z, px, py, pz, id: b }, t)); }
+        if b > 0 && !is_water(b) && !skip(x, y, z, b) {
+            let lo = [o[0] - x as f64, o[1] - y as f64, o[2] - z as f64];
+            if let Some((th, bx)) = crate::shapes::ray_hit(w, x, y, z, b, lo, d) { if th <= max { return Some((Target { x, y, z, px, py, pz, id: b, bx }, th.max(t))); } }
+        }
         px = x; py = y; pz = z;
         if tx < ty && tx < tz { x += sx; t = tx; tx += tdx; } else if ty < tz { y += sy; t = ty; ty += tdy; } else { z += sz; t = tz; tz += tdz; }
     }
@@ -129,7 +133,7 @@ impl Session {
         if si.kind == Kind::Slab { if let Some(ti) = info(t.id) { if ti.kind == Kind::Slab && ti.base == si.base && ((!ti.top && t.py > t.y) || (ti.top && t.py < t.y)) { return full_of_slab(si.base).map(|b| vec![([t.x, t.y, t.z], b)]); } } }
         let [x, y, z] = Self::place_spot(t); let cur = self.world.get(x, y, z)?; if is_solid(cur) { return None; }
         let hit_y = self.eye[1] + self.look[1] * self.ray_t - t.y as f64;
-        let top = matches!(si.kind, Kind::Slab | Kind::Stairs) && (t.py < t.y || (t.py == t.y && hit_y > 0.5)); // sous un plafond ou sur le haut d'un mur : dalle haute, escalier renversé
+        let top = matches!(si.kind, Kind::Slab | Kind::Stairs | Kind::Slope | Kind::Corner | Kind::Valley | Kind::Ridge | Kind::Peak) && (t.py < t.y || (t.py == t.y && hit_y > 0.5)); // sous un plafond ou sur le haut d'un mur : dalle haute, escalier et toit renversés
         // Poutres : la droite suit le regard comme un rondin (debout, en long, en travers : le mode de R) ; la diagonale monte
         // devant soi ; l'angle a son bras devant soi, et pend d'un plafond ou du haut d'un montant (vise la moitié haute).
         let top = top || (si.kind == Kind::Elbow && (t.py < t.y || (t.py == t.y && hit_y > 0.5)));
@@ -145,7 +149,7 @@ impl Session {
     }
     /// Le bloc posé là rentrerait-il dans le joueur ? (Une dalle au ras du sol, non ; une porte, oui.)
     fn blocks_player(&self, c: [i32; 3], id: Id) -> bool {
-        let boxes = crate::shapes::boxes(id).unwrap_or_else(|| if is_solid(id) { vec![[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]] } else { Vec::new() }); let p = self.player.p;
+        let boxes = crate::shapes::own_boxes(id, true).unwrap_or_else(|| vec![[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]]); let p = self.player.p;
         boxes.iter().any(|b| { let (a, d) = ([c[0] as f64 + b[0], c[1] as f64 + b[1], c[2] as f64 + b[2]], [c[0] as f64 + b[3], c[1] as f64 + b[4], c[2] as f64 + b[5]]); a[0] < p[0] + 0.3 && d[0] > p[0] - 0.3 && a[2] < p[2] + 0.3 && d[2] > p[2] - 0.3 && a[1] < p[1] + 1.8 && d[1] > p[1] + 0.01 })
     }
     pub fn place(&mut self) -> bool {
@@ -322,7 +326,7 @@ impl Session {
     }
     pub fn ghost_boxes(&self) -> Vec<[f64; 6]> {
         let Some(v) = self.plan() else { return Vec::new() }; let o = v[0].0; let mut out = Vec::new();
-        for (p, id) in &v { let d = [(p[0] - o[0]) as f64, (p[1] - o[1]) as f64, (p[2] - o[2]) as f64]; for b in crate::shapes::boxes(*id).unwrap_or_else(|| vec![[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]]) { out.push([b[0] + d[0], b[1] + d[1], b[2] + d[2], b[3] + d[0], b[4] + d[1], b[5] + d[2]]); } }
+        for (p, id) in &v { let d = [(p[0] - o[0]) as f64, (p[1] - o[1]) as f64, (p[2] - o[2]) as f64]; for b in crate::shapes::own_boxes(*id, false).unwrap_or_else(|| vec![[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]]) { out.push([b[0] + d[0], b[1] + d[1], b[2] + d[2], b[3] + d[0], b[4] + d[1], b[5] + d[2]]); } }
         out.truncate(2); out
     }
     pub fn progress(&self) -> f64 { match self.target { Some(_) if self.mine_key.is_some() => (self.mine_t / self.mine_need.max(0.01)).min(1.0), _ => 0.0 } }

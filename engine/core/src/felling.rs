@@ -12,6 +12,8 @@ type P = (i32, i32, i32);
 pub struct Tree { pub logs: Vec<P>, pub leaves: Vec<P> }
 /// Un arbre, c'est des troncs de même essence reliés entre eux et portant du feuillage : un mur de bûches n'en est pas un.
 pub fn find_tree(w: &impl Voxels, x: i32, y: i32, z: i32) -> Option<Tree> {
+    // Les rondins nets (« _c ») sont posés, par le joueur ou par les bâtisseurs : une charpente n'est jamais un arbre.
+    let is_log = |b: crate::blocks::Id| is_log(b) && !crate::blocks::BLOCKS[b as usize].name.ends_with("_c");
     let b0 = w.get(x, y, z)?; if !is_log(b0) && !is_branch(b0) { return None; } let sp = species(b0);
     let (mut seen, mut q) = (HashSet::from([(x, y, z)]), VecDeque::from([(x, y, z)]));
     while let Some(p) = q.pop_front() {

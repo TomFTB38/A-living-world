@@ -92,7 +92,7 @@ fn lean_to(b: &mut B, side: u8, ww0: i32, ww1: i32, depth: i32, y0: i32, wall: O
     for &u in &us { for ww in ww0..=ww1 { for y in y0 - 2..y0 { b.put(u, y, ww, s.found); } b.put(u, y0, ww, s.floor); for y in y0 + 1..y0 + 4 { b.put(u, y, ww, 0); }
         let edge = u == outer || ww == ww0 || ww == ww1;
         match wall { Some(m) if edge => { for y in y0 + 1..=y0 + 2 { b.put(u, y, ww, m); } } _ => cells.push((u, ww)) } } }
-    if wall.is_none() { for ww in [ww0, ww1] { for y in y0 + 1..=y0 + 2 { b.put(outer, y, ww, id("oak_beam")); } } cells.retain(|c| !(c.0 == outer && (c.1 == ww0 || c.1 == ww1))); }
+    if wall.is_none() { for ww in [ww0, ww1] { for y in y0 + 1..=y0 + 2 { b.put(outer, y, ww, id("oak_log_c")); } } cells.retain(|c| !(c.0 == outer && (c.1 == ww0 || c.1 == ww1))); }
     else { let hu = if side == 1 { w - 1 } else { 0 }; let mw = (ww0 + ww1) / 2; for y in y0 + 1..=y0 + 2 { b.put(hu, y, mw, 0); } }
     let slab = id("planks_slab"); for &u in &us { for ww in ww0..=ww1 { b.put(u, y0 + 3, ww, slab); } }
     let lot = b.lot; let (uin, uout) = if side == 1 { (w as f64, (w + depth) as f64 + 0.35) } else { (0.0, -depth as f64 - 0.35) }; let y = y0 as f64;
@@ -263,7 +263,7 @@ fn awning(b: &mut B, y0: i32, h: f64) {
 /// le charbon ; un réduit fermé pour le forgeron. Variantes : seule ; avec la maison du forgeron accolée ; avec un
 /// appentis à charbon. Le maître forgeron a une halle plus large et deux foyers.
 fn forge(b: &mut B, sp: &Spec, y0: i32) -> Made {
-    let (w, d) = (b.w, b.d); let s = b.s; let beam = id("oak_beam"); let rub = id("rubble_wall"); let master = w >= 9;
+    let (w, d) = (b.w, b.d); let s = b.s; let beam = id("oak_log_c"); let rub = id("rubble_wall"); let master = w >= 9;
     prep(b, sp.extent(), y0, 4 + w / 2 + 6);
     b.walls(y0 + 1, y0 + 3, s.found, rub, beam);
     let bay = if master { 5 } else { 3 }; // la halle ouverte : de u = 1 à bay - 1, poteau en bay
@@ -353,11 +353,11 @@ fn stable(b: &mut B, y0: i32) {
 /// vantaux ouvert sur la cour, un fenil sur la moitié du fond (échelle), du foin partout, la charrette devant.
 /// Variantes : bardée ; à pignons de pierre ; avec un appentis ; petite, avec la poutre du monte-foin.
 fn barn(b: &mut B, sp: &Spec, y0: i32) -> Made {
-    let (w, d) = (b.w, b.d); let s = b.s; let boards = id("barn_boards"); let beam = id("oak_beam"); let rub = id("rubble_wall"); let du = w / 2;
+    let (w, d) = (b.w, b.d); let s = b.s; let boards = id("barn_boards"); let beam = id("oak_log_c"); let rub = id("rubble_wall"); let du = w / 2;
     prep(b, sp.extent(), y0, 5 + w / 2 + 5);
     b.walls(y0 + 1, y0 + 4, rub, boards, beam);
     if sp.var == 1 { for y in y0 + 1..=y0 + 4 { for u in 0..w { b.put(u, y, 0, rub); b.put(u, y, d - 1, rub); } } }
-    for u in du - 1..=du + 1 { for y in y0 + 1..=y0 + 3 { b.put(u, y, 0, 0); } } for u in du - 1..=du + 1 { b.put(u, y0 + 4, 0, if b.lot.u.0 != 0 { id("oak_beam_x") } else { id("oak_beam_z") }); }
+    for u in du - 1..=du + 1 { for y in y0 + 1..=y0 + 3 { b.put(u, y, 0, 0); } } for u in du - 1..=du + 1 { b.put(u, y0 + 4, 0, if b.lot.u.0 != 0 { id("oak_log_x_c") } else { id("oak_log_z_c") }); }
     windows(b, 1, y0 + 3, &[2, d - 3], &[]); windows(b, 3, y0 + 3, &[d / 2], &[]);
     for u in 1..w - 1 { for ww in 1..d - 1 { b.put(u, y0, ww, id("dirt")); } }
     // Le fenil : un plancher sur la moitié du fond, l'échelle pour y monter.
@@ -391,7 +391,7 @@ fn barn(b: &mut B, sp: &Spec, y0: i32) -> Made {
 fn building_site(b: &mut B, sp: &Spec, y0: i32) -> Made {
     let (w, d) = (b.w, b.d); let s = b.s; prep(b, sp.extent(), y0, 9);
     let wall = if sp.arch == Arch::Barn { id("barn_boards") } else { s.ground };
-    b.walls(y0 + 1, y0 + 2, s.found, wall, id("oak_beam")); for y in y0 + 3..=y0 + 5 { for (u, ww) in [(0, 0), (w - 1, 0), (0, d - 1), (w - 1, d - 1)] { b.put(u, y, ww, id("oak_beam")); } }
+    b.walls(y0 + 1, y0 + 2, s.found, wall, id("oak_log_c")); for y in y0 + 3..=y0 + 5 { for (u, ww) in [(0, 0), (w - 1, 0), (0, d - 1), (w - 1, d - 1)] { b.put(u, y, ww, id("oak_log_c")); } }
     b.put(w / 2, y0 + 1, 0, 0); b.put(w / 2, y0 + 2, 0, 0);
     // Échafaudage le long de la façade : perches, platelage, échelle.
     for u in (-1..=w).step_by(3) { for y in y0 + 1..=y0 + 4 { b.put(u, y, -1, id("fence")); } } for u in -1..=w { b.put(u, y0 + 3, -1, id("planks_slab")); }

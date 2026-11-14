@@ -6,7 +6,7 @@ fn col(b: Id) -> [u8; 3] {
     for (k, c) in [("crystal_violet", [170, 90, 240]), ("crystal_blue", [90, 170, 250]), ("crystal_pink", [240, 120, 190]), ("crystal_white", [230, 240, 255]), ("glow", [60, 240, 210]), ("mushroom_cap_red", [210, 40, 30]), ("mushroom_cap_violet", [120, 50, 170]), ("mushroom_cap_blue", [40, 90, 200]), ("mushroom_gills", [255, 190, 80]), ("mushroom_stem", [230, 220, 200]), ("mycelium", [120, 100, 125]),
         ("abyss", [40, 46, 64]), ("basalt", [60, 62, 70]), ("obsidian", [40, 20, 60]), ("ice", [150, 200, 240]), ("snow", [245, 248, 255]), ("sandstone", [215, 185, 120]), ("red_sandstone", [190, 100, 60]), ("sand", [235, 215, 160]), ("coral", [240, 110, 120]), ("kelp", [40, 110, 50]), ("seagrass", [60, 140, 60]),
         ("flowstone", [235, 210, 170]), ("dripstone", [255, 235, 140]), ("limestone", [175, 165, 140]), ("mossy", [80, 130, 60]), ("grass", [90, 170, 60]), ("fern", [60, 150, 60]), ("vine", [50, 120, 40]), ("roots", [110, 75, 40]), ("ore", [200, 120, 60]),
-        ("lantern", [255, 230, 120]), ("torch", [255, 200, 90]), ("rail", [150, 150, 150]), ("oak_beam", [130, 90, 50]), ("planks", [160, 120, 70]), ("glowcap", [200, 90, 255]), ("gravel", [130, 125, 120]), ("dirt", [110, 80, 55])] { if n.contains(k) { return c; } }
+        ("lantern", [255, 230, 120]), ("torch", [255, 200, 90]), ("rail", [150, 150, 150]), ("oak_post", [130, 90, 50]), ("planks", [160, 120, 70]), ("glowcap", [200, 90, 255]), ("gravel", [130, 125, 120]), ("dirt", [110, 80, 55])] { if n.contains(k) { return c; } }
     [100, 98, 95]
 }
 fn main() {

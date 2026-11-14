@@ -22,7 +22,7 @@ fn les_blocs_orientes_tournent_et_se_retournent() {
         assert_eq!(BLOCKS[orient(orient(b.id, MIR), MIR) as usize].name, b.name, "deux miroirs");
         assert_eq!(BLOCKS[orient(orient(b.id, ROT), inverse(ROT)) as usize].name, b.name, "tour puis retour");
     }
-    assert_eq!(BLOCKS[orient(id("planks_stairs"), ROT) as usize].name, "planks_stairs_3"); assert_eq!(BLOCKS[orient(id("oak_beam_x"), ROT) as usize].name, "oak_beam_z");
+    assert_eq!(BLOCKS[orient(id("planks_stairs"), ROT) as usize].name, "planks_stairs_3"); assert_eq!(BLOCKS[orient(id("oak_beam_x"), ROT) as usize].name, "oak_beam_z"); assert_eq!(BLOCKS[orient(id("oak_log_x_c"), ROT) as usize].name, "oak_log_z_c");
 }
 
 /// Le patron posé sur un terrain : la dernière pose l'emporte, comme dans le monde.

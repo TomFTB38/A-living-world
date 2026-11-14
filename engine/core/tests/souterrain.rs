@@ -48,7 +48,7 @@ fn les_mines_et_les_bouches_menent_a_la_salle() {
             if let Some(l) = last { assert!((fy - l).abs() <= 1, "une marche trop haute"); } last = Some(fy); }
         assert!(blocked as f64 <= steps as f64 * 0.05, "{} : le couloir est dégagé ({blocked} cases bouchées sur {steps})", if mine { "mine" } else { "bouche" });
         if mine { let n = (0..steps).filter(|k| { let t = *k as f64 / steps as f64; let (x, z) = ((from[0] + (to[0] - from[0]) * t).floor() as i32, (from[2] + (to[2] - from[2]) * t).floor() as i32);
-            (-2..6).any(|dy| { let b = at(x, (from[1] + (to[1] - from[1]) * t) as i32 + dy, z); b == B::RAIL_X || b == B::RAIL_Z || b == B::OAK_BEAM_X || b == B::OAK_BEAM_Z }) }).count(); assert!(n > 5, "la mine a ses rails et son boisage"); }
+            (-2..6).any(|dy| { let b = at(x, (from[1] + (to[1] - from[1]) * t) as i32 + dy, z); b == B::RAIL_X || b == B::RAIL_Z || b == B::OAK_POST_X || b == B::OAK_POST_Z }) }).count(); assert!(n > 5, "la mine a ses rails et son boisage"); }
     } }
     assert!(mines > 0 && mouths > 0, "des mines ({mines}) et des bouches ({mouths})");
 }
