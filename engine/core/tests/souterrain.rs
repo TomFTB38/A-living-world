@@ -60,3 +60,26 @@ fn la_lave_brule() {
     let (x, y, z) = (spot[0].floor() as i32, spot[1] as i32, spot[2].floor() as i32); s.world.edit(x, y, z, B::LAVA); let hp = s.vit[0];
     for _ in 0..30 { s.tick(0.05, Input::default(), Actions::default()); } assert!(s.vit[0] < hp - 10.0, "la lave brûle : {hp} → {}", s.vit[0]);
 }
+
+#[test]
+fn les_vestiges_sont_batis_et_leurs_coffres_garnis() {
+    use alw_core::karst::Relic;
+    let w = WorldGen::new(SEED); let mut seen = [0usize; 3];
+    for i in -14..=14 { for j in -14..=14 { let Some(h) = w.hall(i, j) else { continue }; let Some(st) = w.hall_site(&h) else { continue };
+        let k = match st.kind { Relic::Camp => 0, Relic::Altar => 1, Relic::Vault => 2 }; seen[k] += 1; if seen[k] > 3 { continue; } // on en vérifie trois de chaque sorte
+        let at = |x: i32, y: i32, z: i32| { let v = w.gen_chunk(x.div_euclid(32), z.div_euclid(32)); v[idx(x.rem_euclid(32) as usize, y as usize, z.rem_euclid(32) as usize)] };
+        let c = st.chest(); assert_eq!(at(c[0], c[1], c[2]), B::CHEST, "{:?} de la salle {} : le coffre est à sa place {c:?}", st.kind, h.kind.name());
+        assert_eq!(w.cave_chest(c), Some((st.kind, h.kind))); assert_eq!(w.cave_chest([c[0], c[1] + 1, c[2]]), None);
+        // posé sur du plein, de l'air pour s'y tenir devant, et sous terre
+        assert!(is_solid(at(c[0], c[1] - 1, c[2])), "coffre en l'air"); assert!(w.column(st.x as f64, st.z as f64).h > st.fl as f64 + 4.0, "vestige à ciel ouvert");
+        let front = match st.kind { Relic::Vault => (st.x, st.fl, st.z), Relic::Altar => (st.x + 1, st.fl + 1, st.z + 2), Relic::Camp => (st.x + 1, st.fl, st.z + 1) };
+        assert!((0..2).all(|d| !is_solid(at(front.0, front.1 + d, front.2))) && is_solid(at(front.0, front.1 - 1, front.2)), "{:?} : pas de place pour s'y tenir", st.kind);
+        let sign = match st.kind { Relic::Camp => B::CAMPFIRE_OUT, Relic::Altar => B::CHISELED_STONE, Relic::Vault => B::LANTERN };
+        let mut found = false; for dz in -4..=4 { for dx in -4..=4 { for dy in 0..5 { if at(st.x + dx, st.fl + dy, st.z + dz) == sign { found = true; } } } } assert!(found, "{:?} sans sa marque", st.kind);
+    } }
+    println!("vestiges : {} camps, {} autels, {} caveaux", seen[0], seen[1], seen[2]); assert!(seen.iter().all(|n| *n >= 2), "chaque sorte de vestige existe : {seen:?}");
+    // le coffre d'un camp contient quelque chose, toujours la même chose
+    let (h, st) = w.nearest_site(0.0, 0.0, 14, Some(Relic::Camp)).unwrap(); let sp = w.hall_spot(&h, [st.x as f64, st.z as f64]).unwrap();
+    let mut s = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, sp); ready(&mut s); s.open_chest(st.chest());
+    let n = s.chests[&st.chest()].iter().flatten().count(); assert!(n >= 2, "coffre de camp presque vide : {n}");
+}

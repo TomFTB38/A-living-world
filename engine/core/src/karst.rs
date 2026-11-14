@@ -87,6 +87,14 @@ pub struct Hall {
 }
 
 /// Ce que la salle est en un point du sol : distance relative au bord, plancher, voûte.
+/// Ce que des hommes ont laissé dans une salle : un camp de mineurs abandonné, un autel de cristal, un caveau au coffre.
+#[derive(Clone, Copy, Debug, PartialEq)] pub enum Relic { Camp, Altar, Vault }
+/// L'emplacement d'un vestige : son centre (x, z) et le niveau de son sol (la première case libre).
+#[derive(Clone, Copy, Debug)] pub struct Site { pub kind: Relic, pub x: i32, pub z: i32, pub fl: i32 }
+impl Site {
+    /// La case du coffre du vestige.
+    pub fn chest(&self) -> [i32; 3] { match self.kind { Relic::Camp => [self.x - 2, self.fl, self.z - 2], Relic::Altar => [self.x, self.fl + 1, self.z - 2], Relic::Vault => [self.x, self.fl, self.z + 2] } }
+}
 #[derive(Clone, Copy)]
 struct Cut { q: f64, fl: i32, ce: i32 }
 
@@ -126,6 +134,37 @@ impl WorldGen {
         ((u / (h.rx + 6.0)).powi(2) + (v / (h.rz + 6.0)).powi(2) <= 1.0 && p[1] > h.floor as f64 - 14.0 && p[1] < h.floor as f64 + h.h + 8.0).then_some(h.kind)
     }
 
+    /// Le vestige d'une salle, s'il y en a un : sa sorte selon le biome, sa place sur un replat sec, loin de l'aven et de la cascade.
+    /// Fonction pure de la salle : la génération, le butin du coffre et les commandes retrouvent le même endroit.
+    pub fn hall_site(&self, hl: &Hall) -> Option<Site> {
+        let r = |k: i32| hash_float(hl.key.0, hl.key.1, self.seed, 460 + k);
+        let (kind, p) = match hl.kind { Under::Mineral => (Relic::Camp, 0.75), Under::Ordinary => (Relic::Camp, 0.45), Under::Karst => (Relic::Camp, 0.35), Under::Crystal => (Relic::Altar, 0.7), Under::Glow => (Relic::Altar, 0.35),
+            Under::Coral => return None, _ => (Relic::Vault, 0.45) };
+        if r(0) > p { return None; }
+        let wet = style(hl.kind).liquid != 0;
+        for k in 0..28 { let a = r(1) * std::f64::consts::TAU + k as f64 * 2.4; let d = 0.12 + 0.022 * k as f64; let (u, v) = (hl.rx * d * cos(a), hl.rz * d * sin(a));
+            let (x, z) = ((hl.x + u * hl.ca - v * hl.sa).floor() as i32, (hl.z + u * hl.sa + v * hl.ca).floor() as i32);
+            // un replat : neuf sondages sous le vestige ; on bâtit sur le plus haut (l'assise comble le reste), au sec, sous une voûte assez haute
+            let cuts: Vec<Cut> = [(0, 0), (-3, -3), (3, -3), (-3, 3), (3, 3), (0, -3), (0, 3), (-3, 0), (3, 0)].iter().map(|(dx, dz)| self.cut(hl, (x + dx) as f64 + 0.5, (z + dz) as f64 + 0.5)).collect();
+            let (lo, fl, ce) = (cuts.iter().map(|c| c.fl).min().unwrap(), cuts.iter().map(|c| c.fl).max().unwrap(), cuts.iter().map(|c| c.ce).min().unwrap());
+            if fl - lo > 3 || ce - fl < 6 || cuts.iter().any(|c| c.q > 0.8) || (wet && fl <= hl.floor) { continue; }
+            if hl.shaft.is_some_and(|[sx, sz, sr]| hypot2(x as f64 - sx, z as f64 - sz) < sr + 7.0) || hl.fall.is_some_and(|(_, p)| hypot2((x - p[0]) as f64, (z - p[1]) as f64) < 8.0) { continue; }
+            let c = Cut { q: cuts[0].q, fl, ce };
+            return Some(Site { kind, x, z, fl: c.fl });
+        }
+        None
+    }
+    /// Ce coffre est-il celui d'un vestige souterrain ? Sa sorte et le biome de sa salle.
+    pub fn cave_chest(&self, p: [i32; 3]) -> Option<(Relic, Under)> {
+        let hl = self.nearest_hall(p[0] as f64, p[2] as f64, 1)?; let st = self.hall_site(&hl)?; (st.chest() == p).then_some((st.kind, hl.kind))
+    }
+    /// Le vestige le plus proche d'une sorte donnée (ou de n'importe laquelle).
+    pub fn nearest_site(&self, x: f64, z: f64, cells: i32, kind: Option<Relic>) -> Option<(Hall, Site)> {
+        let (ci, cj) = ((x as i32).div_euclid(CELL), (z as i32).div_euclid(CELL)); let mut best: Option<(f64, Hall, Site)> = None;
+        for i in ci - cells..=ci + cells { for j in cj - cells..=cj + cells { if let Some(h) = self.hall(i, j) { if let Some(st) = self.hall_site(&h) { if kind.is_some_and(|k| k != st.kind) { continue; }
+            let d = hypot2(st.x as f64 - x, st.z as f64 - z); if best.is_none_or(|b| d < b.0) { best = Some((d, h, st)); } } } } }
+        best.map(|b| (b.1, b.2))
+    }
     fn trace_hall(&self, i: i32, j: i32) -> Option<Hall> {
         if self.flat { return None; }
         let r = |k: i32| hash_float(i, j, self.seed, 300 + k);
@@ -247,6 +286,7 @@ impl WorldGen {
             }
         } }
         // 3. Les concrétions, sur une grille fixe du monde : stalactites, stalagmites, colonnes, et les grandes formations.
+        let site = self.hall_site(hl);
         let (pd, pu) = points(st.points); let r = hl.reach().min(hl.rx.max(hl.rz) * 1.3 + 6.0) as i32;
         for gz in (hl.z as i32 - r).div_euclid(STEP)..=(hl.z as i32 + r).div_euclid(STEP) { for gx in (hl.x as i32 - r).div_euclid(STEP)..=(hl.x as i32 + r).div_euclid(STEP) {
             let h = |k: i32| hash_float(gx, gz, s, 340 + k);
@@ -256,6 +296,7 @@ impl WorldGen {
             if let Some([sx, sz, sr]) = hl.shaft { if hypot2(cx as f64 - sx, cz as f64 - sz) < sr + 2.5 { continue; } }
             if let Some((_, p)) = hl.fall { if hypot2((cx - p[0]) as f64, (cz - p[1]) as f64) < 3.5 { continue; } }
             let gap = (c.ce - c.fl) as f64; if gap < 5.0 { continue; }
+            if site.is_some_and(|st| hypot2((cx - st.x) as f64, (cz - st.z) as f64) < 8.5) { continue; } // la place du vestige reste dégagée
             // les grandes formations propres au biome
             match hl.kind {
                 Under::Fungal if h(5) < 0.3 && gap > 9.0 => { self.giant_mushroom(cv, hl, cx, cz, c, h(6), h(7), h(8)); continue; }
@@ -354,6 +395,46 @@ impl WorldGen {
                 if d < gr - 1.0 { if b != 0 { cv.set(x, y, z, if hash_float(x, y * 13 + z, s, 399) < 0.12 { B::CRYSTAL_VIOLET_POINT_UP_2 } else { 0 }); } }
                 else if d < gr { if b != 0 { cv.set(x, y, z, lining); } } else if d < gr + 0.9 && b != 0 { cv.set(x, y, z, B::FLOWSTONE); }
             } } } } }
+        // 8. Le vestige de la salle, en dernier : rien ne pousse dessus.
+        if let Some(site) = site { self.relic(cv, hl, site); }
+    }
+
+    /// Bâtit le vestige : d'abord son assise (le sol comblé, l'air dégagé), puis ce que les hommes y ont laissé.
+    fn relic(&self, cv: &mut Carver, hl: &Hall, st: Site) {
+        let (x0, z0, fl, s) = (st.x, st.z, st.fl, self.seed); if x0 + 5 < cv.ox || z0 + 5 < cv.oz || x0 - 5 >= cv.ox + CX as i32 || z0 - 5 >= cv.oz + CX as i32 { return; }
+        let wall = style(hl.kind).wall; let h = |x: i32, z: i32, k: i32| hash_float(x, z, s, 470 + k);
+        let pad = |cv: &mut Carver, r: i32, top: Option<Id>, clear: i32| { for dz in -r..=r { for dx in -r..=r { let (x, z) = (x0 + dx, z0 + dz);
+            for y in fl - 4..fl { if cv.get(x, y, z).is_some_and(|b| !is_opaque(b)) { cv.set(x, y, z, wall); } } if let Some(t) = top { cv.set(x, fl - 1, z, t); }
+            for y in fl..fl + clear { if cv.get(x, y, z).is_some() { cv.set(x, y, z, 0); } } } } };
+        match st.kind {
+            Relic::Camp => { // un foyer froid, un abri de rondins sur le coffre et les tonneaux, des caisses, un tas de charbon, une lanterne sur son poteau
+                pad(cv, 3, None, 4);
+                for dz in -1..=1 { for dx in -1..=1 { if h(x0 + dx, z0 + dz, 0) < 0.7 { cv.set(x0 + dx, fl - 1, z0 + dz, B::GRAVEL); } } }
+                cv.set(x0, fl, z0, B::CAMPFIRE_OUT);
+                for x in [x0 - 3, x0 + 1] { for y in fl..fl + 2 { cv.set(x, y, z0 - 3, B::OAK_POST); } } for x in x0 - 3..=x0 + 1 { cv.set(x, fl + 2, z0 - 3, B::OAK_POST_X); for z in z0 - 2..=z0 - 1 { cv.set(x, fl + 2, z, B::PLANKS_SLAB); } }
+                let [cx, cy, cz] = st.chest(); cv.set(cx, cy, cz, B::CHEST); cv.set(x0 - 1, fl, z0 - 2, B::BARREL); cv.set(x0, fl, z0 - 2, B::CRATE); if h(x0, z0, 1) < 0.6 { cv.set(x0, fl + 1, z0 - 2, B::CRATE); }
+                cv.set(x0 + 2, fl, z0 + 1, B::COAL_HEAP); cv.set(x0 - 2, fl, z0 + 1, B::STOOL); cv.set(x0 + 1, fl, z0 + 2, B::STOOL); cv.set(x0 - 3, fl, z0 + 2, B::SACK);
+                for y in fl..fl + 2 { cv.set(x0 + 3, y, z0 + 3, B::OAK_POST); } cv.set(x0 + 3, fl + 2, z0 + 3, B::LANTERN);
+            }
+            Relic::Altar => { // une estrade de pierre polie, sa marche de dalles, un grand cristal dressé au centre, quatre piliers à lanterne, une offrande
+                pad(cv, 4, None, 6); let m = ["crystal_violet", "crystal_blue", "crystal_pink", "crystal_white"][(h(x0, z0, 2) * 4.0) as usize % 4]; let id = |n: &str| by_name(n).unwrap_or(B::STONE);
+                for dz in -3..=3i32 { for dx in -3..=3i32 { let edge = dx.abs() == 3 || dz.abs() == 3; cv.set(x0 + dx, fl, z0 + dz, if edge { B::STONE_BRICKS_SLAB } else { B::POLISHED_STONE }); cv.set(x0 + dx, fl - 1, z0 + dz, B::STONE_BRICKS); } }
+                cv.set(x0, fl + 1, z0, B::CHISELED_STONE); cv.set(x0, fl + 2, z0, id(m)); cv.set(x0, fl + 3, z0, id(m)); cv.set(x0, fl + 4, z0, id(&format!("{m}_point_up_1")));
+                for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] { cv.set(x0 + dx, fl + 1, z0 + dz, id(&format!("{m}_point_up_{}", if dz == -1 { 2 } else { 1 }))); }
+                for (dx, dz) in [(-2, -2), (2, -2), (-2, 2), (2, 2)] { cv.set(x0 + dx, fl + 1, z0 + dz, B::STONE_PILLAR); cv.set(x0 + dx, fl + 2, z0 + dz, B::STONE_PILLAR); cv.set(x0 + dx, fl + 3, z0 + dz, B::LANTERN); }
+                let [cx, cy, cz] = st.chest(); cv.set(cx, cy, cz, B::CHEST);
+            }
+            Relic::Vault => { // un caveau de maçonnerie à demi ruiné : quatre murs, une porte ouverte, un toit de dalles, le coffre au fond entre deux lanternes
+                let (a, b2, cap) = match hl.kind { Under::Desert => (B::SANDSTONE, B::RED_SANDSTONE, B::SANDSTONE), Under::Volcanic => (B::BASALT, B::OBSIDIAN, B::BASALT), Under::Abyss => (B::ABYSS_ROCK, B::CHISELED_STONE, B::STONE_BRICKS), _ => (B::STONE_BRICKS, B::COBBLESTONE, B::STONE_BRICKS) };
+                pad(cv, 3, Some(a), 4);
+                for dz in -3..=3i32 { for dx in -3..=3i32 { let (x, z) = (x0 + dx, z0 + dz); let edge = dx.abs() == 3 || dz.abs() == 3; let door = dz == -3 && dx == 0;
+                    if edge { for y in fl..fl + 3 { let worn = h(x, z, 3 + y - fl); if door && y < fl + 2 { continue; } if y == fl + 2 && worn < 0.22 { continue; } cv.set(x, y, z, if worn > 0.7 { b2 } else { a }); } }
+                    else if h(x, z, 8) > 0.18 { cv.set(x, fl + 3, z, if cap == B::STONE_BRICKS { B::STONE_BRICKS_SLAB } else { cap }); } } }
+                let [cx, cy, cz] = st.chest(); cv.set(cx, cy, cz, B::CHEST);
+                for dx in [-2, 2] { cv.set(x0 + dx, fl, z0 + 2, B::CHISELED_STONE); cv.set(x0 + dx, fl + 1, z0 + 2, B::LANTERN); }
+                cv.set(x0 - 2, fl, z0 - 1, B::BARREL); if h(x0, z0, 9) < 0.5 { cv.set(x0 + 2, fl, z0 - 2, B::CRATE); }
+            }
+        }
     }
 
     /// Un champignon géant : un pied pâle, un chapeau en dôme (rouge à pois, violet ou bleu), des lamelles qui luisent dessous.
@@ -480,7 +561,14 @@ impl crate::session::Session {
             self.player.yaw = ux.atan2(uz); self.player.pitch = -0.2;
             return format!("{} à {:.0}, {:.0} ({:.0} blocs d'ici) : elle mène à une {}", if want_mine { "Entrée de mine" } else { "Bouche de grotte" }, from[0], from[2], d, h.kind.name());
         }
-        let kind = match &arg { Some(a) => match UNDERS.iter().find(|k| k.key() == a.as_str() || k.name().contains(a.as_str())) { Some(k) => Some(*k), None => return format!("Biome inconnu. Au choix : {}, mine, bouche", UNDERS.iter().map(|k| k.key()).collect::<Vec<_>>().join(", ")) }, None => None };
+        if let Some(relic) = match arg.as_deref() { Some("camp") => Some(Relic::Camp), Some("autel") => Some(Relic::Altar), Some("caveau") => Some(Relic::Vault), _ => None } {
+            let Some((h, st)) = self.gen.nearest_site(p[0], p[2], 12, Some(relic)) else { return "Aucun vestige de ce genre dans les parages".into() };
+            // on arrive à quelques pas, face au vestige
+            let (dx, dz) = match relic { Relic::Vault => (0.5, -5.5), _ => (0.5, 5.5) }; self.player.p = [st.x as f64 + dx, st.fl as f64 + 0.2, st.z as f64 + dz]; self.player.v = [0.0; 3];
+            self.player.yaw = if dz > 0.0 { std::f64::consts::PI } else { 0.0 }; self.player.pitch = -0.1;
+            return format!("{} dans une {}, à {}, {}, {}", match relic { Relic::Camp => "Camp de mineurs abandonné", Relic::Altar => "Autel de cristal", Relic::Vault => "Caveau" }, h.kind.name(), st.x, st.fl, st.z);
+        }
+        let kind = match &arg { Some(a) => match UNDERS.iter().find(|k| k.key() == a.as_str() || k.name().contains(a.as_str())) { Some(k) => Some(*k), None => return format!("Biome inconnu. Au choix : {}, mine, bouche, camp, autel, caveau", UNDERS.iter().map(|k| k.key()).collect::<Vec<_>>().join(", ")) }, None => None };
         let Some(h) = self.gen.nearest_hall_of(p[0], p[2], 14, kind) else { return "Aucune grande grotte de ce genre dans les parages".into() };
         let Some(spot) = self.gen.hall_spot(&h, [h.x, h.z]) else { return "La grotte la plus proche n'a pas d'endroit sûr où se tenir".into() };
         self.player.p = spot; self.player.v = [0.0; 3];

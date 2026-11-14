@@ -698,6 +698,21 @@ impl Session {
                 slot = (slot + 1 + (r.next() * 3.0) as usize) % out.len(); while out[slot].is_some() { slot = (slot + 1) % out.len(); } out[slot] = Some(Stack { item: it.id, n: if one { None } else { Some(n.min(hi)) }, wear: 0 }); }
             return out;
         }
+        // Le coffre d'un vestige souterrain : ce que les mineurs ont laissé, les offrandes d'un autel, le trésor d'un caveau.
+        if let Some((relic, under)) = self.gen.cave_chest(p) {
+            use crate::karst::{Relic, Under};
+            let crystal = match under { Under::Glow => "crystal_blue", _ => ["crystal_violet", "crystal_blue", "crystal_pink", "crystal_white"][(p[0].unsigned_abs() as usize + p[2].unsigned_abs() as usize) % 4] };
+            let table: Vec<(&str, u32, u32, f64)> = match relic {
+                Relic::Camp => vec![("coal", 4, 12, 0.9), ("torch", 3, 8, 0.9), ("iron_ore", 2, 6, 0.6), ("copper_ore", 2, 6, 0.6), ("bread", 1, 3, 0.6), ("jerky", 1, 3, 0.5), ("rope", 1, 3, 0.5), ("rail", 4, 12, 0.4), ("pickaxe", 1, 1, 0.35), ("lantern", 1, 1, 0.3), ("worn_coin", 2, 8, 0.5)],
+                Relic::Altar => vec![(crystal, 3, 8, 1.0), ("worn_coin", 5, 15, 0.8), ("glass", 1, 4, 0.4), ("pearl", 1, 2, 0.35), ("candle", 1, 3, 0.5), ("steel_ingot", 1, 2, 0.25)],
+                Relic::Vault => vec![("worn_coin", 8, 24, 1.0), ("iron_ingot", 2, 5, 0.6), ("bronze_ingot", 1, 4, 0.5), ("torch", 2, 6, 0.6), ("bandage", 1, 3, 0.5), ("steel_ingot", 1, 2, 0.3), ("pearl", 1, 3, 0.3), ("iron_helmet", 1, 1, 0.15), ("rusty_scrap", 2, 5, 0.5)],
+            };
+            let mut r = crate::noise::Rng::new((p[0].wrapping_mul(73856093) ^ p[1].wrapping_mul(19349663) ^ p[2].wrapping_mul(83492791) ^ self.seed) as u32); let mut slot = 0;
+            for &(id, lo, hi, pr) in &table {
+                if r.next() >= pr { continue; } let Some(it) = item(id) else { continue }; let n = lo + (r.next() * (hi - lo + 1) as f64) as u32; let one = def(it.id).is_some_and(|d| d.stack <= 1);
+                slot = (slot + 1 + (r.next() * 3.0) as usize) % out.len(); while out[slot].is_some() { slot = (slot + 1) % out.len(); } out[slot] = Some(Stack { item: it.id, n: if one { None } else { Some(n.min(hi)) }, wear: 0 }); }
+            return out;
+        }
         let Some((v, h)) = self.town.here.iter().find_map(|v| v.houses.iter().find(|h| p[0] >= h.area[0] && p[0] <= h.area[2] && p[2] >= h.area[1] && p[2] <= h.area[3] && (p[1] - v.c[1]).abs() < 14).map(|h| (v, h))) else { return out };
         let table: &[(&str, u32, u32, f64)] = match h.craft {
             Some("forgeron") | Some("maitre_forgeron") => &[("coal", 3, 9, 0.9), ("iron_ore", 2, 5, 0.6), ("iron_ingot", 1, 3, 0.5), ("copper_ingot", 1, 3, 0.4), ("iron_hammer", 1, 1, 0.2), ("iron_knife", 1, 1, 0.25), ("charcoal", 2, 6, 0.4), ("bread", 1, 2, 0.5)],
