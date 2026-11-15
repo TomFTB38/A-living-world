@@ -27,7 +27,7 @@ impl Session {
     }
     /// Case de l'écran : sac, coffre ouvert ou équipement.
     pub fn slot(&self, i: usize) -> Option<Stack> {
-        if i == CUT0 { return self.cut_in; }
+        if i == CUT0 { return self.cut_in; } if i == COOK0 { return self.cook_in; } if i == FUEL0 { return self.cook_fuel; }
         if i < INV_SIZE { self.inv[i] } else if i < EQUIP0 { self.chest_cell(i).and_then(|(c, k)| self.chests.get(&c).and_then(|v| v.get(k).copied().flatten())) } else { self.equip.get(i - EQUIP0).copied().flatten() }
     }
     /// Une case du coffre à l'écran : quel coffre (le premier, ou son voisin pour la seconde moitié), et quelle case.
@@ -35,12 +35,12 @@ impl Session {
     /// Combien de cases de coffre sont ouvertes : aucune, un coffre, ou deux côte à côte.
     pub fn chest_cells(&self) -> usize { if self.chest.is_none() { 0 } else if self.chest2.is_some() { CHEST_VIEW } else { CHEST_SIZE } }
     fn set_slot(&mut self, i: usize, v: Option<Stack>) {
-        if i == CUT0 { self.cut_in = v; self.dirty = true; return; }
+        if i == CUT0 { self.cut_in = v; self.dirty = true; return; } if i == COOK0 { if v.map(|x| x.item) != self.cook_in.map(|x| x.item) { self.cook_t = 0.0; self.cook_sel = None; } self.cook_in = v; self.dirty = true; return; } if i == FUEL0 { self.cook_fuel = v; self.dirty = true; return; }
         if i < INV_SIZE { self.inv[i] = v; } else if i < EQUIP0 { if let Some((c, k)) = self.chest_cell(i) { if let Some(s) = self.chests.get_mut(&c).and_then(|x| x.get_mut(k)) { *s = v; } } } else if let Some(s) = self.equip.get_mut(i - EQUIP0) { *s = v; }
         if let Some(s) = v { self.seen.insert(s.item); } self.dirty = true;
     }
     /// Une case d'équipement n'accepte que ce qui se porte à cet endroit.
-    pub fn accepts(&self, i: usize, st: Stack) -> bool { if i == CUT0 { return self.cutting() && !cut_variants(st.item).is_empty(); } if i < EQUIP0 { return i < INV_SIZE || self.chest_cell(i).is_some(); } def(st.item).and_then(|d| d.wear).is_some_and(|w| w.slot == SLOTS[i - EQUIP0].0) }
+    pub fn accepts(&self, i: usize, st: Stack) -> bool { if i == CUT0 { return self.cutting() && !cut_variants(st.item).is_empty(); } if i == COOK0 { return self.cooking().is_some_and(|at| !cook_variants(at, st.item).is_empty()); } if i == FUEL0 { return self.cooking().is_some_and(|at| burns(at, st.item)); } if i < EQUIP0 { return i < INV_SIZE || self.chest_cell(i).is_some(); } def(st.item).and_then(|d| d.wear).is_some_and(|w| w.slot == SLOTS[i - EQUIP0].0) }
     /// Inventaire : prend ce qu'il y a dans une case. En créatif, le catalogue donne un tas plein.
     pub fn grab_slot(&mut self, i: usize) { if self.cursor.is_none() { if let Some(s) = self.slot(i) { self.set_slot(i, None); self.cursor = Some(s); self.from = Some(i); } } }
     pub fn grab_catalog(&mut self, id: &'static str) { if let Some(it) = item(id) { self.cursor = Some(Stack::new(it.id, if stackable(it.id) { Some(max_stack(it.id)) } else { None })); self.from = None; } }
@@ -81,6 +81,7 @@ impl Session {
         let mut range: Vec<usize> = if i >= EQUIP0 { (9..INV_SIZE).chain(0..9).collect() } else if i >= CHEST0 { (0..INV_SIZE).collect() } else if self.chest.is_some() { (CHEST0..CHEST0 + self.chest_cells()).collect() } else if i < 9 { (9..INV_SIZE).collect() } else { (0..9).collect() };
         if i < CHEST0 && self.chest.is_none() { if let Some(w) = def(s.item).and_then(|d| d.wear) { let e = EQUIP0 + SLOTS.iter().position(|x| x.0 == w.slot).unwrap_or(0); if self.slot(e).is_none() { range = vec![e]; } } }
         if i < INV_SIZE && self.chest.is_none() && self.accepts(CUT0, s) && self.cut_in.is_none_or(|c| c.item == s.item) { range = vec![CUT0]; } // à l'atelier de taille : Maj+clic pose le bloc
+        /* au four, au feu : le combustible va dans sa case, le reste dans celle du matériau */ if i < INV_SIZE && self.chest.is_none() && self.cooking().is_some() { if self.accepts(FUEL0, s) && self.cook_fuel.is_none_or(|c| c.item == s.item) { range = vec![FUEL0]; } else if self.accepts(COOK0, s) && self.cook_in.is_none_or(|c| c.item == s.item) { range = vec![COOK0]; } }
         let mut s = s; let max = max_stack(s.item);
         for k in range.clone() { if let (Some(o), Some(n)) = (self.slot(k), s.n) { if o.item == s.item { if let Some(c) = o.n { let m = n.min(max.saturating_sub(c)); self.set_slot(k, Some(Stack { n: Some(c + m), ..o })); s.n = Some(n - m); } } } }
         if s.n == Some(0) { self.set_slot(i, None); return; }
@@ -110,6 +111,34 @@ impl Session {
     /// Une recette est connue dès qu'on a eu en main l'un de ses ingrédients ou ce qu'elle produit.
     /// Est-on devant l'atelier de taille, en train de tailler (et non dans ses recettes) ?
     pub fn cutting(&self) -> bool { self.inv_open && self.cut_mode && self.at_station.is_some_and(|a| a.0 == Station::Mason) }
+    /// Est-on devant un four ou un feu de camp, sur ses deux cases (et non dans ses recettes) ?
+    pub fn cooking(&self) -> Option<Station> { if !self.inv_open || !self.cut_mode { return None; } self.at_station.map(|a| a.0).filter(|s| matches!(s, Station::Furnace | Station::Fire)) }
+    /// Ce que le matériau posé va donner : le choix du joueur s'il tient encore, sinon la première possibilité.
+    pub fn cook_now(&self) -> Option<Cook> { let at = self.cooking()?; let v = cook_variants(at, self.cook_in?.item); v.iter().find(|c| Some(c.out) == self.cook_sel).or(v.first()).copied() }
+    /// Pourquoi rien ne cuit : rien à dire si tout va bien.
+    pub fn cook_block(&self) -> Option<&'static str> {
+        let at = self.cooking()?; let Some(src) = self.cook_in else { return Some("Posez un matériau") }; let Some(c) = self.cook_now() else { return Some("Rien à en tirer ici") };
+        if src.n.unwrap_or(1) < c.need { return Some("Pas assez de matériau") }
+        if at == Station::Fire { let lit = self.at_station.is_some_and(|(_, p)| self.world.get(p[0], p[1], p[2]) == Some(B::CAMPFIRE)); if !lit { return Some("Le feu est éteint") } }
+        else if self.cook_fuel.and_then(|f| f.n).unwrap_or(0) < c.fuel { return Some("Il manque du combustible") }
+        None
+    }
+    /// La cuisson avance toute seule tant que matériau et combustible sont là ; le feu de camp se nourrit de sa case.
+    fn cook_tick(&mut self, dt: f64) {
+        let Some(at) = self.cooking() else {
+            for st in [self.cook_in.take(), self.cook_fuel.take()].into_iter().flatten() { if let Some(left) = self.add_stack(st) { let p = self.player.p; self.spill(left.item, left.n.unwrap_or(1), [p[0], p[1] + 1.0, p[2]]); } }
+            self.cook_t = 0.0; self.cook_sel = None; return; };
+        // le feu de camp : une bûche de la case part au foyer quand il faiblit
+        if at == Station::Fire { if let (Some((_, p)), Some(f)) = (self.at_station, self.cook_fuel) { if self.world.get(p[0], p[1], p[2]) == Some(B::CAMPFIRE) && self.fires.get(&p).copied().unwrap_or(0.0) < 30.0 {
+            let add = def(f.item).map_or(0.0, |d| d.fuel) * FUEL_SCALE; *self.fires.entry(p).or_insert(0.0) += add; let n = f.n.unwrap_or(1).saturating_sub(1); self.cook_fuel = if n == 0 { None } else { Some(Stack { n: Some(n), ..f }) }; self.dirty = true; } } }
+        if self.cook_block().is_some() { self.cook_t = 0.0; return; } let (Some(c), Some(src)) = (self.cook_now(), self.cook_in) else { return };
+        if at == Station::Furnace { self.light_furnace(); }
+        self.cook_t += dt; if self.cook_t < Job::time(at) { return; } self.cook_t = 0.0;
+        let left = src.n.unwrap_or(1) - c.need; self.cook_in = if left > 0 { Some(Stack { n: Some(left), ..src }) } else { None };
+        if c.fuel > 0 { if let Some(f) = self.cook_fuel { let n = f.n.unwrap_or(1).saturating_sub(c.fuel); self.cook_fuel = if n == 0 { None } else { Some(Stack { n: Some(n), ..f }) }; } }
+        let rest = self.add_item(c.out, c.n); if rest > 0 { let p = self.player.p; self.spill(c.out, rest, [p[0], p[1] + 1.0, p[2]]); }
+        self.sound.place(if at == Station::Fire { "campfire" } else { "furnace" }); self.dirty = true;
+    }
     /// Taille le bloc posé à l'atelier dans la variante choisie : une fois, ou tout le tas. Rend le nombre d'objets obtenus.
     pub fn cut(&mut self, out: &str, all: bool) -> Result<u32, &'static str> {
         if !self.cutting() { return Err("Il faut être à l'atelier de taille"); } let Some(src) = self.cut_in else { return Err("Posez d'abord un bloc dans l'atelier") };
@@ -142,6 +171,7 @@ impl Session {
     /// L'ouvrage avance : un coup, un trait de scie, un souffle de soufflet à chaque temps ; au bout, l'objet.
     pub(crate) fn job_tick(&mut self, dt: f64) {
         if !self.inv_open { self.at_station = None; }
+        self.cook_tick(dt);
         // on quitte l'atelier de taille : le bloc posé revient au sac (ou tombe aux pieds s'il est plein)
         if !self.cutting() { if let Some(st) = self.cut_in.take() { if let Some(left) = self.add_stack(st) { let p = self.player.p; self.spill(left.item, left.n.unwrap_or(1), [p[0], p[1] + 1.0, p[2]]); } } }
         let Some(mut j) = self.job else { return };
@@ -722,6 +752,16 @@ pub fn station_of(b: Id) -> Option<Station> { match b { B::WORKBENCH => Some(Sta
 /// Tout ce qu'on peut tirer d'un bloc à l'atelier de taille : ses formes (dalle, escalier, pilier, muret, pans de toit, poutres…)
 /// et ses déclinaisons décoratives. Deux sources : les recettes qui ne consomment que ce bloc (l'atelier tient lieu d'outil),
 /// et les formes de construction taillées dans cette matière. Rien pour un objet qui n'est pas un bloc.
+/// Une cuisson : ce qui sort, combien, pour combien de matériau et de combustible.
+#[derive(Clone, Copy, Debug, PartialEq)] pub struct Cook { pub out: &'static str, pub n: u32, pub need: u32, pub fuel: u32 }
+/// Ce qu'un four ou un feu de camp tire d'un seul matériau (les recettes à plusieurs ingrédients restent au livre).
+pub fn cook_variants(at: Station, src: &str) -> Vec<Cook> {
+    if !matches!(at, Station::Furnace | Station::Fire) { return Vec::new(); }
+    recipes().iter().filter(|r| r.at == at && r.artisan.is_none()).filter_map(|r| { let mats: Vec<&crate::data::Need> = r.need.iter().filter(|n| n.id != "fuel").collect(); if mats.len() != 1 || mats[0].keep || !members(mats[0].id).contains(&src) { return None; }
+        Some(Cook { out: r.out, n: r.n, need: mats[0].n, fuel: r.need.iter().filter(|n| n.id == "fuel").map(|n| n.n).sum() }) }).collect()
+}
+/// Ce qui brûle : au four le charbon, au feu de camp tout ce qui nourrit un feu.
+pub fn burns(at: Station, id: &str) -> bool { match at { Station::Furnace => members("fuel").contains(&id), Station::Fire => def(id).is_some_and(|d| d.fuel > 0.0 && d.block.is_none_or(|b| !is_deco(b))), _ => false } }
 pub fn cut_variants(src: &str) -> Vec<Cut> {
     // l'écran les redemande à chaque image : on garde la réponse
     static CACHE: std::sync::Mutex<Option<HashMap<String, Vec<Cut>>>> = std::sync::Mutex::new(None);
