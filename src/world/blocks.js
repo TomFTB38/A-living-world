@@ -421,6 +421,12 @@ for (const sp of ['oak', 'birch', 'beech', 'spruce', 'acacia']) {
 // Pointes (stalactites vers le bas, stalagmites vers le haut) de chaque roche de grotte : la forme est celle des concrétions.
 for (const m of ['stone', 'ice', 'basalt', 'sandstone', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white']) for (const d of ['down', 'up']) for (const k of [0, 1, 2])
   defs.push([`${m}_point_${d}_${k}`, 'deco', null, 0.8, { model: 'dripstone', solid: true, cat: 'rock', drop: m }]);
+// Les roches brutes se taillent aussi : dalle (basse, haute), escalier (quatre sens, à l'endroit, renversé), dalle debout.
+for (const [m, h] of [['stone', 1.3], ['limestone', 1.2], ['granite', 1.6], ['sandstone', 1.0]]) {
+  for (const t of ['', '_top']) defs.push([`${m}_slab${t}`, 'deco', null, h * 0.6, { model: 'slab', solid: true, cat: 'rock', drop: `${m}_slab` }]);
+  for (const t of ['', '_top']) for (const f of ['', '_1', '_2', '_3']) defs.push([`${m}_stairs${t}${f}`, 'deco', null, h, { model: 'stairs', solid: true, cat: 'rock', drop: `${m}_stairs` }]);
+  for (const f of ['', '_1', '_2', '_3']) defs.push([`${m}_vslab${f}`, 'deco', null, h * 0.6, { model: 'slab', solid: true, cat: 'rock', drop: `${m}_vslab` }]);
+}
 // Lianes lumineuses (turquoise), racines qui percent les voûtes, rails des vieilles mines (dans les deux sens).
 // Toile d'araignée (on la traverse, engluée : elle ralentit ; coupée, elle rend sa soie) et bocal à scarabée (une lanterne vivante).
 defs.push(['cobweb', 'deco', null, 0.3, { model: 'cobweb', cat: 'foliage', drop: 'silk' }], ['glow_jar', 'deco', null, 0.3, { model: 'glow_jar', solid: true, light: 9, cat: 'light', drop: 'glow_jar' }]);

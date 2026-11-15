@@ -566,3 +566,15 @@ silk | Soie d'araignée | matieres | 0.05 | 99 | Un fil fin et très solide, pri
 glowbug | Scarabée lumineux | matieres | 0.05 | 16 | Cueilli dans une grotte ; son abdomen luit sans jamais chauffer. Dans un bocal de verre, il fait une lanterne. |
 glow_jar | Bocal à scarabée | ateliers | 0.5 | 64 | Une lanterne vivante : une lueur bleu-vert, douce, qui ne s'éteint pas. |
 ember_gland | Glande de braise | matieres | 0.3 | 64 | Arrachée à un rampant de magma, encore chaude : elle brûle très longtemps. | combustible=160
+stone_slab | Dalle de pierre | batir | 0.8 | 64 | Un demi-bloc de pierre brute. |
+stone_stairs | Escalier de pierre | batir | 1.2 | 64 | Des marches taillées dans la pierre. |
+stone_vslab | Dalle verticale de pierre | batir | 1.0 | 64 | Un demi-bloc debout de pierre. |
+limestone_slab | Dalle de calcaire | batir | 0.8 | 64 | Un demi-bloc de calcaire brut. |
+limestone_stairs | Escalier de calcaire | batir | 1.2 | 64 | Des marches taillées dans le calcaire. |
+limestone_vslab | Dalle verticale de calcaire | batir | 1.0 | 64 | Un demi-bloc debout de calcaire. |
+granite_slab | Dalle de granit | batir | 0.8 | 64 | Un demi-bloc de granit brut. |
+granite_stairs | Escalier de granit | batir | 1.2 | 64 | Des marches taillées dans le granit. |
+granite_vslab | Dalle verticale de granit | batir | 1.0 | 64 | Un demi-bloc debout de granit. |
+sandstone_slab | Dalle de grès | batir | 0.8 | 64 | Un demi-bloc de grès brut. |
+sandstone_stairs | Escalier de grès | batir | 1.2 | 64 | Des marches taillées dans le grès. |
+sandstone_vslab | Dalle verticale de grès | batir | 1.0 | 64 | Un demi-bloc debout de grès. |

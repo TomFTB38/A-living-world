@@ -36,3 +36,11 @@ fn on_pose_un_bloc_et_on_le_taille() {
     s.cut_mode = false; assert!(!s.cutting() && s.cut("stone_bricks_slab", false).is_err()); s.cut_mode = true;
     s.inv_open = false; s.tick(1.0 / 30.0, Input::default(), Actions::default()); assert!(s.cut_in.is_none() && s.at_station.is_none()); assert_eq!(s.count("stone_bricks"), 5, "le reste revient au sac");
 }
+
+#[test]
+fn la_roche_brute_a_ses_marches_et_ses_dalles() {
+    use alw_core::play::cut_variants;
+    for m in ["stone", "limestone", "granite", "sandstone"] { let v = cut_variants(m); for sfx in ["_slab", "_stairs", "_vslab"] { let want = format!("{m}{sfx}"); assert!(v.iter().any(|c| c.out == want), "{m} ne donne pas {want}"); } }
+    // la matière d'une marche de pierre brute est la pierre brute, pas la pierre taillée
+    use alw_core::blocks::by_name; assert_eq!(alw_core::shapes::material(by_name("stone_stairs_top_2").unwrap()), by_name("stone").unwrap()); assert_eq!(alw_core::shapes::material(by_name("stone_bricks_stairs").unwrap()), by_name("stone_bricks").unwrap());
+}

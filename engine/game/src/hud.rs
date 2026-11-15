@@ -328,15 +328,15 @@ impl Ui {
             Station::Bench => { // des planches en travers, leurs joints, leurs clous ; un bandeau d'en-tête plus sombre au bord en dents de scie
                 let ph = 44.0 * k; let n = (h / ph).ceil() as i32;
                 for i in 0..n { let yy = y + i as f32 * ph; let hh = ph.min(y + h - yy); self.rect(x, yy, w, hh, if i % 2 == 0 { [0.42, 0.27, 0.13, 0.16] } else { [0.2, 0.12, 0.05, 0.14] }); self.rect(x, yy, w, 2.0 * k, [0.05, 0.03, 0.01, 0.5]);
-                    let cut = x + w * (0.25 + 0.5 * hash(i, 3)); self.rect(cut, yy, 2.0 * k, hh, [0.05, 0.03, 0.01, 0.35]);
-                    for nx in [x + 8.0 * k, x + w - 12.0 * k, cut - 8.0 * k, cut + 6.0 * k] { self.rect(nx, yy + hh * 0.5 - 2.0 * k, 4.0 * k, 4.0 * k, [0.75, 0.7, 0.6, 0.55]); } }
+                    let cut = x + w * (0.25 + 0.5 * hash(i, 3)); self.rect(cut, yy, 2.0 * k, hh, [0.05, 0.03, 0.01, 0.22]);
+                    for nx in [x + 8.0 * k, x + w - 12.0 * k] { self.rect(nx, yy + hh * 0.5 - 2.0 * k, 4.0 * k, 4.0 * k, [0.75, 0.7, 0.6, 0.55]); } }
                 self.rect(x, y, w, head, [0.1, 0.06, 0.03, 0.55]); let tw = 14.0 * k; for i in 0..(w / tw) as i32 { let tx = x + i as f32 * tw; self.quad([[tx, y + head], [tx + tw, y + head], [tx + tw * 0.5, y + head + 7.0 * k], [tx + tw * 0.5, y + head + 7.0 * k]], [[0.0; 2]; 4], [0.1, 0.06, 0.03, 0.55], LAYER_FLAT); }
                 frame(self, [0.62, 0.42, 0.22, 0.9], [0.22, 0.13, 0.06, 0.9], 4.0 * k);
             }
             Station::Anvil => { // une tôle sombre brossée, des rivets tout autour, la lueur des braises qui monte du bas
                 for i in 0..(h / (6.0 * k)) as i32 { if hash(i, 1) < 0.5 { self.rect(x, y + i as f32 * 6.0 * k, w, 1.0 * k, [1.0, 1.0, 1.0, 0.025]); } }
-                for i in 0..12 { let f = i as f32 / 12.0; let a = 0.02 + 0.09 * f * (0.8 + 0.2 * (t * 2.3 + f * 4.0).sin()); self.rect(x, y + h - 70.0 * k * (1.0 - f), w, 70.0 * k / 12.0 + 1.0, [1.0, 0.36, 0.06, a]); }
-                self.rect(x, y, w, head, [0.0, 0.0, 0.0, 0.4]); self.rect(x, y + head, w, 3.0 * k, [0.62, 0.64, 0.7, 0.8]); self.rect(x, y + head + 3.0 * k, w, 2.0 * k, [0.0, 0.0, 0.0, 0.6]);
+                for i in 0..12 { let f = i as f32 / 12.0; let a = 0.03 + 0.2 * f * (0.8 + 0.2 * (t * 2.3 + f * 4.0).sin()); self.rect(x, y + h - 70.0 * k * (1.0 - f), w, 70.0 * k / 12.0 + 1.0, [1.0, 0.36, 0.06, a]); }
+                self.rect(x, y, w, head, [0.32, 0.34, 0.4, 0.45]); self.rect(x, y, w, head * 0.45, [1.0, 1.0, 1.0, 0.05]); for (px, py) in [(x, y), (x + w - 30.0 * k, y), (x, y + h - 30.0 * k), (x + w - 30.0 * k, y + h - 30.0 * k)] { self.rect(px, py, 30.0 * k, 30.0 * k, [0.36, 0.38, 0.44, 0.9]); self.rect(px + 2.0 * k, py + 2.0 * k, 26.0 * k, 26.0 * k, [0.22, 0.23, 0.27, 0.9]); } self.rect(x, y + head, w, 3.0 * k, [0.62, 0.64, 0.7, 0.8]); self.rect(x, y + head + 3.0 * k, w, 2.0 * k, [0.0, 0.0, 0.0, 0.6]);
                 frame(self, [0.5, 0.52, 0.58, 0.95], [0.18, 0.19, 0.22, 0.95], 5.0 * k);
                 let step = 56.0 * k; let rv = |ui: &mut Ui, cx: f32, cy: f32| { ui.rect(cx - 4.0 * k, cy - 4.0 * k, 8.0 * k, 8.0 * k, [0.1, 0.1, 0.12, 0.9]); ui.rect(cx - 3.0 * k, cy - 3.0 * k, 5.0 * k, 5.0 * k, [0.72, 0.74, 0.8, 0.95]); };
                 let mut cx = x + 14.0 * k; while cx < x + w - 8.0 * k { rv(self, cx, y + 13.0 * k); rv(self, cx, y + h - 13.0 * k); cx += step; }
@@ -355,7 +355,7 @@ impl Ui {
                 let (cx, by) = (x + w * 0.5, y + h - 10.0 * k);
                 for i in 0..14 { let f = i as f32 / 14.0; self.rect(cx - 150.0 * k * (1.0 - f * 0.6), by - 120.0 * k * f, 300.0 * k * (1.0 - f * 0.6), 120.0 * k / 14.0 + 1.0, [1.0, 0.45, 0.1, 0.05 * (1.0 - f)]); }
                 for i in 0..7 { let f = (i as f32 - 3.0) / 3.0; let fh = (46.0 - 24.0 * f.abs()) * k * (0.7 + 0.3 * (t * (6.0 + i as f32) + i as f32 * 2.1).sin().abs()); let fx = cx + f * 34.0 * k; self.rect(fx - 6.0 * k, by - 12.0 * k - fh, 12.0 * k, fh, [1.0, 0.4, 0.08, 0.85]); self.rect(fx - 3.0 * k, by - 12.0 * k - fh * 0.6, 6.0 * k, fh * 0.6, [1.0, 0.86, 0.32, 0.9]); }
-                for i in 0..9 { let f = (i as f32 - 4.0) / 4.0; let sw = (20.0 + 8.0 * hash(i, 5)) * k; self.rect(cx + f * 62.0 * k - sw * 0.5, by - 14.0 * k + 4.0 * k * f.abs(), sw, 14.0 * k, [0.36 + 0.1 * hash(i, 6), 0.35, 0.33, 1.0]); self.rect(cx + f * 62.0 * k - sw * 0.5, by - 14.0 * k + 4.0 * k * f.abs(), sw, 3.0 * k, [0.6, 0.58, 0.55, 0.8]); }
+                for i in 0..7 { let f = (i as f32 - 3.0) / 3.0; let sw = (17.0 + 6.0 * hash(i, 5)) * k; let sh = (11.0 + 5.0 * hash(i, 4)) * k; let (sx, sy) = (cx + f * 78.0 * k - sw * 0.5, by - sh + 3.0 * k * (1.0 - f.abs())); let g = 0.34 + 0.12 * hash(i, 6); self.rect(sx, sy + 3.0 * k, sw, sh - 3.0 * k, [g, g * 0.97, g * 0.93, 1.0]); self.rect(sx + 3.0 * k, sy, sw - 6.0 * k, 4.0 * k, [g + 0.14, g + 0.12, g + 0.1, 1.0]); self.rect(sx, sy + sh - 3.0 * k, sw, 3.0 * k, [0.0, 0.0, 0.0, 0.35]); }
                 for i in 0..10 { let ph = (t * (0.25 + 0.1 * hash(i, 7)) + hash(i, 8)).fract(); self.rect(cx + (hash(i, 9) - 0.5) * 120.0 * k + (t * 1.3 + i as f32).sin() * 8.0 * k, by - 40.0 * k - ph * h * 0.55, 3.0 * k, 3.0 * k, [1.0, 0.7, 0.25, 0.8 * (1.0 - ph)]); }
                 frame(self, [0.4, 0.22, 0.12, 0.9], [0.08, 0.05, 0.05, 0.9], 4.0 * k);
             }

@@ -223,7 +223,7 @@ impl Gpu {
                 p.set_pipeline(&pipe); p.set_bind_group(0, &bg, &[]); p.set_index_buffer(ibuf.slice(..), wgpu::IndexFormat::Uint32); p.set_vertex_buffer(0, actor_vb.slice(..)); p.set_vertex_buffer(1, ib.slice(..));
                 for (i, id) in order().iter().enumerate() {
                     let (cx, cy) = (i as u32 % ICON_COLS, i as u32 / ICON_COLS); let r = models.held(id).expect("objet").r; let c = ICON_CELL as f32;
-                    p.set_viewport(cx as f32 * c, cy as f32 * c, c, c, 0.0, 1.0); p.draw_indexed(r.first..r.first + r.count, 0, i as u32..i as u32 + 1);
+                    p.set_viewport(cx as f32 * c, cy as f32 * c, c, c, 0.0, 1.0); p.draw_indexed(0..r.count, (r.first / 6 * 4) as i32, i as u32..i as u32 + 1);
                 }
             }
             queue.submit([enc.finish()]);
@@ -280,8 +280,8 @@ impl Gpu {
             for c in &list_all { let (dx, dz) = (c.c[0] - ex, c.c[1] - ez); if dx * dx + dz * dz > r * r { continue; } if let Some(q) = &c.opaque { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }
             if i == 0 {
                 p.set_pipeline(&self.p.actor_shadow); p.set_vertex_buffer(0, self.actor_vb.slice(..)); p.set_vertex_buffer(1, self.actor_inst.slice(..));
-                for (k, d) in draws.iter().enumerate() { if !d.view && !d.dynamic { p.draw_indexed(d.r.first..d.r.first + d.r.count, 0, k as u32..k as u32 + 1); } }
-                p.set_vertex_buffer(0, self.fall_vb.slice(..)); for (k, d) in draws.iter().enumerate() { if d.dynamic { p.draw_indexed(d.r.first..d.r.first + d.r.count, 0, k as u32..k as u32 + 1); } }
+                for (k, d) in draws.iter().enumerate() { if !d.view && !d.dynamic { p.draw_indexed(0..d.r.count, (d.r.first / 6 * 4) as i32, k as u32..k as u32 + 1); } }
+                p.set_vertex_buffer(0, self.fall_vb.slice(..)); for (k, d) in draws.iter().enumerate() { if d.dynamic { p.draw_indexed(0..d.r.count, (d.r.first / 6 * 4) as i32, k as u32..k as u32 + 1); } }
                 p.set_pipeline(&self.p.shadow_d);
                 for c in &list_all { let (dx, dz) = (c.c[0] - ex, c.c[1] - ez); if dx * dx + dz * dz > DECO_SHADOW * DECO_SHADOW { continue; } if let Some(q) = &c.deco { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }
             }
@@ -306,7 +306,7 @@ impl Gpu {
             p.set_pipeline(&self.p.geom_o);
             for c in &list { if let Some(q) = &c.opaque { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }
             if let Some(f) = &self.far { p.set_vertex_buffer(0, f.part.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(f.slot * 16..f.slot * 16 + 16)); p.draw_indexed(0..f.part.indices, 0, 0..1); tris += f.part.indices as usize / 3; }
-            if !draws.is_empty() { p.set_pipeline(&self.p.actor); p.set_vertex_buffer(0, self.actor_vb.slice(..)); p.set_vertex_buffer(1, self.actor_inst.slice(..)); for (k, d) in draws.iter().enumerate() { if !d.dynamic { p.draw_indexed(d.r.first..d.r.first + d.r.count, 0, k as u32..k as u32 + 1); } } p.set_vertex_buffer(0, self.fall_vb.slice(..)); for (k, d) in draws.iter().enumerate() { if d.dynamic { p.draw_indexed(d.r.first..d.r.first + d.r.count, 0, k as u32..k as u32 + 1); } } }
+            if !draws.is_empty() { p.set_pipeline(&self.p.actor); p.set_vertex_buffer(0, self.actor_vb.slice(..)); p.set_vertex_buffer(1, self.actor_inst.slice(..)); for (k, d) in draws.iter().enumerate() { if !d.dynamic { p.draw_indexed(0..d.r.count, (d.r.first / 6 * 4) as i32, k as u32..k as u32 + 1); } } p.set_vertex_buffer(0, self.fall_vb.slice(..)); for (k, d) in draws.iter().enumerate() { if d.dynamic { p.draw_indexed(0..d.r.count, (d.r.first / 6 * 4) as i32, k as u32..k as u32 + 1); } } }
             p.set_pipeline(&self.p.geom_d);
             for c in &list { if let Some(q) = &c.deco { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }
         }
