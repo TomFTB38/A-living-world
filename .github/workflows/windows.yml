@@ -87,6 +87,9 @@ jobs:
           shot plat_monte -41 56.62 -18 -41 56.2 -12 10 4 1280 720 2048 plat_monte
           shot plat_chevaux -40.8 56.7 -32 -40.8 55.9 -24 10 4 1280 720 2048 plat_chevaux
           shot plat_galop -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_galop
+          shot plat_saut -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut
+          shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
+          shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte
           shot plat_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_loup
           shot bourg_vue -1478 104 1470 -1535 58 1525 15.5 7 1280 720 2048
           shot bourg_mairie -1522 68 1506 -1538 60 1484 16 6 1280 720 2048

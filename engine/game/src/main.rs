@@ -427,6 +427,27 @@ fn capture(a: &[String]) {
         for _ in 0..47 { s.tick(1.0 / 30.0, Input { z: 1.0, sprint: true, ..none }, Actions::default()); } pump(&mut s, &mut g);
         let p = s.wild.all[0].p; let e = [p[0] + 6.5, p[1] + 1.6, p[2] - 1.0]; s.eye = e; s.look = view::norm([p[0] - e[0], p[1] + 1.0 - e[1], p[2] + 0.4 - e[2]]);
     }
+    // En selle, en plein saut : le cavalier regarde de côté, son corps reste dans l'axe de la monture.
+    if scene == "plat_saut" || scene == "plat_saut_loup" {
+        use alw_core::wild::Kind as K; let y = alw_core::gen::FLAT_Y as f64 + 1.0; s.wild.all.clear(); let kind = if scene == "plat_saut" { K::Horse } else { K::Wolf };
+        s.wild.put(kind, [s.player.p[0], y, s.player.p[2]], 0.0, false); { let c = s.wild.all.last_mut().unwrap(); c.farm.tame = true; c.farm.saddle = true; c.color = 1; }
+        s.player.yaw = 0.0; s.ride = Some(s.wild.all[0].farm.id); s.third = true; s.sel = 8;
+        for _ in 0..40 { s.tick(1.0 / 30.0, Input { z: 1.0, sprint: true, ..none }, Actions::default()); }
+        for _ in 0..9 { s.tick(1.0 / 30.0, Input { z: 1.0, sprint: true, jump: true, ..none }, Actions::default()); }
+        s.player.yaw = 1.3; s.tick(0.0, none, Actions::default()); pump(&mut s, &mut g);
+        let p = s.wild.all[0].p; println!("{scene} : monture à {:.2} au-dessus du sol, cap {:.2}", p[1] - y, s.wild.all[0].yaw);
+        let e = [p[0] + 6.0, y + 1.6, p[2] + 2.5]; s.eye = e; s.look = view::norm([p[0] - e[0], p[1] + 1.0 - e[1], p[2] - e[2]]);
+    }
+    // La faune d'une grotte : des chauves-souris devant soi, un lézard au sol.
+    if scene == "faune_grotte" {
+        use alw_core::wild::Kind as K; pump(&mut s, &mut g); let m = s.goto_hall(Some("karst")); println!("{scene} : {m}"); s.third = false; s.sel = 8; pump(&mut s, &mut g);
+        for _ in 0..30 { s.tick(0.1, none, Actions::default()); } s.wild.all.clear();
+        let (e, yaw) = (s.player.eye(), s.player.yaw); let (fx, fz) = (yaw.sin(), yaw.cos());
+        for (d, side, up, turn) in [(3.0, -0.8, 0.3, 0.6), (4.0, 0.9, 0.8, -1.2), (5.5, -1.8, 1.2, 2.2), (6.5, 1.6, 0.2, 1.4), (8.0, 0.0, 1.6, -0.4)] {
+            s.wild.put(K::Bat, [e[0] + fx * d + fz * side, e[1] + up, e[2] + fz * d - fx * side], yaw + turn, true); let c = s.wild.all.last_mut().unwrap(); c.phase = d * 1.7; }
+        s.wild.put(K::Lizard, [e[0] + fx * 2.5 + fz * 0.6, s.player.p[1], e[2] + fz * 2.5 - fx * 0.6], yaw + 1.2, false);
+        s.tick(0.0, none, Actions::default()); println!("{scene} : {} bêtes", s.wild.all.len());
+    }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
     if scene == "abattage" {

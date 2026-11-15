@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu ronds vestige_camp vestige_autel vestige_caveau mine_entree sous_lumineuse
+spawn jeu plat_saut plat_saut_loup faune_grotte
