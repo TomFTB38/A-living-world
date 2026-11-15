@@ -100,7 +100,7 @@ impl Ai { pub fn name(self) -> &'static str { match self { Ai::Repos => "repos",
 pub struct Foe {
     pub sp: usize, pub p: [f64; 3], pub yaw: f64, pub hp: f64, pub max: f64, pub state: Ai, t: f64, cd: f64,
     /// Attaque annoncée en cours : temps restant avant le coup (0 : pas d'attaque).
-    pub wind: f64, pub hit: f64, pub phase: f64, pub speed: f64, v: [f64; 3], gy: f64,
+    pub wind: f64, pub hit: f64, pub phase: f64, pub speed: f64, v: [f64; 3], gy: f64, /** gardien d'un lieu : le jour ne le chasse pas */ pub kept: bool,
     /// Où elle croit le joueur, et depuis quand elle ne l'a plus vu ; l'éveil monte avec ce qu'elle voit et entend.
     pub seen: Option<[f64; 3]>, lost: f64, pub alert: f64, home: [f64; 3],
     /// Mort en cours (s) ; variante d'équipement ; vétéran (un peu plus dur, meilleur butin) ; bond ou course en cours.
@@ -133,7 +133,7 @@ impl Horde {
     pub fn put(&mut self, sp: usize, p: [f64; 3], yaw: f64, vet: bool) -> usize {
         let s = &bestiary().species[sp]; let max = s.hp * if vet { 1.25 } else { 1.0 }; self.groups += 1; let variant = (self.rng.next() * 3.0) as u8;
         self.foes.push(Foe { sp, p, yaw, hp: max, max, state: if s.ambush { Ai::Embuscade } else { Ai::Repos }, t: self.rng.range(1.0, 4.0), cd: 0.5, wind: 0.0, hit: 0.0, phase: 0.0, speed: 0.0, v: [0.0; 3], gy: p[1],
-            seen: None, lost: 0.0, alert: 0.0, home: p, guard: 0.0, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups, up: 0.0 });
+            seen: None, lost: 0.0, alert: 0.0, home: p, guard: 0.0, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups, up: 0.0, kept: false });
         self.spawned += 1; self.foes.len() - 1
     }
     /// Un coup porté : moins fort sur une armure, plus fort avec l'arme qui la blesse le mieux ; rend vrai si elle meurt.
@@ -221,7 +221,7 @@ impl Horde {
         }
         // Au lever du jour, celles qui ne se battent pas s'éloignent et s'effacent hors de vue ; les mortes, une fois tombées ; les trop lointaines.
         let day = c.night < 0.2 && c.cave < 0.5; // sous terre, il n'y a pas de lever du jour
-        all.retain(|f| { let d = hypot2(f.p[0] - me[0], f.p[2] - me[2]); !(f.dead > 1.6 || d > r.forget || (day && f.state != Ai::Combat && d > 20.0 && f.dead == 0.0) || f.p[1] < -20.0 || w.get(f.p[0].floor() as i32, f.p[1].floor() as i32, f.p[2].floor() as i32).is_none()) });
+        all.retain(|f| { let d = hypot2(f.p[0] - me[0], f.p[2] - me[2]); !(f.dead > 1.6 || d > r.forget || (day && !f.kept && f.state != Ai::Combat && d > 20.0 && f.dead == 0.0) || f.p[1] < -20.0 || w.get(f.p[0].floor() as i32, f.p[1].floor() as i32, f.p[2].floor() as i32).is_none()) });
         self.foes = all;
     }
 
