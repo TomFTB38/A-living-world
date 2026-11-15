@@ -132,7 +132,7 @@ workbench | Établi | ateliers | 12 | 8 | Le premier atelier : outils, coffres, 
 campfire | Feu de camp | ateliers | 6 | 8 | Cuit, fait bouillir, réchauffe et éclaire ; à nourrir de bois. |
 furnace | Four | ateliers | 30 | 8 | Fond les minerais et cuit les briques. Il faut du charbon. |
 anvil | Enclume | ateliers | 25 | 8 | Forge les outils de métal ; il faut un marteau. |
-mason_bench | Banc de taille | ateliers | 15 | 8 | Taille la pierre en blocs, en pavés et en dalles ; il faut un marteau. |
+mason_bench | Atelier de taille | ateliers | 15 | 8 | Posez-y un bloc de pierre, de bois, de brique ou de tuile : il se taille en toutes ses formes (dalles, escaliers, piliers, murets, pans de toit, poutres) et ses déclinaisons. Il garde aussi ses recettes de maçonnerie. |
 chest | Coffre | ateliers | 8 | 8 | Range vingt-sept piles d'objets. Clic droit pour l'ouvrir. |
 bedroll | Sac de couchage | ateliers | 2 | 8 | Pour dormir à la belle étoile. Clic droit la nuit ou fatigué. |
 bed | Lit | ateliers | 20 | 8 | Un vrai repos : on se réveille frais et on y réapparaît. |

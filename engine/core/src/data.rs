@@ -44,8 +44,8 @@ impl Tool {
 }
 #[derive(Clone, Copy, Debug, PartialEq)] pub enum Station { Hand, Bench, Fire, Furnace, Anvil, Mason }
 impl Station {
-    pub fn label(self) -> &'static str { match self { Station::Hand => "À la main", Station::Bench => "Près d'un établi", Station::Fire => "Près d'un feu de camp allumé", Station::Furnace => "Près d'un four", Station::Anvil => "Près d'une enclume", Station::Mason => "Près d'un banc de taille" } }
-    pub fn name(self) -> &'static str { match self { Station::Hand => "main", Station::Bench => "établi", Station::Fire => "feu de camp", Station::Furnace => "four", Station::Anvil => "enclume", Station::Mason => "banc de taille" } }
+    pub fn label(self) -> &'static str { match self { Station::Hand => "À la main", Station::Bench => "Près d'un établi", Station::Fire => "Près d'un feu de camp allumé", Station::Furnace => "Près d'un four", Station::Anvil => "Près d'une enclume", Station::Mason => "Près d'un atelier de taille" } }
+    pub fn name(self) -> &'static str { match self { Station::Hand => "main", Station::Bench => "établi", Station::Fire => "feu de camp", Station::Furnace => "four", Station::Anvil => "enclume", Station::Mason => "atelier de taille" } }
     pub const ALL: [Station; 6] = [Station::Hand, Station::Bench, Station::Fire, Station::Furnace, Station::Anvil, Station::Mason];
 }
 /// Un ingrédient : un objet ou un groupe, combien, et s'il est seulement nécessaire (un outil qu'on garde).

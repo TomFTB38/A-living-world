@@ -27,6 +27,7 @@ impl Session {
     }
     /// Case de l'écran : sac, coffre ouvert ou équipement.
     pub fn slot(&self, i: usize) -> Option<Stack> {
+        if i == CUT0 { return self.cut_in; }
         if i < INV_SIZE { self.inv[i] } else if i < EQUIP0 { self.chest_cell(i).and_then(|(c, k)| self.chests.get(&c).and_then(|v| v.get(k).copied().flatten())) } else { self.equip.get(i - EQUIP0).copied().flatten() }
     }
     /// Une case du coffre à l'écran : quel coffre (le premier, ou son voisin pour la seconde moitié), et quelle case.
@@ -34,11 +35,12 @@ impl Session {
     /// Combien de cases de coffre sont ouvertes : aucune, un coffre, ou deux côte à côte.
     pub fn chest_cells(&self) -> usize { if self.chest.is_none() { 0 } else if self.chest2.is_some() { CHEST_VIEW } else { CHEST_SIZE } }
     fn set_slot(&mut self, i: usize, v: Option<Stack>) {
+        if i == CUT0 { self.cut_in = v; self.dirty = true; return; }
         if i < INV_SIZE { self.inv[i] = v; } else if i < EQUIP0 { if let Some((c, k)) = self.chest_cell(i) { if let Some(s) = self.chests.get_mut(&c).and_then(|x| x.get_mut(k)) { *s = v; } } } else if let Some(s) = self.equip.get_mut(i - EQUIP0) { *s = v; }
         if let Some(s) = v { self.seen.insert(s.item); } self.dirty = true;
     }
     /// Une case d'équipement n'accepte que ce qui se porte à cet endroit.
-    pub fn accepts(&self, i: usize, st: Stack) -> bool { if i < EQUIP0 { return i < INV_SIZE || self.chest_cell(i).is_some(); } def(st.item).and_then(|d| d.wear).is_some_and(|w| w.slot == SLOTS[i - EQUIP0].0) }
+    pub fn accepts(&self, i: usize, st: Stack) -> bool { if i == CUT0 { return self.cutting() && !cut_variants(st.item).is_empty(); } if i < EQUIP0 { return i < INV_SIZE || self.chest_cell(i).is_some(); } def(st.item).and_then(|d| d.wear).is_some_and(|w| w.slot == SLOTS[i - EQUIP0].0) }
     /// Inventaire : prend ce qu'il y a dans une case. En créatif, le catalogue donne un tas plein.
     pub fn grab_slot(&mut self, i: usize) { if self.cursor.is_none() { if let Some(s) = self.slot(i) { self.set_slot(i, None); self.cursor = Some(s); self.from = Some(i); } } }
     pub fn grab_catalog(&mut self, id: &'static str) { if let Some(it) = item(id) { self.cursor = Some(Stack::new(it.id, if stackable(it.id) { Some(max_stack(it.id)) } else { None })); self.from = None; } }
@@ -78,6 +80,7 @@ impl Session {
         let Some(s) = self.slot(i) else { return };
         let mut range: Vec<usize> = if i >= EQUIP0 { (9..INV_SIZE).chain(0..9).collect() } else if i >= CHEST0 { (0..INV_SIZE).collect() } else if self.chest.is_some() { (CHEST0..CHEST0 + self.chest_cells()).collect() } else if i < 9 { (9..INV_SIZE).collect() } else { (0..9).collect() };
         if i < CHEST0 && self.chest.is_none() { if let Some(w) = def(s.item).and_then(|d| d.wear) { let e = EQUIP0 + SLOTS.iter().position(|x| x.0 == w.slot).unwrap_or(0); if self.slot(e).is_none() { range = vec![e]; } } }
+        if i < INV_SIZE && self.chest.is_none() && self.accepts(CUT0, s) && self.cut_in.is_none_or(|c| c.item == s.item) { range = vec![CUT0]; } // à l'atelier de taille : Maj+clic pose le bloc
         let mut s = s; let max = max_stack(s.item);
         for k in range.clone() { if let (Some(o), Some(n)) = (self.slot(k), s.n) { if o.item == s.item { if let Some(c) = o.n { let m = n.min(max.saturating_sub(c)); self.set_slot(k, Some(Stack { n: Some(c + m), ..o })); s.n = Some(n - m); } } } }
         if s.n == Some(0) { self.set_slot(i, None); return; }
@@ -105,6 +108,18 @@ impl Session {
     }
     pub fn station_ok(st: &[bool; 6], at: Station) -> bool { st[Station::ALL.iter().position(|s| *s == at).unwrap_or(0)] }
     /// Une recette est connue dès qu'on a eu en main l'un de ses ingrédients ou ce qu'elle produit.
+    /// Est-on devant l'atelier de taille, en train de tailler (et non dans ses recettes) ?
+    pub fn cutting(&self) -> bool { self.inv_open && self.cut_mode && self.at_station.is_some_and(|a| a.0 == Station::Mason) }
+    /// Taille le bloc posé à l'atelier dans la variante choisie : une fois, ou tout le tas. Rend le nombre d'objets obtenus.
+    pub fn cut(&mut self, out: &str, all: bool) -> Result<u32, &'static str> {
+        if !self.cutting() { return Err("Il faut être à l'atelier de taille"); } let Some(src) = self.cut_in else { return Err("Posez d'abord un bloc dans l'atelier") };
+        let Some(v) = cut_variants(src.item).into_iter().find(|v| v.out == out) else { return Err("Ce bloc ne se taille pas ainsi") };
+        let have = src.n.unwrap_or(1); if have < v.need { return Err("Il n'y en a pas assez pour cette taille") };
+        let times = if all { have / v.need } else { 1 }; let made = times * v.n; let left = have - times * v.need;
+        self.cut_in = if left > 0 { Some(Stack { n: Some(left), ..src }) } else { None };
+        let rest = self.add_item(v.out, made); if rest > 0 { let p = self.player.p; self.spill(v.out, rest, [p[0], p[1] + 1.0, p[2]]); }
+        self.sound.place(src.item); self.dirty = true; Ok(made)
+    }
     pub fn known(&self, r: &Recipe) -> bool { self.creative || self.seen.contains(r.out) || r.need.iter().any(|n| members(n.id).iter().any(|m| self.seen.contains(m))) }
     pub fn can_craft(&self, r: &Recipe, st: &[bool; 6]) -> bool { r.artisan.is_none_or(|a| self.creative || self.taught.contains(a)) && Self::station_ok(st, r.at) && r.need.iter().all(|n| self.count(n.id) >= n.n) }
     /// Ce qui empêche de fabriquer la recette `r` maintenant, s'il y a quelque chose.
@@ -127,6 +142,8 @@ impl Session {
     /// L'ouvrage avance : un coup, un trait de scie, un souffle de soufflet à chaque temps ; au bout, l'objet.
     pub(crate) fn job_tick(&mut self, dt: f64) {
         if !self.inv_open { self.at_station = None; }
+        // on quitte l'atelier de taille : le bloc posé revient au sac (ou tombe aux pieds s'il est plein)
+        if !self.cutting() { if let Some(st) = self.cut_in.take() { if let Some(left) = self.add_stack(st) { let p = self.player.p; self.spill(left.item, left.n.unwrap_or(1), [p[0], p[1] + 1.0, p[2]]); } } }
         let Some(mut j) = self.job else { return };
         if !self.inv_open || self.dead.is_some() { self.job = None; self.notes.push("Ouvrage interrompu".into()); return; }
         let beat = j.dur / j.beats as f64; let (a, b) = ((j.t / beat).floor() as i64, ((j.t + dt) / beat).floor() as i64);
@@ -699,3 +716,22 @@ impl Job {
 }
 /// L'atelier qu'est ce bloc, s'il en est un (le feu de camp seulement allumé).
 pub fn station_of(b: Id) -> Option<Station> { match b { B::WORKBENCH => Some(Station::Bench), B::FURNACE | B::FURNACE_LIT => Some(Station::Furnace), B::ANVIL => Some(Station::Anvil), B::MASON_BENCH => Some(Station::Mason), B::CAMPFIRE => Some(Station::Fire), _ => None } }
+
+/// Une taille possible : `need` blocs posés donnent `n` exemplaires de `out`.
+#[derive(Clone, Copy, Debug, PartialEq)] pub struct Cut { pub out: &'static str, pub n: u32, pub need: u32 }
+/// Tout ce qu'on peut tirer d'un bloc à l'atelier de taille : ses formes (dalle, escalier, pilier, muret, pans de toit, poutres…)
+/// et ses déclinaisons décoratives. Deux sources : les recettes qui ne consomment que ce bloc (l'atelier tient lieu d'outil),
+/// et les formes de construction taillées dans cette matière. Rien pour un objet qui n'est pas un bloc.
+pub fn cut_variants(src: &str) -> Vec<Cut> {
+    use crate::shapes::{self, Kind};
+    let Some(block) = by_name(src) else { return Vec::new() }; let mut out: Vec<Cut> = Vec::new();
+    let is_block = |id: &str| by_name(id).is_some() && item(id).is_some();
+    for r in recipes() { if r.artisan.is_some() || r.cat != "batir" || !is_block(r.out) || r.out == src { continue; } // les ouvrages de construction seulement : pas les meubles
+        let used: Vec<&crate::data::Need> = r.need.iter().filter(|n| !n.keep).collect(); if used.len() != 1 || !members(used[0].id).contains(&src) { continue; }
+        if !out.iter().any(|c| c.out == r.out) { out.push(Cut { out: r.out, n: r.n, need: used[0].n }); } }
+    for b in BLOCKS.iter() { let Some(i) = shapes::info(b.id) else { continue }; if i.base != b.id || shapes::material(b.id) != block || b.id == block { continue; }
+        let Some(it) = item(b.name) else { continue }; if out.iter().any(|c| c.out == it.id) { continue; }
+        let n = match i.kind { Kind::Slab | Kind::VSlab => 2, Kind::Post => 3, Kind::Stairs | Kind::Pillar | Kind::Wall | Kind::Slope | Kind::Corner | Kind::Valley | Kind::Ridge | Kind::Peak | Kind::Brace | Kind::Elbow => 1, _ => continue }; // les formes taillées ; portes, échelles et fenêtres restent des recettes
+        out.push(Cut { out: it.id, n, need: 1 }); }
+    out
+}
