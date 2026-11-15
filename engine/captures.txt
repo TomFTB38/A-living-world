@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_saut plat_saut_loup faune_grotte
+spawn jeu faune_grotte creatures_grotte

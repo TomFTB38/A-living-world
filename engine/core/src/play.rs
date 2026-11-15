@@ -499,6 +499,11 @@ impl Session {
     }
     pub(crate) fn spend(&mut self, n: f64) { let k = if self.carried() > self.capacity() { 1.5 } else { 1.0 }; self.stamina = (self.stamina - n * k).max(0.0); self.spent_t = 0.0; if n > 2.0 { self.gain(3); } }
     /// Ce qui pique ou brûle au contact : un cactus frôlé, un feu de camp sous les pieds.
+    /// Le corps est-il pris dans une toile d'araignée ?
+    pub(crate) fn in_web(&self) -> bool {
+        let p = self.player.p; let fl = |v: f64| v.floor() as i32;
+        (fl(p[1] + 0.1)..=fl(p[1] + 1.6)).any(|y| (fl(p[2] - 0.25)..=fl(p[2] + 0.25)).any(|z| (fl(p[0] - 0.25)..=fl(p[0] + 0.25)).any(|x| self.world.get(x, y, z) == Some(B::COBWEB))))
+    }
     fn touching(&self) -> Option<Id> {
         let p = self.player.p; let fl = |v: f64| v.floor() as i32; let get = |x, y, z| self.world.get(x, y, z).unwrap_or(0);
         for y in fl(p[1] + 0.05)..=fl(p[1] + 0.5) { for z in fl(p[2] - 0.22)..=fl(p[2] + 0.22) { for x in fl(p[0] - 0.22)..=fl(p[0] + 0.22) { if get(x, y, z) == B::CAMPFIRE { return Some(B::CAMPFIRE); } } } }

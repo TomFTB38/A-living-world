@@ -204,11 +204,6 @@ pub fn land(crow_k: f64) -> Vec<(&'static str, VBuf)> {
 }
 
 /// Maquereau, poissons de récif, crabe, goéland (et son aile).
-/// Chauve-souris : petit corps brun sombre, museau court, grandes ailes de peau (les parties de l'oiseau, en plus trapu).
-pub fn bat(k: f64) -> Vec<(&'static str, VBuf)> {
-    let (b, w) = bird_parts(k, [0.2, 0.15, 0.12], [0.3, 0.23, 0.18], [0.16, 0.12, 0.1], [0.12, 0.09, 0.08], [0.13, 0.1, 0.1], None);
-    vec![("bat", b), ("batWing", w)]
-}
 pub fn sea(gull_k: f64) -> Vec<(&'static str, VBuf)> {
     // Un poisson fuselé : profil du dos et du ventre, bandes éventuelles, opercule, œil, nageoires fines, caudale fourchue.
     let fish = |len: f64, hgt: f64, back: C, belly: C, band: Option<C>, tail: C, fin: C| { let mut o = VBuf::new(5000); { let mut p = Pen::new(&mut o, Mat::Scale, 0.017);

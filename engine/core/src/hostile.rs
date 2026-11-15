@@ -15,7 +15,7 @@ use std::sync::OnceLock;
 pub const DATA: &str = include_str!("../data/creatures.txt");
 
 // ------------------------------------------------------------------------------------------------------------- données
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum Body { Rodeur, Brigand, Bete, Rampant }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum Body { Rodeur, Brigand, Bete, Rampant, /** araignée des cavernes : huit pattes */ Araignee, /** golem de cristal : un colosse de roche */ Golem }
 #[derive(Clone, Debug)]
 pub struct Species {
     pub id: &'static str, pub name: &'static str, pub tier: u8, pub body: Body, pub size: f64, pub hp: f64, pub dmg: f64, pub walk: f64, pub run: f64,
@@ -25,6 +25,8 @@ pub struct Species {
     pub leap: bool, pub climb: bool, pub ambush: bool, pub bursts: bool, pub flank: bool,
     /// Créature des grottes : les biomes souterrains où elle vit (« toutes » : partout sous terre) ; vide : une créature de surface, qui descend aussi sous terre.
     pub caves: Vec<&'static str>,
+    /// Sa peau (« magma » : le rampant de basalte incandescent) ; `ember` : elle brûle qui l'approche, sème des braises et meurt dans l'eau ; `web` : sa morsure englue.
+    pub skin: &'static str, pub ember: bool, pub web: bool,
     pub loot: Vec<(&'static str, u32, u32, f64)>,
 }
 /// Règles d'apparition et de difficulté (voir `data/creatures.txt`).
@@ -57,16 +59,16 @@ fn parse(t: &'static str) -> Bestiary {
         }
         let Some(rest) = line.strip_prefix("espece ") else { continue };
         let f: Vec<&'static str> = rest.split('|').map(str::trim).collect(); if f.len() < 3 { continue; }
-        let mut s = Species { id: f[0], name: f[1], tier: 1, body: Body::Rodeur, size: 1.0, hp: 25.0, dmg: 6.0, walk: 1.0, run: 4.5, reach: 1.5, sight: 16.0, hear: 10.0, cd: 1.6, windup: 0.5, armor: 0.0, weak: "", biomes: Vec::new(), weight: 1.0, group: (1, 1), flee: 0.0, leap: false, climb: false, ambush: false, bursts: false, flank: false, caves: Vec::new(), loot: Vec::new() };
+        let mut s = Species { id: f[0], name: f[1], tier: 1, body: Body::Rodeur, size: 1.0, hp: 25.0, dmg: 6.0, walk: 1.0, run: 4.5, reach: 1.5, sight: 16.0, hear: 10.0, cd: 1.6, windup: 0.5, armor: 0.0, weak: "", biomes: Vec::new(), weight: 1.0, group: (1, 1), flee: 0.0, leap: false, climb: false, ambush: false, bursts: false, flank: false, caves: Vec::new(), skin: "", ember: false, web: false, loot: Vec::new() };
         for kv in f[2].split_whitespace() { let Some((k, v)) = kv.split_once('=') else { continue }; let x = v.parse::<f64>().unwrap_or(0.0);
             match k {
-                "niveau" => s.tier = x as u8, "corps" => s.body = match v { "brigand" => Body::Brigand, "bete" => Body::Bete, "rampant" => Body::Rampant, _ => Body::Rodeur },
+                "niveau" => s.tier = x as u8, "corps" => s.body = match v { "brigand" => Body::Brigand, "bete" => Body::Bete, "rampant" => Body::Rampant, "araignee" => Body::Araignee, "golem" => Body::Golem, _ => Body::Rodeur },
                 "taille" => s.size = x, "pv" => s.hp = x, "degats" => s.dmg = x, "marche" => s.walk = x, "course" => s.run = x, "portee" => s.reach = x, "vue" => s.sight = x, "ouie" => s.hear = x,
                 "recharge" => s.cd = x, "armement" => s.windup = x, "armure" => s.armor = x.clamp(0.0, 0.8), "faible" => s.weak = v, "poids" => s.weight = x, "fuite" => s.flee = x,
                 "groupe" => { let (a, b) = v.split_once('-').unwrap_or((v, v)); s.group = (a.parse().unwrap_or(1), b.parse().unwrap_or(1)); }
                 "biomes" => if v != "tous" { s.biomes = v.split(',').filter_map(|n| crate::biome::NAMES.iter().position(|b| b.replace(' ', "_").eq_ignore_ascii_case(n) || *b == n)).collect(); },
-                "grottes" => s.caves = v.split(',').collect(),
-                "talents" => for t in v.split(',') { match t { "bond" => s.leap = true, "grimpe" => s.climb = true, "embuscade" => s.ambush = true, "poussees" => s.bursts = true, "contourne" => s.flank = true, _ => {} } },
+                "grottes" => s.caves = v.split(',').collect(), "peau" => s.skin = v,
+                "talents" => for t in v.split(',') { match t { "bond" => s.leap = true, "grimpe" => s.climb = true, "embuscade" => s.ambush = true, "poussees" => s.bursts = true, "contourne" => s.flank = true, "brasier" => s.ember = true, "toile" => s.web = true, _ => {} } },
                 "butin" => s.loot = v.split(',').filter_map(|e| { let p: Vec<&'static str> = e.split(':').collect(); if p.len() < 3 { return None; } let (a, b) = p[1].split_once('-').unwrap_or((p[1], p[1])); Some((p[0], a.parse().ok()?, b.parse().ok()?, p[2].parse().ok()?)) }).collect(),
                 _ => {}
             }
@@ -101,9 +103,9 @@ pub struct Foe {
     /** bouclier levé (brigand), de 0 à 1 */ pub guard: f64, pub dead: f64, pub variant: u8, pub vet: bool, pub air: bool, burst: f64, pub climbing: bool, pub group: u32,
 }
 /// Ce que font les créatures, pour la session (coups, sons, butin).
-#[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool) }
+#[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool), /** une morsure qui englue : ralenti pendant tant de secondes */ Snare(f64) }
 
-pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv>, groups: u32, pub spawned: u32 }
+pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv>, groups: u32, pub spawned: u32, /** braises semées par les rampants de magma : (position, secondes restantes) */ pub embers: Vec<([f64; 3], f64)>, burn_cd: f64 }
 /// Ce que la session donne à la horde à chaque image.
 pub struct Ctx<'a> {
     pub eye: [f64; 3], pub feet: [f64; 3], pub look: [f64; 3], pub noise: f64, pub lit: bool, pub crouch: bool, pub alive: bool,
@@ -116,12 +118,12 @@ fn sees(w: &impl Voxels, a: [f64; 3], b: [f64; 3]) -> bool {
     let d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt(); let n = (l / 0.45).ceil() as i32;
     for i in 1..n { let t = i as f64 / n as f64; let q = [a[0] + d[0] * t, a[1] + d[1] * t, a[2] + d[2] * t]; if w.get(q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32).is_none_or(is_opaque) { return false; } } true
 }
-fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.55, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.55 } }
+fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.55, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.55, Body::Araignee => 0.4, Body::Golem => 1.9 } }
 /// Boîte de visée et de collision (demi-largeur, hauteur).
-pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.42, 1.85), Body::Brigand => (0.42, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.55, 0.8) }; (w * size, h * size) }
+pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.42, 1.85), Body::Brigand => (0.42, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.55, 0.8), Body::Araignee => (0.55, 0.65), Body::Golem => (0.6, 2.25) }; (w * size, h * size) }
 
 impl Horde {
-    pub fn new(seed: i32) -> Self { Horde { foes: Vec::new(), rng: Rng::new((seed ^ 0x6d21) as u32), spawn_t: 2.0, ev: Vec::new(), groups: 0, spawned: 0 } }
+    pub fn new(seed: i32) -> Self { Horde { foes: Vec::new(), rng: Rng::new((seed ^ 0x6d21) as u32), spawn_t: 2.0, ev: Vec::new(), groups: 0, spawned: 0, embers: Vec::new(), burn_cd: 0.0 } }
     /// Fait apparaître une créature de l'espèce `sp` en `p` (bancs d'essai, outils de développement, vagues).
     pub fn put(&mut self, sp: usize, p: [f64; 3], yaw: f64, vet: bool) -> usize {
         let s = &bestiary().species[sp]; let max = s.hp * if vet { 1.25 } else { 1.0 }; self.groups += 1; let variant = (self.rng.next() * 3.0) as u8;
@@ -192,6 +194,13 @@ impl Horde {
         let mut all = std::mem::take(&mut self.foes); let n = all.len();
         let groups: Vec<(u32, [f64; 3])> = all.iter().map(|f| (f.group, f.p)).collect();
         for i in 0..n { let f = &mut all[i]; self.think(f, dt, w, c, &groups); }
+        // Les braises s'éteignent ; marcher dessus, ou serrer de trop près un rampant de magma, brûle.
+        for e in self.embers.iter_mut() { e.1 -= dt; } self.embers.retain(|e| e.1 > 0.0); self.burn_cd -= dt;
+        if c.alive && self.burn_cd <= 0.0 {
+            let hot = self.embers.iter().any(|e| hypot2(e.0[0] - me[0], e.0[2] - me[2]) < 0.7 && (e.0[1] - me[1]).abs() < 1.0)
+                || all.iter().any(|f| f.dead == 0.0 && bestiary().species[f.sp].ember && hypot2(f.p[0] - me[0], f.p[2] - me[2]) < 1.25 && (f.p[1] - me[1]).abs() < 1.5);
+            if hot { self.burn_cd = 0.7; self.ev.push(FoeEv::Hit { from: me, dmg: 2.0, cause: "Les braises d'un rampant de magma", push: 0.0 }); }
+        }
         // Au lever du jour, celles qui ne se battent pas s'éloignent et s'effacent hors de vue ; les mortes, une fois tombées ; les trop lointaines.
         let day = c.night < 0.2 && c.cave < 0.5; // sous terre, il n'y a pas de lever du jour
         all.retain(|f| { let d = hypot2(f.p[0] - me[0], f.p[2] - me[2]); !(f.dead > 1.6 || d > r.forget || (day && f.state != Ai::Combat && d > 20.0 && f.dead == 0.0) || f.p[1] < -20.0 || w.get(f.p[0].floor() as i32, f.p[1].floor() as i32, f.p[2].floor() as i32).is_none()) });
@@ -254,7 +263,12 @@ impl Horde {
         // ---- le coup tombe à la fin de l'annonce, s'il y a contact (distance et angle cohérents avec le geste)
         if f.wind > 0.0 { f.wind -= dt; if f.wind <= 0.0 { f.wind = 0.0; f.cd = s.cd * if f.vet { 0.9 } else { 1.0 };
             let face = sin(f.yaw) * to[0] + cos(f.yaw) * to[1]; let reach = s.reach + if f.air { 0.8 } else { 0.5 };
-            if c.alive && dist < reach && face > 0.35 && dy.abs() < 1.9 { let dmg = s.dmg * r.range(0.8, 1.25) * if f.vet { 1.15 } else { 1.0 } * if f.air { 1.4 } else { 1.0 }; self.ev.push(FoeEv::Hit { from: f.p, dmg, cause: cause(s.body), push: if s.body == Body::Bete { 4.0 } else { 2.5 } }); } } }
+            if c.alive && dist < reach && face > 0.35 && dy.abs() < 1.9 { let dmg = s.dmg * r.range(0.8, 1.25) * if f.vet { 1.15 } else { 1.0 } * if f.air { 1.4 } else { 1.0 }; self.ev.push(FoeEv::Hit { from: f.p, dmg, cause: if s.ember { "Les mandibules brûlantes d'un rampant de magma" } else { cause(s.body) }, push: match s.body { Body::Bete => 4.0, Body::Golem => 6.5, _ => 2.5 } }); if s.web { self.ev.push(FoeEv::Snare(3.5)); } } } }
+        // ---- le rampant de magma : il sème des braises derrière lui, et l'eau l'éteint
+        if s.ember {
+            if f.speed > 0.5 && self.embers.last().is_none_or(|e| hypot2(e.0[0] - f.p[0], e.0[2] - f.p[2]) > 0.9) && self.embers.len() < 80 { self.embers.push(([f.p[0], f.gy, f.p[2]], 5.0)); }
+            if w.get(f.p[0].floor() as i32, (f.p[1] + 0.2).floor() as i32, f.p[2].floor() as i32).is_some_and(crate::blocks::is_water) { f.hp -= 9.0 * dt; f.hit = 0.2; if f.hp <= 0.0 { f.dead = 1e-3; f.wind = 0.0; self.ev.push(FoeEv::Die(f.p, f.sp, f.vet)); return; } }
+        }
         // ---- le mouvement : marcher sur le relief voxel, contourner, monter et descendre d'un bloc, grimper (rampant), bondir (bête)
         if f.state != Combat && f.state != Detection { f.phase += dt * (2.0 + f.speed * 1.8); } else { f.phase += dt * 1.5; }
         if f.air { f.p[0] += f.v[0] * dt; f.p[2] += f.v[2] * dt; f.v[1] -= 22.0 * dt; f.p[1] += f.v[1] * dt;
@@ -269,7 +283,7 @@ impl Horde {
         self.foes.iter().take(8).map(|f| { let s = &bestiary().species[f.sp]; format!("  {}{} — {} ({:.0}/{:.0} pv, éveil {:.1})", s.name, if f.vet { " (vétéran)" } else { "" }, if f.dead > 0.0 { "morte" } else { f.state.name() }, f.hp.max(0.0), f.max, f.alert) }).collect()
     }
 }
-fn cause(b: Body) -> &'static str { match b { Body::Rodeur => "Les griffes d'un rôdeur décharné", Body::Brigand => "L'arme d'un brigand", Body::Bete => "Les crocs d'une bête rôdeuse", Body::Rampant => "Les mandibules d'un rampant nocturne" } }
+fn cause(b: Body) -> &'static str { match b { Body::Rodeur => "Les griffes d'un rôdeur décharné", Body::Brigand => "L'arme d'un brigand", Body::Araignee => "Les crochets d'une araignée des cavernes", Body::Golem => "Le poing d'un golem de cristal", Body::Bete => "Les crocs d'une bête rôdeuse", Body::Rampant => "Les mandibules d'un rampant nocturne" } }
 fn turn(a: f64, b: f64, k: f64) -> f64 { let d = (b - a + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI; a + d.clamp(-k, k) }
 fn knock(f: &mut Foe, dt: f64, w: &impl Voxels) {
     if f.v[0] == 0.0 && f.v[2] == 0.0 { return; } let (nx, nz) = (f.p[0] + f.v[0] * dt, f.p[2] + f.v[2] * dt);
@@ -279,7 +293,7 @@ fn knock(f: &mut Foe, dt: f64, w: &impl Voxels) {
 fn settle(f: &mut Foe, dt: f64, w: &impl Voxels) { if let Some(g) = ground(w, f.p[0], f.p[2], f.p[1] + 1.0) { if !f.climbing { f.gy = g; } } f.p[1] += (f.gy - f.p[1]) * (dt * 10.0).min(1.0); }
 /// Avancer : tout droit, sinon le cap libre le plus proche ; une marche d'un bloc se franchit ; le rampant grimpe un mur de quatre blocs.
 fn walk(f: &mut Foe, w: &impl Voxels, step: f64, climb: bool, body: Body) -> bool {
-    let tall = match body { Body::Rampant => 1, Body::Bete => 1, _ => 2 };
+    let tall = match body { Body::Rampant | Body::Bete | Body::Araignee => 1, _ => 2 };
     for k in [0.0, 0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.8, -1.8] {
         let yaw = f.yaw + k; let (nx, nz) = (f.p[0] + sin(yaw) * step, f.p[2] + cos(yaw) * step);
         if let Some(y) = ground(w, nx, nz, f.gy + 1.0) { if y - f.gy <= 1.05 && f.gy - y <= 3.0 && fits(w, nx, y.max(f.gy - 1.0), nz, yaw, tall) { f.p[0] = nx; f.p[2] = nz; f.gy = y; f.climbing = false; if k != 0.0 { f.yaw += k * 0.5; } return true; } }
@@ -369,7 +383,7 @@ const FURD: [f64; 3] = [0.25, 0.22, 0.28]; const FURM: [f64; 3] = [0.4, 0.36, 0.
 const ABDO: [f64; 3] = [0.58, 0.15, 0.14]; const ABDO2: [f64; 3] = [0.4, 0.1, 0.11]; const CHITD: [f64; 3] = [0.17, 0.12, 0.2]; const EYEO: [f64; 3] = [1.0, 0.68, 0.12]; const LEGC: [f64; 3] = [0.86, 0.72, 0.5]; const LEGD: [f64; 3] = [0.58, 0.44, 0.3];
 const CHIT: [f64; 3] = [0.38, 0.27, 0.42]; const CHIT2: [f64; 3] = [0.5, 0.38, 0.54]; const SPOT: [f64; 3] = [0.6, 0.62, 0.48]; const GEYE: [f64; 3] = [0.72, 1.0, 0.6]; const LEATHER: [f64; 3] = [0.36, 0.24, 0.14];
 pub fn parts() -> Vec<(&'static str, VBuf)> {
-    let mut o: Vec<(&'static str, VBuf)> = Vec::new(); let mut m = |n: &'static str, f: &dyn Fn(&mut VBuf)| { let mut v = VBuf::new(600); f(&mut v); o.push((n, v)); };
+    let mut o: Vec<(&'static str, VBuf)> = crate::monstres::parts(); let mut m = |n: &'static str, f: &dyn Fn(&mut VBuf)| { let mut v = VBuf::new(600); f(&mut v); o.push((n, v)); };
     // Rôdeur décharné (planche du bestiaire) : chair décharnée gris-rose, côtes saillantes, sangles de cuir croisées, ceinture
     // à boucle et sacoche, haillons rouge sombre en lanières, deux épaulières de fer rouillé, capuche rouge et visage de crâne
     // aux yeux jaunes, avant-bras bandés de cuir, doigts osseux, bottes de cuir sanglées, couteau rouillé. Membres en deux
@@ -611,15 +625,42 @@ impl Horde {
                     let lift = 0.05 * det + wind * 0.08 - 0.1 * die; let rear = if f.climbing { -1.2 } else { -wind * 0.45 + strike * 0.25 } + flinch * 0.3;
                     let hip = 0.27 + lift + if f.speed > 0.0 { (t * 2.0).sin().abs() * 0.02 } else { 0.006 * (t * 1.6).sin() };
                     let root = mul(&mul(&trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size), &roll_z(die * 3.0)), &trs(0.0, 0.0, 0.0, 0.0, rear, 1.0));
-                    put("crwBody", root); put("crwHead", mul(&root, &trs(0.0, 0.0, 0.36, 0.05 * (t * 0.7).sin(), if f.state == Ai::Embuscade { 0.15 } else { -0.05 - 0.2 * det }, 1.0)));
+                    let (pb, ph, pl) = if s.skin == "magma" { ("mgmBody", "mgmHead", "mgmLeg") } else { ("crwBody", "crwHead", "crwLeg") };
+                    put(pb, root); put(ph, mul(&root, &trs(0.0, 0.0, 0.36, 0.05 * (t * 0.7).sin(), if f.state == Ai::Embuscade { 0.15 } else { -0.05 - 0.2 * det }, 1.0)));
                     for (k, z) in [0.22, 0.0, -0.24].iter().enumerate() { for sx in [-1.0f64, 1.0] {
                         let tri = if (k + if sx > 0.0 { 1 } else { 0 }) % 2 == 0 { 1.0 } else { -1.0 }; let swing = sw * 0.4 * tri * (0.4 + run); let up = (sw * tri).max(0.0) * 0.12 * run;
                         let spread = [0.45, 0.0, -0.45][k] * sx; let curl = die * 1.2;
                         let leg = mul(&root, &mul(&trs(0.3 * sx, 0.1, *z, (if sx > 0.0 { 0.0 } else { std::f64::consts::PI }) + spread * 0.6 + swing, 0.0, 1.0), &roll_z(up + curl)));
-                        put("crwLeg", leg); } }
+                        put(pl, leg); } }
+                }
+                Body::Araignee => {
+                    // Huit pattes en deux éventails, qui marchent par paires alternées ; elle se dresse sur l'arrière pour mordre ; morte, pattes recroquevillées.
+                    let t = f.phase; let die = fall; let hip = 0.3 - 0.12 * die + if f.speed > 0.0 { (t * 2.0).sin().abs() * 0.015 } else { 0.008 * (t * 1.4).sin() };
+                    let rear = -wind * 0.5 + strike * 0.3 + flinch * 0.25;
+                    let root = mul(&mul(&trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size), &roll_z(die * 3.0)), &trs(0.0, 0.0, 0.0, 0.0, rear, 1.0));
+                    put("spdBody", root);
+                    for (k, z) in [0.3, 0.16, 0.02, -0.12].iter().enumerate() { for sx in [-1.0f64, 1.0] {
+                        let alt = if (k + if sx > 0.0 { 1 } else { 0 }) % 2 == 0 { 1.0 } else { -1.0 }; let swing = sw * 0.35 * alt * (0.4 + run); let up = (sw * alt).max(0.0) * 0.14 * (0.3 + run);
+                        let spread = [0.85, 0.3, -0.25, -0.8][k] * sx; let reach = if k == 0 { wind * 0.5 } else { 0.0 };
+                        let leg = mul(&root, &mul(&trs(0.17 * sx, 0.02, *z, (if sx > 0.0 { 0.0 } else { std::f64::consts::PI }) + spread + swing, 0.0, 1.0), &roll_z(up + reach + die * 1.3)));
+                        put("spdLeg", leg); } }
+                }
+                Body::Golem => {
+                    // À l'affût, il est ramassé comme un rocher hérissé de cristaux ; debout, il marche lourdement, lève les deux poings et les abat.
+                    let t = f.phase; let hide = if f.state == Ai::Embuscade { 1.0 } else { 0.0 }; let stride = sw * (0.3 + 0.25 * run);
+                    let hips = 0.66 * (1.0 - 0.62 * hide) + if f.speed > 0.0 { (t * 2.0).sin().abs() * 0.03 } else { 0.0 };
+                    let lean = 0.5 * hide + wind * -0.25 + strike * 0.45 + flinch * 0.2;
+                    let root = mul(&base, &trs(0.0, hips, 0.0, 0.0, 0.0, 1.0)); let torso = mul(&root, &trs(0.0, 0.0, 0.0, 0.0, lean, 1.0));
+                    put("glmTorso", torso); put("glmHead", mul(&torso, &trs(0.0, 0.88, 0.02, 0.0, 0.35 * hide - 0.15 * wind, 1.0)));
+                    for sx in [-1.0f64, 1.0] {
+                        let arm = -sx * stride * 0.8 - 2.6 * wind + 0.9 * strike - 0.9 * hide; put("glmArm", mul(&torso, &trs(0.62 * sx, 0.72, 0.0, 0.0, arm, 1.0)));
+                        let leg = sx * stride - 1.35 * hide; put("glmLeg", mul(&root, &trs(0.2 * sx, 0.0, 0.0, 0.0, leg, 1.0)));
+                    }
                 }
             }
         }
+        // Les braises : elles rétrécissent en s'éteignant.
+        for (p, t) in &self.embers { let k = (t / 1.5).min(1.0) * (0.85 + 0.15 * sin(t * 9.0)); out.push(Draw { m: trs(p[0], p[1] + 0.01, p[2], p[0] * 3.1, 0.0, k), r: md.part("ember"), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 }); }
         out
     }
 }
@@ -679,6 +720,7 @@ impl Session {
                     let (dx, dz) = (self.player.p[0] - from[0], self.player.p[2] - from[2]); let d = dx.hypot(dz).max(0.1); self.player.v[0] += dx / d * push; self.player.v[2] += dz / d * push; self.player.v[1] = self.player.v[1].max(2.5); } }
                 FoeEv::Growl(p, b) => match b { Body::Bete => self.sound.fox_scream(p), Body::Rampant => self.sound.rustle(p), _ => self.sound.thump(p) },
                 FoeEv::Swing(_) => self.sound.swing(None, 0.8),
+                FoeEv::Snare(t) => { if self.snare <= 0.0 { self.notes.push("Englué dans la soie : vous êtes ralenti".into()); } self.snare = self.snare.max(t); }
                 FoeEv::Blocked(p) => { self.sound.thump(p); self.notes.push("Bloqué par son bouclier".into()); }
                 FoeEv::Die(p, sp, vet) => { let s = &bestiary().species[sp]; self.sound.thump(p); self.skills[2] += 2.0; if self.creative { continue; }
                     for &(id, lo, hi, pr) in &s.loot { let roll = self.horde.roll(); let pr = if vet { (pr * 1.3).min(1.0) } else { pr }; if roll < pr { let n = lo + (self.horde.roll() * (hi - lo + 1) as f64) as u32; self.spill(id, n.min(hi).max(lo), [p[0], p[1] + 0.6, p[2]]); } } }

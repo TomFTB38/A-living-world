@@ -401,3 +401,5 @@ spruce_post_angle 1 | etabli | spruce_post 1 | batir
 acacia_post 3 | etabli | acacia_log 1 | batir
 acacia_post_diag 1 | etabli | acacia_post 1 | batir
 acacia_post_angle 1 | etabli | acacia_post 1 | batir
+rope 1 | main | silk 3 | matieres
+glow_jar 1 | main | glowbug 1, glass 1 | ateliers

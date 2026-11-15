@@ -438,15 +438,31 @@ fn capture(a: &[String]) {
         let p = s.wild.all[0].p; println!("{scene} : monture à {:.2} au-dessus du sol, cap {:.2}", p[1] - y, s.wild.all[0].yaw);
         let e = [p[0] + 6.0, y + 1.6, p[2] + 2.5]; s.eye = e; s.look = view::norm([p[0] - e[0], p[1] + 1.0 - e[1], p[2] - e[2]]);
     }
-    // La faune d'une grotte : des chauves-souris devant soi, un lézard au sol.
-    if scene == "faune_grotte" {
-        use alw_core::wild::Kind as K; pump(&mut s, &mut g); let m = s.goto_hall(Some("karst")); println!("{scene} : {m}"); s.third = false; s.sel = 8; pump(&mut s, &mut g);
-        for _ in 0..30 { s.tick(0.1, none, Actions::default()); } s.wild.all.clear();
-        let (e, yaw) = (s.player.eye(), s.player.yaw); let (fx, fz) = (yaw.sin(), yaw.cos());
-        for (d, side, up, turn) in [(3.0, -0.8, 0.3, 0.6), (4.0, 0.9, 0.8, -1.2), (5.5, -1.8, 1.2, 2.2), (6.5, 1.6, 0.2, 1.4), (8.0, 0.0, 1.6, -0.4)] {
-            s.wild.put(K::Bat, [e[0] + fx * d + fz * side, e[1] + up, e[2] + fz * d - fx * side], yaw + turn, true); let c = s.wild.all.last_mut().unwrap(); c.phase = d * 1.7; }
-        s.wild.put(K::Lizard, [e[0] + fx * 2.5 + fz * 0.6, s.player.p[1], e[2] + fz * 2.5 - fx * 0.6], yaw + 1.2, false);
-        s.tick(0.0, none, Actions::default()); println!("{scene} : {} bêtes", s.wild.all.len());
+    // La faune et les créatures d'une grotte, rangées devant soi dans une salle karstique, éclairées par deux lanternes.
+    if scene == "faune_grotte" || scene == "creatures_grotte" {
+        use alw_core::wild::Kind as K; use alw_core::player::Voxels; use alw_core::blocks::{is_solid, B};
+        pump(&mut s, &mut g); let m = s.goto_hall(Some("karst")); println!("{scene} : {m}"); s.third = false; s.sel = 8; pump(&mut s, &mut g);
+        for _ in 0..30 { s.tick(0.1, none, Actions::default()); } s.wild.all.clear(); s.horde.foes.clear();
+        // on se tourne vers le cœur de la salle
+        let p = s.player.p; let hl = alw_core::gen::WorldGen::new(SEED).nearest_hall_of(p[0], p[2], 2, Some(alw_core::karst::Under::Karst)).expect("la salle");
+        let yaw = (hl.x - p[0]).atan2(hl.z - p[2]); s.player.yaw = yaw; s.player.pitch = -0.12; let (fx, fz) = (yaw.sin(), yaw.cos()); let e = s.player.eye();
+        let at = |d: f64, side: f64| [p[0] + fx * d + fz * side, p[2] + fz * d - fx * side];
+        let floor = |s: &Session, q: [f64; 2]| { let mut y = p[1].floor() as i32 + 4; while y > 2 && !s.world.get(q[0].floor() as i32, y - 1, q[1].floor() as i32).is_some_and(is_solid) { y -= 1; } y as f64 };
+        for side in [-2.0, 2.0] { let q = at(3.0, side); let y = floor(&s, q); s.world.edit(q[0].floor() as i32, y as i32, q[1].floor() as i32, B::LANTERN); }
+        if scene == "faune_grotte" {
+            for (d, side, up, turn) in [(3.0, -0.8, 0.3, 0.6), (4.0, 0.9, 0.8, -1.2), (5.5, -1.8, 1.2, 2.2), (6.5, 1.6, 0.2, 1.4), (8.0, 0.0, 1.6, -0.4)] { let q = at(d, side);
+                s.wild.put(K::Bat, [q[0], e[1] + up, q[1]], yaw + turn, true); let c = s.wild.all.last_mut().unwrap(); c.phase = d * 1.7; }
+            let q = at(2.5, 0.6); let y = floor(&s, q); s.wild.put(K::Lizard, [q[0], y, q[1]], yaw + 1.2, false);
+            let q = at(2.2, -0.5); let y = floor(&s, q); s.wild.put(K::Glowbug, [q[0], y, q[1]], yaw + 2.0, false);
+        } else {
+            use alw_core::hostile as h;
+            for (id, d, side, turn) in [("araignee", 3.2, -1.6, 2.6), ("golem", 5.5, 0.0, 3.14), ("magma", 3.6, 1.7, -2.6), ("golem", 6.0, 2.6, 2.8)] { let q = at(d, side); let y = floor(&s, q);
+                let k = s.horde.put(h::species(id).unwrap(), [q[0], y, q[1]], yaw + turn, false); if d < 5.8 { s.horde.foes[k].state = h::Ai::Repos; } }
+            let q = at(2.4, 0.3); let y = floor(&s, q); s.wild.put(K::Glowbug, [q[0], y, q[1]], yaw + 2.0, false);
+            let q = at(4.0, -3.0); let y = floor(&s, q); s.world.edit(q[0].floor() as i32, y as i32, q[1].floor() as i32, B::COBWEB);
+            let q = at(4.4, 1.2); let y = floor(&s, q); s.horde.embers.push(([q[0], y, q[1]], 4.0));
+        }
+        pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("{scene} : {} bêtes, {} créatures", s.wild.all.len(), s.horde.foes.len());
     }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }

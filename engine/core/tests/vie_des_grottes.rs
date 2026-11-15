@@ -40,3 +40,67 @@ fn les_ennemis_naissent_dans_la_salle() {
 }
 struct Flat;
 impl Voxels for Flat { fn get(&self, _x: i32, y: i32, _z: i32) -> Option<u16> { Some(if y <= 10 { alw_core::blocks::B::STONE } else { 0 }) } }
+
+// ------------------------------------------------------------------ le premier lot de créatures des profondeurs
+use alw_core::hostile::FoeEv;
+/// Un sol plat à y = 10 ; de l'eau (un bassin) au-delà de x = 20.
+struct Pool;
+impl Voxels for Pool { fn get(&self, x: i32, y: i32, _z: i32) -> Option<u16> { use alw_core::blocks::B; Some(if y < 10 { B::STONE } else if y == 10 { if x >= 20 { B::WATER } else { B::STONE } } else { 0 }) } }
+fn ctx<'a>(feet: [f64; 3], light: &'a dyn Fn(i32, i32, i32) -> u8, protect: &'a dyn Fn(f64, f64) -> bool) -> Ctx<'a> {
+    Ctx { eye: [feet[0], feet[1] + 1.6, feet[2]], feet, look: [0.0, 0.0, 1.0], noise: 0.0, lit: false, crouch: false, alive: true, night: 1.0, danger: 2, can_spawn: false, light, protect, main_biome: 0, cave: 1.0, under: Some("rocheuse") }
+}
+
+#[test]
+fn les_pieces_des_creatures_existent() {
+    let md = alw_core::actors::Models::build();
+    for n in ["spdBody", "spdLeg", "glmTorso", "glmHead", "glmArm", "glmLeg", "mgmBody", "mgmHead", "mgmLeg", "ember", "glowbug", "bat", "batWing"] { assert!(md.part(n).count >= 36, "{n} : maillage vide"); }
+    // chaque corps se dessine, dans tous ses états, sans pièce manquante
+    let mut hd = Horde::new(1); for id in ["araignee", "golem", "magma"] { let sp = h::species(id).unwrap_or_else(|| panic!("{id} manque au bestiaire")); hd.put(sp, [0.5, 11.0, 0.5], 0.0, false); }
+    assert!(hd.draws(&md).len() >= 9 + 6 + 8);
+}
+
+#[test]
+fn le_golem_guette_et_ne_craint_que_le_marteau() {
+    let (light, protect) = (|_: i32, _: i32, _: i32| 0u8, |_: f64, _: f64| false); let w = Flat; let sp = h::species("golem").unwrap();
+    // à l'affût : immobile tant qu'on reste loin, il se dresse quand on passe près de lui
+    let mut hd = Horde::new(2); hd.put(sp, [0.5, 11.0, 12.5], std::f64::consts::PI, false);
+    for _ in 0..120 { hd.update(1.0 / 30.0, &w, &ctx([0.5, 11.0, 0.5], &light, &protect)); } assert_eq!(hd.foes[0].state, h::Ai::Embuscade, "de loin, c'est un rocher"); assert!((hd.foes[0].p[2] - 12.5).abs() < 0.01);
+    for _ in 0..90 { hd.update(1.0 / 30.0, &w, &ctx([0.5, 11.0, 9.0], &light, &protect)); } assert_ne!(hd.foes[0].state, h::Ai::Embuscade, "de près, il s'éveille");
+    // la lame glisse sur la roche, le marteau la brise
+    let hit = |weapon: &str| { let mut hd = Horde::new(3); hd.put(sp, [0.5, 11.0, 3.5], 0.0, false); let before = hd.foes[0].hp; hd.strike(0, 10.0, [0.5, 11.0, 0.5], weapon, false); before - hd.foes[0].hp };
+    let (sword, hammer) = (hit("epee"), hit("marteau")); assert!(sword < 4.5 && hammer > sword * 1.3, "épée {sword}, marteau {hammer}");
+}
+
+#[test]
+fn l_araignee_englue_et_le_magma_brule() {
+    let (light, protect) = (|_: i32, _: i32, _: i32| 0u8, |_: f64, _: f64| false); let w = Flat;
+    // l'araignée : paisible de loin, elle mord de près et sa morsure englue
+    let sp = h::species("araignee").unwrap(); let mut hd = Horde::new(4); hd.put(sp, [0.5, 11.0, 12.5], std::f64::consts::PI, false);
+    for _ in 0..150 { hd.update(1.0 / 30.0, &w, &ctx([0.5, 11.0, 0.5], &light, &protect)); } assert!(hd.foes[0].p[2] > 6.0, "à douze pas, elle ne charge pas : {:?}", hd.foes[0].p);
+    let mut hd = Horde::new(4); hd.put(sp, [0.5, 11.0, 3.0], std::f64::consts::PI, false); let (mut bit, mut snared) = (false, false);
+    for _ in 0..30 * 12 { hd.update(1.0 / 30.0, &w, &ctx([0.5, 11.0, 0.5], &light, &protect)); for e in hd.ev.drain(..) { match e { FoeEv::Hit { .. } => bit = true, FoeEv::Snare(t) => { snared = true; assert!(t > 1.0); } _ => {} } } }
+    assert!(bit && snared, "morsure {bit}, engluement {snared}");
+    // le rampant de magma : il sème des braises en chargeant ; elles brûlent qui marche dessus ; l'eau le tue
+    let sp = h::species("magma").unwrap(); let mut hd = Horde::new(5); hd.put(sp, [0.5, 11.0, 14.5], std::f64::consts::PI, false);
+    for _ in 0..30 * 4 { hd.update(1.0 / 30.0, &w, &ctx([0.5, 11.0, 0.5], &light, &protect)); hd.ev.clear(); if hd.embers.len() >= 3 { break; } } assert!(hd.embers.len() >= 3, "des braises derrière lui : {}", hd.embers.len());
+    let e = hd.embers[0].0; hd.foes.clear(); let mut burnt = false;
+    for _ in 0..40 { hd.update(1.0 / 30.0, &w, &ctx(e, &light, &protect)); for ev in hd.ev.drain(..) { if let FoeEv::Hit { cause, .. } = ev { assert!(cause.contains("braises")); burnt = true; } } } assert!(burnt, "la braise ne brûle pas");
+    for _ in 0..30 * 6 { hd.update(1.0 / 30.0, &w, &ctx([60.0, 11.0, 0.5], &light, &protect)); } assert!(hd.embers.is_empty(), "les braises s'éteignent");
+    let pool = Pool; let mut hd = Horde::new(6); hd.put(sp, [22.5, 10.2, 0.5], 0.0, false); let mut died = false;
+    for _ in 0..30 * 6 { hd.update(1.0 / 30.0, &pool, &ctx([0.5, 11.0, 0.5], &light, &protect)); for ev in hd.ev.drain(..) { if matches!(ev, FoeEv::Die(..)) { died = true; } } } assert!(died, "l'eau n'a pas éteint le rampant de magma");
+}
+
+#[test]
+fn la_toile_ralentit_et_le_scarabee_fait_une_lanterne() {
+    use alw_core::blocks::B;
+    let (mut s, _, _) = in_hall(Under::Karst); s.wild.all.clear(); let p = s.player.p; let cell = [p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32];
+    s.tick(1.0 / 30.0, Input::default(), Actions::default()); assert_eq!(s.player.slow, 0.0);
+    s.world.edit(cell[0], cell[1], cell[2], B::COBWEB); s.tick(1.0 / 30.0, Input::default(), Actions::default()); assert!(s.player.slow > 0.4, "pris dans la toile");
+    assert!(!alw_core::blocks::is_solid(B::COBWEB) && alw_core::blocks::BLOCKS[B::COBWEB as usize].drop == Some("silk"));
+    s.world.edit(cell[0], cell[1], cell[2], 0); s.snare = 2.0; s.tick(1.0 / 30.0, Input::default(), Actions::default()); assert!(s.player.slow > 0.4, "englué par une morsure");
+    // le scarabée : il éclaire, on le cueille, et avec du verre il devient un bocal qui luit
+    s.snare = 0.0; let before = s.lights(s.player.eye(), 64).len(); s.wild.put(Kind::Glowbug, [p[0] + 1.5, p[1], p[2]], 0.0, false); assert_eq!(s.lights(s.player.eye(), 64).len(), before + 1, "le scarabée éclaire");
+    assert_eq!(alw_core::outdoors::wild_loot(Kind::Glowbug), &[("glowbug", 1)]);
+    assert!(alw_core::session::item("glow_jar").is_some() && alw_core::session::item("silk").is_some() && alw_core::session::item("ember_gland").is_some());
+    assert!(alw_core::blocks::BLOCKS[B::GLOW_JAR as usize].light >= 8 && alw_core::blocks::glow_index(B::GLOW_JAR).is_some());
+}

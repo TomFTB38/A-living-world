@@ -422,6 +422,8 @@ for (const sp of ['oak', 'birch', 'beech', 'spruce', 'acacia']) {
 for (const m of ['stone', 'ice', 'basalt', 'sandstone', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white']) for (const d of ['down', 'up']) for (const k of [0, 1, 2])
   defs.push([`${m}_point_${d}_${k}`, 'deco', null, 0.8, { model: 'dripstone', solid: true, cat: 'rock', drop: m }]);
 // Lianes lumineuses (turquoise), racines qui percent les voûtes, rails des vieilles mines (dans les deux sens).
+// Toile d'araignée (on la traverse, engluée : elle ralentit ; coupée, elle rend sa soie) et bocal à scarabée (une lanterne vivante).
+defs.push(['cobweb', 'deco', null, 0.3, { model: 'cobweb', cat: 'foliage', drop: 'silk' }], ['glow_jar', 'deco', null, 0.3, { model: 'glow_jar', solid: true, light: 9, cat: 'light', drop: 'glow_jar' }]);
 defs.push(['glow_vine', 'deco', null, 0.05, { model: 'glow_vine', cat: 'foliage', drop: 'glow_vine' }], ['roots', 'deco', null, 0.1, { model: 'roots', cat: 'foliage', drop: 'stick' }],
   ['rail_x', 'deco', null, 0.6, { model: 'rail', cat: 'wood', drop: 'rail' }], ['rail_z', 'deco', null, 0.6, { model: 'rail', cat: 'wood', drop: 'rail' }]);
 

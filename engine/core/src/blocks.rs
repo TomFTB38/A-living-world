@@ -56,7 +56,7 @@ pub fn hollow_of(log: Id) -> Id { by_name(&format!("{}_hollow", species(log))).u
 pub fn glow_index(b: Id) -> Option<usize> {
     // une table calculée une fois : cette question est posée pour chaque bloc de chaque chunk
     static T: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
-    let t = T.get_or_init(|| BLOCKS.iter().map(|k| match k.id { B::GLOWCAP => 0, B::GLOWCAP_BLUE => 1, B::GLOWCAP_PINK => 2, B::GLOWCAP_VIOLET => 3, B::GLOWCAP_CYAN => 4, B::GLOW_VINE => 9, B::GLOW_MOSS => 10, _ => {
+    let t = T.get_or_init(|| BLOCKS.iter().map(|k| match k.id { B::GLOWCAP => 0, B::GLOWCAP_BLUE => 1, B::GLOWCAP_PINK => 2, B::GLOWCAP_VIOLET => 3, B::GLOWCAP_CYAN => 4, B::GLOW_VINE => 9, B::GLOW_JAR => 9, B::GLOW_MOSS => 10, _ => {
         // les pointes des cristaux portent la lumière de la grappe ; les blocs pleins brillent d'eux-mêmes sans éclairer alentour
         let n = k.name; if !n.starts_with("crystal_") || !n.contains("_point_") { 255 } else if n.starts_with("crystal_violet") { 5 } else if n.starts_with("crystal_blue") { 6 } else if n.starts_with("crystal_pink") { 7 } else { 8 } } }).collect());
     match t[b as usize] { 255 => None, k => Some(k as usize) }

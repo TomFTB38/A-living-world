@@ -356,6 +356,7 @@ impl WorldGen {
                     Under::Karst | Under::Ordinary | Under::Mineral => {
                         if lamp && lightd > 6.0 && y > wl && hl.kind != Under::Ordinary { cv.set(x, y, z, B::LANTERN); }
                         else if lit { cv.set(x, y - 1, z, B::MOSSY_STONE); if rr < 0.22 { cv.set(x, y, z, B::FERN); } else if rr < 0.3 { cv.set(x, y, z, B::TALL_GRASS); } }
+                        else if hl.kind != Under::Karst && rr > 0.986 { cv.set(x, y, z, B::COBWEB); } // les araignées ont tendu leurs toiles
                         else if wet_edge && rr < 0.05 { cv.set(x, y, z, [B::GLOWCAP_BLUE, B::GLOWCAP_CYAN, B::GLOWCAP][(r2 * 3.0) as usize % 3]); }
                         else if rr < 0.006 { cv.set(x, y, z, B::GLOWCAP_VIOLET); }
                     }
@@ -511,6 +512,7 @@ impl WorldGen {
                     else { cv.set(x, fy + 3, z, if along_x { B::OAK_POST_Z } else { B::OAK_POST_X }); if lat.abs() > 0.5 { cv.set(x, fy + 2, z, BRACE[inward]); } }
                 }
                 if lat.abs() < 0.5 && !support { cv.set(x, fy, z, if along_x { B::RAIL_X } else { B::RAIL_Z }); }
+                if edge && sdist % 4 == 1 && fy + 4 < surf && hash_float(x, z, self.seed, 481) < 0.3 { cv.set(x, fy + 2, z, B::COBWEB); } // une toile dans l'angle, derrière un cadre
                 if lat.abs() < 0.5 && support && sdist % 12 == 0 && fy + 4 < surf { cv.set(x, fy + 2, z, B::LANTERN); }
                 // les parois de la mine : le filon qu'on suivait
                 if edge && !support { for y in fy..=fy + 3 { let o = hash_float(x, y * 5 + z, s, 440); if o < 0.08 { cv.set(x + if along_x { 0 } else { lat.signum() as i32 }, y, z + if along_x { lat.signum() as i32 } else { 0 }, if o < 0.04 { B::COAL_ORE } else if o < 0.065 { B::COPPER_ORE } else { B::IRON_ORE }); } } }

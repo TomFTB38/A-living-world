@@ -23,7 +23,7 @@ fn le_bestiaire_vient_des_donnees() {
     let b = bestiary(); assert!(b.species.len() >= 4);
     for id in ["rodeur", "brigand", "rodeuse", "rampant"] { let s = &b.species[species(id).expect(id)]; assert_eq!(s.tier, 1, "{id} est commun"); assert!(s.biomes.is_empty(), "{id} vit partout");
         for l in &s.loot { assert!(item(l.0).is_some(), "{id} : butin inconnu {}", l.0); } }
-    let bodies: std::collections::HashSet<String> = b.species.iter().map(|s| format!("{:?}", s.body)).collect(); assert_eq!(bodies.len(), 4, "quatre corps différents");
+    let bodies: std::collections::HashSet<String> = b.species.iter().map(|s| format!("{:?}", s.body)).collect(); assert_eq!(bodies.len(), 6, "six corps différents");
     assert_eq!(b.rules.light, 7); assert_eq!(b.rules.distance.len(), 4); assert_eq!(b.rules.biome[5], 3, "désert : 3"); assert_eq!(b.rules.biome[1], 1, "prairie : 1"); assert_eq!(b.rules.biome[6], 4);
 }
 

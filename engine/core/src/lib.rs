@@ -28,7 +28,7 @@ pub mod play;
 pub mod icons;
 pub mod village;
 pub mod batisse;
-pub mod meubles;
+pub mod meubles; pub mod monstres;
 pub mod loose;
 pub mod map;
 pub mod guide;

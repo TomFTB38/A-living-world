@@ -324,6 +324,25 @@ impl Mesher {
                 bx3(o, x + 0.32, y + 0.54, z + 0.32, x + 0.68, y + 0.62, z + 0.68, 0.16, 0.1, 0.06, 0.0, s, l);
                 return;
             }
+            "cobweb" => {
+                // Toile : deux nappes croisées, chacune faite de huit rayons et de trois cercles de fil — de vrais fils, pas un panneau.
+                let c = [x + 0.5, y + 0.5, z + 0.5]; let col = [0.86, 0.86, 0.84]; let t = 0.012;
+                for (ux, uz) in [(0.7071, 0.7071), (0.7071, -0.7071)] {
+                    for k in 0..8 { let a = k as f64 * std::f64::consts::FRAC_PI_4; let (ca, sa) = (cos(a), sin(a)); let h = 0.5 * if k % 2 == 0 { 1.0 } else { 1.3 };
+                        obox(o, c, [[ux * ca * h, sa * h, uz * ca * h], [-ux * sa * t, ca * t, -uz * sa * t], [-uz * t, 0.0, ux * t]], col, -1.0, s, l); }
+                    for ring in [0.16, 0.3, 0.44] { for k in 0..8 { let a = (k as f64 + 0.5) * std::f64::consts::FRAC_PI_4; let (ca, sa) = (cos(a), sin(a)); let half = ring * 0.4;
+                        obox(o, [c[0] + ux * ca * ring * 0.93, c[1] + sa * ring * 0.93, c[2] + uz * ca * ring * 0.93], [[-ux * sa * half, ca * half, -uz * sa * half], [ux * ca * t, sa * t, uz * ca * t], [-uz * t, 0.0, ux * t]], col, -1.0, s, l); } }
+                }
+                return;
+            }
+            "glow_jar" => {
+                // Bocal à scarabée : un pot de verre trapu et son couvercle de bois ; dedans, la lueur bleu-vert qui va et vient.
+                let (cx, cz) = (x + 0.5, z + 0.5); let g = GLOW[9];
+                cyl(o, [cx, y, cz], [cx, y + 0.34, cz], 0.17, 0.17, 0.0, [0.62, 0.8, 0.82], -1.0, s, l, 12); cyl(o, [cx, y + 0.34, cz], [cx, y + 0.4, cz], 0.17, 0.11, 0.0, [0.62, 0.8, 0.82], -1.0, s, l, 12);
+                cyl(o, [cx, y + 0.4, cz], [cx, y + 0.46, cz], 0.13, 0.13, 0.0, [0.45, 0.3, 0.17], -1.0, s, l, 12);
+                bx(o, cx - 0.06, y + 0.1, cz - 0.172, cx + 0.06, y + 0.24, cz + 0.172, g[0], g[1], g[2], 0.0, s, 255.0, EMIT, false, 0.0, 255.0); bx(o, cx - 0.172, y + 0.1, cz - 0.06, cx + 0.172, y + 0.24, cz + 0.06, g[0], g[1], g[2], 0.0, s, 255.0, EMIT, false, 0.0, 255.0);
+                return;
+            }
             "glow_vine" => {
                 // Liane lumineuse : un fil sombre, des perles turquoise qui luisent dans le noir.
                 for _ in 0..r_.int(1, 2) {

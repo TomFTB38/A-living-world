@@ -7,9 +7,9 @@ pub trait Voxels { fn get(&self, x: i32, y: i32, z: i32) -> Option<Id>; }
 #[derive(Default, Clone, Copy)]
 pub struct Input { pub x: f64, pub z: f64, pub jump: bool, pub sprint: bool, pub crouch: bool, pub roll: bool }
 pub const ROLL_TIME: f64 = 0.62; const ROLL_SPEED: f64 = 5.5; /* trois blocs au plus */ const ROLL_WAIT: f64 = 0.3;
-pub struct Player { /** Franchir un bloc entier sans sauter (saut automatique). */ pub autostep: bool, pub p: [f64; 3], pub v: [f64; 3], pub yaw: f64, pub pitch: f64, pub ground: bool, pub crouch: bool, pub in_water: bool, pub speed: f64, pub fly: bool, pub move_yaw: f64, pub roll_t: f64, roll_dir: [f64; 2], pub roll_local: [f64; 2], roll_wait: f64 }
+pub struct Player { /** Franchir un bloc entier sans sauter (saut automatique). */ pub autostep: bool, pub p: [f64; 3], pub v: [f64; 3], pub yaw: f64, pub pitch: f64, pub ground: bool, pub crouch: bool, pub in_water: bool, pub speed: f64, pub fly: bool, pub move_yaw: f64, /** ralenti (toile, soie) : la part d'allure perdue, de 0 à 1 */ pub slow: f64, pub roll_t: f64, roll_dir: [f64; 2], pub roll_local: [f64; 2], roll_wait: f64 }
 impl Player {
-    pub fn new(x: f64, y: f64, z: f64) -> Self { Player { autostep: true, p: [x, y, z], v: [0.0; 3], yaw: 0.0, pitch: 0.0, ground: false, crouch: false, in_water: false, speed: 0.0, fly: false, move_yaw: 0.0, roll_t: 0.0, roll_dir: [0.0; 2], roll_local: [0.0, 1.0], roll_wait: 0.0 } }
+    pub fn new(x: f64, y: f64, z: f64) -> Self { Player { autostep: true, p: [x, y, z], v: [0.0; 3], yaw: 0.0, pitch: 0.0, ground: false, crouch: false, in_water: false, speed: 0.0, fly: false, move_yaw: 0.0, slow: 0.0, roll_t: 0.0, roll_dir: [0.0; 2], roll_local: [0.0, 1.0], roll_wait: 0.0 } }
     /// Le corps (une boîte de 0,6 × 1,8) rencontre-t-il quelque chose ? Chaque bloc arrête exactement là où il est dessiné :
     /// les formes de construction par leur géométrie, les meubles et objets par leur dessin, la clôture par son poteau et ses lisses.
     fn hits(&self, w: &impl Voxels, x: f64, y: f64, z: f64) -> bool { self.top_hit(w, x, y, z).is_some() }
@@ -35,6 +35,7 @@ impl Player {
         if l > 1.0 { mx /= l; mz /= l; }
         let accel = if fly { 9.0 } else if self.ground { 14.0 } else if self.in_water { 5.0 } else { 3.5 }; let sw = if self.in_water && !fly { 0.55 } else { 1.0 };
         let k = (accel * dt).min(1.0);
+        let sw = sw * (1.0 - self.slow);
         self.v[0] += (mx * sp * sw - self.v[0]) * k; self.v[2] += (mz * sp * sw - self.v[2]) * k;
         // Roulade : dans le sens des touches, vers l'avant sans direction. Elle engage le corps jusqu'au bout.
         self.roll_wait -= dt;

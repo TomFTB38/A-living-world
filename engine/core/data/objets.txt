@@ -562,3 +562,7 @@ spruce_post_angle | Poutre d'angle d'épicéa | batir | 0.5 | 64 | Un coude de p
 acacia_post | Poutre d'acacia | batir | 0.5 | 64 | Un rondin fin : debout, en long ou en travers selon le regard (R change le mode). |
 acacia_post_diag | Jambe de force d'acacia | batir | 0.5 | 64 | Une poutre fine en diagonale, qui monte devant soi (R la tourne) : elle rejoint un montant et une traverse. |
 acacia_post_angle | Poutre d'angle d'acacia | batir | 0.5 | 64 | Un coude de poutre fine, bras devant soi ; visée haute ou sous un plafond, il pend du haut d'un montant. |
+silk | Soie d'araignée | matieres | 0.05 | 99 | Un fil fin et très solide, pris aux toiles et aux araignées des cavernes : trois brins font une corde. |
+glowbug | Scarabée lumineux | matieres | 0.05 | 16 | Cueilli dans une grotte ; son abdomen luit sans jamais chauffer. Dans un bocal de verre, il fait une lanterne. |
+glow_jar | Bocal à scarabée | ateliers | 0.5 | 64 | Une lanterne vivante : une lueur bleu-vert, douce, qui ne s'éteint pas. |
+ember_gland | Glande de braise | matieres | 0.3 | 64 | Arrachée à un rampant de magma, encore chaude : elle brûle très longtemps. | combustible=160
