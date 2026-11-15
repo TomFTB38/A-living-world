@@ -59,7 +59,8 @@ pub fn layout(s: &Session, w: f32, h: f32) -> Vec<(Hit, [f32; 4])> {
         if let Some(src) = s.cut_in { let yg = yb + 8.0 * k + big + 44.0 * k; for (j, v) in cut_variants(src.item).into_iter().take(BOOK_COLS * 6).enumerate() { o.push((Hit::Cut(v.out), [xb + (j % BOOK_COLS) as f32 * cell, yg + (j / BOOK_COLS) as f32 * cell, c, c])); } }
         return o;
     }
-    // Livre de recettes : deux rangées d'onglets, la recherche, la grille, les pages, le détail et ses boutons. let th = 26.0 * k; let names = 1 + BOOK_CATS.len(); let per = names.div_ceil(2);
+    // Livre de recettes : deux rangées d'onglets, la recherche, la grille, les pages, le détail et ses boutons.
+    let th = 26.0 * k; let names = 1 + BOOK_CATS.len(); let per = names.div_ceil(2);
     for i in 0..names { let (r, cl) = (i / per, i % per); let n = if r == 0 { per } else { names - per }; let tbw = (bw - (n as f32 - 1.0) * g) / n as f32; o.push((Hit::BookCat(i), [xb + cl as f32 * (tbw + g), yb + r as f32 * (th + g), tbw, th])); }
     let ys = yb + 2.0 * (th + g) + 4.0 * k; o.push((Hit::Search, [xb, ys, bw, 28.0 * k]));
     let yg = ys + 36.0 * k; let list = book(s, cat_of(s.book.cat), &s.book.search); let page = s.book.page.min(list.len().saturating_sub(1) / (BOOK_COLS * BOOK_ROWS));
