@@ -125,7 +125,7 @@ fn sees(w: &impl Voxels, a: [f64; 3], b: [f64; 3]) -> bool {
 }
 fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.55, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.55, Body::Araignee => 0.4, Body::Golem => 1.9, Body::Humain => 1.5, Body::Ver => 0.6, Body::Harpie => 0.3 } }
 /// Boîte de visée et de collision (demi-largeur, hauteur).
-pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.42, 1.85), Body::Brigand => (0.42, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.55, 0.8), Body::Araignee => (0.55, 0.65), Body::Golem => (0.6, 2.25), Body::Humain => (0.4, 1.8), Body::Ver => (0.5, 2.4), Body::Harpie => (0.6, 0.9) }; (w * size, h * size) }
+pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.42, 1.85), Body::Brigand => (0.42, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.55, 0.8), Body::Araignee => (0.55, 0.65), Body::Golem => (0.6, 2.25), Body::Humain => (0.4, 1.8) /* le sylvain, plus massif, garde cette boîte : on le frappe au tronc */, Body::Ver => (0.5, 2.4), Body::Harpie => (0.6, 0.9) }; (w * size, h * size) }
 
 impl Horde {
     pub fn new(seed: i32) -> Self { Horde { foes: Vec::new(), rng: Rng::new((seed ^ 0x6d21) as u32), spawn_t: 2.0, ev: Vec::new(), groups: 0, spawned: 0, embers: Vec::new(), burn_cd: 0.0, shots: Vec::new() } }
@@ -736,18 +736,18 @@ impl Horde {
                     // flotte sans jambes, le sylvain à l'affût lève ses bras comme des branches.
                     let (pt, ph, pa, pl) = match s.skin { "archer" => ("arcTorso", "arcHead", "arcArm", "arcLeg"), "fantome" => ("fanTorso", "fanHead", "fanArm", "fanLeg"), "sylvain" => ("sylTorso", "sylHead", "sylArm", "sylLeg"), _ => ("noyTorso", "noyHead", "noyArm", "noyLeg") };
                     let syl = s.skin == "sylvain"; let t = f.phase; let hide = if f.state == Ai::Embuscade { 1.0 } else { 0.0 };
-                    let (hips, sh_x, sh_y, head_y, leg_x) = if syl { (0.92, 0.44, 0.95, 1.13, 0.15) } else { (0.86, 0.28, 0.54, 0.6, 0.1) };
+                    let (hips, sh_x, sh_y, head_y, head_z, leg_x) = if syl { (0.75, 0.68, 0.98, 0.98, 0.3, 0.3) } else { (0.86, 0.28, 0.54, 0.6, 0.02, 0.1) };
                     let stride = sw * (0.35 + 0.3 * run); let float = if s.ghost { 0.1 * sin(t * 0.9) + 0.25 } else { -(f.phase * 2.0).sin().abs() * 0.02 * run };
-                    let lean = (if s.ghost { 0.2 + 0.2 * run } else if s.drag { 0.22 } else { 0.05 + 0.15 * run }) - wind * if s.bow { 0.0 } else { 0.2 } + strike * 0.35 - flinch * 0.5;
+                    let lean = (if s.ghost { 0.2 + 0.2 * run } else if s.drag { 0.22 } else if syl { 0.2 * (1.0 - hide) + 0.1 * run } else { 0.05 + 0.15 * run }) - wind * if s.bow { 0.0 } else { 0.2 } + strike * 0.35 - flinch * 0.5;
                     let root = mul(&base, &trs(0.0, hips + float, 0.0, 0.0, 0.0, 1.0)); let torso = mul(&root, &trs(0.0, 0.0, 0.0, 0.0, lean, 1.0));
-                    put(pt, torso); put(ph, mul(&torso, &trs(0.0, head_y, 0.02, 0.12 * (t * 0.5).sin() * (1.0 - run), -lean * 0.5, 1.0)));
+                    put(pt, torso); put(ph, mul(&torso, &trs(0.0, head_y, head_z, 0.12 * (t * 0.5).sin() * (1.0 - run) * (1.0 - hide), -lean * 0.5, 1.0)));
                     let aiming = s.bow && (f.wind > 0.0 || f.state == Ai::Combat);
                     for sx in [-1.0f64, 1.0] {
                         let arm = if aiming { if sx > 0.0 { -1.5 } else { -1.2 + 0.5 * wind } } else if s.drag { -1.35 + 0.1 * (t + sx).sin() - 0.5 * wind + 0.7 * strike } else if s.ghost { -0.9 + 0.12 * (t * 0.8 + sx).sin() - 0.7 * wind + 0.6 * strike }
-                            else if syl { -2.75 * hide - 2.4 * wind * (1.0 - hide) + 1.0 * strike - sx * stride * 0.6 * (1.0 - hide) } else { -sx * stride * 0.8 };
-                        let am = mul(&torso, &mul(&trs(sh_x * sx, sh_y, 0.0, 0.0, arm, 1.0), &roll_z(if syl { sx * 0.25 * hide } else { 0.0 }))); put(pa, am);
+                            else if syl { -2.6 * hide - 0.15 * (1.0 - hide) - 2.3 * wind * (1.0 - hide) + 1.1 * strike - sx * stride * 0.5 * (1.0 - hide) + 0.04 * (t * 0.7 + sx).sin() } else { -sx * stride * 0.8 };
+                        let am = mul(&torso, &mul(&trs(sh_x * sx, sh_y, 0.0, 0.0, arm, 1.0), &roll_z(if syl { sx * (0.3 * hide + 0.12) } else { 0.0 }))); put(pa, am);
                         if s.bow && sx > 0.0 { put("arcBow", mul(&am, &trs(0.0, -0.62, 0.04, 0.0, if aiming { 1.5 } else { 0.3 }, 1.0))); }
-                        if !s.ghost { put(pl, mul(&root, &trs(leg_x * sx, 0.0, 0.0, 0.0, sx * stride * (1.0 - hide), 1.0))); }
+                        if !s.ghost { put(pl, mul(&root, &trs(leg_x * sx, 0.0, 0.0, 0.0, sx * stride * (1.0 - hide) * if syl { 0.5 } else { 1.0 }, 1.0))); }
                     }
                 }
                 Body::Ver => {
