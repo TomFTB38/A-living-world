@@ -396,7 +396,7 @@ fn walk(f: &mut Foe, w: &impl Voxels, step: f64, climb: bool, body: Body) -> boo
 /// Chaque face d'une pièce est découpée en petits pixels (environ 3 cm) dont la teinte suit la matière : trame et
 /// effilochures de l'étoffe, grain et coutures du cuir, reflets, rayures et rouille du fer, marbrures de la chair, fissures
 /// de l'os, poil de la bête, reflets de la chitine. Les très petites pièces (yeux, dents, rivets) restent unies.
-#[derive(Clone, Copy, PartialEq)] pub(crate) enum Mat { Plain, Grain, Cloth, Leather, Metal, Flesh, Bone, Fur, Chitin, /** peau lisse de cétacé */ Skin, /** poil ras et luisant (cheval) */ Coat, /** peau de requin, grenue */ Shark, /** peau de baleine semée de bernacles */ Barnacle, /** plumes en rangs d'écailles */ Feather, /** écailles en losanges */ Scale, /** cheveux, crins : des mèches */ Hair, /** peau humaine, douce et unie */ Human, /** laine bouclée */ Wool }
+#[derive(Clone, Copy, PartialEq)] pub(crate) enum Mat { /** écorce : sillons verticaux profonds, crêtes claires, crevasses, lichen */ Bark, Plain, Grain, Cloth, Leather, Metal, Flesh, Bone, Fur, Chitin, /** peau lisse de cétacé */ Skin, /** poil ras et luisant (cheval) */ Coat, /** peau de requin, grenue */ Shark, /** peau de baleine semée de bernacles */ Barnacle, /** plumes en rangs d'écailles */ Feather, /** écailles en losanges */ Scale, /** cheveux, crins : des mèches */ Hair, /** peau humaine, douce et unie */ Human, /** laine bouclée */ Wool }
 const PIX: f64 = 0.0625;
 fn mat_of(c: [f64; 3]) -> Mat {
     if c == EYE || c == GEYE || c == RED_EYE || c == EYEO { return Mat::Plain; }
@@ -409,6 +409,17 @@ fn shade(m: Mat, c: [f64; 3], i: i32, j: i32, nu: i32, nv: i32, side: bool, seed
     match m {
         Mat::Plain => return c,
         Mat::Grain => {}
+        Mat::Bark => {
+            // Des plaques d'écorce : chaque colonne de pixels est un sillon (sombre) ou une crête (claire), qui se décale tous les
+            // quelques pixels de haut ; des crevasses en travers, un fond plus roux au creux des sillons, du lichen çà et là.
+            let hh = |a: i32, b: i32, k: i32| crate::noise::hash_float(a, b, seed, k);
+            if side { let run = j / 4 + (hh(i, 0, 40) * 3.0) as i32; let g = hh(i, run, 41);
+                f = if g < 0.3 { 0.55 + 0.1 * h(1) } else if g > 0.72 { 1.12 + 0.1 * h(1) } else { 0.82 + 0.14 * h(1) };
+                if g < 0.3 { out = [c[0] * 1.08, c[1] * 0.9, c[2] * 0.8]; }
+                if hh(i / 2, j, 42) < 0.06 { f *= 0.6; } // une crevasse en travers
+                if h(43) < 0.035 { out = [c[0] * 0.75 + 0.14, c[1] * 0.75 + 0.2, c[2] * 0.75 + 0.1]; f = 1.0; } // lichen
+            } else { f = 0.78 + 0.2 * h(1); if (i + j) % 3 == 0 { f *= 0.86; } }
+        }
         Mat::Cloth => { f = 0.93 + 0.1 * h(1); if i % 2 == 0 { f *= 0.95; } if side && v < 0.18 { f *= 0.8 + 0.1 * h(2); } if h(3) < 0.04 { f *= 0.84; } if h(4) < 0.04 { f *= 1.08; } }
         Mat::Leather => { f = 0.84 + 0.22 * h(1); if nu > 3 && (i == 0 || i == nu - 1) && j % 2 == 0 { f *= 1.28; } if h(5) < 0.07 { f *= 0.72; } }
         Mat::Metal => { f = 0.84 + 0.2 * h(1); if v > 0.8 { f *= 1.12; } if h(6) < 0.05 { f *= 0.66; }
