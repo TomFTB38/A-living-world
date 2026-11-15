@@ -209,7 +209,7 @@ impl Horde {
         for a in shots.iter_mut() { let steps = 3; for _ in 0..steps { let h = dt / steps as f64; a.1[1] -= 12.0 * h; for k in 0..3 { a.0[k] += a.1[k] * h; }
             if w.get(a.0[0].floor() as i32, a.0[1].floor() as i32, a.0[2].floor() as i32).is_none_or(|b| b != 0 && is_solid(b)) { a.2 = 99.0; break; }
             if c.alive && hypot2(a.0[0] - me[0], a.0[2] - me[2]) < 0.42 && a.0[1] > me[1] - 0.1 && a.0[1] < me[1] + 1.85 { let l = hypot2(a.1[0], a.1[2]).max(0.1);
-                self.ev.push(FoeEv::Hit { from: [me[0] - a.1[0] / l * 3.0, me[1], me[2] - a.1[2] / l * 3.0], dmg: a.3, cause: "La flèche d'un archer décharné", push: 1.2 }); a.2 = 99.0; break; } }
+                self.ev.push(FoeEv::Hit { from: [me[0] - a.1[0] / l * 3.0, me[1], me[2] - a.1[2] / l * 3.0], dmg: a.3, cause: "La flèche d'un archer squelette", push: 1.2 }); a.2 = 99.0; break; } }
             a.2 += dt; }
         shots.retain(|a| a.2 < 5.0); self.shots = shots;
         // Les braises s'éteignent ; marcher dessus, ou serrer de trop près un rampant de magma, brûle.
@@ -368,7 +368,7 @@ impl Horde {
         self.foes.iter().take(8).map(|f| { let s = &bestiary().species[f.sp]; format!("  {}{} — {} ({:.0}/{:.0} pv, éveil {:.1})", s.name, if f.vet { " (vétéran)" } else { "" }, if f.dead > 0.0 { "morte" } else { f.state.name() }, f.hp.max(0.0), f.max, f.alert) }).collect()
     }
 }
-fn cause(b: Body) -> &'static str { match b { Body::Rodeur => "Les griffes d'un rôdeur décharné", Body::Brigand => "L'arme d'un brigand", Body::Humain => "Les mains d'une créature de la nuit", Body::Ver => "La gueule d'un ver des sables", Body::Harpie => "Les serres d'une harpie", Body::Araignee => "Les crochets d'une araignée des cavernes", Body::Golem => "Le poing d'un golem de cristal", Body::Bete => "Les crocs d'une bête rôdeuse", Body::Rampant => "Les mandibules d'un rampant nocturne" } }
+fn cause(b: Body) -> &'static str { match b { Body::Rodeur => "Les griffes d'un rôdeur décharné", Body::Brigand => "L'arme d'un brigand", Body::Humain => "Le trident d'un noyé", Body::Ver => "La gueule d'un ver des sables", Body::Harpie => "Les serres d'une harpie", Body::Araignee => "Les crochets d'une araignée des cavernes", Body::Golem => "Le poing d'un golem de cristal", Body::Bete => "Les crocs d'une bête rôdeuse", Body::Rampant => "Les mandibules d'un rampant nocturne" } }
 fn turn(a: f64, b: f64, k: f64) -> f64 { let d = (b - a + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI; a + d.clamp(-k, k) }
 /// Du sable (ou du gravier) sous ce point : le terrain du ver.
 fn sandy(w: &impl Voxels, x: f64, y: f64, z: f64) -> bool { w.get(x.floor() as i32, y.floor() as i32 - 1, z.floor() as i32).is_some_and(|b| b == B::SAND || b == B::GRAVEL) }
@@ -743,9 +743,10 @@ impl Horde {
                     put(pt, torso); put(ph, mul(&torso, &trs(0.0, head_y, head_z, 0.12 * (t * 0.5).sin() * (1.0 - run) * (1.0 - hide), -lean * 0.5, 1.0)));
                     let aiming = s.bow && (f.wind > 0.0 || f.state == Ai::Combat);
                     for sx in [-1.0f64, 1.0] {
-                        let arm = if aiming { if sx > 0.0 { -1.5 } else { -1.2 + 0.5 * wind } } else if s.drag { -1.35 + 0.1 * (t + sx).sin() - 0.5 * wind + 0.7 * strike } else if s.ghost { -0.9 + 0.12 * (t * 0.8 + sx).sin() - 0.7 * wind + 0.6 * strike }
+                        let arm = if aiming { if sx > 0.0 { -1.5 } else { -1.2 + 0.5 * wind } } else if s.drag { if sx > 0.0 { -0.55 - 0.9 * wind + 1.2 * strike } else { -1.25 + 0.1 * t.sin() - 0.3 * wind + 0.5 * strike } /* la main du trident, et l'autre qui cherche à saisir */ } else if s.ghost { -0.35 + 0.1 * (t * 0.8 + sx).sin() - 0.9 * wind + 0.7 * strike }
                             else if syl { -2.6 * hide - 0.15 * (1.0 - hide) - 2.3 * wind * (1.0 - hide) + 1.1 * strike - sx * stride * 0.5 * (1.0 - hide) + 0.04 * (t * 0.7 + sx).sin() } else { -sx * stride * 0.8 };
-                        let am = mul(&torso, &mul(&trs(sh_x * sx, sh_y, 0.0, 0.0, arm, 1.0), &roll_z(if syl { sx * (0.3 * hide + 0.12) } else { 0.0 }))); put(pa, am);
+                        let am = mul(&torso, &mul(&trs(sh_x * sx, sh_y, 0.0, 0.0, arm, 1.0), &roll_z(if syl { sx * (0.3 * hide + 0.12) } else if s.ghost { sx * (0.95 + 0.12 * (t * 0.9).sin()) /* les manches ouvertes comme des ailes */ } else { 0.0 }))); put(pa, am);
+                        if s.drag && sx > 0.0 { put("noyTrident", mul(&am, &trs(0.0, -0.62, 0.06, 0.0, -arm - lean + 0.5 * strike, 1.0))); } // le trident reste dressé, et pique quand il frappe
                         if s.bow && sx > 0.0 { put("arcBow", mul(&am, &trs(0.0, -0.62, 0.04, 0.0, if aiming { 1.5 } else { 0.3 }, 1.0))); }
                         if !s.ghost { put(pl, mul(&root, &trs(leg_x * sx, 0.0, 0.0, 0.0, sx * stride * (1.0 - hide) * if syl { 0.5 } else { 1.0 }, 1.0))); }
                     }
