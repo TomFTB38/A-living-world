@@ -284,6 +284,9 @@ impl ApplicationHandler for App {
                             Some(hud::Hit::Book(r)) => g.s.book.sel = Some(r),
                             Some(hud::Hit::Page(d)) => g.s.book.page = (g.s.book.page as i32 + d).max(0) as usize,
                             Some(hud::Hit::Search) => g.s.book.typing = true,
+                            // L'atelier de taille : choisir son mode ; tailler le bloc posé dans la variante cliquée (Maj : tout le tas).
+                            Some(hud::Hit::Mode(m)) => g.s.cut_mode = m,
+                            Some(hud::Hit::Cut(out)) => if let Err(e) = g.s.cut(out, shift) { g.say(e.into()); },
                             // « Fabriquer » une fois, ou « Tout » : autant que les ingrédients le permettent.
                             // À la main, tout de suite ; à un atelier, l'ouvrage prend le temps de son geste.
                             Some(hud::Hit::Craft(all)) => if let Some(r) = g.s.book.sel { if let Err(e) = g.s.order_craft(r, all || shift) { g.say(e.into()); } },
@@ -399,6 +402,10 @@ fn capture(a: &[String]) {
     let none = Input::default(); s.third = scene == "tiers"; s.tick(0.0, none, Actions::default());
     if scene == "tiers" { s.sel = 1; s.tick(0.0, none, Actions::default()); }
     if scene == "bras" { s.sel = 0; for _ in 0..6 { s.tick(1.0 / 60.0, none, Actions { mine: true, place: false, ..Default::default() }); } }
+    // Les écrans d'atelier : chacun son décor ; l'atelier de taille avec un tas de pierre posé dans sa case.
+    if let Some(a) = scene.strip_prefix("atelier_") { use alw_core::data::Station as St; let st = match a { "etabli" => St::Bench, "enclume" => St::Anvil, "four" => St::Furnace, "feu" => St::Fire, _ => St::Mason };
+        for (id, n) in [("oak_log", 12), ("planks", 24), ("stick", 12), ("stone", 24), ("cobblestone", 24), ("iron_ingot", 8), ("iron_ore", 6), ("coal", 8), ("raw_meat", 4), ("clay", 8), ("sand", 8), ("leather", 4)] { s.add_item(id, n); }
+        s.inv_open = true; s.at_station = Some((st, [0, 0, 0])); s.cut_mode = true; if st == St::Mason { s.cut_in = Some(alw_core::session::Stack::new(if a == "taille_bois" { "planks" } else { "stone" }, Some(16))); } }
     if scene == "inv" { s.inv_open = true; s.grab_slot(5); s.tick(0.0, none, Actions::default()); }
     // Un onglet du catalogue créatif, par son numéro : « onglet8 » pour les outils.
     if let Some(k) = scene.strip_prefix("onglet").and_then(|k| k.parse::<usize>().ok()) { s.set_creative(true); s.inv_open = true; s.tab = k; s.tick(0.0, none, Actions::default()); }

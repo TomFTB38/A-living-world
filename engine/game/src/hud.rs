@@ -5,8 +5,8 @@ use crate::gpu::ICON_COLS;
 use crate::needs;
 use alw_core::data::{def, Station, SLOTS};
 use alw_core::map::{unpack, Atlas, STEP, ZOOMS};
-use alw_core::play::{book, unknown, BOOK_CATS};
-use alw_core::session::{item, order, tabs, Session, CHEST0, CHEST_SIZE, EQUIP0, INV_SIZE};
+use alw_core::play::{book, cut_variants, unknown, BOOK_CATS};
+use alw_core::session::{item, order, tabs, Session, CHEST0, CHEST_SIZE, CUT0, EQUIP0, INV_SIZE};
 use alw_core::survival::{group_label, recipes, PROFILES, SKILLS};
 pub const VERT: usize = 36; // octets par sommet : position, uv, couleur, couche
 #[derive(Default)]
@@ -15,7 +15,7 @@ type C = [f32; 4];
 const LAYER_FLAT: f32 = -1.0; const LAYER_TEXT: f32 = -2.0; const LAYER_ICON: f32 = -3.0; const LAYER_LOGO: f32 = -4.0;
 const INK: C = [0.96, 0.95, 0.9, 1.0]; const DIM: C = [0.74, 0.76, 0.69, 0.95]; const PANEL: C = [0.075, 0.09, 0.08, 0.93]; const WELL: C = [0.0, 0.0, 0.0, 0.32]; const ACCENT: C = [0.55, 0.78, 0.42, 1.0]; const BAD: C = [1.0, 0.45, 0.38, 1.0]; const GOLD: C = [0.95, 0.78, 0.36, 1.0];
 /// Ce que la souris peut viser dans l'inventaire. `Slot` couvre le sac, le coffre ouvert et l'équipement.
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum Hit { Slot(usize), Catalog(&'static str), Tab(usize), Book(usize), BookCat(usize), Page(i32), Search, Craft(bool), Scroll(i32) }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum Hit { Slot(usize), Catalog(&'static str), Tab(usize), Book(usize), BookCat(usize), Page(i32), Search, Craft(bool), Scroll(i32), /** atelier de taille : une variante à tailler */ Cut(&'static str), /** atelier de taille : tailler (true) ou ses recettes (false) */ Mode(bool) }
 fn scale(h: f32) -> f32 { (h / 900.0).clamp(0.8, 2.0) }
 /// Échelle de l'inventaire de survie : assez petite pour que les trois panneaux tiennent en largeur.
 fn inv_scale(w: f32, h: f32) -> f32 { scale(h).min(w / 1300.0).max(0.6) }
@@ -50,8 +50,16 @@ pub fn layout(s: &Session, w: f32, h: f32) -> Vec<(Hit, [f32; 4])> {
     inv_grid(&mut o, x0, y, c, cell, k);
     // L'équipement ne remonte pas avec un grand coffre : il resterait sinon coupé en bas de l'écran.
     let ye = y.min(h * 0.5 - 70.0 * k); for i in 0..SLOTS.len() { o.push((Hit::Slot(EQUIP0 + i), [xl, ye + i as f32 * cell, c, c])); }
-    // Livre de recettes : deux rangées d'onglets, la recherche, la grille, les pages, le détail et ses boutons.
-    let yb = h * 0.5 - 300.0 * k; let th = 26.0 * k; let names = 1 + BOOK_CATS.len(); let per = names.div_ceil(2);
+    // L'atelier de taille : deux boutons dans l'en-tête (tailler, ou ses recettes) ; en mode taille, la case où poser le bloc
+    // et la grille de ses variantes remplacent le livre.
+    let yb = h * 0.5 - 300.0 * k;
+    if s.at_station.is_some_and(|a| a.0 == Station::Mason) { let (mw, mh) = (84.0 * k, 24.0 * k); o.push((Hit::Mode(true), [xb + bw - 2.0 * mw - g, yb - 42.0 * k, mw, mh])); o.push((Hit::Mode(false), [xb + bw - mw, yb - 42.0 * k, mw, mh])); }
+    if s.cutting() {
+        let big = c * 1.3; o.push((Hit::Slot(CUT0), [xb, yb + 8.0 * k, big, big]));
+        if let Some(src) = s.cut_in { let yg = yb + 8.0 * k + big + 44.0 * k; for (j, v) in cut_variants(src.item).into_iter().take(BOOK_COLS * 6).enumerate() { o.push((Hit::Cut(v.out), [xb + (j % BOOK_COLS) as f32 * cell, yg + (j / BOOK_COLS) as f32 * cell, c, c])); } }
+        return o;
+    }
+    // Livre de recettes : deux rangées d'onglets, la recherche, la grille, les pages, le détail et ses boutons. let th = 26.0 * k; let names = 1 + BOOK_CATS.len(); let per = names.div_ceil(2);
     for i in 0..names { let (r, cl) = (i / per, i % per); let n = if r == 0 { per } else { names - per }; let tbw = (bw - (n as f32 - 1.0) * g) / n as f32; o.push((Hit::BookCat(i), [xb + cl as f32 * (tbw + g), yb + r as f32 * (th + g), tbw, th])); }
     let ys = yb + 2.0 * (th + g) + 4.0 * k; o.push((Hit::Search, [xb, ys, bw, 28.0 * k]));
     let yg = ys + 36.0 * k; let list = book(s, cat_of(s.book.cat), &s.book.search); let page = s.book.page.min(list.len().saturating_sub(1) / (BOOK_COLS * BOOK_ROWS));
@@ -237,22 +245,23 @@ impl Ui {
             for t in lines { self.text(&t, xl, y, z, DIM); y += 20.0 * k; }
             let sk: Vec<String> = SKILLS.iter().zip(s.skills.iter()).filter(|(_, v)| **v >= 1.0).map(|(n, v)| format!("{n} {:+.0} %", (alw_core::survival::skill_bonus(*v) - 1.0) * 100.0)).collect();
             if !sk.is_empty() { for t in wrap(&sk.join("  ·  "), z, lw) { self.text(&t, xl, y, z, ACCENT); y += 20.0 * k; } }
+            if s.cutting() { self.cutter(s, &l, w, h, k, hover, &mut tip); } else {
             // Livre de recettes, à droite.
             let c0 = l.iter().find(|r| r.0 == Hit::BookCat(0)).map(|r| r.1).unwrap(); let bw = BOOK_COLS as f32 * cell - 5.0 * k; let xb = c0[0];
             let craft = l.iter().find(|r| r.0 == Hit::Craft(false)).map(|r| r.1).unwrap();
             // À un atelier, le livre devient son interface : son nom, sa teinte, son image, ses seuls ouvrages, son geste et sa jauge.
             let station = s.at_station.map(|a| a.0); let theme = station.map_or(PANEL, station_tint);
-            let box_ = [xb - m, c0[1] - m - 30.0 * k, bw + 2.0 * m, craft[1] + craft[3] - c0[1] + 2.0 * m + 30.0 * k + if s.job.is_some() { 44.0 * k } else { 0.0 }]; self.panel(box_, k, theme);
+            let box_ = [xb - m, c0[1] - m - 30.0 * k, bw + 2.0 * m, craft[1] + craft[3] - c0[1] + 2.0 * m + 30.0 * k + if s.job.is_some() { 44.0 * k } else { 0.0 }]; self.panel(box_, k, theme); if let Some(st) = station { self.station_frame(st, box_, k, s.elapsed as f32); }
             if let Some(st) = station { let (name, icon, ..) = station_look(st); self.text(name, xb + 34.0 * k, c0[1] - 38.0 * k, 22.0 * k, INK);
                 if st == Station::Furnace || st == Station::Fire { for i in 0..6 { let f = i as f32 / 6.0; self.rect(xb - 4.0 * k + f * 10.0 * k, c0[1] - 46.0 * k + f * 10.0 * k, 36.0 * k - f * 20.0 * k, 36.0 * k - f * 20.0 * k, [1.0, 0.45 + 0.3 * f, 0.1, 0.06 + 0.04 * f]); } }
                 self.icon(icon, xb + 14.0 * k, c0[1] - 28.0 * k, 16.0 * k); }
             else { self.text("Recettes", xb, c0[1] - 38.0 * k, 22.0 * k, INK); }
-            let left = unknown(s); if left > 0 { let t = format!("{left} à découvrir"); let z = 14.0 * k; self.text(&t, xb + bw - Ui::text_width(&t, z), c0[1] - 32.0 * k, z, DIM); }
+            let left = if station == Some(Station::Mason) { 0 } else { unknown(s) }; if left > 0 { let t = format!("{left} à découvrir"); let z = 14.0 * k; self.text(&t, xb + bw - Ui::text_width(&t, z), c0[1] - 32.0 * k, z, DIM); }
             let list = book(s, cat_of(s.book.cat), &s.book.search); let pages = list.len().div_ceil(BOOK_COLS * BOOK_ROWS).max(1);
             for (hit, r) in &l { let on = hover == Some(*hit); match hit {
                 Hit::BookCat(i) => { let sel = *i == s.book.cat; self.panel(*r, k, if sel { [0.28, 0.4, 0.22, 1.0] } else if on { [0.2, 0.24, 0.2, 1.0] } else { [0.0, 0.0, 0.0, 0.34] }); self.centered(if *i == 0 { "Tout" } else { BOOK_CATS[i - 1].1 }, *r, 14.0 * k, if sel { INK } else { DIM }); }
                 Hit::Search => { self.panel(*r, k, if s.book.typing { [0.16, 0.2, 0.16, 1.0] } else { [0.0, 0.0, 0.0, 0.4] }); let (t, c) = if s.book.search.is_empty() && !s.book.typing { ("Rechercher...".to_string(), DIM) } else { (format!("{}{}", s.book.search, if s.book.typing && (s.elapsed * 2.0) as i64 % 2 == 0 { "|" } else { "" }), INK) }; self.text(&t, r[0] + 8.0 * k, r[1] + 5.0 * k, 15.0 * k, c); }
-                Hit::Book(ri) => { let rc = &recipes()[*ri]; let ok = s.can_craft(rc, &st6); let sel = s.book.sel == Some(*ri); self.panel(*r, k, if sel { [0.28, 0.4, 0.22, 0.9] } else if on { [1.0, 1.0, 1.0, 0.16] } else { WELL });
+                Hit::Book(ri) => { let rc = &recipes()[*ri]; let ok = s.can_craft(rc, &st6); let sel = s.book.sel == Some(*ri); self.panel(*r, k, if sel { [0.28, 0.4, 0.22, 0.9] } else if on { [1.0, 1.0, 1.0, 0.16] } else { station.map_or(WELL, station_well) });
                     self.icon(rc.out, r[0] + r[2] * 0.5, r[1] + r[3] * 0.5, r[2] * 0.43); if rc.n > 1 { let t = rc.n.to_string(); let z = 15.0 * k; self.text(&t, r[0] + r[2] - Ui::text_width(&t, z) - 4.0 * k, r[1] + r[3] - z - 4.0 * k, z, [1.0; 4]); }
                     if s.fav.contains(rc.out) { self.rect(r[0] + 4.0 * k, r[1] + 4.0 * k, 7.0 * k, 7.0 * k, GOLD); }
                     if !ok { self.rect(r[0] + 2.0 * k, r[1] + 2.0 * k, r[2] - 4.0 * k, r[3] - 4.0 * k, [0.05, 0.06, 0.05, 0.6]); } }
@@ -280,6 +289,9 @@ impl Ui {
                     if j.all && j.made > 0 { let t = format!("{} faits", j.made); let z = 13.0 * k; self.text(&t, xb + bw - Ui::text_width(&t, z), by, z, DIM); } }
             } else { self.text("Choisissez une recette.", xb, y, 14.5 * k, DIM); y += 20.0 * k; for t in wrap("Clic droit : favori. Les recettes apparaissent dès qu'on a eu en main l'un de leurs ingrédients.", 14.0 * k, bw) { self.text(&t, xb, y, 14.0 * k, DIM); y += 18.0 * k; } }
             if let Some(Hit::Book(ri)) = hover { let rc = &recipes()[ri]; tip = vec![(item(rc.out).map_or(rc.out, |i| i.label).to_string(), INK), (if s.can_craft(rc, &st6) { "Clic : choisir  ·  clic droit : favori" } else { "Il manque quelque chose : voir le détail" }.to_string(), DIM)]; }
+            }
+            // Les deux boutons de l'atelier de taille.
+            for (hit, r) in &l { if let Hit::Mode(cut) = hit { let sel = *cut == s.cut_mode; let on = hover == Some(*hit); self.panel(*r, k, if sel { [0.5, 0.5, 0.46, 1.0] } else if on { [0.3, 0.3, 0.28, 1.0] } else { [0.0, 0.0, 0.0, 0.4] }); self.centered(if *cut { "Tailler" } else { "Recettes" }, *r, 14.0 * k, if sel { [0.08, 0.08, 0.07, 1.0] } else { INK }); } }
         }
         for (hit, r) in &l {
             let on = hover == Some(*hit);
@@ -299,6 +311,74 @@ impl Ui {
         }
         if let Some(c) = s.cursor { self.icon(c.item, mouse[0], mouse[1], 30.0 * k); if let Some(n) = c.n { self.text(&n.to_string(), mouse[0] + 12.0 * k, mouse[1] + 10.0 * k, 16.0 * k, [1.0; 4]); } }
         else { self.bubble(&tip, mouse, k); }
+    }
+    /// Le décor propre à chaque atelier, peint sur son panneau : planches clouées de l'établi, tôle rivetée et braises de l'enclume,
+    /// briques et gueule ardente du four, nuit, pierres et flammes du feu de camp, dalle ciselée de l'atelier de taille.
+    fn station_frame(&mut self, st: Station, r: [f32; 4], k: f32, t: f32) {
+        let (x, y, w, h) = (r[0], r[1], r[2], r[3]); let head = 58.0 * k; let hash = |i: i32, j: i32| { let v = ((i * 7919 + j * 104729) as f32 * 0.618_034).fract().abs(); v };
+        let frame = |ui: &mut Ui, light: C, dark: C, z: f32| { ui.rect(x, y, w, z, light); ui.rect(x, y, z, h, light); ui.rect(x, y + h - z, w, z, dark); ui.rect(x + w - z, y, z, h, dark); };
+        match st {
+            Station::Bench => { // des planches en travers, leurs joints, leurs clous ; un bandeau d'en-tête plus sombre au bord en dents de scie
+                let ph = 44.0 * k; let n = (h / ph).ceil() as i32;
+                for i in 0..n { let yy = y + i as f32 * ph; let hh = ph.min(y + h - yy); self.rect(x, yy, w, hh, if i % 2 == 0 { [0.42, 0.27, 0.13, 0.16] } else { [0.2, 0.12, 0.05, 0.14] }); self.rect(x, yy, w, 2.0 * k, [0.05, 0.03, 0.01, 0.5]);
+                    let cut = x + w * (0.25 + 0.5 * hash(i, 3)); self.rect(cut, yy, 2.0 * k, hh, [0.05, 0.03, 0.01, 0.35]);
+                    for nx in [x + 8.0 * k, x + w - 12.0 * k, cut - 8.0 * k, cut + 6.0 * k] { self.rect(nx, yy + hh * 0.5 - 2.0 * k, 4.0 * k, 4.0 * k, [0.75, 0.7, 0.6, 0.55]); } }
+                self.rect(x, y, w, head, [0.1, 0.06, 0.03, 0.55]); let tw = 14.0 * k; for i in 0..(w / tw) as i32 { let tx = x + i as f32 * tw; self.quad([[tx, y + head], [tx + tw, y + head], [tx + tw * 0.5, y + head + 7.0 * k], [tx + tw * 0.5, y + head + 7.0 * k]], [[0.0; 2]; 4], [0.1, 0.06, 0.03, 0.55], LAYER_FLAT); }
+                frame(self, [0.62, 0.42, 0.22, 0.9], [0.22, 0.13, 0.06, 0.9], 4.0 * k);
+            }
+            Station::Anvil => { // une tôle sombre brossée, des rivets tout autour, la lueur des braises qui monte du bas
+                for i in 0..(h / (6.0 * k)) as i32 { if hash(i, 1) < 0.5 { self.rect(x, y + i as f32 * 6.0 * k, w, 1.0 * k, [1.0, 1.0, 1.0, 0.025]); } }
+                for i in 0..12 { let f = i as f32 / 12.0; let a = 0.02 + 0.09 * f * (0.8 + 0.2 * (t * 2.3 + f * 4.0).sin()); self.rect(x, y + h - 70.0 * k * (1.0 - f), w, 70.0 * k / 12.0 + 1.0, [1.0, 0.36, 0.06, a]); }
+                self.rect(x, y, w, head, [0.0, 0.0, 0.0, 0.4]); self.rect(x, y + head, w, 3.0 * k, [0.62, 0.64, 0.7, 0.8]); self.rect(x, y + head + 3.0 * k, w, 2.0 * k, [0.0, 0.0, 0.0, 0.6]);
+                frame(self, [0.5, 0.52, 0.58, 0.95], [0.18, 0.19, 0.22, 0.95], 5.0 * k);
+                let step = 56.0 * k; let rv = |ui: &mut Ui, cx: f32, cy: f32| { ui.rect(cx - 4.0 * k, cy - 4.0 * k, 8.0 * k, 8.0 * k, [0.1, 0.1, 0.12, 0.9]); ui.rect(cx - 3.0 * k, cy - 3.0 * k, 5.0 * k, 5.0 * k, [0.72, 0.74, 0.8, 0.95]); };
+                let mut cx = x + 14.0 * k; while cx < x + w - 8.0 * k { rv(self, cx, y + 13.0 * k); rv(self, cx, y + h - 13.0 * k); cx += step; }
+                let mut cy = y + 13.0 * k + step; while cy < y + h - 20.0 * k { rv(self, x + 13.0 * k, cy); rv(self, x + w - 13.0 * k, cy); cy += step; }
+            }
+            Station::Furnace => { // un mur de briques à joints croisés ; en haut, la gueule du four où dansent les flammes
+                let (bh, bw) = (24.0 * k, 58.0 * k); let rows = (h / bh).ceil() as i32;
+                for i in 0..rows { let yy = y + i as f32 * bh; self.rect(x, yy, w, 2.0 * k, [0.85, 0.78, 0.66, 0.2]); let off = if i % 2 == 0 { 0.0 } else { bw * 0.5 }; let mut bx = x + off; let mut j = 0;
+                    while bx < x + w { self.rect(bx, yy, 2.0 * k, bh.min(y + h - yy), [0.85, 0.78, 0.66, 0.2]); if hash(i, j) < 0.3 { self.rect(bx + 2.0 * k, yy + 2.0 * k, (bw - 2.0 * k).min(x + w - bx - 2.0 * k), (bh - 2.0 * k).min(y + h - yy - 2.0 * k), [0.0, 0.0, 0.0, 0.12]); } bx += bw; j += 1; } }
+                let (mx, mw, my, mh) = (x + w * 0.5 - 96.0 * k, 192.0 * k, y + 8.0 * k, head - 12.0 * k); self.rect(mx - 5.0 * k, my - 3.0 * k, mw + 10.0 * k, mh + 6.0 * k, [0.3, 0.14, 0.08, 1.0]); self.rect(mx, my, mw, mh, [0.03, 0.01, 0.0, 1.0]);
+                for i in 0..9 { let f = i as f32 / 9.0; let fh = mh * (0.45 + 0.4 * (t * (5.0 + f * 3.0) + i as f32 * 1.7).sin().abs()); let fw = mw / 9.0; self.rect(mx + i as f32 * fw + 1.0, my + mh - fh, fw - 2.0, fh, [1.0, 0.42, 0.08, 0.9]); self.rect(mx + i as f32 * fw + fw * 0.25, my + mh - fh * 0.55, fw * 0.5, fh * 0.55, [1.0, 0.85, 0.3, 0.95]); }
+                frame(self, [0.62, 0.3, 0.2, 0.95], [0.2, 0.08, 0.05, 0.95], 5.0 * k);
+            }
+            Station::Fire => { // la nuit autour ; en bas, le cercle de pierres, les flammes, des étincelles qui montent
+                for i in 0..10 { let f = i as f32 / 10.0; self.rect(x, y + h * f, w, h / 10.0 + 1.0, [0.02, 0.03, 0.09, 0.3 * (1.0 - f)]); }
+                let (cx, by) = (x + w * 0.5, y + h - 10.0 * k);
+                for i in 0..14 { let f = i as f32 / 14.0; self.rect(cx - 150.0 * k * (1.0 - f * 0.6), by - 120.0 * k * f, 300.0 * k * (1.0 - f * 0.6), 120.0 * k / 14.0 + 1.0, [1.0, 0.45, 0.1, 0.05 * (1.0 - f)]); }
+                for i in 0..7 { let f = (i as f32 - 3.0) / 3.0; let fh = (46.0 - 24.0 * f.abs()) * k * (0.7 + 0.3 * (t * (6.0 + i as f32) + i as f32 * 2.1).sin().abs()); let fx = cx + f * 34.0 * k; self.rect(fx - 6.0 * k, by - 12.0 * k - fh, 12.0 * k, fh, [1.0, 0.4, 0.08, 0.85]); self.rect(fx - 3.0 * k, by - 12.0 * k - fh * 0.6, 6.0 * k, fh * 0.6, [1.0, 0.86, 0.32, 0.9]); }
+                for i in 0..9 { let f = (i as f32 - 4.0) / 4.0; let sw = (20.0 + 8.0 * hash(i, 5)) * k; self.rect(cx + f * 62.0 * k - sw * 0.5, by - 14.0 * k + 4.0 * k * f.abs(), sw, 14.0 * k, [0.36 + 0.1 * hash(i, 6), 0.35, 0.33, 1.0]); self.rect(cx + f * 62.0 * k - sw * 0.5, by - 14.0 * k + 4.0 * k * f.abs(), sw, 3.0 * k, [0.6, 0.58, 0.55, 0.8]); }
+                for i in 0..10 { let ph = (t * (0.25 + 0.1 * hash(i, 7)) + hash(i, 8)).fract(); self.rect(cx + (hash(i, 9) - 0.5) * 120.0 * k + (t * 1.3 + i as f32).sin() * 8.0 * k, by - 40.0 * k - ph * h * 0.55, 3.0 * k, 3.0 * k, [1.0, 0.7, 0.25, 0.8 * (1.0 - ph)]); }
+                frame(self, [0.4, 0.22, 0.12, 0.9], [0.08, 0.05, 0.05, 0.9], 4.0 * k);
+            }
+            Station::Mason => { // une dalle de pierre : le grain, des éclats, un biseau taillé tout autour, une frise de coups de ciseau sous l'en-tête
+                for i in 0..160 { let (px, py) = (x + hash(i, 11) * w, y + hash(i, 12) * h); let z = (2.0 + 3.0 * hash(i, 13)) * k; self.rect(px, py, z, z * 0.6, if i % 3 == 0 { [1.0, 1.0, 1.0, 0.05] } else { [0.0, 0.0, 0.0, 0.1] }); }
+                self.rect(x, y, w, head, [0.0, 0.0, 0.0, 0.28]); let n = (w / (16.0 * k)) as i32; for i in 0..n { let tx = x + 8.0 * k + i as f32 * 16.0 * k; self.quad([[tx, y + head + 2.0 * k], [tx + 8.0 * k, y + head + 2.0 * k], [tx + 12.0 * k, y + head + 9.0 * k], [tx + 4.0 * k, y + head + 9.0 * k]], [[0.0; 2]; 4], [0.0, 0.0, 0.0, 0.35], LAYER_FLAT); }
+                frame(self, [0.78, 0.78, 0.74, 0.95], [0.26, 0.26, 0.25, 0.95], 6.0 * k); let z = 6.0 * k; self.rect(x + z, y + z, w - 2.0 * z, 2.0 * k, [0.0, 0.0, 0.0, 0.3]); self.rect(x + z, y + z, 2.0 * k, h - 2.0 * z, [0.0, 0.0, 0.0, 0.3]); self.rect(x + z, y + h - z - 2.0 * k, w - 2.0 * z, 2.0 * k, [1.0, 1.0, 1.0, 0.18]); self.rect(x + w - z - 2.0 * k, y + z, 2.0 * k, h - 2.0 * z, [1.0, 1.0, 1.0, 0.18]);
+            }
+            Station::Hand => {}
+        }
+    }
+    /// L'atelier de taille : à gauche la case où l'on pose un bloc ; dessous, la grille de tout ce qu'on peut en tirer.
+    fn cutter(&mut self, s: &Session, l: &[(Hit, [f32; 4])], w: f32, h: f32, k: f32, hover: Option<Hit>, tip: &mut Vec<(String, C)>) {
+        let _ = w; let m = 22.0 * k; let Some(slot) = l.iter().find(|r| r.0 == Hit::Slot(CUT0)).map(|r| r.1) else { return }; let cell = 63.0 * k; let bw = BOOK_COLS as f32 * cell - 5.0 * k; let (xb, yb) = (slot[0], slot[1] - 8.0 * k);
+        let box_ = [xb - m, yb - m - 30.0 * k, bw + 2.0 * m, 646.0 * k + 2.0 * m + 30.0 * k]; let _ = h; self.panel(box_, k, station_tint(Station::Mason)); self.station_frame(Station::Mason, box_, k, s.elapsed as f32);
+        self.icon("mason_bench", xb + 14.0 * k, yb - 28.0 * k, 16.0 * k); self.text("Atelier de taille", xb + 34.0 * k, yb - 38.0 * k, 22.0 * k, INK);
+        // le socle de la case : une dalle plus claire, comme un billot de pierre
+        self.rect(slot[0] - 5.0 * k, slot[1] - 5.0 * k, slot[2] + 10.0 * k, slot[3] + 10.0 * k, [0.62, 0.62, 0.58, 0.9]); self.rect(slot[0] - 2.0 * k, slot[1] - 2.0 * k, slot[2] + 4.0 * k, slot[3] + 4.0 * k, [0.12, 0.12, 0.11, 1.0]);
+        let tx = slot[0] + slot[2] + 16.0 * k; let variants = s.cut_in.map(|c| cut_variants(c.item)).unwrap_or_default();
+        match s.cut_in {
+            None => { self.text("Posez un bloc ici", tx, slot[1] + 6.0 * k, 18.0 * k, INK); for (i, t) in ["Pierre, bois, brique, tuile...", "Maj + clic sur un bloc du sac,", "ou glissez-le dans la case."].iter().enumerate() { self.text(t, tx, slot[1] + 32.0 * k + i as f32 * 18.0 * k, 14.0 * k, DIM); } }
+            Some(c) => { self.text(item(c.item).map_or(c.item, |i| i.label), tx, slot[1] + 6.0 * k, 18.0 * k, INK); let t = match variants.len() { 0 => "Rien à en tirer".to_string(), 1 => "1 taille possible".to_string(), n => format!("{n} tailles possibles") }; self.text(&t, tx, slot[1] + 32.0 * k, 14.0 * k, DIM); self.text("Clic : une taille  ·  Maj : tout le tas", tx, slot[1] + 50.0 * k, 13.0 * k, DIM); }
+        }
+        let have = s.cut_in.and_then(|c| c.n).unwrap_or(0); let yt = slot[1] + slot[3] + 18.0 * k; self.rect(xb, yt, bw, 2.0 * k, [0.0, 0.0, 0.0, 0.4]); self.rect(xb, yt + 2.0 * k, bw, 1.0 * k, [1.0, 1.0, 1.0, 0.15]);
+        if s.cut_in.is_some() { self.text("Ses formes et ses déclinaisons", xb, yt + 6.0 * k, 14.0 * k, DIM); }
+        for (hit, r) in l { if let Hit::Cut(out) = hit { let Some(v) = variants.iter().find(|v| v.out == *out) else { continue }; let ok = have >= v.need; let on = hover == Some(*hit);
+            self.panel(*r, k, if on && ok { [1.0, 1.0, 1.0, 0.22] } else { station_well(Station::Mason) }); self.icon(out, r[0] + r[2] * 0.5, r[1] + r[3] * 0.5, r[2] * 0.43);
+            if v.n > 1 { let t = v.n.to_string(); let z = 15.0 * k; self.text(&t, r[0] + r[2] - Ui::text_width(&t, z) - 4.0 * k, r[1] + r[3] - z - 4.0 * k, z, [1.0; 4]); }
+            if !ok { self.rect(r[0] + 2.0 * k, r[1] + 2.0 * k, r[2] - 4.0 * k, r[3] - 4.0 * k, [0.05, 0.05, 0.05, 0.6]); }
+            if on { *tip = vec![(item(out).map_or(*out, |i| i.label).to_string(), INK), (format!("{} bloc{} → {}", v.need, if v.need > 1 { "s" } else { "" }, v.n), if ok { ACCENT } else { BAD }), ((if ok { "Clic : tailler  ·  Maj + clic : tout le tas" } else { "Il n'y en a pas assez dans la case" }).to_string(), DIM)]; } } }
     }
     fn menu(&mut self, m: &Menu, w: f32, h: f32, mouse: [f32; 2]) {
         self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.03, 0.6]);
@@ -651,7 +731,7 @@ fn station_look(st: Station) -> (&'static str, &'static str, &'static str, &'sta
         Station::Bench => ("Établi", "workbench", "Assembler", "On scie, on cloue", [0.78, 0.58, 0.32, 1.0]),
         Station::Anvil => ("Enclume", "anvil", "Forger", "On bat le métal", [0.85, 0.85, 0.9, 1.0]),
         Station::Furnace => ("Four", "furnace", "Fondre", "Le four ronfle", [1.0, 0.55, 0.15, 1.0]),
-        Station::Mason => ("Établi de tailleur", "mason_bench", "Tailler", "On taille la pierre", [0.72, 0.72, 0.68, 1.0]),
+        Station::Mason => ("Atelier de taille", "mason_bench", "Tailler", "On taille la pierre", [0.72, 0.72, 0.68, 1.0]),
         Station::Fire => ("Feu de camp", "campfire", "Cuire", "Ça cuit doucement", [0.95, 0.42, 0.12, 1.0]),
         Station::Hand => ("Recettes", "workbench", "Fabriquer", "On fabrique", ACCENT),
     }
@@ -661,3 +741,6 @@ fn station_tint(st: Station) -> C { match st { Station::Bench => [0.13, 0.095, 0
 
 /// La taille d'une case de la grande carte à l'écran, en pixels (pour faire glisser la carte à la souris).
 pub fn map_px(h: f32) -> f32 { 6.0 * scale(h) }
+
+/// Le fond des cases d'ouvrage de chaque atelier : niche de bois, de tôle, de brique, de cendre, de pierre.
+fn station_well(st: Station) -> C { match st { Station::Bench => [0.05, 0.03, 0.01, 0.5], Station::Anvil => [0.0, 0.0, 0.02, 0.55], Station::Furnace => [0.08, 0.02, 0.0, 0.55], Station::Mason => [0.03, 0.03, 0.03, 0.5], Station::Fire => [0.0, 0.0, 0.03, 0.5], Station::Hand => WELL } }

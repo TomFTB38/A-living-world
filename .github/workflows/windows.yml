@@ -132,6 +132,7 @@ jobs:
           shot menagerie -38.5 53 0.5 -20 52 -30 14.5 4 1280 720 2048 menagerie
           shot campement -38.5 53 0.5 -20 52 -30 20.6 4 1280 720 2048 campement
           shot faune -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 faune
+          for sc in atelier_taille atelier_taille_bois atelier_etabli atelier_enclume atelier_four atelier_feu; do shot $sc -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 $sc; done
           for sc in village bourg interieur artisan carte titre commandes; do shot $sc -38.5 53 0.5 -20 52 -30 10.5 4 1280 720 2048 $sc; done
       - name: Dépose la capture sur la branche captures
         shell: bash

@@ -723,6 +723,12 @@ pub fn station_of(b: Id) -> Option<Station> { match b { B::WORKBENCH => Some(Sta
 /// et ses déclinaisons décoratives. Deux sources : les recettes qui ne consomment que ce bloc (l'atelier tient lieu d'outil),
 /// et les formes de construction taillées dans cette matière. Rien pour un objet qui n'est pas un bloc.
 pub fn cut_variants(src: &str) -> Vec<Cut> {
+    // l'écran les redemande à chaque image : on garde la réponse
+    static CACHE: std::sync::Mutex<Option<HashMap<String, Vec<Cut>>>> = std::sync::Mutex::new(None);
+    if let Ok(mut g) = CACHE.lock() { let m = g.get_or_insert_with(HashMap::new); if let Some(v) = m.get(src) { return v.clone(); } let v = cut_compute(src); m.insert(src.to_string(), v.clone()); return v; }
+    cut_compute(src)
+}
+fn cut_compute(src: &str) -> Vec<Cut> {
     use crate::shapes::{self, Kind};
     let Some(block) = by_name(src) else { return Vec::new() }; let mut out: Vec<Cut> = Vec::new();
     let is_block = |id: &str| by_name(id).is_some() && item(id).is_some();
