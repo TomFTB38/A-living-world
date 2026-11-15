@@ -578,3 +578,16 @@ granite_vslab | Dalle verticale de granit | batir | 1.0 | 64 | Un demi-bloc debo
 sandstone_slab | Dalle de grès | batir | 0.8 | 64 | Un demi-bloc de grès brut. |
 sandstone_stairs | Escalier de grès | batir | 1.2 | 64 | Des marches taillées dans le grès. |
 sandstone_vslab | Dalle verticale de grès | batir | 1.0 | 64 | Un demi-bloc debout de grès. |
+egg_fouisseur | Œuf : rampant des cavernes | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : rampant des cavernes. Pour essayer les créatures en créatif. |
+egg_abyssale | Œuf : bête des profondeurs | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : bête des profondeurs. Pour essayer les créatures en créatif. |
+egg_araignee | Œuf : araignée des cavernes | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : araignée des cavernes. Pour essayer les créatures en créatif. |
+egg_golem | Œuf : golem de cristal | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : golem de cristal. Pour essayer les créatures en créatif. |
+egg_magma | Œuf : rampant de magma | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : rampant de magma. Pour essayer les créatures en créatif. |
+egg_sylvain | Œuf : sylvain | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : sylvain. Pour essayer les créatures en créatif. |
+egg_noye | Œuf : noyé | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : noyé. Pour essayer les créatures en créatif. |
+egg_archer | Œuf : archer squelette | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : archer squelette. Pour essayer les créatures en créatif. |
+egg_fantome | Œuf : fantôme | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : fantôme. Pour essayer les créatures en créatif. |
+egg_ver | Œuf : ver des sables | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : ver des sables. Pour essayer les créatures en créatif. |
+egg_harpie | Œuf : harpie | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : harpie. Pour essayer les créatures en créatif. |
+egg_bat | Œuf : chauve-souris | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : chauve-souris. Pour essayer les créatures en créatif. |
+egg_glowbug | Œuf : scarabée luisant | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : scarabée luisant. Pour essayer les créatures en créatif. |

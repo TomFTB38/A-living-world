@@ -18,6 +18,7 @@ fn les_commandes_du_chat() {
 fn un_oeuf_pour_chaque_creature() {
     let mut s = session(); s.wild.all.clear(); s.horde.foes.clear(); s.fauna.deer.clear();
     for (egg, _) in EGGS { assert!(item(egg).is_some(), "objet {egg}"); assert!(s.hatch(egg, [3.5, 60.0, 3.5]).is_some(), "{egg}"); }
-    assert_eq!(s.horde.foes.len(), 4, "les quatre hostiles"); assert_eq!(s.fauna.deer.len(), 1, "le cerf"); assert_eq!(s.wild.all.len(), EGGS.len() - 5, "les autres bêtes");
+    let hostiles = alw_core::hostile::bestiary().species.len(); assert_eq!(s.horde.foes.len(), hostiles, "un œuf par espèce hostile"); assert_eq!(s.fauna.deer.len(), 1, "le cerf"); assert_eq!(s.wild.all.len(), EGGS.len() - hostiles - 1, "les autres bêtes");
+    for sp in &alw_core::hostile::bestiary().species { assert!(EGGS.iter().any(|e| e.0 == format!("egg_{}", sp.id)), "pas d'œuf pour {}", sp.id); }
     assert!(s.hatch("bread", [0.0; 3]).is_none());
 }

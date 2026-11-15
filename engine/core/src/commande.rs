@@ -8,12 +8,13 @@ use crate::session::Session;
 use crate::wild::Kind;
 
 /// Les œufs d'apparition : identifiant de l'objet, nom de la créature.
-pub const EGGS: [(&str, &str); 25] = [
+pub const EGGS: [(&str, &str); 38] = [
     ("egg_rodeur", "rôdeur décharné"), ("egg_brigand", "brigand errant"), ("egg_rodeuse", "bête rôdeuse"), ("egg_rampant", "rampant nocturne"),
     ("egg_deer", "cerf"), ("egg_fox", "renard"), ("egg_hare", "lièvre"), ("egg_crow", "corbeau"), ("egg_wolf", "loup"), ("egg_boar", "sanglier"), ("egg_bear", "ours"),
     ("egg_ibex", "bouquetin"), ("egg_lizard", "lézard"), ("egg_mackerel", "maquereau"), ("egg_reef", "poisson de récif"), ("egg_dolphin", "dauphin"), ("egg_crab", "crabe"),
     ("egg_gull", "goéland"), ("egg_shark", "requin"), ("egg_whale", "baleine"),
     ("egg_cow", "vache"), ("egg_sheep", "mouton"), ("egg_pig", "cochon"), ("egg_horse", "cheval"), ("egg_chicken", "poule"),
+    ("egg_fouisseur", "rampant des cavernes"), ("egg_abyssale", "bête des profondeurs"), ("egg_araignee", "araignée des cavernes"), ("egg_golem", "golem de cristal"), ("egg_magma", "rampant de magma"), ("egg_sylvain", "sylvain"), ("egg_noye", "noyé"), ("egg_archer", "archer squelette"), ("egg_fantome", "fantôme"), ("egg_ver", "ver des sables"), ("egg_harpie", "harpie"), ("egg_bat", "chauve-souris"), ("egg_glowbug", "scarabée luisant"),
 ];
 fn kind_of(mob: &str) -> Option<Kind> {
     Some(match mob { "fox" => Kind::Fox, "hare" => Kind::Hare, "crow" => Kind::Crow, "wolf" => Kind::Wolf, "boar" => Kind::Boar, "bear" => Kind::Bear, "ibex" => Kind::Ibex, "lizard" => Kind::Lizard, "bat" => Kind::Bat, "glowbug" => Kind::Glowbug,
@@ -54,7 +55,7 @@ impl Session {
         let k = kind_of(mob)?;
         let wet = crate::player::Voxels::get(&self.world, p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32).is_some_and(crate::blocks::is_water);
         match k { Kind::Fish | Kind::Reef | Kind::Dolphin | Kind::Shark | Kind::Whale if wet => self.wild.put_swim(k, p, yaw, 0, 0),
-            Kind::Crow | Kind::Gull => self.wild.put(k, [p[0], p[1] + 2.0, p[2]], yaw, true), _ => self.wild.put(k, p, yaw, false) }
+            Kind::Crow | Kind::Gull | Kind::Bat => self.wild.put(k, [p[0], p[1] + 2.0, p[2]], yaw, true), _ => self.wild.put(k, p, yaw, false) }
         Some(name)
     }
 }

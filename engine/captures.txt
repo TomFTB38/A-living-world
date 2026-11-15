@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu atelier_etabli atelier_enclume atelier_feu atelier_four atelier_taille plat_surface plat_creatures
+spawn jeu oeufs
