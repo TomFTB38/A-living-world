@@ -57,7 +57,7 @@ pub fn layout(s: &Session, w: f32, h: f32) -> Vec<(Hit, [f32; 4])> {
     // Four et feu de camp : la case du matériau, dessous celle du combustible, puis ce qu'on peut tirer du matériau posé.
     if let Some(at) = s.cooking() {
         let big = c * 1.3; let y0 = yb + 16.0 * k; o.push((Hit::Slot(COOK0), [xb + 8.0 * k, y0, big, big])); o.push((Hit::Slot(FUEL0), [xb + 8.0 * k, y0 + big + 52.0 * k, big, big]));
-        if let Some(src) = s.cook_in { let yg = y0 + 2.0 * big + 52.0 * k + 62.0 * k; for (j, v) in cook_variants(at, src.item).into_iter().take(BOOK_COLS * 4).enumerate() { o.push((Hit::Cook(v.out), [xb + (j % BOOK_COLS) as f32 * cell, yg + (j / BOOK_COLS) as f32 * cell, c, c])); } }
+        if let Some(src) = s.cook_in { let yg = y0 + 2.0 * big + 52.0 * k + 84.0 * k; for (j, v) in cook_variants(at, src.item).into_iter().take(BOOK_COLS * 4).enumerate() { o.push((Hit::Cook(v.out), [xb + (j % BOOK_COLS) as f32 * cell, yg + (j / BOOK_COLS) as f32 * cell, c, c])); } }
         return o;
     }
     if s.cutting() {
@@ -390,14 +390,14 @@ impl Ui {
         if let Some(c) = now { self.icon(c.out, out[0] + big * 0.5, out[1] + big * 0.5, big * 0.43); if c.n > 1 { let tx = c.n.to_string(); let z = 16.0 * k; self.text(&tx, out[0] + big - Ui::text_width(&tx, z) - 4.0 * k, out[1] + big - z - 4.0 * k, z, [1.0; 4]); }
             let lbl = item(c.out).map_or(c.out, |i| i.label); let z = 13.0 * k; self.text(lbl, (out[0] + big * 0.5 - Ui::text_width(lbl, z) * 0.5).min(xb + bw - Ui::text_width(lbl, z)), out[1] + big + 8.0 * k, z, INK); }
         // l'état, en une ligne
-        let ys = fs[1] + fs[3] + 30.0 * k; let line = match block { Some(b) => b.to_string(), None => now.map_or(String::new(), |c| if c.fuel > 0 { format!("{} + {} charbon → {}", c.need, c.fuel, c.n) } else { format!("{} → {}  ·  dans le sac", c.need, c.n) }) };
+        let ys = fs[1] + fs[3] + 30.0 * k; let line = match block { Some(b) => b.to_string(), None => now.map_or(String::new(), |c| if c.fuel > 0 { format!("{} + {} charbon donne {}", c.need, c.fuel, c.n) } else { format!("{} donne {}  ·  dans le sac", c.need, c.n) }) };
         self.text(&line, xb, ys, 14.0 * k, if going { ACCENT } else { DIM }); self.rect(xb, ys + 24.0 * k, bw, 2.0 * k, [0.0, 0.0, 0.0, 0.4]);
         let variants = s.cook_in.map(|c| cook_variants(at, c.item)).unwrap_or_default(); if variants.len() > 1 { self.text("Ce matériau peut donner", xb, ys + 30.0 * k, 13.0 * k, DIM); }
         let have = s.cook_in.and_then(|c| c.n).unwrap_or(0);
         for (hit, r) in l { if let Hit::Cook(o) = hit { if variants.len() < 2 { continue; } let Some(v) = variants.iter().find(|v| v.out == *o) else { continue }; let sel = now.is_some_and(|c| c.out == v.out); let on = hover == Some(*hit);
             self.panel(*r, k, if sel { [0.85, 0.5, 0.12, 0.85] } else if on { [1.0, 1.0, 1.0, 0.22] } else { station_well(at) }); self.icon(o, r[0] + r[2] * 0.5, r[1] + r[3] * 0.5, r[2] * 0.43);
             if v.n > 1 { let tx = v.n.to_string(); let z = 15.0 * k; self.text(&tx, r[0] + r[2] - Ui::text_width(&tx, z) - 4.0 * k, r[1] + r[3] - z - 4.0 * k, z, [1.0; 4]); }
-            if on { *tip = vec![(item(o).map_or(*o, |i| i.label).to_string(), INK), (if v.fuel > 0 { format!("{} matériau + {} combustible → {}", v.need, v.fuel, v.n) } else { format!("{} matériau → {}", v.need, v.n) }, if have >= v.need { ACCENT } else { BAD }), ("Clic : choisir".to_string(), DIM)]; } } }
+            if on { *tip = vec![(item(o).map_or(*o, |i| i.label).to_string(), INK), (if v.fuel > 0 { format!("{} matériau + {} combustible donne {}", v.need, v.fuel, v.n) } else { format!("{} matériau donne {}", v.need, v.n) }, if have >= v.need { ACCENT } else { BAD }), ("Clic : choisir".to_string(), DIM)]; } } }
     }
     /// L'atelier de taille : à gauche la case où l'on pose un bloc ; dessous, la grille de tout ce qu'on peut en tirer.
     fn cutter(&mut self, s: &Session, l: &[(Hit, [f32; 4])], w: f32, h: f32, k: f32, hover: Option<Hit>, tip: &mut Vec<(String, C)>) {
@@ -417,7 +417,7 @@ impl Ui {
             self.panel(*r, k, if on && ok { [1.0, 1.0, 1.0, 0.22] } else { station_well(Station::Mason) }); self.icon(out, r[0] + r[2] * 0.5, r[1] + r[3] * 0.5, r[2] * 0.43);
             if v.n > 1 { let t = v.n.to_string(); let z = 15.0 * k; self.text(&t, r[0] + r[2] - Ui::text_width(&t, z) - 4.0 * k, r[1] + r[3] - z - 4.0 * k, z, [1.0; 4]); }
             if !ok { self.rect(r[0] + 2.0 * k, r[1] + 2.0 * k, r[2] - 4.0 * k, r[3] - 4.0 * k, [0.05, 0.05, 0.05, 0.6]); }
-            if on { *tip = vec![(item(out).map_or(*out, |i| i.label).to_string(), INK), (format!("{} bloc{} → {}", v.need, if v.need > 1 { "s" } else { "" }, v.n), if ok { ACCENT } else { BAD }), ((if ok { "Clic : tailler  ·  Maj + clic : tout le tas" } else { "Il n'y en a pas assez dans la case" }).to_string(), DIM)]; } } }
+            if on { *tip = vec![(item(out).map_or(*out, |i| i.label).to_string(), INK), (format!("{} bloc{} donne {}", v.need, if v.need > 1 { "s" } else { "" }, v.n), if ok { ACCENT } else { BAD }), ((if ok { "Clic : tailler  ·  Maj + clic : tout le tas" } else { "Il n'y en a pas assez dans la case" }).to_string(), DIM)]; } } }
     }
     fn menu(&mut self, m: &Menu, w: f32, h: f32, mouse: [f32; 2]) {
         self.rect(0.0, 0.0, w, h, [0.02, 0.03, 0.03, 0.6]);
