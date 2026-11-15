@@ -3,6 +3,7 @@
 use crate::hostile::Mat;
 use crate::mesher::VBuf;
 use crate::sculpt::{dk, Pen, C};
+#[allow(unused_imports)] use crate::mesher::VSIZE;
 
 const PLAIN: Mat = Mat::Plain;
 /// Araignée : poil brun-gris, croix pâle sur l'abdomen, yeux rouges. Golem : roche violacée, cristaux clairs, cœur qui luit.
@@ -96,5 +97,90 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
         for (x0, x1, z0, z1) in [(0.0, 0.07, -0.1, 0.05), (0.07, 0.14, -0.13, 0.06), (0.14, 0.21, -0.12, 0.05), (0.21, 0.28, -0.08, 0.04), (0.28, 0.34, -0.035, 0.03)] {
             p.bx([x0 * k, 0.0, z0 * k, x1 * k, 0.006 * k, z1 * k], dk(skin, 1.5)); }
     });
+    surface(&mut out);
     out
+}
+
+/// Les créatures de surface : sylvain (un être d'écorce), noyé, archer décharné, fantôme, ver des sables, harpie.
+/// Les quatre premiers partagent une charpente d'homme : torse depuis les hanches, tête, bras et jambe d'une pièce.
+fn surface(out: &mut Vec<(&'static str, VBuf)>) {
+    let mut m = |n: &'static str, mat: Mat, pix: f64, f: &dyn Fn(&mut Pen)| { let mut v = VBuf::new(4000); { let mut p = Pen::new(&mut v, mat, pix); f(&mut p); } out.push((n, v)); };
+    let (bark, bark2, moss, leaf) = ([0.3, 0.22, 0.14], [0.2, 0.14, 0.09], [0.3, 0.42, 0.16], [0.24, 0.5, 0.16]); let amber = [1.0, 0.75, 0.2];
+
+    // ---- Sylvain : un tronc noueux pour torse, un visage creusé dans l'écorce aux yeux d'ambre, des bras de branches, des jambes de racines.
+    m("sylTorso", Mat::Grain, 0.04, &|p| {
+        p.column_m(&[(0.0, 0.26, 0.2), (0.35, 0.3, 0.23), (0.8, 0.36, 0.25), (1.05, 0.3, 0.22), (1.15, 0.2, 0.16)], 0.0, bark2, bark, 0.7, Mat::Grain);
+        for (x, y, z) in [(-0.2, 0.3, 0.2), (0.12, 0.55, 0.22), (-0.05, 0.85, 0.21), (0.2, 0.2, -0.2), (-0.22, 0.7, -0.2)] { p.bx([x, y, z - 0.03, x + 0.12, y + 0.16, z + 0.05], moss); } // la mousse
+        p.tube([0.2, 1.0, -0.05], [0.42, 1.35, -0.12], [0.05, 0.05], [0.02, 0.02], bark, bark2); p.blob([0.44, 1.4, -0.12], [0.14, 0.1, 0.14], leaf, dk(leaf, 0.7)); // une branche feuillue à l'épaule
+    });
+    m("sylHead", Mat::Grain, 0.035, &|p| {
+        p.column_m(&[(0.0, 0.17, 0.16), (0.2, 0.2, 0.18), (0.36, 0.14, 0.13)], 0.0, bark, bark2, 0.7, Mat::Grain);
+        for sx in [-1.0f64, 1.0] { p.bm([sx * 0.085 - 0.035, 0.17, 0.16, sx * 0.085 + 0.035, 0.22, 0.19], amber, PLAIN); p.bm([sx * 0.085 - 0.05, 0.22, 0.15, sx * 0.085 + 0.05, 0.25, 0.2], bark2, PLAIN); }
+        p.bm([-0.07, 0.05, 0.16, 0.07, 0.09, 0.19], [0.06, 0.04, 0.03], PLAIN); // la bouche, une fente
+        for (x, z, h, a) in [(-0.1, -0.02, 0.3, -0.12), (0.06, 0.0, 0.36, 0.1), (0.0, -0.08, 0.26, 0.0)] { p.tube([x, 0.34, z], [x + a, 0.34 + h, z - 0.04], [0.03, 0.03], [0.01, 0.01], bark, bark2); p.blob([x + a, 0.38 + h, z - 0.04], [0.09, 0.07, 0.09], leaf, dk(leaf, 0.7)); }
+    });
+    m("sylArm", Mat::Grain, 0.035, &|p| {
+        p.tube([0.0, 0.0, 0.0], [0.0, -0.55, 0.03], [0.09, 0.09], [0.07, 0.07], bark, bark2); p.tube([0.0, -0.55, 0.03], [0.0, -1.0, 0.1], [0.07, 0.07], [0.05, 0.05], bark2, bark);
+        for (x, z) in [(-0.07, 0.1), (0.0, 0.16), (0.07, 0.1)] { p.tube([x * 0.5, -1.0, 0.1], [x, -1.22, z + 0.06], [0.025, 0.025], [0.008, 0.008], bark, bark2); } // des doigts de brindilles
+        p.bx([-0.1, -0.3, -0.06, -0.02, -0.18, 0.06], moss);
+    });
+    m("sylLeg", Mat::Grain, 0.04, &|p| {
+        p.tube([0.0, 0.0, 0.0], [0.0, -0.7, 0.0], [0.12, 0.12], [0.1, 0.1], bark2, bark);
+        for (x, z) in [(-0.14, 0.12), (0.12, 0.16), (0.0, -0.14), (0.16, -0.06)] { p.tube([0.0, -0.7, 0.0], [x, -0.92, z], [0.06, 0.06], [0.025, 0.025], bark, bark2); } // les racines
+    });
+
+    // ---- La charpente d'homme, dans trois peaux : noyé (chair verdâtre gonflée, algues), archer (os et haillons), fantôme (linceul pâle).
+    let human = |m: &mut dyn FnMut(&'static str, Mat, f64, &dyn Fn(&mut Pen)), names: [&'static str; 4], mat: Mat, body: C, body2: C, limb: C, eye: C, kind: u8| {
+        m(names[0], mat, 0.035, &|p| {
+            p.column_m(&[(0.0, 0.17, 0.11), (0.25, 0.19, 0.12), (0.5, 0.23, 0.13), (0.6, 0.17, 0.1)], 0.0, body2, body, 0.72, mat);
+            match kind {
+                0 => { for (x, y) in [(-0.16, 0.3), (0.05, 0.42), (-0.04, 0.12)] { p.bm([x, y, 0.1, x + 0.1, y + 0.05, 0.14], [0.16, 0.34, 0.2], PLAIN); } p.tube_m([0.12, 0.58, 0.0], [0.2, 0.2, 0.1], [0.03, 0.02], [0.015, 0.01], [0.14, 0.36, 0.2], [0.1, 0.26, 0.16], PLAIN); } // des algues
+                1 => { for y in [0.3, 0.38, 0.46] { p.bm([-0.2, y, 0.105, 0.2, y + 0.03, 0.13], [0.9, 0.87, 0.78], PLAIN); } p.bm([-0.2, 0.0, -0.12, 0.2, 0.2, 0.13], [0.3, 0.2, 0.13], Mat::Cloth); p.bm([-0.05, 0.1, -0.2, 0.09, 0.62, -0.12], [0.36, 0.24, 0.14], Mat::Leather); } // côtes, pagne, carquois
+                _ => { p.column_m(&[(-0.75, 0.04, 0.03), (-0.4, 0.13, 0.09), (0.0, 0.2, 0.13)], 0.0, dk(body2, 0.85), body2, 0.7, mat); } // le linceul qui s'effile : pas de jambes
+            }
+        });
+        m(names[1], mat, 0.03, &|p| {
+            p.column_m(&[(0.0, 0.1, 0.1), (0.1, 0.13, 0.13), (0.22, 0.12, 0.12), (0.28, 0.07, 0.07)], 0.0, body, body, 0.72, if kind == 1 { Mat::Bone } else { mat });
+            for sx in [-1.0f64, 1.0] { p.bm([sx * 0.055 - 0.028, 0.12, 0.115, sx * 0.055 + 0.028, 0.17, 0.135], eye, PLAIN); }
+            match kind { 0 => { p.bm([-0.05, 0.03, 0.105, 0.05, 0.06, 0.125], [0.05, 0.08, 0.07], PLAIN); p.tube_m([-0.1, 0.26, 0.0], [-0.16, 0.0, 0.04], [0.03, 0.02], [0.012, 0.01], [0.14, 0.36, 0.2], [0.1, 0.26, 0.16], PLAIN); }
+                1 => { p.bm([-0.06, 0.02, 0.11, 0.06, 0.05, 0.13], [0.1, 0.08, 0.07], PLAIN); p.bm([-0.14, 0.2, -0.14, 0.14, 0.31, 0.1], [0.34, 0.14, 0.12], Mat::Cloth); } // un capuchon en lambeaux
+                _ => { p.bm([-0.04, 0.02, 0.11, 0.04, 0.09, 0.13], [0.05, 0.07, 0.1], PLAIN); } }
+        });
+        m(names[2], mat, 0.03, &|p| { p.tube([0.0, 0.0, 0.0], [0.0, -0.3, 0.0], [0.055, 0.055], [0.045, 0.045], limb, body2); p.tube([0.0, -0.3, 0.0], [0.0, -0.58, 0.02], [0.045, 0.045], [0.035, 0.035], body2, limb); p.blob([0.0, -0.63, 0.03], [0.045, 0.06, 0.05], limb, body2); });
+        m(names[3], mat, 0.035, &|p| { p.tube([0.0, 0.0, 0.0], [0.0, -0.42, 0.0], [0.075, 0.075], [0.06, 0.06], limb, body2); p.tube([0.0, -0.42, 0.0], [0.0, -0.8, 0.0], [0.06, 0.06], [0.045, 0.045], body2, limb); p.rbox([-0.06, -0.86, -0.07, 0.06, -0.78, 0.13], dk(limb, 0.8)); });
+    };
+    human(&mut m, ["noyTorso", "noyHead", "noyArm", "noyLeg"], Mat::Flesh, [0.36, 0.5, 0.44], [0.26, 0.38, 0.36], [0.4, 0.54, 0.46], [0.85, 0.95, 0.8], 0);
+    human(&mut m, ["arcTorso", "arcHead", "arcArm", "arcLeg"], Mat::Bone, [0.82, 0.78, 0.68], [0.6, 0.56, 0.48], [0.86, 0.82, 0.72], [0.95, 0.3, 0.1], 1);
+    human(&mut m, ["fanTorso", "fanHead", "fanArm", "fanLeg"], Mat::Cloth, [0.86, 0.93, 0.98], [0.62, 0.76, 0.9], [0.8, 0.9, 0.97], [0.1, 0.5, 0.9], 2);
+    // L'arc de l'archer : tenu debout au bout du bras, la corde derrière.
+    m("arcBow", Mat::Grain, 0.025, &|p| { let w = [0.4, 0.26, 0.14];
+        p.tube([0.0, 0.0, 0.03], [0.0, 0.3, -0.03], [0.018, 0.018], [0.012, 0.012], w, dk(w, 0.8)); p.tube([0.0, 0.3, -0.03], [0.0, 0.5, -0.14], [0.012, 0.012], [0.006, 0.006], w, dk(w, 0.8));
+        p.tube([0.0, 0.0, 0.03], [0.0, -0.3, -0.03], [0.018, 0.018], [0.012, 0.012], w, dk(w, 0.8)); p.tube([0.0, -0.3, -0.03], [0.0, -0.5, -0.14], [0.012, 0.012], [0.006, 0.006], w, dk(w, 0.8));
+        p.bm([-0.003, -0.5, -0.145, 0.003, 0.5, -0.139], [0.85, 0.82, 0.74], PLAIN); });
+
+    // ---- Ver des sables : des anneaux cuirassés couleur de dune, une gueule ronde garnie de crocs ; sous le sable, on n'en voit qu'un sillon.
+    let (sand, sand2, belly) = ([0.72, 0.6, 0.4], [0.5, 0.4, 0.26], [0.86, 0.78, 0.6]);
+    m("verSeg", Mat::Chitin, 0.045, &|p| { p.blob([0.0, 0.22, 0.0], [0.34, 0.26, 0.34], sand, sand2); p.bm([-0.3, 0.36, -0.3, 0.3, 0.42, 0.3], sand2, Mat::Chitin); p.bm([-0.18, 0.1, 0.26, 0.18, 0.34, 0.35], belly, PLAIN); });
+    m("verHead", Mat::Chitin, 0.04, &|p| {
+        p.column_m(&[(0.0, 0.34, 0.34), (0.3, 0.3, 0.3), (0.5, 0.2, 0.2)], 0.0, sand2, sand, 0.7, Mat::Chitin); p.bm([-0.14, 0.46, -0.14, 0.14, 0.52, 0.14], [0.3, 0.08, 0.08], PLAIN); // la gueule
+        for k in 0..8 { let a = k as f64 * std::f64::consts::FRAC_PI_4; let (c, s) = (a.cos() * 0.17, a.sin() * 0.17); p.tube_m([c, 0.48, s], [c * 0.6, 0.66, s * 0.6], [0.035, 0.035], [0.008, 0.008], [0.95, 0.92, 0.82], [1.0, 1.0, 0.95], PLAIN); }
+    });
+    m("verMound", Mat::Grain, 0.05, &|p| { p.blob([0.0, 0.02, 0.0], [0.5, 0.16, 0.5], sand, sand2); p.blob([0.3, 0.0, -0.36], [0.26, 0.1, 0.26], sand, sand2); p.blob([-0.32, 0.0, -0.3], [0.22, 0.08, 0.22], sand, sand2); });
+
+    // ---- Harpie : un corps d'oiseau de proie à tête de femme échevelée, des serres, deux grandes ailes sombres.
+    let (fe, fe2, skin, hair) = ([0.3, 0.24, 0.3], [0.5, 0.42, 0.4], [0.78, 0.66, 0.58], [0.16, 0.1, 0.14]);
+    m("hrpBody", Mat::Feather, 0.035, &|p| {
+        p.body(&[(-0.5, 0.05, 0.1, 0.02), (-0.25, 0.18, 0.2, -0.08), (0.05, 0.22, 0.24, -0.1), (0.25, 0.16, 0.2, -0.02)], fe, fe, fe2);
+        p.blob_m([0.0, 0.28, 0.3], [0.12, 0.13, 0.12], skin, dk(skin, 0.85), Mat::Human); p.blob_m([0.0, 0.34, 0.24], [0.14, 0.12, 0.14], hair, hair, Mat::Hair); // la tête et sa tignasse
+        for sx in [-1.0f64, 1.0] { p.bm([sx * 0.05 - 0.02, 0.29, 0.405, sx * 0.05 + 0.02, 0.32, 0.425], [0.95, 0.8, 0.2], PLAIN);
+            p.tube_m([sx * 0.1, -0.06, -0.05], [sx * 0.11, -0.3, 0.02], [0.04, 0.04], [0.025, 0.025], fe2, [0.75, 0.6, 0.2], PLAIN);
+            for t in [-0.05, 0.0, 0.05] { p.tube_m([sx * 0.11, -0.3, 0.02], [sx * 0.11 + t, -0.4, 0.1], [0.014, 0.014], [0.005, 0.005], [0.75, 0.6, 0.2], [0.1, 0.08, 0.06], PLAIN); } }
+        p.bm([-0.02, 0.25, 0.41, 0.02, 0.275, 0.45], [0.75, 0.6, 0.2], PLAIN); // un bec crochu
+        for (x, w) in [(-0.1, 0.07), (0.0, 0.08), (0.1, 0.07)] { p.bx([x - w * 0.5, 0.03, -0.78, x + w * 0.5, 0.06, -0.46], dk(fe, 0.8)); } // la queue
+    });
+    m("hrpWing", Mat::Feather, 0.04, &|p| {
+        p.tube([0.0, 0.0, 0.05], [0.45, 0.03, 0.1], [0.045, 0.045], [0.03, 0.03], fe, fe2);
+        for (x0, x1, z0, z1) in [(0.0, 0.18, -0.3, 0.1), (0.18, 0.36, -0.4, 0.13), (0.36, 0.54, -0.42, 0.13), (0.54, 0.72, -0.36, 0.1), (0.72, 0.9, -0.26, 0.07), (0.9, 1.05, -0.14, 0.04)] {
+            p.bx([x0, 0.0, z0, x1, 0.02, z1], fe); p.bx([x0 + 0.02, -0.006, z0 - 0.08, x1 - 0.02, 0.012, z0 + 0.02], dk(fe, 0.7)); }
+    });
 }

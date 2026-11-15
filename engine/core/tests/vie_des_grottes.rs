@@ -30,6 +30,7 @@ fn les_ennemis_naissent_dans_la_salle() {
         hd.update(1.0 / 30.0, &s.world, &c); if hd.foes.len() >= 4 { break; } }
     assert!(hd.foes.len() >= 2, "en plein jour, sous terre, des ennemis apparaissent : {}", hd.foes.len());
     for f in &hd.foes { let ground = w.column(f.p[0], f.p[2]).h; assert!(f.p[1] < ground - 3.0, "né en surface : {:?} (sol {ground})", f.p); }
+    assert!(hd.foes.iter().all(|f| !h::bestiary().species[f.sp].surface), "une créature de surface (harpie, ver, sylvain, noyé) sous terre");
     // les créatures des profondeurs ne sortent jamais à l'air libre ; celles de la surface descendent aussi sous terre
     let bs = h::bestiary(); let deep = bs.species.iter().position(|x| x.id == "abyssale").expect("la bête des profondeurs");
     assert!(!bs.species[deep].caves.is_empty() && bs.species.iter().any(|x| x.id == "rodeur" && x.caves.is_empty()));

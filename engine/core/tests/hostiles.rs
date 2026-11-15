@@ -23,7 +23,7 @@ fn le_bestiaire_vient_des_donnees() {
     let b = bestiary(); assert!(b.species.len() >= 4);
     for id in ["rodeur", "brigand", "rodeuse", "rampant"] { let s = &b.species[species(id).expect(id)]; assert_eq!(s.tier, 1, "{id} est commun"); assert!(s.biomes.is_empty(), "{id} vit partout");
         for l in &s.loot { assert!(item(l.0).is_some(), "{id} : butin inconnu {}", l.0); } }
-    let bodies: std::collections::HashSet<String> = b.species.iter().map(|s| format!("{:?}", s.body)).collect(); assert_eq!(bodies.len(), 6, "six corps différents");
+    let bodies: std::collections::HashSet<String> = b.species.iter().map(|s| format!("{:?}", s.body)).collect(); assert_eq!(bodies.len(), 9, "neuf corps différents");
     assert_eq!(b.rules.light, 7); assert_eq!(b.rules.distance.len(), 4); assert_eq!(b.rules.biome[5], 3, "désert : 3"); assert_eq!(b.rules.biome[1], 1, "prairie : 1"); assert_eq!(b.rules.biome[6], 4);
 }
 
@@ -78,7 +78,8 @@ fn un_mur_cache_le_joueur() {
     // Une cabane de pierre fermée autour du joueur.
     let mut e = Vec::new(); for dx in -2i32..=2 { for dz in -2i32..=2 { for dy in 0..4 { let edge = dx.abs() == 2 || dz.abs() == 2 || dy == 3; if edge { e.push((bx + dx, by + dy, bz + dz, B::STONE)); } } } } s.world.edit_many(&e); let _ = s.sync();
     s.player.crouch = true; let i = s.horde.put(species("rodeur").unwrap(), [p[0] + 6.0, p[1], p[2]], -1.57, false);
-    run(&mut s, 8.0, |_| {}); let f = &s.horde.foes[i.min(s.horde.foes.len() - 1)]; assert!(!matches!(f.state, Ai::Poursuite | Ai::Combat), "à travers les murs, elle ne sait pas : {:?}", f.state);
+    let rod = species("rodeur").unwrap(); for k in 0..240 { s.tick(DT, Input::default(), Actions::default()); if k % 30 == 0 { let _ = s.sync(); } s.horde.foes.retain(|f| f.sp == rod); /* seul un fantôme traverse les murs : on n'éprouve ici que la vue du rôdeur */ }
+    let f = &s.horde.foes[i.min(s.horde.foes.len() - 1)]; assert!(!matches!(f.state, Ai::Poursuite | Ai::Combat), "à travers les murs, elle ne sait pas : {:?}", f.state);
     // Les murs tombent : elle le voit.
     let open: Vec<_> = e.iter().map(|q| (q.0, q.1, q.2, 0)).collect(); s.world.edit_many(&open); s.player.crouch = false; let _ = s.sync();
     s.horde.foes.clear(); s.hour = 12.0; s.horde.put(species("rodeur").unwrap(), [p[0] + 6.0, p[1], p[2]], -1.57, false); run(&mut s, 4.0, |_| {}); // au grand jour : aucune autre ne naît, et l'on voit loin

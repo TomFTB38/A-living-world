@@ -3,12 +3,12 @@
 use alw_core::{actors::Models, hostile as h, mesher::VSIZE, wild::{Kind, Wild}};
 fn main() {
     let args: Vec<String> = std::env::args().skip(2).collect(); let md = Models::build();
-    let (cw, w, h, sc) = (300usize, args.len() * 300, 380usize, 120.0); let mut img = vec![[52u8, 58, 66]; w * h]; let mut zb = vec![f64::MAX; w * h];
+    let z: f64 = std::env::var("ZOOM").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0); let (cw, w, h, sc) = (300usize, args.len() * 300, 460usize, 120.0 * z); let mut img = vec![[52u8, 58, 66]; w * h]; let mut zb = vec![f64::MAX; w * h];
     for (i, a) in args.iter().enumerate() {
         let (id, st) = a.split_once(':').unwrap_or((a, "")); let mut scale = sc;
         let draws = match id { "glowbug" | "bat" => { let mut wd = Wild::new(1); wd.put(if id == "bat" { Kind::Bat } else { Kind::Glowbug }, [0.0, 0.0, 0.0], 0.0, id == "bat"); scale = sc * 3.0; wd.draws(&md) }
             _ => { let mut hd = h::Horde::new(1); let k = hd.put(h::species(id).unwrap_or_else(|| panic!("{id} ?")), [0.0, 0.0, 0.0], 0.0, false); hd.foes[k].state = if st == "affut" { h::Ai::Embuscade } else { h::Ai::Repos };
-                if st == "coup" { hd.foes[k].state = h::Ai::Combat; hd.foes[k].wind = 0.05; } if id == "magma" { hd.embers.push(([0.9, 0.0, 0.6], 4.0)); } hd.draws(&md) } };
+                if st == "coup" { hd.foes[k].state = h::Ai::Combat; hd.foes[k].wind = 0.05; } if st == "vise" { hd.foes[k].state = h::Ai::Combat; hd.foes[k].wind = 0.3; } if st == "sorti" { hd.foes[k].up = 1.0; } if st == "pique" { hd.foes[k].air = true; } if st == "marche" { hd.foes[k].speed = 2.0; hd.foes[k].phase = 1.2; } if id == "magma" { hd.embers.push(([0.9, 0.0, 0.6], 4.0)); } hd.draws(&md) } };
         let (yaw, pit) = (0.75f64, 0.35f64); let ox = cw as f64 * (i as f64 + 0.5);
         for d in draws { let (st0, n) = (d.r.first as usize / 6 * 4, d.r.count as usize / 6 * 4); let m = d.m;
             for q in (st0..st0 + n).step_by(4) { let mut pts = [[0f64; 3]; 4]; let mut col = [0f64; 3]; let mut nn = [0f64; 3];

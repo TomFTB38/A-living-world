@@ -15,7 +15,7 @@ use std::sync::OnceLock;
 pub const DATA: &str = include_str!("../data/creatures.txt");
 
 // ------------------------------------------------------------------------------------------------------------- données
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum Body { Rodeur, Brigand, Bete, Rampant, /** araignée des cavernes : huit pattes */ Araignee, /** golem de cristal : un colosse de roche */ Golem }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum Body { Rodeur, Brigand, Bete, Rampant, /** araignée des cavernes : huit pattes */ Araignee, /** golem de cristal : un colosse de roche */ Golem, /** charpente d'homme sculptée, selon la peau : noyé, archer, fantôme, sylvain */ Humain, /** ver des sables */ Ver, /** harpie */ Harpie }
 #[derive(Clone, Debug)]
 pub struct Species {
     pub id: &'static str, pub name: &'static str, pub tier: u8, pub body: Body, pub size: f64, pub hp: f64, pub dmg: f64, pub walk: f64, pub run: f64,
@@ -27,6 +27,10 @@ pub struct Species {
     pub caves: Vec<&'static str>,
     /// Sa peau (« magma » : le rampant de basalte incandescent) ; `ember` : elle brûle qui l'approche, sème des braises et meurt dans l'eau ; `web` : sa morsure englue.
     pub skin: &'static str, pub ember: bool, pub web: bool,
+    /// Elle vole ; spectre : elle traverse les murs et se dissipe au jour ; elle tire à l'arc ; elle chemine sous le sable ; son coup attire au lieu de repousser.
+    pub fly: bool, pub ghost: bool, pub bow: bool, pub burrow: bool, pub drag: bool,
+    /// Elle ne naît que la nuit ; qu'au bord de l'eau ; jamais sous terre.
+    pub night: bool, pub water: bool, pub surface: bool,
     pub loot: Vec<(&'static str, u32, u32, f64)>,
 }
 /// Règles d'apparition et de difficulté (voir `data/creatures.txt`).
@@ -59,16 +63,16 @@ fn parse(t: &'static str) -> Bestiary {
         }
         let Some(rest) = line.strip_prefix("espece ") else { continue };
         let f: Vec<&'static str> = rest.split('|').map(str::trim).collect(); if f.len() < 3 { continue; }
-        let mut s = Species { id: f[0], name: f[1], tier: 1, body: Body::Rodeur, size: 1.0, hp: 25.0, dmg: 6.0, walk: 1.0, run: 4.5, reach: 1.5, sight: 16.0, hear: 10.0, cd: 1.6, windup: 0.5, armor: 0.0, weak: "", biomes: Vec::new(), weight: 1.0, group: (1, 1), flee: 0.0, leap: false, climb: false, ambush: false, bursts: false, flank: false, caves: Vec::new(), skin: "", ember: false, web: false, loot: Vec::new() };
+        let mut s = Species { id: f[0], name: f[1], tier: 1, body: Body::Rodeur, size: 1.0, hp: 25.0, dmg: 6.0, walk: 1.0, run: 4.5, reach: 1.5, sight: 16.0, hear: 10.0, cd: 1.6, windup: 0.5, armor: 0.0, weak: "", biomes: Vec::new(), weight: 1.0, group: (1, 1), flee: 0.0, leap: false, climb: false, ambush: false, bursts: false, flank: false, caves: Vec::new(), skin: "", ember: false, web: false, fly: false, ghost: false, bow: false, burrow: false, drag: false, night: false, water: false, surface: false, loot: Vec::new() };
         for kv in f[2].split_whitespace() { let Some((k, v)) = kv.split_once('=') else { continue }; let x = v.parse::<f64>().unwrap_or(0.0);
             match k {
-                "niveau" => s.tier = x as u8, "corps" => s.body = match v { "brigand" => Body::Brigand, "bete" => Body::Bete, "rampant" => Body::Rampant, "araignee" => Body::Araignee, "golem" => Body::Golem, _ => Body::Rodeur },
+                "niveau" => s.tier = x as u8, "corps" => s.body = match v { "brigand" => Body::Brigand, "bete" => Body::Bete, "rampant" => Body::Rampant, "araignee" => Body::Araignee, "golem" => Body::Golem, "humain" => Body::Humain, "ver" => Body::Ver, "harpie" => Body::Harpie, _ => Body::Rodeur },
                 "taille" => s.size = x, "pv" => s.hp = x, "degats" => s.dmg = x, "marche" => s.walk = x, "course" => s.run = x, "portee" => s.reach = x, "vue" => s.sight = x, "ouie" => s.hear = x,
                 "recharge" => s.cd = x, "armement" => s.windup = x, "armure" => s.armor = x.clamp(0.0, 0.8), "faible" => s.weak = v, "poids" => s.weight = x, "fuite" => s.flee = x,
                 "groupe" => { let (a, b) = v.split_once('-').unwrap_or((v, v)); s.group = (a.parse().unwrap_or(1), b.parse().unwrap_or(1)); }
                 "biomes" => if v != "tous" { s.biomes = v.split(',').filter_map(|n| crate::biome::NAMES.iter().position(|b| b.replace(' ', "_").eq_ignore_ascii_case(n) || *b == n)).collect(); },
-                "grottes" => s.caves = v.split(',').collect(), "peau" => s.skin = v,
-                "talents" => for t in v.split(',') { match t { "bond" => s.leap = true, "grimpe" => s.climb = true, "embuscade" => s.ambush = true, "poussees" => s.bursts = true, "contourne" => s.flank = true, "brasier" => s.ember = true, "toile" => s.web = true, _ => {} } },
+                "grottes" => s.caves = v.split(',').collect(), "peau" => s.skin = v, "nuit" => s.night = x > 0.5, "eau" => s.water = x > 0.5, "surface" => s.surface = x > 0.5,
+                "talents" => for t in v.split(',') { match t { "bond" => s.leap = true, "grimpe" => s.climb = true, "embuscade" => s.ambush = true, "poussees" => s.bursts = true, "contourne" => s.flank = true, "brasier" => s.ember = true, "toile" => s.web = true, "vol" => s.fly = true, "spectre" => { s.fly = true; s.ghost = true; } "arc" => s.bow = true, "fouit" => s.burrow = true, "entraine" => s.drag = true, _ => {} } },
                 "butin" => s.loot = v.split(',').filter_map(|e| { let p: Vec<&'static str> = e.split(':').collect(); if p.len() < 3 { return None; } let (a, b) = p[1].split_once('-').unwrap_or((p[1], p[1])); Some((p[0], a.parse().ok()?, b.parse().ok()?, p[2].parse().ok()?)) }).collect(),
                 _ => {}
             }
@@ -101,11 +105,12 @@ pub struct Foe {
     pub seen: Option<[f64; 3]>, lost: f64, pub alert: f64, home: [f64; 3],
     /// Mort en cours (s) ; variante d'équipement ; vétéran (un peu plus dur, meilleur butin) ; bond ou course en cours.
     /** bouclier levé (brigand), de 0 à 1 */ pub guard: f64, pub dead: f64, pub variant: u8, pub vet: bool, pub air: bool, burst: f64, pub climbing: bool, pub group: u32,
+    /** ver des sables : secondes pendant lesquelles il reste dressé hors du sable (on peut alors le frapper) */ pub up: f64,
 }
 /// Ce que font les créatures, pour la session (coups, sons, butin).
 #[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool), /** une morsure qui englue : ralenti pendant tant de secondes */ Snare(f64) }
 
-pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv>, groups: u32, pub spawned: u32, /** braises semées par les rampants de magma : (position, secondes restantes) */ pub embers: Vec<([f64; 3], f64)>, burn_cd: f64 }
+pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv>, groups: u32, pub spawned: u32, /** braises semées par les rampants de magma : (position, secondes restantes) */ pub embers: Vec<([f64; 3], f64)>, burn_cd: f64, /** flèches des archers en vol : (position, vitesse, âge, dégâts) */ pub shots: Vec<([f64; 3], [f64; 3], f64, f64)> }
 /// Ce que la session donne à la horde à chaque image.
 pub struct Ctx<'a> {
     pub eye: [f64; 3], pub feet: [f64; 3], pub look: [f64; 3], pub noise: f64, pub lit: bool, pub crouch: bool, pub alive: bool,
@@ -118,22 +123,23 @@ fn sees(w: &impl Voxels, a: [f64; 3], b: [f64; 3]) -> bool {
     let d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt(); let n = (l / 0.45).ceil() as i32;
     for i in 1..n { let t = i as f64 / n as f64; let q = [a[0] + d[0] * t, a[1] + d[1] * t, a[2] + d[2] * t]; if w.get(q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32).is_none_or(is_opaque) { return false; } } true
 }
-fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.55, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.55, Body::Araignee => 0.4, Body::Golem => 1.9 } }
+fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.55, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.55, Body::Araignee => 0.4, Body::Golem => 1.9, Body::Humain => 1.5, Body::Ver => 0.6, Body::Harpie => 0.3 } }
 /// Boîte de visée et de collision (demi-largeur, hauteur).
-pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.42, 1.85), Body::Brigand => (0.42, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.55, 0.8), Body::Araignee => (0.55, 0.65), Body::Golem => (0.6, 2.25) }; (w * size, h * size) }
+pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.42, 1.85), Body::Brigand => (0.42, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.55, 0.8), Body::Araignee => (0.55, 0.65), Body::Golem => (0.6, 2.25), Body::Humain => (0.4, 1.8), Body::Ver => (0.5, 2.4), Body::Harpie => (0.6, 0.9) }; (w * size, h * size) }
 
 impl Horde {
-    pub fn new(seed: i32) -> Self { Horde { foes: Vec::new(), rng: Rng::new((seed ^ 0x6d21) as u32), spawn_t: 2.0, ev: Vec::new(), groups: 0, spawned: 0, embers: Vec::new(), burn_cd: 0.0 } }
+    pub fn new(seed: i32) -> Self { Horde { foes: Vec::new(), rng: Rng::new((seed ^ 0x6d21) as u32), spawn_t: 2.0, ev: Vec::new(), groups: 0, spawned: 0, embers: Vec::new(), burn_cd: 0.0, shots: Vec::new() } }
     /// Fait apparaître une créature de l'espèce `sp` en `p` (bancs d'essai, outils de développement, vagues).
     pub fn put(&mut self, sp: usize, p: [f64; 3], yaw: f64, vet: bool) -> usize {
         let s = &bestiary().species[sp]; let max = s.hp * if vet { 1.25 } else { 1.0 }; self.groups += 1; let variant = (self.rng.next() * 3.0) as u8;
         self.foes.push(Foe { sp, p, yaw, hp: max, max, state: if s.ambush { Ai::Embuscade } else { Ai::Repos }, t: self.rng.range(1.0, 4.0), cd: 0.5, wind: 0.0, hit: 0.0, phase: 0.0, speed: 0.0, v: [0.0; 3], gy: p[1],
-            seen: None, lost: 0.0, alert: 0.0, home: p, guard: 0.0, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups });
+            seen: None, lost: 0.0, alert: 0.0, home: p, guard: 0.0, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups, up: 0.0 });
         self.spawned += 1; self.foes.len() - 1
     }
     /// Un coup porté : moins fort sur une armure, plus fort avec l'arme qui la blesse le mieux ; rend vrai si elle meurt.
     pub fn strike(&mut self, i: usize, dmg: f64, from: [f64; 3], weapon: &str, heavy: bool) -> bool {
         let Some(f) = self.foes.get_mut(i) else { return false }; if f.dead > 0.0 { return false; } let s = &bestiary().species[f.sp];
+        if s.burrow && f.wind <= 0.0 && f.up <= 0.0 { f.alert = 1.0; return false; } // sous le sable, on ne frappe que la dune
         let mul = if !s.weak.is_empty() && s.weak == weapon { 1.35 } else { 1.0 };
         // Bouclier levé et coup de face : il arrête l'essentiel (une flèche aussi).
         let face = { let (dx, dz) = (from[0] - f.p[0], from[2] - f.p[2]); let d = dx.hypot(dz).max(0.01); (sin(f.yaw) * dx + cos(f.yaw) * dz) / d };
@@ -156,9 +162,9 @@ impl Horde {
     pub fn alive(&self) -> usize { self.foes.iter().filter(|f| f.dead == 0.0).count() }
 
     /// Choisit l'espèce à faire naître ici : les communes partout, celles du biome en plus ; le danger élève parfois la créature en vétéran.
-    fn pick(&mut self, biome: usize, danger: i32, under: Option<&str>) -> Option<(usize, bool)> {
+    fn pick(&mut self, biome: usize, danger: i32, under: Option<&str>, night: bool) -> Option<(usize, bool)> {
         let bs = bestiary(); let tier_w = |t: u8| match t { 1 => 1.0, 2 => (danger - 2).max(0) as f64 * 0.22, 3 => (danger - 4).max(0) as f64 * 0.12, _ => (danger - 5).max(0) as f64 * 0.03 };
-        let c: Vec<(usize, f64)> = bs.species.iter().enumerate().filter(|(_, s)| if s.caves.is_empty() { s.biomes.is_empty() || s.biomes.contains(&biome) } else { under.is_some_and(|u| s.caves.iter().any(|k| *k == "toutes" || *k == u)) }).map(|(i, s)| (i, s.weight * tier_w(s.tier))).filter(|x| x.1 > 0.0).collect();
+        let c: Vec<(usize, f64)> = bs.species.iter().enumerate().filter(|(_, s)| !(s.night && !night && under.is_none()) && !(s.surface && under.is_some())).filter(|(_, s)| if s.caves.is_empty() { s.biomes.is_empty() || s.biomes.contains(&biome) } else { under.is_some_and(|u| s.caves.iter().any(|k| *k == "toutes" || *k == u)) }).map(|(i, s)| (i, s.weight * tier_w(s.tier))).filter(|x| x.1 > 0.0).collect();
         let sum: f64 = c.iter().map(|x| x.1).sum(); if sum <= 0.0 { return None; } let mut r = self.rng.next() * sum;
         let sp = c.iter().find(|x| { r -= x.1; r <= 0.0 }).unwrap_or(&c[c.len() - 1]).0; let vet = self.rng.next() < ((danger - 2).max(0) as f64 * 0.07).min(0.45); Some((sp, vet))
     }
@@ -169,7 +175,7 @@ impl Horde {
         let deep = c.cave > 0.5; let (cap, cap_near) = if c.night > 0.5 || deep { (r.cap * 3 / 2, r.cap_near * 3 / 2) } else { (r.cap, r.cap_near) };
         if self.foes.len() >= cap { return; }
         let near = self.foes.iter().filter(|f| hypot2(f.p[0] - me[0], f.p[2] - me[2]) < 24.0).count(); if near >= cap_near { return; }
-        let Some((sp, vet)) = self.pick(c.main_biome, c.danger, if deep { Some(c.under.unwrap_or("rocheuse")) } else { None }) else { return }; let s = &bestiary().species[sp];
+        let Some((sp, vet)) = self.pick(c.main_biome, c.danger, if deep { Some(c.under.unwrap_or("rocheuse")) } else { None }, c.night > 0.5) else { return }; let s = &bestiary().species[sp];
         for _ in 0..if c.night > 0.5 || deep { 8 } else { 4 } {
             let a = self.rng.range(0.0, std::f64::consts::TAU); let d = self.rng.range(r.ring.0, r.ring.1); let (x, z) = (me[0] + sin(a) * d, me[2] + cos(a) * d);
             if (c.protect)(x, z) { continue; }
@@ -177,12 +183,16 @@ impl Horde {
             let found = if deep { crate::fauna::cave_floor(w, x, z, me[1]).map(|f| f.0) } else { ground(w, x, z, me[1] + 12.0).or_else(|| ground(w, x, z, me[1] - 8.0)) };
             let Some(y) = found else { continue }; if (y - me[1]).abs() > 24.0 { continue; }
             let (bx, by, bz) = (x.floor() as i32, y.floor() as i32, z.floor() as i32); if (c.light)(bx, by, bz) >= r.light { continue; }
+            // le noyé sort de l'eau : il lui faut une rive à quelques pas ; le ver, du sable sous lui
+            if s.water && !(-5..=5).any(|dx| (-5..=5).any(|dz| (-2..=0).any(|dy| w.get(bx + dx, by + dy, bz + dz).is_some_and(crate::blocks::is_water)))) { continue; }
+            if s.burrow && !sandy(w, x, y, z) { continue; }
             // Jamais sous les yeux du joueur : hors de son champ, ou cachée par le relief.
             let (dx, dy, dz) = (x - c.eye[0], y + 1.0 - c.eye[1], z - c.eye[2]); let l = (dx * dx + dy * dy + dz * dz).sqrt().max(0.1);
             let ahead = (dx * c.look[0] + dy * c.look[1] + dz * c.look[2]) / l; if ahead > 0.35 && sees(w, c.eye, [x, y + 1.0, z]) { continue; }
             let yaw = self.rng.range(0.0, 6.283); let tall = (foe_box(s.body, s.size).1.ceil() as i32).max(1); if !fits(w, x, y, z, yaw, tall) { continue; }
             let n = self.rng.range(s.group.0 as f64, s.group.1 as f64 + 0.999).floor() as u32 + if c.danger >= 5 && self.rng.next() < 0.3 { 1 } else { 0 };
-            let first = self.put(sp, [x, y, z], yaw, vet); let g = self.foes[first].group;
+            let lift = if s.ghost { 0.6 } else if s.fly { 7.0 } else { 0.0 }; // les volants naissent en l'air
+            let first = self.put(sp, [x, y + lift, z], yaw, vet); let g = self.foes[first].group;
             for k in 1..n { let o = [x + self.rng.range(-2.5, 2.5), y, z + self.rng.range(-2.5, 2.5)]; if let Some(oy) = ground(w, o[0], o[2], y + 2.0) { if (oy - y).abs() <= 2.0 && (c.light)(o[0].floor() as i32, oy.floor() as i32, o[2].floor() as i32) < r.light && fits(w, o[0], oy, o[2], yaw, tall) { let i = self.put(sp, [o[0], oy, o[2]], yaw + k as f64, vet && k == 0); self.foes[i].group = g; } } }
             return;
         }
@@ -194,6 +204,14 @@ impl Horde {
         let mut all = std::mem::take(&mut self.foes); let n = all.len();
         let groups: Vec<(u32, [f64; 3])> = all.iter().map(|f| (f.group, f.p)).collect();
         for i in 0..n { let f = &mut all[i]; self.think(f, dt, w, c, &groups); }
+        // Les flèches des archers : elles volent, retombent, se plantent ; celle qui atteint le joueur le blesse (le bouclier l'arrête de face).
+        let mut shots = std::mem::take(&mut self.shots);
+        for a in shots.iter_mut() { let steps = 3; for _ in 0..steps { let h = dt / steps as f64; a.1[1] -= 12.0 * h; for k in 0..3 { a.0[k] += a.1[k] * h; }
+            if w.get(a.0[0].floor() as i32, a.0[1].floor() as i32, a.0[2].floor() as i32).is_none_or(|b| b != 0 && is_solid(b)) { a.2 = 99.0; break; }
+            if c.alive && hypot2(a.0[0] - me[0], a.0[2] - me[2]) < 0.42 && a.0[1] > me[1] - 0.1 && a.0[1] < me[1] + 1.85 { let l = hypot2(a.1[0], a.1[2]).max(0.1);
+                self.ev.push(FoeEv::Hit { from: [me[0] - a.1[0] / l * 3.0, me[1], me[2] - a.1[2] / l * 3.0], dmg: a.3, cause: "La flèche d'un archer décharné", push: 1.2 }); a.2 = 99.0; break; } }
+            a.2 += dt; }
+        shots.retain(|a| a.2 < 5.0); self.shots = shots;
         // Les braises s'éteignent ; marcher dessus, ou serrer de trop près un rampant de magma, brûle.
         for e in self.embers.iter_mut() { e.1 -= dt; } self.embers.retain(|e| e.1 > 0.0); self.burn_cd -= dt;
         if c.alive && self.burn_cd <= 0.0 {
@@ -210,6 +228,7 @@ impl Horde {
     fn think(&mut self, f: &mut Foe, dt: f64, w: &impl Voxels, c: &Ctx, groups: &[(u32, [f64; 3])]) {
         let s = &bestiary().species[f.sp]; let r = &mut self.rng; f.hit = (f.hit - dt).max(0.0);
         if f.dead > 0.0 { f.dead += dt; f.speed = 0.0; settle(f, dt, w); return; }
+        if s.fly { self.fly_think(f, dt, w, c); return; } if s.burrow { self.worm_think(f, dt, w, c); return; }
         let me = c.feet; let dist = hypot2(f.p[0] - me[0], f.p[2] - me[2]); let dy = me[1] - f.p[1];
         // Loin du joueur, une créature ne pense qu'une image sur trois.
         if dist > 40.0 && f.state != Ai::Poursuite { f.phase += dt; if r.next() > 0.34 { return; } }
@@ -252,6 +271,7 @@ impl Horde {
                 // Le brigand au bouclier se couvre entre deux coups.
                 if s.body == Body::Brigand && f.variant % 3 != 2 { let want = if f.wind <= 0.0 && f.cd > 0.3 { 1.0 } else { 0.0 }; f.guard += (want - f.guard) * (dt * 8.0).min(1.0); }
                 if dist > s.reach + 1.2 && f.wind <= 0.0 { f.state = Poursuite; }
+                if s.bow && (dist < 3.5 || !see) && f.wind <= 0.0 { if dist < 3.5 { f.state = Fuite; f.t = 2.2; } else { f.state = Poursuite; } } // l'archer rompt quand on le serre, et cherche une ligne de tir
                 if !c.alive { f.state = Retour; }
             }
             Recherche => { if let Some(q) = f.seen { if hypot2(q[0] - f.p[0], q[2] - f.p[2]) > 1.5 { f.yaw = turn(f.yaw, (q[0] - f.p[0]).atan2(q[2] - f.p[2]), dt * 4.0); f.speed = s.walk * 1.5; } else { f.speed = 0.0; f.yaw += dt * 1.2; } }
@@ -263,7 +283,12 @@ impl Horde {
         // ---- le coup tombe à la fin de l'annonce, s'il y a contact (distance et angle cohérents avec le geste)
         if f.wind > 0.0 { f.wind -= dt; if f.wind <= 0.0 { f.wind = 0.0; f.cd = s.cd * if f.vet { 0.9 } else { 1.0 };
             let face = sin(f.yaw) * to[0] + cos(f.yaw) * to[1]; let reach = s.reach + if f.air { 0.8 } else { 0.5 };
-            if c.alive && dist < reach && face > 0.35 && dy.abs() < 1.9 { let dmg = s.dmg * r.range(0.8, 1.25) * if f.vet { 1.15 } else { 1.0 } * if f.air { 1.4 } else { 1.0 }; self.ev.push(FoeEv::Hit { from: f.p, dmg, cause: if s.ember { "Les mandibules brûlantes d'un rampant de magma" } else { cause(s.body) }, push: match s.body { Body::Bete => 4.0, Body::Golem => 6.5, _ => 2.5 } }); if s.web { self.ev.push(FoeEv::Snare(3.5)); } } } }
+            if s.bow { // la flèche part vers où l'on se tient, un peu au-dessus pour la chute ; elle n'est pas infaillible
+                if c.alive && see { let from = [f.p[0] + sin(f.yaw) * 0.4, f.p[1] + 1.35 * s.size, f.p[2] + cos(f.yaw) * 0.4]; let sp = 24.0; let aim = [me[0] + r.range(-0.35, 0.35), me[1] + 1.1, me[2] + r.range(-0.35, 0.35)];
+                    let d = [aim[0] - from[0], aim[1] - from[1], aim[2] - from[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt().max(0.1); let t = l / sp;
+                    self.shots.push((from, [d[0] / t, d[1] / t + 0.5 * 12.0 * t, d[2] / t], 0.0, s.dmg * r.range(0.8, 1.2))); self.ev.push(FoeEv::Swing(f.p)); }
+            } else
+            if c.alive && dist < reach && face > 0.35 && dy.abs() < 1.9 { let dmg = s.dmg * r.range(0.8, 1.25) * if f.vet { 1.15 } else { 1.0 } * if f.air { 1.4 } else { 1.0 }; self.ev.push(FoeEv::Hit { from: f.p, dmg, cause: if s.ember { "Les mandibules brûlantes d'un rampant de magma" } else { cause(s.body) }, push: if s.drag { -4.5 } else { match s.body { Body::Bete => 4.0, Body::Golem => 6.5, _ => 2.5 } } }); if s.web { self.ev.push(FoeEv::Snare(3.5)); } } } }
         // ---- le rampant de magma : il sème des braises derrière lui, et l'eau l'éteint
         if s.ember {
             if f.speed > 0.5 && self.embers.last().is_none_or(|e| hypot2(e.0[0] - f.p[0], e.0[2] - f.p[2]) > 0.9) && self.embers.len() < 80 { self.embers.push(([f.p[0], f.gy, f.p[2]], 5.0)); }
@@ -279,12 +304,74 @@ impl Horde {
         if f.speed > 0.0 { let step = f.speed * dt; if !walk(f, w, step, s.climb, s.body) && matches!(f.state, Patrouille | Retour) { f.yaw += r.range(1.0, 2.5); } }
         settle(f, dt, w);
     }
+    /// Les volants. La harpie tourne au-dessus du joueur, plonge serres en avant, frappe et remonte ; le fantôme dérive droit sur lui,
+    /// à travers les murs, et se dissipe quand le jour se lève.
+    fn fly_think(&mut self, f: &mut Foe, dt: f64, w: &impl Voxels, c: &Ctx) {
+        let s = &bestiary().species[f.sp]; let r = &mut self.rng; f.hit = (f.hit - dt).max(0.0); f.phase += dt * if s.ghost { 2.0 } else { 9.0 };
+        if f.dead > 0.0 { f.dead += dt; f.speed = 0.0; if !s.ghost { if let Some(g) = ground(w, f.p[0], f.p[2], f.p[1] + 1.0) { f.p[1] = (f.p[1] - 9.0 * dt).max(g); } } return; }
+        if s.ghost && c.night < 0.3 && c.cave < 0.5 { f.dead = 1.7; return; } // le jour le dissout, sans rien laisser
+        let me = c.feet; let chest = [me[0], me[1] + if s.ghost { 0.25 } else { 1.0 }, me[2]]; let d = [chest[0] - f.p[0], chest[1] - f.p[1], chest[2] - f.p[2]]; let dist = hypot2(d[0], d[2]); let d3 = (dist * dist + d[1] * d[1]).sqrt();
+        f.t -= dt; f.cd -= dt;
+        let see = c.alive && d3 < s.sight * if c.lit { 1.3 } else { 1.0 } && (s.ghost || sees(w, [f.p[0], f.p[1] + 0.3, f.p[2]], c.eye));
+        if see { f.seen = Some(me); f.lost = 0.0; f.alert = 1.0; } else { f.lost += dt; f.alert = (f.alert - dt * 0.1).max(0.0); }
+        use Ai::*;
+        if f.state != Poursuite && f.state != Combat && (see || f.hit > 0.0) { f.state = Poursuite; self.ev.push(FoeEv::Growl(f.p, s.body)); }
+        if matches!(f.state, Poursuite | Combat) && (f.lost > 6.0 || !c.alive) { f.state = Retour; f.air = false; f.wind = 0.0; }
+        // où aller : la cible, et l'allure
+        let (goal, speed) = match f.state {
+            Poursuite | Combat if s.ghost => { if d3 < s.reach && f.wind <= 0.0 && f.cd <= 0.0 { f.wind = s.windup; self.ev.push(FoeEv::Swing(f.p)); } (if f.cd > 0.3 { [f.p[0] - d[0] / d3.max(0.1) * 3.0, chest[1] + 0.6, f.p[2] - d[2] / d3.max(0.1) * 3.0] } else { chest }, if f.wind > 0.0 { s.walk * 0.4 } else { s.run }) }
+            Poursuite | Combat => {
+                if f.air { // le piqué : droit sur le joueur ; au contact, les serres ; manqué, elle remonte
+                    f.wind -= dt; if d3 < s.reach { if c.alive { self.ev.push(FoeEv::Hit { from: f.p, dmg: s.dmg * r.range(0.85, 1.2), cause: cause(s.body), push: 3.5 }); } f.air = false; f.cd = s.cd; f.wind = 0.0; } else if f.wind <= -2.2 { f.air = false; f.cd = s.cd * 0.6; f.wind = 0.0; }
+                    (chest, s.run * 1.5)
+                } else { let a = f.phase * 0.07 + f.group as f64; let high = [me[0] + sin(a) * 7.0, me[1] + 6.5, me[2] + cos(a) * 7.0];
+                    if f.cd <= 0.0 && see && dist < 11.0 { f.air = true; f.wind = 0.0; self.ev.push(FoeEv::Swing(f.p)); } (high, s.run) }
+            }
+            _ => { if f.t <= 0.0 { f.t = r.range(3.0, 7.0); f.yaw += r.range(-1.5, 1.5); } if f.state == Retour && hypot2(f.p[0] - f.home[0], f.p[2] - f.home[2]) < 3.0 { f.state = Patrouille; }
+                let far = hypot2(f.p[0] - f.home[0], f.p[2] - f.home[2]) > 12.0; let dir = if far || f.state == Retour { (f.home[0] - f.p[0]).atan2(f.home[2] - f.p[2]) } else { f.yaw };
+                ([f.p[0] + sin(dir) * 4.0, f.home[1] + 0.4 * sin(f.phase * 0.2), f.p[2] + cos(dir) * 4.0], s.walk) }
+        };
+        // le coup du fantôme tombe à la fin de son geste, s'il est encore au contact
+        if s.ghost && f.wind > 0.0 { f.wind -= dt; if f.wind <= 0.0 { f.wind = 0.0; f.cd = s.cd; if c.alive && d3 < s.reach + 0.6 { self.ev.push(FoeEv::Hit { from: f.p, dmg: s.dmg * r.range(0.85, 1.2), cause: "Le toucher glacé d'un fantôme", push: 1.0 }); } } }
+        let g = [goal[0] - f.p[0], goal[1] - f.p[1], goal[2] - f.p[2]]; let gl = (g[0] * g[0] + g[1] * g[1] + g[2] * g[2]).sqrt();
+        if gl > 0.05 { f.yaw = turn(f.yaw, if matches!(f.state, Poursuite | Combat) && (s.ghost || f.air) { d[0].atan2(d[2]) } else { g[0].atan2(g[2]) }, dt * 5.0);
+            let st = (speed * dt).min(gl); let mut n = [f.p[0] + g[0] / gl * st + f.v[0] * dt, f.p[1] + g[1] / gl * st, f.p[2] + g[2] / gl * st + f.v[2] * dt];
+            let solid = |q: [f64; 3]| w.get(q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32).is_none_or(|b| b != 0 && is_solid(b));
+            if !s.ghost && (solid(n) || solid([n[0], n[1] - 0.4, n[2]])) { n = [f.p[0], f.p[1] + 4.0 * dt, f.p[2]]; if solid(n) { n = f.p; f.yaw += 2.0 * dt; } if f.air { f.air = false; f.cd = s.cd * 0.5; } } // la roche : elle remonte
+            // la lumière repousse le fantôme : il n'entre pas dans une pièce éclairée (lanterne, torche posée) et recule devant qui porte une flamme
+            if s.ghost && ((c.light)(n[0].floor() as i32, n[1].floor() as i32, n[2].floor() as i32) >= 9 || (c.lit && d3 < 3.5)) { n = [f.p[0] - d[0] / d3.max(0.1) * st, f.p[1], f.p[2] - d[2] / d3.max(0.1) * st]; f.wind = 0.0; }
+            f.p = n; f.speed = speed; }
+        let k = (1.0 - dt * 5.0).max(0.0); f.v[0] *= k; f.v[2] *= k; f.gy = f.p[1];
+    }
+    /// Le ver des sables : il chemine sous la dune vers ce qui marche dessus, jaillit sous les pieds, reste un instant dressé
+    /// (c'est là qu'on peut le frapper), puis replonge. Il ne quitte jamais le sable.
+    fn worm_think(&mut self, f: &mut Foe, dt: f64, w: &impl Voxels, c: &Ctx) {
+        let s = &bestiary().species[f.sp]; let r = &mut self.rng; f.hit = (f.hit - dt).max(0.0); f.phase += dt * 3.0;
+        if f.dead > 0.0 { f.dead += dt; f.speed = 0.0; return; }
+        let me = c.feet; let dist = hypot2(f.p[0] - me[0], f.p[2] - me[2]); let dy = me[1] - f.p[1]; f.t -= dt; f.cd -= dt;
+        if f.wind > 0.0 { f.speed = 0.0; f.wind -= dt; if f.wind <= 0.0 { f.wind = 0.0; f.up = 1.8; f.cd = s.cd; if c.alive && dist < s.reach && dy.abs() < 2.5 { self.ev.push(FoeEv::Hit { from: [f.p[0], f.p[1] - 1.0, f.p[2]], dmg: s.dmg * r.range(0.85, 1.25), cause: cause(s.body), push: 3.0 }); } } return; }
+        if f.up > 0.0 { f.up -= dt; f.speed = 0.0; f.yaw = turn(f.yaw, (me[0] - f.p[0]).atan2(me[2] - f.p[2]), dt * 3.0); return; }
+        // il sent les pas : pas besoin de voir, il suffit qu'on marche (accroupi, de bien plus près)
+        let feel = c.alive && dist < s.hear * if c.crouch { 0.35 } else { 1.0 } && dy.abs() < 6.0;
+        if feel { f.seen = Some(me); f.lost = 0.0; if f.state != Ai::Poursuite { f.state = Ai::Poursuite; self.ev.push(FoeEv::Growl(f.p, s.body)); } } else { f.lost += dt; if f.lost > 5.0 && f.state == Ai::Poursuite { f.state = Ai::Retour; } }
+        let (want, speed) = match f.state { Ai::Poursuite => { let q = f.seen.unwrap_or(me); ((q[0] - f.p[0]).atan2(q[2] - f.p[2]), s.run) }
+            Ai::Retour => { if hypot2(f.p[0] - f.home[0], f.p[2] - f.home[2]) < 2.0 { f.state = Ai::Repos; } ((f.home[0] - f.p[0]).atan2(f.home[2] - f.p[2]), s.walk) }
+            _ => { if f.t <= 0.0 { f.t = r.range(3.0, 8.0); f.yaw += r.range(-1.6, 1.6); } (f.yaw, s.walk * 0.6) } };
+        f.yaw = turn(f.yaw, want, dt * 4.0); f.speed = speed;
+        if f.state == Ai::Poursuite && dist < 1.1 && f.cd <= 0.0 && dy.abs() < 2.0 { f.wind = s.windup; f.speed = 0.0; self.ev.push(FoeEv::Swing(f.p)); return; }
+        // sous le sable seulement : au bord de la roche, il longe ou s'arrête
+        for k in [0.0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5] { let yaw = f.yaw + k; let (nx, nz) = (f.p[0] + sin(yaw) * speed * dt, f.p[2] + cos(yaw) * speed * dt);
+            if let Some(y) = ground(w, nx, nz, f.gy + 1.0) { if (y - f.gy).abs() <= 1.05 && sandy(w, nx, y, nz) { f.p = [nx, y, nz]; f.gy = y; if k != 0.0 { f.yaw += k * 0.4; } return; } } }
+        f.speed = 0.0;
+    }
     pub fn debug_lines(&self) -> Vec<String> {
         self.foes.iter().take(8).map(|f| { let s = &bestiary().species[f.sp]; format!("  {}{} — {} ({:.0}/{:.0} pv, éveil {:.1})", s.name, if f.vet { " (vétéran)" } else { "" }, if f.dead > 0.0 { "morte" } else { f.state.name() }, f.hp.max(0.0), f.max, f.alert) }).collect()
     }
 }
-fn cause(b: Body) -> &'static str { match b { Body::Rodeur => "Les griffes d'un rôdeur décharné", Body::Brigand => "L'arme d'un brigand", Body::Araignee => "Les crochets d'une araignée des cavernes", Body::Golem => "Le poing d'un golem de cristal", Body::Bete => "Les crocs d'une bête rôdeuse", Body::Rampant => "Les mandibules d'un rampant nocturne" } }
+fn cause(b: Body) -> &'static str { match b { Body::Rodeur => "Les griffes d'un rôdeur décharné", Body::Brigand => "L'arme d'un brigand", Body::Humain => "Les mains d'une créature de la nuit", Body::Ver => "La gueule d'un ver des sables", Body::Harpie => "Les serres d'une harpie", Body::Araignee => "Les crochets d'une araignée des cavernes", Body::Golem => "Le poing d'un golem de cristal", Body::Bete => "Les crocs d'une bête rôdeuse", Body::Rampant => "Les mandibules d'un rampant nocturne" } }
 fn turn(a: f64, b: f64, k: f64) -> f64 { let d = (b - a + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI; a + d.clamp(-k, k) }
+/// Du sable (ou du gravier) sous ce point : le terrain du ver.
+fn sandy(w: &impl Voxels, x: f64, y: f64, z: f64) -> bool { w.get(x.floor() as i32, y.floor() as i32 - 1, z.floor() as i32).is_some_and(|b| b == B::SAND || b == B::GRAVEL) }
 fn knock(f: &mut Foe, dt: f64, w: &impl Voxels) {
     if f.v[0] == 0.0 && f.v[2] == 0.0 { return; } let (nx, nz) = (f.p[0] + f.v[0] * dt, f.p[2] + f.v[2] * dt);
     if let Some(y) = ground(w, nx, nz, f.gy) { if (y - f.gy).abs() <= 1.0 { f.p[0] = nx; f.p[2] = nz; f.gy = y; } }
@@ -633,6 +720,39 @@ impl Horde {
                         let leg = mul(&root, &mul(&trs(0.3 * sx, 0.1, *z, (if sx > 0.0 { 0.0 } else { std::f64::consts::PI }) + spread * 0.6 + swing, 0.0, 1.0), &roll_z(up + curl)));
                         put(pl, leg); } }
                 }
+                Body::Humain => {
+                    // La charpente d'homme : le noyé avance bras tendus, l'archer tient son arc à bout de bras et tire la corde, le fantôme
+                    // flotte sans jambes, le sylvain à l'affût lève ses bras comme des branches.
+                    let (pt, ph, pa, pl) = match s.skin { "archer" => ("arcTorso", "arcHead", "arcArm", "arcLeg"), "fantome" => ("fanTorso", "fanHead", "fanArm", "fanLeg"), "sylvain" => ("sylTorso", "sylHead", "sylArm", "sylLeg"), _ => ("noyTorso", "noyHead", "noyArm", "noyLeg") };
+                    let syl = s.skin == "sylvain"; let t = f.phase; let hide = if f.state == Ai::Embuscade { 1.0 } else { 0.0 };
+                    let (hips, sh_x, sh_y, head_y, leg_x) = if syl { (0.92, 0.44, 0.95, 1.13, 0.15) } else { (0.86, 0.28, 0.54, 0.6, 0.1) };
+                    let stride = sw * (0.35 + 0.3 * run); let float = if s.ghost { 0.1 * sin(t * 0.9) + 0.25 } else { -(f.phase * 2.0).sin().abs() * 0.02 * run };
+                    let lean = (if s.ghost { 0.2 + 0.2 * run } else if s.drag { 0.22 } else { 0.05 + 0.15 * run }) - wind * if s.bow { 0.0 } else { 0.2 } + strike * 0.35 - flinch * 0.5;
+                    let root = mul(&base, &trs(0.0, hips + float, 0.0, 0.0, 0.0, 1.0)); let torso = mul(&root, &trs(0.0, 0.0, 0.0, 0.0, lean, 1.0));
+                    put(pt, torso); put(ph, mul(&torso, &trs(0.0, head_y, 0.02, 0.12 * (t * 0.5).sin() * (1.0 - run), -lean * 0.5, 1.0)));
+                    let aiming = s.bow && (f.wind > 0.0 || f.state == Ai::Combat);
+                    for sx in [-1.0f64, 1.0] {
+                        let arm = if aiming { if sx > 0.0 { -1.5 } else { -1.2 + 0.5 * wind } } else if s.drag { -1.35 + 0.1 * (t + sx).sin() - 0.5 * wind + 0.7 * strike } else if s.ghost { -0.9 + 0.12 * (t * 0.8 + sx).sin() - 0.7 * wind + 0.6 * strike }
+                            else if syl { -2.75 * hide - 2.4 * wind * (1.0 - hide) + 1.0 * strike - sx * stride * 0.6 * (1.0 - hide) } else { -sx * stride * 0.8 };
+                        let am = mul(&torso, &mul(&trs(sh_x * sx, sh_y, 0.0, 0.0, arm, 1.0), &roll_z(if syl { sx * 0.25 * hide } else { 0.0 }))); put(pa, am);
+                        if s.bow && sx > 0.0 { put("arcBow", mul(&am, &trs(0.0, -0.62, 0.04, 0.0, if aiming { 1.5 } else { 0.3 }, 1.0))); }
+                        if !s.ghost { put(pl, mul(&root, &trs(leg_x * sx, 0.0, 0.0, 0.0, sx * stride * (1.0 - hide), 1.0))); }
+                    }
+                }
+                Body::Ver => {
+                    // Sous le sable : un sillon qui avance. Il jaillit anneau après anneau, la gueule en haut, se balance, puis replonge.
+                    let t = f.phase; let rise = (if f.wind > 0.0 { wind } else if f.up > 0.0 { (f.up / 0.35).min(1.0) } else { 0.0 }) * (1.0 - fall);
+                    put("verMound", trs(f.p[0], f.p[1] + if f.speed > 0.0 { 0.03 * (t * 3.0).sin() } else { 0.0 }, f.p[2], f.yaw, 0.0, s.size));
+                    if rise > 0.02 { let top = 2.3 * rise - 0.5;
+                        for i in 0..6 { let y = top - 0.4 * i as f64; if y < -0.45 { break; } let sway = 0.12 * (t * 0.8 + i as f64 * 0.7).sin() * rise;
+                            put(if i == 0 { "verHead" } else { "verSeg" }, trs(f.p[0] + sin(f.yaw) * sway, f.p[1] + y * s.size, f.p[2] + cos(f.yaw) * sway, f.yaw, if i == 0 { 0.25 * rise + 0.2 * strike } else { 0.0 }, s.size)); } }
+                }
+                Body::Harpie => {
+                    // En vol : de grands battements ; en piqué : le corps penché, les ailes à demi repliées, les serres en avant.
+                    let dive = if f.air { 1.0 } else { 0.0 }; let flap = if f.dead > 0.0 { 1.2 } else { 0.55 * sin(f.phase) * (1.0 - 0.7 * dive) + 0.5 * dive };
+                    let root = mul(&base, &trs(0.0, 0.0, 0.0, 0.0, 0.55 * dive - 0.1, 1.0)); put("hrpBody", root);
+                    put("hrpWing", mul(&root, &mul(&trs(0.14, 0.12, 0.0, 0.0, 0.0, 1.0), &roll_z(flap)))); put("hrpWing", mul(&root, &mul(&trs(-0.14, 0.12, 0.0, 0.0, 0.0, 1.0), &roll_z(std::f64::consts::PI - flap))));
+                }
                 Body::Araignee => {
                     // Huit pattes en deux éventails, qui marchent par paires alternées ; elle se dresse sur l'arrière pour mordre ; morte, pattes recroquevillées.
                     let t = f.phase; let die = fall; let hip = 0.3 - 0.12 * die + if f.speed > 0.0 { (t * 2.0).sin().abs() * 0.015 } else { 0.008 * (t * 1.4).sin() };
@@ -659,6 +779,7 @@ impl Horde {
                 }
             }
         }
+        for a in &self.shots { let hz = hypot2(a.1[0], a.1[2]).max(1e-6); out.push(Draw { m: trs(a.0[0], a.0[1], a.0[2], a.1[0].atan2(a.1[2]), -(a.1[1] / hz).atan(), 1.0), r: md.part("arrow"), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 }); }
         // Les braises : elles rétrécissent en s'éteignant.
         for (p, t) in &self.embers { let k = (t / 1.5).min(1.0) * (0.85 + 0.15 * sin(t * 9.0)); out.push(Draw { m: trs(p[0], p[1] + 0.01, p[2], p[0] * 3.1, 0.0, k), r: md.part("ember"), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 }); }
         out

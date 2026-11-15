@@ -412,7 +412,7 @@ impl Wild {
                     if c.kind == Kind::Shark { let body = trs(c.p[0], c.p[1] + 0.1, c.p[2], c.yaw - beat * 0.06, pitch, sc); put(nb, body); put(nt, mul(&body, &trs(0.0, 0.0, piv, beat * 0.45, 0.0, 1.0))); }
                     else { let body = trs(c.p[0], c.p[1] + 0.1, c.p[2], c.yaw, pitch + beat * 0.05, sc); put(nb, body); put(nt, mul(&body, &trs(0.0, 0.0, piv, 0.0, -beat * if c.kind == Kind::Whale { 0.28 } else { 0.4 }, 1.0))); }
                 }
-                Kind::Glowbug => { put("glowbug", trs(c.p[0], c.p[1] + flinch(c.hit) * 0.15, c.p[2], c.yaw + if c.speed > 0.0 { sin(c.phase * 2.0) * 0.12 } else { 0.0 }, 0.0, 1.7)); }
+                Kind::Glowbug => { put("glowbug", trs(c.p[0], c.p[1] + flinch(c.hit) * 0.15, c.p[2], c.yaw + if c.speed > 0.0 { sin(c.phase * 2.0) * 0.12 } else { 0.0 }, 0.0, 1.2)); }
                 Kind::Crab => { let bob = if c.speed > 0.0 { sin(c.phase * 2.0).abs() * 0.03 } else { 0.0 }; put("crab", trs(c.p[0], c.p[1] + bob + flinch(c.hit) * 0.2, c.p[2], c.yaw + std::f64::consts::FRAC_PI_2, 0.0, 2.4)); } // le crabe marche de côté
                 Kind::Cow | Kind::Sheep | Kind::Pig | Kind::Horse => {
                     let v = (c.color % 3) as usize; let (sc, hip, body, head, leg, hz, hy, lx, lz) = match c.kind {

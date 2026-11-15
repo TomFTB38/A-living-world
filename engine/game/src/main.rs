@@ -475,6 +475,16 @@ fn capture(a: &[String]) {
         let cell = [(p[0] - 2.0).floor() as i32, y as i32, (p[2] + 3.4).floor() as i32]; s.world.edit(cell[0], cell[1], cell[2], alw_core::blocks::B::COBWEB);
         pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // Les monstres de surface alignés en plein jour sur le monde plat : sylvain (à l'affût et éveillé), noyé, archer qui vise, fantôme, ver dressé, harpies.
+    if scene == "plat_surface" {
+        use alw_core::hostile as h; let y = alw_core::gen::FLAT_Y as f64 + 1.0; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.yaw = 0.0; s.player.pitch = -0.05; s.set_creative(true);
+        let p = s.player.p;
+        for (id, dx, up, dz, turn, pose) in [("sylvain", -5.0, 0.0, 7.5, 2.9, 0), ("sylvain", -3.0, 0.0, 8.0, 3.1, 1), ("noye", -1.3, 0.0, 5.5, 3.0, 2), ("archer", 0.4, 0.0, 6.5, 3.1, 3), ("fantome", 2.0, 0.5, 5.5, -2.9, 2), ("ver", 4.2, 0.0, 7.5, 3.1, 4), ("harpie", -1.5, 4.0, 8.0, 2.6, 2), ("harpie", 2.5, 3.2, 7.0, -2.6, 5)] {
+            let k = s.horde.put(h::species(id).unwrap(), [p[0] + dx, y + up, p[2] + dz], turn, false); let f = &mut s.horde.foes[k];
+            match pose { 0 => {} 1 | 2 => f.state = h::Ai::Repos, 3 => { f.state = h::Ai::Combat; f.wind = 0.4; } 4 => f.up = 1.5, _ => f.air = true } f.phase = dx; }
+        s.horde.shots.push(([p[0] + 0.6, y + 1.3, p[2] + 4.0], [0.0, 0.5, -18.0], 0.0, 0.0));
+        pump(&mut s, &mut g);
+    }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
     if scene == "abattage" {
