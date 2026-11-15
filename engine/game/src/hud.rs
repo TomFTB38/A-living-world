@@ -53,7 +53,7 @@ pub fn layout(s: &Session, w: f32, h: f32) -> Vec<(Hit, [f32; 4])> {
     // L'atelier de taille : deux boutons dans l'en-tête (tailler, ou ses recettes) ; en mode taille, la case où poser le bloc
     // et la grille de ses variantes remplacent le livre.
     let yb = h * 0.5 - 300.0 * k;
-    if s.at_station.is_some_and(|a| a.0 == Station::Mason) { let (mw, mh) = (84.0 * k, 24.0 * k); o.push((Hit::Mode(true), [xb + bw - 2.0 * mw - g, yb - 42.0 * k, mw, mh])); o.push((Hit::Mode(false), [xb + bw - mw, yb - 42.0 * k, mw, mh])); }
+    if s.at_station.is_some_and(|a| a.0 == Station::Mason) { let (mw, mh) = (84.0 * k, 24.0 * k); o.push((Hit::Mode(true), [xb + bw - 2.0 * mw - g, yb - 78.0 * k, mw, mh])); o.push((Hit::Mode(false), [xb + bw - mw, yb - 78.0 * k, mw, mh])); }
     if s.cutting() {
         let big = c * 1.3; o.push((Hit::Slot(CUT0), [xb, yb + 8.0 * k, big, big]));
         if let Some(src) = s.cut_in { let yg = yb + 8.0 * k + big + 44.0 * k; for (j, v) in cut_variants(src.item).into_iter().take(BOOK_COLS * 6).enumerate() { o.push((Hit::Cut(v.out), [xb + (j % BOOK_COLS) as f32 * cell, yg + (j / BOOK_COLS) as f32 * cell, c, c])); } }
@@ -340,7 +340,7 @@ impl Ui {
                 let (bh, bw) = (24.0 * k, 58.0 * k); let rows = (h / bh).ceil() as i32;
                 for i in 0..rows { let yy = y + i as f32 * bh; self.rect(x, yy, w, 2.0 * k, [0.85, 0.78, 0.66, 0.2]); let off = if i % 2 == 0 { 0.0 } else { bw * 0.5 }; let mut bx = x + off; let mut j = 0;
                     while bx < x + w { self.rect(bx, yy, 2.0 * k, bh.min(y + h - yy), [0.85, 0.78, 0.66, 0.2]); if hash(i, j) < 0.3 { self.rect(bx + 2.0 * k, yy + 2.0 * k, (bw - 2.0 * k).min(x + w - bx - 2.0 * k), (bh - 2.0 * k).min(y + h - yy - 2.0 * k), [0.0, 0.0, 0.0, 0.12]); } bx += bw; j += 1; } }
-                let (mx, mw, my, mh) = (x + w * 0.5 - 96.0 * k, 192.0 * k, y + 8.0 * k, head - 12.0 * k); self.rect(mx - 5.0 * k, my - 3.0 * k, mw + 10.0 * k, mh + 6.0 * k, [0.3, 0.14, 0.08, 1.0]); self.rect(mx, my, mw, mh, [0.03, 0.01, 0.0, 1.0]);
+                let (mx, mw, mh) = (x + w * 0.5 - 96.0 * k, 192.0 * k, 40.0 * k); let my = y - mh - 3.0 * k; /* la gueule dépasse au-dessus du panneau, comme une hotte */ self.rect(mx - 5.0 * k, my - 3.0 * k, mw + 10.0 * k, mh + 6.0 * k, [0.3, 0.14, 0.08, 1.0]); self.rect(mx, my, mw, mh, [0.03, 0.01, 0.0, 1.0]);
                 for i in 0..9 { let f = i as f32 / 9.0; let fh = mh * (0.45 + 0.4 * (t * (5.0 + f * 3.0) + i as f32 * 1.7).sin().abs()); let fw = mw / 9.0; self.rect(mx + i as f32 * fw + 1.0, my + mh - fh, fw - 2.0, fh, [1.0, 0.42, 0.08, 0.9]); self.rect(mx + i as f32 * fw + fw * 0.25, my + mh - fh * 0.55, fw * 0.5, fh * 0.55, [1.0, 0.85, 0.3, 0.95]); }
                 frame(self, [0.62, 0.3, 0.2, 0.95], [0.2, 0.08, 0.05, 0.95], 5.0 * k);
             }
