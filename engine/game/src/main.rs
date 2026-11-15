@@ -464,6 +464,17 @@ fn capture(a: &[String]) {
         }
         pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); println!("{scene} : {} bêtes, {} créatures", s.wild.all.len(), s.horde.foes.len());
     }
+    // Les créatures des profondeurs alignées en plein jour sur le monde plat : pour les voir de près, sans relief qui les cache.
+    if scene == "plat_creatures" {
+        use alw_core::wild::Kind as K; use alw_core::hostile as h; let y = alw_core::gen::FLAT_Y as f64 + 1.0; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.yaw = 0.0; s.player.pitch = -0.2;
+        let p = s.player.p;
+        for (id, dx, dz, turn, awake) in [("araignee", -3.2, 5.0, 2.7, true), ("golem", -1.0, 6.5, 3.0, true), ("golem", 1.6, 7.0, 3.3, false), ("magma", 3.4, 5.0, -2.7, true)] {
+            let k = s.horde.put(h::species(id).unwrap(), [p[0] + dx, y, p[2] + dz], turn, false); if awake { s.horde.foes[k].state = h::Ai::Repos; } }
+        s.horde.embers.push(([p[0] + 2.6, y, p[2] + 3.6], 4.0)); s.wild.put(K::Glowbug, [p[0] - 0.7, y, p[2] + 2.6], 2.2, false); s.wild.put(K::Glowbug, [p[0] + 0.8, y, p[2] + 3.0], -2.0, false);
+        for (dx, up, dz, turn, ph) in [(-1.8, 2.4, 4.0, 1.0, 0.6), (0.6, 2.9, 5.0, -1.4, 2.0), (2.2, 2.2, 4.2, 2.4, 3.4)] { s.wild.put(K::Bat, [p[0] + dx, y + up, p[2] + dz], turn, true); s.wild.all.last_mut().unwrap().phase = ph; }
+        let cell = [(p[0] - 2.0).floor() as i32, y as i32, (p[2] + 3.4).floor() as i32]; s.world.edit(cell[0], cell[1], cell[2], alw_core::blocks::B::COBWEB);
+        pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
     if scene == "abattage" {
