@@ -214,7 +214,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
             let mid = if along_x { b == cz } else { a == cx }; if mid { works.put([a, fy, b], water); works.put([a, fy - 1, b], id("dirt")); } else { works.put([a, fy, b], farmland); works.put([a, fy + 1, b], crop); } } }
         made_fields += 1; }
     // ---- le village : ses maisons habitées, leurs chemins jusqu'à la place
-    let mut v = Village { id: (gx, gz), kind, name, c: [x, y0, z], r: 8, crafts: Vec::new(), houses: Vec::new(), ident: Some(ident) };
+    let mut v = Village { id: (gx, gz), kind, name, c: [x, y0, z], r: 8, crafts: Vec::new(), houses: Vec::new(), works: placed.iter().map(|p| (p.spec.arch, p.body)).collect(), fields: made_fields as u32, ident: Some(ident) };
     for p in &placed { for (cx, cz) in [(p.body[0] - 2, p.body[1] - 2), (p.body[2] + 2, p.body[3] + 2)] { v.r = v.r.max(((cx - x) as f64).hypot((cz - z) as f64).ceil() as i32 + 2); } }
     for t in &taken { for (cx, cz) in [(t[0], t[1]), (t[2], t[3]), (t[0], t[3]), (t[2], t[1])] { v.r = v.r.max(((cx - x) as f64).hypot((cz - z) as f64).ceil() as i32 + 1); } }
     v.r = v.r.min(SPAN - 6);

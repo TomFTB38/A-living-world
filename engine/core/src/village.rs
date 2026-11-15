@@ -42,7 +42,7 @@ pub struct House {
     pub way: Vec<[f64; 3]>,
 }
 #[derive(Clone, Debug)]
-pub struct Village { pub id: (i32, i32), pub kind: &'static str, pub name: String, pub c: [i32; 3], pub r: i32, pub crafts: Vec<&'static str>, pub houses: Vec<House>, /** l'identité du village (civilisation, taille, spécialité, richesse, âge, orientation), pour les villages refondus */ pub ident: Option<crate::bourg::Identity> }
+pub struct Village { pub id: (i32, i32), pub kind: &'static str, pub name: String, pub c: [i32; 3], pub r: i32, pub crafts: Vec<&'static str>, pub houses: Vec<House>, /** tous ses bâtiments (habités ou non) et leur emprise, et le nombre de ses champs : ce que son économie fait tourner */ pub works: Vec<(crate::edifice::Arch, [i32; 4])>, pub fields: u32, /** l'identité du village (civilisation, taille, spécialité, richesse, âge, orientation), pour les villages refondus */ pub ident: Option<crate::bourg::Identity> }
 /// Un village tracé, avec les blocs à poser.
 pub struct Site { pub v: Village, pub(crate) blocks: Vec<(i32, i32, i32, Id)>, pub(crate) props: Vec<Prop>, pub(crate) pads: Vec<Pad>, pub(crate) paths: Vec<[i32; 3]> }
 /// Une assise aplanie : la place (ronde) ou le terrain d'un bâtiment (rectangle), à sa hauteur, fondue dans le relief alentour.
@@ -131,7 +131,7 @@ impl WorldGen {
         let homes = 2 + (h(10) * 3.0) as usize; let name = format!("{}{}", NAME_A[(h(11) * 16.0) as usize % 16], NAME_B[(h(12) * 12.0) as usize % 12]);
         // La civilisation médiévale passe par le nouveau générateur de plans ; les autres suivront (désert, côte, Nord).
         if crate::bourg::civ_of(kind) == crate::bourg::Civ::Medieval { return crate::bourg::medieval(self, gx, gz, x, y0, z, kind, crafts, name); }
-        let mut v = Village { id: (gx, gz), kind, name, c: [x, y0, z], r: 8, crafts: crafts.clone(), houses: Vec::new(), ident: None };
+        let mut v = Village { id: (gx, gz), kind, name, c: [x, y0, z], r: 8, crafts: crafts.clone(), houses: Vec::new(), works: Vec::new(), fields: 0, ident: None };
         let nat = |x: i32, z: i32| self.column(x as f64 + 0.5, z as f64 + 0.5).h.ceil() as i32 - 1;
         let mut pads = vec![Pad { c: [x as f64 + 0.5, z as f64 + 0.5], half: [7.5, 7.5], round: true, h: y0 }]; let mut paths: Vec<[i32; 3]> = Vec::new();
         let st = style(kind); let mut plaza = Work::default(); let mut lanes = Work::default(); let mut works = Work::default();
@@ -455,7 +455,7 @@ impl Town {
             self.folk[k] = f;
         }
     }
-    fn spawn(&mut self, v: &Village, hour: f64) {
+    pub(crate) fn spawn(&mut self, v: &Village, hour: f64) {
         let mut n = 0u32; let base = self.folk.len();
         for (i, h) in v.houses.iter().enumerate() {
             if self.folk.len() >= 100 { break; } // au plus cent villageois simulés à la fois
@@ -672,7 +672,7 @@ impl Session {
             if !gone.is_empty() { self.town.here.retain(|v| !gone.contains(&v.id)); self.town.folk.retain(|f| !gone.contains(&f.v)); self.town.talk = None; }
             for v in self.gen.villages_near(me[0], me[2], NEAR) {
                 if self.town.here.iter().any(|h| h.id == v.id) { continue; }
-                self.town.spawn(&v, self.hour); self.town.here.push(v);
+                let mut v = v; self.econ_extend(&mut v); /* les maisons que le village pilote a bâties depuis */ self.town.here.push(v.clone()); self.town.spawn(&v, self.hour);
             }
             for v in self.town.here.clone() { if (v.c[0] as f64 - me[0]).hypot(v.c[2] as f64 - me[2]) < v.r as f64 + 16.0 && !self.town.known.contains(&v.id) {
                 self.notes.push(format!("Vous arrivez à {}", v.name)); self.discover(&v);

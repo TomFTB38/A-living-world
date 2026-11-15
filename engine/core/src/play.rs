@@ -484,6 +484,7 @@ impl Session {
         let pair = self.chest_pair(p); let (a, b) = match pair { Some(q) if q < p => (q, Some(p)), Some(q) => (p, Some(q)), None => (p, None) };
         for c in [Some(a), b].into_iter().flatten() { if !self.chests.contains_key(&c) { let l = self.village_loot(c); self.chests.insert(c, l); }
             if let Some(b) = self.world.get(c[0], c[1], c[2]).filter(|b| is_chest_shut(*b)) { if self.world.edit(c[0], c[1], c[2], chest_flip(b)) { self.lids.push(c); } } }
+        self.econ_fill(a); /* la réserve du village pilote montre ses vrais stocks */
         self.chest = Some(a); self.chest2 = b; self.at_station = None; self.inv_open = true; self.sound.place("chest"); self.sound.creak();
     }
     /// Les couvercles retombent quand on referme.
@@ -658,7 +659,7 @@ impl Session {
         let mut fires: Vec<_> = self.fires.iter().collect(); fires.sort_by_key(|f| *f.0); for (p, t) in fires { s += &format!("fire {} {} {} {}\n", p[0], p[1], p[2], t); }
         let mut chests: Vec<_> = self.chests.iter().collect(); chests.sort_by_key(|c| *c.0);
         for (p, items) in chests { s += &format!("chest {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
-        s += &self.loose_save(); s += &self.regions_save(); s += &self.pets_save();
+        s += &self.loose_save(); s += &self.regions_save(); s += &self.pets_save(); s += &self.econ_save();
         for stv in &self.stashes { s += &format!("stash {} {} {} {}", stv.p[0], stv.p[1], stv.p[2], stv.born); for v in &stv.items { s += &format!(" {}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } s.push('\n'); }
         for (k, e) in self.world.edits() { s += &format!("chunk {} {}", k.0, k.1); let mut l: Vec<_> = e.into_iter().collect(); l.sort(); for (i, id) in l { s += &format!(" {i}:{id}"); } s.push('\n'); }
         s
@@ -687,6 +688,7 @@ impl Session {
                 Some("guide") => { self.guide = a.next().and_then(|v| v.parse().ok()).unwrap_or(0); }
                 Some("carte") => { let v: Vec<&str> = a.collect(); self.map.load(&v); }
                 Some(k @ ("rep" | "known" | "met" | "marked")) => { let v: Vec<&str> = a.collect(); self.town_load(k, &v); }
+                Some(k @ ("econ" | "econ_house" | "econ_log")) => { let v: Vec<&str> = a.collect(); self.econ_load(k, &v); }
                 Some("fav") => { for id in a { if let Some(d) = def(id) { self.fav.insert(d.id); } } }
                 Some("regrow") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; self.regrow.push((p, num(a.next())?)); }
                 Some("crop") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; self.crops.push((p, num(a.next())?)); }
