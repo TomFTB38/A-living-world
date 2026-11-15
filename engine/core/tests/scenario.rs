@@ -85,7 +85,7 @@ fn de_rien_au_coffre_sauvegarde() {
     craft(&mut s, "cooked_meat", 1); s.vit[1] = 30.0; s.sel = slot_of(&s, "cooked_meat"); let up = [s.player.p[0], s.player.p[1] + 5.0, s.player.p[2] + 1.0]; look(&mut s, up); s.tick(DT, none(), Actions { mine: false, place: true, ..Default::default() }); assert!(s.vit[1] > 55.0, "repas : {}", s.vit[1]);
     // 11-12. Un coffre, posé, ouvert d'un clic droit, rempli comme à la souris.
     while s.count("plank") < 8 { assert!(s.count("log") > 0, "plus de bois"); craft(&mut s, "planks", 1); }
-    fiber(&mut s, 3); s.sel = 0; craft(&mut s, "rope", 1); craft(&mut s, "chest", 1); let chest = { let g = spot(&mut s, 1, -2); let i = slot_of(&s, "chest"); place_on(&mut s, i, g) }; assert_eq!(s.world.get(chest[0], chest[1], chest[2]), Some(B::CHEST));
+    fiber(&mut s, 3); s.sel = 0; craft(&mut s, "rope", 1); craft(&mut s, "chest", 1); let chest = { let g = spot(&mut s, 1, -2); let i = slot_of(&s, "chest"); place_on(&mut s, i, g) }; assert!(s.world.get(chest[0], chest[1], chest[2]).is_some_and(is_chest_shut), "le coffre posé, tourné vers celui qui le pose");
     right(&mut s, chest); assert_eq!(s.chest, Some(chest), "le coffre s'ouvre"); assert!(s.inv_open);
     let mut stored = Vec::new(); for (k, id) in ["pebble", "stick", "fiber"].iter().enumerate() { if let Some(i) = s.inv.iter().position(|t| t.is_some_and(|t| t.item == *id)) { stored.push(s.inv[i].unwrap()); s.grab_slot(i); s.drop_slot(Some(CHEST0 + k)); } }
     assert!(!stored.is_empty()); for (k, st) in stored.iter().enumerate() { assert_eq!(s.slot(CHEST0 + k), Some(*st), "dans le coffre"); }
@@ -94,7 +94,7 @@ fn de_rien_au_coffre_sauvegarde() {
     idle(&mut s, 0.5); let txt = s.save_text();
     let mut o = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [0.5, 90.0, 0.5]); o.load_text(&txt).unwrap(); ready(&mut o);
     for k in 0..3 { assert!((o.player.p[k] - s.player.p[k]).abs() < 1e-6, "position"); } assert_eq!(o.inv, s.inv, "le sac"); assert_eq!(o.vit, s.vit); assert_eq!(o.chests, s.chests, "le coffre et son contenu");
-    for (p, b) in [(bench, B::WORKBENCH), (fire, B::CAMPFIRE), (chest, B::CHEST)] { assert_eq!(o.world.get(p[0], p[1], p[2]), Some(b), "{} retrouvé", BLOCKS[b as usize].name); }
+    for (p, b) in [(bench, B::WORKBENCH), (fire, B::CAMPFIRE)] { assert_eq!(o.world.get(p[0], p[1], p[2]), Some(b), "{} retrouvé", BLOCKS[b as usize].name); } assert!(o.world.get(chest[0], chest[1], chest[2]).is_some_and(is_chest_shut), "coffre retrouvé");
     assert_eq!(o.world.get(tree[0], tree[1], tree[2]), Some(0), "l'arbre abattu ne repousse pas");
     for (k, st) in stored.iter().enumerate() { o.chest = Some(chest); assert_eq!(o.slot(CHEST0 + k), Some(*st)); }
 }
