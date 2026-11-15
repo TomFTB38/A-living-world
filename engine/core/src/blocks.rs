@@ -96,3 +96,9 @@ pub fn gaze_axis(dx: f64, dy: f64, dz: f64, mode: u8, prev: Option<char>) -> cha
 }
 pub const MODES: [&str; 4] = ["selon le regard", "debout", "dans le sens du regard", "en travers du regard"];
 pub fn by_name(n: &str) -> Option<Id> { BLOCKS.iter().find(|b| b.name == n).map(|b| b.id) }
+
+/// Un coffre, fermé ou ouvert, quel que soit le côté où regarde son devant.
+pub fn is_chest(id: Id) -> bool { let n = BLOCKS[id as usize].name; n == "chest" || n == "chest_open" || n.starts_with("chest@") || n.starts_with("chest_open@") }
+pub fn is_chest_shut(id: Id) -> bool { let n = BLOCKS[id as usize].name; n == "chest" || n.starts_with("chest@") }
+/// Le même coffre, couvercle levé s'il était baissé et inversement (il garde son sens).
+pub fn chest_flip(id: Id) -> Id { let n = BLOCKS[id as usize].name; let (stem, f) = n.split_once('@').map_or((n, String::new()), |(a, b)| (a, format!("@{b}"))); by_name(&format!("{}{f}", if stem == "chest" { "chest_open" } else { "chest" })).unwrap_or(id) }

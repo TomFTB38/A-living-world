@@ -8,7 +8,7 @@ fn idle(s: &mut Session, sec: f64) { for _ in 0..(sec / DT) as usize { s.tick(DT
 fn station(s: &mut Session, b: u16) -> [i32; 3] {
     let p = s.player.p; let c = [p[0].floor() as i32 + 2, p[1].floor() as i32, p[2].floor() as i32];
     let mut e = Vec::new(); for dx in 0..=3 { for dy in 0..=2 { for dz in -1..=1 { if (dx, dy, dz) != (2, 0, 0) { e.push((p[0].floor() as i32 + dx, c[1] + dy, c[2] + dz, B::AIR)); } } } } e.push((c[0], c[1], c[2], b)); s.world.edit_many(&e);
-    let eye = s.player.eye(); let d = [c[0] as f64 + 0.5 - eye[0], c[1] as f64 + 0.6 - eye[1], c[2] as f64 + 0.5 - eye[2]]; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / d[0].hypot(d[2])).atan(); s.tick(0.0, Input::default(), Actions::default());
+    let eye = s.player.eye(); let d = [c[0] as f64 + 0.5 - eye[0], c[1] as f64 + (if alw_core::shapes::info(b).is_some_and(|i| i.kind == alw_core::shapes::Kind::Trapdoor) { 0.05 } else { 0.6 }) - eye[1], c[2] as f64 + 0.5 - eye[2]]; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / d[0].hypot(d[2])).atan(); s.tick(0.0, Input::default(), Actions::default());
     let t = s.target.expect("rien de visé"); assert_eq!([t.x, t.y, t.z], c, "on vise {}", BLOCKS[t.id as usize].name); c }
 fn right_click(s: &mut Session) { s.tick(DT, Input::default(), Actions { mine: false, place: true, ..Default::default() }); }
 /// Un glisser-déposer : appui sur une case, relâché sur une autre.
@@ -66,4 +66,25 @@ fn chaque_monstre_trente_secondes_dans_le_vrai_monde() {
     }
     // le sylvain guette immobile et le noyé attend dans l'eau : eux seuls ont le droit de ne rien faire ici
     inert.retain(|id| !matches!(*id, "sylvain" | "noye" | "ver")); assert!(inert.is_empty(), "restés inertes : {inert:?}");
+}
+
+fn aim(s: &mut Session, c: [i32; 3], h: f64) { let eye = s.player.eye(); let d = [c[0] as f64 + 0.5 - eye[0], c[1] as f64 + h - eye[1], c[2] as f64 + 0.5 - eye[2]]; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / d[0].hypot(d[2])).atan(); s.tick(0.0, Input::default(), Actions::default()); }
+fn name_at(s: &Session, c: [i32; 3]) -> &'static str { BLOCKS[s.world.get(c[0], c[1], c[2]).unwrap() as usize].name }
+
+/// La trappe se relève du côté décidé à la pose, quel que soit l'endroit où l'on clique ; le coffre garde son devant quand on l'ouvre.
+#[test]
+fn la_trappe_et_le_coffre_gardent_leur_sens() {
+    use alw_core::shapes::{info, variant};
+    // les quatre trappes fermées existent, et chacune a son pendant ouvert
+    for f in 0..4u8 { let shut = variant(B::TRAPDOOR, f, false, false, false); let i = info(shut).unwrap(); assert_eq!((i.facing, i.open), (f, false)); let open = variant(B::TRAPDOOR, (f + 2) % 4, false, true, false); assert!(info(open).unwrap().open); }
+    assert_eq!(BLOCKS[variant(B::TRAPDOOR, 0, false, false, false) as usize].name, "trapdoor", "les trappes des mondes existants restent des trappes");
+    let mut s = start(); let shut = variant(B::TRAPDOOR, 1, false, false, false); let c = station(&mut s, shut); aim(&mut s, c, 0.05);
+    right_click(&mut s); let opened = name_at(&s, c); assert_eq!(opened, "trapdoor_open_3", "elle se relève selon son sens de pose");
+    idle(&mut s, 0.5); aim(&mut s, c, 0.5); right_click(&mut s); assert_eq!(name_at(&s, c), "trapdoor_1", "refermée, elle garde son sens");
+    // on passe de l'autre côté : même résultat
+    let p = s.player.p; s.world.edit_many(&(0..=3).flat_map(|dx| (0..=2).map(move |dy| (c[0] + 1 + dx, c[1] + dy, c[2], B::AIR))).collect::<Vec<_>>()); s.world.edit(c[0] + 3, c[1] - 1, c[2], B::STONE); s.player.p = [c[0] as f64 + 3.5, p[1], p[2]]; idle(&mut s, 0.3); aim(&mut s, c, 0.05);
+    assert_eq!(s.target.map(|t| [t.x, t.y, t.z]), Some(c)); right_click(&mut s); assert_eq!(name_at(&s, c), opened, "vue d'en face, elle s'ouvre du même côté");
+    // le coffre tourné : il s'ouvre et se referme sans perdre son sens
+    s.world.edit(c[0], c[1], c[2], alw_core::blocks::by_name("chest@1").unwrap()); aim(&mut s, c, 0.4); right_click(&mut s); assert!(s.inv_open, "le coffre tourné s'ouvre comme un coffre"); assert_eq!(name_at(&s, c), "chest_open@1");
+    s.inv_open = false; idle(&mut s, 1.5); assert_eq!(name_at(&s, c), "chest@1"); assert!(is_chest(B::CHEST) && is_chest(B::CHEST_OPEN) && !is_chest(B::BARREL));
 }

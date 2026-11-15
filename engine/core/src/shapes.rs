@@ -31,8 +31,8 @@ fn parse(name: &str) -> Option<Info> {
         let c: Vec<u8> = name.strip_prefix("door_").map_or(vec![0, 0, 0], |d| d.bytes().map(|b| b - b'0').collect());
         return Some(Info { kind: Kind::Door, facing: c[0], open: c[1] == 1, upper: c[2] == 1, top: false, base: base("door") });
     }
-    if name == "trapdoor" { return Some(Info { kind: Kind::Trapdoor, facing: 0, top: false, open: false, upper: false, base: base("trapdoor") }); }
     if let Some(r) = name.strip_prefix("trapdoor_open") { let f = r.strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::Trapdoor, facing: f, top: false, open: true, upper: false, base: base("trapdoor") }); }
+    if let Some(r) = name.strip_prefix("trapdoor") { if r.is_empty() || r.strip_prefix('_').and_then(digit).is_some() { return Some(Info { kind: Kind::Trapdoor, facing: r.strip_prefix('_').and_then(digit).unwrap_or(0), top: false, open: false, upper: false, base: base("trapdoor") }); } }
     if let Some(r) = name.strip_prefix("ladder") { let f = r.strip_prefix('_').and_then(digit).unwrap_or(0); return Some(Info { kind: Kind::Ladder, facing: f, top: false, open: false, upper: false, base: base("ladder") }); }
     if name == "window" || name == "window_x" { return Some(Info { kind: Kind::Window, facing: if name == "window" { 0 } else { 1 }, top: false, open: false, upper: false, base: base("window") }); }
     if let Some(i) = name.find("_point_") { let (d, k) = name[i + 7..].split_once('_')?; return Some(Info { kind: Kind::Drip, facing: digit(k)?.min(2), top: d == "down", open: false, upper: false, base: base(name) }); }
@@ -136,7 +136,7 @@ pub fn variant(base: Id, facing: u8, top: bool, open: bool, upper: bool) -> Id {
         Some(Kind::VSlab) => format!("{n}{}", sfx(f)),
         Some(Kind::Shutter) => format!("shutter{}{}", if open { "_open" } else { "" }, sfx(f)),
         Some(Kind::Door) => if (f, open, upper) == (0, false, false) { "door".into() } else { format!("door_{f}{}{}", open as u8, upper as u8) },
-        Some(Kind::Trapdoor) => if open { format!("trapdoor_open{}", sfx(f)) } else { "trapdoor".into() },
+        Some(Kind::Trapdoor) => format!("trapdoor{}{}", if open { "_open" } else { "" }, sfx(f)),
         Some(Kind::Ladder) => format!("ladder{}", sfx(f)),
         Some(Kind::Window) => if f % 2 == 0 { "window".into() } else { "window_x".into() },
         Some(Kind::Drip) => match n.find("_point") { Some(i) => format!("{}_point_{}_{}", &n[..i], if top { "down" } else { "up" }, f.min(2)), None => format!("dripstone_{}_{}", if top { "down" } else { "up" }, f.min(2)) },

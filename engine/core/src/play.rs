@@ -374,7 +374,7 @@ impl Session {
                 // Porte et trappe : clic droit pour ouvrir ou fermer (accroupi, on pose contre elles).
                 if let Some(si) = crate::shapes::info(t.id).filter(|i| matches!(i.kind, crate::shapes::Kind::Door | crate::shapes::Kind::Trapdoor | crate::shapes::Kind::Shutter)) { if !self.player.crouch {
                     if self.use_t > 0.0 { return true; } self.toggle(p, si); self.use_t = 0.25; return true; } }
-                if (t.id == B::CHEST || t.id == B::CHEST_OPEN) && !self.player.crouch { self.open_chest(p); return true; }
+                if is_chest(t.id) && !self.player.crouch { self.open_chest(p); return true; }
                 // Un atelier : son interface, ses recettes, son geste.
                 if let Some(st) = station_of(t.id) { if !self.player.crouch && (st != Station::Fire || !held.is_some_and(|s| matches!(s.item, "torch" | "flint" | "fire_drill") || hd.is_some_and(|d| d.fuel > 0.0))) {
                     self.at_station = Some((st, p)); self.inv_open = true; self.chest = None; self.chest2 = None; self.book.page = 0; self.book.cat = 0; self.sound.place(BLOCKS[t.id as usize].name); return true; } }
@@ -440,18 +440,18 @@ impl Session {
     pub(crate) fn on_placed(&mut self, p: [i32; 3], id: Id) {
         // Un feu de camp se pose éteint, avec sa première brassée de bois : il faut l'allumer.
         if id == B::CAMPFIRE { self.world.edit(p[0], p[1], p[2], B::CAMPFIRE_OUT); self.fires.insert(p, FIRE_START); self.notes.push("Feu de camp posé : allumez-le d'un clic droit avec un silex, une torche ou un archet à feu".into()); }
-        if id == B::CHEST { self.chests.insert(p, vec![None; CHEST_SIZE]); }
-        if id == B::CHEST && self.chest_pair(p).is_some() { self.notes.push("Deux coffres côte à côte : un grand coffre".into()); }
+        if is_chest_shut(id) { self.chests.insert(p, vec![None; CHEST_SIZE]); }
+        if is_chest_shut(id) && self.chest_pair(p).is_some() { self.notes.push("Deux coffres côte à côte : un grand coffre".into()); }
     }
     /// Un bloc vient d'être cassé : un coffre rend son contenu, un feu s'éteint pour de bon, une culture est arrachée.
-    /// Ouvre ou ferme une porte (ses deux moitiés) ou une trappe (qui s'ouvre du côté opposé au joueur).
+    /// Ouvre ou ferme une porte (ses deux moitiés) ou une trappe (qui se relève du côté opposé à celui d'où on l'a posée).
     fn toggle(&mut self, p: [i32; 3], si: crate::shapes::Info) {
-        use crate::shapes::{facing_of, variant, Kind};
+        use crate::shapes::{variant, Kind};
         let open = !si.open; let mut edits = Vec::new();
         if si.kind == Kind::Door {
             let low = if si.upper { [p[0], p[1] - 1, p[2]] } else { p }; edits.push((low[0], low[1], low[2], variant(si.base, si.facing, false, open, false)));
             if self.world.get(low[0], low[1] + 1, low[2]).and_then(crate::shapes::info).is_some_and(|i| i.kind == Kind::Door) { edits.push((low[0], low[1] + 1, low[2], variant(si.base, si.facing, false, open, true))); }
-        } else if si.kind == Kind::Shutter { edits.push((p[0], p[1], p[2], variant(si.base, si.facing, false, open, false))); } else { let f = self.player.forward(); edits.push((p[0], p[1], p[2], variant(si.base, (facing_of(f[0], f[2]) + 2) % 4, false, open, false))); }
+        } else if si.kind == Kind::Shutter { edits.push((p[0], p[1], p[2], variant(si.base, si.facing, false, open, false))); } else { /* la trappe garde le sens dans lequel on l'a posée : elle se relève toujours du même côté, d'où qu'on clique */ edits.push((p[0], p[1], p[2], variant(si.base, (si.facing + 2) % 4, false, open, false))); }
         self.world.edit_many(&edits); self.sound.place("planks"); self.anim.trigger(); self.dirty = true;
     }
     pub(crate) fn on_broken(&mut self, p: [i32; 3], id: Id) {
@@ -470,7 +470,7 @@ impl Session {
             if si.upper && !self.creative { self.add_item("door", 1); }
         }
         if self.chest == Some(p) || self.chest2 == Some(p) { self.close_chest(); }
-        if id == B::CHEST || id == B::CHEST_OPEN { if let Some(items) = self.chests.remove(&p) { let mut rest = Vec::new(); for st in items.into_iter().flatten() { if let Some(r) = self.add_stack(st) { rest.push(r); } } if !rest.is_empty() { self.stashes.push(Stash { p: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], items: rest, born: self.hours }); self.notes.push("Le sac est plein : le reste du coffre attend dans un sac posé là".into()); } } if self.chest == Some(p) { self.chest = None; } }
+        if is_chest(id) { if let Some(items) = self.chests.remove(&p) { let mut rest = Vec::new(); for st in items.into_iter().flatten() { if let Some(r) = self.add_stack(st) { rest.push(r); } } if !rest.is_empty() { self.stashes.push(Stash { p: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], items: rest, born: self.hours }); self.notes.push("Le sac est plein : le reste du coffre attend dans un sac posé là".into()); } } if self.chest == Some(p) { self.chest = None; } }
         if id == B::CAMPFIRE || id == B::CAMPFIRE_OUT { self.fires.remove(&p); }
         self.crops.retain(|c| c.0 != p);
         if self.bed == Some(p) { self.bed = None; self.notes.push("Votre lit est détruit : vous réapparaîtrez au point de départ".into()); }
@@ -478,19 +478,19 @@ impl Session {
     /// Fermer le coffre (ou l'inventaire).
     pub fn close_chest(&mut self) { self.chest = None; self.chest2 = None; self.at_station = None; }
     /// Le coffre voisin (sur les côtés, même hauteur), s'il y en a un.
-    fn chest_pair(&self, p: [i32; 3]) -> Option<[i32; 3]> { [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().map(|(dx, dz)| [p[0] + dx, p[1], p[2] + dz]).find(|q| self.world.get(q[0], q[1], q[2]).is_some_and(|b| b == B::CHEST || b == B::CHEST_OPEN)) }
+    fn chest_pair(&self, p: [i32; 3]) -> Option<[i32; 3]> { [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().map(|(dx, dz)| [p[0] + dx, p[1], p[2] + dz]).find(|q| self.world.get(q[0], q[1], q[2]).is_some_and(is_chest)) }
     /// Ouvre un coffre (et son voisin : un grand coffre) ; les couvercles se lèvent.
     pub fn open_chest(&mut self, p: [i32; 3]) {
         let pair = self.chest_pair(p); let (a, b) = match pair { Some(q) if q < p => (q, Some(p)), Some(q) => (p, Some(q)), None => (p, None) };
         for c in [Some(a), b].into_iter().flatten() { if !self.chests.contains_key(&c) { let l = self.village_loot(c); self.chests.insert(c, l); }
-            if self.world.get(c[0], c[1], c[2]) == Some(B::CHEST) && self.world.edit(c[0], c[1], c[2], B::CHEST_OPEN) { self.lids.push(c); } }
+            if let Some(b) = self.world.get(c[0], c[1], c[2]).filter(|b| is_chest_shut(*b)) { if self.world.edit(c[0], c[1], c[2], chest_flip(b)) { self.lids.push(c); } } }
         self.chest = Some(a); self.chest2 = b; self.at_station = None; self.inv_open = true; self.sound.place("chest"); self.sound.creak();
     }
     /// Les couvercles retombent quand on referme.
     pub(crate) fn lids_tick(&mut self, _dt: f64) {
         if self.lids.is_empty() { return; } let open: Vec<[i32; 3]> = if self.inv_open { [self.chest, self.chest2].into_iter().flatten().collect() } else { Vec::new() };
         let shut: Vec<[i32; 3]> = self.lids.iter().copied().filter(|c| !open.contains(c)).collect(); if shut.is_empty() { return; }
-        for c in &shut { if self.world.get(c[0], c[1], c[2]) == Some(B::CHEST_OPEN) { self.world.edit(c[0], c[1], c[2], B::CHEST); } }
+        for c in &shut { if let Some(b) = self.world.get(c[0], c[1], c[2]).filter(|b| is_chest(*b) && !is_chest_shut(*b)) { self.world.edit(c[0], c[1], c[2], chest_flip(b)); } }
         self.lids.retain(|c| !shut.contains(c)); self.sound.place("chest"); if !self.inv_open { self.chest = None; self.chest2 = None; }
     }
     /// Un artisan transmet sa technique : ses recettes deviennent faisables (aux ateliers voulus). Pour les villages.

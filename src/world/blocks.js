@@ -245,6 +245,9 @@ const defs = [
   ['door_310', 'deco', null, 0.7, { model: 'door', solid: true, cat: 'wood', drop: 'door' }],
   ['door_311', 'deco', null, 0.7, { model: 'door', solid: true, cat: 'wood', drop: null }],
   ['trapdoor', 'deco', null, 0.6, { model: 'trapdoor', solid: true, cat: 'wood', drop: 'trapdoor' }],
+  ['trapdoor_1', 'deco', null, 0.6, { model: 'trapdoor', solid: true, cat: 'wood', drop: 'trapdoor' }],
+  ['trapdoor_2', 'deco', null, 0.6, { model: 'trapdoor', solid: true, cat: 'wood', drop: 'trapdoor' }],
+  ['trapdoor_3', 'deco', null, 0.6, { model: 'trapdoor', solid: true, cat: 'wood', drop: 'trapdoor' }],
   ['trapdoor_open', 'deco', null, 0.6, { model: 'trapdoor', solid: true, cat: 'wood', drop: 'trapdoor' }],
   ['trapdoor_open_1', 'deco', null, 0.6, { model: 'trapdoor', solid: true, cat: 'wood', drop: 'trapdoor' }],
   ['trapdoor_open_2', 'deco', null, 0.6, { model: 'trapdoor', solid: true, cat: 'wood', drop: 'trapdoor' }],
@@ -371,6 +374,8 @@ for (const f of ['@1', '@2', '@3']) defs.push([`bed${f}`, 'deco', null, 0.8, { m
 turner('bed_foot', 0.8, 'wood', { solid: true, drop: 'bed' });
 // Le coffre ouvert (couvercle levé, le temps qu'on y fouille) et le four allumé (pendant une fonte, puis il refroidit).
 defs.push(['chest_open', 'deco', null, 0.8, { model: 'chest_open', solid: true, cat: 'wood', drop: 'chest' }]);
+// Le coffre a un devant : il regarde celui qui le pose (trois autres sens, fermé et ouvert).
+for (const f of ['@1', '@2', '@3']) { defs.push([`chest${f}`, 'deco', null, 0.8, { model: 'chest', solid: true, cat: 'wood', drop: 'chest' }]); defs.push([`chest_open${f}`, 'deco', null, 0.8, { model: 'chest_open', solid: true, cat: 'wood', drop: 'chest' }]); }
 defs.push(['furnace_lit', 'deco', null, 1.4, { model: 'furnace', solid: true, light: 14, cat: 'rock', drop: 'furnace' }]);
 // Fleurs d'altitude : l'edelweiss laineux des rocailles et la gentiane bleue des alpages.
 defs.push(['edelweiss', 'deco', null, 0.02, { model: 'edelweiss', drop: null }]);

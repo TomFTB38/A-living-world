@@ -19,23 +19,42 @@ impl Lieu {
 }
 pub const LIEUX: [Lieu; 3] = [Lieu::Tour, Lieu::Cimetiere, Lieu::Camp];
 /// Un lieu décidé : son centre, le niveau de son sol (le bloc sur lequel on marche), sa maille.
-#[derive(Clone, Copy, Debug, PartialEq)] pub struct Place { pub kind: Lieu, pub x: i32, pub y: i32, pub z: i32, pub cell: (i32, i32) }
+#[derive(Clone, Copy, Debug, PartialEq)] pub struct Place { pub kind: Lieu, pub x: i32, pub y: i32, pub z: i32, pub cell: (i32, i32), /** quarts de tour : l'entrée regarde -z, -x, +z ou +x */ pub rot: u8 }
+/// Un décalage dessiné « droit » (l'entrée vers -z), tourné de `q` quarts de tour : +z devient +x.
+pub fn spin_xz(u: i32, w: i32, q: u8) -> (i32, i32) { let (mut u, mut w) = (u, w); for _ in 0..q % 4 { (u, w) = (w, -u); } (u, w) }
+fn spin_f(u: f64, w: f64, q: u8) -> (f64, f64) { let (mut u, mut w) = (u, w); for _ in 0..q % 4 { (u, w) = (w, -u); } (u, w) }
+/// Le même bloc, tourné : escaliers, pentes, échelles, meubles, faîtages, poutres et troncs couchés.
+pub fn spin_block(id: Id, q: u8) -> Id {
+    use crate::shapes::{info, Kind}; let q = q % 4; if q == 0 { return id; }
+    match info(id) {
+        Some(i) => match i.kind { Kind::Ridge => variant(i.base, (i.facing + q) % 2, i.top, i.open, i.upper), Kind::Post => if q % 2 == 1 && i.facing > 0 { variant(i.base, 3 - i.facing.min(2), i.top, i.open, i.upper) } else { id }, _ => variant(i.base, (i.facing + q) % 4, i.top, i.open, i.upper) },
+        None => { if q % 2 == 0 { return id; } let n = crate::blocks::BLOCKS[id as usize].name; let other = if let Some(b) = n.strip_suffix("_x") { format!("{b}_z") } else if let Some(b) = n.strip_suffix("_z") { format!("{b}_x") } else { return id }; by_name(&other).unwrap_or(id) }
+    }
+}
 impl Place {
     /// Le coffre du lieu.
-    pub fn chest(&self) -> [i32; 3] { match self.kind { Lieu::Tour => [self.x - 3, self.y + TOP + 1, self.z + 3], Lieu::Cimetiere => [self.x, self.y - 4, self.z + 3], Lieu::Camp => [self.x, self.y + 1, self.z + 7] } }
+    pub fn chest(&self) -> [i32; 3] { let (u, dy, w) = match self.kind { Lieu::Tour => (-3, TOP + 1, 3), Lieu::Cimetiere => (0, -4, 3), Lieu::Camp => (0, 1, 7) }; let (u, w) = spin_xz(u, w, self.rot); [self.x + u, self.y + dy, self.z + w] }
     /// Où lâcher les gardiens : espèce, position.
     pub fn guards(&self) -> Vec<(&'static str, [f64; 3])> {
-        let at = |dx: f64, dy: f64, dz: f64| [self.x as f64 + 0.5 + dx, self.y as f64 + 1.05 + dy, self.z as f64 + 0.5 + dz];
+        let at = |dx: f64, dy: f64, dz: f64| { let (dx, dz) = spin_f(dx, dz, self.rot); [self.x as f64 + 0.5 + dx, self.y as f64 + 1.05 + dy, self.z as f64 + 0.5 + dz] };
         match self.kind {
-            Lieu::Tour => vec![("archer", at(1.0, TOP as f64, 1.0)), ("archer", at(0.0, 0.0, -7.0)), ("archer", at(0.0, 8.0, 1.0)), ("rodeur", at(0.0, -5.0, 1.0))],
-            Lieu::Cimetiere => vec![("fantome", at(-6.0, 0.0, -3.0)), ("fantome", at(6.0, 0.0, -6.0)), ("fantome", at(0.0, 0.0, 5.0)), ("archer", at(2.0, 0.0, -6.0)), ("rodeur", at(0.0, -5.0, 7.0))],
-            Lieu::Camp => vec![("brigand", at(-2.0, 0.0, -1.5)), ("brigand", at(2.5, 0.0, 2.0)), ("brigand", at(-1.0, 0.0, 3.0)), ("brigand", at(6.0, 5.0, -6.0))],
+            // le capitaine sur le chemin de ronde ; un guetteur à chaque étage ; la garde au pied de la porte ; un rôdeur à la cave
+            Lieu::Tour => vec![("archer", at(1.0, TOP as f64, 1.0)), ("archer", at(-1.0, TOP as f64, 2.0)), ("archer", at(0.0, 8.0, 1.0)), ("archer", at(1.0, 4.0, -1.0)), ("rodeur", at(-1.0, 0.0, -2.0)),
+                ("archer", at(0.0, 0.0, -5.0)), ("rodeur", at(-2.0, 0.0, -5.0)), ("rodeur", at(2.0, 0.0, -5.0)), ("rodeur", at(0.0, -5.0, 1.0))],
+            // le gardien de la crypte ; des archers au porche, dans l'allée, sur le parvis ; un rôdeur dans la nef, un autre en bas ; cinq fantômes la nuit
+            Lieu::Cimetiere => vec![("rodeur", at(0.0, -5.0, 7.0)), ("rodeur", at(0.0, -5.0, 4.0)), ("archer", at(2.0, 0.0, -6.0)), ("archer", at(-2.0, 0.0, -8.0)), ("archer", at(0.0, 0.0, 1.0)), ("rodeur", at(0.0, 0.0, 5.0)),
+                ("fantome", at(-6.0, 0.0, -3.0)), ("fantome", at(6.0, 0.0, -6.0)), ("fantome", at(0.0, 0.0, -1.0)), ("fantome", at(-8.0, 0.0, 4.0)), ("fantome", at(8.0, 0.0, 2.0))],
+            // le chef dans sa tente ; deux hommes au portail, trois au feu, un près de la cage, le guetteur sur sa tour de bois
+            Lieu::Camp => vec![("brigand", at(0.0, 0.0, 5.0)), ("brigand", at(-1.0, 0.0, -8.0)), ("brigand", at(1.0, 0.0, -8.0)), ("brigand", at(-2.0, 0.0, -1.5)), ("brigand", at(2.5, 0.0, 2.0)), ("brigand", at(-1.0, 0.0, 3.0)),
+                ("brigand", at(-4.0, 0.0, 3.0)), ("brigand", at(6.0, 5.0, -6.0))],
         }
     }
+    /// Le premier gardien de la liste est le chef du lieu : un vétéran, deux fois plus endurant.
+    pub const CHIEF: usize = 0;
     /// Où se tenir pour en voir l'intérieur : le seuil de la tour, la nef de la chapelle, le portail du camp.
-    pub fn inside(&self) -> ([f64; 3], f64) { let (dz, dy) = match self.kind { Lieu::Tour => (-3.0, 0.0), Lieu::Cimetiere => (3.0, 0.0), Lieu::Camp => (-7.0, 0.0) }; ([self.x as f64 + 0.5, self.y as f64 + 1.1 + dy, self.z as f64 + 0.5 + dz], 0.0) }
+    pub fn inside(&self) -> ([f64; 3], f64) { let (dz, dy) = match self.kind { Lieu::Tour => (-3.0, 0.0), Lieu::Cimetiere => (3.0, 0.0), Lieu::Camp => (-7.0, 0.0) }; let (dx, dz) = spin_f(0.0, dz, self.rot); ([self.x as f64 + 0.5 + dx, self.y as f64 + 1.1 + dy, self.z as f64 + 0.5 + dz], self.rot as f64 * std::f64::consts::FRAC_PI_2) }
     /// Où se tenir pour le regarder (commande, captures) : position et cap.
-    pub fn view(&self) -> ([f64; 3], f64) { let d = match self.kind { Lieu::Tour => 24.0, Lieu::Cimetiere => 21.0, Lieu::Camp => 21.0 }; ([self.x as f64 + 0.5, self.y as f64 + 1.2, self.z as f64 + 0.5 - d], 0.0) }
+    pub fn view(&self) -> ([f64; 3], f64) { let d = match self.kind { Lieu::Tour => 24.0, Lieu::Cimetiere => 21.0, Lieu::Camp => 21.0 }; let (dx, dz) = spin_f(0.0, -d, self.rot); ([self.x as f64 + 0.5 + dx, self.y as f64 + 1.2, self.z as f64 + 0.5 + dz], self.rot as f64 * std::f64::consts::FRAC_PI_2) }
 }
 /// Hauteur du dernier plancher de la tour au-dessus du sol.
 const TOP: i32 = 12;
@@ -45,6 +64,8 @@ struct Plan { m: BTreeMap<(i32, i32, i32), i32>, ids: std::collections::HashMap<
 impl Plan {
     fn put(&mut self, x: i32, y: i32, z: i32, b: Id) { self.m.insert((x, y, z), b as i32); }
     fn air(&mut self, x: i32, y: i32, z: i32) { self.m.insert((x, y, z), -1); }
+    /// La peau du terrain, reposée à ce niveau.
+    fn skin(&mut self, x: i32, y: i32, z: i32) { self.m.insert((x, y, z), -2); }
     fn id(&mut self, n: &'static str) -> Id { *self.ids.entry(n).or_insert_with(|| by_name(n).unwrap_or_else(|| panic!("bloc inconnu : {n}"))) }
     fn n(&mut self, x: i32, y: i32, z: i32, n: &'static str) { let b = self.id(n); self.put(x, y, z, b); }
     /// Un bloc orienté : `(dx, dz)` est le côté haut d'une pente, le mur d'une échelle, le dos d'un meuble.
@@ -64,12 +85,12 @@ impl WorldGen {
         for k in 0..3 { let kind = LIEUX[(first + k) % 3]; if k > 0 && kind == Lieu::Tour && hash_float(gx, gz, s, 177) > 0.3 { continue; } /* la tour ne bouche pas tous les trous */ for _ in 0..if kind == Lieu::Tour { 8 } else { 70 } {
             let x = ((gx as f64 + r.range(0.15, 0.85)) * SITE_CELL as f64).floor() as i32; let z = ((gz as f64 + r.range(0.15, 0.85)) * SITE_CELL as f64).floor() as i32;
             if ((x + 38) as f64).hypot(z as f64) < 90.0 { continue; } // pas sur le pas de la porte
-            if let Some(y) = self.place_fits(kind, x, z) { if !self.villages_near(x as f64, z as f64, 120.0).is_empty() { continue; } return Some(Place { kind, x, y, z, cell: (gx, gz) }); } } }
+            let rot = (r.next() * 4.0) as u8 % 4; if let Some(y) = self.place_fits(kind, x, z, rot) { if !self.villages_near(x as f64, z as f64, 120.0).is_empty() { continue; } return Some(Place { kind, x, y, z, cell: (gx, gz), rot }); } } }
         None
     }
     /// Le terrain porte-t-il ce lieu ici ? Rend le niveau du sol.
-    fn place_fits(&self, kind: Lieu, x: i32, z: i32) -> Option<i32> {
-        let (hx, hz, tol) = kind.fit(); let c0 = self.column(x as f64, z as f64);
+    fn place_fits(&self, kind: Lieu, x: i32, z: i32, rot: u8) -> Option<i32> {
+        let (hx, hz, tol) = kind.fit(); let (hx, hz) = if rot % 2 == 1 { (hz, hx) } else { (hx, hz) }; let c0 = self.column(x as f64, z as f64);
         match kind { Lieu::Camp => if c0.forest < 0.2 && c0.mix.of(crate::biome::Biome::Steppe) < 0.5 { return None; }, Lieu::Cimetiere => if c0.forest > 0.75 { return None; }, Lieu::Tour => {} }
         let (mut lo, mut hi, mut sum, mut n) = (f64::MAX, f64::MIN, 0.0, 0.0);
         let mut dz = -hz; while dz <= hz { let mut dx = -hx; while dx <= hx {
@@ -87,21 +108,32 @@ impl WorldGen {
     pub fn place_chest(&self, p: [i32; 3]) -> Option<Lieu> {
         let (gx, gz) = (p[0].div_euclid(SITE_CELL), p[2].div_euclid(SITE_CELL)); self.place(gx, gz).filter(|pl| pl.chest() == p).map(|pl| pl.kind)
     }
-    /// Dégage la place et assoit le sol : comble les creux, rase les bosses, enlève arbres et rochers au-dessus.
+    /// La colonne du monde qui correspond à une case du plan (dessiné droit autour du centre du lieu en chantier).
+    fn site_xz(&self, x: i32, z: i32) -> (i32, i32) { let (cx, cz, q) = self.site_rot.get(); let (u, w) = spin_xz(x - cx, z - cz, q); (cx + u, cz + w) }
+    /// Dégage la place et assoit le sol : comble les creux, rase les bosses, enlève les arbres jusqu'à la cime ; autour, sur
+    /// six blocs, le terrain est raccordé en pente douce et garde sa peau (herbe, sable, neige).
     fn pad(&self, p: &mut Plan, pl: &Place, inside: impl Fn(i32, i32) -> bool, hx: i32, hz: i32, up: i32, floor: Option<Id>) {
-        for dz in -hz - 5..=hz + 5 { for dx in -hx - 5..=hx + 5 {
-            let (x, z) = (pl.x + dx, pl.z + dz); let core = dx.abs() <= hx && dz.abs() <= hz && inside(dx, dz); let h = self.column(x as f64, z as f64).h.floor() as i32;
-            if core { for y in h + 1..pl.y { p.put(x, y, z, B::DIRT); } for y in pl.y + 1..=h.max(pl.y) { p.air(x, y, z); } p.put(x, pl.y, z, floor.unwrap_or(B::GRASS)); for y in pl.y + 1..=pl.y + up { p.air(x, y, z); } }
-            else { for y in h.max(pl.y) + 1..=pl.y + up { p.air(x, y, z); } } // la marge : on n'y touche pas au sol, on y coupe ce qui dépasse
+        const SKIRT: i32 = 6; let up = up.max(48); // jusqu'au-dessus des plus grands arbres : pas de feuillage qui flotte sur un tronc coupé
+        // à combien de cases est-on du bord de la place ? (0 : dedans)
+        let core = |dx: i32, dz: i32| dx.abs() <= hx && dz.abs() <= hz && inside(dx, dz);
+        let out = |dx: i32, dz: i32| -> i32 { if core(dx, dz) { return 0; } for t in 1..=SKIRT { for a in -t..=t { for b in -t..=t { if a.abs().max(b.abs()) == t && core(dx + a, dz + b) { return t; } } } } SKIRT + 1 };
+        for dz in -hz - SKIRT..=hz + SKIRT { for dx in -hx - SKIRT..=hx + SKIRT {
+            let (x, z) = (pl.x + dx, pl.z + dz); let h = self.gy(x, z); let t = out(dx, dz); if t > SKIRT { continue; }
+            let level = if t == 0 { pl.y } else { pl.y + ((h - pl.y) as f64 * t as f64 / (SKIRT + 1) as f64).round() as i32 };
+            for y in h + 1..level { p.put(x, y, z, B::DIRT); } for y in level + 1..=h.max(level) { p.air(x, y, z); }
+            if t == 0 { match floor { Some(f) => p.put(x, level, z, f), None => p.skin(x, level, z) } } else if level != h { p.skin(x, level, z); }
+            for y in h.max(level) + 1..=pl.y + up { p.air(x, y, z); }
         } }
     }
     pub(crate) fn site_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
-        let pl = self.place(gx, gz)?; let mut r = Rng::new(hash_int(gx, gz, self.seed, 175)); let mut p = Plan { m: BTreeMap::new(), ids: Default::default() };
+        let pl = self.place(gx, gz)?; self.site_rot.set((pl.x, pl.z, pl.rot)); let mut r = Rng::new(hash_int(gx, gz, self.seed, 175)); let mut p = Plan { m: BTreeMap::new(), ids: Default::default() };
         match pl.kind { Lieu::Tour => self.build_tower(&mut p, &pl, &mut r), Lieu::Cimetiere => self.build_cemetery(&mut p, &pl, &mut r), Lieu::Camp => self.build_camp(&mut p, &pl, &mut r) }
-        Some(Stamp { data: p.m.into_iter().map(|((a, b, c), id)| [a, b, c, id]).collect(), force: true, ground: false })
+        // le plan est dessiné droit : on le tourne en le posant (les blocs orientés avec lui) ; rangé par colonne, de bas en haut
+        let mut data: Vec<[i32; 4]> = p.m.into_iter().map(|((a, b, c), id)| { let (u, w) = spin_xz(a - pl.x, c - pl.z, pl.rot); [pl.x + u, b, pl.z + w, if id > 0 { spin_block(id as Id, pl.rot) as i32 } else { id }] }).collect(); data.sort_by_key(|d| (d[0], d[2], d[1]));
+        Some(Stamp { data, force: true, ground: false })
     }
     /// Le sol naturel d'une colonne (le bloc sur lequel on marche).
-    fn gy(&self, x: i32, z: i32) -> i32 { self.column(x as f64, z as f64).h.floor() as i32 }
+    fn gy(&self, x: i32, z: i32) -> i32 { let (x, z) = self.site_xz(x, z); self.column(x as f64, z as f64).h.floor() as i32 }
     /// La tour de guet : neuf blocs de côté sur contreforts, une cave à cachot, trois étages meublés reliés par des volées
     /// d'escalier le long des murs, un chemin de ronde crénelé avec son brasero et son hourd de bois ; un angle s'est
     /// effondré, et une courtine en ruine s'en va vers le nord, percée d'une arche.
@@ -243,7 +275,7 @@ impl crate::session::Session {
                 if ghosts && !night { continue; } let key = (pl.cell, ghosts); if self.sites_awake.get(&key).is_some_and(|t| self.elapsed - t < 900.0) { self.sites_awake.insert(key, self.elapsed); continue; }
                 let who: Vec<_> = pl.guards().into_iter().filter(|g| (g.0 == "fantome") == ghosts).collect(); if who.is_empty() { continue; }
                 self.sites_awake.insert(key, self.elapsed); let yaw = (me[0] - pl.x as f64).atan2(me[2] - pl.z as f64);
-                for (id, at) in who { if let Some(sp) = crate::hostile::species(id) { let i = self.horde.put(sp, at, yaw, false); self.horde.foes[i].kept = true; } }
+                for (k, (id, at)) in who.into_iter().enumerate() { if let Some(sp) = crate::hostile::species(id) { let chief = !ghosts && k == Place::CHIEF; let i = self.horde.put(sp, at, yaw, chief); let f = &mut self.horde.foes[i]; f.kept = true; if chief { f.hp *= 2.0; } } }
                 if !ghosts { self.notes.push(format!("{} en vue", pl.kind.name())); }
             }
         }

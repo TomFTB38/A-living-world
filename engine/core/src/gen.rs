@@ -37,7 +37,7 @@ pub struct WorldGen {
     n_base: Noise, n_hill: Noise, n_warp: Noise, n_river: Noise, n_path: Noise, n_forest: Noise, n_cliff: Noise, pub(crate) n_cave: Noise, pub n_deco: Noise,
     pub climate: Climate,
     ponds: RefCell<HashMap<(i32, i32), Option<Pond>>>,
-    pub(crate) places: std::cell::RefCell<std::collections::HashMap<(i32, i32), Option<crate::sites::Place>>>, stamps: RefCell<HashMap<(u8, i32, i32), Option<Rc<Stamp>>>>,
+    /** le lieu en chantier : son centre et ses quarts de tour (les plans se dessinent droits, le terrain se lit tourné) */ pub(crate) site_rot: std::cell::Cell<(i32, i32, u8)>, pub(crate) places: std::cell::RefCell<std::collections::HashMap<(i32, i32), Option<crate::sites::Place>>>, stamps: RefCell<HashMap<(u8, i32, i32), Option<Rc<Stamp>>>>,
     /// Villages déjà tracés, par case de la grille des villages.
     pub(crate) towns: RefCell<HashMap<(i32, i32), Option<Rc<crate::village::Site>>>>,
     /// Grandes salles karstiques déjà tracées, par case.
@@ -47,7 +47,7 @@ pub struct WorldGen {
 impl WorldGen {
     pub fn new(seed: i32) -> Self {
         let s = seed; let n = |k: i32| Noise::new(s.wrapping_add(k));
-        WorldGen { places: Default::default(), seed: s, flat: is_flat(s), gallery: std::cell::OnceCell::new(), n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()), towns: RefCell::new(HashMap::new()), halls: RefCell::new(HashMap::new()) }
+        WorldGen { places: Default::default(), site_rot: Default::default(), seed: s, flat: is_flat(s), gallery: std::cell::OnceCell::new(), n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()), towns: RefCell::new(HashMap::new()), halls: RefCell::new(HashMap::new()) }
     }
     fn raw_height(&self, x: f64, z: f64) -> Raw { let m = self.climate.at(x, z); let r = self.raw_land(x, z, &m); self.seafloor(r, &m) }
     /// Mer et océan : la côte se relève d'abord un peu (pas de terre sous le niveau de la mer qui resterait sèche à côté de l'eau),
@@ -432,6 +432,7 @@ impl WorldGen {
             let (x, y, z, id) = (d[0] - ox, d[1], d[2] - oz, d[3] as Id);
             if x < 0 || z < 0 || x >= CX as i32 || z >= CX as i32 || y < 0 || y >= CH as i32 { continue; }
             let k = idx(x as usize, y as usize, z as usize); let cur = v[k];
+            if d[3] == -2 { /* « la peau du terrain » : le bloc de surface que cette colonne avait (herbe, sable, neige…), reposé à ce niveau */ let hk = z as usize * CX + x as usize; let hy = (heights[hk].clamp(0, CH as i32 - 1)) as usize; let top = v[idx(x as usize, hy, z as usize)]; v[k] = if top != 0 && crate::blocks::is_solid(top) && !crate::blocks::is_water(top) { top } else { B::GRASS }; heights[hk] = y; continue; }
             if d[3] < 0 { if !crate::blocks::is_water(cur) { v[k] = 0; } continue; } /* un lieu bâti dégage sa place : arbres, rochers, talus */
             // Ce qui gît au sol (troncs couchés, souches) ne se pose que sur du plein : jamais au-dessus d'un creux.
             if st.ground && (y == 0 || !is_solid(v[idx(x as usize, y as usize - 1, z as usize)])) { continue; }
