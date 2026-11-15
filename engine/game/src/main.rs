@@ -600,6 +600,9 @@ fn capture(a: &[String]) {
         let (tx, tz) = at(6, -1); let e = s.player.eye(); s.eye = e; s.look = view::norm([tx as f64 + 0.5 - e[0], y0 as f64 + 1.6 - e[1], tz as f64 + 0.5 - e[2]]);
     }
     // Les vestiges souterrains : on arrive devant, comme avec /grotte camp, autel ou caveau.
+    // Un lieu de surface (tour, cimetiere, brigands) : on s'y rend, on le regarde de quelques pas, ses gardiens sortis.
+    if let Some(k) = scene.strip_prefix("lieu_") { pump(&mut s, &mut g); s.set_creative(true); let m = s.goto_place(Some(k)); println!("{scene} : {m}"); s.third = false; s.sel = 8; pump(&mut s, &mut g); let (p, yaw, pitch) = (s.player.p, s.player.yaw, s.player.pitch);
+        for _ in 0..30 { s.tick(0.1, none, Actions::default()); } s.player.p = [p[0], s.player.p[1], p[2]]; s.player.yaw = yaw; s.player.pitch = pitch; s.tick(0.0, none, Actions::default()); }
     if let Some(k) = scene.strip_prefix("vestige_") { pump(&mut s, &mut g); let m = s.goto_hall(Some(k)); println!("{scene} : {m}"); s.third = false; s.sel = 8; pump(&mut s, &mut g); let (yaw, pitch) = (s.player.yaw, s.player.pitch);
         for _ in 0..40 { s.tick(0.1, none, Actions::default()); } s.player.yaw = yaw; s.player.pitch = pitch; s.tick(0.0, none, Actions::default()); }
     if scene == "ronds" {

@@ -43,5 +43,5 @@ pub mod patrons;
 pub mod elevage;
 pub mod structures;
 pub mod armures;
-pub mod karst;
+pub mod karst; pub mod sites;
 pub mod commande;

@@ -9,7 +9,7 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 73] = ["bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 75] = ["gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
@@ -77,6 +77,16 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
             for h in 0..12 { let a = h as f64 / 12.0 * std::f64::consts::TAU; let (x, y) = (0.5 + 0.27 * a.sin(), 0.5 + 0.27 * a.cos()); k.b([x - 0.02, y - 0.02, 0.81, x + 0.02, y + 0.02, 0.82], IRON); }
             k.b([0.48, 0.48, 0.8, 0.52, 0.74, 0.81], IRON); k.b([0.48, 0.48, 0.79, 0.68, 0.52, 0.8], IRON); k.b([0.46, 0.46, 0.78, 0.54, 0.54, 0.8], GOLD);
         }
+        "gravestone" => { // stèle de pierre au sommet arrondi, mangée de mousse, un tertre de terre devant
+            const ST: C = [0.5, 0.5, 0.47]; const MOSS: C = [0.3, 0.42, 0.2]; const EARTH: C = [0.36, 0.26, 0.17];
+            k.b([0.2, 0.0, 0.1, 0.8, 0.58, 0.24], ST); k.b([0.26, 0.58, 0.1, 0.74, 0.7, 0.24], ST); k.b([0.34, 0.7, 0.1, 0.66, 0.78, 0.24], tone(ST, 0.92)); k.b([0.16, 0.0, 0.06, 0.84, 0.1, 0.28], tone(ST, 0.8));
+            k.b([0.4, 0.34, 0.24, 0.6, 0.38, 0.25], tone(ST, 0.6)); k.b([0.47, 0.26, 0.24, 0.53, 0.5, 0.25], tone(ST, 0.6)); // une croix gravée
+            k.b([0.2, 0.1, 0.24, 0.42, 0.2, 0.26], MOSS); k.b([0.6, 0.44, 0.09, 0.8, 0.58, 0.1], MOSS); k.b([0.2, 0.5, 0.24, 0.3, 0.58, 0.26], MOSS);
+            k.b([0.22, 0.0, 0.3, 0.78, 0.07, 0.98], EARTH); k.b([0.28, 0.07, 0.36, 0.72, 0.12, 0.92], tone(EARTH, 1.1)); }
+        "grave_cross" => { // croix de bois plantée de travers, un tertre devant
+            const EARTH: C = [0.36, 0.26, 0.17];
+            for i in 0..8 { let t = i as f64 / 8.0; k.b([0.44 + t * 0.06, t * 0.84, 0.12, 0.54 + t * 0.06, t * 0.84 + 0.11, 0.2], DARK); } k.b([0.24, 0.52, 0.11, 0.8, 0.61, 0.21], WOOD);
+            k.b([0.22, 0.0, 0.3, 0.78, 0.07, 0.98], EARTH); k.b([0.28, 0.07, 0.36, 0.72, 0.12, 0.92], tone(EARTH, 1.1)); }
         "cross" => { k.b([0.42, 0.0, 0.42, 0.58, 1.0, 0.58], GOLD); k.b([0.14, 0.6, 0.42, 0.86, 0.76, 0.58], GOLD); k.b([0.38, 0.0, 0.38, 0.62, 0.08, 0.62], tone(GOLD, 0.8)); }
         "flag" => { // mât et drapeau bleu frappé d'une fleur d'or
             k.b([0.45, 0.0, 0.45, 0.55, 1.0, 0.55], DARK); k.b([0.43, 0.98, 0.43, 0.57, 1.04, 0.57], GOLD);

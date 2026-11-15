@@ -837,6 +837,7 @@ impl Session {
     /// Une image de la vie hostile : adaptation, danger, apparitions, comportements, coups reçus, morts et butin.
     pub(crate) fn hostile_step(&mut self, dt: f64) {
         self.adapt_step(dt); self.danger = self.danger_here();
+        self.site_tick();
         let sun = self.sun_height(); let night = ((0.05 - sun) / 0.15).clamp(0.0, 1.0);
         let sp = self.player.v[0].hypot(self.player.v[2]); let mut noise: f64 = if sp > 5.5 { 0.9 } else if sp > 0.5 { 0.45 } else { 0.1 }; if self.mine_t > 0.0 || self.hit_t > 0.0 { noise = noise.max(0.8); } if self.player.crouch { noise *= 0.3; }
         let lit = self.inv[self.sel].is_some_and(|s| matches!(s.item, "torch" | "lantern")) || self.light_at(self.player.p[0].floor() as i32, self.player.p[1].floor() as i32 + 1, self.player.p[2].floor() as i32) >= 10;

@@ -421,6 +421,8 @@ for (const sp of ['oak', 'birch', 'beech', 'spruce', 'acacia']) {
 // Pointes (stalactites vers le bas, stalagmites vers le haut) de chaque roche de grotte : la forme est celle des concrétions.
 for (const m of ['stone', 'ice', 'basalt', 'sandstone', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white']) for (const d of ['down', 'up']) for (const k of [0, 1, 2])
   defs.push([`${m}_point_${d}_${k}`, 'deco', null, 0.8, { model: 'dripstone', solid: true, cat: 'rock', drop: m }]);
+// Tombes : stèle de pierre et croix de bois (cimetières abandonnés).
+turner('gravestone', 1.2, 'rock', { solid: true }); turner('grave_cross', 0.6, 'wood', { solid: true });
 // Les roches brutes se taillent aussi : dalle (basse, haute), escalier (quatre sens, à l'endroit, renversé), dalle debout.
 for (const [m, h] of [['stone', 1.3], ['limestone', 1.2], ['granite', 1.6], ['sandstone', 1.0]]) {
   for (const t of ['', '_top']) defs.push([`${m}_slab${t}`, 'deco', null, h * 0.6, { model: 'slab', solid: true, cat: 'rock', drop: `${m}_slab` }]);

@@ -7,14 +7,14 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
-const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const BONE_CELL: i32 = 96; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38; const CORAL_CELL: i32 = 17; const WRECK_CELL: i32 = 260;
+const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const BONE_CELL: i32 = 96; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38; const CORAL_CELL: i32 = 17; const WRECK_CELL: i32 = 260; /** maille des lieux de surface (tour de guet, cimetière, camp de brigands) */ pub(crate) const SITE_CELL: i32 = 168;
 
 #[derive(Clone, Copy, Default, Debug)]
 pub struct Column { pub mix: Mix, pub wet: bool, pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
 #[derive(Clone, Copy)] struct Pond { x: f64, z: f64, r: f64, level: f64 }
 struct Raw { wx: f64, wz: f64, low: f64, hs: f64, massif: f64 }
 /// Empreinte : voxels (x, y, z, id) d'un arbre ou d'un rocher, posés dans chaque chunk touché.
-pub struct Stamp { data: Vec<[i32; 4]>, force: bool, ground: bool }
+pub struct Stamp { pub(crate) data: Vec<[i32; 4]>, pub(crate) force: bool, pub(crate) ground: bool }
 
 struct Bed { d_r: f64, wid: f64, l: f64, grad: f64 }
 /// Niveau de la mer.
@@ -37,7 +37,7 @@ pub struct WorldGen {
     n_base: Noise, n_hill: Noise, n_warp: Noise, n_river: Noise, n_path: Noise, n_forest: Noise, n_cliff: Noise, pub(crate) n_cave: Noise, pub n_deco: Noise,
     pub climate: Climate,
     ponds: RefCell<HashMap<(i32, i32), Option<Pond>>>,
-    stamps: RefCell<HashMap<(u8, i32, i32), Option<Rc<Stamp>>>>,
+    pub(crate) places: std::cell::RefCell<std::collections::HashMap<(i32, i32), Option<crate::sites::Place>>>, stamps: RefCell<HashMap<(u8, i32, i32), Option<Rc<Stamp>>>>,
     /// Villages déjà tracés, par case de la grille des villages.
     pub(crate) towns: RefCell<HashMap<(i32, i32), Option<Rc<crate::village::Site>>>>,
     /// Grandes salles karstiques déjà tracées, par case.
@@ -47,7 +47,7 @@ pub struct WorldGen {
 impl WorldGen {
     pub fn new(seed: i32) -> Self {
         let s = seed; let n = |k: i32| Noise::new(s.wrapping_add(k));
-        WorldGen { seed: s, flat: is_flat(s), gallery: std::cell::OnceCell::new(), n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()), towns: RefCell::new(HashMap::new()), halls: RefCell::new(HashMap::new()) }
+        WorldGen { places: Default::default(), seed: s, flat: is_flat(s), gallery: std::cell::OnceCell::new(), n_base: n(1), n_hill: n(2), n_warp: n(3), n_river: n(4), n_path: n(5), n_forest: n(6), n_cliff: n(7), n_cave: n(8), n_deco: n(9), climate: Climate::new(s), ponds: RefCell::new(HashMap::new()), stamps: RefCell::new(HashMap::new()), towns: RefCell::new(HashMap::new()), halls: RefCell::new(HashMap::new()) }
     }
     fn raw_height(&self, x: f64, z: f64) -> Raw { let m = self.climate.at(x, z); let r = self.raw_land(x, z, &m); self.seafloor(r, &m) }
     /// Mer et océan : la côte se relève d'abord un peu (pas de terre sous le niveau de la mer qui resterait sèche à côté de l'eau),
@@ -432,6 +432,7 @@ impl WorldGen {
             let (x, y, z, id) = (d[0] - ox, d[1], d[2] - oz, d[3] as Id);
             if x < 0 || z < 0 || x >= CX as i32 || z >= CX as i32 || y < 0 || y >= CH as i32 { continue; }
             let k = idx(x as usize, y as usize, z as usize); let cur = v[k];
+            if d[3] < 0 { if !crate::blocks::is_water(cur) { v[k] = 0; } continue; } /* un lieu bâti dégage sa place : arbres, rochers, talus */
             // Ce qui gît au sol (troncs couchés, souches) ne se pose que sur du plein : jamais au-dessus d'un creux.
             if st.ground && (y == 0 || !is_solid(v[idx(x as usize, y as usize - 1, z as usize)])) { continue; }
             if cur == 0 { v[k] = id; } else if id != 0 && (st.force || (is_deco(cur) && !is_branch(cur))) { v[k] = id; } // les branches d'un arbre voisin restent en place
@@ -456,10 +457,13 @@ impl WorldGen {
         for gz in fdiv(z0, WRECK_CELL)..=fdiv(z1, WRECK_CELL) { for gx in fdiv(x0, WRECK_CELL)..=fdiv(x1, WRECK_CELL) {
             if let Some(st) = self.cached(4, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
         } }
+        for gz in fdiv(z0, SITE_CELL)..=fdiv(z1, SITE_CELL) { for gx in fdiv(x0, SITE_CELL)..=fdiv(x1, SITE_CELL) {
+            if let Some(st) = self.cached(5, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
+        } }
     }
-    fn cached(&self, kind: u8, gx: i32, gz: i32) -> Option<Rc<Stamp>> {
+    pub(crate) fn cached(&self, kind: u8, gx: i32, gz: i32) -> Option<Rc<Stamp>> {
         if let Some(s) = self.stamps.borrow().get(&(kind, gx, gz)) { return s.clone(); }
-        let st = match kind { 0 => self.rock_stamp(gx, gz), 1 => self.tree_stamp(gx, gz), 3 => self.coral_stamp(gx, gz), 4 => self.wreck_stamp(gx, gz), _ => self.bone_stamp(gx, gz) }.map(Rc::new);
+        let st = match kind { 0 => self.rock_stamp(gx, gz), 1 => self.tree_stamp(gx, gz), 3 => self.coral_stamp(gx, gz), 4 => self.wreck_stamp(gx, gz), 5 => self.site_stamp(gx, gz), _ => self.bone_stamp(gx, gz) }.map(Rc::new);
         let mut m = self.stamps.borrow_mut();
         if m.len() > 6000 { m.clear(); }
         m.insert((kind, gx, gz), st.clone());

@@ -591,3 +591,5 @@ egg_ver | Œuf : ver des sables | oeufs | 0.1 | 64 | Clic droit sur un bloc pour
 egg_harpie | Œuf : harpie | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : harpie. Pour essayer les créatures en créatif. |
 egg_bat | Œuf : chauve-souris | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : chauve-souris. Pour essayer les créatures en créatif. |
 egg_glowbug | Œuf : scarabée luisant | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : scarabée luisant. Pour essayer les créatures en créatif. |
+gravestone | Stèle | decor | 3.0 | 8 | Une pierre tombale au sommet arrondi, mangée de mousse. |
+grave_cross | Croix de bois | decor | 1.0 | 8 | Une croix plantée de travers sur un tertre. |
