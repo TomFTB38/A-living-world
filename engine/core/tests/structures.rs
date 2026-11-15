@@ -45,7 +45,8 @@ fn un_batiment_de_la_galerie_exporte_redonne_son_patron() {
         assert!(st.door().is_some(), "la porte est retrouvée");
         for (l, want) in turned.iter().zip(&before) {
             let got = laid(Kind::Maison, var, *l); let mut bad = Vec::new();
-            for (p, b) in &got { if want.get(p).copied().unwrap_or(0) != *b { bad.push(format!("{p:?} : {} au lieu de {}", BLOCKS[*b as usize].name, BLOCKS[want.get(p).copied().unwrap_or(0) as usize].name)); } }
+            /* le coffre et la trappe ont désormais un sens : exportés, ils tournent avec le bâtiment ; le patron d'origine les posait sans sens */ let base = |b: u16| alw_core::shapes::info(b).filter(|i| matches!(i.kind, alw_core::shapes::Kind::Trapdoor) || alw_core::blocks::is_chest(b)).map_or(b, |i| i.base);
+            for (p, b) in &got { if base(want.get(p).copied().unwrap_or(0)) != base(*b) { bad.push(format!("{p:?} : {} au lieu de {}", BLOCKS[*b as usize].name, BLOCKS[want.get(p).copied().unwrap_or(0) as usize].name)); } }
             for (p, b) in want { if *b != 0 && !got.contains_key(p) { bad.push(format!("{p:?} : {} manque", BLOCKS[*b as usize].name)); } }
             assert!(bad.is_empty(), "{name} sur {l:?} : {} écarts\n{}", bad.len(), bad.iter().take(12).cloned().collect::<Vec<_>>().join("\n"));
         }
