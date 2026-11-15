@@ -2,7 +2,7 @@
 //! cristal, rampant de magma, braise, scarabée lumineux. Chaque pièce est modelée autour de son point d'attache.
 use crate::hostile::Mat;
 use crate::mesher::VBuf;
-use crate::sculpt::{dk, Pen, C};
+use crate::sculpt::{dk, mix, Pen, C};
 #[allow(unused_imports)] use crate::mesher::VSIZE;
 
 const PLAIN: Mat = Mat::Plain;
@@ -206,26 +206,35 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
         p.rbox([-0.045, -0.86, -0.05, 0.045, -0.79, 0.13], bone); for x in [-0.04, -0.012, 0.016] { p.bx([x, -0.86, 0.13, x + 0.024, -0.83, 0.16], bone2); }
     });
 
-    // Fantôme : un drap de glace — une grande tête carrée sans cou, deux yeux et une bouche qui luisent, des manches larges
-    // qui s'ouvrent comme des ailes ; le bas s'effiloche en lambeaux, puis en éclats qui flottent.
-    let (ice, ice2, ice3, cyan) = ([0.82, 0.93, 1.0], [0.5, 0.76, 0.98], [0.24, 0.52, 0.92], [0.3, 0.95, 1.0]); let dark = [0.05, 0.12, 0.28];
-    m("fanTorso", Mat::Cloth, 0.03, &|p| {
-        p.column_m(&[(-0.25, 0.2, 0.14), (0.1, 0.23, 0.16), (0.45, 0.25, 0.17), (0.62, 0.22, 0.16)], 0.0, ice2, ice, 0.75, Mat::Cloth);
-        // les lambeaux : chacun sa longueur, de plus en plus bleus ; dessous, des éclats détachés
-        for (i, (x, z, l)) in [(-0.2, 0.08, 0.34), (-0.12, 0.11, 0.55), (-0.03, 0.12, 0.3), (0.06, 0.11, 0.62), (0.14, 0.08, 0.4), (-0.17, -0.09, 0.5), (-0.07, -0.12, 0.36), (0.03, -0.12, 0.58), (0.13, -0.09, 0.32), (-0.02, 0.0, 0.7)].iter().enumerate() {
-            p.bm([*x, -0.25 - l * 0.6, z - 0.035, x + 0.08, -0.2, z + 0.035], ice2, Mat::Cloth); p.bm([x + 0.015, -0.25 - l, z - 0.025, x + 0.065, -0.25 - l * 0.55, z + 0.025], ice3, Mat::Cloth);
-            if i % 2 == 0 { let y = -0.36 - l; p.bm([x + 0.02, y - 0.05, z - 0.02, x + 0.06, y - 0.01, z + 0.02], cyan, PLAIN); } }
-        for (x, y, z, r) in [(-0.14, -0.98, 0.04, 0.03), (0.1, -1.06, -0.03, 0.025), (0.0, -1.16, 0.05, 0.02), (-0.06, -1.24, -0.04, 0.016), (0.16, -0.9, 0.08, 0.02)] { p.bm([x - r, y - r, z - r, x + r, y + r, z + r], cyan, PLAIN); }
+    // Fantôme (d'après la planche du joueur) : un drap de glace d'un seul tenant. Une tête cubique sans cou, deux yeux carrés et
+    // une bouche sombre ; le drap tombe droit, s'élargit aux épaules en deux pans courts qui pendent sur les côtés, et finit en
+    // longues franges déchiquetées, de plus en plus bleues, puis en éclats qui flottent dessous.
+    let (ice, ice2, ice3, cyan) = ([0.74, 0.9, 1.0], [0.46, 0.74, 1.0], [0.2, 0.46, 0.92], [0.4, 1.0, 1.0]); let dark = [0.04, 0.1, 0.26];
+    // des carreaux plus clairs ou plus sombres semés sur le drap, comme des facettes de glace
+    let facets = |p: &mut Pen, spots: &[(f64, f64, f64, f64)], z: f64| { for (i, &(x, y, w, h)) in spots.iter().enumerate() { p.bm([x, y, z, x + w, y + h, z + 0.012], if i % 2 == 0 { [0.83, 0.95, 1.0] } else { mix(ice, ice2, 0.4) }, PLAIN); } };
+    // une frange : trois tronçons de plus en plus étroits et de plus en plus bleus
+    let fringe = |p: &mut Pen, x: f64, w: f64, top: f64, l: f64, z0: f64, z1: f64| {
+        p.bm([x, top - l * 0.45, z0, x + w, top + 0.02, z1], ice2, PLAIN); p.bm([x + w * 0.15, top - l * 0.8, z0 + 0.01, x + w * 0.85, top - l * 0.4, z1 - 0.01], mix(ice2, ice3, 0.6), PLAIN); p.bm([x + w * 0.3, top - l, z0 + 0.02, x + w * 0.7, top - l * 0.75, z1 - 0.02], ice3, PLAIN); };
+    m("fanTorso", PLAIN, 0.03, &|p| {
+        p.rbox_m([-0.24, -0.3, -0.17, 0.24, 0.62, 0.17], ice, PLAIN); p.bm([-0.25, -0.3, -0.18, 0.25, 0.0, 0.18], mix(ice, ice2, 0.5), PLAIN); // le drap, plus bleu vers le bas
+        p.bm([-0.3, 0.46, -0.15, 0.3, 0.62, 0.15], ice, PLAIN); // la carrure, d'où tombent les pans
+        facets(p, &[(-0.2, 0.44, 0.08, 0.08), (0.08, 0.3, 0.1, 0.07), (-0.1, 0.14, 0.07, 0.09), (0.12, 0.02, 0.08, 0.08), (-0.22, -0.08, 0.09, 0.07), (0.0, -0.2, 0.07, 0.07), (0.14, 0.5, 0.07, 0.06), (-0.05, 0.34, 0.06, 0.06)], 0.17);
+        // l'ourlet : des franges inégales, devant, derrière et sur les flancs
+        for (x, w, l) in [(-0.25, 0.07, 0.3), (-0.18, 0.08, 0.62), (-0.1, 0.07, 0.4), (-0.03, 0.08, 0.78), (0.05, 0.07, 0.5), (0.12, 0.07, 0.68), (0.19, 0.06, 0.34)] { fringe(p, x, w, -0.3, l, 0.09, 0.18); fringe(p, x + 0.02, w, -0.3, l * 0.8, -0.18, -0.09); }
+        for (z, l) in [(-0.08, 0.46), (0.0, 0.6), (0.06, 0.36)] { for x in [-0.25, 0.19] { fringe(p, x, 0.06, -0.3, l, z, z + 0.07); } }
+        for (x, y, z, r) in [(-0.16, -1.0, 0.12, 0.032), (0.1, -1.1, -0.1, 0.028), (0.0, -1.22, 0.1, 0.024), (-0.07, -1.32, -0.06, 0.018), (0.17, -0.94, 0.06, 0.022), (-0.2, -1.16, -0.02, 0.016), (0.06, -1.4, 0.02, 0.014)] { p.bm([x - r, y - r, z - r, x + r, y + r, z + r], cyan, PLAIN); }
     });
-    m("fanHead", Mat::Cloth, 0.03, &|p| {
-        p.column_m(&[(0.0, 0.22, 0.17), (0.12, 0.24, 0.2), (0.32, 0.24, 0.2), (0.42, 0.18, 0.15)], 0.0, ice, ice, 0.78, Mat::Cloth);
-        for sx in [-1.0f64, 1.0] { p.bm([sx * 0.1 - 0.055, 0.2, 0.19, sx * 0.1 + 0.055, 0.3, 0.215], cyan, PLAIN); p.bm([sx * 0.1 - 0.03, 0.225, 0.21, sx * 0.1 + 0.03, 0.275, 0.225], [0.85, 1.0, 1.0], PLAIN); } // les yeux
-        p.bm([-0.06, 0.03, 0.19, 0.06, 0.15, 0.212], dark, PLAIN); p.bm([-0.035, 0.0, 0.185, 0.035, 0.04, 0.207], dark, PLAIN); // la bouche béante
+    m("fanHead", PLAIN, 0.03, &|p| {
+        p.rbox_m([-0.25, -0.02, -0.2, 0.25, 0.42, 0.2], ice, PLAIN); p.bm([-0.2, 0.4, -0.16, 0.2, 0.44, 0.16], [0.9, 0.97, 1.0], PLAIN);
+        facets(p, &[(-0.2, 0.3, 0.07, 0.07), (0.13, 0.32, 0.07, 0.06), (-0.04, 0.33, 0.07, 0.05), (0.16, 0.06, 0.06, 0.07), (-0.22, 0.04, 0.07, 0.06)], 0.2);
+        for sx in [-1.0f64, 1.0] { p.bm([sx * 0.105 - 0.055, 0.17, 0.195, sx * 0.105 + 0.055, 0.28, 0.215], cyan, PLAIN); p.bm([sx * 0.105 - 0.02, 0.21, 0.21, sx * 0.105 + 0.02, 0.245, 0.219], [0.75, 1.0, 1.0], PLAIN); p.bm([sx * 0.105 - 0.07, 0.155, 0.19, sx * 0.105 + 0.07, 0.295, 0.2], mix(ice, cyan, 0.45), PLAIN); } // deux yeux carrés et leur halo
+        p.bm([-0.07, 0.01, 0.195, 0.07, 0.13, 0.213], dark, PLAIN); // la bouche
     });
-    m("fanArm", Mat::Cloth, 0.03, &|p| {
-        p.tube_m([0.0, 0.02, 0.0], [0.0, -0.34, 0.0], [0.09, 0.07], [0.13, 0.08], ice, ice2, Mat::Cloth); // une manche qui s'évase
-        for (x, l) in [(-0.12, 0.2), (-0.06, 0.36), (0.0, 0.24), (0.06, 0.42)] { p.bm([x, -0.34 - l, -0.05, x + 0.06, -0.3, 0.05], ice2, Mat::Cloth); p.bm([x + 0.012, -0.4 - l, -0.035, x + 0.048, -0.34 - l * 0.7, 0.035], ice3, Mat::Cloth); }
-        p.bm([-0.02, -0.92, -0.02, 0.02, -0.88, 0.02], cyan, PLAIN);
+    // Un pan du drap : une manche large et plate qui tombe de l'épaule, frangée au bout.
+    m("fanArm", PLAIN, 0.03, &|p| {
+        p.bm([-0.11, -0.34, -0.11, 0.11, 0.05, 0.11], ice, PLAIN); p.bm([-0.115, -0.34, -0.115, 0.115, -0.16, 0.115], mix(ice, ice2, 0.55), PLAIN);
+        for (x, w, l) in [(-0.11, 0.07, 0.2), (-0.04, 0.07, 0.36), (0.03, 0.08, 0.26)] { for (z0, z1) in [(0.03, 0.11), (-0.11, -0.03)] { fringe(p, x, w, -0.34, l, z0, z1); } }
+        p.bm([-0.02, -0.82, -0.02, 0.02, -0.78, 0.02], cyan, PLAIN);
     });
     m("fanLeg", PLAIN, 0.05, &|p| { p.bx([-0.01, -0.02, -0.01, 0.01, 0.0, 0.01], ice3); }); // (pas de jambes)
 

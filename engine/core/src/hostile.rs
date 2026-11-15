@@ -736,16 +736,16 @@ impl Horde {
                     // flotte sans jambes, le sylvain à l'affût lève ses bras comme des branches.
                     let (pt, ph, pa, pl) = match s.skin { "archer" => ("arcTorso", "arcHead", "arcArm", "arcLeg"), "fantome" => ("fanTorso", "fanHead", "fanArm", "fanLeg"), "sylvain" => ("sylTorso", "sylHead", "sylArm", "sylLeg"), _ => ("noyTorso", "noyHead", "noyArm", "noyLeg") };
                     let syl = s.skin == "sylvain"; let t = f.phase; let hide = if f.state == Ai::Embuscade { 1.0 } else { 0.0 };
-                    let (hips, sh_x, sh_y, head_y, head_z, leg_x) = if syl { (0.75, 0.68, 0.98, 0.98, 0.3, 0.3) } else { (0.86, 0.28, 0.54, 0.6, 0.02, 0.1) };
+                    let (hips, sh_x, sh_y, head_y, head_z, leg_x) = if syl { (0.75, 0.68, 0.98, 0.98, 0.3, 0.3) } else if s.ghost { (0.86, 0.33, 0.56, 0.6, 0.0, 0.1) } else { (0.86, 0.28, 0.54, 0.6, 0.02, 0.1) };
                     let stride = sw * (0.35 + 0.3 * run); let float = if s.ghost { 0.1 * sin(t * 0.9) + 0.25 } else { -(f.phase * 2.0).sin().abs() * 0.02 * run };
                     let lean = (if s.ghost { 0.2 + 0.2 * run } else if s.drag { 0.22 } else if syl { 0.2 * (1.0 - hide) + 0.1 * run } else { 0.05 + 0.15 * run }) - wind * if s.bow { 0.0 } else { 0.2 } + strike * 0.35 - flinch * 0.5;
                     let root = mul(&base, &trs(0.0, hips + float, 0.0, 0.0, 0.0, 1.0)); let torso = mul(&root, &trs(0.0, 0.0, 0.0, 0.0, lean, 1.0));
                     put(pt, torso); put(ph, mul(&torso, &trs(0.0, head_y, head_z, 0.12 * (t * 0.5).sin() * (1.0 - run) * (1.0 - hide), -lean * 0.5, 1.0)));
                     let aiming = s.bow && (f.wind > 0.0 || f.state == Ai::Combat);
                     for sx in [-1.0f64, 1.0] {
-                        let arm = if aiming { if sx > 0.0 { -1.5 } else { -1.2 + 0.5 * wind } } else if s.drag { if sx > 0.0 { -0.55 - 0.9 * wind + 1.2 * strike } else { -1.25 + 0.1 * t.sin() - 0.3 * wind + 0.5 * strike } /* la main du trident, et l'autre qui cherche à saisir */ } else if s.ghost { -0.35 + 0.1 * (t * 0.8 + sx).sin() - 0.9 * wind + 0.7 * strike }
+                        let arm = if aiming { if sx > 0.0 { -1.5 } else { -1.2 + 0.5 * wind } } else if s.drag { if sx > 0.0 { -0.55 - 0.9 * wind + 1.2 * strike } else { -1.25 + 0.1 * t.sin() - 0.3 * wind + 0.5 * strike } /* la main du trident, et l'autre qui cherche à saisir */ } else if s.ghost { -0.12 + 0.06 * (t * 0.8 + sx).sin() - 0.5 * wind + 0.5 * strike }
                             else if syl { -2.6 * hide - 0.15 * (1.0 - hide) - 2.3 * wind * (1.0 - hide) + 1.1 * strike - sx * stride * 0.5 * (1.0 - hide) + 0.04 * (t * 0.7 + sx).sin() } else { -sx * stride * 0.8 };
-                        let am = mul(&torso, &mul(&trs(sh_x * sx, sh_y, 0.0, 0.0, arm, 1.0), &roll_z(if syl { sx * (0.3 * hide + 0.12) } else if s.ghost { sx * (0.95 + 0.12 * (t * 0.9).sin()) /* les manches ouvertes comme des ailes */ } else { 0.0 }))); put(pa, am);
+                        let am = mul(&torso, &mul(&trs(sh_x * sx, sh_y, 0.0, 0.0, arm, 1.0), &roll_z(if syl { sx * (0.3 * hide + 0.12) } else if s.ghost { sx * (0.42 + 0.1 * (t * 0.9).sin() + 0.5 * wind) /* les pans du drap pendent sur les côtés, et s'ouvrent quand il frappe */ } else { 0.0 }))); put(pa, am);
                         if s.drag && sx > 0.0 { put("noyTrident", mul(&am, &trs(0.0, -0.62, 0.06, 0.0, -arm - lean + 0.5 * strike, 1.0))); } // le trident reste dressé, et pique quand il frappe
                         if s.bow && sx > 0.0 { put("arcBow", mul(&am, &trs(0.0, -0.62, 0.04, 0.0, if aiming { 1.5 } else { 0.3 }, 1.0))); }
                         if !s.ghost { put(pl, mul(&root, &trs(leg_x * sx, 0.0, 0.0, 0.0, sx * stride * (1.0 - hide) * if syl { 0.5 } else { 1.0 }, 1.0))); }
