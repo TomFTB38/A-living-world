@@ -30,7 +30,7 @@ fn spawn_point(seed: i32) -> [f64; 3] {
 fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &hud::Menu, info: &[String]) -> usize {
     let (proj, vm) = (view::perspective(menu.fov() * (1.0 - 0.12 * s.anim.bow), w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
     let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let mut draws = s.draws(md, &vm); if menu.title.is_some() { draws.retain(|d| !d.view); } /* pas de main tendue derrière l'écran titre */ let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
-    gpu.lights = s.lights(s.eye, gpu::LIGHTS);
+    gpu.lights = s.lights(s.eye, gpu.light_cap);
     let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); env.cave = s.cave as f32; let night = sky.night.clamp(0.0, 1.0); env.flies = s.deep as f32 * (0.55 + 0.9 * night); /* des lucioles aussi dans les grottes vertes, lumineuses et à champignons */ if matches!(s.under_kind, Some(alw_core::karst::Under::Glow | alw_core::karst::Under::Verdant | alw_core::karst::Under::Fungal)) { env.flies = env.flies.max(0.9 * s.cave as f32); } // la nuit, la direction est celle de la lune : elle ne dit pas l'heure
     // Taïga : ciel froid, soleil pâle, neige qui tombe à la place de la pluie.
     let tg = s.taiga as f32; if tg > 0.01 { for k in 0..3 { sky.top[k] += ([0.5, 0.64, 0.82][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.35 * tg; sky.hor[k] += ([0.82, 0.88, 0.95][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.4 * tg; sky.col[k] *= 1.0 + ([0.12, 0.02, -0.16][k]) * tg * (1.0 - night); }

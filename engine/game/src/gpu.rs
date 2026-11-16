@@ -24,6 +24,8 @@ struct Targets {
 }
 pub struct Gpu {
     pub lights: Vec<([f32; 4], [f32; 3])>,
+    /// Combien de lumières on éclaire au plus : toutes, sauf sur une carte logicielle (le rendu par le processeur s'y noie)
+    pub light_cap: usize,
     surface: Option<wgpu::Surface<'static>>, device: wgpu::Device, queue: wgpu::Queue, config: wgpu::SurfaceConfiguration, format: wgpu::TextureFormat,
     p: Pipes, t: Targets, fall_vb: wgpu::Buffer, fall_serial: u64, actor_vb: wgpu::Buffer, actor_inst: wgpu::Buffer, ui_buf: wgpu::Buffer, ui_u: wgpu::Buffer, ui_bind: wgpu::BindGroup, frame0: wgpu::BindGroup, geom1: wgpu::BindGroup, ubuf: wgpu::Buffer, ibuf: wgpu::Buffer, inst: wgpu::Buffer,
     shadow_views: Vec<wgpu::TextureView>, shadow_bind: Vec<wgpu::BindGroup>, shadow_buf: Vec<wgpu::Buffer>, shadow_vp: [M4; 3], shadow_size: u32, hole: f32, cascades: [f64; 3],
@@ -86,7 +88,7 @@ impl Gpu {
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor { backends: wgpu::Backends::PRIMARY, ..Default::default() });
         let surface = window.map(|w| instance.create_surface(w).expect("surface de rendu"));
         let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, compatible_surface: surface.as_ref(), force_fallback_adapter: o.fallback }).await.expect("aucune carte graphique compatible");
-        println!("Carte : {:?}", adapter.get_info());
+        println!("Carte : {:?}", adapter.get_info()); let light_cap = if adapter.get_info().device_type == wgpu::DeviceType::Cpu { 8 } else { LIGHTS };
         let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor { label: None, required_features: wgpu::Features::empty(), required_limits: wgpu::Limits { max_texture_array_layers: adapter.limits().max_texture_array_layers.max(256), ..wgpu::Limits::default() } /* plus de 256 couches de matériaux */, memory_hints: wgpu::MemoryHints::Performance }, None).await.expect("ouverture de la carte graphique");
         device.on_uncaptured_error(Box::new(|e: wgpu::Error| crate::report(&format!("Erreur graphique : {e}"))));
         // Le shader fait lui-même sa correction gamma, comme le prototype.
@@ -231,7 +233,7 @@ impl Gpu {
         let fall_vb = d.create_buffer(&wgpu::BufferDescriptor { label: Some("arbre qui tombe"), size: FALL_BYTES, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let capture = if surface.is_none() { Some(rt(d, config.width, config.height, LDR, true)) } else { None };
         let free = (1..MAX_SLOTS).rev().collect();
-        Gpu { lights: Vec::new(), surface, p, t, fall_vb, fall_serial: 0, actor_vb, actor_inst, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, cascades: o.cascades, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
+        Gpu { lights: Vec::new(), light_cap, surface, p, t, fall_vb, fall_serial: 0, actor_vb, actor_inst, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, cascades: o.cascades, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
     }
     pub fn resize(&mut self, w: u32, h: u32) {
         if w == 0 || h == 0 { return; }
