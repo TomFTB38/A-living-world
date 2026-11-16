@@ -605,6 +605,7 @@ impl WorldGen {
         let x = ((gx as f64 + 0.15 + 0.7 * hash_float(gx, gz, s, 31)) * tc).floor(); let z = ((gz as f64 + 0.15 + 0.7 * hash_float(gx, gz, s, 32)) * tc).floor();
         let c = self.column(x, z);
         if c.water != 0.0 || c.path > 0.0 || c.bank > 0.4 || c.h > 86.0 { return None; }
+        if self.site_claims(x, z) { return None; } // la clairière d'un lieu de surface
         let pick = hash_float(gx, gz, s, 33);
         let glade = smooth(-0.1, 0.45, self.n_forest.n2(x / 46.0 + 70.0, z / 46.0 - 40.0));
         // Rivage : pas d'arbre sur la plage, sauf des cocotiers penchés sous les climats chauds ; les îles chaudes en sont couvertes.

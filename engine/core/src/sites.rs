@@ -104,6 +104,13 @@ impl WorldGen {
         for gx in f(x - r)..=f(x + r) { for gz in f(z - r)..=f(z + r) { if let Some(p) = self.place(gx, gz) { if ((p.x as f64 - x).hypot(p.z as f64 - z)) <= r { o.push(p); } } } }
         o.sort_by(|a, b| (a.x as f64 - x).hypot(a.z as f64 - z).total_cmp(&(b.x as f64 - x).hypot(b.z as f64 - z))); o
     }
+    /// Un arbre qui pousserait ici serait-il coupé par la place d'un lieu ? On ne le fait pas pousser : sinon son tronc
+    /// tombe sous la pioche du chantier et sa couronne, hors de la place, reste à flotter. Une clairière de quelques blocs en plus.
+    pub(crate) fn site_claims(&self, x: f64, z: f64) -> bool {
+        if self.flat { return false; } let f = |v: f64| (v / SITE_CELL as f64).floor() as i32; let (gx, gz) = (f(x), f(z));
+        for a in gx - 1..=gx + 1 { for b in gz - 1..=gz + 1 { if let Some(p) = self.place(a, b) { let (hx, hz, _) = p.kind.fit(); let r = hx.max(hz) as f64 + 6.0 + 5.0; if (x - p.x as f64).abs() <= r && (z - p.z as f64).abs() <= r { return true; } } } }
+        false
+    }
     /// Le coffre d'un lieu de surface est-il ici ?
     pub fn place_chest(&self, p: [i32; 3]) -> Option<Lieu> {
         let (gx, gz) = (p[0].div_euclid(SITE_CELL), p[2].div_euclid(SITE_CELL)); self.place(gx, gz).filter(|pl| pl.chest() == p).map(|pl| pl.kind)
