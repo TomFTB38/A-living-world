@@ -4,8 +4,8 @@
 //!
 //! La muraille (module de la planche : 5 de long, 2 d'épaisseur, 6 de haut, le chemin de ronde à 5) suit un cercle autour de
 //! tous les bâtiments, avec de la place pour grandir dedans : pavé en pied, pierre de taille, un poteau de chêne tous les cinq
-//! blocs, une poutre couchée en haut sur les deux faces (le chemin de ronde est de bois), des merlons du côté du dehors, une
-//! barrière du côté du village, une applique sur un poteau sur deux. Elle épouse le sol, franchit les rivières sur un remblai
+//! blocs, une poutre couchée en haut sur les deux faces (le chemin de ronde est de bois), des merlons du côté du dehors, le
+//! chemin de ronde libre du côté du village, une applique sur un poteau sur deux. Elle épouse le sol, franchit les rivières sur un remblai
 //! et s'écarte des maisons qu'elle croiserait.
 //! La porte fortifiée (11 × 5, 9 de haut) : un passage voûté de trois de large, la herse relevée, deux tourelles aux toits de
 //! tuiles et leurs drapeaux, un étage à pans de bois entre elles, des bannières rouges, des appliques de part et d'autre.
@@ -87,7 +87,7 @@ impl Session {
         let mut ground = std::collections::HashMap::new(); for &(x, z, _) in &all { ground.insert((x, z), self.rampart_ground(x, z)?); }
         let gates: Vec<(Lot, i32)> = self.rampart_gates(c, r).into_iter().map(|(x, y, z)| (frame_at(c, x, z, 11, 5), y)).collect();
         let in_gate = |x: i32, z: i32| gates.iter().any(|(l, _)| { let (a, b) = local(l, x, z); (0..=10).contains(&a) && (-2..=6).contains(&b) });
-        let (cob, brick, fence, sconce) = (id("cobblestone"), id("stone_bricks"), id("fence"), id("wall_sconce")); let mut o = Vec::new();
+        let (cob, brick, sconce) = (id("cobblestone"), id("stone_bricks"), id("wall_sconce")); let mut o = Vec::new();
         for &(x, z, out) in &all {
             let g = ground[&(x, z)]; if in_gate(x, z) { continue; }
             // une maison (ou un mur) sur le tracé : on la laisse, la muraille s'y appuie
@@ -100,7 +100,7 @@ impl Session {
             o.push((x, g + 1, z, cob)); let post = s.rem_euclid(5) == 0;
             for y in g + 2..=g + 4 { o.push((x, y, z, if post { id("oak_log_c") } else { brick })); }
             o.push((x, g + 5, z, if post { id("oak_log_c") } else { beam }));
-            let top = if out { if s.rem_euclid(2) == 0 { brick } else { 0 } } else { fence }; if top != 0 { o.push((x, g + 6, z, top)); }
+            let top = if out && s.rem_euclid(2) == 0 { brick } else { 0 }; if top != 0 { o.push((x, g + 6, z, top)); }
             for y in g + if top != 0 { 7 } else { 6 }..=g + 14 { if self.world.get(x, y, z).is_some_and(|b| b != 0 && natural(b)) { o.push((x, y, z, 0)); } }
             // une applique sur un poteau sur deux, sur chaque face, dans l'air devant le mur
             if post && s.rem_euclid(10) == if out { 0 } else { 5 } { let d = if out { 1.0 } else { -1.0 }; let (fx, fz) = ((x as f64 + t.cos() * d * 1.2).round() as i32, (z as f64 + t.sin() * d * 1.2).round() as i32);
