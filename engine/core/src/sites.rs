@@ -54,7 +54,7 @@ impl Place {
     /// Où se tenir pour en voir l'intérieur : le seuil de la tour, la nef de la chapelle, le portail du camp.
     pub fn inside(&self) -> ([f64; 3], f64) { let (dz, dy) = match self.kind { Lieu::Tour => (-3.0, 0.0), Lieu::Cimetiere => (3.0, 0.0), Lieu::Camp => (-7.0, 0.0) }; let (dx, dz) = spin_f(0.0, dz, self.rot); ([self.x as f64 + 0.5 + dx, self.y as f64 + 1.1 + dy, self.z as f64 + 0.5 + dz], self.rot as f64 * std::f64::consts::FRAC_PI_2) }
     /// Où se tenir pour le regarder (commande, captures) : position et cap.
-    pub fn view(&self) -> ([f64; 3], f64) { let d = match self.kind { Lieu::Tour => 24.0, Lieu::Cimetiere => 21.0, Lieu::Camp => 21.0 }; let (dx, dz) = spin_f(0.0, -d, self.rot); ([self.x as f64 + 0.5 + dx, self.y as f64 + 1.2, self.z as f64 + 0.5 + dz], self.rot as f64 * std::f64::consts::FRAC_PI_2) }
+    pub fn view(&self) -> ([f64; 3], f64) { let d = match self.kind { Lieu::Tour => 15.5, Lieu::Cimetiere => 21.0, Lieu::Camp => 21.0 }; /* dans la clairière : on n'arrive pas dans un tronc */ let (dx, dz) = spin_f(0.0, -d, self.rot); ([self.x as f64 + 0.5 + dx, self.y as f64 + 1.2, self.z as f64 + 0.5 + dz], self.rot as f64 * std::f64::consts::FRAC_PI_2) }
 }
 /// Hauteur du dernier plancher de la tour au-dessus du sol.
 const TOP: i32 = 12;
