@@ -29,7 +29,7 @@ fn spawn_point(seed: i32) -> [f64; 3] {
 }
 fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32, msg: Option<&str>, mouse: [f32; 2], menu: &hud::Menu, info: &[String]) -> usize {
     let (proj, vm) = (view::perspective(menu.fov() * (1.0 - 0.12 * s.anim.bow), w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
-    let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let mut draws = s.draws(md, &vm); if std::env::var_os("ALW_NO_ACTORS").is_some() { draws.clear(); } /* (diagnostic provisoire) */ if menu.title.is_some() { draws.retain(|d| !d.view); } /* pas de main tendue derrière l'écran titre */ let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
+    let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let mut draws = s.draws(md, &vm); if menu.title.is_some() { draws.retain(|d| !d.view); } /* pas de main tendue derrière l'écran titre */ let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
     gpu.lights = s.lights(s.eye, gpu::LIGHTS);
     let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); env.cave = s.cave as f32; let night = sky.night.clamp(0.0, 1.0); env.flies = s.deep as f32 * (0.55 + 0.9 * night); /* des lucioles aussi dans les grottes vertes, lumineuses et à champignons */ if matches!(s.under_kind, Some(alw_core::karst::Under::Glow | alw_core::karst::Under::Verdant | alw_core::karst::Under::Fungal)) { env.flies = env.flies.max(0.9 * s.cave as f32); } // la nuit, la direction est celle de la lune : elle ne dit pas l'heure
     // Taïga : ciel froid, soleil pâle, neige qui tombe à la place de la pluie.
@@ -604,8 +604,6 @@ fn capture(a: &[String]) {
     if let Some(k) = scene.strip_prefix("lieu_") { pump(&mut s, &mut g); s.set_creative(true); let arg = match k.strip_suffix("_dedans") { Some(b) => format!("{b}!"), None => k.to_string() }; let m = s.goto_place(Some(&arg)); println!("{scene} : {m}"); s.third = false; s.sel = 8; pump(&mut s, &mut g); let (p, yaw, pitch) = (s.player.p, s.player.yaw, s.player.pitch);
         for _ in 0..30 { s.tick(0.1, none, Actions::default()); } s.player.p = [p[0], s.player.p[1], p[2]]; s.player.yaw = yaw; s.player.pitch = pitch; s.tick(0.0, none, Actions::default()); }
     // Le village pilote : on s'y rend ; « village_maison » lui donne de quoi bâtir et regarde la maison neuve, « village_reserve » ouvre un coffre de sa réserve.
-    // (diagnostic provisoire) se poster au village pilote sans rien y faire
-    if scene == "diag_lieu" { pump(&mut s, &mut g); s.set_creative(true); s.player.p = [236.5, 62.0, 241.5]; s.player.fly = true; s.third = false; pump(&mut s, &mut g); for _ in 0..20 { s.tick(0.1, none, Actions::default()); } pump(&mut s, &mut g); println!("diag_lieu : {:?} econ {}", s.player.p, s.econ.is_some()); }
     if scene.starts_with("village_") { pump(&mut s, &mut g); s.set_creative(true); for _ in 0..3 { s.tick(0.1, none, Actions::default()); }
         if let Some(c) = s.pilot_center() { s.player.p = [c[0] as f64 + 0.5, c[1] as f64 + 2.0, c[2] as f64 + 0.5]; s.third = false; pump(&mut s, &mut g); for _ in 0..20 { s.tick(0.1, none, Actions::default()); }
             if scene == "village_maison" { if let Some(e) = s.econ.as_mut() { for (k, n) in alw_core::economie::HOUSE_COST { e.stock.insert(k, n + 10.0); } e.stock.insert("bread", 200.0); e.fed = 1.0; } s.hour = 7.2; s.pass_hours(1.0); for _ in 0..5 { s.tick(0.1, none, Actions::default()); } pump(&mut s, &mut g);
@@ -779,7 +777,7 @@ fn capture(a: &[String]) {
             println!("{scene} : {} ({}) {:?}, {} habitants", v.name, v.kind, v.c, s.town.folk.len());
         }
     }
-    if scene == "village" || scene == "artisan" || scene == "bourg" || scene == "interieur" {
+    if scene == "village" || scene.starts_with("artisan") || scene == "villageois_echange" || scene == "bourg" || scene == "interieur" {
         // Le village le plus proche du départ, en milieu de matinée : la place vue d'en haut, ou le forgeron à son poste et la conversation.
         if let Some(v) = s.nearest_village(0.0, 0.0) {
             let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; s.hour = 10.5; s.sel = 8; s.third = false; s.player.fly = true;
@@ -787,9 +785,13 @@ fn capture(a: &[String]) {
             look(&mut s, [c[0] - 22.0, c[1] + 14.0, c[2] - 22.0], c); pump(&mut s, &mut g);
             for _ in 0..1500 { s.tick(1.0 / 60.0, none, Actions::default()); } pump(&mut s, &mut g);
             println!("village : {} ({}), {} habitants, ateliers {:?}", v.name, v.kind, s.town.folk.len(), v.crafts);
-            if scene == "artisan" { if let Some(k) = s.town.folk.iter().position(|f| f.craft == Some("forgeron")) {
+            if scene.starts_with("artisan") { if let Some(k) = s.town.folk.iter().position(|f| f.craft == Some("forgeron")) {
                 let f = s.town.folk[k].clone(); let h = &v.houses[f.house]; let e = [h.inside[0] + (h.inside[0] - f.p[0]) * 0.2, c[1] + 1.62, h.inside[2] + (h.inside[2] - f.p[2]) * 0.2];
-                look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default()); s.talk_to(k); s.add_item("iron_ingot", 2); s.add_item("coal", 8); s.tick(0.0, none, Actions::default());
+                look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default()); s.talk_to(k); s.add_item("iron_ingot", 2); s.add_item("coal", 8); s.add_item("stick", 6); s.add_item("planks", 10); s.tick(0.0, none, Actions::default());
+                if scene == "artisan_commande" { if let Some(i) = s.dialog().and_then(|d| d.options.iter().position(|o| o.0.starts_with("Passer commande"))) { s.choose(i); } }
+            } } else if scene == "villageois_echange" { if let Some(k) = s.town.folk.iter().position(|f| f.craft.is_none()) {
+                let f = s.town.folk[k].clone(); let e = [f.p[0] + 2.0, f.p[1] + 1.62, f.p[2] + 1.2]; look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default()); for (id, n) in [("berries", 12), ("wheat", 20), ("leather", 3), ("planks", 16)] { s.add_item(id, n); } s.talk_to(k);
+                if let Some(i) = s.dialog().and_then(|d| d.options.iter().position(|o| o.0.starts_with("Échanger"))) { s.choose(i); } s.tick(0.0, none, Actions::default());
             } } else if scene == "interieur" { if let Some(h) = v.houses.iter().find(|h| h.craft.is_none()) {
                 // Dans l'auberge, du seuil vers le fond : tables rondes, lustre, cheminée.
                 let (dx, dz) = (h.spot[0] - h.inside[0], h.spot[2] - h.inside[2]); let e = [h.inside[0] - dx * 0.15, h.inside[1] + 1.75, h.inside[2] - dz * 0.15];

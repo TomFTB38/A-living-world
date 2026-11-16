@@ -174,12 +174,23 @@ pub fn menu_layout(w: f32, h: f32, m: &Menu) -> Vec<(M, [f32; 4])> {
 }
 pub fn menu_at(w: f32, h: f32, m: &Menu, p: [f32; 2]) -> Option<M> { menu_layout(w, h, m).into_iter().find(|x| inside(p, x.1)).map(|x| x.0) }
 /// Bouton « Réapparaître » de l'écran de mort.
-/// Fenêtre de dialogue d'un villageois : le cadre, puis une ligne par réponse. Partagé par le dessin et la souris.
-pub fn dialog_layout(n: usize, w: f32, h: f32) -> ([f32; 4], Vec<[f32; 4]>) {
-    let k = scale(h); let pw = (720.0 * k).min(w - 40.0); let rh = 34.0 * k; let ph = 176.0 * k + n as f32 * (rh + 4.0 * k); let (x, y) = ((w - pw) * 0.5, (h - ph).max(20.0) * 0.62);
-    ([x, y, pw, ph], (0..n).map(|i| [x + 18.0 * k, y + 136.0 * k + i as f32 * (rh + 4.0 * k), pw - 36.0 * k, rh]).collect())
+/// Fenêtre de dialogue d'un villageois, en images comme les ateliers : l'accueil en tuiles (une icône par réponse), les
+/// échanges, commandes et projets en cartes (ce qu'on donne, ce qu'on reçoit) ; « Retour », « Au revoir » en boutons au pied.
+/// Partagé par le dessin et la souris : le cadre, puis un rectangle par réponse, dans l'ordre des réponses.
+pub fn dialog_layout(d: &alw_core::village::Dialog, w: f32, h: f32) -> ([f32; 4], Vec<[f32; 4]>) {
+    use alw_core::village::DKind;
+    let k = scale(h); let n = d.options.len(); let pw = (if d.kind == DKind::Main { 760.0 } else { 900.0 } * k).min(w - 40.0); let gap = 8.0 * k; let top = 168.0 * k;
+    let card = |i: usize| d.kind != DKind::Main && d.pics.get(i).is_some_and(|p| !p.give.is_empty() || !p.get.is_empty());
+    let (cw, ch) = if d.kind == DKind::Main { ((pw - 36.0 * k - gap) * 0.5, 54.0 * k) } else { ((pw - 36.0 * k - gap) * 0.5, if d.kind == DKind::Projects { 92.0 * k } else { 80.0 * k }) };
+    let cards: Vec<usize> = (0..n).filter(|i| d.kind == DKind::Main || card(*i)).collect(); let rows = cards.len().div_ceil(2) as f32;
+    let foot: Vec<usize> = (0..n).filter(|i| !cards.contains(i)).collect(); let fh = if foot.is_empty() { 0.0 } else { 46.0 * k };
+    let ph = top + rows * (ch + gap) + fh + 34.0 * k; let (x, y) = ((w - pw) * 0.5, ((h - ph) * 0.5).max(12.0));
+    let mut out = vec![[0.0; 4]; n];
+    for (j, i) in cards.iter().enumerate() { out[*i] = [x + 18.0 * k + (j % 2) as f32 * (cw + gap), y + top + (j / 2) as f32 * (ch + gap), cw, ch]; }
+    let bw = 170.0 * k; for (j, i) in foot.iter().enumerate() { out[*i] = [x + pw - 18.0 * k - (foot.len() - j) as f32 * (bw + gap) + gap, y + top + rows * (ch + gap) + 4.0 * k, bw, 36.0 * k]; }
+    ([x, y, pw, ph], out)
 }
-pub fn dialog_at(s: &Session, w: f32, h: f32, m: [f32; 2]) -> Option<usize> { let d = s.dialog()?; dialog_layout(d.options.len(), w, h).1.iter().position(|r| inside(m, *r)) }
+pub fn dialog_at(s: &Session, w: f32, h: f32, m: [f32; 2]) -> Option<usize> { let d = s.dialog()?; dialog_layout(&d, w, h).1.iter().position(|r| inside(m, *r)) }
 pub fn death_button(w: f32, h: f32) -> [f32; 4] { let k = scale(h); let (bw, bh) = (300.0 * k, 48.0 * k); [(w - bw) * 0.5, h * 0.58, bw, bh] }
 pub fn death_at(w: f32, h: f32, m: [f32; 2]) -> bool { inside(m, death_button(w, h)) }
 /// Coupe un texte en lignes qui tiennent dans une largeur.
@@ -555,15 +566,54 @@ impl Ui {
         self.quad([[cx - r, cy - r], [cx + r, cy - r], [cx + r, cy + r], [cx - r, cy + r]], [[u, v], [u + c, v], [u + c, v + c], [u, v + c]], [1.0; 4], LAYER_ICON);
     }
     fn dialog(&mut self, s: &Session, w: f32, h: f32, mouse: [f32; 2]) {
-        let Some(d) = s.dialog() else { return }; let k = scale(h); let (r, rows) = dialog_layout(d.options.len(), w, h);
-        self.panel(r, k, PANEL); self.text(&d.title, r[0] + 18.0 * k, r[1] + 14.0 * k, 23.0 * k, INK); self.text(&d.sub, r[0] + 18.0 * k, r[1] + 58.0 * k, 15.0 * k, DIM);
-        for (i, l) in wrap(&format!("« {} »", d.said), 17.0 * k, r[2] - 36.0 * k).iter().take(2).enumerate() { self.text(l, r[0] + 18.0 * k, r[1] + 84.0 * k + i as f32 * 22.0 * k, 17.0 * k, GOLD); }
+        use alw_core::village::DKind;
+        let Some(d) = s.dialog() else { return }; let k = scale(h); let (r, rows) = dialog_layout(&d, w, h);
+        // le décor : celui de l'atelier de l'artisan, la pierre de la mairie, le bois des maisons
+        let st = d.station.unwrap_or(if d.mayor { Station::Mason } else { Station::Bench }); self.panel(r, k, station_tint(st)); self.station_frame(st, r, k, s.elapsed as f32);
+        // l'en-tête : l'emblème du métier dans son médaillon, le nom, le village, la réputation en jauge
+        let (cx, cy, rr) = (r[0] + 52.0 * k, r[1] + 58.0 * k, 34.0 * k); self.rect(cx - rr - 3.0 * k, cy - rr - 3.0 * k, 2.0 * rr + 6.0 * k, 2.0 * rr + 6.0 * k, [0.0, 0.0, 0.0, 0.45]); self.rect(cx - rr, cy - rr, 2.0 * rr, 2.0 * rr, [0.95, 0.88, 0.7, 0.16]);
+        let emblem = if d.mayor { "bell" } else { match d.station { Some(st) => station_look(st).1, None => "bread" } }; self.icon(emblem, cx, cy, rr * 0.8);
+        let tx = r[0] + 100.0 * k; self.text(&d.title, tx, r[1] + 22.0 * k, 24.0 * k, INK); self.text(&d.sub, tx, r[1] + 56.0 * k, 14.0 * k, DIM);
+        let rep = d.rep.clamp(-50, 100) as f32; let (gx, gy, gw) = (r[0] + r[2] - 200.0 * k, r[1] + 24.0 * k, 170.0 * k); self.text("Réputation", gx, gy - 2.0 * k, 13.0 * k, DIM);
+        self.rect(gx, gy + 18.0 * k, gw, 8.0 * k, [0.0, 0.0, 0.0, 0.5]); let z0 = gw * 50.0 / 150.0; if rep >= 0.0 { self.rect(gx + z0, gy + 18.0 * k, gw * rep / 150.0, 8.0 * k, ACCENT); } else { self.rect(gx + z0 + gw * rep / 150.0, gy + 18.0 * k, -gw * rep / 150.0, 8.0 * k, BAD); } self.rect(gx + z0, gy + 15.0 * k, 2.0 * k, 14.0 * k, INK);
+        // ce qu'il dit, dans une bulle de parchemin
+        let (bx, by, bw) = (r[0] + 18.0 * k, r[1] + 100.0 * k, r[2] - 36.0 * k); self.rect(bx, by, bw, 56.0 * k, [0.93, 0.87, 0.72, 0.94]); self.quad([[bx + 22.0 * k, by], [bx + 38.0 * k, by], [bx + 26.0 * k, by - 12.0 * k], [bx + 26.0 * k, by - 12.0 * k]], [[0.0; 2]; 4], [0.93, 0.87, 0.72, 0.94], LAYER_FLAT);
+        for (i, l) in wrap(&d.said, 16.0 * k, bw - 24.0 * k).iter().take(2).enumerate() { self.text(l, bx + 12.0 * k, by + 8.0 * k + i as f32 * 21.0 * k, 16.0 * k, [0.2, 0.14, 0.08, 1.0]); }
+        let num = |s: &mut Ui, i: usize, row: [f32; 4]| { if i < 9 { let t = format!("{}", i + 1); s.text(&t, row[0] + row[2] - 14.0 * k, row[1] + 4.0 * k, 12.0 * k, [1.0, 1.0, 1.0, 0.35]); } };
+        let chip = |s: &mut Ui, id: &str, x: f32, y: f32, z: f32, label: &str, c: C| -> f32 { s.rect(x, y, z, z, [0.0, 0.0, 0.0, 0.35]); s.icon(id, x + z * 0.5, y + z * 0.5, z * 0.42); let tz = 14.0 * k; s.text(label, x + z + 4.0 * k, y + (z - tz * 1.3) * 0.5, tz, c); z + 10.0 * k + Ui::text_width(label, tz) };
         for (i, (row, (t, ok))) in rows.iter().zip(d.options.iter()).enumerate() {
-            let on = inside(mouse, *row); self.panel(*row, k, if on && *ok { [1.0, 1.0, 1.0, 0.16] } else { WELL });
-            let z = 16.0 * k; let mut label = format!("{}. {t}", i + 1); while Ui::text_width(&label, z) > row[2] - 20.0 * k && label.chars().count() > 8 { label.pop(); label.pop(); label.push_str("..."); }
-            self.text(&label, row[0] + 10.0 * k, row[1] + (row[3] - z * 1.35) * 0.5, z, if *ok { INK } else { [0.6, 0.62, 0.58, 0.8] });
+            let on = inside(mouse, *row); let p = d.pics.get(i).cloned().unwrap_or_default(); let dim = if *ok { 1.0 } else { 0.5 };
+            let is_card = row[3] > 50.0 * k && (d.kind == DKind::Main || !p.give.is_empty() || !p.get.is_empty());
+            self.panel(*row, k, if on && *ok { [1.0, 1.0, 1.0, 0.18] } else if is_card { [0.0, 0.0, 0.0, 0.42] } else { [0.0, 0.0, 0.0, 0.3] });
+            if !is_card { self.centered(t, *row, 15.0 * k, INK); num(self, i, *row); continue; }
+            let title = t.split(" · ").next().unwrap_or(t).trim_start_matches("► ").to_string(); let tc = [INK[0], INK[1], INK[2], dim];
+            match d.kind {
+                DKind::Main => { let z = row[3] - 12.0 * k; if let Some(ic) = p.icon { self.rect(row[0] + 6.0 * k, row[1] + 6.0 * k, z, z, [1.0, 1.0, 1.0, 0.06]); self.icon(ic, row[0] + 6.0 * k + z * 0.5, row[1] + 6.0 * k + z * 0.5, z * 0.4); }
+                    let lx = row[0] + z + 16.0 * k; let mut l = title.clone(); let tz = 15.0 * k; while Ui::text_width(&l, tz) > row[0] + row[2] - lx - 18.0 * k && l.chars().count() > 8 { l.pop(); l.pop(); l.push_str("..."); } self.text(&l, lx, row[1] + (row[3] - tz * 1.35) * 0.5, tz, tc); }
+                DKind::Trade => {
+                    // ce qu'on donne → ce qu'on reçoit, en grand ; ce qu'on a dans le sac, en dessous
+                    let z = 46.0 * k; let y = row[1] + 8.0 * k; let mut x = row[0] + 10.0 * k;
+                    for (id, n, have) in &p.give { self.rect(x, y, z, z, [0.0, 0.0, 0.0, 0.35]); self.icon(id, x + z * 0.5, y + z * 0.5, z * 0.42); self.text(&format!("×{n}"), x + z - 8.0 * k, y + z - 16.0 * k, 15.0 * k, INK); self.text(&format!("vous : {have}"), x, y + z + 4.0 * k, 12.0 * k, if have >= n { DIM } else { BAD }); x += z + 12.0 * k; }
+                    let ax = x + 4.0 * k; let ay = y + z * 0.5; self.rect(ax, ay - 3.0 * k, 22.0 * k, 6.0 * k, GOLD); self.quad([[ax + 22.0 * k, ay - 11.0 * k], [ax + 36.0 * k, ay], [ax + 22.0 * k, ay + 11.0 * k], [ax + 22.0 * k, ay + 11.0 * k]], [[0.0; 2]; 4], GOLD, LAYER_FLAT); x = ax + 46.0 * k;
+                    for (id, n) in &p.get { self.rect(x, y, z, z, [0.95, 0.85, 0.55, 0.16]); self.icon(id, x + z * 0.5, y + z * 0.5, z * 0.42); self.text(&format!("×{n}"), x + z - 8.0 * k, y + z - 16.0 * k, 15.0 * k, INK); x += z + 10.0 * k; }
+                    let name = p.get.first().and_then(|g| item(g.0)).map_or(String::new(), |i| i.label.to_string()); let mut l = name; let tz = 15.0 * k; while Ui::text_width(&l, tz) > row[0] + row[2] - x - 14.0 * k && l.chars().count() > 6 { l.pop(); l.pop(); l.push_str("..."); } self.text(&l, x + 2.0 * k, y + (z - tz * 1.35) * 0.5, tz, tc);
+                }
+                DKind::Order | DKind::Projects => {
+                    // l'ouvrage en grand à gauche ; son nom ; ses matières en petites cases, rouges quand il en manque (projets : avec leur jauge)
+                    let z = 52.0 * k; let (x0, y0) = (row[0] + 10.0 * k, row[1] + 10.0 * k); self.rect(x0, y0, z, z, [0.95, 0.85, 0.55, 0.14]); if let Some(ic) = p.icon { self.icon(ic, x0 + z * 0.5, y0 + z * 0.5, z * 0.42); }
+                    if let Some(g) = p.get.first().filter(|g| g.1 > 1) { self.text(&format!("×{}", g.1), x0 + z - 10.0 * k, y0 + z - 16.0 * k, 15.0 * k, INK); }
+                    let lx = x0 + z + 12.0 * k; let tz = 16.0 * k; self.text(&title, lx, y0 - 2.0 * k, tz, if t.starts_with("► ") { GOLD } else { tc });
+                    if d.kind == DKind::Projects { if let Some(what) = t.split(" · ").nth(1) { self.text(what, lx, y0 + 18.0 * k, 12.5 * k, DIM); } }
+                    let cz = 22.0 * k; let mut cx = lx; let cy = row[1] + row[3] - cz - 10.0 * k;
+                    for (id, n, have) in &p.give { let enough = have >= n; let lab = if d.kind == DKind::Projects { format!("{}/{}", have.min(n), n) } else { format!("{n}") };
+                        if cx + cz + Ui::text_width(&lab, 14.0 * k) > row[0] + row[2] - 8.0 * k { break; }
+                        cx += chip(self, *id, cx, cy, cz, &lab, if enough { INK } else { BAD });
+                        if d.kind == DKind::Projects { let f = (*have as f32 / *n.max(&1) as f32).min(1.0); let bw = cz; self.rect(cx - 10.0 * k - Ui::text_width(&lab, 14.0 * k) - cz - 4.0 * k, cy + cz + 2.0 * k, bw, 3.0 * k, [0.0, 0.0, 0.0, 0.5]); self.rect(cx - 10.0 * k - Ui::text_width(&lab, 14.0 * k) - cz - 4.0 * k, cy + cz + 2.0 * k, bw * f, 3.0 * k, if f >= 1.0 { ACCENT } else { GOLD }); } }
+                }
+            }
+            num(self, i, *row);
         }
-        let t = "Chiffres ou clic pour répondre · Échap pour partir"; let z = 14.0 * k; self.text(t, r[0] + r[2] - Ui::text_width(t, z) - 16.0 * k, r[1] + r[3] - 24.0 * k, z, DIM);
+        let t = "Clic ou chiffre pour répondre · Échap pour partir"; let z = 13.0 * k; self.text(t, r[0] + 18.0 * k, r[1] + r[3] - 24.0 * k, z, DIM);
     }
     /// Journal des villages : connus, du plus proche au plus lointain, avec leurs artisans (rencontrés en couleur).
     fn journal(&mut self, s: &Session, w: f32, h: f32) {

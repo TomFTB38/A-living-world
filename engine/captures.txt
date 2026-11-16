@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu diag_sans_villageois diag_sans_modeles diag_lieu
+spawn jeu artisan artisan_commande villageois_echange village_maire village_bucheron

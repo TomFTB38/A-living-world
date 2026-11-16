@@ -326,7 +326,7 @@ impl Session {
         let held = self.inv[self.sel].and_then(|s| md.held(s.item)); let p = &self.player;
         let roll = p.rolling().then_some((p.roll_t / crate::player::ROLL_TIME, p.roll_local));
         let mut o = if self.third { self.anim.third(md, p.p, match self.ride.and_then(|id| self.wild.by_id(id)) { Some(k) => self.wild.all[k].yaw /* en selle, le corps suit sa monture */, None => if p.speed > 0.2 && roll.is_none() { p.move_yaw } else { p.yaw } }, p.pitch, held, roll, self.equip.map(|e| e.map(|st| crate::actors::family(st.item)))) } else { self.anim.first(md, view, held, self.shield().map(|st| crate::actors::family(st.item)), self.equip[1].as_ref().map(|st| crate::actors::family(st.item))) };
-        let n0 = o.len(); o.extend(self.fauna.draws(md)); o.extend(self.wild.draws(md)); o.extend(self.horde.draws(md)); if std::env::var_os("ALW_NO_FOLK").is_none() { o.extend(self.town.draws(md)); } /* (diagnostic provisoire) */ o.extend(self.loose_draws(md));
+        let n0 = o.len(); o.extend(self.fauna.draws(md)); o.extend(self.wild.draws(md)); o.extend(self.horde.draws(md)); o.extend(self.town.draws(md)); o.extend(self.loose_draws(md));
         // Les torches et les feux éclairent aussi les bêtes, les créatures et les villageois : le niveau de lumière posée
         // là où se tient chaque pièce part avec elle (la partie entière paire de `hurt`, lue par le shader).
         for d in o[n0..].iter_mut() { let lv = self.lamp_at(d.m[12].floor() as i32, (d.m[13] + 0.3).floor() as i32, d.m[14].floor() as i32); if lv > 0 { d.hurt += 2.0 * lv as f32; } }

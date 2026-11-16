@@ -372,7 +372,15 @@ pub struct Town {
     pub(crate) news: Vec<String>, doors: Vec<([i32; 3], f64)>,
 }
 /// Une fenêtre de dialogue : qui parle, ce qu'il dit, et les réponses possibles (texte, possible maintenant).
-#[derive(Clone, Debug)] pub struct Dialog { pub title: String, pub sub: String, pub said: String, pub options: Vec<(String, bool)> }
+#[derive(Clone, Debug)] pub struct Dialog { pub title: String, pub sub: String, pub said: String, pub options: Vec<(String, bool)>,
+    /// Pour l'écran : la page (accueil, échanges, commandes, projets), l'image de chaque réponse, l'atelier du métier (son décor),
+    /// si c'est le maire, la réputation et le nom du village.
+    pub kind: DKind, pub pics: Vec<Pic>, pub station: Option<crate::data::Station>, pub mayor: bool, pub rep: i32, pub village: String }
+#[derive(Clone, Copy, Debug, PartialEq)] pub enum DKind { Main, Trade, Order, Projects }
+/// L'image d'une réponse : son icône ; ce qu'on donne (objet, combien, combien on en a) et ce qu'on reçoit.
+#[derive(Clone, Debug, Default)] pub struct Pic { pub icon: Option<&'static str>, pub give: Vec<(&'static str, u32, u32)>, pub get: Vec<(&'static str, u32)> }
+/// L'icône d'un ingrédient : l'objet lui-même, ou le premier d'un groupe (« des planches » : celles de chêne).
+pub fn icon_of(id: &'static str) -> &'static str { if item(id).is_some() { id } else { db().groups.iter().find(|g| g.0 == id).and_then(|g| g.2.first().copied()).unwrap_or(id) } }
 
 /// Les échanges que proposent les villageois de ce type de village.
 pub fn trades(kind: &str) -> Vec<&'static crate::data::Trade> { db().trades.iter().filter(|t| t.kind == "tous" || t.kind == kind).collect() }
@@ -531,7 +539,6 @@ impl Town {
             put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(-0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_l, 1.0))); put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_r, 1.0)));
             let al = mul(&body, &trs(-0.35, 1.34, 0.0, yaw_l, arm_l, 1.0)); let ar = mul(&body, &trs(0.35, 1.34, 0.0, yaw_r, arm_r, 1.0));
             put(&format!("folkArm{l}{rs}"), al); put(&format!("folkArm{l}{rs}"), ar);
-            if std::env::var_os("ALW_NO_TOOLS").is_some() && f.job > 0 { tool = None; } /* (diagnostic provisoire) */
             if let Some(h) = tool.and_then(|n| md.held(n)) { out.push(Draw { m: mul(&ar, &mul(&trs(0.0, 0.0, 0.0, 0.0, 0.0, 1.0), &crate::actors::hold_m(h.hold))), r: h.r, view: false, local: h.local, hero: false, dynamic: false, hurt: 0.0 }); }
         }
         out
@@ -835,24 +842,26 @@ impl Session {
         let t = self.town.talk.as_ref()?; let f = self.town.folk.get(t.who)?; let v = self.town.village(f.v)?;
         let cm = f.craft.and_then(craftsman); let title = match cm { Some(c) => format!("{} · {}", f.name, c.name), None if f.job == 9 => format!("{} · maire", f.name), None => format!("{} · villageois", f.name) };
         let sub = format!("{} · village de {} · réputation {}", v.name, kind_label(v.kind), self.rep(v.id)); let mut o: Vec<(String, bool)> = Vec::new();
-        if self.armed() { o.push(("Ranger mon arme".into(), true)); o.push(("Au revoir".into(), true)); return Some(Dialog { title, sub, said: "Rangez d'abord votre arme, je vous prie.".into(), options: o }); }
-        let econ = self.econ.as_ref().filter(|e| e.id == v.id && f.job == 9);
+        if self.armed() { o.push(("Ranger mon arme".into(), true)); o.push(("Au revoir".into(), true)); let pics = vec![Pic { icon: Some("sword"), ..Default::default() }, Pic::default()]; return Some(Dialog { title, sub, said: "Rangez d'abord votre arme, je vous prie.".into(), options: o, kind: DKind::Main, pics, station: cm.and_then(|c| c.works.first().map(|w| w.0)), mayor: f.job == 9, rep: self.rep(v.id), village: v.name.clone() }); }
+        let econ = self.econ.as_ref().filter(|e| e.id == v.id && f.job == 9); let mut pics: Vec<Pic> = Vec::new(); let have = |id: &str| if self.creative { 999 } else { self.count(id) };
+        let kind = match t.page { Page::Main => DKind::Main, Page::Trade => DKind::Trade, Page::Order(_) => DKind::Order, Page::Projects => DKind::Projects };
         match (t.page, cm) {
             (Page::Projects, _) => {
                 // chaque bâtiment possible, ce qu'il coûte et ce que la réserve en a déjà ; le projet en cours en tête
                 if let Some(e) = econ { let c = e.census(v);
                     for k in e.options(&c) { let p = crate::economie::project(k); let cur = e.project.is_some_and(|x| x.0 == k);
-                        o.push((format!("{}{} · {} · {}", if cur { "► " } else { "" }, p.name, p.what, p.cost.iter().map(|(id, n)| format!("{} {}/{}", label(id), e.have(id).floor().min(*n), n)).collect::<Vec<_>>().join(", ")), !cur)); }
+                        o.push((format!("{}{} · {} · {}", if cur { "► " } else { "" }, p.name, p.what, p.cost.iter().map(|(id, n)| format!("{} {}/{}", label(id), e.have(id).floor().min(*n), n)).collect::<Vec<_>>().join(", ")), !cur));
+                        pics.push(Pic { icon: Some(match k { crate::patrons::Kind::Moulin => "flour", crate::patrons::Kind::Auberge => "bread", crate::patrons::Kind::Ferme => "wheat", crate::patrons::Kind::Etable | crate::patrons::Kind::Tanneur => "leather", crate::patrons::Kind::Atelier => "planks", crate::patrons::Kind::Forge => "anvil", _ => "door" }), give: p.cost.iter().map(|(id, n)| (*id, *n as u32, e.have(id).floor() as u32)).collect(), get: Vec::new() }); }
                     if e.project.is_some_and(|x| x.1) { o.push(("Laisser le village décider".into(), true)); } }
                 o.push(("Retour".into(), true));
             }
             (Page::Trade, _) => {
-                for tr in trades(v.kind) { let have = self.creative || self.count(tr.give.0) >= tr.give.1; o.push((format!("Donner {} {} contre {} {}", tr.give.1, label(tr.give.0), tr.get.1, label(tr.get.0)), have)); }
+                for tr in trades(v.kind) { let ok = self.creative || self.count(tr.give.0) >= tr.give.1; o.push((format!("Donner {} {} contre {} {}", tr.give.1, label(tr.give.0), tr.get.1, label(tr.get.0)), ok)); pics.push(Pic { icon: Some(tr.get.0), give: vec![(tr.give.0, tr.give.1, have(tr.give.0))], get: vec![tr.get] }); }
                 o.push(("Retour".into(), true));
             }
             (Page::Order(page), Some(c)) => {
                 let list = orders(c);
-                for i in list.iter().skip(page * 7).take(7) { let r = &db().recipes[*i]; let n = Self::order_needs(r); o.push((format!("{} x{} · {}", item(r.out).map_or(r.out, |x| x.label), r.n, Self::needs_text(&n)), self.has_all(&n) && self.price(c, 1).is_ok())); }
+                for i in list.iter().skip(page * 7).take(7) { let r = &db().recipes[*i]; let n = Self::order_needs(r); o.push((format!("{} x{} · {}", item(r.out).map_or(r.out, |x| x.label), r.n, Self::needs_text(&n)), self.has_all(&n) && self.price(c, 1).is_ok())); pics.push(Pic { icon: Some(r.out), give: n.iter().map(|(id, k)| (icon_of(id), *k, have(id))).collect(), get: vec![(r.out, r.n)] }); }
                 if list.len() > (page + 1) * 7 { o.push(("Autres travaux...".into(), true)); }
                 o.push(("Retour".into(), true));
             }
@@ -873,7 +882,13 @@ impl Session {
                 o.push(("Au revoir".into(), true));
             }
         }
-        Some(Dialog { title, sub, said: t.said.clone(), options: o })
+        // l'accueil : une icône par réponse, d'après ce qu'elle propose
+        if kind == DKind::Main { let held = self.inv[self.sel].map(|st| st.item);
+            pics = o.iter().map(|(t, _)| Pic { icon: Some(match t.as_str() { x if x.starts_with("Passer commande") => "iron_hammer", x if x.starts_with("Améliorer") => "anvil", x if x.starts_with("Réparer") => "iron_ingot", x if x.starts_with("Apprendre") || x.starts_with("Technique") => "lantern",
+                x if x.starts_with("Échanger") => "worn_coin", x if x.starts_with("Offrir") => held.filter(|h| crate::survival::food(h).is_some()).unwrap_or("bread"), x if x.starts_with("Des nouvelles") => "bell", x if x.starts_with("Marquer") || x.starts_with("Ne plus marquer") => "torch", x if x.starts_with("Les projets") => "planks", _ => "" }).filter(|i| !i.is_empty()), ..Default::default() }).collect(); }
+        while pics.len() < o.len() { pics.push(Pic::default()); }
+        let station = cm.and_then(|c| c.works.first().map(|w| w.0));
+        Some(Dialog { title, sub, said: t.said.clone(), options: o, kind, pics, station, mayor: f.job == 9, rep: self.rep(v.id), village: v.name.clone() })
     }
     /// Choisir la réponse `i` (à partir de 0) de la fenêtre de dialogue.
     pub fn choose(&mut self, i: usize) {
