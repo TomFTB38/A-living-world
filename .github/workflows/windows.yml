@@ -65,9 +65,9 @@ jobs:
           shot ronds -38.5 53 0.5 -20 52 -30 14 4 1280 720 2048 ronds
           for k in camp autel caveau; do shot vestige_$k 0 60 0 0 60 10 12 3 1280 720 2048 vestige_$k; done
           for k in maison reserve bucheron fermier mineur maire; do shot village_$k 0 60 0 0 60 10 10 4 1280 720 2048 village_$k; done
-          ALW_NO_CHORES=1 shot diag_sans_metiers 0 60 0 0 60 10 10 4 1280 720 2048 village_maison
-          ALW_NO_TOOLS=1 shot diag_sans_outils 0 60 0 0 60 10 10 4 1280 720 2048 village_maison
-          shot diag_rayon2 0 60 0 0 60 10 10 2 1280 720 2048 village_maison
+          ALW_NO_ECON=1 shot diag_lieu_sans_eco 0 60 0 0 60 10 10 4 1280 720 2048 diag_lieu
+          shot diag_lieu 0 60 0 0 60 10 10 4 1280 720 2048 diag_lieu
+          ALW_NO_ECON=1 shot diag_maison_sans_eco 0 60 0 0 60 10 10 4 1280 720 2048 village_maison
           for k in tour cimetiere brigands; do shot lieu_$k 0 60 0 0 60 10 15 4 1280 720 2048 lieu_$k; done
           for k in tour cimetiere brigands; do shot lieu_${k}_dedans 0 60 0 0 60 10 15 4 1280 720 2048 lieu_${k}_dedans; done
           shot desert -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 desert
