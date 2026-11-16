@@ -27,8 +27,8 @@ fn le_village_produit_mange_et_tient_ses_comptes() {
     e.stock.insert("cobblestone", 400.0); e.step(&c, 9, 14); assert_eq!(e.have("cobblestone"), 400.0);
     // la maison : il faut les matériaux, quatre jours de vivres et que personne n'ait eu faim
     let mut e = Econ::found(&v, 0.0); for (k, n) in HOUSE_COST { e.stock.insert(k, n + 5.0); } e.stock.insert("bread", c.pop as f64 * 5.0); let c = e.census(&v); assert!(c.room >= 2);
-    e.step(&c, 8, 1); assert_eq!(e.due, 1, "payée"); for (k, _) in HOUSE_COST { assert!(e.have(k) <= 9.0, "{k} dépensé"); }
-    let mut poor = Econ::found(&v, 0.0); for (k, n) in HOUSE_COST { poor.stock.insert(k, n + 5.0); } for k in ["bread", "flour", "wheat", "cooked_meat"] { poor.stock.insert(k, 1.0); } poor.step(&c, 8, 1); assert_eq!(poor.due, 0, "pas de chantier le ventre vide");
+    e.step(&c, 8, 1); assert_eq!(e.due.len(), 1, "payée"); for (k, _) in HOUSE_COST { assert!(e.have(k) <= 9.0, "{k} dépensé"); }
+    let mut poor = Econ::found(&v, 0.0); for (k, n) in HOUSE_COST { poor.stock.insert(k, n + 5.0); } for k in ["bread", "flour", "wheat", "cooked_meat"] { poor.stock.insert(k, 1.0); } poor.step(&c, 8, 1); assert_eq!(poor.due.len(), 0, "pas de chantier le ventre vide");
 }
 
 #[test]
@@ -57,9 +57,9 @@ fn la_reserve_s_ouvre_et_la_maison_se_batit_d_un_coup() {
     assert!((s.econ.as_ref().unwrap().have("bread") - (bread - 10.0)).abs() < 1.0, "dix pains de moins"); assert_eq!(s.town.rep.get(&v.id).copied().unwrap_or(0), rep - 1, "le village l'a vu");
     // on lui donne de quoi bâtir et manger : au matin, la maison est là, d'un coup, et deux habitants de plus
     let folk = s.town.folk.iter().filter(|f| f.v == v.id).count(); let houses = s.town.here.iter().find(|h| h.id == v.id).unwrap().houses.len();
-    { let e = s.econ.as_mut().unwrap(); for (k, n) in HOUSE_COST { e.stock.insert(k, n + 10.0); } e.stock.insert("bread", 200.0); e.fed = 1.0; }
+    { let e = s.econ.as_mut().unwrap(); for (k, n) in HOUSE_COST { e.stock.insert(k, n + 10.0); } e.stock.insert("bread", 200.0); e.fed = 1.0; e.project = Some((alw_core::patrons::Kind::Maison, false)); }
     s.hour = 6.5; s.notes.clear(); s.pass_hours(2.0); idle(&mut s, 5);
-    let e = s.econ.clone().unwrap(); assert_eq!((e.extra.len(), e.due), (1, 0), "bâtie : {:?}", e.log); assert!(s.notes.iter().any(|n| n.contains("nouvelle maison")), "{:?}", s.notes);
+    let e = s.econ.clone().unwrap(); assert_eq!((e.extra.len(), e.due.len()), (1, 0), "bâtie : {:?}", e.log); assert!(s.notes.iter().any(|n| n.contains("nouvelle maison")), "{:?}", s.notes);
     assert_eq!(s.town.here.iter().find(|h| h.id == v.id).unwrap().houses.len(), houses + 1); assert_eq!(s.town.folk.iter().filter(|f| f.v == v.id).count(), folk + 2, "deux nouveaux habitants");
     // elle est vraiment dans le monde : des murs, un toit, une porte, à l'écart des autres bâtiments
     let x = e.extra[0]; let mut solid = 0; let mut door = false; for u in -1..10 { for w in -2..9 { for y in x.y..x.y + 9 { let c = x.lot.cell(u, y, w); if let Some(b) = s.world.get(c[0], c[1], c[2]) { if is_solid(b) { solid += 1; } if BLOCKS[b as usize].name.starts_with("door") { door = true; } } } } }
@@ -87,4 +87,30 @@ fn les_gens_de_metier_travaillent_pour_de_bon() {
     assert!(e.have("oak_log") > logs0 || s.town.folk.iter().any(|f| f.job == 2 && !f.carry.is_empty()), "le bois arrive à la réserve (ou est en chemin)");
     // le plant devient un jeune chêne au bout de trois jours
     s.pass_hours(80.0); idle(&mut s, 3); s.econ.as_mut().unwrap().scan_reset(); idle(&mut s, 2); assert!(s.world.get(p[0], p[1], p[2]).is_some_and(is_log), "le chêne a poussé : {:?}", s.world.get(p[0], p[1], p[2]).map(|b| BLOCKS[b as usize].name));
+}
+
+/// Le maire : son écran des bâtiments possibles, avec ce qu'ils coûtent ; on en choisit un, on remplit la réserve, le
+/// village le bâtit. Sans le joueur, le village choisit lui-même selon ses besoins.
+#[test]
+fn le_maire_propose_on_choisit_on_remplit_la_reserve() {
+    let mut s = start(); let v = pilot(&s); go(&mut s, &v); s.hour = 10.0; idle(&mut s, 5);
+    let k = s.town.folk.iter().position(|f| f.v == v.id && f.job == 9).expect("un maire"); s.talk_to(k);
+    let d = s.dialog().unwrap(); assert!(d.title.contains("maire"), "{}", d.title); let i = d.options.iter().position(|o| o.0.starts_with("Les projets")).expect("ses projets");
+    s.choose(i); let d = s.dialog().unwrap(); println!("{}\n{}", d.said, d.options.iter().map(|o| format!("  {} ({})", o.0, o.1)).collect::<Vec<_>>().join("\n"));
+    let mill = d.options.iter().position(|o| o.0.contains("Moulin")).expect("un moulin à bâtir"); assert!(d.options[mill].0.contains("planches") && d.options[mill].0.contains("/"), "le coût et ce qu'a la réserve");
+    // la réserve vide de planches : on choisit le moulin, rien ne se bâtit encore
+    s.econ.as_mut().unwrap().stock.insert("planks", 0.0); s.choose(mill); assert_eq!(s.econ.as_ref().unwrap().project, Some((alw_core::patrons::Kind::Moulin, true))); let said = s.dialog().unwrap().said; println!("{said}"); assert!(said.contains("Il manque") && said.contains("planches"));
+    s.close_talk(); idle(&mut s, 5); assert!(s.econ.as_ref().unwrap().due.is_empty() && s.econ.as_ref().unwrap().extra.is_empty(), "rien sans les planches");
+    // on remplit la réserve comme un joueur : on ouvre le coffre, on y dépose de quoi, on referme
+    let c0 = s.econ.as_ref().unwrap().store[0]; s.open_chest(c0); let ch = s.chests.get_mut(&c0).unwrap(); let free: Vec<usize> = (0..ch.len()).filter(|i| ch[*i].is_none()).collect();
+    for (j, (id, n)) in [("planks", 64u32), ("cobblestone", 64), ("oak_log", 32), ("iron_ingot", 10)].into_iter().enumerate() { ch[free[j]] = Some(Stack::new(id, Some(n))); }
+    s.inv_open = false; s.chest = None; idle(&mut s, 10);
+    let e = s.econ.clone().unwrap(); println!("{:?} {:?} {:?}", e.project, e.due, e.log.last()); assert!(e.extra.iter().any(|x| x.kind == alw_core::patrons::Kind::Moulin), "le moulin est bâti : {:?}", e.log); assert!(e.project.is_none());
+    assert_eq!(e.census(&v).mills, 1, "il compte : le blé sera moulu en grand"); assert!(s.notes.iter().any(|n| n.contains("moulin")), "{:?}", s.notes);
+    // sauvegardé, rechargé : le moulin est là, le projet suivant aussi
+    s.econ.as_mut().unwrap().project = Some((alw_core::patrons::Kind::Etable, true)); let save = s.save_text(); let mut o = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); o.load_text(&save).unwrap();
+    let r = o.econ.clone().unwrap(); assert_eq!(r.extra.last().unwrap().kind, alw_core::patrons::Kind::Moulin); assert_eq!(r.project, Some((alw_core::patrons::Kind::Etable, true)));
+    // sans le joueur : le blé s'entasse, le village décide seul d'un moulin ; la farine attend, d'une auberge ; sinon d'une maison
+    let mut a = Econ::found(&v, 0.0); let c = a.census(&v); a.stock.insert("wheat", 100.0); assert_eq!(a.auto_project(&c), if c.mills == 0 { Some(alw_core::patrons::Kind::Moulin) } else { a.auto_project(&c) });
+    a.stock.insert("wheat", 0.0); a.stock.insert("flour", 0.0); assert_eq!(a.auto_project(&c), Some(alw_core::patrons::Kind::Maison));
 }

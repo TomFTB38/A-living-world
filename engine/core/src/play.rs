@@ -688,7 +688,7 @@ impl Session {
                 Some("guide") => { self.guide = a.next().and_then(|v| v.parse().ok()).unwrap_or(0); }
                 Some("carte") => { let v: Vec<&str> = a.collect(); self.map.load(&v); }
                 Some(k @ ("rep" | "known" | "met" | "marked")) => { let v: Vec<&str> = a.collect(); self.town_load(k, &v); }
-                Some(k @ ("econ" | "econ_house" | "econ_log" | "econ_plant")) => { let v: Vec<&str> = a.collect(); self.econ_load(k, &v); }
+                Some(k @ ("econ" | "econ_house" | "econ_log" | "econ_plant" | "econ_due" | "econ_project")) => { let v: Vec<&str> = a.collect(); self.econ_load(k, &v); }
                 Some("fav") => { for id in a { if let Some(d) = def(id) { self.fav.insert(d.id); } } }
                 Some("regrow") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; self.regrow.push((p, num(a.next())?)); }
                 Some("crop") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; self.crops.push((p, num(a.next())?)); }
