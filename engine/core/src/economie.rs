@@ -29,8 +29,8 @@ const FOOD: [&str; 6] = ["wheat", "carrot", "potato", "flour", "bread", "cooked_
 pub fn tracked(id: &str) -> bool { id == COIN || GOODS.iter().any(|g| g.0 == id) }
 /// Un marché proposé par le village : ce que le joueur donne, ce qu'il reçoit ; le village vend son surplus, ou achète ce qui lui manque.
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Deal { pub give: (&'static str, u32), pub get: (&'static str, u32), pub sells: bool }
-/// Au-delà, on ne produit plus : les greniers sont pleins, le village vit sur son acquis.
-const FULL: f64 = 320.0;
+/// Au-delà, on ne produit plus : les greniers sont pleins, le village vit sur son acquis. Chaque entrepôt en ajoute autant.
+const FULL: f64 = 200.0;
 /// Ce que coûte une maison.
 pub const HOUSE_COST: [(&str, f64); 3] = [("planks", 48.0), ("cobblestone", 36.0), ("oak_log", 12.0)];
 /// Ceux qui emménagent dans une maison neuve.
@@ -38,7 +38,7 @@ const NEWCOMERS: u32 = 2;
 
 /// Un bâtiment que le village peut entreprendre : son patron, son nom, ce qu'il coûte, ce qu'il apporte.
 #[derive(Clone, Copy, Debug)] pub struct Project { pub kind: Kind, pub name: &'static str, pub cost: &'static [(&'static str, f64)], pub what: &'static str }
-pub const PROJECTS: [Project; 8] = [
+pub const PROJECTS: [Project; 9] = [
     Project { kind: Kind::Maison, name: "Maison", cost: &HOUSE_COST, what: "deux habitants de plus" },
     Project { kind: Kind::Moulin, name: "Moulin", cost: &[("planks", 40.0), ("cobblestone", 50.0), ("oak_log", 16.0), ("iron_ingot", 4.0)], what: "le blé moulu en farine, en grand" },
     Project { kind: Kind::Auberge, name: "Auberge", cost: &[("planks", 70.0), ("cobblestone", 50.0), ("oak_log", 20.0), ("iron_ingot", 6.0)], what: "un four : le pain pour tous" },
@@ -47,13 +47,14 @@ pub const PROJECTS: [Project; 8] = [
     Project { kind: Kind::Atelier, name: "Menuiserie", cost: &[("planks", 30.0), ("cobblestone", 20.0), ("oak_log", 30.0), ("iron_ingot", 4.0)], what: "le bois scié en planches, vite" },
     Project { kind: Kind::Forge, name: "Forge", cost: &[("planks", 30.0), ("cobblestone", 60.0), ("oak_log", 10.0), ("iron_ingot", 10.0)], what: "le minerai fondu en fer" },
     Project { kind: Kind::Tanneur, name: "Tannerie", cost: &[("planks", 40.0), ("cobblestone", 30.0), ("oak_log", 12.0)], what: "les peaux tannées en cuir" },
+    Project { kind: Kind::Entrepot, name: "Entrepôt", cost: &[("planks", 48.0), ("cobblestone", 40.0), ("oak_log", 20.0)], what: "la réserve à l'abri, deux fois plus de place" },
 ];
 pub fn project(k: Kind) -> &'static Project { PROJECTS.iter().find(|p| p.kind == k).unwrap_or(&PROJECTS[0]) }
 fn kind_index(k: Kind) -> usize { PROJECTS.iter().position(|p| p.kind == k).unwrap_or(0) }
 /// Un bâtiment que le village a bâti depuis la création du monde : son terrain, son niveau, son patron.
 #[derive(Clone, Copy, Debug)] pub struct Extra { pub lot: Lot, pub y: i32, pub kind: Kind }
 /// Le recensement : qui vit là, et ce qui tourne.
-#[derive(Clone, Copy, Debug, Default, PartialEq)] pub struct Census { pub pop: u32, pub fields: u32, pub farms: u32, pub folds: u32, pub mills: u32, pub inns: u32, pub forges: u32, pub woodshops: u32, pub tanneries: u32, pub cutters: u32, pub miners: u32, /** combien de maisons le village veut encore bâtir, selon son tempérament */ pub room: u32 }
+#[derive(Clone, Copy, Debug, Default, PartialEq)] pub struct Census { pub pop: u32, pub fields: u32, pub farms: u32, pub folds: u32, pub mills: u32, pub inns: u32, pub forges: u32, pub woodshops: u32, pub tanneries: u32, /** entrepôts : chacun ajoute de la place aux greniers */ pub stores: u32, pub cutters: u32, pub miners: u32, /** combien de maisons le village veut encore bâtir, selon son tempérament */ pub room: u32 }
 
 #[derive(Clone, Debug)]
 pub struct Econ {
@@ -85,6 +86,11 @@ pub fn ambition(v: &Village) -> u32 { match v.ident.map(|i| i.outlook) { Some(Ou
 /// Habitants d'un village tel qu'il a été tracé (la même règle que pour les faire apparaître).
 pub fn people(v: &Village) -> u32 { v.houses.iter().enumerate().map(|(i, h)| if h.craft.is_some() { 1 } else { 1 + (crate::noise::hash_float(v.id.0, v.id.1, i as i32, 91) < 0.6) as u32 }).sum() }
 
+impl Census {
+    /// Ce que tient chaque grenier : la place de base, et autant par entrepôt.
+    pub fn cap(&self) -> f64 { FULL * (1 + self.stores) as f64 }
+}
+
 impl Econ {
     /// Un village à sa première heure : il a déjà quelques jours de réserves, selon sa richesse.
     pub fn found(v: &Village, t: f64) -> Econ {
@@ -104,13 +110,13 @@ impl Econ {
         let n = |f: &dyn Fn(Arch) -> bool| v.works.iter().filter(|w| f(w.0)).count() as u32;
         let built = |k: Kind| self.extra.iter().filter(|x| x.kind == k).count() as u32; let mut c = Census { pop: people(v) + built(Kind::Maison) * NEWCOMERS, fields: v.fields, farms: n(&|a| matches!(a, Arch::Farm | Arch::Barn)), folds: n(&|a| matches!(a, Arch::Fold | Arch::Stable)), mills: n(&|a| a == Arch::Mill), inns: n(&|a| a == Arch::Inn),
             forges: n(&|a| a == Arch::Forge), woodshops: n(&|a| matches!(a, Arch::Woodshop | Arch::Workshop)), tanneries: n(&|a| a == Arch::Tannery), ..Default::default() };
-        c.farms += built(Kind::Ferme); c.folds += built(Kind::Etable) + built(Kind::Ecurie); c.mills += built(Kind::Moulin); c.inns += built(Kind::Auberge); c.forges += built(Kind::Forge); c.woodshops += built(Kind::Atelier); c.tanneries += built(Kind::Tanneur);
+        c.farms += built(Kind::Ferme); c.folds += built(Kind::Etable) + built(Kind::Ecurie); c.mills += built(Kind::Moulin); c.inns += built(Kind::Auberge); c.forges += built(Kind::Forge); c.woodshops += built(Kind::Atelier); c.tanneries += built(Kind::Tanneur); c.stores = built(Kind::Entrepot);
         // ceux qui ne tiennent ni champ ni atelier vont au bois et à la carrière
         let busy = c.fields.max(c.farms) + c.folds + c.mills + c.inns + c.forges + c.woodshops + c.tanneries; let free = c.pop.saturating_sub(busy).max(2);
         c.cutters = (free as f64 * 0.45).ceil() as u32; c.miners = (free as f64 * 0.35).ceil() as u32;
         // un village tient à son tempérament : celui qui veut rester ce qu'il est ne s'agrandit pas, et c'est très bien ainsi ;
         // les autres bâtissent d'eux-mêmes jusqu'à leur ambition — le joueur peut les aider et choisir quoi, pas les pousser au-delà
-        c.room = ambition(v).saturating_sub(self.extra.len() as u32 + self.due.len() as u32); c
+        c.room = ambition(v).saturating_sub(self.extra.iter().filter(|x| x.kind != Kind::Entrepot).count() as u32 + self.due.iter().filter(|k| **k != Kind::Entrepot).count() as u32); c
     }
     /// Les jours de vivres devant soi.
     pub fn reserve(&self, pop: u32) -> f64 { (self.have("bread") + self.have("cooked_meat") + self.have("flour") * 0.8 + self.have("wheat") * 0.5 + self.have("potato") * 0.5 + self.have("carrot") * 0.4) / pop.max(1) as f64 }
@@ -118,7 +124,7 @@ impl Econ {
     pub fn step(&mut self, c: &Census, hod: u32, day: u32) {
         let work = (7..12).contains(&hod) || (13..18).contains(&hod);
         if work {
-            let room = |e: &Econ, k: &str| e.have(k) < FULL; let pop = c.pop as f64;
+            let cap = c.cap(); let room = |e: &Econ, k: &str| e.have(k) < cap; let pop = c.pop as f64;
             // la disette presse les champs : on y met tous les bras
             let press = if self.reserve(c.pop) < 1.0 { 1.6 } else { 1.0 };
             if room(self, "wheat") && !self.live[0] { self.add("wheat", (c.fields.max(1) as f64 * 0.2 + c.farms as f64 * 0.25) * press); }
@@ -177,16 +183,16 @@ impl Econ {
     pub fn affords(&self, k: Kind) -> bool { project(k).cost.iter().all(|(id, n)| self.have(id) >= *n) }
     /// On paie le chantier : il sera posé dès que le joueur sera là.
     fn start(&mut self, k: Kind, day: u32) { let p = project(k); for (id, n) in p.cost { self.take(id, *n); } self.due.push(k); self.project = None; self.note(day, format!("les matériaux sont réunis : on bâtit {}", article(p.name))); }
-    /// Ce que le village bâtirait de lui-même : un moulin quand le blé s'entasse, une auberge quand la farine attend, sinon une maison s'il veut s'agrandir.
+    /// Ce que le village bâtirait de lui-même : d'abord un entrepôt pour sa réserve, puis un moulin quand le blé s'entasse, une auberge quand la farine attend, sinon une maison.
     pub fn auto_project(&self, c: &Census) -> Option<Kind> {
-        if c.room == 0 { None } else if c.mills == 0 && self.have("wheat") >= 40.0 { Some(Kind::Moulin) } else if c.inns == 0 && self.have("flour") >= 20.0 { Some(Kind::Auberge) } else if c.room > 0 { Some(Kind::Maison) } else { None }
+        if c.room == 0 { None } else if c.stores == 0 && !self.due.contains(&Kind::Entrepot) { Some(Kind::Entrepot) } else if c.mills == 0 && self.have("wheat") >= 40.0 { Some(Kind::Moulin) } else if c.inns == 0 && self.have("flour") >= 20.0 { Some(Kind::Auberge) } else if c.room > 0 { Some(Kind::Maison) } else { None }
     }
     /// Ce que le maire peut proposer : une maison toujours (jusqu'à six), les bâtiments de métier qui manquent ou qu'on peut doubler.
     pub fn options(&self, c: &Census) -> Vec<Kind> {
         if c.room == 0 { return Vec::new(); } // un village qui ne veut pas s'agrandir n'a rien à proposer
         let houses = self.extra.iter().filter(|x| x.kind == Kind::Maison).count() + self.due.iter().filter(|k| **k == Kind::Maison).count(); let pending = |k: Kind| self.due.contains(&k) as u32;
         PROJECTS.iter().map(|p| p.kind).filter(|k| match k { Kind::Maison => houses < 6, Kind::Moulin => c.mills + pending(*k) == 0, Kind::Auberge => c.inns + pending(*k) == 0, Kind::Tanneur => c.tanneries + pending(*k) == 0,
-            Kind::Forge => c.forges + pending(*k) < 2, Kind::Atelier => c.woodshops + pending(*k) < 2, Kind::Etable => c.folds + pending(*k) < 2, Kind::Ferme => c.farms + pending(*k) < 2, _ => false }).collect()
+            Kind::Forge => c.forges + pending(*k) < 2, Kind::Entrepot => c.stores + pending(*k) < 2, Kind::Atelier => c.woodshops + pending(*k) < 2, Kind::Etable => c.folds + pending(*k) < 2, Kind::Ferme => c.farms + pending(*k) < 2, _ => false }).collect()
     }
     /// Ce qui manque encore à la réserve pour ce bâtiment (vide : tout y est).
     pub fn missing(&self, k: Kind) -> Vec<(&'static str, f64)> { project(k).cost.iter().filter(|(id, n)| self.have(id) < *n).map(|(id, n)| (*id, n - self.have(id).floor())).collect() }
@@ -195,7 +201,7 @@ impl Econ {
         let c = self.census(v); let mut o = vec![format!("{} — {} habitants, {} maison{} bâtie{} depuis votre arrivée", v.name, c.pop, self.extra.len(), if self.extra.len() > 1 { "s" } else { "" }, if self.extra.len() > 1 { "s" } else { "" })];
         o.push(format!("Stocks : {}", GOODS.iter().filter(|g| self.have(g.0) >= 1.0).map(|g| format!("{} {}", g.1, self.have(g.0).floor())).collect::<Vec<_>>().join(", ")) + &format!(" ; caisse : {} pièces", self.have(COIN).floor()));
         o.push(format!("Vivres pour {:.1} jours ; hier soir {} % de la population a mangé{}", self.reserve(c.pop), (self.fed * 100.0).round(), if self.lean > 0 { format!(" (disette depuis {} jour{})", self.lean, if self.lean > 1 { "s" } else { "" }) } else { String::new() }));
-        o.push(format!("Au travail : {} champ{}, {} au bois, {} à la carrière, moulin {}, four {}, forge {}", c.fields, if c.fields > 1 { "s" } else { "" }, c.cutters, c.miners, c.mills, c.inns, c.forges));
+        o.push(format!("Au travail : {} champ{}, {} au bois, {} à la carrière, moulin {}, four {}, forge {}, entrepôt {}", c.fields, if c.fields > 1 { "s" } else { "" }, c.cutters, c.miners, c.mills, c.inns, c.forges, c.stores));
         o.push(if let Some(k) = self.due.first() { format!("Chantier : {} est payé{}, il sera bâti dès que le village vous verra revenir", article(project(*k).name), if project(*k).name.ends_with('e') && *k != Kind::Moulin { "e" } else { "" }) } else if let Some((k, mine)) = self.project { format!("Projet{} : {} — {}", if mine { " (choisi par vous)" } else { "" }, project(k).name, project(k).cost.iter().map(|(id, n)| format!("{} {}/{}", GOODS.iter().find(|g| g.0 == *id).map_or(*id, |g| g.1), self.have(id).floor().min(*n), n)).collect::<Vec<_>>().join(", ")) } else if c.room == 0 { if ambition(v) == 0 { "Le village ne cherche pas à s'agrandir : il est bien tel qu'il est".into() } else { "Le village a bâti tout ce qu'il souhaitait".into() } } else { format!("Prochaine maison : {}", HOUSE_COST.iter().map(|(k, n)| format!("{} {}/{}", GOODS.iter().find(|g| g.0 == *k).map_or(*k, |g| g.1), self.have(k).floor().min(*n), n)).collect::<Vec<_>>().join(", ")) + if self.reserve(c.pop) < 4.0 { " — et quatre jours de vivres d'avance" } else { "" } });
         for (d, s) in self.log.iter().rev().take(3) { o.push(format!("Il y a {} jour{} : {s}", day.saturating_sub(*d), if day.saturating_sub(*d) > 1 { "s" } else { "" })); }
         o
@@ -235,7 +241,9 @@ impl Session {
         if e.log.len() > before || (e.log.len() == 12 && before == 12) { if let Some(l) = e.log.last() { said.push(format!("{} : {}", v.name, l.1)); } }
         let near = self.town.here.iter().any(|h| h.id == v.id);
         // la réserve : on repère ses coffres une fois le village chargé ; quand le joueur referme, on recompte
-        if near && e.store.is_empty() { e.store = self.econ_chests(&v); }
+        // le village a toujours son entrepôt : celui qu'il n'a pas encore (une partie d'avant) se pose dès que le joueur est là
+        if !e.extra.iter().any(|x| x.kind == Kind::Entrepot) && !e.due.contains(&Kind::Entrepot) { e.due.insert(0, Kind::Entrepot); }
+        if near && e.store.is_empty() { e.store = self.econ_chests(&e); }
         let at_store = self.inv_open && [self.chest, self.chest2].into_iter().flatten().any(|c| e.store.contains(&c));
         if e.open && !at_store { self.econ_count(&mut e, &v); } e.open = at_store;
         if near { self.econ_chores(&mut e, &v, dt); } else { e.live = [false; 3]; }
@@ -246,6 +254,10 @@ impl Session {
                 // la place dégagée : buissons, herbes et branches basses au-dessus du sol, puis le bâtiment, puis ses fondations
                 let mut list: Vec<(i32, i32, i32, Id)> = Vec::new(); for dx in house.area[0]..=house.area[2] { for dz in house.area[1]..=house.area[3] { for yy in y + 1..y + 16 { if self.world.get(dx, yy, dz).is_some_and(|b| b != 0) { list.push((dx, yy, dz, 0)); } } } } list.extend(blocks); for dx in house.area[0]..=house.area[2] { for dz in house.area[1]..=house.area[3] { for yy in (y - 6..=y).rev() { if self.world.get(dx, yy, dz).is_some_and(is_solid) { break; } list.push((dx, yy, dz, B::COBBLESTONE)); } } }
                 self.world.edit_many(&list); e.due.remove(0); e.extra.push(Extra { lot, y, kind }); let day = (e.t / 24.0) as u32; let p = project(kind);
+                // un entrepôt neuf : la réserve y déménage ; les anciens coffres ne montrent plus rien (ce qu'ils montraient, c'était le stock)
+                if kind == Kind::Entrepot { for c in std::mem::take(&mut e.store) { let loot = self.village_loot(c); if let Some(ch) = self.chests.get_mut(&c) { for s in ch.iter_mut() { if s.is_some_and(|s| s.n.is_some()) { *s = None; } }
+                    // une réserve d'avant l'entrepôt redevient un coffre de maison, avec son butin
+                    for l in loot.into_iter().flatten() { if let Some(slot) = ch.iter_mut().find(|s| s.is_none()) { *slot = Some(l); } } } } e.open = false; }
                 if kind == Kind::Maison { e.note(day, "une maison neuve est debout, deux habitants s'y installent".into()); said.push(format!("{} a bâti une nouvelle maison", v.name)); }
                 else { e.note(day, format!("{} est debout : {}", article(p.name), p.what)); said.push(format!("{} a bâti {}", v.name, article(&p.name.to_lowercase()))); }
                 // le village chargé apprend sa nouvelle maison, et ses habitants paraissent
@@ -254,10 +266,11 @@ impl Session {
         self.econ = Some(e); for s in said { self.notes.push(s); }
     }
     /// Les coffres de la réserve : ceux de la mairie, sinon de l'auberge, sinon d'une grange, sinon de la première maison qui en a.
-    fn econ_chests(&self, v: &Village) -> Vec<[i32; 3]> {
-        let scan = |a: [i32; 4]| { let mut o = Vec::new(); for x in a[0]..=a[2] { for z in a[1]..=a[3] { for y in v.c[1] - 3..=v.c[1] + 9 { if self.world.get(x, y, z).is_some_and(is_chest) { o.push([x, y, z]); } } } } o };
-        for pick in [&[Arch::TownHall, Arch::Hall][..], &[Arch::Inn], &[Arch::Barn, Arch::Farm]] { for w in v.works.iter().filter(|w| pick.contains(&w.0)) { let c = scan(w.1); if !c.is_empty() { return c; } } }
-        v.works.iter().map(|w| scan(w.1)).find(|c| !c.is_empty()).unwrap_or_default()
+    /// Les coffres de la réserve : ceux de l'entrepôt, et eux seuls (les coffres des maisons gardent leur butin à elles).
+    fn econ_chests(&self, e: &Econ) -> Vec<[i32; 3]> {
+        for x in e.extra.iter().filter(|x| x.kind == Kind::Entrepot) { let a = raise(x.lot, x.y, x.kind).1.area; let mut o = Vec::new();
+            for xx in a[0]..=a[2] { for zz in a[1]..=a[3] { for yy in x.y..=x.y + 8 { if self.world.get(xx, yy, zz).is_some_and(is_chest) { o.push([xx, yy, zz]); } } } } if !o.is_empty() { return o; } }
+        Vec::new()
     }
     /// On ouvre un coffre de la réserve : il montre ce que le village possède, à l'unité près.
     pub(crate) fn econ_fill(&mut self, p: [i32; 3]) {
@@ -360,7 +373,7 @@ impl Session {
             // la journée finie, on dépose ce qu'on porte et on rentre
             if !work { for (id, n) in f.carry.drain(..) { e.add(id, n as f64); } if f.task.is_some() { f.task = None; f.task_k += 1; } self.town.folk[k] = f; continue; }
             if f.task.is_none() {
-                let full = |id: &str| e.have(id) >= FULL; let load = f.carry.iter().map(|c| c.1).sum::<u32>();
+                let full = |id: &str| e.have(id) >= c.cap(); let load = f.carry.iter().map(|c| c.1).sum::<u32>();
                 let back = match f.job { 1 => load >= LOAD_CROPS, 2 => load > 0, _ => load >= LOAD_STONE };
                 let pick = |list: &[[i32; 3]], taken: &[[i32; 3]]| -> Option<[i32; 3]> { let o = [v.c[0] as f64, v.c[2] as f64]; let salt = k as i32 * 13 + f.task_k as i32;
                     list.iter().filter(|p| !taken.contains(p)).min_by(|a, b| { let d = |p: &[i32; 3]| (p[0] as f64 - o[0]).hypot(p[2] as f64 - o[1]) * (0.8 + 0.4 * crate::noise::hash_float(p[0], p[2], salt, 401)); d(a).total_cmp(&d(b)) }).copied() };

@@ -117,9 +117,9 @@ pub fn get(name: &str) -> Option<Arc<Structure>> { reg().read().unwrap().get(nam
 /// Le nom de fichier d'un patron.
 pub fn key(k: Kind) -> &'static str {
     match k { Kind::Maison => "maison", Kind::Forge => "forge", Kind::Auberge => "auberge", Kind::Moulin => "moulin", Kind::Tanneur => "tanneur", Kind::Eglise => "eglise",
-        Kind::GrandeMairie => "grande_mairie", Kind::PetiteMairie => "petite_mairie", Kind::Atelier => "atelier", Kind::Ferme => "ferme", Kind::Etable => "etable", Kind::Ecurie => "ecurie" }
+        Kind::GrandeMairie => "grande_mairie", Kind::PetiteMairie => "petite_mairie", Kind::Atelier => "atelier", Kind::Ferme => "ferme", Kind::Etable => "etable", Kind::Ecurie => "ecurie", Kind::Entrepot => "entrepot" }
 }
-pub const KINDS: [Kind; 12] = [Kind::Maison, Kind::Forge, Kind::Auberge, Kind::Moulin, Kind::Tanneur, Kind::Eglise, Kind::GrandeMairie, Kind::PetiteMairie, Kind::Atelier, Kind::Ferme, Kind::Etable, Kind::Ecurie];
+pub const KINDS: [Kind; 13] = [Kind::Maison, Kind::Forge, Kind::Auberge, Kind::Moulin, Kind::Tanneur, Kind::Eglise, Kind::GrandeMairie, Kind::PetiteMairie, Kind::Atelier, Kind::Ferme, Kind::Etable, Kind::Ecurie, Kind::Entrepot];
 /// La structure qui remplace ce patron : « maison_3 » pour une variante précise, sinon « maison » pour toutes.
 pub fn find(k: Kind, var: u8) -> Option<Arc<Structure>> { let r = reg().read().unwrap(); if r.is_empty() { return None; } r.get(&format!("{}_{var}", key(k))).or_else(|| r.get(key(k))).cloned() }
 /// Le patron que désigne un nom de structure, s'il en désigne un.

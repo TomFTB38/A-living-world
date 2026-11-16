@@ -867,7 +867,7 @@ impl Session {
                 if let Some(e) = econ { let c = e.census(v);
                     for k in e.options(&c) { let p = crate::economie::project(k); let cur = e.project.is_some_and(|x| x.0 == k);
                         o.push((format!("{}{} · {} · {}", if cur { "► " } else { "" }, p.name, p.what, p.cost.iter().map(|(id, n)| format!("{} {}/{}", label(id), e.have(id).floor().min(*n), n)).collect::<Vec<_>>().join(", ")), !cur));
-                        pics.push(Pic { icon: Some(match k { crate::patrons::Kind::Moulin => "flour", crate::patrons::Kind::Auberge => "bread", crate::patrons::Kind::Ferme => "wheat", crate::patrons::Kind::Etable | crate::patrons::Kind::Tanneur => "leather", crate::patrons::Kind::Atelier => "planks", crate::patrons::Kind::Forge => "anvil", _ => "door" }), give: p.cost.iter().map(|(id, n)| (*id, *n as u32, e.have(id).floor() as u32)).collect(), get: Vec::new(), ..Default::default() }); }
+                        pics.push(Pic { icon: Some(match k { crate::patrons::Kind::Moulin => "flour", crate::patrons::Kind::Auberge => "bread", crate::patrons::Kind::Ferme => "wheat", crate::patrons::Kind::Etable | crate::patrons::Kind::Tanneur => "leather", crate::patrons::Kind::Atelier => "planks", crate::patrons::Kind::Forge => "anvil", crate::patrons::Kind::Entrepot => "chest", _ => "door" }), give: p.cost.iter().map(|(id, n)| (*id, *n as u32, e.have(id).floor() as u32)).collect(), get: Vec::new(), ..Default::default() }); }
                     if e.project.is_some_and(|x| x.1) { o.push(("Laisser le village décider".into(), true)); } }
                 o.push(("Retour".into(), true));
             }

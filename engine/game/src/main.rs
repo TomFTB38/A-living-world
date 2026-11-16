@@ -609,6 +609,14 @@ fn capture(a: &[String]) {
             if scene == "village_maison" { if let Some(e) = s.econ.as_mut() { for (k, n) in alw_core::economie::HOUSE_COST { e.stock.insert(k, n + 10.0); } e.stock.insert("bread", 200.0); e.fed = 1.0; } s.hour = 7.2; s.pass_hours(1.0); for _ in 0..5 { s.tick(0.1, none, Actions::default()); } pump(&mut s, &mut g);
                 if let Some(x) = s.econ.as_ref().and_then(|e| e.extra.last().copied()) { let h = x.lot.cell(3, x.y + 3, 3); let t = x.lot.cell(3, x.y + 2, -11); s.player.p = [t[0] as f64 + 0.5, t[1] as f64, t[2] as f64 + 0.5]; for _ in 0..10 { s.tick(0.1, none, Actions::default()); } let e = s.player.eye(); let d = [h[0] as f64 + 0.5 - e[0], h[1] as f64 - e[1], h[2] as f64 + 0.5 - e[2]]; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / d[0].hypot(d[2])).atan(); }
                 println!("{scene} : {}", s.village_report().replace('\n', " | ")); s.hour = 10.0; s.tick(0.0, none, Actions::default()); }
+            // l'entrepôt, posé dès l'arrivée : on le regarde de trois quarts depuis la rue (« _dedans » : du passage, vers le fond)
+            if scene.starts_with("village_entrepot") {
+                s.hour = 10.0; for _ in 0..10 { s.tick(0.1, none, Actions::default()); } pump(&mut s, &mut g);
+                if let Some(x) = s.econ.as_ref().and_then(|e| e.extra.iter().find(|x| x.kind == alw_core::patrons::Kind::Entrepot).copied()) {
+                    let inside = scene.ends_with("_dedans"); let (t, h) = if inside { (x.lot.cell(5, x.y + 1, 1), x.lot.cell(5, x.y + 3, 7)) } else { (x.lot.cell(-5, x.y + 4, -9), x.lot.cell(5, x.y + 5, 4)) };
+                    s.player.fly = true; s.player.p = [t[0] as f64 + 0.5, t[1] as f64, t[2] as f64 + 0.5]; for _ in 0..10 { s.tick(0.1, none, Actions::default()); } s.player.p = [t[0] as f64 + 0.5, t[1] as f64, t[2] as f64 + 0.5];
+                    let e = s.player.eye(); let d = [h[0] as f64 + 0.5 - e[0], h[1] as f64 - e[1], h[2] as f64 + 0.5 - e[2]]; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / d[0].hypot(d[2])).atan(); }
+                println!("{scene} : {}", s.village_report().replace('\n', " | ")); s.tick(0.0, none, Actions::default()); }
             // un homme de métier au travail : on attend qu'il soit à l'ouvrage, puis on le regarde de quelques pas
             if let Some(job) = match scene.as_str() { "village_bucheron" => Some(2u8), "village_fermier" => Some(1), "village_mineur" => Some(3), _ => None } { s.hour = 8.2; s.player.fly = true;
                 for i in 0..2400 { s.tick(0.05, none, Actions::default()); if i % 40 == 0 { s.hour = s.hour.min(11.0); pump(&mut s, &mut g); } if s.town.folk.iter().any(|f| f.job == job && f.working && f.task.is_some() && f.work_t > 4.0) { break; } }

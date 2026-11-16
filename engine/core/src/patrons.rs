@@ -455,10 +455,45 @@ pub(crate) fn ecurie(p: &mut P, roof: &str) -> Built {
     Built { door: Some(7), spot: None, bed: None }
 }
 
+// =========================================================================================== entrepôt
+/// M-ENT-01 : l'entrepôt, le stock du village, 11 × 9, d'après la planche fournie : deux rangs de pierre de taille, pierre
+/// brute aux angles et aux piliers, pans de bois enduits au-dessus, sablière à 7 blocs ; un grand passage ouvert sur la rue
+/// entre deux poteaux de chêne, sous un linteau, pavé devant ; au pignon, la poulie : une poutre en saillie, la chaîne, une
+/// caisse qu'on monte au-dessus de la charrette. Dedans, deux niveaux : le rez-de-chaussée (les coffres de la réserve au
+/// fond et à gauche, caisses empilées, tonneaux) et une mezzanine en U autour d'un vide central, garde-corps de barrières,
+/// escalier contre le mur de droite ; quatre lanternes.
+pub(crate) fn entrepot(p: &mut P, roof: &str) -> Built {
+    let (w, d) = (11, 9); p.ground([-1, -3, w, d], 14, [0, 0, w - 1, d - 1], "planks", "stone_bricks");
+    for x in 3..=7 { for z in -2..0 { p.n(x, 0, z, "cobblestone"); } } // le pavé devant le passage
+    // les murs : deux rangs de pierre, pierre brute aux angles et aux piliers ; au-dessus, les pans de bois enduits
+    let pillar = |x: i32, z: i32| (x == 0 || x == w - 1) && [0, 4, d - 1].contains(&z) || (z == 0 || z == d - 1) && [0, 3, 7, w - 1].contains(&x);
+    for x in 0..w { for z in 0..d { let edge = x == 0 || x == w - 1 || z == 0 || z == d - 1; if !edge { continue; } for y in 1..=2 { p.n(x, y, z, if pillar(x, z) { "cobblestone" } else { "stone_bricks" }); } } }
+    p.frame((0, w - 1), (0, d - 1), (3, 6), 2, "plaster"); p.belt((0, w - 1), (0, d - 1), 7);
+    // le passage : trois de large, trois de haut, entre deux poteaux de chêne, un linteau de bout en bout ; les lanternes de part et d'autre
+    for x in 4..=6 { for y in 1..=3 { p.put(x, y, 0, 0); } } for x in [3, 7] { for y in 1..=3 { p.log(x, y, 0, 'y'); } } for x in 2..=8 { p.log(x, 4, 0, 'x'); }
+    p.sconce(3, 3, -1, 0, 1); p.sconce(7, 3, -1, 0, 1); p.win(4, 6, 0, true); p.win(6, 6, 0, true);
+    for z in [2, 4, 6] { p.win(0, 5, z, false); p.win(w - 1, 5, z, false); } for x in [3, 7] { p.win(x, 5, d - 1, true); } p.win(5, 3, d - 1, true);
+    p.roof((0, w - 1), (0, d - 1), 8, 1, true, roof, Some("plaster")); for z in [0, d - 1] { for y in 8..=9 { p.log(5, y, z, 'y'); } } p.win(5, 10, 0, true); p.win(5, 10, d - 1, true);
+    // la poulie : une poutre qui sort du pignon, la chaîne, la caisse pendue ; la charrette dessous, chargée de sacs de grain
+    for z in -3..=-1 { p.log(8, 8, z, 'z'); } for y in 6..=7 { p.n(8, y, -3, "chain"); } p.n(8, 5, -3, "crate"); p.n(8, 1, -3, "cart"); p.n(1, 1, -1, "sack"); p.n(2, 1, -1, "sack");
+    // la mezzanine en U à 4 : à gauche, au fond, à droite (sauf la trémie de l'escalier) ; un garde-corps de barrières sur le vide
+    for x in 1..w - 1 { for z in 1..d - 1 { let left = x <= 2; let back = z >= 6; let right = x >= 8 && z >= 4; if left || back || right { p.n(x, 4, z, "planks"); } } }
+    for z in 1..=5 { p.n(2, 5, z, "fence"); } for z in 4..=5 { p.n(8, 5, z, "fence"); } for x in 3..=7 { p.n(x, 5, 6, "fence"); }
+    for (i, z) in [1, 2, 3].into_iter().enumerate() { let y = 1 + i as i32; for yy in 1..y { p.n(9, yy, z, "planks"); } p.stair(9, y, z, "planks_stairs", 0, 1, false); }
+    // en bas : les coffres de la réserve au fond et contre le mur de gauche, dos au mur ; caisses empilées, tonneaux
+    for x in 3..=7 { p.turn(x, 1, d - 2, "chest", 0, 1); } for z in [2, 3, 4] { p.turn(1, 1, z, "chest", -1, 0); }
+    for (x, z, y) in [(1, 6, 1), (1, 6, 2), (2, 7, 1), (1, 7, 1), (1, 7, 2), (1, 1, 1), (1, 1, 2), (2, 1, 1)] { p.n(x, y, z, "crate"); }
+    for (x, z) in [(9, 5), (9, 6), (8, 7), (9, 7)] { p.n(x, 1, z, "barrel"); } p.n(8, 6, 7, "sack"); p.n(5, 3, 3, "lantern");
+    // en haut : caisses, tonneaux, sacs et foin ; une lanterne au fond
+    for (x, z, y) in [(1, 1, 5), (1, 2, 5), (1, 1, 6), (2, 7, 5), (3, 7, 5), (1, 7, 5), (1, 7, 6)] { p.n(x, y, z, "crate"); } for (x, z) in [(9, 7), (8, 7), (9, 6)] { p.n(x, 5, z, "barrel"); }
+    for (x, z) in [(1, 4), (1, 5)] { p.n(x, 5, z, "sack"); } for x in [5, 6] { p.n(x, 5, 7, "hay_bale"); } p.n(4, 6, 7, "lantern");
+    Built { door: Some(5), spot: None, bed: None }
+}
+
 // =========================================================================================== répartition
 /// Les patrons.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Kind { Maison, Forge, Auberge, Moulin, Tanneur, Eglise, GrandeMairie, PetiteMairie, Atelier, Ferme, Etable, Ecurie }
+pub enum Kind { Maison, Forge, Auberge, Moulin, Tanneur, Eglise, GrandeMairie, PetiteMairie, Atelier, Ferme, Etable, Ecurie, Entrepot }
 /// Corps (largeur, profondeur), porte sur la façade et emprise [x0, z0, x1, z1] d'un patron, symétrie comprise.
 #[derive(Clone, Copy, Debug)]
 pub struct Plan { pub w: i32, pub d: i32, pub door: i32, pub ext: [i32; 4], pub mirror: bool }
@@ -469,7 +504,7 @@ pub fn plan(k: Kind, var: u8) -> Plan {
         Kind::Forge => (7, 9, 5, [-3, -1, 7, 9]), Kind::Auberge => (13, 10, 6, [-3, -2, 15, 10]), Kind::Moulin => (9, 9, 4, [-2, -2, 10, 9]),
         Kind::Tanneur => (12, 9, 3, [-1, -3, 12, 9]), Kind::Eglise => (11, 17, 5, [-1, -2, 11, 17]), Kind::GrandeMairie => (19, 15, 9, [-1, -3, 19, 15]),
         Kind::PetiteMairie => (9, 7, 4, [-1, -2, 9, 7]), Kind::Atelier => (14, 9, 3, [-1, -2, 14, 9]), Kind::Ferme => (15, 11, 5, [-1, -2, 15, 11]),
-        Kind::Etable => (13, 9, 6, [-1, -1, 13, 9]), Kind::Ecurie => (14, 9, 7, [-1, -1, 14, 9]),
+        Kind::Etable => (13, 9, 6, [-1, -1, 13, 9]), Kind::Ecurie => (14, 9, 7, [-1, -1, 14, 9]), Kind::Entrepot => (11, 9, 5, [-1, -3, 11, 9]),
     };
     let mirror = if k == Kind::Maison { var & 4 != 0 } else { var & 1 != 0 };
     // une structure exportée remplace l'emprise et la porte du patron
@@ -502,7 +537,7 @@ fn build_patron(p: &mut P, kind: Kind, var: u8, look: Look, h: f64) -> Built {
         Kind::Maison => maison(p, pl.d, look.roof, look.infill, var & 2 != 0), Kind::Forge => forge(p, h > 0.5), Kind::Auberge => auberge(p),
         Kind::Moulin => moulin(p, h), Kind::Tanneur => tanneur(p), Kind::Eglise => eglise(p), Kind::GrandeMairie => grande_mairie(p),
         Kind::PetiteMairie => petite_mairie(p), Kind::Atelier => atelier_bois(p), Kind::Ferme => ferme(p, look.roof),
-        Kind::Etable => etable(p, look.roof), Kind::Ecurie => ecurie(p, look.roof),
+        Kind::Etable => etable(p, look.roof), Kind::Ecurie => ecurie(p, look.roof), Kind::Entrepot => entrepot(p, look.roof),
     };
     p.dress(); b
 }

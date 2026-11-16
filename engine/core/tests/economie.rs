@@ -17,7 +17,8 @@ fn le_village_produit_mange_et_tient_ses_comptes() {
     // dix jours : il mange tous les soirs à sa faim, et ses réserves montent
     let (w0, b0) = (e.have("oak_log") + e.have("planks"), e.have("cobblestone"));
     for h in 0..240u32 { e.step(&c, h % 24, h / 24); }
-    assert!(e.fed > 0.99 && e.lean == 0, "nourri : {}", e.fed); assert!(e.have("oak_log") + e.have("planks") > w0 && e.have("cobblestone") > b0, "le bois et la pierre rentrent"); assert!(e.have("bread") > 1.0, "le pain sort du four");
+    assert!(e.fed > 0.99 && e.lean == 0, "nourri : {}", e.fed); let spent = |id: &str| e.due.iter().map(|k| project(*k).cost.iter().filter(|c| c.0 == id).map(|c| c.1).sum::<f64>()).sum::<f64>();
+    assert!(e.have("oak_log") + e.have("planks") + spent("oak_log") + spent("planks") > w0 && e.have("cobblestone") + spent("cobblestone") > b0, "le bois et la pierre rentrent (chantiers compris) : {:?}", e.due); assert!(e.have("bread") > 1.0, "le pain sort du four");
     // la nuit, rien ne se produit
     let snap = e.stock.clone(); for h in [0, 1, 2, 3, 22, 23] { e.step(&c, h, 11); } assert_eq!(snap, e.stock, "on dort");
     // on vide les greniers : le soir même, la disette ; le lendemain, tous les bras sont aux champs
@@ -26,7 +27,7 @@ fn le_village_produit_mange_et_tient_ses_comptes() {
     // les greniers pleins, on s'arrête de produire
     e.stock.insert("cobblestone", 400.0); e.step(&c, 9, 14); assert_eq!(e.have("cobblestone"), 400.0);
     // la maison : il faut les matériaux, quatre jours de vivres et que personne n'ait eu faim
-    let mut e = Econ::found(&v, 0.0); for (k, n) in HOUSE_COST { e.stock.insert(k, n + 5.0); } e.stock.insert("bread", c.pop as f64 * 5.0); let c = e.census(&v); assert!(c.room >= 2);
+    let mut e = Econ::found(&v, 0.0); e.project = Some((alw_core::patrons::Kind::Maison, false)); for (k, n) in HOUSE_COST { e.stock.insert(k, n + 5.0); } e.stock.insert("bread", c.pop as f64 * 5.0); let c = e.census(&v); assert!(c.room >= 2);
     e.step(&c, 8, 1); assert_eq!(e.due.len(), 1, "payée"); for (k, _) in HOUSE_COST { assert!(e.have(k) <= 9.0, "{k} dépensé"); }
     let mut poor = Econ::found(&v, 0.0); for (k, n) in HOUSE_COST { poor.stock.insert(k, n + 5.0); } for k in ["bread", "flour", "wheat", "cooked_meat"] { poor.stock.insert(k, 1.0); } poor.step(&c, 8, 1); assert_eq!(poor.due.len(), 0, "pas de chantier le ventre vide");
 }
@@ -59,14 +60,14 @@ fn la_reserve_s_ouvre_et_la_maison_se_batit_d_un_coup() {
     let folk = s.town.folk.iter().filter(|f| f.v == v.id).count(); let houses = s.town.here.iter().find(|h| h.id == v.id).unwrap().houses.len();
     { let e = s.econ.as_mut().unwrap(); for (k, n) in HOUSE_COST { e.stock.insert(k, n + 10.0); } e.stock.insert("bread", 200.0); e.fed = 1.0; e.project = Some((alw_core::patrons::Kind::Maison, false)); }
     s.hour = 6.5; s.notes.clear(); s.pass_hours(2.0); idle(&mut s, 5);
-    let e = s.econ.clone().unwrap(); assert_eq!((e.extra.len(), e.due.len()), (1, 0), "bâtie : {:?}", e.log); assert!(s.notes.iter().any(|n| n.contains("nouvelle maison")), "{:?}", s.notes);
+    let e = s.econ.clone().unwrap(); let homes: Vec<Extra> = e.extra.iter().filter(|x| x.kind == alw_core::patrons::Kind::Maison).copied().collect(); assert_eq!((homes.len(), e.due.len()), (1, 0), "bâtie : {:?}", e.log); assert!(s.notes.iter().any(|n| n.contains("nouvelle maison")), "{:?}", s.notes);
     assert_eq!(s.town.here.iter().find(|h| h.id == v.id).unwrap().houses.len(), houses + 1); assert_eq!(s.town.folk.iter().filter(|f| f.v == v.id).count(), folk + 2, "deux nouveaux habitants");
     // elle est vraiment dans le monde : des murs, un toit, une porte, à l'écart des autres bâtiments
-    let x = e.extra[0]; let mut solid = 0; let mut door = false; for u in -1..10 { for w in -2..9 { for y in x.y..x.y + 9 { let c = x.lot.cell(u, y, w); if let Some(b) = s.world.get(c[0], c[1], c[2]) { if is_solid(b) { solid += 1; } if BLOCKS[b as usize].name.starts_with("door") { door = true; } } } } }
+    let x = homes[0]; let mut solid = 0; let mut door = false; for u in -1..10 { for w in -2..9 { for y in x.y..x.y + 9 { let c = x.lot.cell(u, y, w); if let Some(b) = s.world.get(c[0], c[1], c[2]) { if is_solid(b) { solid += 1; } if BLOCKS[b as usize].name.starts_with("door") { door = true; } } } } }
     assert!(solid > 120 && door, "{solid} blocs pleins, porte : {door}");
     // sauvegardée, rechargée : la maison compte toujours, ses habitants aussi
     let save = s.save_text(); let mut o = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); o.load_text(&save).unwrap(); ready(&mut o); idle(&mut o, 40);
-    assert_eq!(o.econ.as_ref().unwrap().extra.len(), 1); assert_eq!(o.town.here.iter().find(|h| h.id == v.id).expect("le village est là").houses.len(), houses + 1); assert_eq!(o.town.folk.iter().filter(|f| f.v == v.id).count(), folk + 2);
+    assert_eq!(o.econ.as_ref().unwrap().extra.len(), 2, "l'entrepôt et la maison"); assert_eq!(o.town.here.iter().find(|h| h.id == v.id).expect("le village est là").houses.len(), houses + 1); assert_eq!(o.town.folk.iter().filter(|f| f.v == v.id).count(), folk + 2);
 }
 
 /// Le matin au village pilote : le fermier moissonne et ressème, le bûcheron abat un arbre et replante, le mineur taille la
@@ -100,7 +101,7 @@ fn le_maire_propose_on_choisit_on_remplit_la_reserve() {
     let mill = d.options.iter().position(|o| o.0.contains("Moulin")).expect("un moulin à bâtir"); assert!(d.options[mill].0.contains("planches") && d.options[mill].0.contains("/"), "le coût et ce qu'a la réserve");
     // la réserve vide de planches : on choisit le moulin, rien ne se bâtit encore
     s.econ.as_mut().unwrap().stock.insert("planks", 0.0); s.choose(mill); assert_eq!(s.econ.as_ref().unwrap().project, Some((alw_core::patrons::Kind::Moulin, true))); let said = s.dialog().unwrap().said; println!("{said}"); assert!(said.contains("Il manque") && said.contains("planches"));
-    s.close_talk(); idle(&mut s, 5); assert!(s.econ.as_ref().unwrap().due.is_empty() && s.econ.as_ref().unwrap().extra.is_empty(), "rien sans les planches");
+    s.close_talk(); idle(&mut s, 5); assert!(s.econ.as_ref().unwrap().due.is_empty() && s.econ.as_ref().unwrap().extra.iter().all(|x| x.kind == alw_core::patrons::Kind::Entrepot), "rien sans les planches (l'entrepôt était là)");
     // on remplit la réserve comme un joueur : on ouvre le coffre, on y dépose de quoi, on referme
     let c0 = s.econ.as_ref().unwrap().store[0]; s.open_chest(c0); let ch = s.chests.get_mut(&c0).unwrap(); let free: Vec<usize> = (0..ch.len()).filter(|i| ch[*i].is_none()).collect();
     for (j, (id, n)) in [("planks", 64u32), ("cobblestone", 64), ("oak_log", 32), ("iron_ingot", 10)].into_iter().enumerate() { ch[free[j]] = Some(Stack::new(id, Some(n))); }
@@ -111,7 +112,8 @@ fn le_maire_propose_on_choisit_on_remplit_la_reserve() {
     s.econ.as_mut().unwrap().project = Some((alw_core::patrons::Kind::Etable, true)); let save = s.save_text(); let mut o = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); o.load_text(&save).unwrap();
     let r = o.econ.clone().unwrap(); assert_eq!(r.extra.last().unwrap().kind, alw_core::patrons::Kind::Moulin); assert_eq!(r.project, Some((alw_core::patrons::Kind::Etable, true)));
     // sans le joueur : le blé s'entasse, le village décide seul d'un moulin ; la farine attend, d'une auberge ; sinon d'une maison
-    let mut a = Econ::found(&v, 0.0); let c = a.census(&v); a.stock.insert("wheat", 100.0); assert_eq!(a.auto_project(&c), if c.mills == 0 { Some(alw_core::patrons::Kind::Moulin) } else { a.auto_project(&c) });
+    let mut a = Econ::found(&v, 0.0); assert_eq!(a.auto_project(&a.census(&v)), Some(alw_core::patrons::Kind::Entrepot), "d'abord un entrepôt pour la réserve");
+    a.extra.push(Extra { lot: e.extra[0].lot, y: 0, kind: alw_core::patrons::Kind::Entrepot }); let c = a.census(&v); a.stock.insert("wheat", 100.0); assert_eq!(a.auto_project(&c), if c.mills == 0 { Some(alw_core::patrons::Kind::Moulin) } else { a.auto_project(&c) });
     a.stock.insert("wheat", 0.0); a.stock.insert("flour", 0.0); assert_eq!(a.auto_project(&c), Some(alw_core::patrons::Kind::Maison));
 }
 
@@ -165,4 +167,30 @@ fn le_marche_du_village_passe_par_ses_reserves() {
     // un autre village : les échanges de son pays, sans réserves
     let g = WorldGen::new(SEED); let other = g.villages_near(-38.0, 0.0, 1400.0).into_iter().find(|w| w.id != v.id).unwrap(); let off = s.offers(&other);
     assert_eq!(off.len(), alw_core::village::trades(other.kind).len()); assert!(off.iter().all(|o| o.can && o.stock.is_none() && o.tag == 0));
+}
+
+/// L'entrepôt : le village pilote a toujours le sien (posé dès que le joueur arrive) ; ses coffres, et eux seuls, sont la
+/// réserve ; les coffres des maisons gardent leur butin ; ses greniers tiennent deux fois plus ; le maire peut en proposer un second.
+#[test]
+fn l_entrepot_abrite_la_reserve() {
+    let mut s = start(); let v = pilot(&s); go(&mut s, &v); s.set_creative(false); s.hour = 10.0; idle(&mut s, 5);
+    let e = s.econ.clone().unwrap(); println!("{:?} | {:?}", e.log, e.store); let x = e.extra.iter().find(|x| x.kind == alw_core::patrons::Kind::Entrepot).copied().expect("l'entrepôt est là dès l'arrivée");
+    let c = e.census(&v); assert_eq!((c.stores, c.cap()), (1, 400.0), "deux fois plus de place"); assert!(c.room > 0, "l'entrepôt ne compte pas dans ce que le village veut bâtir");
+    let cells: Vec<[i32; 3]> = { let mut w = alw_core::batisse::Work::default(); alw_core::patrons::build(&mut w, x.lot, x.y, alw_core::patrons::Kind::Entrepot, 0, alw_core::patrons::Look { roof: "roof_tiles", infill: "plaster" }, 0.4); w.blocks.iter().map(|b| [b.0, b.1, b.2]).collect() };
+    assert!(e.store.len() >= 8 && e.store.iter().all(|c| cells.contains(c)), "les coffres de l'entrepôt, eux seuls : {:?}", e.store);
+    for c in &e.store { assert!(s.world.get(c[0], c[1], c[2]).is_some_and(is_chest)); }
+    // on ouvre un coffre de l'entrepôt : le stock y est, à l'unité près
+    s.open_chest(e.store[0]); let n: u32 = e.store.iter().filter_map(|c| s.chests.get(c)).flat_map(|ch| ch.iter().flatten()).filter(|x| x.item == "planks").map(|x| x.n.unwrap_or(0)).sum(); assert_eq!(n as f64, s.econ.as_ref().unwrap().have("planks").floor());
+    s.inv_open = false; s.chest = None; idle(&mut s, 2);
+    // un coffre de maison : son butin, sans rapport avec le stock ; on s'y sert, le village ne compte rien
+    let mut house = None; 'f: for h in v.houses.iter() { let a = h.area; for xx in a[0]..=a[2] { for zz in a[1]..=a[3] { for yy in v.c[1] - 3..=v.c[1] + 9 { if s.world.get(xx, yy, zz).is_some_and(is_chest) && !e.store.contains(&[xx, yy, zz]) { house = Some([xx, yy, zz]); break 'f; } } } } }
+    let hc = house.expect("un coffre dans une maison"); let before = s.econ.as_ref().unwrap().stock.clone(); s.open_chest(hc); let ch = s.chests.get(&hc).unwrap().clone();
+    assert!(ch.iter().flatten().all(|x| !(x.item == "planks" && x.n == Some(before["planks"].floor() as u32))), "pas le stock du village"); s.chests.get_mut(&hc).unwrap().iter_mut().for_each(|x| *x = None); s.inv_open = false; s.chest = None; idle(&mut s, 2);
+    assert_eq!(s.econ.as_ref().unwrap().stock, before, "vider un coffre de maison ne touche pas au stock");
+    // une partie d'avant : pas d'entrepôt, une réserve provisoire ; l'entrepôt se pose, la réserve y déménage
+    { let e = s.econ.as_mut().unwrap(); e.extra.retain(|x| x.kind != alw_core::patrons::Kind::Entrepot); e.store = vec![hc]; } idle(&mut s, 5);
+    let e = s.econ.clone().unwrap(); assert!(e.extra.iter().any(|x| x.kind == alw_core::patrons::Kind::Entrepot) && !e.store.contains(&hc) && !e.store.is_empty(), "{:?}", e.store);
+    // le maire peut en proposer un second
+    assert!(e.options(&e.census(&v)).contains(&alw_core::patrons::Kind::Entrepot));
+    assert!(s.village_report().contains("entrepôt 1"), "{}", s.village_report());
 }
