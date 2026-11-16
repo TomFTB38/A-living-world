@@ -20,6 +20,15 @@ use std::collections::BTreeMap;
 
 /// Ce que le village compte, dans l'ordre où on le lit.
 pub const GOODS: [(&str, &str); 13] = [("wheat", "blé"), ("carrot", "carottes"), ("potato", "pommes de terre"), ("flour", "farine"), ("bread", "pain"), ("cooked_meat", "viande"), ("oak_log", "bois"), ("planks", "planches"), ("cobblestone", "pierre"), ("iron_ore", "minerai"), ("coal", "charbon"), ("iron_ingot", "fer"), ("leather", "cuir")];
+/// La monnaie du village : les pièces de sa caisse, gardées dans ses stocks.
+pub const COIN: &str = "worn_coin";
+/// Le marché : chaque marchandise se vend par lots (combien, pour combien de pièces d'ordinaire).
+pub const LOTS: [(&str, u32, u32); 13] = [("wheat", 8, 1), ("carrot", 8, 1), ("potato", 8, 1), ("flour", 4, 1), ("bread", 3, 1), ("cooked_meat", 2, 1), ("oak_log", 8, 1), ("planks", 16, 1), ("cobblestone", 16, 1), ("iron_ore", 4, 1), ("coal", 8, 1), ("iron_ingot", 1, 1), ("leather", 2, 1)];
+const FOOD: [&str; 6] = ["wheat", "carrot", "potato", "flour", "bread", "cooked_meat"];
+/// Ce que le village compte vraiment : ses marchandises et sa caisse (le reste, il le prend et s'en sert).
+pub fn tracked(id: &str) -> bool { id == COIN || GOODS.iter().any(|g| g.0 == id) }
+/// Un marché proposé par le village : ce que le joueur donne, ce qu'il reçoit ; le village vend son surplus, ou achète ce qui lui manque.
+#[derive(Clone, Copy, Debug, PartialEq)] pub struct Deal { pub give: (&'static str, u32), pub get: (&'static str, u32), pub sells: bool }
 /// Au-delà, on ne produit plus : les greniers sont pleins, le village vit sur son acquis.
 const FULL: f64 = 320.0;
 /// Ce que coûte une maison.
@@ -80,7 +89,7 @@ impl Econ {
     /// Un village à sa première heure : il a déjà quelques jours de réserves, selon sa richesse.
     pub fn found(v: &Village, t: f64) -> Econ {
         let pop = people(v) as f64; let wealth = v.ident.map_or(0.5, |i| i.wealth); let mut stock = BTreeMap::new();
-        for (k, n) in [("wheat", pop * 3.0), ("flour", pop), ("bread", pop * 2.5), ("cooked_meat", pop * 0.5), ("oak_log", 16.0 + 20.0 * wealth), ("planks", 10.0 + 24.0 * wealth), ("cobblestone", 8.0 + 20.0 * wealth), ("iron_ore", 4.0), ("coal", 6.0), ("iron_ingot", 2.0 + 4.0 * wealth), ("leather", 2.0)] { stock.insert(k, n.floor()); }
+        for (k, n) in [("wheat", pop * 3.0), ("flour", pop), ("bread", pop * 2.5), ("cooked_meat", pop * 0.5), ("oak_log", 16.0 + 20.0 * wealth), ("planks", 10.0 + 24.0 * wealth), ("cobblestone", 8.0 + 20.0 * wealth), ("iron_ore", 4.0), ("coal", 6.0), ("iron_ingot", 2.0 + 4.0 * wealth), ("leather", 2.0), (COIN, 12.0 + 30.0 * wealth)] { stock.insert(k, n.floor()); }
         Econ { id: v.id, stock, t, fed: 1.0, lean: 0, extra: Vec::new(), due: Vec::new(), project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0 }
     }
     /// Oublie ce qu'on sait des alentours : on regardera de nouveau à la prochaine heure de travail.
@@ -134,6 +143,36 @@ impl Econ {
             if self.fed < 0.6 { self.lean += 1; if was >= 0.6 { self.note(day, "le grenier est vide : on se couche le ventre creux".into()); } } else { if self.lean > 0 { self.note(day, "on mange de nouveau à sa faim".into()); } self.lean = 0; }
         }
     }
+    /// Le bâtiment vers lequel le village tend : celui choisi, ou celui qu'il choisirait.
+    fn goal(&self, c: &Census) -> Option<Kind> { self.due.is_empty().then(|| self.project.map(|p| p.0).or_else(|| self.auto_project(c))).flatten() }
+    /// Ce que le village garde pour lui : ses vivres tant qu'il n'a pas cinq jours d'avance (puis un jour et demi de chaque),
+    /// et de quoi bâtir son prochain bâtiment.
+    pub fn keep(&self, k: &str, c: &Census) -> f64 {
+        if FOOD.contains(&k) { return if self.reserve(c.pop) < 5.0 { f64::INFINITY } else { c.pop as f64 * 1.5 }; }
+        self.goal(c).and_then(|g| project(g).cost.iter().find(|x| x.0 == k).map(|x| x.1)).unwrap_or(0.0).max(8.0)
+    }
+    /// Ce qu'il a de trop, qu'il veut bien vendre.
+    pub fn surplus(&self, k: &str, c: &Census) -> f64 { if k == COIN { self.have(k) } else { (self.have(k) - self.keep(k, c)).max(0.0) } }
+    /// Ce qu'il cherche à acheter : ce qui manque à son chantier, des vivres quand le grenier baisse.
+    pub fn wants(&self, c: &Census) -> Vec<&'static str> {
+        let mut w: Vec<&'static str> = self.goal(c).map(|g| self.missing(g).into_iter().map(|m| m.0).collect()).unwrap_or_default();
+        if self.reserve(c.pop) < 3.0 { for k in ["wheat", "bread", "cooked_meat"] { if !w.contains(&k) { w.push(k); } } } w
+    }
+    /// Le marché du jour, tiré des stocks : ce qui manque s'achète une pièce plus cher que d'ordinaire ; le surplus se vend,
+    /// le plus abondant d'abord, en double lot quand il déborde, une pièce plus cher quand il en reste peu.
+    pub fn market(&self, c: &Census) -> Vec<Deal> {
+        let lot = |id: &str| LOTS.iter().find(|l| l.0 == id).copied(); let wants = self.wants(c);
+        let mut o: Vec<Deal> = wants.iter().filter_map(|id| lot(id)).map(|(id, n, p)| Deal { give: (id, n), get: (COIN, p + 1), sells: false }).collect();
+        let mut sale: Vec<((&'static str, u32, u32), f64)> = LOTS.iter().filter(|l| !wants.contains(&l.0)).map(|l| (*l, self.surplus(l.0, c) / l.1 as f64)).filter(|x| x.1 >= 1.0).collect();
+        sale.sort_by(|a, b| b.1.total_cmp(&a.1));
+        for ((id, n, p), lots) in sale.into_iter().take(6) { o.push(Deal { give: (COIN, if lots < 2.0 { p + 1 } else { p }), get: (id, if lots >= 6.0 { n * 2 } else { n }), sells: true }); }
+        o
+    }
+    /// Le village peut-il donner cela ? Ce qu'il ne compte pas (des graines, une corde), oui ; sa caisse, s'il a les pièces ;
+    /// ses marchandises, seulement sur ce qu'il a de trop.
+    pub fn can_give(&self, get: (&str, u32), c: &Census) -> bool { !tracked(get.0) || self.surplus(get.0, c) >= get.1 as f64 }
+    /// Marché conclu : ce qu'il donne sort de ses stocks, ce qu'il reçoit y entre.
+    pub fn exchange(&mut self, give: (&'static str, u32), get: (&'static str, u32)) { if tracked(get.0) { self.take(get.0, get.1 as f64); } if tracked(give.0) { self.add(give.0, give.1 as f64); } }
     /// La réserve a-t-elle de quoi bâtir ce bâtiment ?
     pub fn affords(&self, k: Kind) -> bool { project(k).cost.iter().all(|(id, n)| self.have(id) >= *n) }
     /// On paie le chantier : il sera posé dès que le joueur sera là.
@@ -154,7 +193,7 @@ impl Econ {
     /// Une ligne par sujet, pour la commande `/village` et le journal.
     pub fn report(&self, v: &Village, day: u32) -> Vec<String> {
         let c = self.census(v); let mut o = vec![format!("{} — {} habitants, {} maison{} bâtie{} depuis votre arrivée", v.name, c.pop, self.extra.len(), if self.extra.len() > 1 { "s" } else { "" }, if self.extra.len() > 1 { "s" } else { "" })];
-        o.push(format!("Stocks : {}", GOODS.iter().filter(|g| self.have(g.0) >= 1.0).map(|g| format!("{} {}", g.1, self.have(g.0).floor())).collect::<Vec<_>>().join(", ")));
+        o.push(format!("Stocks : {}", GOODS.iter().filter(|g| self.have(g.0) >= 1.0).map(|g| format!("{} {}", g.1, self.have(g.0).floor())).collect::<Vec<_>>().join(", ")) + &format!(" ; caisse : {} pièces", self.have(COIN).floor()));
         o.push(format!("Vivres pour {:.1} jours ; hier soir {} % de la population a mangé{}", self.reserve(c.pop), (self.fed * 100.0).round(), if self.lean > 0 { format!(" (disette depuis {} jour{})", self.lean, if self.lean > 1 { "s" } else { "" }) } else { String::new() }));
         o.push(format!("Au travail : {} champ{}, {} au bois, {} à la carrière, moulin {}, four {}, forge {}", c.fields, if c.fields > 1 { "s" } else { "" }, c.cutters, c.miners, c.mills, c.inns, c.forges));
         o.push(if let Some(k) = self.due.first() { format!("Chantier : {} est payé{}, il sera bâti dès que le village vous verra revenir", article(project(*k).name), if project(*k).name.ends_with('e') && *k != Kind::Moulin { "e" } else { "" }) } else if let Some((k, mine)) = self.project { format!("Projet{} : {} — {}", if mine { " (choisi par vous)" } else { "" }, project(k).name, project(k).cost.iter().map(|(id, n)| format!("{} {}/{}", GOODS.iter().find(|g| g.0 == *id).map_or(*id, |g| g.1), self.have(id).floor().min(*n), n)).collect::<Vec<_>>().join(", ")) } else if c.room == 0 { if ambition(v) == 0 { "Le village ne cherche pas à s'agrandir : il est bien tel qu'il est".into() } else { "Le village a bâti tout ce qu'il souhaitait".into() } } else { format!("Prochaine maison : {}", HOUSE_COST.iter().map(|(k, n)| format!("{} {}/{}", GOODS.iter().find(|g| g.0 == *k).map_or(*k, |g| g.1), self.have(k).floor().min(*n), n)).collect::<Vec<_>>().join(", ")) + if self.reserve(c.pop) < 4.0 { " — et quatre jours de vivres d'avance" } else { "" } });
@@ -233,7 +272,8 @@ impl Session {
     fn econ_count(&mut self, e: &mut Econ, v: &Village) {
         let mut sum: BTreeMap<&'static str, f64> = BTreeMap::new(); for c in &e.store { if let Some(ch) = self.chests.get(c) { for s in ch.iter().flatten() { if let Some(n) = s.n { *sum.entry(s.item).or_insert(0.0) += n as f64; } } } }
         let total: f64 = sum.values().sum(); for (id, _) in GOODS { let frac = e.have(id).fract(); e.stock.insert(id, sum.get(id).copied().unwrap_or(0.0) + frac); }
-        for (k, n) in &sum { if !GOODS.iter().any(|g| g.0 == *k) { e.stock.insert(k, *n); } }
+        // le reste (des pièces, des graines) a été déposé depuis l'ouverture : le village le prend, sa caisse grossit
+        for (k, n) in &sum { if !GOODS.iter().any(|g| g.0 == *k) { *e.stock.entry(k).or_insert(0.0) += *n; } }
         // on se sert dans la réserve commune : le village le remarque ; on y dépose : il s'en souvient aussi
         let delta = total - e.held; if delta <= -6.0 { *self.town.rep.entry(v.id).or_insert(0) -= 1; self.notes.push(format!("{} a vu sa réserve baisser : on vous regarde de travers", v.name)); } else if delta >= 12.0 { *self.town.rep.entry(v.id).or_insert(0) += 1; self.notes.push(format!("{} vous remercie pour ce que vous laissez à la réserve", v.name)); }
         self.dirty = true;
@@ -273,6 +313,7 @@ impl Session {
         match key {
             "econ" => { let (Some(id), Some(t)) = (n(0).zip(n(1)), f(2)) else { return }; let mut stock = BTreeMap::new();
                 for kv in a.iter().skip(6) { if let Some((k, v)) = kv.split_once(':') { if let (Some(it), Ok(v)) = (crate::session::item(k), v.parse::<f64>()) { stock.insert(it.id, v); } } }
+                stock.entry(COIN).or_insert(20.0); // une partie d'avant le commerce : une caisse modeste
                 self.econ = Some(Econ { id, stock, t, fed: f(3).unwrap_or(1.0), lean: n(4).unwrap_or(0) as u32, extra: Vec::new(), due: vec![Kind::Maison; n(5).unwrap_or(0).max(0) as usize], project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0 }); }
             "econ_house" => { if let (Some(e), Some(v)) = (self.econ.as_mut(), (0..7).map(n).collect::<Option<Vec<i32>>>()) { e.extra.push(Extra { lot: Lot { o: (v[0], v[1]), u: (v[2], v[3]), w: (v[4], v[5]) }, y: v[6], kind: n(7).and_then(|i| PROJECTS.get(i as usize)).map_or(Kind::Maison, |p| p.kind) }); } }
             "econ_due" => { if let (Some(e), Some(i)) = (self.econ.as_mut(), n(0)) { e.due.push(PROJECTS.get(i as usize).map_or(Kind::Maison, |p| p.kind)); } }

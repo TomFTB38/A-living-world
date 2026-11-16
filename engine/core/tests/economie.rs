@@ -129,3 +129,40 @@ fn un_village_stable_ne_s_agrandit_pas() {
     let s = start(); let v = pilot(&s); assert!(ambition(&v) > 0, "le pilote veut grandir"); let mut e = s.econ.clone().unwrap();
     for h in 0..24 * 30 { let c = e.census(&v); e.step(&c, h % 24, h / 24); } assert!(!e.due.is_empty(), "en un mois, sans personne, il a lancé un chantier : {:?}", e.log);
 }
+
+/// Le commerce passe par les réserves du village pilote : il vend ce qu'il a de trop (le plus abondant d'abord), achète ce qui
+/// manque à son chantier, paie avec sa caisse ; en disette il garde ses vivres ; ailleurs, les échanges de son pays.
+#[test]
+fn le_marche_du_village_passe_par_ses_reserves() {
+    let mut s = start(); let v = pilot(&s); go(&mut s, &v); s.set_creative(false); s.hour = 10.0; idle(&mut s, 5);
+    { let e = s.econ.as_mut().unwrap(); e.project = Some((alw_core::patrons::Kind::Maison, true)); for (k, n) in [("planks", 0.0), ("cobblestone", 50.0), ("oak_log", 30.0), ("bread", 400.0), ("wheat", 100.0), (COIN, 10.0)] { e.stock.insert(k, n); } }
+    let k = s.town.folk.iter().position(|f| f.v == v.id && f.job != 9 && f.craft.is_none()).expect("un villageois sans atelier");
+    for (id, n) in [("planks", 40u32), ("worn_coin", 3)] { s.add_item(id, n); }
+    s.talk_to(k); let i = s.dialog().unwrap().options.iter().position(|o| o.0.starts_with("Échanger")).expect("échanger"); s.choose(i);
+    let d = s.dialog().unwrap(); println!("{}\n{}", d.said, d.options.iter().zip(&d.pics).map(|(o, p)| format!("  {} ({}) réserve {:?} tag {}", o.0, o.1, p.stock, p.tag)).collect::<Vec<_>>().join("\n"));
+    assert!(d.said.contains("réserves"));
+    // il cherche des planches pour sa maison : il les paie de sa caisse, une pièce de plus que d'ordinaire
+    let buy = d.options.iter().position(|o| o.0.starts_with("Donner 16 planches contre 2 pièces usées")).expect("il achète des planches"); assert_eq!(d.pics[buy].tag, 2); assert!(d.options[buy].1);
+    s.choose(buy); let e = s.econ.clone().unwrap(); assert_eq!((e.have("planks"), e.have(COIN)), (16.0, 8.0), "les planches entrent, les pièces sortent"); assert_eq!(s.count("worn_coin"), 5); assert_eq!(s.count("planks"), 24);
+    // le pain déborde : il le vend, en double lot ; il sort de ses réserves et la caisse grossit
+    let d = s.dialog().unwrap(); let sell = d.options.iter().position(|o| o.0.contains("contre 6 pain")).expect("il vend son pain en surplus"); assert_eq!(d.pics[sell].tag, 1); assert_eq!(d.pics[sell].stock, Some(400));
+    let price = d.options[sell].0.split_whitespace().nth(1).unwrap().parse::<f64>().unwrap(); s.choose(sell); let e = s.econ.clone().unwrap(); assert_eq!(e.have("bread"), 394.0); assert_eq!(e.have(COIN), 8.0 + price); assert!(s.count("bread") >= 6);
+    // ce qu'il garde pour bâtir ne se vend pas : la pierre (36 pour la maison) n'est au marché que pour le reste
+    let c = e.census(&v); assert_eq!(e.keep("cobblestone", &c), 36.0); assert!(e.market(&c).iter().all(|m| m.get.0 != "cobblestone" || (m.get.1 as f64) <= e.surplus("cobblestone", &c)));
+    // caisse vide : il ne peut plus acheter
+    s.econ.as_mut().unwrap().stock.insert(COIN, 0.0); let d = s.dialog().unwrap(); let buy = d.options.iter().position(|o| o.0.starts_with("Donner 16 planches")).unwrap(); assert!(!d.options[buy].1, "sans pièces, pas d'achat");
+    s.choose(buy); assert_eq!(s.econ.as_ref().unwrap().have("planks"), 16.0, "rien ne se passe");
+    // disette : il ne vend plus un grain, et cherche des vivres
+    { let e = s.econ.as_mut().unwrap(); for k in ["bread", "wheat", "flour", "cooked_meat", "carrot", "potato"] { e.stock.insert(k, 0.0); } e.stock.insert(COIN, 10.0); }
+    let e = s.econ.clone().unwrap(); let c = e.census(&v); let m = e.market(&c); println!("{m:?}");
+    assert!(m.iter().all(|d| !(d.sells && ["bread", "wheat", "flour", "cooked_meat"].contains(&d.get.0))), "il garde ses vivres"); assert!(m.iter().any(|d| !d.sells && d.give.0 == "bread"), "il en cherche");
+    // des pièces déposées dans la réserve : sa caisse grossit d'autant
+    s.close_talk(); s.set_creative(false); let c0 = e.store[0]; s.open_chest(c0); let ch = s.chests.get_mut(&c0).unwrap(); let free = ch.iter().position(|x| x.is_none()).unwrap(); ch[free] = Some(Stack::new("worn_coin", Some(7))); s.inv_open = false; s.chest = None; idle(&mut s, 3);
+    assert_eq!(s.econ.as_ref().unwrap().have(COIN), 17.0, "la caisse : {:?}", s.econ.as_ref().unwrap().have(COIN));
+    // la caisse est sauvegardée, et dite au rapport
+    let save = s.save_text(); let mut o = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); o.load_text(&save).unwrap(); assert_eq!(o.econ.as_ref().unwrap().have(COIN), 17.0);
+    assert!(s.village_report().contains("caisse : 17 pièces"), "{}", s.village_report());
+    // un autre village : les échanges de son pays, sans réserves
+    let g = WorldGen::new(SEED); let other = g.villages_near(-38.0, 0.0, 1400.0).into_iter().find(|w| w.id != v.id).unwrap(); let off = s.offers(&other);
+    assert_eq!(off.len(), alw_core::village::trades(other.kind).len()); assert!(off.iter().all(|o| o.can && o.stock.is_none() && o.tag == 0));
+}

@@ -597,8 +597,14 @@ impl Ui {
                     let z = 46.0 * k; let y = row[1] + 8.0 * k; let mut x = row[0] + 10.0 * k;
                     for (id, n, have) in &p.give { self.rect(x, y, z, z, [0.0, 0.0, 0.0, 0.35]); self.icon(id, x + z * 0.5, y + z * 0.5, z * 0.42); self.text(&format!("×{n}"), x + z - 8.0 * k, y + z - 16.0 * k, 15.0 * k, INK); self.text(&format!("vous : {have}"), x, y + z + 4.0 * k, 12.0 * k, if have >= n { DIM } else { BAD }); x += z + 12.0 * k; }
                     let ax = x + 4.0 * k; let ay = y + z * 0.5; self.rect(ax, ay - 3.0 * k, 22.0 * k, 6.0 * k, GOLD); self.quad([[ax + 22.0 * k, ay - 11.0 * k], [ax + 36.0 * k, ay], [ax + 22.0 * k, ay + 11.0 * k], [ax + 22.0 * k, ay + 11.0 * k]], [[0.0; 2]; 4], GOLD, LAYER_FLAT); x = ax + 46.0 * k;
-                    for (id, n) in &p.get { self.rect(x, y, z, z, [0.95, 0.85, 0.55, 0.16]); self.icon(id, x + z * 0.5, y + z * 0.5, z * 0.42); self.text(&format!("×{n}"), x + z - 8.0 * k, y + z - 16.0 * k, 15.0 * k, INK); x += z + 10.0 * k; }
-                    let name = p.get.first().and_then(|g| item(g.0)).map_or(String::new(), |i| i.label.to_string()); let mut l = name; let tz = 15.0 * k; l = fit(&l, tz, row[0] + row[2] - x - 14.0 * k); self.text(&l, x + 2.0 * k, y + (z - tz * 1.35) * 0.5, tz, tc);
+                    for (id, n) in &p.get { self.rect(x, y, z, z, [0.95, 0.85, 0.55, 0.16]); self.icon(id, x + z * 0.5, y + z * 0.5, z * 0.42); self.text(&format!("×{n}"), x + z - 8.0 * k, y + z - 16.0 * k, 15.0 * k, INK);
+                        // au village pilote : ce qu'il lui en reste, en réserve (sa caisse quand il paie en pièces)
+                        if let Some(st) = p.stock { self.text(&format!("{} : {st}", if *id == "worn_coin" { "caisse" } else { "réserve" }), x, y + z + 4.0 * k, 12.0 * k, if *ok { DIM } else { BAD }); } x += z + 10.0 * k; }
+                    let name = p.get.first().and_then(|g| item(g.0)).map_or(String::new(), |i| i.label.to_string()); let mut l = name; let tz = 15.0 * k; l = fit(&l, tz, row[0] + row[2] - x - 14.0 * k);
+                    let ty = if p.tag > 0 { y + 2.0 * k } else { y + (z - tz * 1.35) * 0.5 }; self.text(&l, x + 2.0 * k, ty, tz, tc);
+                    // l'étiquette du marché : le village se débarrasse de son surplus, ou cherche ce qui lui manque
+                    if p.tag > 0 { let (lab, c) = if p.tag == 1 { ("surplus", ACCENT) } else { ("recherché", GOLD) }; let lz = 12.0 * k; let lw = Ui::text_width(lab, lz) + 10.0 * k;
+                        self.rect(x + 2.0 * k, ty + tz * 1.4 + 2.0 * k, lw, lz * 1.5, [c[0], c[1], c[2], 0.22]); self.text(lab, x + 7.0 * k, ty + tz * 1.4 + 2.0 * k + lz * 0.12, lz, c); }
                 }
                 DKind::Order | DKind::Projects => {
                     // l'ouvrage en grand à gauche ; son nom ; ses matières en petites cases, rouges quand il en manque (projets : avec leur jauge)
