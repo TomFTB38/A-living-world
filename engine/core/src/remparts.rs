@@ -7,7 +7,7 @@
 //! Une tour se pose à cheval sur la muraille : cinq sur cinq, dix de haut, un étage au niveau du chemin de ronde (on la
 //! traverse), une échelle, des archères, un toit-terrasse crénelé et son drapeau, la porte vers le village.
 use crate::batisse::Lot;
-use crate::blocks::{by_name, is_leaf, is_log, is_solid, Id, Shape, BLOCKS};
+use crate::blocks::{by_name, is_leaf, is_log, is_solid, is_water, Id, Shape, BLOCKS};
 use crate::economie::{Econ, Extra};
 use crate::patrons::Kind;
 use crate::player::Voxels;
@@ -28,7 +28,7 @@ pub fn ring(e: &Econ) -> Option<([i32; 2], f64)> { e.extra.iter().find(|x| x.kin
 pub fn plan_ring(v: &Village, areas: &[[i32; 4]]) -> ([i32; 2], f64) {
     let c = [v.c[0], v.c[2]]; let mut r = v.r as f64 * 0.7;
     for a in v.works.iter().map(|w| w.1).chain(v.houses.iter().map(|h| h.area)).chain(areas.iter().copied()) { for (x, z) in [(a[0], a[1]), (a[2], a[1]), (a[0], a[3]), (a[2], a[3])] { r = r.max(((x - c[0]) as f64).hypot((z - c[1]) as f64)); } }
-    (c, (r + 20.0).clamp(30.0, 80.0))
+    (c, ((r + 20.0).clamp(30.0, 80.0) * 10.0).round() / 10.0)
 }
 /// Les colonnes de la muraille : deux d'épaisseur ; vrai pour la rangée du dehors.
 pub fn cells(c: [i32; 2], r: f64) -> Vec<(i32, i32, bool)> {
@@ -41,7 +41,9 @@ impl Session {
     fn rampart_ground(&self, x: i32, z: i32) -> Option<i32> {
         let g = self.gen.column(x as f64, z as f64).h.floor() as i32; self.world.get(x, g, z)?;
         let ground = |b: Id| is_solid(b) && !is_leaf(b) && !is_log(b) && BLOCKS[b as usize].shape != Shape::Deco;
-        Some((g - 6..=g + 8).rev().find(|&y| self.world.get(x, y, z).is_some_and(ground)).unwrap_or(g))
+        let mut y = (g - 6..=g + 8).rev().find(|&y| self.world.get(x, y, z).is_some_and(ground)).unwrap_or(g);
+        // une rivière : la muraille la franchit, posée sur un remblai jusqu'à la surface de l'eau
+        while self.world.get(x, y + 1, z).is_some_and(is_water) { y += 1; } Some(y)
     }
     /// Les blocs de la muraille, et son tracé à garder ; `None` tant que tout son tour n'est pas chargé.
     pub(crate) fn rampart_wall(&self, v: &Village, e: &Econ) -> Option<(Vec<(i32, i32, i32, Id)>, Extra)> {
@@ -58,6 +60,7 @@ impl Session {
             // une maison (ou un mur) sur le tracé : on la laisse, la muraille s'y appuie
             if (g + 1..=g + 5).any(|y| self.world.get(x, y, z).is_some_and(|b| b != 0 && !natural(b))) { continue; }
             for y in g - 1..=g { o.push((x, y, z, cob)); }
+            let mut y = g - 2; while self.world.get(x, y, z).is_some_and(is_water) { o.push((x, y, z, cob)); y -= 1; }
             if gate(x, z) { for y in g + 1..=g + 3 { o.push((x, y, z, 0)); } o.push((x, g + 4, z, if out { brick } else { lin })); }
             else { o.push((x, g + 1, z, cob)); for y in g + 2..=g + 4 { o.push((x, y, z, brick)); } }
             // les merlons du dehors, un sur deux ; le ciel dégagé au-dessus (branches, feuillage)
@@ -66,7 +69,7 @@ impl Session {
         }
         // deux lanternes à chaque porte, côté village
         let lamp = id("lantern"); for &(a, b) in roads.iter().step_by(3) { let (dx, dz) = ((c[0] - a) as f64, (c[1] - b) as f64); let l = dx.hypot(dz).max(1.0); let (ix, iz) = ((a as f64 + dx / l * 2.0).round() as i32, (b as f64 + dz / l * 2.0).round() as i32); if let Some(g) = ground.get(&(a, b)) { if self.world.get(ix, g + 4, iz).is_some_and(|x| x == 0) { o.push((ix, g + 4, iz, lamp)); } } }
-        Some((o, Extra { lot: Lot { o: (c[0], c[1]), u: ((r * 10.0) as i32, 0), w: (0, 1) }, y: 0, kind: Kind::Muraille }))
+        Some((o, Extra { lot: Lot { o: (c[0], c[1]), u: ((r * 10.0).round() as i32, 0), w: (0, 1) }, y: 0, kind: Kind::Muraille }))
     }
     /// Une tour sur la muraille : la `n`-ième, à intervalles réguliers, écartée des portes.
     pub(crate) fn rampart_tower(&self, e: &Econ, n: usize) -> Option<(Vec<(i32, i32, i32, Id)>, Extra)> {

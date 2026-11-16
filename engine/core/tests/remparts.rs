@@ -22,13 +22,20 @@ fn la_muraille_et_ses_tours() {
     // elle fait le tour : de la pierre à hauteur d'homme presque partout, des portes là où passent les chemins
     let cells = remparts::cells(c0, r); let (mut stone, mut gate, mut open) = (0, 0, 0);
     for &(x, z, _) in &cells { let g = (40..110).rev().find(|&y| s.world.get(x, y, z).is_some_and(|b| matches!(BLOCKS[b as usize].name, "cobblestone"))).unwrap_or(0);
-        match (name(&s, x, g + 2, z), name(&s, x, g + 1, z)) { ("stone_bricks", _) => stone += 1, ("air", "air") => gate += 1, _ => open += 1 } }
+        match (name(&s, x, g + 2, z), name(&s, x, g + 1, z)) { ("stone_bricks", _) => stone += 1, ("air", "air") => gate += 1, _ => { open += 1; println!("autre {x},{z} g{g} {} {} {}", name(&s, x, g, z), name(&s, x, g + 1, z), name(&s, x, g + 2, z)); } } }
     println!("{} colonnes : {stone} de pierre, {gate} en porte, {open} autres", cells.len());
-    assert!(stone as f64 > cells.len() as f64 * 0.75, "la muraille tient le tour"); assert!(gate >= 3, "au moins une porte");
+    assert_eq!(open, 0, "la muraille fait tout le tour, sans trou, rivière comprise"); assert!(gate >= 3, "au moins une porte");
     // tout le village est dedans
     for h in &v.houses { let m = [(h.area[0] + h.area[2]) / 2, (h.area[1] + h.area[3]) / 2]; assert!(((m[0] - c0[0]) as f64).hypot((m[1] - c0[1]) as f64) < r - 3.0, "{:?} dedans", h.area); }
     // les tours, maintenant proposées ; la première se pose sur la muraille
     let c = e.census(&v); assert!(e.options(&c).contains(&Kind::TourDefense));
+    // chez le maire : neuf réponses au plus par page ; la tour se trouve, au besoin sur la page suivante
+    let k = s.town.folk.iter().position(|f| f.v == v.id && f.job == 9).expect("un maire"); s.talk_to(k);
+    let i = s.dialog().unwrap().options.iter().position(|o| o.0.starts_with("Les projets")).unwrap(); s.choose(i);
+    let mut seen = Vec::new(); for _ in 0..4 { let d = s.dialog().unwrap(); assert!(d.options.len() <= 9, "{} réponses", d.options.len()); seen.extend(d.options.iter().map(|o| o.0.clone()));
+        match d.options.iter().position(|o| o.0.starts_with("Autres projets")) { Some(n) => s.choose(n), None => break } }
+    println!("{} projets : {}", e.options(&c).len(), seen.iter().map(|x| x.split(" · ").next().unwrap()).collect::<Vec<_>>().join(", "));
+    assert!(seen.iter().any(|o| o.contains("Tour de défense")), "la tour se trouve"); s.close_talk();
     { let e = s.econ.as_mut().unwrap(); e.project = Some((Kind::TourDefense, true)); }
     idle(&mut s, 10); let e = s.econ.clone().unwrap(); let t = e.extra.iter().find(|x| x.kind == Kind::TourDefense).copied().expect("une tour");
     let (tx, tz, g) = (t.lot.o.0, t.lot.o.1, t.y); let d = ((tx - c0[0]) as f64).hypot((tz - c0[1]) as f64); assert!((d - r).abs() < 1.5, "sur la muraille : {d} / {r}");

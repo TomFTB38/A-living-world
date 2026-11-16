@@ -361,7 +361,7 @@ pub struct Folk { pub v: (i32, i32), pub house: usize, pub craft: Option<&'stati
     pub carry: Vec<(&'static str, u32)>,
     /// La tâche du moment : où se tenir, le bloc travaillé, son numéro (change à chaque tâche), le temps passé dessus.
     pub task: Option<[f64; 3]>, pub aim: [f64; 3], pub task_k: u32, pub work_t: f64 }
-#[derive(Clone, Copy, Debug, PartialEq)] pub enum Page { Main, Order(usize), /** les marchandises, par pages */ Trade(usize), /** chez le maire : les bâtiments que le village peut entreprendre */ Projects }
+#[derive(Clone, Copy, Debug, PartialEq)] pub enum Page { Main, Order(usize), /** les marchandises, par pages */ Trade(usize), /** chez le maire : les bâtiments que le village peut entreprendre, par pages */ Projects(usize) }
 #[derive(Clone, Debug)] pub struct Talk { pub who: usize, pub page: Page, pub said: String }
 /// Les villages autour du joueur, leurs habitants, et ce que le joueur en sait.
 #[derive(Default)]
@@ -386,6 +386,8 @@ pub struct Town {
 #[derive(Clone, Copy, Debug)] pub struct Offer { pub give: (&'static str, u32), pub get: (&'static str, u32), pub can: bool, pub stock: Option<u32>, pub tag: u8 }
 /// Échanges par page.
 pub const TRADE_PAGE: usize = 6;
+/// Combien de projets par page chez le maire (la fenêtre tient neuf réponses).
+pub const PROJ_PAGE: usize = 6;
 /// L'icône d'un ingrédient : l'objet lui-même, ou le premier d'un groupe (« des planches » : celles de chêne).
 pub fn icon_of(id: &'static str) -> &'static str { if item(id).is_some() { id } else { db().groups.iter().find(|g| g.0 == id).and_then(|g| g.2.first().copied()).unwrap_or(id) } }
 
@@ -860,14 +862,15 @@ impl Session {
         let sub = format!("{} · village de {}", v.name, kind_label(v.kind)); let mut o: Vec<(String, bool)> = Vec::new();
         if self.armed() { o.push(("Ranger mon arme".into(), true)); o.push(("Au revoir".into(), true)); let pics = vec![Pic { icon: Some("sword"), ..Default::default() }, Pic::default()]; return Some(Dialog { title, sub, said: "Rangez d'abord votre arme, je vous prie.".into(), options: o, kind: DKind::Main, pics, station: cm.and_then(|c| c.works.first().map(|w| w.0)), mayor: f.job == 9, rep: self.rep(v.id), village: v.name.clone() }); }
         let econ = self.econ.as_ref().filter(|e| e.id == v.id && f.job == 9); let mut pics: Vec<Pic> = Vec::new(); let have = |id: &str| if self.creative { 999 } else { self.count(id) };
-        let kind = match t.page { Page::Main => DKind::Main, Page::Trade(_) => DKind::Trade, Page::Order(_) => DKind::Order, Page::Projects => DKind::Projects };
+        let kind = match t.page { Page::Main => DKind::Main, Page::Trade(_) => DKind::Trade, Page::Order(_) => DKind::Order, Page::Projects(_) => DKind::Projects };
         match (t.page, cm) {
-            (Page::Projects, _) => {
-                // chaque bâtiment possible, ce qu'il coûte et ce que la réserve en a déjà ; le projet en cours en tête
-                if let Some(e) = econ { let c = e.census(v);
-                    for k in e.options(&c) { let p = crate::economie::project(k); let cur = e.project.is_some_and(|x| x.0 == k);
+            (Page::Projects(page), _) => {
+                // chaque bâtiment possible, ce qu'il coûte et ce que la réserve en a déjà ; six par page
+                if let Some(e) = econ { let c = e.census(v); let all = e.options(&c);
+                    for &k in all.iter().skip(page * PROJ_PAGE).take(PROJ_PAGE) { let p = crate::economie::project(k); let cur = e.project.is_some_and(|x| x.0 == k);
                         o.push((format!("{}{} · {} · {}", if cur { "► " } else { "" }, p.name, p.what, p.cost.iter().map(|(id, n)| format!("{} {}/{}", label(id), e.have(id).floor().min(*n), n)).collect::<Vec<_>>().join(", ")), !cur));
                         pics.push(Pic { icon: Some(match k { crate::patrons::Kind::Moulin => "flour", crate::patrons::Kind::Auberge => "bread", crate::patrons::Kind::Ferme => "wheat", crate::patrons::Kind::Etable | crate::patrons::Kind::Tanneur => "leather", crate::patrons::Kind::Atelier => "planks", crate::patrons::Kind::Forge => "anvil", crate::patrons::Kind::Entrepot => "chest", crate::patrons::Kind::Muraille => "stone_bricks", crate::patrons::Kind::TourDefense => "bow", _ => "door" }), give: p.cost.iter().map(|(id, n)| (*id, *n as u32, e.have(id).floor() as u32)).collect(), get: Vec::new(), ..Default::default() }); }
+                    if all.len() > (page + 1) * PROJ_PAGE { o.push(("Autres projets...".into(), true)); }
                     if e.project.is_some_and(|x| x.1) { o.push(("Laisser le village décider".into(), true)); } }
                 o.push(("Retour".into(), true));
             }
@@ -925,9 +928,11 @@ impl Session {
         }
         if label.starts_with("Au revoir") { self.town.talk = None; return; }
         match t.page {
-            Page::Projects => {
+            Page::Projects(page) => {
+                if label.starts_with("Autres projets") { if let Some(t) = self.town.talk.as_mut() { t.page = Page::Projects(page + 1); } return; }
                 let Some(v) = self.town.village(vid).cloned() else { return }; let Some(mut e) = self.econ.take() else { return }; let c = e.census(&v); let opts = e.options(&c);
-                let msg = if let Some(&k) = opts.get(i) { let p = crate::economie::project(k); e.project = Some((k, true)); let miss = e.missing(k);
+                let shown = opts.len().saturating_sub(page * PROJ_PAGE).min(PROJ_PAGE);
+                let msg = if let Some(&k) = (i < shown).then(|| opts.get(page * PROJ_PAGE + i)).flatten() { let p = crate::economie::project(k); e.project = Some((k, true)); let miss = e.missing(k);
                     if miss.is_empty() { format!("{} ? La réserve a déjà tout ce qu'il faut : on s'y met.", p.name) } else { format!("Entendu, va pour {}. Il manque à la réserve : {}. Remplissez le coffre de la réserve, on bâtira dès que tout y sera.", p.name.to_lowercase(), miss.iter().map(|(id, n)| format!("{} {}", n, item(id).map_or(id.to_string(), |i| i.label.to_lowercase()))).collect::<Vec<_>>().join(", ")) } }
                     else if label.starts_with("Laisser") { e.project = None; "Bien. Le village choisira lui-même, selon ses besoins.".into() }
                     else { self.econ = Some(e); if let Some(t) = self.town.talk.as_mut() { t.page = Page::Main; t.said = "Autre chose ?".into(); } return; };
@@ -959,7 +964,7 @@ impl Session {
                 else if let Some(t) = self.town.talk.as_mut() { t.page = Page::Main; }
             }
             Page::Main => {
-                if label.starts_with("Les projets") { let none = self.econ.as_ref().zip(self.town.village(vid)).is_some_and(|(e, v)| e.census(v).room == 0 && e.project.is_none()); let txt = if none { self.econ.as_ref().zip(self.town.village(vid)).map(|(_, v)| if crate::economie::ambition(v) == 0 { "Nous ne cherchons pas à nous agrandir : le village est bien tel qu'il est. Revenez nous voir pour autre chose !".to_string() } else { "Nous avons bâti tout ce que nous souhaitions. Le village est complet.".to_string() }).unwrap_or_default() } else { self.econ.as_ref().map(|e| match e.project { Some((k, mine)) => format!("Nous préparons {}{}. Vous pouvez choisir autre chose, et nous aider en remplissant la réserve.", crate::economie::project(k).name.to_lowercase(), if mine { ", comme vous l'avez demandé" } else { "" }), None => "Rien n'est encore décidé. Le village bâtira de lui-même ; vous pouvez choisir quoi, et l'aider en remplissant la réserve.".into() }).unwrap_or_default() }; if let Some(t) = self.town.talk.as_mut() { t.page = Page::Projects; t.said = txt; } }
+                if label.starts_with("Les projets") { let none = self.econ.as_ref().zip(self.town.village(vid)).is_some_and(|(e, v)| e.census(v).room == 0 && e.project.is_none()); let txt = if none { self.econ.as_ref().zip(self.town.village(vid)).map(|(_, v)| if crate::economie::ambition(v) == 0 { "Nous ne cherchons pas à nous agrandir : le village est bien tel qu'il est. Revenez nous voir pour autre chose !".to_string() } else { "Nous avons bâti tout ce que nous souhaitions. Le village est complet.".to_string() }).unwrap_or_default() } else { self.econ.as_ref().map(|e| match e.project { Some((k, mine)) => format!("Nous préparons {}{}. Vous pouvez choisir autre chose, et nous aider en remplissant la réserve.", crate::economie::project(k).name.to_lowercase(), if mine { ", comme vous l'avez demandé" } else { "" }), None => "Rien n'est encore décidé. Le village bâtira de lui-même ; vous pouvez choisir quoi, et l'aider en remplissant la réserve.".into() }).unwrap_or_default() }; if let Some(t) = self.town.talk.as_mut() { t.page = Page::Projects(0); t.said = txt; } }
                 else if label.starts_with("Échanger") { let pilot = self.econ.as_ref().is_some_and(|e| e.id == vid); if let Some(t) = self.town.talk.as_mut() { t.page = Page::Trade(0); t.said = if pilot { "Voilà ce que nous avons de trop, et ce qui nous manque. Ça dépend de nos réserves : revenez, ça change.".into() } else { "Voyons ce que vous avez. Voilà ce que je peux vous donner.".into() }; } }
                 else if label.starts_with("Passer commande") { if let Some(t) = self.town.talk.as_mut() { t.page = Page::Order(0); t.said = "Dites-moi ce qu'il vous faut. Fournissez la matière, je fournis le savoir-faire.".into(); } }
                 else if label.starts_with("Améliorer") {
