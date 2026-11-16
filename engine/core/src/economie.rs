@@ -48,8 +48,8 @@ pub const PROJECTS: [Project; 11] = [
     Project { kind: Kind::Forge, name: "Forge", cost: &[("planks", 30.0), ("cobblestone", 60.0), ("oak_log", 10.0), ("iron_ingot", 10.0)], what: "le minerai fondu en fer" },
     Project { kind: Kind::Tanneur, name: "Tannerie", cost: &[("planks", 40.0), ("cobblestone", 30.0), ("oak_log", 12.0)], what: "les peaux tannées en cuir" },
     Project { kind: Kind::Entrepot, name: "Entrepôt", cost: &[("planks", 48.0), ("cobblestone", 40.0), ("oak_log", 20.0)], what: "la réserve à l'abri, deux fois plus de place" },
-    Project { kind: Kind::Muraille, name: "Muraille", cost: &[("cobblestone", 240.0), ("planks", 30.0), ("oak_log", 20.0), ("iron_ingot", 4.0), (COIN, 30.0)], what: "le village fermé, des portes sur ses chemins" },
-    Project { kind: Kind::TourDefense, name: "Tour de défense", cost: &[("cobblestone", 90.0), ("planks", 24.0), ("oak_log", 12.0), (COIN, 12.0)], what: "un guet sur la muraille, crénelé" },
+    Project { kind: Kind::Muraille, name: "Muraille", cost: &[("cobblestone", 240.0), ("planks", 30.0), ("oak_log", 20.0), ("iron_ingot", 4.0), (COIN, 30.0)], what: "le village fermé, des portes fortifiées sur ses chemins" },
+    Project { kind: Kind::TourDefense, name: "Tour de guet", cost: &[("cobblestone", 90.0), ("planks", 24.0), ("oak_log", 12.0), (COIN, 12.0)], what: "une galerie de guet sur la muraille, sous les tuiles" },
 ];
 /// Combien de tours la muraille peut porter.
 pub const TOWERS: u32 = 4;
