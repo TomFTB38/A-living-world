@@ -194,6 +194,8 @@ pub fn dialog_at(s: &Session, w: f32, h: f32, m: [f32; 2]) -> Option<usize> { le
 pub fn death_button(w: f32, h: f32) -> [f32; 4] { let k = scale(h); let (bw, bh) = (300.0 * k, 48.0 * k); [(w - bw) * 0.5, h * 0.58, bw, bh] }
 pub fn death_at(w: f32, h: f32, m: [f32; 2]) -> bool { inside(m, death_button(w, h)) }
 /// Coupe un texte en lignes qui tiennent dans une largeur.
+/// Un texte tenu dans une largeur : coupé, avec des points de suspension s'il déborde.
+fn fit(t: &str, z: f32, width: f32) -> String { if Ui::text_width(t, z) <= width { return t.to_string(); } let mut c: Vec<char> = t.chars().collect(); while !c.is_empty() { c.pop(); let s: String = c.iter().collect::<String>() + "..."; if Ui::text_width(&s, z) <= width { return s; } } "...".into() }
 fn wrap(t: &str, z: f32, width: f32) -> Vec<String> { let mut out = Vec::new(); let mut line = String::new(); for w in t.split_whitespace() { let next = if line.is_empty() { w.to_string() } else { format!("{line} {w}") }; if Ui::text_width(&next, z) > width && !line.is_empty() { out.push(std::mem::replace(&mut line, w.to_string())); } else { line = next; } } if !line.is_empty() { out.push(line); } out }
 impl Ui {
     /// Un cadre aux coins adoucis. Les grands panneaux ont une ombre portée, un liseré et un filet de couleur en tête ;
@@ -574,7 +576,7 @@ impl Ui {
         let (cx, cy, rr) = (r[0] + 52.0 * k, r[1] + 58.0 * k, 34.0 * k); self.rect(cx - rr - 3.0 * k, cy - rr - 3.0 * k, 2.0 * rr + 6.0 * k, 2.0 * rr + 6.0 * k, [0.0, 0.0, 0.0, 0.45]); self.rect(cx - rr, cy - rr, 2.0 * rr, 2.0 * rr, [0.95, 0.88, 0.7, 0.16]);
         let emblem = if d.mayor { "bell" } else { match d.station { Some(st) => station_look(st).1, None => "bread" } }; self.icon(emblem, cx, cy, rr * 0.8);
         let tx = r[0] + 100.0 * k; self.text(&d.title, tx, r[1] + 22.0 * k, 24.0 * k, INK); self.text(&d.sub, tx, r[1] + 56.0 * k, 14.0 * k, DIM);
-        let rep = d.rep.clamp(-50, 100) as f32; let (gx, gy, gw) = (r[0] + r[2] - 200.0 * k, r[1] + 24.0 * k, 170.0 * k); self.text("Réputation", gx, gy - 2.0 * k, 13.0 * k, DIM);
+        let rep = d.rep.clamp(-50, 100) as f32; let (gx, gy, gw) = (r[0] + r[2] - 200.0 * k, r[1] + 24.0 * k, 170.0 * k); self.text(&format!("Réputation {}{}", if d.rep > 0 { "+" } else { "" }, d.rep), gx, gy - 2.0 * k, 13.0 * k, DIM);
         self.rect(gx, gy + 18.0 * k, gw, 8.0 * k, [0.0, 0.0, 0.0, 0.5]); let z0 = gw * 50.0 / 150.0; if rep >= 0.0 { self.rect(gx + z0, gy + 18.0 * k, gw * rep / 150.0, 8.0 * k, ACCENT); } else { self.rect(gx + z0 + gw * rep / 150.0, gy + 18.0 * k, -gw * rep / 150.0, 8.0 * k, BAD); } self.rect(gx + z0, gy + 15.0 * k, 2.0 * k, 14.0 * k, INK);
         // ce qu'il dit, dans une bulle de parchemin
         let (bx, by, bw) = (r[0] + 18.0 * k, r[1] + 100.0 * k, r[2] - 36.0 * k); self.rect(bx, by, bw, 56.0 * k, [0.93, 0.87, 0.72, 0.94]); self.quad([[bx + 22.0 * k, by], [bx + 38.0 * k, by], [bx + 26.0 * k, by - 12.0 * k], [bx + 26.0 * k, by - 12.0 * k]], [[0.0; 2]; 4], [0.93, 0.87, 0.72, 0.94], LAYER_FLAT);
@@ -589,14 +591,14 @@ impl Ui {
             let title = t.split(" · ").next().unwrap_or(t).trim_start_matches("► ").to_string(); let tc = [INK[0], INK[1], INK[2], dim];
             match d.kind {
                 DKind::Main => { let z = row[3] - 12.0 * k; if let Some(ic) = p.icon { self.rect(row[0] + 6.0 * k, row[1] + 6.0 * k, z, z, [1.0, 1.0, 1.0, 0.06]); self.icon(ic, row[0] + 6.0 * k + z * 0.5, row[1] + 6.0 * k + z * 0.5, z * 0.4); }
-                    let lx = row[0] + z + 16.0 * k; let mut l = title.clone(); let tz = 15.0 * k; while Ui::text_width(&l, tz) > row[0] + row[2] - lx - 18.0 * k && l.chars().count() > 8 { l.pop(); l.pop(); l.push_str("..."); } self.text(&l, lx, row[1] + (row[3] - tz * 1.35) * 0.5, tz, tc); }
+                    let lx = row[0] + z + 16.0 * k; let mut l = title.clone(); let tz = 15.0 * k; l = fit(&l, tz, row[0] + row[2] - lx - 18.0 * k); self.text(&l, lx, row[1] + (row[3] - tz * 1.35) * 0.5, tz, tc); }
                 DKind::Trade => {
                     // ce qu'on donne → ce qu'on reçoit, en grand ; ce qu'on a dans le sac, en dessous
                     let z = 46.0 * k; let y = row[1] + 8.0 * k; let mut x = row[0] + 10.0 * k;
                     for (id, n, have) in &p.give { self.rect(x, y, z, z, [0.0, 0.0, 0.0, 0.35]); self.icon(id, x + z * 0.5, y + z * 0.5, z * 0.42); self.text(&format!("×{n}"), x + z - 8.0 * k, y + z - 16.0 * k, 15.0 * k, INK); self.text(&format!("vous : {have}"), x, y + z + 4.0 * k, 12.0 * k, if have >= n { DIM } else { BAD }); x += z + 12.0 * k; }
                     let ax = x + 4.0 * k; let ay = y + z * 0.5; self.rect(ax, ay - 3.0 * k, 22.0 * k, 6.0 * k, GOLD); self.quad([[ax + 22.0 * k, ay - 11.0 * k], [ax + 36.0 * k, ay], [ax + 22.0 * k, ay + 11.0 * k], [ax + 22.0 * k, ay + 11.0 * k]], [[0.0; 2]; 4], GOLD, LAYER_FLAT); x = ax + 46.0 * k;
                     for (id, n) in &p.get { self.rect(x, y, z, z, [0.95, 0.85, 0.55, 0.16]); self.icon(id, x + z * 0.5, y + z * 0.5, z * 0.42); self.text(&format!("×{n}"), x + z - 8.0 * k, y + z - 16.0 * k, 15.0 * k, INK); x += z + 10.0 * k; }
-                    let name = p.get.first().and_then(|g| item(g.0)).map_or(String::new(), |i| i.label.to_string()); let mut l = name; let tz = 15.0 * k; while Ui::text_width(&l, tz) > row[0] + row[2] - x - 14.0 * k && l.chars().count() > 6 { l.pop(); l.pop(); l.push_str("..."); } self.text(&l, x + 2.0 * k, y + (z - tz * 1.35) * 0.5, tz, tc);
+                    let name = p.get.first().and_then(|g| item(g.0)).map_or(String::new(), |i| i.label.to_string()); let mut l = name; let tz = 15.0 * k; l = fit(&l, tz, row[0] + row[2] - x - 14.0 * k); self.text(&l, x + 2.0 * k, y + (z - tz * 1.35) * 0.5, tz, tc);
                 }
                 DKind::Order | DKind::Projects => {
                     // l'ouvrage en grand à gauche ; son nom ; ses matières en petites cases, rouges quand il en manque (projets : avec leur jauge)

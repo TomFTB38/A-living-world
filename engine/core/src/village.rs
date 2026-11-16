@@ -841,7 +841,7 @@ impl Session {
     pub fn dialog(&self) -> Option<Dialog> {
         let t = self.town.talk.as_ref()?; let f = self.town.folk.get(t.who)?; let v = self.town.village(f.v)?;
         let cm = f.craft.and_then(craftsman); let title = match cm { Some(c) => format!("{} · {}", f.name, c.name), None if f.job == 9 => format!("{} · maire", f.name), None => format!("{} · villageois", f.name) };
-        let sub = format!("{} · village de {} · réputation {}", v.name, kind_label(v.kind), self.rep(v.id)); let mut o: Vec<(String, bool)> = Vec::new();
+        let sub = format!("{} · village de {}", v.name, kind_label(v.kind)); let mut o: Vec<(String, bool)> = Vec::new();
         if self.armed() { o.push(("Ranger mon arme".into(), true)); o.push(("Au revoir".into(), true)); let pics = vec![Pic { icon: Some("sword"), ..Default::default() }, Pic::default()]; return Some(Dialog { title, sub, said: "Rangez d'abord votre arme, je vous prie.".into(), options: o, kind: DKind::Main, pics, station: cm.and_then(|c| c.works.first().map(|w| w.0)), mayor: f.job == 9, rep: self.rep(v.id), village: v.name.clone() }); }
         let econ = self.econ.as_ref().filter(|e| e.id == v.id && f.job == 9); let mut pics: Vec<Pic> = Vec::new(); let have = |id: &str| if self.creative { 999 } else { self.count(id) };
         let kind = match t.page { Page::Main => DKind::Main, Page::Trade => DKind::Trade, Page::Order(_) => DKind::Order, Page::Projects => DKind::Projects };
