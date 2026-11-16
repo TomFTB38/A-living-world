@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu diag_lieu_sans_eco diag_lieu diag_maison_sans_eco lieu_cimetiere
+spawn jeu diag_sans_villageois diag_sans_modeles diag_lieu
