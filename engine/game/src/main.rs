@@ -621,7 +621,7 @@ fn capture(a: &[String]) {
             // diagnostic de la carte logicielle : « _nolum » retire appliques et lanternes des remparts, « _noclot » leurs barrières
             // « _sans-a+b » : retire les blocs a et b des remparts une fois bâtis (« _sans-rien » : la retouche seule)
             let (scene, strip): (String, Vec<String>) = match scene.split_once("_sans-") { Some((a, b)) => (a.to_string(), b.split('+').map(|x| x.to_string()).collect()), None => (scene.clone(), Vec::new()) };
-            if scene == "village_muraille" || scene == "village_tour" || scene == "village_porte" { s.hour = 10.0;
+            if scene == "village_muraille" || scene == "village_tour" || scene == "village_porte" || scene == "village_chemin" { s.hour = 10.0;
                 for k in [alw_core::patrons::Kind::Muraille, alw_core::patrons::Kind::TourDefense, alw_core::patrons::Kind::TourDefense] { if let Some(e) = s.econ.as_mut() { e.project = Some((k, true)); for (id, n) in [("cobblestone", 380.0), ("planks", 120.0), ("oak_log", 60.0), ("iron_ingot", 10.0), ("worn_coin", 60.0), ("bread", 200.0)] { e.stock.insert(id, n); } } for _ in 0..10 { s.tick(0.1, none, Actions::default()); } }
                 if let Some((c, r)) = s.econ.as_ref().and_then(alw_core::remparts::ring) { if !strip.is_empty() { use alw_core::player::Voxels; let k = r as i32 + 10; let mut off = Vec::new();
                     for x in c[0] - k..=c[0] + k { for z in c[1] - k..=c[1] + k { let d = ((x - c[0]) as f64).hypot((z - c[1]) as f64); if (d - r).abs() > 9.0 { continue; } for y in 30..110 { if let Some(b) = s.world.get(x, y, z) { let n = alw_core::blocks::BLOCKS[b as usize].name; if strip.iter().any(|p| n.split('@').next() == Some(p.as_str())) { off.push((x, y, z, 0)); } } } } }
@@ -630,8 +630,14 @@ fn capture(a: &[String]) {
                 if let Some(e) = s.econ.clone() { if let Some((c, r)) = alw_core::remparts::ring(&e) { let t = e.extra.iter().find(|x| x.kind == alw_core::patrons::Kind::TourDefense).map(|x| [x.lot.o.0 as f64, x.y as f64, x.lot.o.1 as f64]).unwrap_or([c[0] as f64 + r, 64.0, c[1] as f64]);
                     let (dx, dz) = (t[0] - c[0] as f64, t[2] - c[1] as f64); let l = dx.hypot(dz).max(1.0); let (ux, uz) = (dx / l, dz / l); let (sx, sz) = (-uz, ux);
                     let (eye, aim) = if scene == "village_muraille" { ([c[0] as f64 + ux * (r + 30.0) + sx * 30.0, t[1] + 42.0, c[1] as f64 + uz * (r + 30.0) + sz * 30.0], [c[0] as f64, t[1], c[1] as f64]) }
-                        else if scene == "village_porte" { let p = s.rampart_gates(c, r).first().map(|g| [g.0 as f64 + 0.5, g.1 as f64, g.2 as f64 + 0.5]).unwrap_or(t); let (dx, dz) = (p[0] - c[0] as f64, p[2] - c[1] as f64); let l = dx.hypot(dz).max(1.0); let (ux, uz) = (dx / l, dz / l);
-                            ([p[0] + ux * 20.0 - uz * 2.0, p[1] + 5.0, p[2] + uz * 20.0 + ux * 2.0], [p[0], p[1] + 5.0, p[2]]) }
+                        else if scene == "village_porte" || scene == "village_chemin" { let p = s.rampart_gates(c, r).first().map(|g| [g.0 as f64 + 0.5, g.1 as f64, g.2 as f64 + 0.5]).unwrap_or(t);
+                            // la porte est d'équerre : on la regarde de face, depuis le dehors, dans l'axe de son passage
+                            let (dx, dz) = (c[0] as f64 - p[0], c[1] as f64 - p[2]); let (ix, iz) = if dx.abs() > dz.abs() { (dx.signum(), 0.0) } else { (0.0, dz.signum()) };
+                            if scene == "village_porte" { ([p[0] - ix * 17.0, p[1] + 6.0, p[2] - iz * 17.0], [p[0], p[1] + 5.0, p[2]]) }
+                            else { // sur le chemin de ronde, à une vingtaine de pas de la porte, regardant vers elle
+                                let a = (p[2] - c[1] as f64).atan2(p[0] - c[0] as f64) + 22.0 / r; let (wx, wz) = ((c[0] as f64 + a.cos() * r).floor() as i32, (c[1] as f64 + a.sin() * r).floor() as i32);
+                                let y = alw_core::remparts::walk_top(&s.world, wx, wz, p[1] as i32 + 5).unwrap_or(p[1] as i32 + 5) as f64 + 1.0;
+                                ([wx as f64 + 0.5, y + 1.7, wz as f64 + 0.5], [p[0], y + 1.2, p[2]]) } }
                         else { ([t[0] - ux * 14.0 + sx * 9.0, t[1] + 6.0, t[2] - uz * 14.0 + sz * 9.0], [t[0], t[1] + 6.0, t[2]]) };
                     s.player.fly = true; s.player.p = [eye[0], eye[1] - 1.62, eye[2]]; for _ in 0..20 { s.tick(0.1, none, Actions::default()); } s.player.p = [eye[0], eye[1] - 1.62, eye[2]]; pump(&mut s, &mut g);
                     let e2 = s.player.eye(); let d = [aim[0] - e2[0], aim[1] - e2[1], aim[2] - e2[2]]; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / d[0].hypot(d[2])).atan(); } }

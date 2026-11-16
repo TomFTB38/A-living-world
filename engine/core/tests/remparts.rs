@@ -20,9 +20,9 @@ fn la_muraille_et_ses_tours() {
     let (c0, r) = remparts::ring(&e).expect("la muraille est debout"); assert_eq!(e.have(COIN), 30.0, "trente pièces aux maçons");
     println!("centre {c0:?} rayon {r} (village r {})", v.r);
     // elle fait le tour : de la pierre à hauteur d'homme presque partout, des portes là où passent les chemins
-    let cells = remparts::cells(c0, r); let mut open = 0; let mut posts = 0; let wg = WorldGen::new(SEED);
+    let cells = remparts::cells(c0, r); let mut open = 0; let mut posts = 0; let wg = WorldGen::new(SEED); let gates0 = s.rampart_gates(c0, r);
     let built = |n: &str| matches!(n, "stone_bricks" | "cobblestone" | "planks" | "plaster" | "fence" | "iron_bars" | "chiseled_stone") || n.starts_with("oak_log") || n.starts_with("roof_tiles");
-    for &(x, z, _) in &cells { let h = wg.column(x as f64, z as f64).h as i32; let n = (h - 8..h + 20).filter(|&y| built(name(&s, x, y, z))).count(); if n < 4 { open += 1; if open < 6 { println!("autre {x},{z} : {n} h{h} {:?}", (h - 4..h + 8).map(|y| name(&s, x, y, z)).collect::<Vec<_>>()); } }
+    for &(x, z, _) in &cells { let h = wg.column(x as f64, z as f64).h as i32; let n = (h - 8..h + 20).filter(|&y| built(name(&s, x, y, z))).count(); if n < 4 && !gates0.iter().any(|g| (g.0 - x).abs() <= 7 && (g.2 - z).abs() <= 7) { open += 1; if open < 6 { println!("autre {x},{z} : {n} h{h} {:?}", (h - 4..h + 8).map(|y| name(&s, x, y, z)).collect::<Vec<_>>()); } }
         if (h - 8..h + 20).any(|y| name(&s, x, y, z) == "oak_log_c") { posts += 1; } }
     let gates = s.rampart_gates(c0, r); println!("{} colonnes : {open} sans muraille ; {} portes fortifiées {:?} ; {posts} colonnes à poteau", cells.len(), gates.len(), gates);
     assert_eq!(open, 0, "la muraille fait tout le tour, sans trou, rivière comprise"); assert!(!gates.is_empty(), "au moins une porte"); assert!(posts > 20, "les poteaux de chêne");
@@ -46,6 +46,18 @@ fn la_muraille_et_ses_tours() {
     for dx in -4..=4 { for dz in -4..=4 { for y in g + 12..=g + 17 { tiles += name(&s, tx + dx, y, tz + dz).starts_with("roof_tiles") as i32; } } }
     for dx in -3..=3 { for dz in -3..=3 { for y in g + 1..=g + 17 { let n = name(&s, tx + dx, y, tz + dz); if n == "stone_bricks" || n == "cobblestone" { walls += 1; } ladder |= n.starts_with("ladder"); door |= n.starts_with("door"); flag |= n == "flag"; } } }
     println!("tour en {tx},{g},{tz} : {walls} blocs de pierre, échelle {ladder}, porte {door}, drapeau {flag}, {tiles} tuiles"); assert!(walls > 90 && ladder && door && flag && tiles > 40);
+    // on fait le tour par le dessus : de case en case (une marche au plus), toujours à trois blocs au moins au-dessus du sol,
+    // en passant la porte fortifiée et la tour ; on doit atteindre tous les angles autour du village
+    let pass = |n: &str| n == "air" || n.starts_with("lantern") || n.starts_with("wall_sconce") || n.starts_with("ladder") || n.starts_with("banner");
+    let stand = |x: i32, y: i32, z: i32| s.world.get(x, y - 1, z).is_some_and(|b| is_solid(b)) && pass(name(&s, x, y, z)) && pass(name(&s, x, y + 1, z));
+    let ring_d = |x: i32, z: i32| ((x - c0[0]) as f64).hypot((z - c0[1]) as f64);
+    let start = cells.iter().find_map(|&(x, z, _)| { let t = remparts::walk_top(&s.world, x, z, wg.column(x as f64, z as f64).h as i32 + 5)?; stand(x, t + 1, z).then_some((x, t + 1, z)) }).expect("un départ");
+    let mut seen = std::collections::HashSet::from([start]); let mut todo = vec![start]; let mut bins = [false; 72];
+    while let Some((x, y, z)) = todo.pop() { bins[((((z - c0[1]) as f64).atan2((x - c0[0]) as f64) + std::f64::consts::PI) / std::f64::consts::TAU * 72.0) as usize % 72] = true;
+        for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] { let (nx, nz) = (x + dx, z + dz); if (ring_d(nx, nz) - r).abs() > 7.0 { continue; } let h = wg.column(nx as f64, nz as f64).h as i32;
+            for ny in [y, y + 1, y - 1] { if ny >= h + 3 && !seen.contains(&(nx, ny, nz)) && stand(nx, ny, nz) { seen.insert((nx, ny, nz)); todo.push((nx, ny, nz)); break; } } } }
+    let miss: Vec<usize> = (0..72).filter(|&i| !bins[i]).collect(); println!("chemin de ronde : {} cases parcourues, angles manqués {:?}", seen.len(), miss);
+    assert!(miss.is_empty(), "on fait tout le tour de la muraille par le dessus");
     assert!(s.village_report().contains("Remparts : la muraille, 1 tour"), "{}", s.village_report());
     // sauvegardée, rechargée : le tracé est gardé
     let save = s.save_text(); let mut o = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); o.load_text(&save).unwrap(); assert_eq!(remparts::ring(o.econ.as_ref().unwrap()), Some((c0, r)));

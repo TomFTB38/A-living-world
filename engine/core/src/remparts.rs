@@ -39,10 +39,15 @@ pub fn plan_ring(v: &Village, areas: &[[i32; 4]]) -> ([i32; 2], f64) {
     for a in v.works.iter().map(|w| w.1).chain(v.houses.iter().map(|h| h.area)).chain(areas.iter().copied()) { for (x, z) in [(a[0], a[1]), (a[2], a[1]), (a[0], a[3]), (a[2], a[3])] { r = r.max(((x - c[0]) as f64).hypot((z - c[1]) as f64)); } }
     (c, ((r + 20.0).clamp(30.0, 80.0) * 10.0).round() / 10.0)
 }
-/// Les colonnes de la muraille : deux d'épaisseur ; vrai pour la rangée du dehors.
+/// Les colonnes de la muraille : trois d'épaisseur (le parapet crénelé dehors, deux rangs de chemin de ronde) ; vrai pour la
+/// rangée du dehors.
 pub fn cells(c: [i32; 2], r: f64) -> Vec<(i32, i32, bool)> {
-    let k = r.ceil() as i32 + 2; let mut o = Vec::new();
-    for x in c[0] - k..=c[0] + k { for z in c[1] - k..=c[1] + k { let d = ((x - c[0]) as f64).hypot((z - c[1]) as f64); if d >= r - 1.0 && d < r + 1.0 { o.push((x, z, d >= r)); } } } o
+    let k = r.ceil() as i32 + 3; let mut o = Vec::new();
+    for x in c[0] - k..=c[0] + k { for z in c[1] - k..=c[1] + k { let d = ((x - c[0]) as f64).hypot((z - c[1]) as f64); if d >= r - 1.5 && d < r + 1.5 { o.push((x, z, d >= r + 0.5)); } } } o
+}
+/// Le dessus du chemin de ronde d'une colonne de muraille déjà bâtie (son plancher ou sa poutre), s'il y en a un.
+pub fn walk_top(w: &impl Voxels, x: i32, z: i32, near: i32) -> Option<i32> {
+    (near - 8..=near + 16).rev().find(|&y| w.get(x, y, z).is_some_and(|b| { let n = BLOCKS[b as usize].name; n == "planks" || n.starts_with("oak_log") }) && w.get(x, y + 1, z).is_some_and(|b| b == 0 || BLOCKS[b as usize].name == "stone_bricks"))
 }
 /// Le repère d'un ouvrage posé sur la muraille au point (x, z) : l'axe local x court le long de la muraille, l'axe local z
 /// va du dehors vers le village ; `o` est l'origine du coin (0, 0) d'une emprise de `w` × `d` centrée sur ce point.
@@ -64,19 +69,22 @@ impl Session {
         // une rivière : la muraille la franchit, posée sur un remblai jusqu'à la surface de l'eau
         while self.world.get(x, y + 1, z).is_some_and(is_water) { y += 1; } Some(y)
     }
-    /// Les portes de la muraille : une par chemin qui croise le tracé, au milieu de l'endroit où il le croise (x, sol, z).
+    /// Les portes de la muraille : une par chemin qui croise le tracé, au milieu de l'endroit où il le croise (x, sol, z) ; une
+    /// fois bâties, on les retrouve à leur herse.
     pub fn rampart_gates(&self, c: [i32; 2], r: f64) -> Vec<(i32, i32, i32)> {
         let mut roads: Vec<(i32, i32)> = Vec::new();
-        for (x, z, _) in cells(c, r) { if let Some(g) = self.rampart_ground(x, z) { if [g, g + 1].iter().any(|&y| self.world.get(x, y, z).is_some_and(road)) { roads.push((x, z)); } } }
+        for (x, z, _) in cells(c, r) { if let Some(g) = self.rampart_ground(x, z) { if [g, g + 1].iter().any(|&y| self.world.get(x, y, z).is_some_and(road)) || (g..=g + 8).any(|y| self.world.get(x, y, z).is_some_and(|b| BLOCKS[b as usize].name == "iron_bars")) { roads.push((x, z)); } } }
         // les cases de chemin voisines font une seule porte ; elle se pose au milieu, sur le cercle
         let mut groups: Vec<Vec<(i32, i32)>> = Vec::new();
         for p in roads { let near: Vec<usize> = (0..groups.len()).filter(|&i| groups[i].iter().any(|q| (q.0 - p.0).abs() <= 3 && (q.1 - p.1).abs() <= 3)).collect();
             let mut g = vec![p]; for &i in near.iter().rev() { g.extend(groups.remove(i)); } groups.push(g); }
         let mut o: Vec<(i32, i32, i32)> = Vec::new();
         for g in groups {
-            let (sx, sz) = g.iter().fold((0.0, 0.0), |a, p| { let t = ((p.1 - c[1]) as f64).atan2((p.0 - c[0]) as f64); (a.0 + t.cos(), a.1 + t.sin()) }); let t = sz.atan2(sx);
-            let (x, z) = ((c[0] as f64 + t.cos() * r).round() as i32, (c[1] as f64 + t.sin() * r).round() as i32);
-            if o.iter().any(|q| (q.0 - x).abs() <= 12 && (q.2 - z).abs() <= 12) { continue; }
+            // la case du chemin la plus proche du milieu de la muraille : le passage tombe sur le chemin
+            let (mx, mz) = (g.iter().map(|p| p.0).sum::<i32>() as f64 / g.len() as f64, g.iter().map(|p| p.1).sum::<i32>() as f64 / g.len() as f64);
+            let key = |p: &(i32, i32)| ((((p.0 - c[0]) as f64).hypot((p.1 - c[1]) as f64) - r).abs() * 4.0).round() as i64 * 1000 + ((p.0 as f64 - mx).hypot(p.1 as f64 - mz) * 10.0) as i64;
+            let &(x, z) = g.iter().min_by_key(|p| key(p)).unwrap();
+            if o.iter().any(|q| (q.0 - x).abs() <= 24 && (q.2 - z).abs() <= 24) { continue; }
             if let Some(y) = self.rampart_ground(x, z) { o.push((x, y, z)); } }
         o
     }
@@ -86,40 +94,64 @@ impl Session {
         let (c, r) = plan_ring(v, &areas); let all = cells(c, r);
         let mut ground = std::collections::HashMap::new(); for &(x, z, _) in &all { ground.insert((x, z), self.rampart_ground(x, z)?); }
         let gates: Vec<(Lot, i32)> = self.rampart_gates(c, r).into_iter().map(|(x, y, z)| (frame_at(c, x, z, 11, 5), y)).collect();
-        let in_gate = |x: i32, z: i32| gates.iter().any(|(l, _)| { let (a, b) = local(l, x, z); (0..=10).contains(&a) && (-2..=6).contains(&b) });
-        let (cob, brick, sconce) = (id("cobblestone"), id("stone_bricks"), id("wall_sconce")); let mut o = Vec::new();
-        for &(x, z, out) in &all {
-            let g = ground[&(x, z)]; if in_gate(x, z) { continue; }
-            // une maison (ou un mur) sur le tracé : on la laisse, la muraille s'y appuie
-            if (g + 1..=g + 6).any(|y| self.world.get(x, y, z).is_some_and(|b| b != 0 && !natural(b))) { continue; }
-            // la place le long du tour (un pas par bloc) : les poteaux tous les cinq, les merlons un sur deux
-            let t = ((z - c[1]) as f64).atan2((x - c[0]) as f64); let s = (t * r).round() as i32; let along_x = t.sin().abs() > t.cos().abs();
-            let beam = id(if along_x { "oak_log_x_c" } else { "oak_log_z_c" });
-            for y in g - 1..=g { o.push((x, y, z, cob)); }
-            let mut y = g - 2; while self.world.get(x, y, z).is_some_and(is_water) { o.push((x, y, z, cob)); y -= 1; }
-            o.push((x, g + 1, z, cob)); let post = s.rem_euclid(5) == 0;
-            for y in g + 2..=g + 4 { o.push((x, y, z, if post { id("oak_log_c") } else { brick })); }
-            o.push((x, g + 5, z, if post { id("oak_log_c") } else { beam }));
-            let top = if out && s.rem_euclid(2) == 0 { brick } else { 0 }; if top != 0 { o.push((x, g + 6, z, top)); }
-            for y in g + if top != 0 { 7 } else { 6 }..=g + 14 { if self.world.get(x, y, z).is_some_and(|b| b != 0 && natural(b)) { o.push((x, y, z, 0)); } }
-            // une applique sur un poteau sur deux, sur chaque face, dans l'air devant le mur
-            if post && s.rem_euclid(10) == if out { 0 } else { 5 } { let d = if out { 1.0 } else { -1.0 }; let (fx, fz) = ((x as f64 + t.cos() * d * 1.2).round() as i32, (z as f64 + t.sin() * d * 1.2).round() as i32);
-                if !all.iter().any(|q| (q.0, q.1) == (fx, fz)) && self.world.get(fx, g + 3, fz).is_some_and(|b| b == 0) { let f = crate::shapes::facing_of(-t.cos() * d, -t.sin() * d); o.push((fx, g + 3, fz, crate::shapes::variant(sconce, f, false, false, false))); } }
-        }
+        let in_gate = |x: i32, z: i32| gates.iter().any(|(l, _)| { let (a, b) = local(l, x, z); (0..=10).contains(&a) && (-1..=4).contains(&b) });
+        // le chemin de ronde : à cinq au-dessus d'un sol lissé (la moyenne des voisins), pour qu'on en fasse le tour sans sauter
+        // plus d'une marche ; à l'approche d'une porte, à la hauteur de la sienne
+        let walk = |x: i32, z: i32| -> i32 {
+            if let Some((_, gy)) = gates.iter().find(|(l, _)| { let (a, b) = local(l, x, z); (-7..=17).contains(&a) && (-3..=7).contains(&b) }) { return gy + 5; }
+            let (mut n, mut t) = (0, 0); for dx in -3..=3 { for dz in -3..=3 { if let Some(g) = ground.get(&(x + dx, z + dz)) { n += 1; t += g; } } } (t as f64 / n as f64).round() as i32 + 5 };
+        let mut o = Vec::new();
+        // les colonnes : l'anneau, et de part et d'autre de chaque porte un bout de muraille droit qui mène le chemin de ronde
+        // jusqu'à la galerie (l'anneau est rond, la porte est d'équerre)
+        let mut cols: Vec<(i32, i32, i32, bool, bool, f64)> = Vec::new(); let mut seen = std::collections::HashSet::new();
+        for &(x, z, out) in &all { if in_gate(x, z) { continue; } let g = ground[&(x, z)]; let d = ((x - c[0]) as f64).hypot((z - c[1]) as f64);
+            let t = ((z - c[1]) as f64).atan2((x - c[0]) as f64); seen.insert((x, z)); cols.push((x, z, walk(x, z).max(g + 3), out, d < r - 0.5, t)); }
+        for (l, gy) in &gates { for a in (-6..=-1).chain(11..=16) { for b in 1..=3 { let [x, _, z] = l.cell(a, 0, b); if seen.contains(&(x, z)) || in_gate(x, z) { continue; }
+            let Some(g) = self.rampart_ground(x, z) else { continue }; seen.insert((x, z)); let t = if l.u.0 != 0 { 0.0 } else { std::f64::consts::FRAC_PI_2 };
+            cols.push((x, z, (gy + 5).max(g + 3), b == 1, b == 3, t)); } } }
+        for &(x, z, h, out, inn, t) in &cols { self.rampart_column(&mut o, x, z, h, out, inn, t, r, &all); }
         for (l, y) in &gates { let mut k = Work::default(); gatehouse(&mut P { k: &mut k, lot: *l, y0: *y, mirror: false, w: 11, d: 5, h: 0.0, rec: Rec::default() }); o.extend(k.blocks); }
         Some((o, Extra { lot: Lot { o: (c[0], c[1]), u: ((r * 10.0).round() as i32, 0), w: (0, 1) }, y: 0, kind: Kind::Muraille }))
+    }
+    /// Une colonne de muraille : fondée sur son sol, pleine jusqu'au chemin de ronde à `h` (une poutre sur les faces, un plancher
+    /// entre elles), un merlon un sur deux dehors, une applique sur un poteau sur deux ; `t` est l'angle autour du village (le
+    /// sens de la poutre, le pas des poteaux).
+    #[allow(clippy::too_many_arguments)]
+    fn rampart_column(&self, o: &mut Vec<(i32, i32, i32, Id)>, x: i32, z: i32, h: i32, out: bool, inn: bool, t: f64, r: f64, all: &[(i32, i32, bool)]) {
+        let Some(g) = self.rampart_ground(x, z) else { return }; let (cob, brick, sconce) = (id("cobblestone"), id("stone_bricks"), id("wall_sconce"));
+        // une maison (ou un mur) sur le tracé : on la laisse, la muraille s'y appuie
+        if (g + 1..=h + 1).any(|y| self.world.get(x, y, z).is_some_and(|b| b != 0 && !natural(b))) { return; }
+        // la place le long du tour (un pas par bloc) : les poteaux tous les cinq sur les deux faces, les merlons un sur deux
+        let s = (t * r).round() as i32 + if t == 0.0 || t == std::f64::consts::FRAC_PI_2 { x + z } else { 0 }; let along_x = t.sin().abs() > t.cos().abs();
+        let beam = id(if along_x { "oak_log_x_c" } else { "oak_log_z_c" });
+        for y in g - 1..=g { o.push((x, y, z, cob)); }
+        let mut y = g - 2; while self.world.get(x, y, z).is_some_and(is_water) { o.push((x, y, z, cob)); y -= 1; }
+        let post = (out || inn) && s.rem_euclid(5) == 0; o.push((x, g + 1, z, cob));
+        for y in g + 2..h { o.push((x, y, z, if post { id("oak_log_c") } else { brick })); }
+        // le dessus : une poutre sur chaque face, un plancher entre elles ; on y marche tout autour
+        o.push((x, h, z, if post { id("oak_log_c") } else if out || inn { beam } else { id("planks") }));
+        let top = if out && s.rem_euclid(2) == 0 { brick } else { 0 }; if top != 0 { o.push((x, h + 1, z, top)); }
+        for y in h + if top != 0 { 2 } else { 1 }..=h + 10 { if self.world.get(x, y, z).is_some_and(|b| b != 0 && natural(b)) { o.push((x, y, z, 0)); } }
+        // une applique sur un poteau sur deux, sur chaque face, dans l'air devant le mur
+        if post && s.rem_euclid(10) == if out { 0 } else { 5 } { let d = if out { 1.0 } else { -1.0 }; let (fx, fz) = ((x as f64 + t.cos() * d * 1.2).round() as i32, (z as f64 + t.sin() * d * 1.2).round() as i32);
+            if !all.iter().any(|q| (q.0, q.1) == (fx, fz)) && self.rampart_ground(fx, fz).is_some_and(|fg| fg < g + 3) && self.world.get(fx, g + 3, fz).is_some_and(|b| b == 0) { let f = crate::shapes::facing_of(-t.cos() * d, -t.sin() * d); o.push((fx, g + 3, fz, crate::shapes::variant(sconce, f, false, false, false))); } }
     }
     /// Une tour de guet sur la muraille : la `n`-ième, à intervalles réguliers, écartée des portes.
     pub(crate) fn rampart_tower(&self, e: &Econ, n: usize) -> Option<(Vec<(i32, i32, i32, Id)>, Extra)> {
         let (c, r) = ring(e)?; let gates = self.rampart_gates(c, r);
         let mut a = n as f64 * std::f64::consts::TAU / crate::economie::TOWERS as f64 + 0.55; let at = |a: f64| ((c[0] as f64 + a.cos() * r).round() as i32, (c[1] as f64 + a.sin() * r).round() as i32);
         for _ in 0..80 { let (x, z) = at(a); if !gates.iter().any(|(gx, _, gz)| (gx - x).abs() <= 11 && (gz - z).abs() <= 11) { break; } a += 0.04; }
-        // le pied de la tour : celui de la muraille à cet endroit (sous son rang de pavé), sinon le sol
-        let (tx, tz) = at(a); let g0 = self.rampart_ground(tx, tz)?; let named = |y: i32| self.world.get(tx, y, tz).map_or("", |b| BLOCKS[b as usize].name);
-        let g = (g0 - 4..=g0 + 4).rev().find(|&y| named(y) == "cobblestone" && matches!(named(y + 1), "stone_bricks" | "oak_log_c")).map_or(g0, |y| y - 1); let l = frame_at(c, tx, tz, 7, 7);
+        // la tour se règle sur le chemin de ronde à cet endroit (son étage est à sa hauteur), sinon sur le sol
+        let (tx, tz) = at(a); let g0 = self.rampart_ground(tx, tz)?;
+        let g = walk_top(&self.world, tx, tz, g0 + 5).map_or(g0, |h| h - 5); let l = frame_at(c, tx, tz, 7, 7);
+        // de part et d'autre, un bout de muraille droit jusqu'aux passages de l'étage (la tour est d'équerre, l'anneau est rond)
+        let mut pre = Vec::new(); let all = cells(c, r); let t = if l.u.0 != 0 { 0.0 } else { std::f64::consts::FRAC_PI_2 };
+        for a in (-4..=-1).chain(7..=10) { for b in 2..=4 { let [x, _, z] = l.cell(a, 0, b); if walk_top(&self.world, x, z, g + 5) == Some(g + 5) { continue; }
+            for y in g + 1..=g + 12 { if self.world.get(x, y, z).is_some_and(|q| q != 0 && matches!(BLOCKS[q as usize].name, "stone_bricks" | "cobblestone" | "planks") || BLOCKS[q as usize].name.starts_with("oak_log")) { pre.push((x, y, z, 0)); } }
+            self.rampart_column(&mut pre, x, z, g + 5, b == 2, b == 4, t, r, &all); } }
         let mut k = Work::default(); watchtower(&mut P { k: &mut k, lot: l, y0: g, mirror: false, w: 7, d: 7, h: 0.0, rec: Rec::default() });
         // le feuillage et les branches qui gêneraient le toit
-        let mut o = k.blocks; for dx in -5..=5 { for dz in -5..=5 { for y in g + 9..=g + 22 { let (x, z) = (tx + dx, tz + dz); if self.world.get(x, y, z).is_some_and(|b| b != 0 && natural(b)) && !o.iter().any(|b| (b.0, b.1, b.2) == (x, y, z)) { o.insert(0, (x, y, z, 0)); } } } }
+        let mut o = pre; o.extend(k.blocks); for dx in -5..=5 { for dz in -5..=5 { for y in g + 9..=g + 22 { let (x, z) = (tx + dx, tz + dz); if self.world.get(x, y, z).is_some_and(|b| b != 0 && natural(b)) && !o.iter().any(|b| (b.0, b.1, b.2) == (x, y, z)) { o.insert(0, (x, y, z, 0)); } } } }
         Some((o, Extra { lot: Lot { o: (tx, tz), u: (1, 0), w: (0, 1) }, y: g, kind: Kind::TourDefense }))
     }
 }
@@ -127,7 +159,7 @@ impl Session {
 /// La tour de guet, dans son repère : 7 × 7, le dehors en z = 0, le village en z = 6, le centre en (3, 3).
 fn watchtower(p: &mut P) {
     // dégagée, fondée ; le pied élargi en pavé (deux rangs et un glacis), le fût de pierre de taille
-    for x in 0..7 { for z in 0..7 { for y in 1..=11 { p.put(x, y, z, 0); } for y in -3..=0 { p.n(x, y, z, "cobblestone"); } } }
+    for x in 0..7 { for z in 0..7 { for y in 1..=11 { p.put(x, y, z, 0); } for y in -6..=0 { p.n(x, y, z, "cobblestone"); } } }
     for x in 0..7 { for z in 0..7 { let ring = |m: i32| (x == m || x == 6 - m || z == m || z == 6 - m) && (m..=6 - m).contains(&x) && (m..=6 - m).contains(&z);
         if ring(0) { for y in 1..=2 { p.n(x, y, z, "cobblestone"); } p.stair(x, 3, z, "stone_bricks_stairs", if x == 0 { 1 } else if x == 6 { -1 } else { 0 }, if z == 0 { 1 } else if z == 6 { -1 } else { 0 }, false); }
         if ring(1) { let corner = (x == 1 || x == 5) && (z == 1 || z == 5); for y in 1..=8 { p.n(x, y, z, if corner || y <= 2 { "cobblestone" } else { "stone_bricks" }); } }
@@ -137,7 +169,7 @@ fn watchtower(p: &mut P) {
     for (x, z) in [(3, 1), (1, 3), (5, 3)] { p.put(x, 3, z, 0); } p.put(3, 7, 1, 0); p.put(3, 6, 1, 0); p.win(3, 7, 5, true);
     p.turn(2, 6, 0, "banner_red", 0, 1); p.turn(4, 6, 0, "banner_red", 0, 1);
     // l'étage du chemin de ronde : on le traverse de part en part ; la muraille y est raccordée
-    for x in [0, 1, 5, 6] { for z in 2..=4 { for y in 6..=7 { p.put(x, y, z, 0); } if x == 0 || x == 6 { for y in 3..=5 { p.n(x, y, z, "stone_bricks"); } } } }
+    for x in [0, 1, 5, 6] { for z in 2..=4 { for y in 6..=7 { p.put(x, y, z, 0); } if x == 0 || x == 6 { for y in 3..=4 { p.n(x, y, z, "stone_bricks"); } } p.n(x, 5, z, "planks"); } }
     // la galerie de guet : un plancher en encorbellement sur des consoles, la barrière, les poteaux d'angle, les lanternes
     for x in 0..7 { for z in 0..7 { p.n(x, 9, z, "planks"); let edge = x == 0 || x == 6 || z == 0 || z == 6; let corner = (x == 0 || x == 6) && (z == 0 || z == 6);
         if corner { for y in 10..=11 { p.log(x, y, z, 'y'); } } else if edge { p.n(x, 10, z, "fence"); } } }
@@ -149,22 +181,36 @@ fn watchtower(p: &mut P) {
     p.pyramid(3, 3, 4, 12, "roof_tiles"); p.n(3, 17, 3, "flag");
 }
 
-/// La porte fortifiée, dans son repère : 11 de long sur la muraille, 5 de profondeur, le dehors en z = 0.
+/// La porte fortifiée, dans son repère : 11 de long sur la muraille, 5 de profondeur, le dehors en z = 0. Deux tours carrées
+/// en saillie (x 0..2 et 8..10) encadrent un passage voûté ; au-dessus, une galerie de bois couverte où passe le chemin de ronde.
 fn gatehouse(p: &mut P) {
-    for x in 0..11 { for z in 0..5 { for y in 1..=13 { p.put(x, y, z, 0); } let lane = (4..=6).contains(&x); for y in -3..=if lane { -1 } else { 0 } { p.n(x, y, z, "cobblestone"); }
-        // le massif de pierre : pavé en pied et aux angles, pierre de taille au-dessus ; le passage de trois, voûté, la herse relevée
-        for y in 1..=5 { let quoin = x == 0 || x == 10 || x == 3 || x == 7; p.n(x, y, z, if y == 1 || quoin && y <= 5 && (z == 0 || z == 4) { "cobblestone" } else { "stone_bricks" }); }
-        if lane { for y in 1..=3 { p.put(x, y, z, 0); } if x == 5 { p.put(x, 4, z, 0); } } } }
-    for x in 4..=6 { p.n(x, 4, 1, "iron_bars"); } p.n(5, 5, 0, "chiseled_stone");
-    // l'étage : deux tourelles de pierre aux bouts, une salle à pans de bois entre elles ; le chemin de ronde la traverse
-    p.frame((2, 8), (0, 4), (6, 8), 2, "plaster"); p.belt((2, 8), (0, 4), 9);
-    for x0 in [0, 8] { for x in x0..=x0 + 2 { for z in 0..5 { let edge = x == x0 || x == x0 + 2 || z == 0 || z == 4; for y in 6..=10 { if edge { p.n(x, y, z, if y == 6 { "cobblestone" } else { "stone_bricks" }); } else { p.put(x, y, z, 0); } } } } }
-    for x in 0..11 { for y in 6..=7 { p.put(x, y, 2, 0); } } for x in 0..11 { p.n(x, 5, 2, "planks"); }
-    for x in 3..=7 { for z in 1..=3 { p.n(x, 5, z, "planks"); } }
-    p.win(5, 7, 0, true); p.win(5, 7, 4, true); p.win(1, 8, 0, true); p.win(9, 8, 0, true); p.win(1, 8, 4, true); p.win(9, 8, 4, true);
-    // les toits : à deux pans sur la salle, en pyramide sur les tourelles, leurs drapeaux
-    p.roof((3, 7), (0, 4), 10, 0, false, "roof_tiles", Some("plaster")); p.pyramid(1, 2, 2, 11, "roof_tiles"); p.pyramid(9, 2, 2, 11, "roof_tiles"); p.n(1, 14, 2, "flag"); p.n(9, 14, 2, "flag");
-    // les bannières rouges sur les tourelles, les appliques de part et d'autre du passage, dehors et côté village
-    for x in [1, 9] { p.turn(x, 4, -1, "banner_red", 0, 1); p.turn(x, 4, 5, "banner_red", 0, -1); }
+    let towers = |x: i32| x <= 2 || x >= 8;
+    for x in 0..11 { for z in -1..5 { if z == -1 && !towers(x) { continue; } for y in 1..=13 { p.put(x, y, z, 0); }
+        let lane = (4..=6).contains(&x); for y in -6..=if lane { -1 } else { 0 } { p.n(x, y, z, "cobblestone"); } } }
+    // le massif du milieu : pavé en pied, pierre de taille, le passage de trois sous un arc, la herse relevée, la clef de voûte
+    for x in 3..=7 { for z in 0..5 { for y in 1..=4 { p.n(x, y, z, if y == 1 || (x == 3 || x == 7) && (z == 0 || z == 4) { "cobblestone" } else { "stone_bricks" }); }
+        p.n(x, 5, z, if z == 0 || z == 4 { "stone_bricks" } else { "planks" }); } }
+    for x in 4..=6 { for z in 0..5 { for y in 1..=3 { p.put(x, y, z, 0); } } } for z in 0..5 { p.put(5, 4, z, 0); }
+    for z in [0, 4] { p.stair(4, 4, z, "stone_bricks_stairs", 1, 0, true); p.stair(6, 4, z, "stone_bricks_stairs", -1, 0, true); }
+    for z in 1..=3 { p.n(5, 4, z, "iron_bars"); } p.n(5, 5, 0, "chiseled_stone"); p.n(5, 5, 4, "chiseled_stone");
+    // les deux tours : pied de pavé, fût de pierre de taille aux angles de pavé, une salle basse, l'échelle jusqu'au chemin de ronde
+    for x0 in [0, 8] { let m = x0 + 1;
+        for x in x0..=x0 + 2 { for z in -1..5 { let edge = x != m || z == -1 || z == 4; let corner = x != m && (z == -1 || z == 4);
+            for y in 1..=8 { if edge { p.n(x, y, z, if y == 1 || corner { "cobblestone" } else { "stone_bricks" }); } } } }
+        for z in 0..4 { p.n(m, 0, z, "planks"); p.n(m, 5, z, "planks"); }
+        for y in 1..=5 { p.turn(m, y, 0, "ladder", 0, -1); } p.door(m, 1, 4, 0, 1);
+        // le chemin de ronde la traverse de part en part, au niveau du plancher de la galerie
+        for x in x0..=x0 + 2 { for z in 1..=3 { p.n(x, 5, z, "planks"); for y in 6..=7 { p.put(x, y, z, 0); } } }
+        p.put(m, 3, -1, 0); p.put(m, 7, -1, 0); p.win(m, 7, 4, true);
+        // leurs bannières, dehors et côté village ; un toit à deux pans, pignon sur le dehors, et le drapeau
+        p.turn(m, 5, -2, "banner_red", 0, 1); p.turn(m, 5, 5, "banner_red", 0, -1); }
+    // la galerie couverte au-dessus du passage : plancher en encorbellement, poteaux de chêne, garde-corps devant et derrière
+    for x in 3..=7 { p.n(x, 5, -1, "planks"); }
+    for x in [3, 5, 7] { p.stair(x, 4, -1, "stone_bricks_stairs", 0, 1, true); }
+    for z in [-1, 4] { for x in 3..=7 { if x % 2 == 1 { for y in 6..=7 { p.log(x, y, z, 'y'); } } else { p.n(x, 6, z, "fence"); } } }
+    p.n(5, 7, 0, "lantern");
+    p.roof((3, 7), (-1, 4), 8, 0, false, "roof_tiles", Some("planks"));
+    for x0 in [0, 8] { p.roof((x0, x0 + 2), (-1, 4), 9, 1, true, "roof_tiles", Some("stone_bricks")); p.n(x0 + 1, 12, -1, "flag"); }
+    // les appliques de part et d'autre du passage, dehors et côté village
     for x in [3, 7] { p.sconce(x, 3, -1, 0, 1); p.sconce(x, 3, 5, 0, -1); }
 }
