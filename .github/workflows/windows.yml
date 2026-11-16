@@ -64,7 +64,7 @@ jobs:
           shot poutres -38.5 53 0.5 -20 52 -30 14 4 1280 720 2048 poutres
           shot ronds -38.5 53 0.5 -20 52 -30 14 4 1280 720 2048 ronds
           for k in camp autel caveau; do shot vestige_$k 0 60 0 0 60 10 12 3 1280 720 2048 vestige_$k; done
-          for k in maison reserve; do shot village_$k 0 60 0 0 60 10 10 4 1280 720 2048 village_$k; done
+          for k in maison reserve bucheron fermier mineur; do shot village_$k 0 60 0 0 60 10 10 4 1280 720 2048 village_$k; done
           for k in tour cimetiere brigands; do shot lieu_$k 0 60 0 0 60 10 15 4 1280 720 2048 lieu_$k; done
           for k in tour cimetiere brigands; do shot lieu_${k}_dedans 0 60 0 0 60 10 15 4 1280 720 2048 lieu_${k}_dedans; done
           shot desert -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 desert

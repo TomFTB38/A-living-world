@@ -19,7 +19,7 @@ use crate::village::{House, Village};
 use std::collections::BTreeMap;
 
 /// Ce que le village compte, dans l'ordre où on le lit.
-pub const GOODS: [(&str, &str); 11] = [("wheat", "blé"), ("flour", "farine"), ("bread", "pain"), ("cooked_meat", "viande"), ("oak_log", "bois"), ("planks", "planches"), ("cobblestone", "pierre"), ("iron_ore", "minerai"), ("coal", "charbon"), ("iron_ingot", "fer"), ("leather", "cuir")];
+pub const GOODS: [(&str, &str); 13] = [("wheat", "blé"), ("carrot", "carottes"), ("potato", "pommes de terre"), ("flour", "farine"), ("bread", "pain"), ("cooked_meat", "viande"), ("oak_log", "bois"), ("planks", "planches"), ("cobblestone", "pierre"), ("iron_ore", "minerai"), ("coal", "charbon"), ("iron_ingot", "fer"), ("leather", "cuir")];
 /// Au-delà, on ne produit plus : les greniers sont pleins, le village vit sur son acquis.
 const FULL: f64 = 320.0;
 /// Ce que coûte une maison.
@@ -46,6 +46,12 @@ pub struct Econ {
     pub log: Vec<(u32, String)>,
     /// Les coffres de la réserve (quand le village est chargé), et si le joueur y a la main.
     pub store: Vec<[i32; 3]>, open: bool, held: f64,
+    /// Village chargé : les champs, le bois et la pierre viennent des gestes de ses gens (moisson, abattage, taille), plus du calcul.
+    pub live: [bool; 3],
+    /// Les plants replantés par les bûcherons : où, et quand (heures de jeu).
+    pub saplings: Vec<([i32; 3], f64)>,
+    /// Ce que les gens de métier savent trouver autour du village : pieds d'arbres, cultures, roche à nu ; quand on a regardé.
+    trees: Vec<[i32; 3]>, crops: Vec<[i32; 3]>, rocks: Vec<[i32; 3]>, scan_t: f64,
 }
 
 /// Habitants d'un village tel qu'il a été tracé (la même règle que pour les faire apparaître).
@@ -56,8 +62,10 @@ impl Econ {
     pub fn found(v: &Village, t: f64) -> Econ {
         let pop = people(v) as f64; let wealth = v.ident.map_or(0.5, |i| i.wealth); let mut stock = BTreeMap::new();
         for (k, n) in [("wheat", pop * 3.0), ("flour", pop), ("bread", pop * 2.5), ("cooked_meat", pop * 0.5), ("oak_log", 16.0 + 20.0 * wealth), ("planks", 10.0 + 24.0 * wealth), ("cobblestone", 8.0 + 20.0 * wealth), ("iron_ore", 4.0), ("coal", 6.0), ("iron_ingot", 2.0 + 4.0 * wealth), ("leather", 2.0)] { stock.insert(k, n.floor()); }
-        Econ { id: v.id, stock, t, fed: 1.0, lean: 0, extra: Vec::new(), due: 0, log: Vec::new(), store: Vec::new(), open: false, held: 0.0 }
+        Econ { id: v.id, stock, t, fed: 1.0, lean: 0, extra: Vec::new(), due: 0, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0 }
     }
+    /// Oublie ce qu'on sait des alentours : on regardera de nouveau à la prochaine heure de travail.
+    pub fn scan_reset(&mut self) { self.scan_t = -1.0; }
     pub fn have(&self, k: &str) -> f64 { self.stock.get(k).copied().unwrap_or(0.0) }
     fn add(&mut self, k: &'static str, n: f64) { let e = self.stock.entry(k).or_insert(0.0); *e = (*e + n).max(0.0); }
     /// Prend jusqu'à `n` ; rend ce qui a été pris.
@@ -76,7 +84,7 @@ impl Econ {
         c.room = want.saturating_sub(self.extra.len() as u32 + self.due); c
     }
     /// Les jours de vivres devant soi.
-    pub fn reserve(&self, pop: u32) -> f64 { (self.have("bread") + self.have("cooked_meat") + self.have("flour") * 0.8 + self.have("wheat") * 0.5) / pop.max(1) as f64 }
+    pub fn reserve(&self, pop: u32) -> f64 { (self.have("bread") + self.have("cooked_meat") + self.have("flour") * 0.8 + self.have("wheat") * 0.5 + self.have("potato") * 0.5 + self.have("carrot") * 0.4) / pop.max(1) as f64 }
     /// Une heure de la vie du village. `hod` : l'heure du jour (0 à 23) ; `day` : le numéro du jour.
     pub fn step(&mut self, c: &Census, hod: u32, day: u32) {
         let work = (7..12).contains(&hod) || (13..18).contains(&hod);
@@ -84,14 +92,14 @@ impl Econ {
             let room = |e: &Econ, k: &str| e.have(k) < FULL; let pop = c.pop as f64;
             // la disette presse les champs : on y met tous les bras
             let press = if self.reserve(c.pop) < 1.0 { 1.6 } else { 1.0 };
-            if room(self, "wheat") { self.add("wheat", (c.fields.max(1) as f64 * 0.2 + c.farms as f64 * 0.25) * press); }
+            if room(self, "wheat") && !self.live[0] { self.add("wheat", (c.fields.max(1) as f64 * 0.2 + c.farms as f64 * 0.25) * press); }
             if room(self, "cooked_meat") { self.add("cooked_meat", c.folds as f64 * 0.12); } if room(self, "leather") { self.add("leather", c.tanneries.min(c.folds.max(1)) as f64 * 0.03); }
             // le moulin, ou à défaut la meule à bras de chaque foyer ; le four de l'auberge, ou à défaut celui des maisons
             if room(self, "flour") { let x = self.take("wheat", c.mills as f64 * 3.0 + pop * 0.12); self.add("flour", x); }
             if room(self, "bread") { let x = self.take("flour", c.inns as f64 * 2.0 + pop * 0.12); self.add("bread", x); }
-            if room(self, "oak_log") { self.add("oak_log", c.cutters as f64 * 0.5); }
+            if room(self, "oak_log") && !self.live[1] { self.add("oak_log", c.cutters as f64 * 0.5); }
             if room(self, "planks") && self.have("oak_log") > 14.0 { let x = self.take("oak_log", (c.woodshops as f64 * 0.8 + 0.15).min(self.have("oak_log") - 14.0)); self.add("planks", x * 2.0); }
-            if room(self, "cobblestone") { self.add("cobblestone", c.miners as f64 * 0.4); } if room(self, "iron_ore") { self.add("iron_ore", c.miners as f64 * 0.04); } if room(self, "coal") { self.add("coal", c.miners as f64 * 0.05); }
+            if room(self, "cobblestone") && !self.live[2] { self.add("cobblestone", c.miners as f64 * 0.4); } if room(self, "iron_ore") { self.add("iron_ore", c.miners as f64 * 0.04); } if room(self, "coal") { self.add("coal", c.miners as f64 * 0.05); }
             if room(self, "iron_ingot") { let n = (c.forges as f64 * 0.15).min(self.have("iron_ore")).min(self.have("coal")); self.take("iron_ore", n); self.take("coal", n); self.add("iron_ingot", n); }
         }
         // le chantier se décide le matin : les greniers sont pleins pour quatre jours, personne n'a eu faim, et les matériaux y sont
@@ -101,7 +109,7 @@ impl Econ {
         // le repas du soir : pain d'abord, puis viande, farine en bouillie, blé en grains ; le feu de la veillée
         if hod == 19 {
             let need = c.pop as f64; let mut left = need;
-            for (k, worth) in [("bread", 1.0), ("cooked_meat", 1.0), ("flour", 0.8), ("wheat", 0.5)] { if left <= 0.0 { break; } let got = self.take(k, left / worth); left -= got * worth; }
+            for (k, worth) in [("bread", 1.0), ("cooked_meat", 1.0), ("potato", 0.5), ("carrot", 0.4), ("flour", 0.8), ("wheat", 0.5)] { if left <= 0.0 { break; } let got = self.take(k, left / worth); left -= got * worth; }
             let was = self.fed; self.fed = ((need - left.max(0.0)) / need.max(1.0)).clamp(0.0, 1.0); self.take("oak_log", need * 0.05);
             if self.fed < 0.6 { self.lean += 1; if was >= 0.6 { self.note(day, "le grenier est vide : on se couche le ventre creux".into()); } } else { if self.lean > 0 { self.note(day, "on mange de nouveau à sa faim".into()); } self.lean = 0; }
         }
@@ -119,6 +127,7 @@ impl Econ {
     pub fn save(&self) -> String {
         let mut s = format!("econ {} {} {} {} {} {}", self.id.0, self.id.1, self.t, self.fed, self.lean, self.due); for (k, n) in &self.stock { s += &format!(" {k}:{n}"); } s.push('\n');
         for e in &self.extra { s += &format!("econ_house {} {} {} {} {} {} {}\n", e.lot.o.0, e.lot.o.1, e.lot.u.0, e.lot.u.1, e.lot.w.0, e.lot.w.1, e.y); }
+        for p in &self.saplings { s += &format!("econ_plant {} {} {} {}\n", p.0[0], p.0[1], p.0[2], p.1); }
         for (d, t) in &self.log { s += &format!("econ_log {d} {t}\n"); } s
     }
 }
@@ -139,7 +148,7 @@ impl Session {
     /// Les maisons bâties depuis la création du monde s'ajoutent au village tracé (leurs habitants avec).
     pub(crate) fn econ_extend(&self, v: &mut Village) { if let Some(e) = self.econ.as_ref().filter(|e| e.id == v.id) { for x in &e.extra { v.houses.push(raise(x.lot, x.y).1); } } }
     /// Le temps passe au village pilote : une heure de jeu à la fois, en rattrapant ce qui s'est écoulé loin de lui.
-    pub(crate) fn econ_tick(&mut self) {
+    pub(crate) fn econ_tick(&mut self, dt: f64) {
         if self.econ.is_none() { let Some(v) = self.pilot() else { return }; self.econ = Some(Econ::found(&v, self.hours.floor())); }
         let Some(v) = self.pilot_village() else { return }; let mut e = self.econ.take().unwrap();
         if self.hours - e.t > 24.0 * 60.0 { e.t = self.hours - 24.0 * 60.0; } // au-delà de deux mois d'absence, on ne rejoue pas tout
@@ -151,6 +160,7 @@ impl Session {
         if near && e.store.is_empty() { e.store = self.econ_chests(&v); }
         let at_store = self.inv_open && [self.chest, self.chest2].into_iter().flatten().any(|c| e.store.contains(&c));
         if e.open && !at_store { self.econ_count(&mut e, &v); } e.open = at_store;
+        if near { self.econ_chores(&mut e, &v, dt); } else { e.live = [false; 3]; }
         // la maison payée se pose dès que le joueur est là
         if near && e.due > 0 { if let Some((lot, y)) = self.econ_lot(&v, &e) { let (blocks, house) = raise(lot, y);
                 let mut list = blocks; for dx in house.area[0]..=house.area[2] { for dz in house.area[1]..=house.area[3] { for yy in (y - 6..=y).rev() { if self.world.get(dx, yy, dz).is_some_and(is_solid) { break; } list.push((dx, yy, dz, B::COBBLESTONE)); } } }
@@ -215,10 +225,118 @@ impl Session {
         match key {
             "econ" => { let (Some(id), Some(t)) = (n(0).zip(n(1)), f(2)) else { return }; let mut stock = BTreeMap::new();
                 for kv in a.iter().skip(6) { if let Some((k, v)) = kv.split_once(':') { if let (Some(it), Ok(v)) = (crate::session::item(k), v.parse::<f64>()) { stock.insert(it.id, v); } } }
-                self.econ = Some(Econ { id, stock, t, fed: f(3).unwrap_or(1.0), lean: n(4).unwrap_or(0) as u32, extra: Vec::new(), due: n(5).unwrap_or(0) as u32, log: Vec::new(), store: Vec::new(), open: false, held: 0.0 }); }
+                self.econ = Some(Econ { id, stock, t, fed: f(3).unwrap_or(1.0), lean: n(4).unwrap_or(0) as u32, extra: Vec::new(), due: n(5).unwrap_or(0) as u32, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0 }); }
             "econ_house" => { if let (Some(e), Some(v)) = (self.econ.as_mut(), (0..7).map(n).collect::<Option<Vec<i32>>>()) { e.extra.push(Extra { lot: Lot { o: (v[0], v[1]), u: (v[2], v[3]), w: (v[4], v[5]) }, y: v[6] }); } }
+            "econ_plant" => { if let (Some(e), Some(x), Some(y), Some(z), Some(t)) = (self.econ.as_mut(), n(0), n(1), n(2), f(3)) { e.saplings.push(([x, y, z], t)); } }
             "econ_log" => { if let (Some(e), Some(d)) = (self.econ.as_mut(), n(0)) { e.log.push((d as u32, a[1..].join(" "))); } }
             _ => {}
         }
     }
 }
+
+/// Durées d'un geste de métier (secondes) : quelques coups de hache pour un arbre, un coup de faucille par plant mûr,
+/// quelques coups de pioche par bloc, le temps de poser son fardeau.
+const CHOP: f64 = 22.0; const REAP: f64 = 3.0; const DIG: f64 = 6.0; const DROP: f64 = 2.0;
+/// Combien on rapporte à la fois : six gerbes, cinq pierres ; un arbre entier pour le bûcheron.
+const LOAD_CROPS: u32 = 6; const LOAD_STONE: u32 = 5;
+/// Un plant devient jeune chêne au bout de trois jours.
+const SAPLING_HOURS: f64 = 72.0;
+
+fn is_stone_face(n: &str) -> bool { matches!(n, "stone" | "cobblestone" | "granite" | "limestone" | "andesite" | "diorite" | "mossy_stone" | "coal_ore" | "iron_ore" | "copper_ore" | "tin_ore") }
+
+impl Session {
+    /// Les gens de métier du village pilote, quand il est chargé : le fermier moissonne les cultures mûres et ressème, le bûcheron
+    /// abat un arbre et replante, le mineur taille la roche à nu ; chacun rapporte son ouvrage à la réserve, où il compte.
+    pub(crate) fn econ_chores(&mut self, e: &mut Econ, v: &Village, dt: f64) {
+        let c = e.census(v); let hod = self.hour; let work = (7.5..12.0).contains(&hod) || (13.0..18.0).contains(&hod);
+        // ce qu'il y a à faire autour : rafraîchi toutes les deux minutes
+        if e.scan_t < 0.0 || self.elapsed - e.scan_t > 120.0 { e.scan_t = self.elapsed; self.econ_scan(e, v); }
+        e.live = [!e.crops.is_empty(), !e.trees.is_empty(), !e.rocks.is_empty()];
+        // les plants qui ont eu le temps deviennent de jeunes chênes
+        let now = self.hours; let grown: Vec<[i32; 3]> = e.saplings.iter().filter(|s| now - s.1 >= SAPLING_HOURS).map(|s| s.0).collect();
+        for p in grown { if self.world.get(p[0], p[1], p[2]) == Some(B::SAPLING) { let tree: Vec<(i32, i32, i32, Id)> = crate::gen::young_oak(p[0], p[1], p[2], (p[0] * 31 + p[2] * 17) as u32).into_iter().filter(|d| d[3] > 0 && self.world.get(d[0], d[1], d[2]).is_some_and(|b| b == 0 || crate::blocks::BLOCKS[b as usize].shape == crate::blocks::Shape::Deco || b == B::SAPLING)).map(|d| (d[0], d[1], d[2], d[3] as Id)).collect(); self.world.edit_many(&tree); e.trees.push(p); } e.saplings.retain(|s| s.0 != p); }
+        // qui fait quoi : les métiers suivent le recensement, dans l'ordre des habitants
+        let mine: Vec<usize> = (0..self.town.folk.len()).filter(|&k| self.town.folk[k].v == v.id && self.town.folk[k].craft.is_none()).collect();
+        let (farmers, cutters, miners) = (if c.fields > 0 { c.fields.div_ceil(2).max(1) } else { 0 }, c.cutters, c.miners);
+        for (i, &k) in mine.iter().enumerate() { let i = i as u32; self.town.folk[k].job = if i < farmers { 1 } else if i < farmers + cutters { 2 } else if i < farmers + cutters + miners { 3 } else { 0 }; }
+        let store = e.store.first().copied().map(|p| { let s = [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5]; (s, self.econ_beside(s)) });
+        let near_player = |p: [f64; 3], me: [f64; 3]| (p[0] - me[0]).hypot(p[2] - me[2]) < 40.0; let me = self.player.p;
+        let mut taken: Vec<[i32; 3]> = mine.iter().filter_map(|&k| { let f = &self.town.folk[k]; f.task.map(|_| [f.aim[0].floor() as i32, f.aim[1].floor() as i32, f.aim[2].floor() as i32]) }).collect();
+        for &k in &mine {
+            let mut f = self.town.folk[k].clone(); if f.job == 0 || f.scared > 0.0 { continue; }
+            // la journée finie, on dépose ce qu'on porte et on rentre
+            if !work { for (id, n) in f.carry.drain(..) { e.add(id, n as f64); } if f.task.is_some() { f.task = None; f.task_k += 1; } self.town.folk[k] = f; continue; }
+            if f.task.is_none() {
+                let full = |id: &str| e.have(id) >= FULL; let load = f.carry.iter().map(|c| c.1).sum::<u32>();
+                let back = match f.job { 1 => load >= LOAD_CROPS, 2 => load > 0, _ => load >= LOAD_STONE };
+                let pick = |list: &[[i32; 3]], taken: &[[i32; 3]]| -> Option<[i32; 3]> { let o = [v.c[0] as f64, v.c[2] as f64]; let salt = k as i32 * 13 + f.task_k as i32;
+                    list.iter().filter(|p| !taken.contains(p)).min_by(|a, b| { let d = |p: &[i32; 3]| (p[0] as f64 - o[0]).hypot(p[2] as f64 - o[1]) * (0.8 + 0.4 * crate::noise::hash_float(p[0], p[2], salt, 401)); d(a).total_cmp(&d(b)) }).copied() };
+                let target = if back { None } else { match f.job { 1 => pick(&e.crops.iter().filter(|p| self.world.get(p[0], p[1], p[2]).is_some_and(|b| crate::play::crop_first(b).is_some_and(|f0| b == f0 + 3))).copied().collect::<Vec<_>>(), &taken), 2 if !full("oak_log") => { /* un vrai arbre, avec son feuillage : pas un tas de bûches ni une poutre */ let mut got = None; while let Some(t) = pick(&e.trees, &taken) { if crate::felling::find_tree(&self.world, t[0], t[1], t[2]).is_some() { got = Some(t); break; } e.trees.retain(|p| *p != t); } got } 3 if !full("cobblestone") => pick(&e.rocks, &taken), _ => None } };
+                match (target, store) {
+                    (Some(t), _) => { let a = [t[0] as f64 + 0.5, t[1] as f64 + 0.5, t[2] as f64 + 0.5]; let at = self.econ_beside(a); f.aim = a; f.task = Some(at); f.task_k += 1; f.work_t = 0.0; taken.push(t); }
+                    (None, Some((sp, at))) if load > 0 => { f.aim = [sp[0], sp[1] + 0.5, sp[2]]; f.task = Some(at); f.task_k += 1; f.work_t = 0.0; }
+                    _ => {}
+                }
+            }
+            // au travail, sur place
+            if f.working && f.task.is_some() {
+                f.work_t += dt; let t = [f.aim[0].floor() as i32, f.aim[1].floor() as i32, f.aim[2].floor() as i32]; let at_store = store.is_some_and(|s| (s.0[0] - f.aim[0]).abs() < 0.6 && (s.0[2] - f.aim[2]).abs() < 0.6);
+                let need = if at_store { DROP } else { match f.job { 1 => REAP, 2 => CHOP, _ => DIG } };
+                if f.work_t >= need {
+                    let b = self.world.get(t[0], t[1], t[2]).unwrap_or(0); let name = crate::blocks::BLOCKS[b as usize].name;
+                    if at_store { for (id, n) in f.carry.drain(..) { e.add(id, n as f64); } }
+                    else { match f.job {
+                        1 => if let Some(f0) = crate::play::crop_first(b).filter(|f0| b == f0 + 3) {
+                            // la moisson : le plant mûr donne sa récolte et l'on ressème aussitôt
+                            let got = match name { n if n.starts_with("wheat") => "wheat", n if n.starts_with("carrot") => "carrot", _ => "potato" }; let n = if got == "wheat" { 1 } else { 2 };
+                            self.world.edit(t[0], t[1], t[2], f0); self.crops.retain(|c| c.0 != t); self.crops.push((t, self.hours)); add_to(&mut f.carry, got, n); }
+                        2 => if let Some(tree) = crate::felling::find_tree(&self.world, t[0], t[1], t[2]) {
+                            // l'arbre tombe ; on replante au pied
+                            let at = |s: &Self, p: (i32, i32, i32)| s.world.get(p.0, p.1, p.2).unwrap_or(0);
+                            let logs: Vec<((i32, i32, i32), Id)> = tree.logs.iter().filter(|p| p.1 >= t[1]).map(|p| (*p, crate::blocks::log_of(at(self, *p)))).collect(); let leaf = tree.leaves.first().map_or(0, |p| at(self, *p));
+                            let edits: Vec<_> = logs.iter().map(|(p, _)| (p.0, p.1, p.2, 0)).chain(tree.leaves.iter().map(|p| (p.0, p.1, p.2, 0))).collect(); self.world.edit_many(&edits);
+                            if self.falling.is_none() && near_player(f.p, me) { self.falling = Some(crate::felling::Fall::new(&logs, &tree.leaves, leaf, (t[0], t[1], t[2]), f.p, (t[0] * 31 + t[2]) as u32)); self.fall_serial += 1; self.sound.tree_crack(); }
+                            if self.world.get(t[0], t[1] - 1, t[2]).is_some_and(|g| matches!(crate::blocks::BLOCKS[g as usize].name, "grass" | "dirt" | "podzol" | "forest_floor")) { self.world.edit(t[0], t[1], t[2], B::SAPLING); e.saplings.push((t, self.hours)); }
+                            add_to(&mut f.carry, "oak_log", logs.len().clamp(1, 24) as u32); e.trees.retain(|p| *p != t); } else { e.trees.retain(|p| *p != t); }
+                        _ => if is_stone_face(name) {
+                            // un bloc de roche tombe sous la pioche ; le minerai va au minerai
+                            let got = match name { "coal_ore" => "coal", "iron_ore" => "iron_ore", _ => "cobblestone" }; self.world.edit(t[0], t[1], t[2], 0); add_to(&mut f.carry, got, 1);
+                            if near_player(f.p, me) { self.sound.place("stone"); } e.rocks.retain(|p| *p != t); }
+                    } }
+                    f.task = None; f.work_t = 0.0; self.dirty = true;
+                }
+            }
+            self.town.folk[k] = f;
+        }
+    }
+    /// Où se tenir pour travailler un bloc : sur le sol libre à côté, du côté du village.
+    fn econ_beside(&self, a: [f64; 3]) -> [f64; 3] {
+        let (x, y, z) = (a[0].floor() as i32, a[1].floor() as i32, a[2].floor() as i32); let mut best: Option<(f64, [f64; 3])> = None;
+        for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)] {
+            for dy in [0, -1, 1, -2] { let (px, py, pz) = (x + dx, y + dy, z + dz);
+                let free = |yy: i32| self.world.get(px, yy, pz).is_none_or(|b| !is_solid(b)); let floor = self.world.get(px, py - 1, pz).is_some_and(is_solid);
+                if floor && free(py) && free(py + 1) { let p = [px as f64 + 0.5 - dx as f64 * 0.25, py as f64, pz as f64 + 0.5 - dz as f64 * 0.25]; let d = (dx * dx + dz * dz) as f64 + dy.abs() as f64 * 0.5; if best.is_none_or(|b| d < b.0) { best = Some((d, p)); } break; } } }
+        best.map_or([a[0], a[1] - 0.5, a[2]], |b| b.1)
+    }
+    /// Ce qu'il y a à faire autour du village : les pieds d'arbre de la lisière, les cultures de ses champs, la roche à nu.
+    fn econ_scan(&self, e: &mut Econ, v: &Village) {
+        let (cx, cy, cz) = (v.c[0], v.c[1], v.c[2]); let r = (v.r + 26).min(64);
+        let houses: Vec<[i32; 4]> = v.works.iter().map(|w| w.1).chain(v.houses.iter().map(|h| h.area)).collect(); let inside = |x: i32, z: i32| houses.iter().any(|a| x >= a[0] - 2 && x <= a[2] + 2 && z >= a[1] - 2 && z <= a[3] + 2);
+        let (mut trees, mut crops, mut rocks) = (Vec::new(), Vec::new(), Vec::new());
+        for x in cx - r..=cx + r { for z in cz - r..=cz + r {
+            let d2 = (x - cx).pow(2) + (z - cz).pow(2); if d2 > r * r { continue; }
+            // le haut de la colonne, de là où le monde est chargé
+            let Some(top) = (cy - 10..cy + 14).rev().find(|&y| self.world.get(x, y, z).is_some_and(|b| b != 0 && !crate::blocks::is_leaf(b) && crate::blocks::BLOCKS[b as usize].shape != crate::blocks::Shape::Deco || self.world.get(x, y, z).is_some_and(crate::blocks::is_log))) else { continue };
+            let b = self.world.get(x, top, z).unwrap_or(0); let n = crate::blocks::BLOCKS[b as usize].name;
+            // un pied d'arbre : le tronc posé sur la terre, hors du village
+            if !inside(x, z) { for y in (cy - 8..=top).rev() { let t = self.world.get(x, y, z).unwrap_or(0); if crate::blocks::is_log(t) && !crate::blocks::BLOCKS[t as usize].name.ends_with("_c") && self.world.get(x, y - 1, z).is_some_and(|g| matches!(crate::blocks::BLOCKS[g as usize].name, "grass" | "dirt" | "podzol" | "forest_floor")) && crate::blocks::BLOCKS[t as usize].name.starts_with("oak") && (1..=3).all(|d| self.world.get(x, y + d, z).is_some_and(crate::blocks::is_log)) { trees.push([x, y, z]); break; } } }
+            // une culture, dans un champ du village
+            if let Some(cb) = self.world.get(x, top + 1, z) { if crate::play::crop_first(cb).is_some() { crops.push([x, top + 1, z]); } }
+            if self.world.get(x, top, z).is_some_and(|b| crate::play::crop_first(b).is_some()) { crops.push([x, top, z]); }
+            // la roche à nu, pas trop bas, hors du village et des chemins
+            if is_stone_face(n) && !inside(x, z) && top >= cy - 6 && self.world.get(x, top + 1, z).is_some_and(|a| !is_solid(a)) && (x - cx).abs().max((z - cz).abs()) > v.r / 2 { rocks.push([x, top, z]); }
+        } }
+        e.trees = trees; e.crops = crops; e.rocks = rocks;
+    }
+}
+fn add_to(carry: &mut Vec<(&'static str, u32)>, id: &'static str, n: u32) { if let Some(c) = carry.iter_mut().find(|c| c.0 == id) { c.1 += n; } else { carry.push((id, n)); } }

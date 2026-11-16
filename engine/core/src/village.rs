@@ -352,7 +352,13 @@ impl Site {
 #[derive(Clone, Debug)]
 pub struct Folk { pub v: (i32, i32), pub house: usize, pub craft: Option<&'static str>, pub name: String, pub p: [f64; 3], pub yaw: f64, pub phase: f64, pub moving: bool, pub working: bool, route: Vec<[f64; 3]>, goal: (u8, u32), look: u8, /** tenue de la région : 0 médiévale, 1 désert, 2 Nord, 3 port */ pub region: u8,
     /// Effrayé par une arme (secondes qui restent), délai avant de resaluer le joueur.
-    pub scared: f64, greet_t: f64, stuck: f64 }
+    pub scared: f64, greet_t: f64, stuck: f64,
+    /// Le métier du village pilote : 0 aucun, 1 fermier, 2 bûcheron, 3 mineur (voir `economie`).
+    pub job: u8,
+    /// Ce qu'il porte vers la réserve (gerbes, rondins, pierres).
+    pub carry: Vec<(&'static str, u32)>,
+    /// La tâche du moment : où se tenir, le bloc travaillé, son numéro (change à chaque tâche), le temps passé dessus.
+    pub task: Option<[f64; 3]>, pub aim: [f64; 3], pub task_k: u32, pub work_t: f64 }
 #[derive(Clone, Copy, Debug, PartialEq)] pub enum Page { Main, Order(usize), Trade }
 #[derive(Clone, Debug)] pub struct Talk { pub who: usize, pub page: Page, pub said: String }
 /// Les villages autour du joueur, leurs habitants, et ce que le joueur en sait.
@@ -399,6 +405,8 @@ impl Town {
         let street = |salt: u32| { let o = &v.houses[(rnd(salt, 3) * v.houses.len() as f64) as usize % v.houses.len()]; if o.way.len() > 2 { return o.way[(rnd(salt, 4) * o.way.len() as f64) as usize % o.way.len()]; } let t = 0.25 + 0.6 * rnd(salt, 4); [o.ring[0] + (o.door[0] - o.ring[0]) * t, o.ring[1] + (o.door[1] - o.ring[1]) * t, o.ring[2] + (o.door[2] - o.ring[2]) * t] };
         let neighbour = |salt: u32| { let o = &v.houses[(rnd(salt, 5) * v.houses.len() as f64) as usize % v.houses.len()]; let side = (rnd(salt, 6) - 0.5) * 1.6; let (ex, ez) = (o.door[0] - o.ring[0], o.door[2] - o.ring[2]); let l = ex.hypot(ez).max(0.1); [o.door[0] - ex / l * 1.2 - ez / l * side, o.door[1], o.door[2] - ez / l * 1.2 + ex / l * side] };
         if !(6.5..21.5).contains(&hour) { return ((0, 0), h.bed); }
+        // au village pilote, les gens de métier vont là où leur tâche les attend : un arbre, un sillon, un front de taille, la réserve
+        if f.job > 0 && f.scared <= 0.0 { if let Some(t) = f.task { return ((7, f.task_k), t); } }
         let slot = (hour * 0.9 + rnd(9, 7) * 2.0) as u32;
         if (8.0..18.0).contains(&hour) {
             if f.craft.is_some() { return if (12.5..13.5).contains(&hour) { ((6, 0), h.inside) } else { ((1, 0), h.spot) }; }
@@ -448,6 +456,7 @@ impl Town {
                 let gy = ground(f.p[0], f.p[1], f.p[2]).unwrap_or(q[1]); f.p[1] += (gy - f.p[1]).clamp(-dt * 6.0, dt * 6.0);
             } else {
                 f.moving = false; if !f.working { f.phase += dt; }
+                if goal.0 == 7 { f.yaw = (f.aim[0] - f.p[0]).atan2(f.aim[2] - f.p[2]); f.working = true; f.phase += dt * 5.0; }
                 if goal.0 == 1 { let Some(v) = self.village(f.v) else { continue }; let (bx, bz) = dir(v.houses[f.house].back); f.yaw = (bx as f64).atan2(bz as f64); f.working = true; f.phase += dt * 5.0; }
                 // Arrêté près du joueur, on se tourne vers lui.
                 if !f.working && near < 4.0 && f.scared <= 0.0 { f.yaw = (me[0] - f.p[0]).atan2(me[2] - f.p[2]); }
@@ -463,7 +472,7 @@ impl Town {
             for j in 0..count {
                 let pick = (hash_float(v.id.0 * 7 + i as i32, v.id.1, j as i32, 92) * FIRST.len() as f64) as usize % FIRST.len();
                 let look = if let Some(c) = h.craft { db().craftsmen.iter().position(|x| x.id == c).unwrap_or(0) as u8 } else { 6 + (hash_float(i as i32, j as i32, v.id.0, v.id.1) * 3.0) as u8 % 3 };
-                self.folk.push(Folk { v: v.id, house: i, craft: if j == 0 { h.craft } else { None }, name: FIRST[pick].to_string(), p: h.spot, yaw: 0.0, phase: n as f64, moving: false, working: false, route: Vec::new(), goal: (9, 0), look, region: match v.kind { "desert" => 1, "montagne" | "taiga" => 2, "port" => 3, _ => 0 }, scared: 0.0, greet_t: 0.0, stuck: 0.0 });
+                self.folk.push(Folk { v: v.id, house: i, craft: if j == 0 { h.craft } else { None }, name: FIRST[pick].to_string(), p: h.spot, yaw: 0.0, phase: n as f64, moving: false, working: false, route: Vec::new(), goal: (9, 0), look, region: match v.kind { "desert" => 1, "montagne" | "taiga" => 2, "port" => 3, _ => 0 }, scared: 0.0, greet_t: 0.0, stuck: 0.0, job: 0, carry: Vec::new(), task: None, aim: [0.0; 3], task_k: 0, work_t: 0.0 });
                 n += 1;
             }
         }
@@ -487,7 +496,15 @@ impl Town {
                 leg_l = s * amp; leg_r = -s * amp; arm_l = -s * amp * 0.75; arm_r = s * amp * 0.75; bob = (t * 2.0).sin().abs() * 0.035; lean = if fast { 0.18 } else { 0.05 }; head_yaw = (t * 0.5).sin() * 0.08;
             } else if f.working {
                 // Le geste du métier, dans son rythme.
-                match f.craft {
+                match f.craft.or(match (f.job, f.carry.is_empty() && f.aim[1] >= 0.0) { (1, true) => Some("fermier"), (2, true) => Some("bucheron"), (3, true) => Some("mineur"), _ => None }) {
+                    // la hache levée haut derrière l'épaule, puis l'abattage en travers, le corps qui accompagne
+                    Some("bucheron") => { let c = (t * 0.22).fract(); let up = if c < 0.7 { let e = c / 0.7; e * e * (3.0 - 2.0 * e) } else { 1.0 - ((c - 0.7) / 0.3).powf(0.5) };
+                        arm_r = -0.6 - 1.9 * up; arm_l = -0.5 - 1.7 * up; yaw_r = -0.35; yaw_l = 0.45; lean = 0.05 + 0.2 * (1.0 - up); head_pitch = 0.1; leg_l = 0.18; leg_r = -0.12; tool = Some("axe"); }
+                    // la pioche tombe sur la roche, de tout son poids
+                    Some("mineur") => { let c = (t * 0.26).fract(); let up = if c < 0.65 { let e = c / 0.65; e * e * (3.0 - 2.0 * e) } else { 1.0 - ((c - 0.65) / 0.35).powf(0.45) };
+                        arm_r = -0.4 - 2.2 * up; arm_l = -0.35 - 2.0 * up; yaw_l = 0.4; yaw_r = -0.2; lean = 0.1 + 0.32 * (1.0 - up); head_pitch = 0.35; leg_l = 0.22; tool = Some("pickaxe"); }
+                    // penché sur le sillon, la faucille fauche de droite à gauche, l'autre main saisit la gerbe
+                    Some("fermier") => { let sw = (t * 0.55).sin(); arm_r = -1.25 + 0.15 * sw; yaw_r = -0.9 * sw; arm_l = -1.1; yaw_l = 0.35 + 0.2 * sw; lean = 0.5; head_pitch = 0.45; leg_l = 0.25; leg_r = -0.1; tool = Some("iron_sickle"); }
                     Some("forgeron") | Some("maitre_forgeron") | Some("armurier") => {
                         let c = (t * 0.28).fract(); let up = if c < 0.62 { let e = c / 0.62; e * e * (3.0 - 2.0 * e) } else { 1.0 - ((c - 0.62) / 0.38).powf(0.6) };
                         arm_r = -0.75 - 1.75 * up; arm_l = -0.95; yaw_l = 0.35; lean = 0.12 + 0.06 * (1.0 - up); head_pitch = 0.25; tool = Some("iron_hammer");
@@ -507,6 +524,8 @@ impl Town {
                 match seed % 3 { 0 => { arm_l = 0.04 * (t * 0.6).sin(); arm_r = -0.04 * (t * 0.6).sin(); } 1 => { arm_l = 0.38; arm_r = 0.38; yaw_l = -0.3; yaw_r = 0.3; } _ => { arm_l = -0.95; arm_r = -0.95; yaw_l = 0.75; yaw_r = -0.75; } }
                 if seed % 5 == 0 { leg_l = 0.06; leg_r = -0.04; }
             }
+            // ce qu'il porte à la réserve : les bras tendus devant lui, le fardeau dans les mains
+            if let Some(c) = f.carry.first().filter(|_| !f.working) { arm_l = -1.05; arm_r = -1.05; yaw_l = 0.28; yaw_r = -0.28; tool = Some(c.0); }
             let hip = 0.76; let body = mul(&base, &mul(&trs(0.0, hip + bob, 0.0, 0.0, lean, 1.0), &trs(0.0, -hip, 0.0, 0.0, 0.0, 1.0)));
             let rs = if f.region == 0 { String::new() } else { format!("r{}", f.region) }; put(&format!("folk{l}{rs}"), body); put(&format!("folkHead{face}{rs}"), mul(&body, &trs(0.0, 1.4, 0.0, head_yaw, head_pitch, 1.0)));
             put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(-0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_l, 1.0))); put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_r, 1.0)));

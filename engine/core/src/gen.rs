@@ -715,6 +715,8 @@ impl Grower {
 }
 #[inline] fn at_frac(n: usize, t: f64) -> usize { (n as f64 * t).floor() as usize }
 
+/// Un jeune chêne, tel qu'un plant devient au bout de quelques jours : ses blocs, absolus.
+pub(crate) fn young_oak(x: i32, y: i32, z: i32, seed: u32) -> Vec<[i32; 4]> { let mut r = Rng::new(seed); grow_oak(x as f64 + 0.5, y as f64, z as f64 + 0.5, &mut r, 0.15).data }
 fn grow_oak(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
     let mut g = Grower::default(); let (log, lf) = (B::OAK_LOG, B::OAK_LEAVES);
     let rad = lerp(0.75, 2.3, age); let hh = lerp(5.5, 14.0, age);

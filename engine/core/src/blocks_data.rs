@@ -4,7 +4,7 @@ use crate::blocks::{Block, Shape};
 pub const VARIANTS: u32 = 4;
 pub const MATERIALS: [&str; 113] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm", "ore_copper", "ore_tin", "ore_iron", "ore_coal", "clay", "stone_bricks", "bricks", "thatch", "planks_birch", "planks_spruce", "cobble", "farmland_top", "plaster", "dark_timber", "roof_tiles", "slate", "marble", "ashlar", "fieldstone", "setts", "polished_stone", "checker", "terracotta", "parquet", "shingles", "wool", "rug", "frame_square", "frame_cross", "frame_diag", "wattle", "books", "hay", "crate", "chiseled", "stained_glass", "iron_plate", "verdigris", "coral", "planks_wreck", "lime_masonry", "rubble", "beam_end", "boards", "tiles_moss", "path_top", "flowstone", "basalt", "obsidian", "lava", "magma", "crystal_violet", "crystal_blue", "crystal_pink", "crystal_white", "abyss_rock", "glow_moss", "mycelium", "mushroom_stem", "cap_red", "cap_violet", "cap_blue", "gills", "ice_blue", "rail_bed"];
 
-pub const BLOCKS: [Block; 1153] = [
+pub const BLOCKS: [Block; 1154] = [
     Block { id: 0, name: "air", shape: Shape::Air, hardness: 0.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "decor", drop: Some("air") },
     Block { id: 1, name: "grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
     Block { id: 2, name: "dirt", shape: Shape::Cube, hardness: 0.45, faces: [8,8,8], dir_faces: [8,8,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
@@ -1088,76 +1088,77 @@ pub const BLOCKS: [Block; 1153] = [
     Block { id: 1080, name: "crystal_white_point_up_0", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
     Block { id: 1081, name: "crystal_white_point_up_1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
     Block { id: 1082, name: "crystal_white_point_up_2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dripstone"), cat: "rock", drop: Some("crystal_white") },
-    Block { id: 1083, name: "gravestone", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("gravestone"), cat: "rock", drop: Some("gravestone") },
-    Block { id: 1084, name: "gravestone@1", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("gravestone"), cat: "rock", drop: Some("gravestone") },
-    Block { id: 1085, name: "gravestone@2", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("gravestone"), cat: "rock", drop: Some("gravestone") },
-    Block { id: 1086, name: "gravestone@3", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("gravestone"), cat: "rock", drop: Some("gravestone") },
-    Block { id: 1087, name: "grave_cross", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("grave_cross"), cat: "wood", drop: Some("grave_cross") },
-    Block { id: 1088, name: "grave_cross@1", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("grave_cross"), cat: "wood", drop: Some("grave_cross") },
-    Block { id: 1089, name: "grave_cross@2", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("grave_cross"), cat: "wood", drop: Some("grave_cross") },
-    Block { id: 1090, name: "grave_cross@3", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("grave_cross"), cat: "wood", drop: Some("grave_cross") },
-    Block { id: 1091, name: "stone_slab", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_slab") },
-    Block { id: 1092, name: "stone_slab_top", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_slab") },
-    Block { id: 1093, name: "stone_stairs", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
-    Block { id: 1094, name: "stone_stairs_1", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
-    Block { id: 1095, name: "stone_stairs_2", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
-    Block { id: 1096, name: "stone_stairs_3", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
-    Block { id: 1097, name: "stone_stairs_top", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
-    Block { id: 1098, name: "stone_stairs_top_1", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
-    Block { id: 1099, name: "stone_stairs_top_2", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
-    Block { id: 1100, name: "stone_stairs_top_3", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
-    Block { id: 1101, name: "stone_vslab", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_vslab") },
-    Block { id: 1102, name: "stone_vslab_1", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_vslab") },
-    Block { id: 1103, name: "stone_vslab_2", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_vslab") },
-    Block { id: 1104, name: "stone_vslab_3", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_vslab") },
-    Block { id: 1105, name: "limestone_slab", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_slab") },
-    Block { id: 1106, name: "limestone_slab_top", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_slab") },
-    Block { id: 1107, name: "limestone_stairs", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
-    Block { id: 1108, name: "limestone_stairs_1", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
-    Block { id: 1109, name: "limestone_stairs_2", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
-    Block { id: 1110, name: "limestone_stairs_3", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
-    Block { id: 1111, name: "limestone_stairs_top", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
-    Block { id: 1112, name: "limestone_stairs_top_1", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
-    Block { id: 1113, name: "limestone_stairs_top_2", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
-    Block { id: 1114, name: "limestone_stairs_top_3", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
-    Block { id: 1115, name: "limestone_vslab", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_vslab") },
-    Block { id: 1116, name: "limestone_vslab_1", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_vslab") },
-    Block { id: 1117, name: "limestone_vslab_2", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_vslab") },
-    Block { id: 1118, name: "limestone_vslab_3", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_vslab") },
-    Block { id: 1119, name: "granite_slab", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_slab") },
-    Block { id: 1120, name: "granite_slab_top", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_slab") },
-    Block { id: 1121, name: "granite_stairs", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
-    Block { id: 1122, name: "granite_stairs_1", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
-    Block { id: 1123, name: "granite_stairs_2", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
-    Block { id: 1124, name: "granite_stairs_3", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
-    Block { id: 1125, name: "granite_stairs_top", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
-    Block { id: 1126, name: "granite_stairs_top_1", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
-    Block { id: 1127, name: "granite_stairs_top_2", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
-    Block { id: 1128, name: "granite_stairs_top_3", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
-    Block { id: 1129, name: "granite_vslab", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_vslab") },
-    Block { id: 1130, name: "granite_vslab_1", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_vslab") },
-    Block { id: 1131, name: "granite_vslab_2", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_vslab") },
-    Block { id: 1132, name: "granite_vslab_3", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_vslab") },
-    Block { id: 1133, name: "sandstone_slab", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_slab") },
-    Block { id: 1134, name: "sandstone_slab_top", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_slab") },
-    Block { id: 1135, name: "sandstone_stairs", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
-    Block { id: 1136, name: "sandstone_stairs_1", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
-    Block { id: 1137, name: "sandstone_stairs_2", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
-    Block { id: 1138, name: "sandstone_stairs_3", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
-    Block { id: 1139, name: "sandstone_stairs_top", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
-    Block { id: 1140, name: "sandstone_stairs_top_1", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
-    Block { id: 1141, name: "sandstone_stairs_top_2", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
-    Block { id: 1142, name: "sandstone_stairs_top_3", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
-    Block { id: 1143, name: "sandstone_vslab", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_vslab") },
-    Block { id: 1144, name: "sandstone_vslab_1", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_vslab") },
-    Block { id: 1145, name: "sandstone_vslab_2", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_vslab") },
-    Block { id: 1146, name: "sandstone_vslab_3", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_vslab") },
-    Block { id: 1147, name: "cobweb", shape: Shape::Deco, hardness: 0.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("cobweb"), cat: "foliage", drop: Some("silk") },
-    Block { id: 1148, name: "glow_jar", shape: Shape::Deco, hardness: 0.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 9, tint: [1.0,1.0,1.0], model: Some("glow_jar"), cat: "light", drop: Some("glow_jar") },
-    Block { id: 1149, name: "glow_vine", shape: Shape::Deco, hardness: 0.05, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("glow_vine"), cat: "foliage", drop: Some("glow_vine") },
-    Block { id: 1150, name: "roots", shape: Shape::Deco, hardness: 0.1, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("roots"), cat: "foliage", drop: Some("stick") },
-    Block { id: 1151, name: "rail_x", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rail"), cat: "wood", drop: Some("rail") },
-    Block { id: 1152, name: "rail_z", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rail"), cat: "wood", drop: Some("rail") },
+    Block { id: 1083, name: "sapling", shape: Shape::Deco, hardness: 0.05, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("sapling"), cat: "plant", drop: Some("sapling") },
+    Block { id: 1084, name: "gravestone", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("gravestone"), cat: "rock", drop: Some("gravestone") },
+    Block { id: 1085, name: "gravestone@1", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("gravestone"), cat: "rock", drop: Some("gravestone") },
+    Block { id: 1086, name: "gravestone@2", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("gravestone"), cat: "rock", drop: Some("gravestone") },
+    Block { id: 1087, name: "gravestone@3", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("gravestone"), cat: "rock", drop: Some("gravestone") },
+    Block { id: 1088, name: "grave_cross", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("grave_cross"), cat: "wood", drop: Some("grave_cross") },
+    Block { id: 1089, name: "grave_cross@1", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("grave_cross"), cat: "wood", drop: Some("grave_cross") },
+    Block { id: 1090, name: "grave_cross@2", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("grave_cross"), cat: "wood", drop: Some("grave_cross") },
+    Block { id: 1091, name: "grave_cross@3", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("grave_cross"), cat: "wood", drop: Some("grave_cross") },
+    Block { id: 1092, name: "stone_slab", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_slab") },
+    Block { id: 1093, name: "stone_slab_top", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_slab") },
+    Block { id: 1094, name: "stone_stairs", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
+    Block { id: 1095, name: "stone_stairs_1", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
+    Block { id: 1096, name: "stone_stairs_2", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
+    Block { id: 1097, name: "stone_stairs_3", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
+    Block { id: 1098, name: "stone_stairs_top", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
+    Block { id: 1099, name: "stone_stairs_top_1", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
+    Block { id: 1100, name: "stone_stairs_top_2", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
+    Block { id: 1101, name: "stone_stairs_top_3", shape: Shape::Deco, hardness: 1.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("stone_stairs") },
+    Block { id: 1102, name: "stone_vslab", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_vslab") },
+    Block { id: 1103, name: "stone_vslab_1", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_vslab") },
+    Block { id: 1104, name: "stone_vslab_2", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_vslab") },
+    Block { id: 1105, name: "stone_vslab_3", shape: Shape::Deco, hardness: 0.78, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("stone_vslab") },
+    Block { id: 1106, name: "limestone_slab", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_slab") },
+    Block { id: 1107, name: "limestone_slab_top", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_slab") },
+    Block { id: 1108, name: "limestone_stairs", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
+    Block { id: 1109, name: "limestone_stairs_1", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
+    Block { id: 1110, name: "limestone_stairs_2", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
+    Block { id: 1111, name: "limestone_stairs_3", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
+    Block { id: 1112, name: "limestone_stairs_top", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
+    Block { id: 1113, name: "limestone_stairs_top_1", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
+    Block { id: 1114, name: "limestone_stairs_top_2", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
+    Block { id: 1115, name: "limestone_stairs_top_3", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("limestone_stairs") },
+    Block { id: 1116, name: "limestone_vslab", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_vslab") },
+    Block { id: 1117, name: "limestone_vslab_1", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_vslab") },
+    Block { id: 1118, name: "limestone_vslab_2", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_vslab") },
+    Block { id: 1119, name: "limestone_vslab_3", shape: Shape::Deco, hardness: 0.72, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("limestone_vslab") },
+    Block { id: 1120, name: "granite_slab", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_slab") },
+    Block { id: 1121, name: "granite_slab_top", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_slab") },
+    Block { id: 1122, name: "granite_stairs", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
+    Block { id: 1123, name: "granite_stairs_1", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
+    Block { id: 1124, name: "granite_stairs_2", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
+    Block { id: 1125, name: "granite_stairs_3", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
+    Block { id: 1126, name: "granite_stairs_top", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
+    Block { id: 1127, name: "granite_stairs_top_1", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
+    Block { id: 1128, name: "granite_stairs_top_2", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
+    Block { id: 1129, name: "granite_stairs_top_3", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("granite_stairs") },
+    Block { id: 1130, name: "granite_vslab", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_vslab") },
+    Block { id: 1131, name: "granite_vslab_1", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_vslab") },
+    Block { id: 1132, name: "granite_vslab_2", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_vslab") },
+    Block { id: 1133, name: "granite_vslab_3", shape: Shape::Deco, hardness: 0.96, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("granite_vslab") },
+    Block { id: 1134, name: "sandstone_slab", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_slab") },
+    Block { id: 1135, name: "sandstone_slab_top", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_slab") },
+    Block { id: 1136, name: "sandstone_stairs", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
+    Block { id: 1137, name: "sandstone_stairs_1", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
+    Block { id: 1138, name: "sandstone_stairs_2", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
+    Block { id: 1139, name: "sandstone_stairs_3", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
+    Block { id: 1140, name: "sandstone_stairs_top", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
+    Block { id: 1141, name: "sandstone_stairs_top_1", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
+    Block { id: 1142, name: "sandstone_stairs_top_2", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
+    Block { id: 1143, name: "sandstone_stairs_top_3", shape: Shape::Deco, hardness: 1.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("stairs"), cat: "rock", drop: Some("sandstone_stairs") },
+    Block { id: 1144, name: "sandstone_vslab", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_vslab") },
+    Block { id: 1145, name: "sandstone_vslab_1", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_vslab") },
+    Block { id: 1146, name: "sandstone_vslab_2", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_vslab") },
+    Block { id: 1147, name: "sandstone_vslab_3", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("slab"), cat: "rock", drop: Some("sandstone_vslab") },
+    Block { id: 1148, name: "cobweb", shape: Shape::Deco, hardness: 0.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("cobweb"), cat: "foliage", drop: Some("silk") },
+    Block { id: 1149, name: "glow_jar", shape: Shape::Deco, hardness: 0.3, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 9, tint: [1.0,1.0,1.0], model: Some("glow_jar"), cat: "light", drop: Some("glow_jar") },
+    Block { id: 1150, name: "glow_vine", shape: Shape::Deco, hardness: 0.05, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("glow_vine"), cat: "foliage", drop: Some("glow_vine") },
+    Block { id: 1151, name: "roots", shape: Shape::Deco, hardness: 0.1, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("roots"), cat: "foliage", drop: Some("stick") },
+    Block { id: 1152, name: "rail_x", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rail"), cat: "wood", drop: Some("rail") },
+    Block { id: 1153, name: "rail_z", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("rail"), cat: "wood", drop: Some("rail") },
 ];
 
 #[allow(non_snake_case)]
@@ -2134,68 +2135,69 @@ pub mod B {
     pub const CRYSTAL_WHITE_POINT_UP_0: crate::blocks::Id = 1080;
     pub const CRYSTAL_WHITE_POINT_UP_1: crate::blocks::Id = 1081;
     pub const CRYSTAL_WHITE_POINT_UP_2: crate::blocks::Id = 1082;
-    pub const GRAVESTONE: crate::blocks::Id = 1083;
-    pub const GRAVE_CROSS: crate::blocks::Id = 1087;
-    pub const STONE_SLAB: crate::blocks::Id = 1091;
-    pub const STONE_SLAB_TOP: crate::blocks::Id = 1092;
-    pub const STONE_STAIRS: crate::blocks::Id = 1093;
-    pub const STONE_STAIRS_1: crate::blocks::Id = 1094;
-    pub const STONE_STAIRS_2: crate::blocks::Id = 1095;
-    pub const STONE_STAIRS_3: crate::blocks::Id = 1096;
-    pub const STONE_STAIRS_TOP: crate::blocks::Id = 1097;
-    pub const STONE_STAIRS_TOP_1: crate::blocks::Id = 1098;
-    pub const STONE_STAIRS_TOP_2: crate::blocks::Id = 1099;
-    pub const STONE_STAIRS_TOP_3: crate::blocks::Id = 1100;
-    pub const STONE_VSLAB: crate::blocks::Id = 1101;
-    pub const STONE_VSLAB_1: crate::blocks::Id = 1102;
-    pub const STONE_VSLAB_2: crate::blocks::Id = 1103;
-    pub const STONE_VSLAB_3: crate::blocks::Id = 1104;
-    pub const LIMESTONE_SLAB: crate::blocks::Id = 1105;
-    pub const LIMESTONE_SLAB_TOP: crate::blocks::Id = 1106;
-    pub const LIMESTONE_STAIRS: crate::blocks::Id = 1107;
-    pub const LIMESTONE_STAIRS_1: crate::blocks::Id = 1108;
-    pub const LIMESTONE_STAIRS_2: crate::blocks::Id = 1109;
-    pub const LIMESTONE_STAIRS_3: crate::blocks::Id = 1110;
-    pub const LIMESTONE_STAIRS_TOP: crate::blocks::Id = 1111;
-    pub const LIMESTONE_STAIRS_TOP_1: crate::blocks::Id = 1112;
-    pub const LIMESTONE_STAIRS_TOP_2: crate::blocks::Id = 1113;
-    pub const LIMESTONE_STAIRS_TOP_3: crate::blocks::Id = 1114;
-    pub const LIMESTONE_VSLAB: crate::blocks::Id = 1115;
-    pub const LIMESTONE_VSLAB_1: crate::blocks::Id = 1116;
-    pub const LIMESTONE_VSLAB_2: crate::blocks::Id = 1117;
-    pub const LIMESTONE_VSLAB_3: crate::blocks::Id = 1118;
-    pub const GRANITE_SLAB: crate::blocks::Id = 1119;
-    pub const GRANITE_SLAB_TOP: crate::blocks::Id = 1120;
-    pub const GRANITE_STAIRS: crate::blocks::Id = 1121;
-    pub const GRANITE_STAIRS_1: crate::blocks::Id = 1122;
-    pub const GRANITE_STAIRS_2: crate::blocks::Id = 1123;
-    pub const GRANITE_STAIRS_3: crate::blocks::Id = 1124;
-    pub const GRANITE_STAIRS_TOP: crate::blocks::Id = 1125;
-    pub const GRANITE_STAIRS_TOP_1: crate::blocks::Id = 1126;
-    pub const GRANITE_STAIRS_TOP_2: crate::blocks::Id = 1127;
-    pub const GRANITE_STAIRS_TOP_3: crate::blocks::Id = 1128;
-    pub const GRANITE_VSLAB: crate::blocks::Id = 1129;
-    pub const GRANITE_VSLAB_1: crate::blocks::Id = 1130;
-    pub const GRANITE_VSLAB_2: crate::blocks::Id = 1131;
-    pub const GRANITE_VSLAB_3: crate::blocks::Id = 1132;
-    pub const SANDSTONE_SLAB: crate::blocks::Id = 1133;
-    pub const SANDSTONE_SLAB_TOP: crate::blocks::Id = 1134;
-    pub const SANDSTONE_STAIRS: crate::blocks::Id = 1135;
-    pub const SANDSTONE_STAIRS_1: crate::blocks::Id = 1136;
-    pub const SANDSTONE_STAIRS_2: crate::blocks::Id = 1137;
-    pub const SANDSTONE_STAIRS_3: crate::blocks::Id = 1138;
-    pub const SANDSTONE_STAIRS_TOP: crate::blocks::Id = 1139;
-    pub const SANDSTONE_STAIRS_TOP_1: crate::blocks::Id = 1140;
-    pub const SANDSTONE_STAIRS_TOP_2: crate::blocks::Id = 1141;
-    pub const SANDSTONE_STAIRS_TOP_3: crate::blocks::Id = 1142;
-    pub const SANDSTONE_VSLAB: crate::blocks::Id = 1143;
-    pub const SANDSTONE_VSLAB_1: crate::blocks::Id = 1144;
-    pub const SANDSTONE_VSLAB_2: crate::blocks::Id = 1145;
-    pub const SANDSTONE_VSLAB_3: crate::blocks::Id = 1146;
-    pub const COBWEB: crate::blocks::Id = 1147;
-    pub const GLOW_JAR: crate::blocks::Id = 1148;
-    pub const GLOW_VINE: crate::blocks::Id = 1149;
-    pub const ROOTS: crate::blocks::Id = 1150;
-    pub const RAIL_X: crate::blocks::Id = 1151;
-    pub const RAIL_Z: crate::blocks::Id = 1152;
+    pub const SAPLING: crate::blocks::Id = 1083;
+    pub const GRAVESTONE: crate::blocks::Id = 1084;
+    pub const GRAVE_CROSS: crate::blocks::Id = 1088;
+    pub const STONE_SLAB: crate::blocks::Id = 1092;
+    pub const STONE_SLAB_TOP: crate::blocks::Id = 1093;
+    pub const STONE_STAIRS: crate::blocks::Id = 1094;
+    pub const STONE_STAIRS_1: crate::blocks::Id = 1095;
+    pub const STONE_STAIRS_2: crate::blocks::Id = 1096;
+    pub const STONE_STAIRS_3: crate::blocks::Id = 1097;
+    pub const STONE_STAIRS_TOP: crate::blocks::Id = 1098;
+    pub const STONE_STAIRS_TOP_1: crate::blocks::Id = 1099;
+    pub const STONE_STAIRS_TOP_2: crate::blocks::Id = 1100;
+    pub const STONE_STAIRS_TOP_3: crate::blocks::Id = 1101;
+    pub const STONE_VSLAB: crate::blocks::Id = 1102;
+    pub const STONE_VSLAB_1: crate::blocks::Id = 1103;
+    pub const STONE_VSLAB_2: crate::blocks::Id = 1104;
+    pub const STONE_VSLAB_3: crate::blocks::Id = 1105;
+    pub const LIMESTONE_SLAB: crate::blocks::Id = 1106;
+    pub const LIMESTONE_SLAB_TOP: crate::blocks::Id = 1107;
+    pub const LIMESTONE_STAIRS: crate::blocks::Id = 1108;
+    pub const LIMESTONE_STAIRS_1: crate::blocks::Id = 1109;
+    pub const LIMESTONE_STAIRS_2: crate::blocks::Id = 1110;
+    pub const LIMESTONE_STAIRS_3: crate::blocks::Id = 1111;
+    pub const LIMESTONE_STAIRS_TOP: crate::blocks::Id = 1112;
+    pub const LIMESTONE_STAIRS_TOP_1: crate::blocks::Id = 1113;
+    pub const LIMESTONE_STAIRS_TOP_2: crate::blocks::Id = 1114;
+    pub const LIMESTONE_STAIRS_TOP_3: crate::blocks::Id = 1115;
+    pub const LIMESTONE_VSLAB: crate::blocks::Id = 1116;
+    pub const LIMESTONE_VSLAB_1: crate::blocks::Id = 1117;
+    pub const LIMESTONE_VSLAB_2: crate::blocks::Id = 1118;
+    pub const LIMESTONE_VSLAB_3: crate::blocks::Id = 1119;
+    pub const GRANITE_SLAB: crate::blocks::Id = 1120;
+    pub const GRANITE_SLAB_TOP: crate::blocks::Id = 1121;
+    pub const GRANITE_STAIRS: crate::blocks::Id = 1122;
+    pub const GRANITE_STAIRS_1: crate::blocks::Id = 1123;
+    pub const GRANITE_STAIRS_2: crate::blocks::Id = 1124;
+    pub const GRANITE_STAIRS_3: crate::blocks::Id = 1125;
+    pub const GRANITE_STAIRS_TOP: crate::blocks::Id = 1126;
+    pub const GRANITE_STAIRS_TOP_1: crate::blocks::Id = 1127;
+    pub const GRANITE_STAIRS_TOP_2: crate::blocks::Id = 1128;
+    pub const GRANITE_STAIRS_TOP_3: crate::blocks::Id = 1129;
+    pub const GRANITE_VSLAB: crate::blocks::Id = 1130;
+    pub const GRANITE_VSLAB_1: crate::blocks::Id = 1131;
+    pub const GRANITE_VSLAB_2: crate::blocks::Id = 1132;
+    pub const GRANITE_VSLAB_3: crate::blocks::Id = 1133;
+    pub const SANDSTONE_SLAB: crate::blocks::Id = 1134;
+    pub const SANDSTONE_SLAB_TOP: crate::blocks::Id = 1135;
+    pub const SANDSTONE_STAIRS: crate::blocks::Id = 1136;
+    pub const SANDSTONE_STAIRS_1: crate::blocks::Id = 1137;
+    pub const SANDSTONE_STAIRS_2: crate::blocks::Id = 1138;
+    pub const SANDSTONE_STAIRS_3: crate::blocks::Id = 1139;
+    pub const SANDSTONE_STAIRS_TOP: crate::blocks::Id = 1140;
+    pub const SANDSTONE_STAIRS_TOP_1: crate::blocks::Id = 1141;
+    pub const SANDSTONE_STAIRS_TOP_2: crate::blocks::Id = 1142;
+    pub const SANDSTONE_STAIRS_TOP_3: crate::blocks::Id = 1143;
+    pub const SANDSTONE_VSLAB: crate::blocks::Id = 1144;
+    pub const SANDSTONE_VSLAB_1: crate::blocks::Id = 1145;
+    pub const SANDSTONE_VSLAB_2: crate::blocks::Id = 1146;
+    pub const SANDSTONE_VSLAB_3: crate::blocks::Id = 1147;
+    pub const COBWEB: crate::blocks::Id = 1148;
+    pub const GLOW_JAR: crate::blocks::Id = 1149;
+    pub const GLOW_VINE: crate::blocks::Id = 1150;
+    pub const ROOTS: crate::blocks::Id = 1151;
+    pub const RAIL_X: crate::blocks::Id = 1152;
+    pub const RAIL_Z: crate::blocks::Id = 1153;
 }

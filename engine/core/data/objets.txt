@@ -594,3 +594,4 @@ egg_glowbug | Œuf : scarabée luisant | oeufs | 0.1 | 64 | Clic droit sur un bl
 gravestone | Stèle | decor | 3.0 | 8 | Une pierre tombale au sommet arrondi, mangée de mousse. |
 grave_cross | Croix de bois | decor | 1.0 | 8 | Une croix plantée de travers sur un tertre. |
 flour | Farine | matieres | 0.1 | 99 | Du blé passé sous la meule : ce dont on fait le pain. |
+sapling | Plant de chêne | plantes | 0.2 | 64 | Un jeune chêne en motte : planté, il devient arbre en quelques jours. |

@@ -68,3 +68,23 @@ fn la_reserve_s_ouvre_et_la_maison_se_batit_d_un_coup() {
     let save = s.save_text(); let mut o = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); o.load_text(&save).unwrap(); ready(&mut o); idle(&mut o, 40);
     assert_eq!(o.econ.as_ref().unwrap().extra.len(), 1); assert_eq!(o.town.here.iter().find(|h| h.id == v.id).expect("le village est là").houses.len(), houses + 1); assert_eq!(o.town.folk.iter().filter(|f| f.v == v.id).count(), folk + 2);
 }
+
+/// Le matin au village pilote : le fermier moissonne et ressème, le bûcheron abat un arbre et replante, le mineur taille la
+/// roche ; chacun rapporte son ouvrage à la réserve, où il compte. Rien de tout cela ne sort plus du calcul tant que le village est là.
+#[test]
+fn les_gens_de_metier_travaillent_pour_de_bon() {
+    let mut s = start(); let v = pilot(&s); go(&mut s, &v); s.hour = 8.0; idle(&mut s, 20);
+    let jobs: Vec<u8> = s.town.folk.iter().filter(|f| f.v == v.id).map(|f| f.job).collect(); println!("métiers : {jobs:?}");
+    assert!(jobs.contains(&1) && jobs.contains(&2), "un fermier, un bûcheron : {jobs:?}");
+    let e0 = s.econ.clone().unwrap(); assert!(e0.live[0] && e0.live[1], "champs et bois au geste : {:?}", e0.live); println!("vivant : {:?}", e0.live);
+    let (logs0, crops0) = (e0.have("oak_log"), e0.have("wheat") + e0.have("carrot") + e0.have("potato"));
+    let (mut felled, mut reaped, mut worked) = (false, false, [false; 4]); let saplings0 = e0.saplings.len();
+    for i in 0..(200.0 / 0.05) as usize { s.tick(0.05, Input::default(), Actions::default()); if i % 20 == 0 { s.hour = s.hour.min(11.5); }
+        for f in s.town.folk.iter().filter(|f| f.v == v.id) { if f.working && f.task.is_some() { worked[f.job as usize] = true; } if f.job == 1 && !f.carry.is_empty() { reaped = true; } if f.job == 2 && f.carry.iter().any(|c| c.0 == "oak_log") { felled = true; } } }
+    let e = s.econ.clone().unwrap(); println!("après : bois {} → {}, cultures {} → {}, plants {}, travail {worked:?}", logs0, e.have("oak_log"), crops0, e.have("wheat") + e.have("carrot") + e.have("potato"), e.saplings.len());
+    assert!(worked[1] && worked[2], "on les a vus au travail : {worked:?}"); assert!(reaped, "le fermier a moissonné"); assert!(felled, "le bûcheron a abattu un arbre");
+    assert!(e.saplings.len() > saplings0, "et replanté"); let p = e.saplings.last().unwrap().0; assert_eq!(s.world.get(p[0], p[1], p[2]), Some(B::SAPLING));
+    assert!(e.have("oak_log") > logs0 || s.town.folk.iter().any(|f| f.job == 2 && !f.carry.is_empty()), "le bois arrive à la réserve (ou est en chemin)");
+    // le plant devient un jeune chêne au bout de trois jours
+    s.pass_hours(80.0); idle(&mut s, 3); s.econ.as_mut().unwrap().scan_reset(); idle(&mut s, 2); assert!(s.world.get(p[0], p[1], p[2]).is_some_and(is_log), "le chêne a poussé : {:?}", s.world.get(p[0], p[1], p[2]).map(|b| BLOCKS[b as usize].name));
+}

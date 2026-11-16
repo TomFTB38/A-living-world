@@ -9,7 +9,7 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 76] = ["chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 77] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
@@ -202,6 +202,10 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
         "boat_bench" => { k.b([0.0, 0.0, 0.35, 1.0, 0.08, 0.65], OLD); } // banc de nage d'une barque, posé en travers
 
         // Le coffre ouvert : la caisse cerclée, l'intérieur sombre, le couvercle levé sur ses charnières, vers l'arrière.
+        "sapling" => { // un plant de chêne : une tige fine, trois bouquets de feuilles, une motte de terre au pied
+            const STEM: C = [0.42, 0.3, 0.18]; const LEAF: C = [0.3, 0.5, 0.17]; const EARTH: C = [0.36, 0.26, 0.17];
+            k.b([0.36, 0.0, 0.36, 0.64, 0.06, 0.64], EARTH); k.b([0.47, 0.0, 0.47, 0.53, 0.62, 0.53], STEM); k.b([0.5, 0.3, 0.48, 0.66, 0.34, 0.52], STEM);
+            k.b([0.3, 0.5, 0.32, 0.6, 0.78, 0.62], LEAF); k.b([0.5, 0.38, 0.42, 0.74, 0.58, 0.64], tone(LEAF, 1.12)); k.b([0.4, 0.66, 0.42, 0.62, 0.86, 0.6], tone(LEAF, 0.9)); }
         "chest" => { // planches cerclées de fer, couvercle bombé, la serrure sur le devant (côté -z, comme les portes d'une armoire)
             const CW: C = [0.55, 0.37, 0.2]; const BAND: C = [0.24, 0.24, 0.25];
             k.b([0.08, 0.0, 0.14, 0.92, 0.56, 0.86], CW); k.b([0.07, 0.56, 0.13, 0.93, 0.72, 0.87], tone(CW, 1.1)); k.b([0.1, 0.72, 0.18, 0.9, 0.78, 0.82], tone(CW, 1.05));
