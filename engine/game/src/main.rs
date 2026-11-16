@@ -619,12 +619,12 @@ fn capture(a: &[String]) {
                 println!("{scene} : {}", s.village_report().replace('\n', " | ")); s.tick(0.0, none, Actions::default()); }
             // les remparts : la muraille et deux tours, payées ; vus de haut depuis le dehors (« village_tour » : une tour de près)
             // diagnostic de la carte logicielle : « _nolum » retire appliques et lanternes des remparts, « _noclot » leurs barrières
-            let strip: Vec<&str> = [("_nolum", ["wall_sconce", "lantern"]), ("_noclot", ["fence", "fence"])].iter().filter(|(k, _)| scene.contains(k)).flat_map(|(_, n)| n.to_vec()).collect();
-            let scene = scene.replace("_nolum", "").replace("_noclot", "");
+            // « _sans-a+b » : retire les blocs a et b des remparts une fois bâtis (« _sans-rien » : la retouche seule)
+            let (scene, strip): (String, Vec<String>) = match scene.split_once("_sans-") { Some((a, b)) => (a.to_string(), b.split('+').map(|x| x.to_string()).collect()), None => (scene.clone(), Vec::new()) };
             if scene == "village_muraille" || scene == "village_tour" || scene == "village_porte" { s.hour = 10.0;
                 for k in [alw_core::patrons::Kind::Muraille, alw_core::patrons::Kind::TourDefense, alw_core::patrons::Kind::TourDefense] { if let Some(e) = s.econ.as_mut() { e.project = Some((k, true)); for (id, n) in [("cobblestone", 380.0), ("planks", 120.0), ("oak_log", 60.0), ("iron_ingot", 10.0), ("worn_coin", 60.0), ("bread", 200.0)] { e.stock.insert(id, n); } } for _ in 0..10 { s.tick(0.1, none, Actions::default()); } }
                 if let Some((c, r)) = s.econ.as_ref().and_then(alw_core::remparts::ring) { if !strip.is_empty() { use alw_core::player::Voxels; let k = r as i32 + 10; let mut off = Vec::new();
-                    for x in c[0] - k..=c[0] + k { for z in c[1] - k..=c[1] + k { let d = ((x - c[0]) as f64).hypot((z - c[1]) as f64); if (d - r).abs() > 9.0 { continue; } for y in 30..110 { if let Some(b) = s.world.get(x, y, z) { let n = alw_core::blocks::BLOCKS[b as usize].name; if strip.iter().any(|p| n.split('@').next() == Some(*p)) { off.push((x, y, z, 0)); } } } } }
+                    for x in c[0] - k..=c[0] + k { for z in c[1] - k..=c[1] + k { let d = ((x - c[0]) as f64).hypot((z - c[1]) as f64); if (d - r).abs() > 9.0 { continue; } for y in 30..110 { if let Some(b) = s.world.get(x, y, z) { let n = alw_core::blocks::BLOCKS[b as usize].name; if strip.iter().any(|p| n.split('@').next() == Some(p.as_str())) { off.push((x, y, z, 0)); } } } } }
                     println!("diagnostic : {} blocs retirés ({strip:?})", off.len()); s.world.edit_many(&off); } }
                 pump(&mut s, &mut g);
                 if let Some(e) = s.econ.clone() { if let Some((c, r)) = alw_core::remparts::ring(&e) { let t = e.extra.iter().find(|x| x.kind == alw_core::patrons::Kind::TourDefense).map(|x| [x.lot.o.0 as f64, x.y as f64, x.lot.o.1 as f64]).unwrap_or([c[0] as f64 + r, 64.0, c[1] as f64]);

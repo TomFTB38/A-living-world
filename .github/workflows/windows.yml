@@ -66,6 +66,8 @@ jobs:
           for k in camp autel caveau; do shot vestige_$k 0 60 0 0 60 10 12 3 1280 720 2048 vestige_$k; done
           # au village pilote, la forêt autour dépasse ce que le rendu logiciel de la machine de test supporte à 4 chunks : rayon 3
           for k in maison reserve bucheron fermier mineur maire marche entrepot entrepot_dedans muraille tour porte; do shot village_$k 0 60 0 0 60 10 10 3 1280 720 2048 village_$k; done
+          # diagnostic des remparts sur la carte logicielle : quel bloc la fait tomber ?
+          for k in rien lantern fence wall_sconce ladder flag banner_red window door iron_bars roof_tiles_peak; do shot village_porte_sans-$k 0 60 0 0 60 10 10 3 1280 720 2048 village_porte_sans-$k; done
           for k in tour cimetiere brigands; do shot lieu_$k 0 60 0 0 60 10 15 4 1280 720 2048 lieu_$k; done
           for k in tour cimetiere brigands; do shot lieu_${k}_dedans 0 60 0 0 60 10 15 4 1280 720 2048 lieu_${k}_dedans; done
           shot desert -38.5 53 0.5 -20 52 -30 15 4 1280 720 2048 desert

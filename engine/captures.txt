@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu village_muraille village_tour village_porte
+spawn jeu village_porte_sans-rien village_porte_sans-lantern village_porte_sans-fence village_porte_sans-wall_sconce village_porte_sans-ladder village_porte_sans-flag village_porte_sans-banner_red village_porte_sans-window village_porte_sans-door village_porte_sans-iron_bars village_porte_sans-roof_tiles_peak
