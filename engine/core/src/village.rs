@@ -392,7 +392,7 @@ impl Town {
     /// La nuit au lit. Les artisans à l'atelier, avec une pause à midi. Les autres vont et viennent : chez eux, devant chez un voisin,
     /// le long d'une rue, au marché ; le puits n'est qu'une étape parmi d'autres. Le soir, une partie se retrouve sur la place.
     fn want(&self, f: &Folk, k: usize, hour: f64) -> ((u8, u32), [f64; 3]) {
-        let Some(v) = self.village(f.v) else { return ((0, 0), f.p) }; let h = &v.houses[f.house]; let y = v.c[1] as f64 + 1.0;
+        let Some(v) = self.village(f.v) else { return ((0, 0), f.p) }; /* une maison bâtie depuis peut manquer à l'atlas : on reste chez soi */ let Some(h) = v.houses.get(f.house) else { return ((0, 0), f.p) }; let y = v.c[1] as f64 + 1.0;
         let rnd = |salt: u32, q: i32| hash_float(k as i32 * 7 + q, salt as i32, v.id.0, v.id.1);
         let plaza = |salt: u32| { let a = rnd(salt, 1) * TAU; let r = 2.6 + 2.3 * rnd(salt, 2); [v.c[0] as f64 + 0.5 + r * a.cos(), y, v.c[2] as f64 + 0.5 + r * a.sin()] };
         // Un point de la rue qui mène à une maison : entre le bord de la place et sa porte.
@@ -672,7 +672,7 @@ impl Session {
             if !gone.is_empty() { self.town.here.retain(|v| !gone.contains(&v.id)); self.town.folk.retain(|f| !gone.contains(&f.v)); self.town.talk = None; }
             for v in self.gen.villages_near(me[0], me[2], NEAR) {
                 if self.town.here.iter().any(|h| h.id == v.id) { continue; }
-                let mut v = v; self.econ_extend(&mut v); /* les maisons que le village pilote a bâties depuis */ self.town.here.push(v.clone()); self.town.spawn(&v, self.hour);
+                let mut v = v; self.econ_extend(&mut v); /* les maisons que le village pilote a bâties depuis */ self.town.spawn(&v, self.hour); self.town.here.push(v);
             }
             for v in self.town.here.clone() { if (v.c[0] as f64 - me[0]).hypot(v.c[2] as f64 - me[2]) < v.r as f64 + 16.0 && !self.town.known.contains(&v.id) {
                 self.notes.push(format!("Vous arrivez à {}", v.name)); self.discover(&v);
