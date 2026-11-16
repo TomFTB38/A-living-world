@@ -937,11 +937,11 @@ fn capture(a: &[String]) {
     let mut menu = hud::Menu { open: scene == "menu" || scene == "commandes", controls: scene == "commandes", weather: 3, quality: 1, hud: 2, ..hud::Menu::new() };
     if scene == "titre" { menu.title = Some(hud::Title::new(vec![hud::WorldInfo { name: "Premier monde".into(), seed: SEED, profile: 1, hours: 130.0, age: "il y a 2 h".into() }], "Premier monde")); }
     let info = if scene == "f3" || scene == "foret" { debug_lines(&s, 240.0, 5_200_000, "Ultra") } else { Vec::new() };
-    let t1 = Instant::now(); let mut tris = 0;
+    let t1 = Instant::now(); let mut tris = 0; eprintln!("scène prête, rendu des images");
     if scene == "arc" || scene == "arc_tiers" { s.anim.bow = 1.0; }
     // dix images ; quatre seulement si la carte est si lente que la première a pris plus de trois secondes (la carte logicielle
     // de test, certains jours, tombe au-delà d'une minute de rendu)
-    let mut n = 10; let mut k = 0; while k < n { tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu, &info); g.settle(); if k == 0 && t1.elapsed().as_secs_f64() > 3.0 { n = 4; } k += 1; }
+    let mut n = 10; let mut k = 0; while k < n { eprintln!("image {k} : début à {:.1} s", t1.elapsed().as_secs_f64()); tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu, &info); g.settle(); eprintln!("image {k} : finie à {:.1} s, {} lumières", t1.elapsed().as_secs_f64(), g.lights.len()); if k == 0 && t1.elapsed().as_secs_f64() > 3.0 { n = 4; } k += 1; }
     println!("{n} images, {:.1} M triangles, {:.0} ms par image sur cette carte", tris as f64 / 1e6, t1.elapsed().as_secs_f64() * 1000.0 / n as f64);
     let (w, h, px) = g.read_bgr();
     if px.iter().all(|v| *v == 0) { eprintln!("image noire"); std::process::exit(3); }
