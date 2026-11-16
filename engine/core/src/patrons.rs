@@ -483,7 +483,7 @@ pub(crate) fn entrepot(p: &mut P, roof: &str) -> Built {
     // en bas : les coffres de la réserve au fond et contre le mur de gauche, dos au mur ; caisses empilées, tonneaux
     for x in 3..=7 { p.turn(x, 1, d - 2, "chest", 0, 1); } for z in [2, 3, 4] { p.turn(1, 1, z, "chest", -1, 0); }
     for (x, z, y) in [(1, 6, 1), (1, 6, 2), (2, 7, 1), (1, 7, 1), (1, 7, 2), (1, 1, 1), (1, 1, 2), (2, 1, 1)] { p.n(x, y, z, "crate"); }
-    for (x, z) in [(9, 5), (9, 6), (8, 7), (9, 7)] { p.n(x, 1, z, "barrel"); } p.n(8, 6, 7, "sack"); p.n(5, 3, 3, "lantern");
+    for (x, z) in [(9, 5), (9, 6), (8, 7), (9, 7)] { p.n(x, 1, z, "barrel"); } p.n(8, 6, 7, "sack"); p.sconce(1, 3, 5, -1, 0); p.sconce(w - 2, 3, 4, 1, 0);
     // en haut : caisses, tonneaux, sacs et foin ; une lanterne au fond
     for (x, z, y) in [(1, 1, 5), (1, 2, 5), (1, 1, 6), (2, 7, 5), (3, 7, 5), (1, 7, 5), (1, 7, 6)] { p.n(x, y, z, "crate"); } for (x, z) in [(9, 7), (8, 7), (9, 6)] { p.n(x, 5, z, "barrel"); }
     for (x, z) in [(1, 4), (1, 5)] { p.n(x, 5, z, "sack"); } for x in [5, 6] { p.n(x, 5, 7, "hay_bale"); } p.n(4, 6, 7, "lantern");

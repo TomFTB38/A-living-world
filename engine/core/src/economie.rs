@@ -198,7 +198,7 @@ impl Econ {
     pub fn missing(&self, k: Kind) -> Vec<(&'static str, f64)> { project(k).cost.iter().filter(|(id, n)| self.have(id) < *n).map(|(id, n)| (*id, n - self.have(id).floor())).collect() }
     /// Une ligne par sujet, pour la commande `/village` et le journal.
     pub fn report(&self, v: &Village, day: u32) -> Vec<String> {
-        let c = self.census(v); let mut o = vec![format!("{} — {} habitants, {} maison{} bâtie{} depuis votre arrivée", v.name, c.pop, self.extra.len(), if self.extra.len() > 1 { "s" } else { "" }, if self.extra.len() > 1 { "s" } else { "" })];
+        let c = self.census(v); let homes = self.extra.iter().filter(|x| x.kind == Kind::Maison).count(); let mut o = vec![format!("{} — {} habitants, {} maison{} bâtie{} depuis votre arrivée", v.name, c.pop, homes, if homes > 1 { "s" } else { "" }, if homes > 1 { "s" } else { "" })];
         o.push(format!("Stocks : {}", GOODS.iter().filter(|g| self.have(g.0) >= 1.0).map(|g| format!("{} {}", g.1, self.have(g.0).floor())).collect::<Vec<_>>().join(", ")) + &format!(" ; caisse : {} pièces", self.have(COIN).floor()));
         o.push(format!("Vivres pour {:.1} jours ; hier soir {} % de la population a mangé{}", self.reserve(c.pop), (self.fed * 100.0).round(), if self.lean > 0 { format!(" (disette depuis {} jour{})", self.lean, if self.lean > 1 { "s" } else { "" }) } else { String::new() }));
         o.push(format!("Au travail : {} champ{}, {} au bois, {} à la carrière, moulin {}, four {}, forge {}, entrepôt {}", c.fields, if c.fields > 1 { "s" } else { "" }, c.cutters, c.miners, c.mills, c.inns, c.forges, c.stores));
