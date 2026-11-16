@@ -617,6 +617,17 @@ fn capture(a: &[String]) {
                     s.player.fly = true; s.player.p = [t[0] as f64 + 0.5, t[1] as f64, t[2] as f64 + 0.5]; for _ in 0..10 { s.tick(0.1, none, Actions::default()); } s.player.p = [t[0] as f64 + 0.5, t[1] as f64, t[2] as f64 + 0.5];
                     let e = s.player.eye(); let d = [h[0] as f64 + 0.5 - e[0], h[1] as f64 - e[1], h[2] as f64 + 0.5 - e[2]]; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / d[0].hypot(d[2])).atan(); }
                 println!("{scene} : {}", s.village_report().replace('\n', " | ")); s.tick(0.0, none, Actions::default()); }
+            // les remparts : la muraille et deux tours, payées ; vus de haut depuis le dehors (« village_tour » : une tour de près)
+            if scene == "village_muraille" || scene == "village_tour" { s.hour = 10.0;
+                for k in [alw_core::patrons::Kind::Muraille, alw_core::patrons::Kind::TourDefense, alw_core::patrons::Kind::TourDefense] { if let Some(e) = s.econ.as_mut() { e.project = Some((k, true)); for (id, n) in [("cobblestone", 380.0), ("planks", 120.0), ("oak_log", 60.0), ("iron_ingot", 10.0), ("worn_coin", 60.0), ("bread", 200.0)] { e.stock.insert(id, n); } } for _ in 0..10 { s.tick(0.1, none, Actions::default()); } }
+                pump(&mut s, &mut g);
+                if let Some(e) = s.econ.clone() { if let Some((c, r)) = alw_core::remparts::ring(&e) { let t = e.extra.iter().find(|x| x.kind == alw_core::patrons::Kind::TourDefense).map(|x| [x.lot.o.0 as f64, x.y as f64, x.lot.o.1 as f64]).unwrap_or([c[0] as f64 + r, 64.0, c[1] as f64]);
+                    let (dx, dz) = (t[0] - c[0] as f64, t[2] - c[1] as f64); let l = dx.hypot(dz).max(1.0); let (ux, uz) = (dx / l, dz / l); let (sx, sz) = (-uz, ux);
+                    let (eye, aim) = if scene == "village_muraille" { ([c[0] as f64 + ux * (r + 30.0) + sx * 30.0, t[1] + 42.0, c[1] as f64 + uz * (r + 30.0) + sz * 30.0], [c[0] as f64, t[1], c[1] as f64]) }
+                        else { ([t[0] - ux * 14.0 + sx * 9.0, t[1] + 6.0, t[2] - uz * 14.0 + sz * 9.0], [t[0], t[1] + 6.0, t[2]]) };
+                    s.player.fly = true; s.player.p = [eye[0], eye[1] - 1.62, eye[2]]; for _ in 0..20 { s.tick(0.1, none, Actions::default()); } s.player.p = [eye[0], eye[1] - 1.62, eye[2]]; pump(&mut s, &mut g);
+                    let e2 = s.player.eye(); let d = [aim[0] - e2[0], aim[1] - e2[1], aim[2] - e2[2]]; s.player.yaw = d[0].atan2(d[2]); s.player.pitch = (d[1] / d[0].hypot(d[2])).atan(); } }
+                println!("{scene} : {}", s.village_report().replace('\n', " | ")); s.tick(0.0, none, Actions::default()); }
             // un homme de métier au travail : on attend qu'il soit à l'ouvrage, puis on le regarde de quelques pas
             if let Some(job) = match scene.as_str() { "village_bucheron" => Some(2u8), "village_fermier" => Some(1), "village_mineur" => Some(3), _ => None } { s.hour = 8.2; s.player.fly = true;
                 for i in 0..2400 { s.tick(0.05, none, Actions::default()); if i % 40 == 0 { s.hour = s.hour.min(11.0); pump(&mut s, &mut g); } if s.town.folk.iter().any(|f| f.job == job && f.working && f.task.is_some() && f.work_t > 4.0) { break; } }

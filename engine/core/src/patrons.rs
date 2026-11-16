@@ -493,7 +493,7 @@ pub(crate) fn entrepot(p: &mut P, roof: &str) -> Built {
 // =========================================================================================== répartition
 /// Les patrons.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Kind { Maison, Forge, Auberge, Moulin, Tanneur, Eglise, GrandeMairie, PetiteMairie, Atelier, Ferme, Etable, Ecurie, Entrepot }
+pub enum Kind { Maison, Forge, Auberge, Moulin, Tanneur, Eglise, GrandeMairie, PetiteMairie, Atelier, Ferme, Etable, Ecurie, Entrepot, /** les remparts : ils suivent le tour du village, pas un terrain (voir `remparts`) */ Muraille, TourDefense }
 /// Corps (largeur, profondeur), porte sur la façade et emprise [x0, z0, x1, z1] d'un patron, symétrie comprise.
 #[derive(Clone, Copy, Debug)]
 pub struct Plan { pub w: i32, pub d: i32, pub door: i32, pub ext: [i32; 4], pub mirror: bool }
@@ -504,7 +504,7 @@ pub fn plan(k: Kind, var: u8) -> Plan {
         Kind::Forge => (7, 9, 5, [-3, -1, 7, 9]), Kind::Auberge => (13, 10, 6, [-3, -2, 15, 10]), Kind::Moulin => (9, 9, 4, [-2, -2, 10, 9]),
         Kind::Tanneur => (12, 9, 3, [-1, -3, 12, 9]), Kind::Eglise => (11, 17, 5, [-1, -2, 11, 17]), Kind::GrandeMairie => (19, 15, 9, [-1, -3, 19, 15]),
         Kind::PetiteMairie => (9, 7, 4, [-1, -2, 9, 7]), Kind::Atelier => (14, 9, 3, [-1, -2, 14, 9]), Kind::Ferme => (15, 11, 5, [-1, -2, 15, 11]),
-        Kind::Etable => (13, 9, 6, [-1, -1, 13, 9]), Kind::Ecurie => (14, 9, 7, [-1, -1, 14, 9]), Kind::Entrepot => (11, 9, 5, [-1, -3, 11, 9]),
+        Kind::Etable => (13, 9, 6, [-1, -1, 13, 9]), Kind::Ecurie => (14, 9, 7, [-1, -1, 14, 9]), Kind::Entrepot => (11, 9, 5, [-1, -3, 11, 9]), Kind::Muraille | Kind::TourDefense => (1, 1, 0, [0, 0, 0, 0]),
     };
     let mirror = if k == Kind::Maison { var & 4 != 0 } else { var & 1 != 0 };
     // une structure exportée remplace l'emprise et la porte du patron
@@ -537,7 +537,7 @@ fn build_patron(p: &mut P, kind: Kind, var: u8, look: Look, h: f64) -> Built {
         Kind::Maison => maison(p, pl.d, look.roof, look.infill, var & 2 != 0), Kind::Forge => forge(p, h > 0.5), Kind::Auberge => auberge(p),
         Kind::Moulin => moulin(p, h), Kind::Tanneur => tanneur(p), Kind::Eglise => eglise(p), Kind::GrandeMairie => grande_mairie(p),
         Kind::PetiteMairie => petite_mairie(p), Kind::Atelier => atelier_bois(p), Kind::Ferme => ferme(p, look.roof),
-        Kind::Etable => etable(p, look.roof), Kind::Ecurie => ecurie(p, look.roof), Kind::Entrepot => entrepot(p, look.roof),
+        Kind::Etable => etable(p, look.roof), Kind::Ecurie => ecurie(p, look.roof), Kind::Entrepot => entrepot(p, look.roof), Kind::Muraille | Kind::TourDefense => Built { door: None, spot: None, bed: None },
     };
     p.dress(); b
 }
