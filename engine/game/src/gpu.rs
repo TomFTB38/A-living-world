@@ -359,7 +359,9 @@ impl Gpu {
         tris
     }
     /// Laisse la carte finir l'image en cours : la carte logicielle du banc d'essai décroche si on l'empile.
-    pub fn settle(&self) { let _ = self.device.poll(wgpu::Maintain::Wait); }
+    /// Attend que la carte ait fini. Pas d'attente bloquante : wgpu abandonne celle-ci au bout d'une minute, et la carte
+    /// logicielle de test met parfois plus longtemps à sa première image ; on l'interroge jusqu'à ce que sa file soit vide.
+    pub fn settle(&self) { while !self.device.poll(wgpu::Maintain::Poll).is_queue_empty() { std::thread::sleep(std::time::Duration::from_millis(20)); } }
     /// Lit l'image hors écran en BGR, ligne du bas d'abord, pour un fichier BMP.
     pub fn read_bgr(&self) -> (u32, u32, Vec<u8>) {
         let (w, h) = (self.config.width, self.config.height); let row = ((w * 4 + 255) / 256) * 256;
