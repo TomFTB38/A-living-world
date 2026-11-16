@@ -194,7 +194,7 @@ impl Session {
         if near && e.store.is_empty() { e.store = self.econ_chests(&v); }
         let at_store = self.inv_open && [self.chest, self.chest2].into_iter().flatten().any(|c| e.store.contains(&c));
         if e.open && !at_store { self.econ_count(&mut e, &v); } e.open = at_store;
-        if near { self.econ_chores(&mut e, &v, dt); } else { e.live = [false; 3]; }
+        if near && std::env::var_os("ALW_NO_CHORES").is_none() { self.econ_chores(&mut e, &v, dt); } else { e.live = [false; 3]; } /* (diagnostic provisoire) */
         // la maison payée se pose dès que le joueur est là
         // un projet choisi chez le maire se lance dès que la réserve a de quoi (le joueur vient peut-être de la remplir)
         if let Some((k, true)) = e.project { if e.affords(k) { let day = (e.t / 24.0) as u32; e.start(k, day); said.push(format!("{} : la réserve est pleine, le chantier {} commence", v.name, de(project(k).name))); } }

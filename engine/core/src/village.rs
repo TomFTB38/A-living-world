@@ -531,6 +531,7 @@ impl Town {
             put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(-0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_l, 1.0))); put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_r, 1.0)));
             let al = mul(&body, &trs(-0.35, 1.34, 0.0, yaw_l, arm_l, 1.0)); let ar = mul(&body, &trs(0.35, 1.34, 0.0, yaw_r, arm_r, 1.0));
             put(&format!("folkArm{l}{rs}"), al); put(&format!("folkArm{l}{rs}"), ar);
+            if std::env::var_os("ALW_NO_TOOLS").is_some() && f.job > 0 { tool = None; } /* (diagnostic provisoire) */
             if let Some(h) = tool.and_then(|n| md.held(n)) { out.push(Draw { m: mul(&ar, &mul(&trs(0.0, 0.0, 0.0, 0.0, 0.0, 1.0), &crate::actors::hold_m(h.hold))), r: h.r, view: false, local: h.local, hero: false, dynamic: false, hurt: 0.0 }); }
         }
         out
