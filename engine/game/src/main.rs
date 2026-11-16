@@ -398,9 +398,6 @@ fn capture(a: &[String]) {
     let mut g = pollster::block_on(gpu::Gpu::new(None, w, h, gpu::Options { shadow, fallback: true, hole: (radius as f32 - 0.6) * 32.0, cascades: if scene == "ultra" { gpu::CASCADES_ULTRA } else { gpu::CASCADES } }, &md));
     let seed = if scene.starts_with("plat") { alw_core::gen::FLAT | 1 } else { SEED }; let mut s = Session::new(seed, &(if scene == "ultra" { Preset { radius, ..ULTRA } } else { Preset { radius, lod1: 2.3, lod2: 4.6 } }), 4, [eye[0], eye[1] - 1.62, eye[2]]); s.hour = n(7, 16.4); s.player.fly = true; s.give_kit(); // les captures gardent l'ancien équipement
     let pump = |s: &mut Session, g: &mut gpu::Gpu| loop { let (b, f) = s.sync(); for c in b { g.upload(c); } for k in f { g.forget(k); } if s.world.waiting() == 0 { break; } std::thread::sleep(std::time::Duration::from_millis(5)); };
-    // une image à vide d'abord : la carte logicielle compile ses nuanciers à la première image (près d'une minute), et une
-    // attente de plus d'une minute la fait tomber ; on paie cette compilation avant que la scène ne pèse
-    { let t = Instant::now(); draw(&mut g, &md, &s, 0.0, w as f32, h as f32, None, [0.0; 2], &hud::Menu::new(), &[]); g.settle(); eprintln!("image à vide en {:.1} s", t.elapsed().as_secs_f64()); }
     let t0 = Instant::now(); pump(&mut s, &mut g); println!("{} chunks chargés en {:.1} s", s.world.loaded(), t0.elapsed().as_secs_f64());
     let f = view::norm([look[0] - eye[0], look[1] - eye[1], look[2] - eye[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
     let none = Input::default(); s.third = scene == "tiers"; s.tick(0.0, none, Actions::default());
@@ -940,11 +937,11 @@ fn capture(a: &[String]) {
     let mut menu = hud::Menu { open: scene == "menu" || scene == "commandes", controls: scene == "commandes", weather: 3, quality: 1, hud: 2, ..hud::Menu::new() };
     if scene == "titre" { menu.title = Some(hud::Title::new(vec![hud::WorldInfo { name: "Premier monde".into(), seed: SEED, profile: 1, hours: 130.0, age: "il y a 2 h".into() }], "Premier monde")); }
     let info = if scene == "f3" || scene == "foret" { debug_lines(&s, 240.0, 5_200_000, "Ultra") } else { Vec::new() };
-    let t1 = Instant::now(); let mut tris = 0; eprintln!("scène prête, rendu des images");
+    let t1 = Instant::now(); let mut tris = 0;
     if scene == "arc" || scene == "arc_tiers" { s.anim.bow = 1.0; }
     // dix images ; quatre seulement si la carte est si lente que la première a pris plus de trois secondes (la carte logicielle
     // de test, certains jours, tombe au-delà d'une minute de rendu)
-    let mut n = 10; let mut k = 0; while k < n { eprintln!("image {k} : début à {:.1} s", t1.elapsed().as_secs_f64()); tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu, &info); g.settle(); eprintln!("image {k} : finie à {:.1} s, {} lumières", t1.elapsed().as_secs_f64(), g.lights.len()); if k == 0 && t1.elapsed().as_secs_f64() > 3.0 { n = 4; } k += 1; }
+    let mut n = 10; let mut k = 0; while k < n { tris = draw(&mut g, &md, &s, 3.0 + k as f64 / 60.0, w as f32, h as f32, None, [w as f32 * 0.62, h as f32 * 0.4], &menu, &info); g.settle(); if k == 0 && t1.elapsed().as_secs_f64() > 3.0 { n = 4; } k += 1; }
     println!("{n} images, {:.1} M triangles, {:.0} ms par image sur cette carte", tris as f64 / 1e6, t1.elapsed().as_secs_f64() * 1000.0 / n as f64);
     let (w, h, px) = g.read_bgr();
     if px.iter().all(|v| *v == 0) { eprintln!("image noire"); std::process::exit(3); }
