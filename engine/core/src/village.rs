@@ -32,6 +32,8 @@ pub(crate) const BLEND: i32 = 6;
 pub struct House {
     /// Le métier de l'atelier, ou `None` pour une maison.
     pub craft: Option<&'static str>,
+    /// Combien de gens y vivent (0 : selon le village, une ou deux personnes).
+    pub family: u8,
     /// Coins (inclus) au sol, bords de toit compris : [x0, z0, x1, z1].
     pub area: [i32; 4],
     /// Devant la porte dehors, juste derrière la porte dedans, à l'établi, près du lit, et au bord de la place.
@@ -196,7 +198,7 @@ impl WorldGen {
                 None => { put(w - 2, back, id("chest")); if plan == Plan::Tavern { put(du + 1, 2, id("barrel")); put(du - 1, back - 1, id("barrel")); } }
             }
             let fd = crate::shapes::facing_of(wx as f64, wz as f64);
-            v.houses.push(House { craft, area, door: door_out, inside: mid(du, 1, by + 1), spot: mid(du, back - 1, by + 1), bed: mid(2, back, by + 1), ring, back: fd, way: vec![ring] });
+            v.houses.push(House { craft, family: 0, area, door: door_out, inside: mid(du, 1, by + 1), spot: mid(du, back - 1, by + 1), bed: mid(2, back, by + 1), ring, back: fd, way: vec![ring] });
         }
         // Les champs, à la lisière : une terre labourée, des rangs de blé, de carottes ou de pommes de terre, une rigole d'eau
         // au milieu, une clôture avec son entrée. Les récoltes mûres sont à prendre.
@@ -476,7 +478,7 @@ impl Town {
         let mut n = 0u32; let base = self.folk.len();
         for (i, h) in v.houses.iter().enumerate() {
             if self.folk.len() >= 100 { break; } // au plus cent villageois simulés à la fois
-            let count = if h.craft.is_some() { 1 } else { 1 + (hash_float(v.id.0, v.id.1, i as i32, 91) < 0.6) as usize };
+            let count = if h.family > 0 { h.family as usize } else if h.craft.is_some() { 1 } else { 1 + (hash_float(v.id.0, v.id.1, i as i32, 91) < 0.6) as usize };
             for j in 0..count {
                 let pick = (hash_float(v.id.0 * 7 + i as i32, v.id.1, j as i32, 92) * FIRST.len() as f64) as usize % FIRST.len();
                 let look = if let Some(c) = h.craft { db().craftsmen.iter().position(|x| x.id == c).unwrap_or(0) as u8 } else { 6 + (hash_float(i as i32, j as i32, v.id.0, v.id.1) * 3.0) as u8 % 3 };
@@ -930,7 +932,7 @@ impl Session {
                 else if let Some(t) = self.town.talk.as_mut() { t.page = Page::Main; }
             }
             Page::Main => {
-                if label.starts_with("Les projets") { let txt = self.econ.as_ref().map(|e| match e.project { Some((k, mine)) => format!("Nous préparons {}{}. Voici ce que nous pourrions bâtir : choisissez, et remplissez la réserve.", crate::economie::project(k).name.to_lowercase(), if mine { ", comme vous l'avez demandé" } else { "" }), None => "Rien n'est décidé. Voici ce que nous pourrions bâtir : choisissez, et remplissez la réserve.".into() }).unwrap_or_default(); if let Some(t) = self.town.talk.as_mut() { t.page = Page::Projects; t.said = txt; } }
+                if label.starts_with("Les projets") { let none = self.econ.as_ref().zip(self.town.village(vid)).is_some_and(|(e, v)| e.census(v).room == 0 && e.project.is_none()); let txt = if none { self.econ.as_ref().zip(self.town.village(vid)).map(|(_, v)| if crate::economie::ambition(v) == 0 { "Nous ne cherchons pas à nous agrandir : le village est bien tel qu'il est. Revenez nous voir pour autre chose !".to_string() } else { "Nous avons bâti tout ce que nous souhaitions. Le village est complet.".to_string() }).unwrap_or_default() } else { self.econ.as_ref().map(|e| match e.project { Some((k, mine)) => format!("Nous préparons {}{}. Vous pouvez choisir autre chose, et nous aider en remplissant la réserve.", crate::economie::project(k).name.to_lowercase(), if mine { ", comme vous l'avez demandé" } else { "" }), None => "Rien n'est encore décidé. Le village bâtira de lui-même ; vous pouvez choisir quoi, et l'aider en remplissant la réserve.".into() }).unwrap_or_default() }; if let Some(t) = self.town.talk.as_mut() { t.page = Page::Projects; t.said = txt; } }
                 else if label.starts_with("Échanger") { if let Some(t) = self.town.talk.as_mut() { t.page = Page::Trade; t.said = "Voyons ce que vous avez. Voilà ce que je peux vous donner.".into(); } }
                 else if label.starts_with("Passer commande") { if let Some(t) = self.town.talk.as_mut() { t.page = Page::Order(0); t.said = "Dites-moi ce qu'il vous faut. Fournissez la matière, je fournis le savoir-faire.".into(); } }
                 else if label.starts_with("Améliorer") {

@@ -70,6 +70,9 @@ pub struct Econ {
     trees: Vec<[i32; 3]>, crops: Vec<[i32; 3]>, rocks: Vec<[i32; 3]>, scan_t: f64,
 }
 
+/// Combien de bâtiments un village veut encore ajouter à ce qu'il était, selon son tempérament : aucun pour qui tient à sa
+/// stabilité ou à ses traditions.
+pub fn ambition(v: &Village) -> u32 { match v.ident.map(|i| i.outlook) { Some(Outlook::Expansion) => 6, Some(Outlook::Prosperity) => 4, Some(Outlook::Trade) => 3, Some(Outlook::SelfSufficiency | Outlook::Defense) => 2, _ => 0 } }
 /// Habitants d'un village tel qu'il a été tracé (la même règle que pour les faire apparaître).
 pub fn people(v: &Village) -> u32 { v.houses.iter().enumerate().map(|(i, h)| if h.craft.is_some() { 1 } else { 1 + (crate::noise::hash_float(v.id.0, v.id.1, i as i32, 91) < 0.6) as u32 }).sum() }
 
@@ -96,9 +99,9 @@ impl Econ {
         // ceux qui ne tiennent ni champ ni atelier vont au bois et à la carrière
         let busy = c.fields.max(c.farms) + c.folds + c.mills + c.inns + c.forges + c.woodshops + c.tanneries; let free = c.pop.saturating_sub(busy).max(2);
         c.cutters = (free as f64 * 0.45).ceil() as u32; c.miners = (free as f64 * 0.35).ceil() as u32;
-        // un village tient à son tempérament : celui qui veut rester ce qu'il est ne s'agrandit pas. Le pilote, lui, bâtit au moins deux maisons, pour qu'on le voie faire.
-        let want = match v.ident.map(|i| i.outlook) { Some(Outlook::Expansion) => 4, Some(Outlook::Prosperity) => 3, Some(Outlook::Trade | Outlook::SelfSufficiency) => 2, Some(Outlook::Defense) => 1, _ => 0u32 }.max(2);
-        c.room = want.saturating_sub(built(Kind::Maison) + self.due.iter().filter(|k| **k == Kind::Maison).count() as u32); c
+        // un village tient à son tempérament : celui qui veut rester ce qu'il est ne s'agrandit pas, et c'est très bien ainsi ;
+        // les autres bâtissent d'eux-mêmes jusqu'à leur ambition — le joueur peut les aider et choisir quoi, pas les pousser au-delà
+        c.room = ambition(v).saturating_sub(self.extra.len() as u32 + self.due.len() as u32); c
     }
     /// Les jours de vivres devant soi.
     pub fn reserve(&self, pop: u32) -> f64 { (self.have("bread") + self.have("cooked_meat") + self.have("flour") * 0.8 + self.have("wheat") * 0.5 + self.have("potato") * 0.5 + self.have("carrot") * 0.4) / pop.max(1) as f64 }
@@ -137,10 +140,11 @@ impl Econ {
     fn start(&mut self, k: Kind, day: u32) { let p = project(k); for (id, n) in p.cost { self.take(id, *n); } self.due.push(k); self.project = None; self.note(day, format!("les matériaux sont réunis : on bâtit {}", article(p.name))); }
     /// Ce que le village bâtirait de lui-même : un moulin quand le blé s'entasse, une auberge quand la farine attend, sinon une maison s'il veut s'agrandir.
     pub fn auto_project(&self, c: &Census) -> Option<Kind> {
-        if c.mills == 0 && self.have("wheat") >= 40.0 { Some(Kind::Moulin) } else if c.inns == 0 && self.have("flour") >= 20.0 { Some(Kind::Auberge) } else if c.room > 0 { Some(Kind::Maison) } else { None }
+        if c.room == 0 { None } else if c.mills == 0 && self.have("wheat") >= 40.0 { Some(Kind::Moulin) } else if c.inns == 0 && self.have("flour") >= 20.0 { Some(Kind::Auberge) } else if c.room > 0 { Some(Kind::Maison) } else { None }
     }
     /// Ce que le maire peut proposer : une maison toujours (jusqu'à six), les bâtiments de métier qui manquent ou qu'on peut doubler.
     pub fn options(&self, c: &Census) -> Vec<Kind> {
+        if c.room == 0 { return Vec::new(); } // un village qui ne veut pas s'agrandir n'a rien à proposer
         let houses = self.extra.iter().filter(|x| x.kind == Kind::Maison).count() + self.due.iter().filter(|k| **k == Kind::Maison).count(); let pending = |k: Kind| self.due.contains(&k) as u32;
         PROJECTS.iter().map(|p| p.kind).filter(|k| match k { Kind::Maison => houses < 6, Kind::Moulin => c.mills + pending(*k) == 0, Kind::Auberge => c.inns + pending(*k) == 0, Kind::Tanneur => c.tanneries + pending(*k) == 0,
             Kind::Forge => c.forges + pending(*k) < 2, Kind::Atelier => c.woodshops + pending(*k) < 2, Kind::Etable => c.folds + pending(*k) < 2, Kind::Ferme => c.farms + pending(*k) < 2, _ => false }).collect()
@@ -153,7 +157,7 @@ impl Econ {
         o.push(format!("Stocks : {}", GOODS.iter().filter(|g| self.have(g.0) >= 1.0).map(|g| format!("{} {}", g.1, self.have(g.0).floor())).collect::<Vec<_>>().join(", ")));
         o.push(format!("Vivres pour {:.1} jours ; hier soir {} % de la population a mangé{}", self.reserve(c.pop), (self.fed * 100.0).round(), if self.lean > 0 { format!(" (disette depuis {} jour{})", self.lean, if self.lean > 1 { "s" } else { "" }) } else { String::new() }));
         o.push(format!("Au travail : {} champ{}, {} au bois, {} à la carrière, moulin {}, four {}, forge {}", c.fields, if c.fields > 1 { "s" } else { "" }, c.cutters, c.miners, c.mills, c.inns, c.forges));
-        o.push(if let Some(k) = self.due.first() { format!("Chantier : {} est payé{}, il sera bâti dès que le village vous verra revenir", article(project(*k).name), if project(*k).name.ends_with('e') && *k != Kind::Moulin { "e" } else { "" }) } else if let Some((k, mine)) = self.project { format!("Projet{} : {} — {}", if mine { " (choisi par vous)" } else { "" }, project(k).name, project(k).cost.iter().map(|(id, n)| format!("{} {}/{}", GOODS.iter().find(|g| g.0 == *id).map_or(*id, |g| g.1), self.have(id).floor().min(*n), n)).collect::<Vec<_>>().join(", ")) } else if c.room == 0 { "Chantier : le village ne souhaite pas s'agrandir davantage".into() } else { format!("Prochaine maison : {}", HOUSE_COST.iter().map(|(k, n)| format!("{} {}/{}", GOODS.iter().find(|g| g.0 == *k).map_or(*k, |g| g.1), self.have(k).floor().min(*n), n)).collect::<Vec<_>>().join(", ")) + if self.reserve(c.pop) < 4.0 { " — et quatre jours de vivres d'avance" } else { "" } });
+        o.push(if let Some(k) = self.due.first() { format!("Chantier : {} est payé{}, il sera bâti dès que le village vous verra revenir", article(project(*k).name), if project(*k).name.ends_with('e') && *k != Kind::Moulin { "e" } else { "" }) } else if let Some((k, mine)) = self.project { format!("Projet{} : {} — {}", if mine { " (choisi par vous)" } else { "" }, project(k).name, project(k).cost.iter().map(|(id, n)| format!("{} {}/{}", GOODS.iter().find(|g| g.0 == *id).map_or(*id, |g| g.1), self.have(id).floor().min(*n), n)).collect::<Vec<_>>().join(", ")) } else if c.room == 0 { if ambition(v) == 0 { "Le village ne cherche pas à s'agrandir : il est bien tel qu'il est".into() } else { "Le village a bâti tout ce qu'il souhaitait".into() } } else { format!("Prochaine maison : {}", HOUSE_COST.iter().map(|(k, n)| format!("{} {}/{}", GOODS.iter().find(|g| g.0 == *k).map_or(*k, |g| g.1), self.have(k).floor().min(*n), n)).collect::<Vec<_>>().join(", ")) + if self.reserve(c.pop) < 4.0 { " — et quatre jours de vivres d'avance" } else { "" } });
         for (d, s) in self.log.iter().rev().take(3) { o.push(format!("Il y a {} jour{} : {s}", day.saturating_sub(*d), if day.saturating_sub(*d) > 1 { "s" } else { "" })); }
         o
     }
@@ -172,12 +176,13 @@ fn raise(lot: Lot, y: i32, kind: Kind) -> (Vec<(i32, i32, i32, Id)>, House) {
     let fy = (y + 1) as f64; let mid = |u: i32, w: i32| { let c = lot.cell(u, 0, w); [c[0] as f64 + 0.5, fy, c[2] as f64 + 0.5] };
     let du = made.door.unwrap_or(pl.door); let (door, inside) = (mid(du, -1), mid(du, 1)); let bed = made.bed.map_or(inside, |b| mid(b.0, b.1));
     let (mut x0, mut z0, mut x1, mut z1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN); for b in &k.blocks { x0 = x0.min(b.0); x1 = x1.max(b.0); z0 = z0.min(b.2); z1 = z1.max(b.2); }
-    (k.blocks, House { craft: None, area: [x0, z0, x1, z1], door, inside, spot: inside, bed, ring: door, back: crate::shapes::facing_of(lot.w.0 as f64, lot.w.1 as f64), way: vec![door] })
+    (k.blocks, House { craft: None, family: NEWCOMERS as u8, area: [x0, z0, x1, z1], door, inside, spot: inside, bed, ring: door, back: crate::shapes::facing_of(lot.w.0 as f64, lot.w.1 as f64), way: vec![door] })
 }
 
 impl Session {
     /// Le village pilote : le village médiéval le plus proche du point de départ.
-    fn pilot(&self) -> Option<Village> { self.gen.villages_near(self.spawn[0], self.spawn[2], 1400.0).into_iter().find(|v| v.ident.is_some() && !v.works.is_empty()) }
+    /// (le plus proche qui cherche à s'agrandir : celui-là montre tout, la vie et la croissance)
+    fn pilot(&self) -> Option<Village> { let all: Vec<Village> = self.gen.villages_near(self.spawn[0], self.spawn[2], 1400.0).into_iter().filter(|v| v.ident.is_some() && !v.works.is_empty()).collect(); all.iter().find(|v| ambition(v) > 0).or(all.first()).cloned() }
     fn pilot_village(&self) -> Option<Village> { let id = self.econ.as_ref()?.id; self.gen.site(id.0, id.1).map(|s| s.v.clone()) }
     /// Les maisons bâties depuis la création du monde s'ajoutent au village tracé (leurs habitants avec).
     pub(crate) fn econ_extend(&self, v: &mut Village) { if let Some(e) = self.econ.as_ref().filter(|e| e.id == v.id) { for x in e.extra.iter().filter(|x| x.kind == Kind::Maison) { v.houses.push(raise(x.lot, x.y, x.kind).1); } } }

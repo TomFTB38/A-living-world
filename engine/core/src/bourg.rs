@@ -230,7 +230,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
         let (spot, back) = match p.made.spot { Some((sp, st)) => { let a = lot.cell(sp.0, 0, sp.1); let b = lot.cell(st.0, 0, st.1); let d = (b[0] - a[0], b[2] - a[2]); (mid(sp.0, sp.1), [(0, 1), (1, 0), (0, -1), (-1, 0)].iter().position(|x| *x == d).unwrap_or(0) as u8) } None => (inside, crate::shapes::facing_of(lot.w.0 as f64, lot.w.1 as f64)) };
         let bed = p.made.bed.map_or(inside, |b| mid(b.0, b.1));
         if let Some(c) = p.spec.craft { if !v.crafts.contains(&c) { v.crafts.push(c); } }
-        v.houses.push(House { craft: if p.made.spot.is_some() { p.spec.craft } else { None }, area: p.body, door, inside, spot, bed, ring, back, way });
+        v.houses.push(House { family: 0, craft: if p.made.spot.is_some() { p.spec.craft } else { None }, area: p.body, door, inside, spot, bed, ring, back, way });
     }
     // Les artisans d'abord, comme dans les anciens villages.
     v.houses.sort_by_key(|h| h.craft.is_none());

@@ -114,3 +114,18 @@ fn le_maire_propose_on_choisit_on_remplit_la_reserve() {
     let mut a = Econ::found(&v, 0.0); let c = a.census(&v); a.stock.insert("wheat", 100.0); assert_eq!(a.auto_project(&c), if c.mills == 0 { Some(alw_core::patrons::Kind::Moulin) } else { a.auto_project(&c) });
     a.stock.insert("wheat", 0.0); a.stock.insert("flour", 0.0); assert_eq!(a.auto_project(&c), Some(alw_core::patrons::Kind::Maison));
 }
+
+/// Tous les villages ne cherchent pas à s'agrandir : un village qui tient à sa stabilité ne bâtit rien, même les greniers pleins,
+/// et son maire n'a rien à proposer. Le pilote, lui, est le plus proche qui veut grandir — et il le fait sans le joueur.
+#[test]
+fn un_village_stable_ne_s_agrandit_pas() {
+    let g = WorldGen::new(SEED); let all: Vec<_> = g.villages_near(-38.0, 0.0, 1400.0).into_iter().filter(|v| v.ident.is_some() && !v.works.is_empty()).collect();
+    let calm = all.iter().find(|v| ambition(v) == 0).expect("un village qui ne veut pas grandir"); let mut e = Econ::found(calm, 0.0);
+    for (k, n) in [("planks", 300.0), ("cobblestone", 300.0), ("oak_log", 300.0), ("iron_ingot", 100.0), ("bread", 500.0)] { e.stock.insert(k, n); } let c = e.census(calm);
+    assert_eq!(c.room, 0); assert!(e.auto_project(&c).is_none() && e.options(&c).is_empty(), "{} reste comme il est", calm.name);
+    for h in 0..24 * 10 { e.step(&c, h % 24, h / 24); } assert!(e.due.is_empty(), "dix jours, greniers pleins : rien de bâti");
+    assert!(e.report(calm, 10).iter().any(|l| l.contains("ne cherche pas à s'agrandir")));
+    // le pilote veut grandir, et grandit tout seul : en quelques jours, ses gens réunissent de quoi bâtir et il bâtit
+    let s = start(); let v = pilot(&s); assert!(ambition(&v) > 0, "le pilote veut grandir"); let mut e = s.econ.clone().unwrap();
+    for h in 0..24 * 30 { let c = e.census(&v); e.step(&c, h % 24, h / 24); } assert!(!e.due.is_empty(), "en un mois, sans personne, il a lancé un chantier : {:?}", e.log);
+}
