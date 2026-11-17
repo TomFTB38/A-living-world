@@ -783,7 +783,7 @@ impl Ui {
             u.quad([[x - r, y - r], [x + r, y - r], [x + r * 0.7, y + r * 0.4], [x - r * 0.7, y + r * 0.4]], [[0.0; 2]; 4], c, LAYER_FLAT); u.quad([[x - r * 0.7, y + r * 0.4], [x + r * 0.7, y + r * 0.4], [x, y + r * 1.3], [x, y + r * 1.3]], [[0.0; 2]; 4], c, LAYER_FLAT); }
         // Un siège : la solidité de ce que les brigands frappent (la herse, la muraille), en haut de l'écran.
         if let Some((name, f)) = s.siege_bar() { let (bw, bh, z) = (360.0 * k, 12.0 * k, 18.0 * k); let (x, y) = ((w - bw) * 0.5, 70.0 * k); let f = f.clamp(0.0, 1.0) as f32;
-            let label = if f <= 0.0 { format!("{name} — tombée") } else { format!("{name} — {:.0} %", f * 100.0) };
+            let label = if f <= 0.0 { format!("{name} · tombée") } else { format!("{name} · {:.0} %", f * 100.0) };
             u.text(&label, (w - Ui::text_width(&label, z)) * 0.5, y - 24.0 * k, z, INK); u.rect(x - 3.0 * k, y - 3.0 * k, bw + 6.0 * k, bh + 6.0 * k, PANEL);
             u.rect(x, y, bw, bh, WELL); u.rect(x, y, bw * f, bh, if f > 0.5 { GOLD } else if f > 0.2 { [0.95, 0.55, 0.25, 1.0] } else { BAD }); }
         // Le réticule rougit quand il est sur un animal à portée.
