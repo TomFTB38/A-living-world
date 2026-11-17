@@ -59,6 +59,27 @@ fn la_muraille_et_ses_tours() {
     let miss: Vec<usize> = (0..72).filter(|&i| !bins[i]).collect(); println!("chemin de ronde : {} cases parcourues, angles manqués {:?}", seen.len(), miss);
     assert!(miss.is_empty(), "on fait tout le tour de la muraille par le dessus");
     assert!(s.village_report().contains("Remparts : la muraille, 1 tour"), "{}", s.village_report());
+    // les gardes : la ronde relevée, un garde nommé, qui monte par une tour et marche sur le chemin de ronde
+    let t0 = std::time::Instant::now(); s.hour = 9.0; idle(&mut s, 120);
+    let w = s.econ.as_ref().unwrap().watch.clone(); println!("ronde : {} points, {} entrées, guet {:?}, portes {:?}", w.patrol.len(), w.entries.len(), w.lookout, w.gates);
+    assert!(w.patrol.len() > 60 && !w.entries.is_empty() && w.lookout.is_some(), "la ronde des gardes");
+    let gk: Vec<usize> = (0..s.town.folk.len()).filter(|&k| s.town.folk[k].job == 8).collect(); assert!(!gk.is_empty(), "un garde");
+    let up = |s: &Session, k: usize| { let f = &s.town.folk[k]; f.post.is_some() && f.p[1] >= wg.column(f.p[0], f.p[2]).h + 3.0 };
+    let mut on = false; let mut moved = 0.0; let mut last = None::<[f64; 3]>;
+    for _ in 0..80 { idle(&mut s, 25); s.hour = 9.0; let f = &s.town.folk[gk[0]]; if up(&s, gk[0]) { on = true; if let Some(l) = last { moved += (f.p[0] - l[0]).hypot(f.p[2] - l[2]); } last = Some(f.p); } }
+    let f = &s.town.folk[gk[0]]; println!("garde {} : sur les remparts {on}, {moved:.0} pas de ronde, en {:?} ({:.0} s)", f.name, f.p, t0.elapsed().as_secs_f64());
+    assert!(on && moved > 20.0, "le garde fait sa ronde sur le chemin de ronde");
+    // la nuit : la herse se baisse ; le jour elle se lève ; un clic droit sur la grille la manœuvre
+    let g = w.gates[0]; let passage = |s: &Session| (1..=3).filter(|&y| name(s, g.0, g.1 + y, g.2) == "air").count();
+    let blocked = |s: &Session| { let mut n = 0; for dx in -3..=3 { for dz in -3..=3 { for y in 1..=3 { n += (name(s, g.0 + dx, g.1 + y, g.2 + dz) == "iron_bars") as i32; } } } n };
+    println!("herse de jour : {} barreaux bas, passage {}/3", blocked(&s), passage(&s)); assert_eq!(blocked(&s), 0, "levée le jour");
+    s.hour = 22.0; idle(&mut s, 5); s.hour = 22.0; println!("herse de nuit : {} barreaux bas", blocked(&s)); assert!(blocked(&s) >= 9, "baissée la nuit");
+    let bar = (|| { for dx in -3..=3 { for dz in -3..=3 { if name(&s, g.0 + dx, g.1 + 2, g.2 + dz) == "iron_bars" { return Some([g.0 + dx, g.1 + 2, g.2 + dz]); } } } None })().unwrap();
+    assert!(s.portcullis_at_pub(bar), "la grille se manœuvre"); assert_eq!(blocked(&s), 0, "levée à la main");
+    // le garde de nuit monte au guet, sa lanterne à la main
+    for _ in 0..240 { idle(&mut s, 25); s.hour = 22.0; if s.town.folk[gk[0]].post == Some(remparts::AT_LOOKOUT) { break; } }
+    let f = &s.town.folk[gk[0]]; println!("garde de nuit : {:?} en {:?}", f.post, f.p); assert_eq!(f.post, Some(remparts::AT_LOOKOUT), "au guet la nuit");
+    s.hour = 10.0;
     // sauvegardée, rechargée : le tracé est gardé
     let save = s.save_text(); let mut o = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); o.load_text(&save).unwrap(); assert_eq!(remparts::ring(o.econ.as_ref().unwrap()), Some((c0, r)));
     // la maison suivante se bâtit dedans

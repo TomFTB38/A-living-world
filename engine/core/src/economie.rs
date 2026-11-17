@@ -84,6 +84,8 @@ pub struct Econ {
     pub saplings: Vec<([i32; 3], f64)>,
     /// Ce que les gens de métier savent trouver autour du village : pieds d'arbres, cultures, roche à nu ; quand on a regardé.
     trees: Vec<[i32; 3]>, crops: Vec<[i32; 3]>, rocks: Vec<[i32; 3]>, scan_t: f64,
+    /// Les remparts vus par les gardes : la ronde, les entrées, les portes (relevés quand le village est là).
+    pub watch: crate::remparts::Watch,
 }
 
 /// Combien de bâtiments un village veut encore ajouter à ce qu'il était, selon son tempérament : aucun pour qui tient à sa
@@ -102,7 +104,7 @@ impl Econ {
     pub fn found(v: &Village, t: f64) -> Econ {
         let pop = people(v) as f64; let wealth = v.ident.map_or(0.5, |i| i.wealth); let mut stock = BTreeMap::new();
         for (k, n) in [("wheat", pop * 3.0), ("flour", pop), ("bread", pop * 2.5), ("cooked_meat", pop * 0.5), ("oak_log", 16.0 + 20.0 * wealth), ("planks", 10.0 + 24.0 * wealth), ("cobblestone", 8.0 + 20.0 * wealth), ("iron_ore", 4.0), ("coal", 6.0), ("iron_ingot", 2.0 + 4.0 * wealth), ("leather", 2.0), (COIN, 12.0 + 30.0 * wealth)] { stock.insert(k, n.floor()); }
-        Econ { id: v.id, stock, t, fed: 1.0, lean: 0, extra: Vec::new(), due: Vec::new(), project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0 }
+        Econ { id: v.id, stock, t, fed: 1.0, lean: 0, extra: Vec::new(), due: Vec::new(), project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0, watch: Default::default() }
     }
     /// Oublie ce qu'on sait des alentours : on regardera de nouveau à la prochaine heure de travail.
     pub fn scan_reset(&mut self) { self.scan_t = -1.0; }
@@ -268,6 +270,13 @@ impl Session {
         // le village a toujours son entrepôt : celui qu'il n'a pas encore (une partie d'avant) se pose dès que le joueur est là
         if !e.extra.iter().any(|x| x.kind == Kind::Entrepot) && !e.due.contains(&Kind::Entrepot) { e.due.insert(0, Kind::Entrepot); }
         if near && e.store.is_empty() { e.store = self.econ_chests(&e); }
+        // les remparts vus par les gardes : relevés quand ils changent (une tour de plus) ; la herse baissée la nuit, levée au jour
+        let key = (e.extra.iter().filter(|x| x.kind == Kind::Muraille).count(), e.extra.iter().filter(|x| x.kind == Kind::TourDefense).count());
+        if near && key.0 > 0 && (e.watch.key != key || e.watch.patrol.is_empty()) && (e.watch.tried == 0.0 || self.elapsed - e.watch.tried > 3.0) { e.watch.tried = self.elapsed.max(1e-3); if let Some(mut w) = self.rampart_watch(&e) { w.tried = e.watch.tried; e.watch = w; } }
+        if near && !e.watch.gates.is_empty() { let night = !(6.5..21.0).contains(&self.hour);
+            if e.watch.night != Some(night) { if let Some((c, _)) = crate::remparts::ring(&e) { let before = e.watch.night; e.watch.night = Some(night);
+                for g in e.watch.gates.clone() { if self.portcullis_down(c, g) != night { self.portcullis(c, g, night); } }
+                let me = self.player.p; if before.is_some() && e.watch.gates.iter().any(|g| (g.0 as f64 - me[0]).hypot(g.2 as f64 - me[2]) < 60.0) { self.notes.push(format!("{} : {}", v.name, if night { "la herse se baisse pour la nuit" } else { "la herse se lève, la porte est ouverte" })); } } } }
         let at_store = self.inv_open && [self.chest, self.chest2].into_iter().flatten().any(|c| e.store.contains(&c));
         if e.open && !at_store { self.econ_count(&mut e, &v); } e.open = at_store;
         if near { self.econ_chores(&mut e, &v, dt); } else { e.live = [false; 3]; }
@@ -358,7 +367,7 @@ impl Session {
             "econ" => { let (Some(id), Some(t)) = (n(0).zip(n(1)), f(2)) else { return }; let mut stock = BTreeMap::new();
                 for kv in a.iter().skip(6) { if let Some((k, v)) = kv.split_once(':') { if let (Some(it), Ok(v)) = (crate::session::item(k), v.parse::<f64>()) { stock.insert(it.id, v); } } }
                 stock.entry(COIN).or_insert(20.0); // une partie d'avant le commerce : une caisse modeste
-                self.econ = Some(Econ { id, stock, t, fed: f(3).unwrap_or(1.0), lean: n(4).unwrap_or(0) as u32, extra: Vec::new(), due: vec![Kind::Maison; n(5).unwrap_or(0).max(0) as usize], project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0 }); }
+                self.econ = Some(Econ { id, stock, t, fed: f(3).unwrap_or(1.0), lean: n(4).unwrap_or(0) as u32, extra: Vec::new(), due: vec![Kind::Maison; n(5).unwrap_or(0).max(0) as usize], project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0, watch: Default::default() }); }
             "econ_house" => { if let (Some(e), Some(v)) = (self.econ.as_mut(), (0..7).map(n).collect::<Option<Vec<i32>>>()) { e.extra.push(Extra { lot: Lot { o: (v[0], v[1]), u: (v[2], v[3]), w: (v[4], v[5]) }, y: v[6], kind: n(7).and_then(|i| PROJECTS.get(i as usize)).map_or(Kind::Maison, |p| p.kind) }); } }
             "econ_due" => { if let (Some(e), Some(i)) = (self.econ.as_mut(), n(0)) { e.due.push(PROJECTS.get(i as usize).map_or(Kind::Maison, |p| p.kind)); } }
             "econ_project" => { if let (Some(e), Some(i)) = (self.econ.as_mut(), n(0)) { e.project = Some((PROJECTS.get(i as usize).map_or(Kind::Maison, |p| p.kind), n(1) == Some(1))); } }
@@ -382,6 +391,43 @@ fn is_stone_face(n: &str) -> bool { matches!(n, "stone" | "cobblestone" | "grani
 impl Session {
     /// Les gens de métier du village pilote, quand il est chargé : le fermier moissonne les cultures mûres et ressème, le bûcheron
     /// abat un arbre et replante, le mineur taille la roche à nu ; chacun rapporte son ouvrage à la réserve, où il compte.
+    /// Les gardes : de jour ils montent sur les remparts par une tour et font la ronde, chacun dans son sens ; le soir ils
+    /// redescendent par la tour la plus proche ; la nuit, le premier tient le guet en haut d'une tour, sa lanterne à la main.
+    fn econ_guards(&mut self, e: &Econ, mine: &[usize]) {
+        let w = &e.watch; if w.patrol.is_empty() { return; } let n = w.patrol.len(); let hod = self.hour; let day = (6.5..21.0).contains(&hod);
+        let near = |a: [f64; 3], b: [f64; 3]| (a[0] - b[0]).hypot(a[2] - b[2]) < 0.6 && (a[1] - b[1]).abs() < 2.5;
+        let closest = |p: [f64; 3]| (0..n).min_by(|&a, &b| { let d = |i: usize| (w.patrol[i][0] - p[0]).hypot(w.patrol[i][2] - p[2]) + (w.patrol[i][1] - p[1]).abs() * 2.0; d(a).total_cmp(&d(b)) }).unwrap_or(0);
+        // un pas sur la ronde de `i` vers `j`, par le plus court côté
+        let toward = |i: usize, j: usize| if i == j { i } else if (j + n - i) % n <= n / 2 { (i + 1) % n } else { (i + n - 1) % n };
+        let guards: Vec<usize> = mine.iter().copied().filter(|&k| self.town.folk[k].job == 8).collect();
+        for (gi, &k) in guards.iter().enumerate() {
+            let mut f = self.town.folk[k].clone(); if f.scared > 0.0 { continue; }
+            let watcher = gi == 0 && !day && w.lookout.is_some(); let on = day || watcher; let arrived = f.task.is_some_and(|t| near(f.p, t));
+            let set = |f: &mut crate::village::Folk, t: [f64; 3]| if f.task != Some(t) { f.task = Some(t); f.task_k += 1; };
+            let entry = |p: [f64; 3]| w.entries.iter().min_by(|a, b| { let d = |q: [f64; 3]| (q[0] - p[0]).hypot(q[2] - p[2]); d(a.0).total_cmp(&d(b.0)) }).copied();
+            match f.post {
+                // au sol : on va au pied de la tour la plus proche, et l'on monte
+                None => if on { if let Some((door, top)) = entry(f.p) { if near(f.p, door) { f.p = top; f.post = Some(closest(top)); set(&mut f, top); } else { set(&mut f, door); } } }
+                    else if f.task.is_some() { f.task = None; f.task_k += 1; },
+                // au guet : on y reste la nuit ; au matin on redescend à l'étage de la tour
+                Some(crate::remparts::AT_LOOKOUT) => { let (floor, post) = w.lookout.unwrap_or((f.p, f.p)); if watcher { set(&mut f, post); } else { f.p = floor; f.post = Some(closest(floor)); set(&mut f, floor); } }
+                Some(i) => {
+                    let i = i.min(n - 1);
+                    // où l'on va par la ronde : la tour du guet, l'entrée la plus proche pour redescendre, ou le point suivant
+                    let goal: Option<([f64; 3], Box<dyn Fn(&mut crate::village::Folk)>)> = if watcher { w.lookout.map(|(floor, post)| (floor, Box::new(move |f: &mut crate::village::Folk| { f.p = post; f.post = Some(crate::remparts::AT_LOOKOUT); }) as Box<dyn Fn(&mut crate::village::Folk)>)) }
+                        else if !on { entry(f.p).map(|(door, top)| (top, Box::new(move |f: &mut crate::village::Folk| { f.p = door; f.post = None; f.task = None; f.task_k += 1; }) as Box<dyn Fn(&mut crate::village::Folk)>)) } else { None };
+                    match goal {
+                        Some((spot, then)) => { let j = closest(spot);
+                            if f.task == Some(spot) { if arrived { then(&mut f); } }
+                            else if i == j && (arrived || near(f.p, w.patrol[i])) { set(&mut f, spot); }
+                            else if arrived || f.task.is_none() { let nx = toward(i, j); f.post = Some(nx); set(&mut f, w.patrol[nx]); } }
+                        None => { if arrived || f.task.is_none() || f.task.is_some_and(|t| !w.patrol.contains(&t)) { let nx = if f.task.is_none() || f.task.is_some_and(|t| !w.patrol.contains(&t)) { i } else if k % 2 == 0 { (i + 1) % n } else { (i + n - 1) % n }; f.post = Some(nx); set(&mut f, w.patrol[nx]); } }
+                    }
+                }
+            }
+            self.town.folk[k] = f;
+        }
+    }
     pub(crate) fn econ_chores(&mut self, e: &mut Econ, v: &Village, dt: f64) {
         let c = e.census(v); let hod = self.hour; let work = (7.5..12.0).contains(&hod) || (13.0..18.0).contains(&hod);
         // ce qu'il y a à faire autour : rafraîchi toutes les deux minutes
@@ -394,13 +440,18 @@ impl Session {
         let mine: Vec<usize> = (0..self.town.folk.len()).filter(|&k| self.town.folk[k].v == v.id && self.town.folk[k].craft.is_none()).collect();
         let (farmers, cutters, miners) = (if c.fields > 0 { c.fields.div_ceil(2).max(1) } else { 0 }, c.cutters, c.miners);
         // le maire : le dernier venu des habitants sans métier, sinon le dernier de la liste ; il reçoit à la place, où l'on vient le voir
-        let workers = (farmers + cutters + miners).min(mine.len().saturating_sub(1) as u32);
-        for (i, &k) in mine.iter().enumerate() { let i = i as u32; self.town.folk[k].job = if i + 1 == mine.len() as u32 { 9 } else if i >= workers { 0 } else if i < farmers { 1 } else if i < farmers + cutters { 2 } else { 3 }; }
+        // les gardes : un quand la muraille est là, un de plus toutes les deux tours, trois au plus ; pris juste avant le maire
+        let free = mine.len().saturating_sub(1) as u32; let guards = if c.walls > 0 && !e.watch.patrol.is_empty() { (1 + c.towers / 2).min(3) } else { 0 }.min(free);
+        let workers = (farmers + cutters + miners).min(free - guards);
+        for (i, &k) in mine.iter().enumerate() { let i = i as u32; let n = mine.len() as u32;
+            let job = if i + 1 == n { 9 } else if i + 1 + guards >= n { 8 } else if i >= workers { 0 } else if i < farmers { 1 } else if i < farmers + cutters { 2 } else { 3 };
+            let f = &mut self.town.folk[k]; if f.job == 8 && job != 8 { f.task = None; f.post = None; } f.job = job; }
+        self.econ_guards(e, &mine);
         let store = e.store.first().copied().map(|p| { let s = [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5]; (s, self.econ_beside(s)) });
         let near_player = |p: [f64; 3], me: [f64; 3]| (p[0] - me[0]).hypot(p[2] - me[2]) < 40.0; let me = self.player.p;
         let mut taken: Vec<[i32; 3]> = mine.iter().filter_map(|&k| { let f = &self.town.folk[k]; f.task.map(|_| [f.aim[0].floor() as i32, f.aim[1].floor() as i32, f.aim[2].floor() as i32]) }).collect();
         for &k in &mine {
-            let mut f = self.town.folk[k].clone(); if f.job == 0 || f.scared > 0.0 { continue; }
+            let mut f = self.town.folk[k].clone(); if f.job == 0 || f.job == 8 || f.scared > 0.0 { continue; }
             // la journée finie, on dépose ce qu'on porte et on rentre
             if !work { for (id, n) in f.carry.drain(..) { e.add(id, n as f64); } if f.task.is_some() { f.task = None; f.task_k += 1; } self.town.folk[k] = f; continue; }
             if f.task.is_none() {

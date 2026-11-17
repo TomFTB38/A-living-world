@@ -219,3 +219,61 @@ fn gatehouse(p: &mut P) {
     // les appliques de part et d'autre du passage, dehors et côté village
     for x in [3, 7] { p.sconce(x, 3, -1, 0, 1); p.sconce(x, 3, 5, 0, -1); }
 }
+
+/// Le guet de un garde la nuit, en haut d'une tour : (l'étage où l'on arrive par le chemin de ronde, la galerie de guet).
+pub type Lookout = ([f64; 3], [f64; 3]);
+/// Ce que les gardes savent des remparts : la ronde (une boucle de points sur le chemin de ronde, dans l'ordre du tour), les
+/// entrées (le pied d'une tour où l'on monte, l'endroit où l'on arrive en haut), le guet de nuit, les portes ; pour quelle
+/// muraille et combien de tours on l'a relevé, et si la herse est baissée pour la nuit.
+#[derive(Clone, Debug, Default)]
+pub struct Watch { pub patrol: Vec<[f64; 3]>, pub entries: Vec<([f64; 3], [f64; 3])>, pub lookout: Option<Lookout>, pub gates: Vec<(i32, i32, i32)>, pub key: (usize, usize), pub night: Option<bool>, /** quand on l'a relevé pour la dernière fois (secondes de jeu) */ pub tried: f64 }
+/// Un garde au guet, en haut de sa tour (son poste, à la place d'un point de la ronde).
+pub const AT_LOOKOUT: usize = usize::MAX;
+
+/// Ce qu'on peut traverser debout : l'air, une lanterne, une applique, une échelle, une bannière.
+fn passable(b: Id) -> bool { let n = BLOCKS[b as usize].name; b == 0 || n.starts_with("lantern") || n.starts_with("wall_sconce") || n.starts_with("ladder") || n.starts_with("banner") }
+
+impl Session {
+    /// Relève le chemin de ronde, les entrées et les portes ; `None` tant que les remparts ne sont pas tous chargés.
+    pub fn rampart_watch(&self, e: &Econ) -> Option<Watch> {
+        let (c, r) = ring(e)?; let gates = self.rampart_gates(c, r);
+        let stand = |x: i32, y: i32, z: i32| self.world.get(x, y - 1, z).is_some_and(is_solid) && self.world.get(x, y, z).is_some_and(passable) && self.world.get(x, y + 1, z).is_some_and(passable);
+        let dist = |x: i32, z: i32| ((x - c[0]) as f64).hypot((z - c[1]) as f64);
+        // de proche en proche sur le dessus (une marche au plus), à trois blocs au moins au-dessus du sol
+        let start = cells(c, r).into_iter().find_map(|(x, z, _)| { let t = walk_top(&self.world, x, z, self.rampart_ground(x, z)? + 5)?; stand(x, t + 1, z).then_some((x, t + 1, z)) })?;
+        let mut seen = std::collections::HashSet::from([start]); let mut todo = vec![start];
+        while let Some((x, y, z)) = todo.pop() { for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] { let (nx, nz) = (x + dx, z + dz); if (dist(nx, nz) - r).abs() > 7.0 { continue; }
+            let h = self.gen.column(nx as f64, nz as f64).h as i32;
+            for ny in [y, y + 1, y - 1] { if ny >= h + 3 && !seen.contains(&(nx, ny, nz)) && stand(nx, ny, nz) { seen.insert((nx, ny, nz)); todo.push((nx, ny, nz)); break; } } } }
+        // la ronde : un point tous les trois pas autour du village, au milieu du chemin (entre ses deux rangs)
+        let n = ((std::f64::consts::TAU * r / 3.0).round() as usize).max(8); let mut best: Vec<Option<((i32, i32, i32), f64)>> = vec![None; n];
+        for &(x, y, z) in &seen { let t = ((z - c[1]) as f64).atan2((x - c[0]) as f64); let i = (((t + std::f64::consts::PI) / std::f64::consts::TAU * n as f64) as usize).min(n - 1); let s = (dist(x, z) - (r - 0.5)).abs();
+            if best[i].is_none_or(|b| s < b.1) { best[i] = Some(((x, y, z), s)); } }
+        let patrol: Vec<[f64; 3]> = best.into_iter().flatten().map(|((x, y, z), _)| [x as f64 + 0.5, y as f64, z as f64 + 0.5]).collect();
+        if patrol.len() < n * 3 / 4 { return None; }
+        // les entrées : chaque tour de guet (sa porte côté village, son étage) et les deux tours de chaque porte fortifiée
+        let mut entries = Vec::new(); let mut lookout = None; let at = |p: [i32; 3], y: i32| [p[0] as f64 + 0.5, y as f64, p[2] as f64 + 0.5];
+        for t in e.extra.iter().filter(|x| x.kind == Kind::TourDefense) { let l = frame_at(c, t.lot.o.0, t.lot.o.1, 7, 7); let g = t.y;
+            entries.push((at(l.cell(3, 0, 7), g + 1), at(l.cell(3, 0, 3), g + 6))); if lookout.is_none() { lookout = Some((at(l.cell(3, 0, 3), g + 6), at(l.cell(3, 0, 4), g + 10))); } }
+        for &(x, y, z) in &gates { let l = frame_at(c, x, z, 11, 5); for m in [1, 9] { entries.push((at(l.cell(m, 0, 5), y + 1), at(l.cell(m, 0, 1), y + 6))); } }
+        let key = (e.extra.iter().filter(|x| x.kind == Kind::Muraille).count(), e.extra.iter().filter(|x| x.kind == Kind::TourDefense).count());
+        Some(Watch { patrol, entries, lookout, gates, key, night: e.watch.night, tried: 0.0 })
+    }
+    /// Baisse (ou lève) la herse d'une porte : une grille de fer sur tout le passage, devant la galerie.
+    pub(crate) fn portcullis(&mut self, c: [i32; 2], gate: (i32, i32, i32), down: bool) {
+        let l = frame_at(c, gate.0, gate.2, 11, 5); let bars = id("iron_bars"); let mut o = Vec::new();
+        for x in 4..=6 { for y in 1..=3 { let [wx, _, wz] = l.cell(x, 0, 1); o.push((wx, gate.1 + y, wz, if down { bars } else { 0 })); } }
+        self.world.edit_many(&o); self.dirty = true;
+    }
+    /// La herse est-elle baissée ?
+    pub fn portcullis_down(&self, c: [i32; 2], gate: (i32, i32, i32)) -> bool { let l = frame_at(c, gate.0, gate.2, 11, 5); let [x, _, z] = l.cell(5, 0, 1); self.world.get(x, gate.1 + 2, z).is_some_and(|b| BLOCKS[b as usize].name == "iron_bars") }
+    /// Pour les essais : comme un clic droit sur ce bloc.
+    pub fn portcullis_at_pub(&mut self, p: [i32; 3]) -> bool { self.portcullis_at(p) }
+    /// Clic droit sur la grille d'une porte fortifiée : la herse se baisse ou se lève. Vrai si c'en était une.
+    pub(crate) fn portcullis_at(&mut self, p: [i32; 3]) -> bool {
+        let Some(e) = self.econ.as_ref() else { return false }; let Some((c, _)) = ring(e) else { return false };
+        let Some(&g) = e.watch.gates.iter().find(|g| { let (a, b) = local(&frame_at(c, g.0, g.2, 11, 5), p[0], p[2]); (3..=7).contains(&a) && (0..=4).contains(&b) && (g.1..=g.1 + 5).contains(&p[1]) }) else { return false };
+        let down = !self.portcullis_down(c, g); self.portcullis(c, g, down); self.sound.place("iron_bars");
+        self.notes.push(if down { "La herse s'abaisse dans un grincement de chaînes.".into() } else { "La herse remonte.".into() }); true
+    }
+}

@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu village_porte village_chemin village_tour village_muraille
+spawn jeu village_garde village_herse village_porte

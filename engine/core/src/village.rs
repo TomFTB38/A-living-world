@@ -360,7 +360,9 @@ pub struct Folk { pub v: (i32, i32), pub house: usize, pub craft: Option<&'stati
     /// Ce qu'il porte vers la réserve (gerbes, rondins, pierres).
     pub carry: Vec<(&'static str, u32)>,
     /// La tâche du moment : où se tenir, le bloc travaillé, son numéro (change à chaque tâche), le temps passé dessus.
-    pub task: Option<[f64; 3]>, pub aim: [f64; 3], pub task_k: u32, pub work_t: f64 }
+    pub task: Option<[f64; 3]>, pub aim: [f64; 3], pub task_k: u32, pub work_t: f64,
+    /// Un garde sur les remparts : le point de la ronde vers lequel il marche, ou `AT_LOOKOUT` au guet ; `None` au sol.
+    pub post: Option<usize> }
 #[derive(Clone, Copy, Debug, PartialEq)] pub enum Page { Main, Order(usize), /** les marchandises, par pages */ Trade(usize), /** chez le maire : les bâtiments que le village peut entreprendre, par pages */ Projects(usize) }
 #[derive(Clone, Debug)] pub struct Talk { pub who: usize, pub page: Page, pub said: String }
 /// Les villages autour du joueur, leurs habitants, et ce que le joueur en sait.
@@ -421,9 +423,10 @@ impl Town {
         // Un point de la rue qui mène à une maison : entre le bord de la place et sa porte.
         let street = |salt: u32| { let o = &v.houses[(rnd(salt, 3) * v.houses.len() as f64) as usize % v.houses.len()]; if o.way.len() > 2 { return o.way[(rnd(salt, 4) * o.way.len() as f64) as usize % o.way.len()]; } let t = 0.25 + 0.6 * rnd(salt, 4); [o.ring[0] + (o.door[0] - o.ring[0]) * t, o.ring[1] + (o.door[1] - o.ring[1]) * t, o.ring[2] + (o.door[2] - o.ring[2]) * t] };
         let neighbour = |salt: u32| { let o = &v.houses[(rnd(salt, 5) * v.houses.len() as f64) as usize % v.houses.len()]; let side = (rnd(salt, 6) - 0.5) * 1.6; let (ex, ez) = (o.door[0] - o.ring[0], o.door[2] - o.ring[2]); let l = ex.hypot(ez).max(0.1); [o.door[0] - ex / l * 1.2 - ez / l * side, o.door[1], o.door[2] - ez / l * 1.2 + ex / l * side] };
-        if !(6.5..21.5).contains(&hour) { return ((0, 0), h.bed); }
-        // au village pilote, les gens de métier vont là où leur tâche les attend : un arbre, un sillon, un front de taille, la réserve
+        // au village pilote, les gens de métier vont là où leur tâche les attend : un arbre, un sillon, un front de taille, la réserve,
+        // la ronde sur les remparts (le garde de nuit y reste quand les autres dorment)
         if f.job > 0 && f.scared <= 0.0 { if let Some(t) = f.task { return ((7, f.task_k), t); } }
+        if !(6.5..21.5).contains(&hour) { return ((0, 0), h.bed); }
         let slot = (hour * 0.9 + rnd(9, 7) * 2.0) as u32;
         if (8.0..18.0).contains(&hour) {
             if f.craft.is_some() { return if (12.5..13.5).contains(&hour) { ((6, 0), h.inside) } else { ((1, 0), h.spot) }; }
@@ -453,7 +456,7 @@ impl Town {
         for k in 0..self.folk.len() {
             let mut f = self.folk[k].clone(); let near = (f.p[0] - me[0]).hypot(f.p[2] - me[2]); f.greet_t -= dt; f.scared -= dt;
             // Une arme tirée tout près : on recule et on rentre chez soi. Sinon, on salue celui qui passe.
-            if armed && near < 2.4 && f.scared <= 0.0 && talking != Some(k) { f.scared = 7.0; self.news.push(format!("{} recule : « Rangez cette arme ! »", f.name)); }
+            if armed && near < 2.4 && f.scared <= 0.0 && talking != Some(k) && f.job != 8 { f.scared = 7.0; self.news.push(format!("{} recule : « Rangez cette arme ! »", f.name)); }
             else if !armed && near < 3.0 && f.greet_t <= 0.0 && f.scared <= 0.0 && talking != Some(k) { f.greet_t = 150.0; self.news.push(format!("{} : « {} ! »", f.name, if hour >= 18.0 || hour < 5.0 { "Bonsoir" } else { "Bonjour" })); }
             let (goal, at) = if f.scared > 0.0 { let Some(v) = self.village(f.v) else { continue }; ((5, 0), v.houses[f.house].inside) } else { self.want(&f, k, hour) };
             let dest = if goal.0 <= 1 || goal.0 == 5 || goal.0 == 6 { Some(f.house) } else { None };
@@ -489,7 +492,7 @@ impl Town {
             for j in 0..count {
                 let pick = (hash_float(v.id.0 * 7 + i as i32, v.id.1, j as i32, 92) * FIRST.len() as f64) as usize % FIRST.len();
                 let look = if let Some(c) = h.craft { db().craftsmen.iter().position(|x| x.id == c).unwrap_or(0) as u8 } else { 6 + (hash_float(i as i32, j as i32, v.id.0, v.id.1) * 3.0) as u8 % 3 };
-                self.folk.push(Folk { v: v.id, house: i, craft: if j == 0 { h.craft } else { None }, name: FIRST[pick].to_string(), p: h.spot, yaw: 0.0, phase: n as f64, moving: false, working: false, route: Vec::new(), goal: (9, 0), look, region: match v.kind { "desert" => 1, "montagne" | "taiga" => 2, "port" => 3, _ => 0 }, scared: 0.0, greet_t: 0.0, stuck: 0.0, job: 0, carry: Vec::new(), task: None, aim: [0.0; 3], task_k: 0, work_t: 0.0 });
+                self.folk.push(Folk { v: v.id, house: i, craft: if j == 0 { h.craft } else { None }, name: FIRST[pick].to_string(), p: h.spot, yaw: 0.0, phase: n as f64, moving: false, working: false, route: Vec::new(), goal: (9, 0), look, region: match v.kind { "desert" => 1, "montagne" | "taiga" => 2, "port" => 3, _ => 0 }, scared: 0.0, greet_t: 0.0, stuck: 0.0, job: 0, carry: Vec::new(), task: None, aim: [0.0; 3], task_k: 0, work_t: 0.0, post: None });
                 n += 1;
             }
         }
@@ -543,6 +546,8 @@ impl Town {
             }
             // ce qu'il porte à la réserve : les bras tendus devant lui, le fardeau dans les mains
             if let Some(c) = f.carry.first().filter(|_| !f.working) { arm_l = -1.05; arm_r = -1.05; yaw_l = 0.28; yaw_r = -0.28; tool = Some(c.0); }
+            // le garde : la lance droite à la main en ronde ; au guet de nuit, sa lanterne levée
+            if f.job == 8 && talking != Some(i) { if f.post == Some(crate::remparts::AT_LOOKOUT) { tool = Some("lantern"); arm_r = -0.9; yaw_r = -0.2; } else { tool = Some("stone_spear"); arm_r = -0.35; yaw_r = 0.0; } }
             let hip = 0.76; let body = mul(&base, &mul(&trs(0.0, hip + bob, 0.0, 0.0, lean, 1.0), &trs(0.0, -hip, 0.0, 0.0, 0.0, 1.0)));
             let rs = if f.region == 0 { String::new() } else { format!("r{}", f.region) }; put(&format!("folk{l}{rs}"), body); put(&format!("folkHead{face}{rs}"), mul(&body, &trs(0.0, 1.4, 0.0, head_yaw, head_pitch, 1.0)));
             put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(-0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_l, 1.0))); put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_r, 1.0)));
@@ -858,7 +863,7 @@ impl Session {
     /// La fenêtre de dialogue ouverte, avec ses réponses.
     pub fn dialog(&self) -> Option<Dialog> {
         let t = self.town.talk.as_ref()?; let f = self.town.folk.get(t.who)?; let v = self.town.village(f.v)?;
-        let cm = f.craft.and_then(craftsman); let title = match cm { Some(c) => format!("{} · {}", f.name, c.name), None if f.job == 9 => format!("{} · maire", f.name), None => format!("{} · villageois", f.name) };
+        let cm = f.craft.and_then(craftsman); let title = match cm { Some(c) => format!("{} · {}", f.name, c.name), None if f.job == 9 => format!("{} · maire", f.name), None if f.job == 8 => format!("{} · garde", f.name), None => format!("{} · villageois", f.name) };
         let sub = format!("{} · village de {}", v.name, kind_label(v.kind)); let mut o: Vec<(String, bool)> = Vec::new();
         if self.armed() { o.push(("Ranger mon arme".into(), true)); o.push(("Au revoir".into(), true)); let pics = vec![Pic { icon: Some("sword"), ..Default::default() }, Pic::default()]; return Some(Dialog { title, sub, said: "Rangez d'abord votre arme, je vous prie.".into(), options: o, kind: DKind::Main, pics, station: cm.and_then(|c| c.works.first().map(|w| w.0)), mayor: f.job == 9, rep: self.rep(v.id), village: v.name.clone() }); }
         let econ = self.econ.as_ref().filter(|e| e.id == v.id && f.job == 9); let mut pics: Vec<Pic> = Vec::new(); let have = |id: &str| if self.creative { 999 } else { self.count(id) };
