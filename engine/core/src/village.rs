@@ -547,7 +547,7 @@ impl Town {
             // ce qu'il porte à la réserve : les bras tendus devant lui, le fardeau dans les mains
             if let Some(c) = f.carry.first().filter(|_| !f.working) { arm_l = -1.05; arm_r = -1.05; yaw_l = 0.28; yaw_r = -0.28; tool = Some(c.0); }
             // le garde : la lance droite à la main en ronde ; au guet de nuit, sa lanterne levée
-            if f.job == 8 && talking != Some(i) { if f.post == Some(crate::remparts::AT_LOOKOUT) { tool = Some("lantern"); arm_r = -0.9; yaw_r = -0.2; } else { tool = Some("stone_spear"); arm_r = -0.35; yaw_r = 0.0; upright = true; } }
+            if f.job == 8 && talking != Some(i) { if f.work_t > 0.5 { tool = Some("bow"); arm_r = -1.45; arm_l = -1.3; yaw_r = -0.2; yaw_l = 0.5; } else if f.post == Some(crate::remparts::AT_LOOKOUT) { tool = Some("lantern"); arm_r = -0.9; yaw_r = -0.2; } else { tool = Some("stone_spear"); arm_r = -0.35; yaw_r = 0.0; upright = true; } }
             let hip = 0.76; let body = mul(&base, &mul(&trs(0.0, hip + bob, 0.0, 0.0, lean, 1.0), &trs(0.0, -hip, 0.0, 0.0, 0.0, 1.0)));
             let rs = if f.region == 0 { String::new() } else { format!("r{}", f.region) }; put(&format!("folk{l}{rs}"), body); put(&format!("folkHead{face}{rs}"), mul(&body, &trs(0.0, 1.4, 0.0, head_yaw, head_pitch, 1.0)));
             put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(-0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_l, 1.0))); put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_r, 1.0)));

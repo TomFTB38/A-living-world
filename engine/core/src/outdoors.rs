@@ -7,9 +7,9 @@ use crate::player::Voxels;
 use crate::session::*;
 use crate::survival::*;
 
-#[derive(Clone, Copy, Debug, PartialEq)] pub struct Arrow { pub p: [f64; 3], pub v: [f64; 3], pub stuck: bool, pub life: f64, /** tension de l'arc au tir, 0 à 1 */ pub pow: f64 }
+#[derive(Clone, Copy, Debug, PartialEq)] pub struct Arrow { pub p: [f64; 3], pub v: [f64; 3], pub stuck: bool, pub life: f64, /** tension de l'arc au tir, 0 à 1 */ pub pow: f64, /** tirée par un garde : plantée, elle ne se ramasse pas */ pub npc: bool }
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Line { pub spot: [f64; 3], pub bite: f64, pub told: bool, pub fish: &'static str }
-pub const ARROW_SPEED: f64 = 34.0; const ARROW_GRAVITY: f64 = 12.0; const ARROW_DMG: f64 = 9.0;
+pub const ARROW_SPEED: f64 = 34.0; pub(crate) const ARROW_GRAVITY: f64 = 12.0; const ARROW_DMG: f64 = 9.0;
 /// Une touche se saisit dans cette fenêtre (secondes), sinon le poisson file.
 pub const BITE_WINDOW: f64 = 1.8;
 
@@ -53,7 +53,7 @@ impl Session {
             a.life += dt;
             // Le bloc où elle était plantée a disparu : la flèche retombe.
             if a.stuck && self.world.get(a.p[0].floor() as i32, a.p[1].floor() as i32, a.p[2].floor() as i32).is_some_and(|b| b == 0 || !is_solid(b)) { a.stuck = false; a.life = 0.0; let k = 0.05 / (a.v[0] * a.v[0] + a.v[1] * a.v[1] + a.v[2] * a.v[2]).sqrt().max(1e-6); a.v = [a.v[0] * k, -0.5, a.v[2] * k]; }
-            if a.stuck { if (a.p[0] - me[0]).hypot(a.p[2] - me[2]) < 1.3 && (a.p[1] - me[1] - 0.5).abs() < 1.6 { if self.add_item("arrow", 1) == 0 { a.life = 1e9; } } continue; }
+            if a.stuck { if a.npc { if a.life > 20.0 { a.life = 1e9; } continue; } if (a.p[0] - me[0]).hypot(a.p[2] - me[2]) < 1.3 && (a.p[1] - me[1] - 0.5).abs() < 1.6 { if self.add_item("arrow", 1) == 0 { a.life = 1e9; } } continue; }
             a.v[1] -= ARROW_GRAVITY * dt; let step = [a.v[0] * dt, a.v[1] * dt, a.v[2] * dt]; let len = (step[0] * step[0] + step[1] * step[1] + step[2] * step[2]).sqrt(); let d = [step[0] / len, step[1] / len, step[2] / len];
             // Le gibier d'abord : la boîte la plus proche le long du trajet de cette image.
             let mut best: Option<(f64, crate::session::Prey)> = None;
@@ -107,7 +107,7 @@ impl Session {
             if bow && ammo && pow > 0.12 {
                 if !self.creative { self.take_one("arrow"); }
                 let (e, f) = (self.eye, self.look); let sp = ARROW_SPEED * (0.3 + 0.7 * pow);
-                self.arrows.push(Arrow { p: [e[0] + f[0] * 0.6, e[1] + f[1] * 0.6, e[2] + f[2] * 0.6], v: [f[0] * sp, f[1] * sp, f[2] * sp], stuck: false, life: 0.0, pow });
+                self.arrows.push(Arrow { p: [e[0] + f[0] * 0.6, e[1] + f[1] * 0.6, e[2] + f[2] * 0.6], v: [f[0] * sp, f[1] * sp, f[2] * sp], stuck: false, life: 0.0, pow, npc: false });
                 self.sound.swing(Some("sword"), 1.1 + 0.3 * pow as f32); self.anim.trigger(); self.wear_slot(self.sel, 1);
             }
         }

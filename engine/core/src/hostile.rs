@@ -102,13 +102,14 @@ pub struct Foe {
     /// Attaque annoncée en cours : temps restant avant le coup (0 : pas d'attaque).
     pub wind: f64, pub hit: f64, pub phase: f64, pub speed: f64, v: [f64; 3], gy: f64, /** gardien d'un lieu : le jour ne le chasse pas */ pub kept: bool,
     /// Où elle croit le joueur, et depuis quand elle ne l'a plus vu ; l'éveil monte avec ce qu'elle voit et entend.
-    pub seen: Option<[f64; 3]>, lost: f64, pub alert: f64, home: [f64; 3],
+    pub seen: Option<[f64; 3]>, lost: f64, pub alert: f64, pub(crate) home: [f64; 3],
     /// Mort en cours (s) ; variante d'équipement ; vétéran (un peu plus dur, meilleur butin) ; bond ou course en cours.
     /** bouclier levé (brigand), de 0 à 1 */ pub guard: f64, pub dead: f64, pub variant: u8, pub vet: bool, pub air: bool, burst: f64, pub climbing: bool, pub group: u32,
     /** ver des sables : secondes pendant lesquelles il reste dressé hors du sable (on peut alors le frapper) */ pub up: f64,
+    /** une bande qui attaque un village : les points par où elle passe (devant la porte, le passage, la réserve) */ pub raid: Vec<[f64; 3]>,
 }
 /// Ce que font les créatures, pour la session (coups, sons, butin).
-#[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool), /** une morsure qui englue : ralenti pendant tant de secondes */ Snare(f64) }
+#[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool), /** une morsure qui englue : ralenti pendant tant de secondes */ Snare(f64), /** un pillard est arrivé à la réserve du village (sa bande) */ Loot([f64; 3], u32) }
 
 pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv>, groups: u32, pub spawned: u32, /** braises semées par les rampants de magma : (position, secondes restantes) */ pub embers: Vec<([f64; 3], f64)>, burn_cd: f64, /** flèches des archers en vol : (position, vitesse, âge, dégâts) */ pub shots: Vec<([f64; 3], [f64; 3], f64, f64)> }
 /// Ce que la session donne à la horde à chaque image.
@@ -133,7 +134,7 @@ impl Horde {
     pub fn put(&mut self, sp: usize, p: [f64; 3], yaw: f64, vet: bool) -> usize {
         let s = &bestiary().species[sp]; let max = s.hp * if vet { 1.25 } else { 1.0 }; self.groups += 1; let variant = (self.rng.next() * 3.0) as u8;
         self.foes.push(Foe { sp, p, yaw, hp: max, max, state: if s.ambush { Ai::Embuscade } else { Ai::Repos }, t: self.rng.range(1.0, 4.0), cd: 0.5, wind: 0.0, hit: 0.0, phase: 0.0, speed: 0.0, v: [0.0; 3], gy: p[1],
-            seen: None, lost: 0.0, alert: 0.0, home: p, guard: 0.0, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups, up: 0.0, kept: false });
+            seen: None, lost: 0.0, alert: 0.0, home: p, guard: 0.0, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups, up: 0.0, kept: false, raid: Vec::new() });
         self.spawned += 1; self.foes.len() - 1
     }
     /// Un coup porté : moins fort sur une armure, plus fort avec l'arme qui la blesse le mieux ; rend vrai si elle meurt.
@@ -221,7 +222,7 @@ impl Horde {
         }
         // Au lever du jour, celles qui ne se battent pas s'éloignent et s'effacent hors de vue ; les mortes, une fois tombées ; les trop lointaines.
         let day = c.night < 0.2 && c.cave < 0.5; // sous terre, il n'y a pas de lever du jour
-        all.retain(|f| { let d = hypot2(f.p[0] - me[0], f.p[2] - me[2]); !(f.dead > 1.6 || d > r.forget || (day && !f.kept && f.state != Ai::Combat && d > 20.0 && f.dead == 0.0) || f.p[1] < -20.0 || w.get(f.p[0].floor() as i32, f.p[1].floor() as i32, f.p[2].floor() as i32).is_none()) });
+        all.retain(|f| { let d = hypot2(f.p[0] - me[0], f.p[2] - me[2]); !(f.dead > 1.6 || d > r.forget && f.raid.is_empty() || (day && !f.kept && f.state != Ai::Combat && d > 20.0 && f.dead == 0.0) || f.p[1] < -20.0 || w.get(f.p[0].floor() as i32, f.p[1].floor() as i32, f.p[2].floor() as i32).is_none()) });
         self.foes = all;
     }
 
@@ -280,6 +281,12 @@ impl Horde {
             Fuite => { f.speed = s.run * 0.9; f.yaw = turn(f.yaw, (f.p[0] - me[0]).atan2(f.p[2] - me[2]), dt * 6.0); if f.t <= 0.0 { f.state = Retour; f.home = f.p; } }
         }
         if f.state != Combat { f.guard = (f.guard - dt * 4.0).max(0.0); }
+        // ---- une bande qui attaque un village : tant qu'elle ne se bat pas, elle marche droit sur ses points de passage
+        if !f.raid.is_empty() && matches!(f.state, Repos | Patrouille | Retour) {
+            let wp = f.raid[0];
+            if hypot2(wp[0] - f.p[0], wp[2] - f.p[2]) < 2.2 { f.raid.remove(0); if f.raid.is_empty() { self.ev.push(FoeEv::Loot(f.p, f.group)); } }
+            else { f.state = Patrouille; f.t = 4.0; f.home = f.p; f.yaw = turn(f.yaw, (wp[0] - f.p[0]).atan2(wp[2] - f.p[2]), dt * 4.0); f.speed = s.walk * 1.8; }
+        }
         // ---- le coup tombe à la fin de l'annonce, s'il y a contact (distance et angle cohérents avec le geste)
         if f.wind > 0.0 { f.wind -= dt; if f.wind <= 0.0 { f.wind = 0.0; f.cd = s.cd * if f.vet { 0.9 } else { 1.0 };
             let face = sin(f.yaw) * to[0] + cos(f.yaw) * to[1]; let reach = s.reach + if f.air { 0.8 } else { 0.5 };
@@ -854,6 +861,7 @@ impl Session {
                     let (dx, dz) = (self.player.p[0] - from[0], self.player.p[2] - from[2]); let d = dx.hypot(dz).max(0.1); self.player.v[0] += dx / d * push; self.player.v[2] += dz / d * push; self.player.v[1] = self.player.v[1].max(2.5); } }
                 FoeEv::Growl(p, b) => match b { Body::Bete => self.sound.fox_scream(p), Body::Rampant => self.sound.rustle(p), _ => self.sound.thump(p) },
                 FoeEv::Swing(_) => self.sound.swing(None, 0.8),
+                FoeEv::Loot(_, g) => self.raid_loot(g),
                 FoeEv::Snare(t) => { if self.snare <= 0.0 { self.notes.push("Englué dans la soie : vous êtes ralenti".into()); } self.snare = self.snare.max(t); }
                 FoeEv::Blocked(p) => { self.sound.thump(p); self.notes.push("Bloqué par son bouclier".into()); }
                 FoeEv::Die(p, sp, vet) => { let s = &bestiary().species[sp]; self.sound.thump(p); self.skills[2] += 2.0; if self.creative { continue; }

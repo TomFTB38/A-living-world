@@ -33,11 +33,12 @@ impl Session {
             "" => String::new(),
             "grotte" => self.goto_hall(arg),
             "village" => self.village_report(),
+            "brigands" => if self.raid_now() { "Une bande de brigands marche sur le village pilote.".into() } else { "Pas de bande possible ici (approchez du village pilote).".into() },
             "lieu" | "lieux" => self.goto_place(arg),
             "coin1" => self.set_corner(0), "coin2" => self.set_corner(1),
             "exporter" | "export" => self.export(arg),
             "structures" => { let v = crate::structures::names(); if v.is_empty() { "Aucune structure exportée pour l'instant : /coin1, /coin2 puis /exporter nom".into() } else { format!("Structures : {}", v.join(", ")) } }
-            "aide" | "help" | "?" => "Commandes : /jour /midi /soir /nuit /heure <h> /avance [h] /vitesse <x> /figer /survie /creatif /vol ; construction : /coin1 /coin2 /exporter [nom] /structures ; village pilote : /village ; exploration : /lieu [tour|cimetiere|brigands], /grotte [biome], /grotte mine, /grotte bouche, /grotte camp, /grotte autel, /grotte caveau".into(),
+            "aide" | "help" | "?" => "Commandes : /jour /midi /soir /nuit /heure <h> /avance [h] /vitesse <x> /figer /survie /creatif /vol ; construction : /coin1 /coin2 /exporter [nom] /structures ; village pilote : /village, /brigands ; exploration : /lieu [tour|cimetiere|brigands], /grotte [biome], /grotte mine, /grotte bouche, /grotte camp, /grotte autel, /grotte caveau".into(),
             "jour" | "matin" => at(self, 7.0, "le jour se lève"), "midi" => at(self, 12.0, "plein jour"), "soir" => at(self, 19.0, "le soir tombe"), "nuit" => at(self, 22.0, "la nuit"),
             "heure" | "temps" => match num(arg) { Some(h) => at(self, h.rem_euclid(24.0), "c'est fait"), None => format!("Il est {}h{:02}. Exemple : /heure 18", self.hour as i32, ((self.hour.fract()) * 60.0) as i32) },
             "avance" | "passer" => { let h = num(arg).unwrap_or(1.0).clamp(0.0, 240.0); self.pass_hours(h); format!("{h} heure(s) passent : il est {}h{:02}", self.hour as i32, (self.hour.fract() * 60.0) as i32) }

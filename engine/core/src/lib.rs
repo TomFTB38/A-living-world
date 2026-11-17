@@ -44,4 +44,5 @@ pub mod elevage;
 pub mod structures;
 pub mod armures;
 pub mod karst; pub mod sites; pub mod economie; pub mod remparts;
+pub mod raids;
 pub mod commande;
