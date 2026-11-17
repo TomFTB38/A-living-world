@@ -21,12 +21,12 @@ fn la_muraille_et_ses_tours() {
     println!("centre {c0:?} rayon {r} (village r {})", v.r);
     // elle fait le tour : de la pierre à hauteur d'homme presque partout, des portes là où passent les chemins
     let cells = remparts::cells(c0, r); let mut open = 0; let mut posts = 0; let wg = WorldGen::new(SEED); let gates0 = s.rampart_gates(c0, r);
-    let built = |n: &str| matches!(n, "stone_bricks" | "cobblestone" | "planks" | "plaster" | "fence" | "iron_bars" | "chiseled_stone") || n.starts_with("oak_log") || n.starts_with("roof_tiles");
+    let built = |n: &str| matches!(n, "stone_bricks" | "cobblestone" | "planks" | "plaster" | "fence" | "iron_bars" | "iron_bars@1" | "chiseled_stone") || n.starts_with("oak_log") || n.starts_with("roof_tiles");
     for &(x, z, _) in &cells { let h = wg.column(x as f64, z as f64).h as i32; let n = (h - 8..h + 20).filter(|&y| built(name(&s, x, y, z))).count(); if n < 4 && !gates0.iter().any(|g| (g.0 - x).abs() <= 7 && (g.2 - z).abs() <= 7) { open += 1; if open < 6 { println!("autre {x},{z} : {n} h{h} {:?}", (h - 4..h + 8).map(|y| name(&s, x, y, z)).collect::<Vec<_>>()); } }
         if (h - 8..h + 20).any(|y| name(&s, x, y, z) == "oak_log_c") { posts += 1; } }
     let gates = s.rampart_gates(c0, r); println!("{} colonnes : {open} sans muraille ; {} portes fortifiées {:?} ; {posts} colonnes à poteau", cells.len(), gates.len(), gates);
     assert_eq!(open, 0, "la muraille fait tout le tour, sans trou, rivière comprise"); assert!(!gates.is_empty(), "au moins une porte"); assert!(posts > 20, "les poteaux de chêne");
-    for &(x, y, z) in &gates { let mut bars = false; let mut flags = 0; let mut air = 0; for dx in -6..=6 { for dz in -6..=6 { for yy in y..y + 16 { let n = name(&s, x + dx, yy, z + dz); bars |= n == "iron_bars"; flags += (n == "flag") as i32; } } }
+    for &(x, y, z) in &gates { let mut bars = false; let mut flags = 0; let mut air = 0; for dx in -6..=6 { for dz in -6..=6 { for yy in y..y + 16 { let n = name(&s, x + dx, yy, z + dz); bars |= n.starts_with("iron_bars"); flags += (n == "flag") as i32; } } }
         for yy in y + 1..=y + 3 { air += (name(&s, x, yy, z) == "air") as i32; } println!("porte en {x},{y},{z} : herse {bars}, {flags} drapeaux, passage {air}/3"); assert!(bars && flags >= 2 && air == 3, "la porte fortifiée"); }
     // tout le village est dedans
     for h in &v.houses { let m = [(h.area[0] + h.area[2]) / 2, (h.area[1] + h.area[3]) / 2]; assert!(((m[0] - c0[0]) as f64).hypot((m[1] - c0[1]) as f64) < r - 3.0, "{:?} dedans", h.area); }
@@ -71,10 +71,10 @@ fn la_muraille_et_ses_tours() {
     assert!(on && moved > 20.0, "le garde fait sa ronde sur le chemin de ronde");
     // la nuit : la herse se baisse ; le jour elle se lève ; un clic droit sur la grille la manœuvre
     let g = w.gates[0]; let passage = |s: &Session| (1..=3).filter(|&y| name(s, g.0, g.1 + y, g.2) == "air").count();
-    let blocked = |s: &Session| { let mut n = 0; for dx in -3..=3 { for dz in -3..=3 { for y in 1..=3 { n += (name(s, g.0 + dx, g.1 + y, g.2 + dz) == "iron_bars") as i32; } } } n };
+    let blocked = |s: &Session| { let mut n = 0; for dx in -3..=3 { for dz in -3..=3 { for y in 1..=3 { n += (name(s, g.0 + dx, g.1 + y, g.2 + dz) .starts_with("iron_bars")) as i32; } } } n };
     println!("herse de jour : {} barreaux bas, passage {}/3", blocked(&s), passage(&s)); assert_eq!(blocked(&s), 0, "levée le jour");
     s.hour = 22.0; idle(&mut s, 5); s.hour = 22.0; println!("herse de nuit : {} barreaux bas", blocked(&s)); assert!(blocked(&s) >= 9, "baissée la nuit");
-    let bar = (|| { for dx in -3..=3 { for dz in -3..=3 { if name(&s, g.0 + dx, g.1 + 2, g.2 + dz) == "iron_bars" { return Some([g.0 + dx, g.1 + 2, g.2 + dz]); } } } None })().unwrap();
+    let bar = (|| { for dx in -3..=3 { for dz in -3..=3 { if name(&s, g.0 + dx, g.1 + 2, g.2 + dz).starts_with("iron_bars") { return Some([g.0 + dx, g.1 + 2, g.2 + dz]); } } } None })().unwrap();
     assert!(s.portcullis_at_pub(bar), "la grille se manœuvre"); assert_eq!(blocked(&s), 0, "levée à la main");
     // le garde de nuit monte au guet, sa lanterne à la main
     for _ in 0..240 { idle(&mut s, 25); s.hour = 22.0; if s.town.folk[gk[0]].post == Some(remparts::AT_LOOKOUT) { break; } }

@@ -22,7 +22,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
                 assert_eq!(count(&|n| n == "brazier", 1, 15), 1, "le brasero"); assert!(count(&|n| n == "fence", 5, 14) >= 5, "le hourd");
                 // chaque marche a de quoi passer la tête ; la cave est creusée, son échelle descend, son coffre caché y est
                 let y = pl.y; for i in 0..4 { for (su, sy, sw) in [(-3, y + 1 + i, -2 + i), (-2 + i, y + 5 + i, 3), (3, y + 9 + i, 2 - i)] { let (sx, sz) = lo(su, sw); assert!(name(at(sx, sy, sz)).contains("_stairs"), "marche manquante en {sx} {sy} {sz}"); for h in 1..=2 { assert!(!is_solid(at(sx, sy + h, sz)), "on se cogne au-dessus de la marche {sx} {sy} {sz}"); } } }
-                for dy in 1..=4 { assert!(name({ let (lx, lz) = lo(3, 3); at(lx, y - dy, lz) }).starts_with("ladder"), "échelle de la cave"); assert_eq!({ let (lx, lz) = lo(0, 0); at(lx, y - dy, lz) }, 0, "la cave est creusée"); } assert!(is_chest_shut({ let (lx, lz) = lo(-3, 3); at(lx, y - 4, lz) }), "le coffre caché"); assert!(count(&|n| n == "iron_bars", 4, 0) == 0 && name({ let (lx, lz) = lo(-1, -3); at(lx, y - 4, lz) }) == "iron_bars", "le cachot");
+                for dy in 1..=4 { assert!(name({ let (lx, lz) = lo(3, 3); at(lx, y - dy, lz) }).starts_with("ladder"), "échelle de la cave"); assert_eq!({ let (lx, lz) = lo(0, 0); at(lx, y - dy, lz) }, 0, "la cave est creusée"); } assert!(is_chest_shut({ let (lx, lz) = lo(-3, 3); at(lx, y - 4, lz) }), "le coffre caché"); assert!(count(&|n| n.starts_with("iron_bars"), 4, 0) == 0 && name({ let (lx, lz) = lo(-1, -3); at(lx, y - 4, lz) }).starts_with("iron_bars"), "le cachot");
             }
             Lieu::Cimetiere => {
                 assert!(count(&|n| n.starts_with("gravestone") || n.starts_with("grave_cross"), 11, 2) >= 14, "des tombes"); assert!(count(&|n| n == "gravel", 9, 0) >= 12, "les allées"); assert!(count(&|n| n.starts_with("slate_slope"), 11, 8) >= 30, "le toit de la chapelle et du porche");
@@ -31,7 +31,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
             }
             Lieu::Camp => {
                 assert_eq!(count(&|n| n == "campfire", 1, 2), 1, "le feu"); assert!(count(&|n| n == "oak_log", 11, 5) > 150, "la palissade"); assert!(count(&|n| n.starts_with("thatch_slope"), 9, 4) >= 60, "les tentes"); assert_eq!(count(&|n| n == "bedroll", 9, 2), 4);
-                assert!(count(&|n| n == "iron_bars", 8, 3) >= 14, "la cage"); assert!(count(&|n| n.starts_with("ladder"), 8, 6) >= 5, "l'échelle de la tour de guet"); assert!(count(&|n| n.starts_with("throne"), 8, 2) == 1 && count(&|n| n.starts_with("cart"), 6, 2) == 1, "le siège du chef, la charrette");
+                assert!(count(&|n| n.starts_with("iron_bars"), 8, 3) >= 14, "la cage"); assert!(count(&|n| n.starts_with("ladder"), 8, 6) >= 5, "l'échelle de la tour de guet"); assert!(count(&|n| n.starts_with("throne"), 8, 2) == 1 && count(&|n| n.starts_with("cart"), 6, 2) == 1, "le siège du chef, la charrette");
                 let y = pl.y; for h in 1..=2 { for u in -1..=1 { assert!(!is_solid({ let (lx, lz) = lo(u, -10); at(lx, y + h, lz) }), "le portail est ouvert"); } assert!(!is_solid({ let (lx, lz) = lo(0, 5); at(lx, y + h, lz) }), "on entre dans la tente du chef"); }
             }
         }

@@ -628,13 +628,17 @@ fn capture(a: &[String]) {
                     println!("diagnostic : {} blocs retirés ({strip:?})", off.len()); s.world.edit_many(&off); } }
                 pump(&mut s, &mut g);
                 // les gardes montent sur les remparts ; la nuit, la herse se baisse
-                let guard = |s: &alw_core::session::Session| s.town.folk.iter().position(|f| f.job == 8 && f.post.is_some_and(|p| p != alw_core::remparts::AT_LOOKOUT) && f.moving);
+                // un garde en pleine ronde, loin des tours et des portes (on le voit sur le chemin, pas dans un toit)
+                let guard = |s: &alw_core::session::Session| { let w = s.econ.as_ref().map(|e| e.watch.entries.clone()).unwrap_or_default();
+                    s.town.folk.iter().position(|f| f.job == 8 && f.post.is_some_and(|p| p != alw_core::remparts::AT_LOOKOUT) && f.moving && w.iter().all(|(d, _)| (d[0] - f.p[0]).hypot(d[2] - f.p[2]) > 14.0)) };
                 if scene == "village_garde" { for _ in 0..900 { s.hour = 9.0; s.tick(0.1, none, Actions::default()); if guard(&s).is_some() { break; } } println!("garde : {:?}", guard(&s).map(|k| (s.town.folk[k].name.clone(), s.town.folk[k].p))); }
                 if scene == "village_herse" { for _ in 0..10 { s.hour = 22.0; s.tick(0.1, none, Actions::default()); } }
                 if let Some(e) = s.econ.clone() { if let Some((c, r)) = alw_core::remparts::ring(&e) { let t = e.extra.iter().find(|x| x.kind == alw_core::patrons::Kind::TourDefense).map(|x| [x.lot.o.0 as f64, x.y as f64, x.lot.o.1 as f64]).unwrap_or([c[0] as f64 + r, 64.0, c[1] as f64]);
                     let (dx, dz) = (t[0] - c[0] as f64, t[2] - c[1] as f64); let l = dx.hypot(dz).max(1.0); let (ux, uz) = (dx / l, dz / l); let (sx, sz) = (-uz, ux);
                     let (eye, aim) = if scene == "village_muraille" { ([c[0] as f64 + ux * (r + 30.0) + sx * 30.0, t[1] + 42.0, c[1] as f64 + uz * (r + 30.0) + sz * 30.0], [c[0] as f64, t[1], c[1] as f64]) }
-                        else if let Some(f) = guard(&s).filter(|_| scene == "village_garde").map(|k| s.town.folk[k].clone()) { let (fx, fz) = (f.yaw.sin(), f.yaw.cos()); ([f.p[0] + fx * 5.0 - fz * 1.5, f.p[1] + 2.4, f.p[2] + fz * 5.0 + fx * 1.5], [f.p[0], f.p[1] + 1.1, f.p[2]]) }
+                        else if let Some(f) = guard(&s).filter(|_| scene == "village_garde").map(|k| s.town.folk[k].clone()) { // depuis le village, un peu en avant de lui et au-dessus : le garde sur le chemin de ronde, les merlons derrière
+                            let (dx, dz) = (c[0] as f64 - f.p[0], c[1] as f64 - f.p[2]); let l = dx.hypot(dz).max(1.0); let (ix, iz) = (dx / l, dz / l); let (fx, fz) = (f.yaw.sin(), f.yaw.cos());
+                            ([f.p[0] + ix * 6.0 + fx * 3.0, f.p[1] + 3.0, f.p[2] + iz * 6.0 + fz * 3.0], [f.p[0], f.p[1] + 1.1, f.p[2]]) }
                         else if scene == "village_porte" || scene == "village_chemin" || scene == "village_herse" { let p = s.rampart_gates(c, r).first().map(|g| [g.0 as f64 + 0.5, g.1 as f64, g.2 as f64 + 0.5]).unwrap_or(t);
                             // la porte est d'équerre : on la regarde de face, depuis le dehors, dans l'axe de son passage
                             let (dx, dz) = (c[0] as f64 - p[0], c[1] as f64 - p[2]); let (ix, iz) = if dx.abs() > dz.abs() { (dx.signum(), 0.0) } else { (0.0, dz.signum()) };

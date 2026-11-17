@@ -375,7 +375,7 @@ impl Session {
                 if let Some(si) = crate::shapes::info(t.id).filter(|i| matches!(i.kind, crate::shapes::Kind::Door | crate::shapes::Kind::Trapdoor | crate::shapes::Kind::Shutter)) { if !self.player.crouch {
                     if self.use_t > 0.0 { return true; } self.toggle(p, si); self.use_t = 0.25; return true; } }
                 // la grille d'une porte fortifiée : la herse se baisse ou se lève
-                if name == "iron_bars" && !self.player.crouch && self.use_t <= 0.0 && self.portcullis_at(p) { self.use_t = 0.5; return true; }
+                if name.starts_with("iron_bars") && !self.player.crouch && self.use_t <= 0.0 && self.portcullis_at(p) { self.use_t = 0.5; return true; }
                 if is_chest(t.id) && !self.player.crouch { self.open_chest(p); return true; }
                 // Un atelier : son interface, ses recettes, son geste.
                 if let Some(st) = station_of(t.id) { if !self.player.crouch && (st != Station::Fire || !held.is_some_and(|s| matches!(s.item, "torch" | "flint" | "fire_drill") || hd.is_some_and(|d| d.fuel > 0.0))) {

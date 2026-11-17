@@ -56,6 +56,8 @@ fn frame_at(c: [i32; 2], x: i32, z: i32, w: i32, d: i32) -> Lot {
     let u = (inn.1, -inn.0); let (hw, hd) = (w / 2, d / 2);
     Lot { o: (x - hw * u.0 - hd * inn.0, z - hw * u.1 - hd * inn.1), u, w: inn }
 }
+/// Les barreaux de la herse, tournés pour que la grille coure le long de la porte (son axe local x).
+fn bars(l: &Lot) -> Id { id(if l.u.0 != 0 { "iron_bars" } else { "iron_bars@1" }) }
 /// Les coordonnées locales (le long, vers dedans) d'une colonne dans un repère.
 fn local(l: &Lot, x: i32, z: i32) -> (i32, i32) { let (rx, rz) = (x - l.o.0, z - l.o.1); (rx * l.u.0 + rz * l.u.1, rx * l.w.0 + rz * l.w.1) }
 
@@ -73,7 +75,7 @@ impl Session {
     /// fois bâties, on les retrouve à leur herse.
     pub fn rampart_gates(&self, c: [i32; 2], r: f64) -> Vec<(i32, i32, i32)> {
         let mut roads: Vec<(i32, i32)> = Vec::new();
-        for (x, z, _) in cells(c, r) { if let Some(g) = self.rampart_ground(x, z) { if [g, g + 1].iter().any(|&y| self.world.get(x, y, z).is_some_and(road)) || (g..=g + 8).any(|y| self.world.get(x, y, z).is_some_and(|b| BLOCKS[b as usize].name == "iron_bars")) { roads.push((x, z)); } } }
+        for (x, z, _) in cells(c, r) { if let Some(g) = self.rampart_ground(x, z) { if [g, g + 1].iter().any(|&y| self.world.get(x, y, z).is_some_and(road)) || (g..=g + 8).any(|y| self.world.get(x, y, z).is_some_and(|b| BLOCKS[b as usize].name.starts_with("iron_bars"))) { roads.push((x, z)); } } }
         // les cases de chemin voisines font une seule porte ; elle se pose au milieu, sur le cercle
         let mut groups: Vec<Vec<(i32, i32)>> = Vec::new();
         for p in roads { let near: Vec<usize> = (0..groups.len()).filter(|&i| groups[i].iter().any(|q| (q.0 - p.0).abs() <= 3 && (q.1 - p.1).abs() <= 3)).collect();
@@ -195,7 +197,7 @@ fn gatehouse(p: &mut P) {
         p.n(x, 5, z, if z == 0 || z == 4 { "stone_bricks" } else { "planks" }); } }
     for x in 4..=6 { for z in 0..5 { for y in 1..=3 { p.put(x, y, z, 0); } } } for z in 0..5 { p.put(5, 4, z, 0); }
     for z in [0, 4] { p.stair(4, 4, z, "stone_bricks_stairs", 1, 0, true); p.stair(6, 4, z, "stone_bricks_stairs", -1, 0, true); }
-    for z in 1..=3 { p.n(5, 4, z, "iron_bars"); } p.n(5, 5, 0, "chiseled_stone"); p.n(5, 5, 4, "chiseled_stone");
+    let g = bars(&p.lot); for z in 1..=3 { p.put(5, 4, z, g); } p.n(5, 5, 0, "chiseled_stone"); p.n(5, 5, 4, "chiseled_stone");
     // les deux tours : pied de pavé, fût de pierre de taille aux angles de pavé, une salle basse, l'échelle jusqu'au chemin de ronde
     for x0 in [0, 8] { let m = x0 + 1;
         for x in x0..=x0 + 2 { for z in -1..5 { let edge = x != m || z == -1 || z == 4; let corner = x != m && (z == -1 || z == 4);
@@ -261,12 +263,12 @@ impl Session {
     }
     /// Baisse (ou lève) la herse d'une porte : une grille de fer sur tout le passage, devant la galerie.
     pub(crate) fn portcullis(&mut self, c: [i32; 2], gate: (i32, i32, i32), down: bool) {
-        let l = frame_at(c, gate.0, gate.2, 11, 5); let bars = id("iron_bars"); let mut o = Vec::new();
+        let l = frame_at(c, gate.0, gate.2, 11, 5); let bars = bars(&l); let mut o = Vec::new();
         for x in 4..=6 { for y in 1..=3 { let [wx, _, wz] = l.cell(x, 0, 1); o.push((wx, gate.1 + y, wz, if down { bars } else { 0 })); } }
         self.world.edit_many(&o); self.dirty = true;
     }
     /// La herse est-elle baissée ?
-    pub fn portcullis_down(&self, c: [i32; 2], gate: (i32, i32, i32)) -> bool { let l = frame_at(c, gate.0, gate.2, 11, 5); let [x, _, z] = l.cell(5, 0, 1); self.world.get(x, gate.1 + 2, z).is_some_and(|b| BLOCKS[b as usize].name == "iron_bars") }
+    pub fn portcullis_down(&self, c: [i32; 2], gate: (i32, i32, i32)) -> bool { let l = frame_at(c, gate.0, gate.2, 11, 5); let [x, _, z] = l.cell(5, 0, 1); self.world.get(x, gate.1 + 2, z).is_some_and(|b| BLOCKS[b as usize].name.starts_with("iron_bars")) }
     /// Pour les essais : comme un clic droit sur ce bloc.
     pub fn portcullis_at_pub(&mut self, p: [i32; 3]) -> bool { self.portcullis_at(p) }
     /// Clic droit sur la grille d'une porte fortifiée : la herse se baisse ou se lève. Vrai si c'en était une.

@@ -22,7 +22,7 @@ pub fn sound_of(name: &str) -> &'static Mat {
 fn family(n: &str) -> &'static str {
     if n == "flint" { return "granite"; }
     let Some(id) = crate::blocks::by_name(n) else { return "dirt" };
-    if crate::shapes::info(id).is_some() { let m = crate::shapes::material(id); if m != id { let mn = crate::blocks::BLOCKS[m as usize].name; if SOUNDS.iter().any(|s| s.0 == mn) { return SOUNDS.iter().find(|s| s.0 == mn).map(|s| s.0).unwrap_or("dirt"); } let f = family(mn); if f != "dirt" { return f; } } }
+    if crate::shapes::info(id).is_some_and(|i| i.kind != crate::shapes::Kind::Turn) { let m = crate::shapes::material(id); if m != id { let mn = crate::blocks::BLOCKS[m as usize].name; if SOUNDS.iter().any(|s| s.0 == mn) { return SOUNDS.iter().find(|s| s.0 == mn).map(|s| s.0).unwrap_or("dirt"); } let f = family(mn); if f != "dirt" { return f; } } }
     let has = |k: &[&str]| k.iter().any(|w| n.contains(w));
     if has(&["glass", "window", "bottles"]) { return "glass"; }
     if has(&["iron", "anvil", "lantern", "cauldron", "bars", "copper", "chandelier", "candelabra", "bucket", "brazier", "sconce", "steel"]) { return "metal"; }

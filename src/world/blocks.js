@@ -442,6 +442,8 @@ defs.push(['cobweb', 'deco', null, 0.3, { model: 'cobweb', cat: 'foliage', drop:
 defs.push(['glow_vine', 'deco', null, 0.05, { model: 'glow_vine', cat: 'foliage', drop: 'glow_vine' }], ['roots', 'deco', null, 0.1, { model: 'roots', cat: 'foliage', drop: 'stick' }],
   ['rail_x', 'deco', null, 0.6, { model: 'rail', cat: 'wood', drop: 'rail' }], ['rail_z', 'deco', null, 0.6, { model: 'rail', cat: 'wood', drop: 'rail' }]);
 
+// Les barreaux de fer tournent comme un meuble (une grille qui court selon z : la herse d'une porte orientée nord-sud).
+for (const f of ['@1', '@2', '@3']) defs.push([`iron_bars${f}`, 'deco', null, 1.5, { model: 'iron_bars', solid: true, cat: 'wood', drop: 'iron_bars' }]);
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,
