@@ -621,7 +621,7 @@ fn capture(a: &[String]) {
             // diagnostic de la carte logicielle : « _nolum » retire appliques et lanternes des remparts, « _noclot » leurs barrières
             // « _sans-a+b » : retire les blocs a et b des remparts une fois bâtis (« _sans-rien » : la retouche seule)
             let (scene, strip): (String, Vec<String>) = match scene.split_once("_sans-") { Some((a, b)) => (a.to_string(), b.split('+').map(|x| x.to_string()).collect()), None => (scene.clone(), Vec::new()) };
-            if scene == "village_muraille" || scene == "village_tour" || scene == "village_porte" || scene == "village_chemin" || scene == "village_garde" || scene == "village_herse" { s.hour = 10.0;
+            if scene == "village_muraille" || scene == "village_tour" || scene == "village_porte" || scene == "village_chemin" || scene == "village_garde" || scene == "village_herse" || scene == "village_guet" { s.hour = 10.0;
                 for k in [alw_core::patrons::Kind::Muraille, alw_core::patrons::Kind::TourDefense, alw_core::patrons::Kind::TourDefense] { if let Some(e) = s.econ.as_mut() { e.project = Some((k, true)); for (id, n) in [("cobblestone", 380.0), ("planks", 120.0), ("oak_log", 60.0), ("iron_ingot", 10.0), ("worn_coin", 60.0), ("bread", 200.0)] { e.stock.insert(id, n); } } for _ in 0..10 { s.tick(0.1, none, Actions::default()); } }
                 if let Some((c, r)) = s.econ.as_ref().and_then(alw_core::remparts::ring) { if !strip.is_empty() { use alw_core::player::Voxels; let k = r as i32 + 10; let mut off = Vec::new();
                     for x in c[0] - k..=c[0] + k { for z in c[1] - k..=c[1] + k { let d = ((x - c[0]) as f64).hypot((z - c[1]) as f64); if (d - r).abs() > 9.0 { continue; } for y in 30..110 { if let Some(b) = s.world.get(x, y, z) { let n = alw_core::blocks::BLOCKS[b as usize].name; if strip.iter().any(|p| n.split('@').next() == Some(p.as_str())) { off.push((x, y, z, 0)); } } } } }
@@ -633,12 +633,18 @@ fn capture(a: &[String]) {
                     s.town.folk.iter().position(|f| f.job == 8 && f.post.is_some_and(|p| p != alw_core::remparts::AT_LOOKOUT) && f.moving && w.iter().all(|(d, _)| (d[0] - f.p[0]).hypot(d[2] - f.p[2]) > 14.0)) };
                 if scene == "village_garde" { for _ in 0..900 { s.hour = 9.0; s.tick(0.1, none, Actions::default()); if guard(&s).is_some() { break; } } println!("garde : {:?}", guard(&s).map(|k| (s.town.folk[k].name.clone(), s.town.folk[k].p))); }
                 if scene == "village_herse" { for _ in 0..10 { s.hour = 22.0; s.tick(0.1, none, Actions::default()); } }
+                // le garde de nuit : il gagne la tour par le chemin de ronde et monte au guet
+                let watching = |s: &alw_core::session::Session| s.town.folk.iter().any(|f| f.post == Some(alw_core::remparts::AT_LOOKOUT));
+                if scene == "village_guet" { for _ in 0..30 { s.hour = 9.0; s.tick(0.5, none, Actions::default()); } for _ in 0..1200 { s.hour = 22.5; s.tick(0.5, none, Actions::default()); if watching(&s) { break; } } println!("guet : {}", watching(&s)); }
                 if let Some(e) = s.econ.clone() { if let Some((c, r)) = alw_core::remparts::ring(&e) { let t = e.extra.iter().find(|x| x.kind == alw_core::patrons::Kind::TourDefense).map(|x| [x.lot.o.0 as f64, x.y as f64, x.lot.o.1 as f64]).unwrap_or([c[0] as f64 + r, 64.0, c[1] as f64]);
                     let (dx, dz) = (t[0] - c[0] as f64, t[2] - c[1] as f64); let l = dx.hypot(dz).max(1.0); let (ux, uz) = (dx / l, dz / l); let (sx, sz) = (-uz, ux);
                     let (eye, aim) = if scene == "village_muraille" { ([c[0] as f64 + ux * (r + 30.0) + sx * 30.0, t[1] + 42.0, c[1] as f64 + uz * (r + 30.0) + sz * 30.0], [c[0] as f64, t[1], c[1] as f64]) }
                         else if let Some(f) = guard(&s).filter(|_| scene == "village_garde").map(|k| s.town.folk[k].clone()) { // depuis le village, un peu en avant de lui et au-dessus : le garde sur le chemin de ronde, les merlons derrière
                             let (dx, dz) = (c[0] as f64 - f.p[0], c[1] as f64 - f.p[2]); let l = dx.hypot(dz).max(1.0); let (ix, iz) = (dx / l, dz / l); let (fx, fz) = (f.yaw.sin(), f.yaw.cos());
                             ([f.p[0] + ix * 6.0 + fx * 3.0, f.p[1] + 3.0, f.p[2] + iz * 6.0 + fz * 3.0], [f.p[0], f.p[1] + 1.1, f.p[2]]) }
+                        else if let Some((_, post)) = e.watch.lookout.filter(|_| scene == "village_guet") { // la galerie de guet vue du dehors, à sa hauteur
+                            let (dx, dz) = (post[0] - c[0] as f64, post[2] - c[1] as f64); let l = dx.hypot(dz).max(1.0); let (ox, oz) = (dx / l, dz / l);
+                            ([post[0] + ox * 7.0 - oz * 2.0, post[1] + 1.8, post[2] + oz * 7.0 + ox * 2.0], [post[0], post[1] + 1.0, post[2]]) }
                         else if scene == "village_porte" || scene == "village_chemin" || scene == "village_herse" { let p = s.rampart_gates(c, r).first().map(|g| [g.0 as f64 + 0.5, g.1 as f64, g.2 as f64 + 0.5]).unwrap_or(t);
                             // la porte est d'équerre : on la regarde de face, depuis le dehors, dans l'axe de son passage
                             let (dx, dz) = (c[0] as f64 - p[0], c[1] as f64 - p[2]); let (ix, iz) = if dx.abs() > dz.abs() { (dx.signum(), 0.0) } else { (0.0, dz.signum()) };

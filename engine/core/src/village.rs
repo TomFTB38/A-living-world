@@ -509,7 +509,7 @@ impl Town {
             let base = trs(f.p[0], f.p[1], f.p[2], f.yaw, 0.0, 1.0); let mut put = |n: &str, m| out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 });
             let l = f.look.min(8); let seed = f.name.bytes().map(|b| b as usize).sum::<usize>(); let face = seed % 6; let t = f.phase; let k = (seed % 7) as f64;
             #[allow(unused_assignments)] let (mut leg_l, mut leg_r, mut arm_l, mut arm_r, mut yaw_l, mut yaw_r) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-            let (mut lean, mut bob, mut head_yaw, mut head_pitch) = (0.0, 0.0, 0.0, 0.0); let mut tool: Option<&str> = None;
+            let (mut lean, mut bob, mut head_yaw, mut head_pitch) = (0.0, 0.0, 0.0, 0.0); let mut tool: Option<&str> = None; let mut upright = false;
             if f.moving {
                 // La marche : grandes enjambées, bras opposés aux jambes, un léger rebond, le buste un peu en avant.
                 let s = t.sin(); let fast = f.scared > 0.0; let amp = if fast { 0.85 } else { 0.55 };
@@ -547,13 +547,15 @@ impl Town {
             // ce qu'il porte à la réserve : les bras tendus devant lui, le fardeau dans les mains
             if let Some(c) = f.carry.first().filter(|_| !f.working) { arm_l = -1.05; arm_r = -1.05; yaw_l = 0.28; yaw_r = -0.28; tool = Some(c.0); }
             // le garde : la lance droite à la main en ronde ; au guet de nuit, sa lanterne levée
-            if f.job == 8 && talking != Some(i) { if f.post == Some(crate::remparts::AT_LOOKOUT) { tool = Some("lantern"); arm_r = -0.9; yaw_r = -0.2; } else { tool = Some("stone_spear"); arm_r = -0.35; yaw_r = 0.0; } }
+            if f.job == 8 && talking != Some(i) { if f.post == Some(crate::remparts::AT_LOOKOUT) { tool = Some("lantern"); arm_r = -0.9; yaw_r = -0.2; } else { tool = Some("stone_spear"); arm_r = -0.35; yaw_r = 0.0; upright = true; } }
             let hip = 0.76; let body = mul(&base, &mul(&trs(0.0, hip + bob, 0.0, 0.0, lean, 1.0), &trs(0.0, -hip, 0.0, 0.0, 0.0, 1.0)));
             let rs = if f.region == 0 { String::new() } else { format!("r{}", f.region) }; put(&format!("folk{l}{rs}"), body); put(&format!("folkHead{face}{rs}"), mul(&body, &trs(0.0, 1.4, 0.0, head_yaw, head_pitch, 1.0)));
             put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(-0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_l, 1.0))); put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_r, 1.0)));
             let al = mul(&body, &trs(-0.35, 1.34, 0.0, yaw_l, arm_l, 1.0)); let ar = mul(&body, &trs(0.35, 1.34, 0.0, yaw_r, arm_r, 1.0));
             put(&format!("folkArm{l}{rs}"), al); put(&format!("folkArm{l}{rs}"), ar);
-            if let Some(h) = tool.and_then(|n| md.held(n)) { out.push(Draw { m: mul(&ar, &mul(&trs(0.0, 0.0, 0.0, 0.0, 0.0, 1.0), &crate::actors::hold_m(h.hold))), r: h.r, view: false, local: h.local, hero: false, dynamic: false, hurt: 0.0 }); }
+            // la lance du garde se tient droite, la pointe en haut (les outils, eux, se tiennent en travers)
+            let hold = |h: crate::actors::Held| if upright { mul(&trs(0.0, -0.58, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.0), &crate::view::roll_z(std::f64::consts::FRAC_PI_4)) } else { crate::actors::hold_m(h.hold) };
+            if let Some(h) = tool.and_then(|n| md.held(n)) { out.push(Draw { m: mul(&ar, &hold(h)), r: h.r, view: false, local: h.local, hero: false, dynamic: false, hurt: 0.0 }); }
         }
         out
     }
