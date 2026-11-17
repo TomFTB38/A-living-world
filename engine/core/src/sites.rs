@@ -280,9 +280,13 @@ impl crate::session::Session {
         for pl in self.gen.places_near(me[0], me[2], 44.0) {
             for ghosts in [false, true] {
                 if ghosts && !night { continue; } let key = (pl.cell, ghosts); if self.sites_awake.get(&key).is_some_and(|t| self.elapsed - t < 900.0) { self.sites_awake.insert(key, self.elapsed); continue; }
-                let who: Vec<_> = pl.guards().into_iter().filter(|g| (g.0 == "fantome") == ghosts).collect(); if who.is_empty() { continue; }
-                self.sites_awake.insert(key, self.elapsed); let yaw = (me[0] - pl.x as f64).atan2(me[2] - pl.z as f64);
-                for (k, (id, at)) in who.into_iter().enumerate() { if let Some(sp) = crate::hostile::species(id) { let chief = !ghosts && k == Place::CHIEF; let i = self.horde.put(sp, at, yaw, chief); let f = &mut self.horde.foes[i]; f.kept = true; if chief { f.hp *= 2.0; } } }
+                // un camp de brigands : ses gardiens selon sa puissance (personne s'il est dispersé), chacun marqué de son camp
+                let level = if pl.kind == Lieu::Camp && !ghosts { Some(self.camp(pl.cell).level()) } else { None };
+                let who: Vec<(&'static str, [f64; 3], bool)> = match level { Some(l) => crate::camps::garrison(&pl, l), None => pl.guards().into_iter().filter(|g| (g.0 == "fantome") == ghosts).enumerate().map(|(k, g)| (g.0, g.1, !ghosts && k == Place::CHIEF)).collect() };
+                if who.is_empty() { if level == Some(0) { self.sites_awake.insert(key, self.elapsed); self.notes.push("Un camp de brigands abandonné : les cendres sont froides".into()); } continue; }
+                self.sites_awake.insert(key, self.elapsed); let yaw = (me[0] - pl.x as f64).atan2(me[2] - pl.z as f64); let n = who.len() as u32;
+                for (id, at, vet) in who { if let Some(sp) = crate::hostile::species(id) { let i = self.horde.put(sp, at, yaw, vet); let f = &mut self.horde.foes[i]; f.kept = true; if level.is_some() { f.camp = Some(pl.cell); } if vet && level.is_none_or(|_| f.hp > 0.0) { f.hp *= 2.0; } } }
+                if let Some(l) = level { self.camp(pl.cell).left = n; self.notes.push(format!("{} en vue · puissance {l}/5", pl.kind.name())); continue; }
                 if !ghosts { self.notes.push(format!("{} en vue", pl.kind.name())); }
             }
         }

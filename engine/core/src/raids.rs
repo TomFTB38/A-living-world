@@ -12,7 +12,7 @@ use crate::village::Village;
 
 /// Une attaque en cours : la bande (son numéro de groupe dans la horde), d'où elle vient, depuis quand elle est là.
 #[derive(Clone, Debug)]
-pub struct Raid { pub group: u32, pub from: [f64; 3], pub t: f64, pub size: u32, /** le prochain coup de la bande sur ce qui l'arrête */ pub hit_t: f64 }
+pub struct Raid { pub group: u32, pub from: [f64; 3], pub t: f64, pub size: u32, /** le prochain coup de la bande sur ce qui l'arrête */ pub hit_t: f64, /** le camp d'où elle vient, et sa puissance */ pub camp: Option<(i32, i32)>, pub power: f64 }
 
 /// Ce qui prend des coups : la herse d'une porte, ou un pan de muraille (trois pas de large). Ses points de solidité ; une fois
 /// tombé, ce qu'on a abattu (pour le relever à l'identique quand les maçons auront réparé).
@@ -23,11 +23,14 @@ impl Mark { pub fn down(&self) -> bool { self.hp <= 0.0 } }
 pub const GATE_HP: f64 = 300.0; pub const WALL_HP: f64 = 600.0; const MEND_PER_HOUR: f64 = 120.0; const MEND_STONE: f64 = 6.0;
 
 /// La chance qu'une bande vienne cette nuit : plus le village a de quoi tenter, plus elle est forte ; ses défenses la réduisent.
-pub fn raid_chance(e: &Econ, walls: bool, towers: u32, guards: u32) -> f64 {
-    let wealth = e.have(COIN) + e.stock.iter().filter(|(k, _)| crate::economie::FOOD.contains(k)).map(|(_, n)| n).sum::<f64>() * 0.2;
+/// La puissance du camp (0 dispersé, de 1 à 5) rend les nuits de pillage plus fréquentes ; sans camp proche, quelques rôdeurs.
+pub fn raid_chance(e: &Econ, walls: bool, towers: u32, guards: u32, power: f64) -> f64 {
+    if power <= 0.0 { return 0.0; } let k = 0.5 + 0.25 * power; let wealth = e.have(COIN) + e.stock.iter().filter(|(k, _)| crate::economie::FOOD.contains(k)).map(|(_, n)| n).sum::<f64>() * 0.2;
     let lure = (0.12 + wealth / 600.0).min(0.35);
-    (lure - if walls { 0.1 } else { 0.0 } - towers as f64 * 0.02 - guards as f64 * 0.03).max(0.04)
+    ((lure - if walls { 0.1 } else { 0.0 } - towers as f64 * 0.02 - guards as f64 * 0.03).max(0.04) * k).min(0.6)
 }
+/// Combien d'hommes compte une bande, selon la puissance de son camp : trois au plus faible, neuf au plus fort.
+pub fn band_size(power: f64) -> u32 { (2.0 + power * 1.4).round().clamp(3.0, 9.0) as u32 }
 /// Ce qu'une bande emporte d'une réserve : un tiers des vivres et de la caisse.
 pub fn pillage(e: &mut Econ, part: f64) -> Vec<(&'static str, u32)> {
     let keys: Vec<&'static str> = e.stock.keys().copied().filter(|k| *k == COIN || crate::economie::FOOD.contains(k)).collect(); let mut o = Vec::new();
@@ -40,12 +43,14 @@ fn said(loot: &[(&'static str, u32)]) -> String {
 
 /// Une nuit loin du village : une bande vient peut-être (le même tirage qu'en présence du joueur) ; une muraille gardée la tient
 /// dehors, sinon elle pille une part de la réserve. Ce que le village en garde : une ligne dans son journal.
-pub fn raid_away(e: &mut Econ, c: &crate::economie::Census, day: i64) {
+pub fn raid_away(e: &mut Econ, c: &crate::economie::Census, day: i64, power: f64) {
     let guards = if c.walls > 0 { (1 + c.towers / 2).min(3) } else { 0 };
-    if crate::noise::hash_float(day as i32, e.id.0, e.id.1, 977) >= raid_chance(e, c.walls > 0, c.towers, guards) { return; }
+    if crate::noise::hash_float(day as i32, e.id.0, e.id.1, 977) >= raid_chance(e, c.walls > 0, c.towers, guards, power) { return; }
+    // une bande forte force parfois une muraille mal gardée
+    let held = c.walls > 0 && (power < 3.5 || guards as f64 + c.towers as f64 * 0.5 >= power - 1.0);
     let d = (day.max(0)) as u32;
-    if c.walls > 0 { e.note(d, "des brigands ont rôdé autour du village cette nuit ; la muraille et les gardes les ont tenus dehors".into()); }
-    else { let l = pillage(e, 0.25); e.note(d, format!("des brigands ont pillé la réserve cette nuit : {}", said(&l))); }
+    if held { e.note(d, "des brigands ont rôdé autour du village cette nuit ; la muraille et les gardes les ont tenus dehors".into()); }
+    else { let l = pillage(e, 0.2 + 0.04 * power); e.note(d, format!("des brigands ont pillé la réserve cette nuit : {}", said(&l))); }
 }
 
 impl Session {
@@ -54,17 +59,16 @@ impl Session {
         let today = (self.hours / 24.0).floor() as i64; let day = (self.hours / 24.0) as u32; let hod = self.hour; let c = e.census(v);
         let guards: Vec<usize> = (0..self.town.folk.len()).filter(|&k| self.town.folk[k].v == v.id && self.town.folk[k].job == 8).collect();
         if e.raid.is_none() && hod >= 22.0 && e.raid_day != today && !self.creative_raids_off() {
-            e.raid_day = today; let p = raid_chance(e, c.walls > 0, c.towers, guards.len() as u32);
+            e.raid_day = today; let threat = self.threat(v); let power = threat.map_or(0.5, |t| t.1); let p = raid_chance(e, c.walls > 0, c.towers, guards.len() as u32, power);
             if crate::noise::hash_float(today as i32, e.id.0, e.id.1, 977) < p { if near { self.raid_start(e, v); } else {
                 // loin du joueur, l'affaire se règle d'elle-même
-                if c.walls > 0 && (guards.len() >= 1 || c.towers > 0) { e.note(day, "des brigands ont rôdé autour du village cette nuit ; la muraille et les gardes les ont tenus dehors".into()); }
-                else { let l = pillage(e, 0.25); e.note(day, format!("des brigands ont pillé la réserve cette nuit : {}", said(&l))); } } }
+                raid_away(e, &c, today, power); } }
         }
         let Some(mut raid) = e.raid.take() else { return };
         raid.t += dt; let alive: Vec<usize> = (0..self.horde.foes.len()).filter(|&i| self.horde.foes[i].group == raid.group && self.horde.foes[i].dead == 0.0).collect();
         if alive.is_empty() {
             // tous tombés (sous les flèches des gardes, ou sous les coups du joueur)
-            e.note(day, format!("une bande de {} brigands a été repoussée", raid.size)); self.notes.push(format!("{} : les brigands sont repoussés !", v.name));
+            e.note(day, format!("une bande de {} brigands a été repoussée", raid.size)); self.notes.push(format!("{} : les brigands sont repoussés !", v.name)); self.camp_news(raid.camp, false);
             for &k in &guards { self.town.folk[k].work_t = 0.0; } return;
         }
         // au matin, ou après un long siège devant la muraille, la bande renonce et s'en retourne
@@ -109,7 +113,7 @@ impl Session {
             let k = match e.marks.iter().position(|m| m.gate == is_gate && (m.at[0] - key[0]).abs() <= 1 && (m.at[2] - key[2]).abs() <= 1) { Some(k) => k, None => { let max = if is_gate { GATE_HP } else { WALL_HP }; e.marks.push(Mark { gate: is_gate, at: key, hp: max, max, broken: Vec::new(), hit: now }); e.marks.len() - 1 } };
             if e.marks[k].down() { continue; }
             // le coup : le geste du brigand, le choc, la solidité qui baisse
-            let dmg = if self.horde.foes[i].vet { 2.6 } else { 2.0 }; let f = &mut self.horde.foes[i]; f.yaw = (aim[0] - p[0]).atan2(aim[2] - p[2]); f.wind = f.wind.max(0.35);
+            let dmg = (if self.horde.foes[i].vet { 2.6 } else { 2.0 }) * (1.0 + 0.2 * e.raid.as_ref().map_or(1.0, |r| r.power)); let f = &mut self.horde.foes[i]; f.yaw = (aim[0] - p[0]).atan2(aim[2] - p[2]); f.wind = f.wind.max(0.35);
             let m = &mut e.marks[k]; m.hp -= dmg; m.hit = now; if (aim[0] - me[0]).hypot(aim[2] - me[2]) < 48.0 { self.sound.thump(aim); }
             if m.hp > 0.0 { continue; }
             m.hp = 0.0;
@@ -171,13 +175,14 @@ impl Session {
             let (x, z) = if gate.is_some() { (path[0][0] + dir[0] * d, path[0][2] + dir[1] * d) } else { (v.c[0] as f64 + dir[0] * (reach + d), v.c[2] as f64 + dir[1] * (reach + d)) };
             if let Some(y) = crate::fauna::ground(&self.world, x, z, self.gen.column(x, z).h + 4.0) { at = Some([x, y, z]); break; } }
         let Some(from) = at else { return false };
-        let size = 3 + (v.houses.len() as u32 / 4).min(3); let mut group = 0;
+        // la bande : sa taille et ses vétérans selon la puissance de son camp
+        let threat = self.threat(v); let power = threat.map_or(1.0, |t| t.1.max(1.0)); let size = band_size(power); let vets = (power - 1.0).floor().max(0.0) as u32; let mut group = 0;
         for k in 0..size { let o = [from[0] + (k as f64 % 3.0 - 1.0) * 1.6, from[1], from[2] + (k as f64 / 3.0).floor() * 1.6];
             let y = crate::fauna::ground(&self.world, o[0], o[2], from[1] + 3.0).unwrap_or(from[1]);
-            let i = self.horde.put(sp, [o[0], y, o[2]], (store[0] - o[0]).atan2(store[2] - o[2]), k == 0); if k == 0 { group = self.horde.foes[i].group; } let f = &mut self.horde.foes[i]; f.group = group; f.raid = path.clone(); f.state = Ai::Patrouille; f.kept = true; }
+            let i = self.horde.put(sp, [o[0], y, o[2]], (store[0] - o[0]).atan2(store[2] - o[2]), k <= vets); if k == 0 { group = self.horde.foes[i].group; } let f = &mut self.horde.foes[i]; f.group = group; f.raid = path.clone(); f.state = Ai::Patrouille; f.kept = true; }
         let day = (self.hours / 24.0) as u32; e.note(day, format!("une bande de {size} brigands est venue attaquer le village"));
         self.notes.push(format!("Des brigands marchent sur {} !", v.name)); self.sound.fox_scream(from);
-        e.raid = Some(Raid { group, from, t: 0.0, size, hit_t: 1.5 }); true
+        e.raid = Some(Raid { group, from, t: 0.0, size, hit_t: 1.5, camp: threat.map(|t| t.0.cell), power }); true
     }
     /// Un pillard a atteint la réserve : la bande emporte sa part, et s'enfuit.
     pub(crate) fn raid_loot(&mut self, group: u32) {
@@ -186,6 +191,7 @@ impl Session {
             let l = pillage(&mut e, 0.33); let day = (self.hours / 24.0) as u32; e.note(day, format!("des brigands ont pillé la réserve : {}", said(&l)));
             self.notes.push(format!("Les brigands pillent la réserve de {} et s'enfuient !", v.name)); self.dirty = true;
             for f in self.horde.foes.iter_mut().filter(|f| f.group == group) { f.raid.clear(); f.home = raid.from; f.kept = false; if f.state != Ai::Combat { f.state = Ai::Retour; } }
+            self.camp_news(raid.camp, true);
         }
         self.econ = Some(e);
     }

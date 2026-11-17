@@ -283,9 +283,10 @@ impl Session {
         let Some(v) = self.pilot_village() else { return }; let mut e = self.econ.take().unwrap();
         if self.hours - e.t > 24.0 * 60.0 { e.t = self.hours - 24.0 * 60.0; } // au-delà de deux mois d'absence, on ne rejoue pas tout
         let mut said = Vec::new(); let before = e.log.len();
+        let power = if self.hours - e.t > 2.0 { self.threat(&v).map_or(0.5, |t| t.1) } else { 0.0 };
         while e.t + 1.0 <= self.hours { e.t += 1.0; let hod = (self.hour - (self.hours - e.t)).rem_euclid(24.0).floor() as u32; let c = e.census(&v); e.step(&c, hod, (e.t / 24.0) as u32);
             // les nuits passées loin du village : les brigands sont peut-être venus, l'affaire s'est réglée selon ses défenses
-            if hod == 23 && self.hours - e.t > 2.0 { let d = (e.t / 24.0).floor() as i64; crate::raids::raid_away(&mut e, &c, d); } }
+            if hod == 23 && self.hours - e.t > 2.0 { let d = (e.t / 24.0).floor() as i64; crate::raids::raid_away(&mut e, &c, d, power); } }
         // le lendemain du marché, à midi : les caravanes des villages voisins
         let today = (self.hours / 24.0) as u32; if today % 7 == 4 && self.hour >= 12.0 && e.caravan_day != today { e.caravan_day = today; self.caravans(&mut e, today); }
         if e.log.len() > before || (e.log.len() == 12 && before == 12) { if let Some(l) = e.log.last() { said.push(format!("{} : {}", v.name, l.1)); } }
@@ -386,7 +387,7 @@ impl Session {
     /// Le centre du village pilote (pour s'y rendre).
     pub fn pilot_center(&self) -> Option<[i32; 3]> { self.pilot_village().map(|v| v.c) }
     /// `/village` : l'état du village pilote.
-    pub fn village_report(&self) -> String { match (self.econ.as_ref(), self.pilot_village()) { (Some(e), Some(v)) => e.report(&v, (e.t / 24.0) as u32).join("\n"), _ => "Aucun village pilote dans les parages du point de départ".into() } }
+    pub fn village_report(&self) -> String { match (self.econ.as_ref(), self.pilot_village()) { (Some(e), Some(v)) => { let mut r = e.report(&v, (e.t / 24.0) as u32); if let Some(t) = self.threat_line(&v) { r.push(t); } r.join("\n") } _ => "Aucun village pilote dans les parages du point de départ".into() } }
     pub(crate) fn econ_save(&self) -> String { self.econ.iter().chain(self.econs.values()).map(|e| e.save()).collect() }
     pub(crate) fn econ_load(&mut self, key: &str, a: &[&str]) {
         let n = |i: usize| a.get(i).and_then(|v| v.parse::<i32>().ok()); let f = |i: usize| a.get(i).and_then(|v| v.parse::<f64>().ok());

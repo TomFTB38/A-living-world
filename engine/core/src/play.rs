@@ -661,7 +661,7 @@ impl Session {
         let mut fires: Vec<_> = self.fires.iter().collect(); fires.sort_by_key(|f| *f.0); for (p, t) in fires { s += &format!("fire {} {} {} {}\n", p[0], p[1], p[2], t); }
         let mut chests: Vec<_> = self.chests.iter().collect(); chests.sort_by_key(|c| *c.0);
         for (p, items) in chests { s += &format!("chest {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
-        s += &self.loose_save(); s += &self.regions_save(); s += &self.pets_save(); s += &self.econ_save();
+        s += &self.loose_save(); s += &self.regions_save(); s += &self.pets_save(); s += &self.econ_save(); s += &self.camps_save();
         for stv in &self.stashes { s += &format!("stash {} {} {} {}", stv.p[0], stv.p[1], stv.p[2], stv.born); for v in &stv.items { s += &format!(" {}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } s.push('\n'); }
         for (k, e) in self.world.edits() { s += &format!("chunk {} {}", k.0, k.1); let mut l: Vec<_> = e.into_iter().collect(); l.sort(); for (i, id) in l { s += &format!(" {i}:{id}"); } s.push('\n'); }
         s
@@ -690,6 +690,7 @@ impl Session {
                 Some("guide") => { self.guide = a.next().and_then(|v| v.parse().ok()).unwrap_or(0); }
                 Some("carte") => { let v: Vec<&str> = a.collect(); self.map.load(&v); }
                 Some(k @ ("rep" | "known" | "met" | "marked")) => { let v: Vec<&str> = a.collect(); self.town_load(k, &v); }
+                Some("camp") => { let v: Vec<&str> = a.collect(); self.camps_load(&v); }
                 Some(k) if k.starts_with("econ") => { let v: Vec<&str> = a.collect(); self.econ_load(k, &v); }
                 Some("fav") => { for id in a { if let Some(d) = def(id) { self.fav.insert(d.id); } } }
                 Some("regrow") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; self.regrow.push((p, num(a.next())?)); }

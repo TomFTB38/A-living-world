@@ -107,10 +107,11 @@ pub struct Foe {
     /** bouclier levé (brigand), de 0 à 1 */ pub guard: f64, pub dead: f64, pub variant: u8, pub vet: bool, pub air: bool, burst: f64, pub climbing: bool, pub group: u32,
     /** ver des sables : secondes pendant lesquelles il reste dressé hors du sable (on peut alors le frapper) */ pub up: f64,
     /** une bande qui attaque un village : les points par où elle passe (devant la porte, le passage, la réserve) */ pub raid: Vec<[f64; 3]>,
+    /** l'homme d'un camp de brigands (sa maille) : sa mort compte pour la dispersion du camp */ pub camp: Option<(i32, i32)>,
     /** sa marche : la plus courte distance atteinte vers le point suivant, et depuis combien de temps elle n'avance plus */ best: f64, stuck: f64,
 }
 /// Ce que font les créatures, pour la session (coups, sons, butin).
-#[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool), /** une morsure qui englue : ralenti pendant tant de secondes */ Snare(f64), /** un pillard est arrivé à la réserve du village (sa bande) */ Loot([f64; 3], u32) }
+#[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool, Option<(i32, i32)>), /** une morsure qui englue : ralenti pendant tant de secondes */ Snare(f64), /** un pillard est arrivé à la réserve du village (sa bande) */ Loot([f64; 3], u32) }
 
 pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv>, groups: u32, pub spawned: u32, /** braises semées par les rampants de magma : (position, secondes restantes) */ pub embers: Vec<([f64; 3], f64)>, burn_cd: f64, /** flèches des archers en vol : (position, vitesse, âge, dégâts) */ pub shots: Vec<([f64; 3], [f64; 3], f64, f64)> }
 /// Ce que la session donne à la horde à chaque image.
@@ -135,7 +136,7 @@ impl Horde {
     pub fn put(&mut self, sp: usize, p: [f64; 3], yaw: f64, vet: bool) -> usize {
         let s = &bestiary().species[sp]; let max = s.hp * if vet { 1.25 } else { 1.0 }; self.groups += 1; let variant = (self.rng.next() * 3.0) as u8;
         self.foes.push(Foe { sp, p, yaw, hp: max, max, state: if s.ambush { Ai::Embuscade } else { Ai::Repos }, t: self.rng.range(1.0, 4.0), cd: 0.5, wind: 0.0, hit: 0.0, phase: 0.0, speed: 0.0, v: [0.0; 3], gy: p[1],
-            seen: None, lost: 0.0, alert: 0.0, home: p, guard: 0.0, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups, up: 0.0, kept: false, raid: Vec::new(), best: f64::MAX, stuck: 0.0 });
+            seen: None, lost: 0.0, alert: 0.0, home: p, guard: 0.0, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups, up: 0.0, kept: false, raid: Vec::new(), camp: None, best: f64::MAX, stuck: 0.0 });
         self.spawned += 1; self.foes.len() - 1
     }
     /// Un coup porté : moins fort sur une armure, plus fort avec l'arme qui la blesse le mieux ; rend vrai si elle meurt.
@@ -151,7 +152,7 @@ impl Horde {
         // Un coup interrompt l'attaque annoncée (le joueur qui frappe le premier garde l'avantage) ; elle sait maintenant où il est.
         if heavy || f.wind > s.windup * 0.5 { f.wind = 0.0; f.cd = f.cd.max(0.6); }
         f.seen = Some(from); f.alert = 1.0; f.lost = 0.0; if matches!(f.state, Ai::Repos | Ai::Patrouille | Ai::Soupcon | Ai::Embuscade | Ai::Retour | Ai::Recherche) { f.state = Ai::Poursuite; }
-        if f.hp <= 0.0 { f.dead = 1e-3; f.wind = 0.0; self.ev.push(FoeEv::Die(f.p, f.sp, f.vet)); return true; }
+        if f.hp <= 0.0 { f.dead = 1e-3; f.wind = 0.0; self.ev.push(FoeEv::Die(f.p, f.sp, f.vet, f.camp)); return true; }
         if s.flee > 0.0 && f.hp < f.max * s.flee { f.state = Ai::Fuite; f.t = 7.0; }
         false
     }
@@ -309,7 +310,7 @@ impl Horde {
         // ---- le rampant de magma : il sème des braises derrière lui, et l'eau l'éteint
         if s.ember {
             if f.speed > 0.5 && self.embers.last().is_none_or(|e| hypot2(e.0[0] - f.p[0], e.0[2] - f.p[2]) > 0.9) && self.embers.len() < 80 { self.embers.push(([f.p[0], f.gy, f.p[2]], 5.0)); }
-            if w.get(f.p[0].floor() as i32, (f.p[1] + 0.2).floor() as i32, f.p[2].floor() as i32).is_some_and(crate::blocks::is_water) { f.hp -= 9.0 * dt; f.hit = 0.2; if f.hp <= 0.0 { f.dead = 1e-3; f.wind = 0.0; self.ev.push(FoeEv::Die(f.p, f.sp, f.vet)); return; } }
+            if w.get(f.p[0].floor() as i32, (f.p[1] + 0.2).floor() as i32, f.p[2].floor() as i32).is_some_and(crate::blocks::is_water) { f.hp -= 9.0 * dt; f.hit = 0.2; if f.hp <= 0.0 { f.dead = 1e-3; f.wind = 0.0; self.ev.push(FoeEv::Die(f.p, f.sp, f.vet, f.camp)); return; } }
         }
         // ---- le mouvement : marcher sur le relief voxel, contourner, monter et descendre d'un bloc, grimper (rampant), bondir (bête)
         if f.state != Combat && f.state != Detection { f.phase += dt * (2.0 + f.speed * 1.8); } else { f.phase += dt * 1.5; }
@@ -885,7 +886,7 @@ impl Session {
                 FoeEv::Loot(_, g) => self.raid_loot(g),
                 FoeEv::Snare(t) => { if self.snare <= 0.0 { self.notes.push("Englué dans la soie : vous êtes ralenti".into()); } self.snare = self.snare.max(t); }
                 FoeEv::Blocked(p) => { self.sound.thump(p); self.notes.push("Bloqué par son bouclier".into()); }
-                FoeEv::Die(p, sp, vet) => { let s = &bestiary().species[sp]; self.sound.thump(p); self.skills[2] += 2.0; if self.creative { continue; }
+                FoeEv::Die(p, sp, vet, camp) => { let s = &bestiary().species[sp]; self.sound.thump(p); self.skills[2] += 2.0; if let Some(c) = camp { self.camp_kill(c); } if self.creative { continue; }
                     for &(id, lo, hi, pr) in &s.loot { let roll = self.horde.roll(); let pr = if vet { (pr * 1.3).min(1.0) } else { pr }; if roll < pr { let n = lo + (self.horde.roll() * (hi - lo + 1) as f64) as u32; self.spill(id, n.min(hi).max(lo), [p[0], p[1] + 0.6, p[2]]); } } }
             }
         }
