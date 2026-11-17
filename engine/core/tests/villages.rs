@@ -29,3 +29,24 @@ fn chaque_village_a_sa_vie() {
     let mut t = Session::new(SEED, &Preset { radius: 3, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); t.load_text(&text).unwrap();
     let ids: Vec<(i32, i32)> = t.econ.iter().map(|e| e.id).chain(t.econs.keys().copied()).collect(); println!("rechargé : {ids:?}"); assert!(ids.contains(&pilot) && ids.contains(&other.id), "les deux économies reviennent au chargement");
 }
+
+#[test]
+fn les_caravanes_vont_d_un_village_a_l_autre() {
+    let mut s = Session::new(SEED, &Preset { radius: 3, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); ready(&mut s); s.third = false; idle(&mut s, 5); s.set_creative(true);
+    let wg = WorldGen::new(SEED); let pilot = s.econ.as_ref().unwrap().id; let pv = wg.site(pilot.0, pilot.1).unwrap().v.clone();
+    let other = wg.villages_near(pv.c[0] as f64, pv.c[2] as f64, 1400.0).into_iter().filter(|v| v.id != pilot && v.ident.is_some() && !v.works.is_empty()).min_by_key(|v| (v.c[0] - pv.c[0]).abs() + (v.c[2] - pv.c[2]).abs()).unwrap();
+    go(&mut s, &other); go(&mut s, &pv);
+    // le voisin a faim et de quoi payer ; le pilote regorge de pain
+    { let b = s.econs.get_mut(&other.id).unwrap(); for k in ["wheat", "bread", "cooked_meat", "flour", "carrot", "potato"] { b.stock.insert(k, 0.0); } b.stock.insert(COIN, 40.0); b.t = s.hours; }
+    { let e = s.econ.as_mut().unwrap(); e.stock.insert("bread", 300.0); e.stock.insert("wheat", 300.0); }
+    let (coin0, bread_b0) = (s.econ.as_ref().unwrap().have(COIN), s.econs[&other.id].have("bread"));
+    // le jour des caravanes, à midi et demi
+    let day = (s.hours / 24.0).floor(); let mut d = day + 1.0; while (d as u32) % 7 != 4 { d += 1.0; } s.pass_hours(d * 24.0 + 12.5 - s.hours); s.hour = 12.5; s.econs.get_mut(&other.id).unwrap().t = s.hours; idle(&mut s, 10);
+    let e = s.econ.as_ref().unwrap(); let b = &s.econs[&other.id]; println!("journal : {:?}\nvoisin : {:?}", e.log.last(), b.log.last());
+    println!("caisse du pilote {coin0} → {}, pain du voisin {bread_b0} → {}", e.have(COIN), b.have("bread"));
+    assert!(e.log.iter().any(|l| l.1.contains("caravane")) && b.log.iter().any(|l| l.1.contains("caravane")), "les deux journaux");
+    assert!(b.have("bread") > bread_b0 && e.log.iter().any(|l| l.1.contains("vendu") && l.1.contains("pièces")), "le pain est parti, payé"); let _ = coin0;
+    let m = s.town.folk.iter().find(|f| f.job == 7); println!("marchand : {:?}", m.map(|f| (&f.name, f.p))); assert!(m.is_some(), "le marchand se voit au village");
+    // le soir il repart, et s'en va
+    for _ in 0..400 { s.hour = 18.0; idle(&mut s, 10); if !s.town.folk.iter().any(|f| f.job == 7) { break; } } assert!(!s.town.folk.iter().any(|f| f.job == 7), "le marchand est reparti");
+}

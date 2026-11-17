@@ -375,6 +375,14 @@ pub struct Town {
     /// Ce que disent les villageois en passant (pour les notes), portes qu'ils ont ouvertes (et quand les refermer).
     pub(crate) news: Vec<String>, doors: Vec<([i32; 3], f64)>,
 }
+impl Folk {
+    /// Un marchand d'un village voisin, tiré d'un habitant : il paraît en `at`, une caisse dans les bras, et va en `to` ; il
+    /// retient d'où il est venu (pour repartir par là).
+    pub(crate) fn merchant(&mut self, name: String, at: [f64; 3], to: [f64; 3]) {
+        self.name = name; self.p = at; self.job = 7; self.craft = None; self.task = Some(to); self.task_k += 1; self.aim = [at[0], 1.0, at[2]];
+        self.carry = vec![("crate", 1)]; self.post = None; self.scared = 0.0; self.route.clear(); self.look = self.look.wrapping_add(3);
+    }
+}
 /// Une fenêtre de dialogue : qui parle, ce qu'il dit, et les réponses possibles (texte, possible maintenant).
 #[derive(Clone, Debug)] pub struct Dialog { pub title: String, pub sub: String, pub said: String, pub options: Vec<(String, bool)>,
     /// Pour l'écran : la page (accueil, échanges, commandes, projets), l'image de chaque réponse, l'atelier du métier (son décor),
@@ -865,7 +873,7 @@ impl Session {
     /// La fenêtre de dialogue ouverte, avec ses réponses.
     pub fn dialog(&self) -> Option<Dialog> {
         let t = self.town.talk.as_ref()?; let f = self.town.folk.get(t.who)?; let v = self.town.village(f.v)?;
-        let cm = f.craft.and_then(craftsman); let title = match cm { Some(c) => format!("{} · {}", f.name, c.name), None if f.job == 9 => format!("{} · maire", f.name), None if f.job == 8 => format!("{} · garde", f.name), None => format!("{} · villageois", f.name) };
+        let cm = f.craft.and_then(craftsman); let title = match cm { Some(c) => format!("{} · {}", f.name, c.name), None if f.job == 9 => format!("{} · maire", f.name), None if f.job == 8 => format!("{} · garde", f.name), None if f.job == 7 => f.name.clone(), None => format!("{} · villageois", f.name) };
         let sub = format!("{} · village de {}", v.name, kind_label(v.kind)); let mut o: Vec<(String, bool)> = Vec::new();
         if self.armed() { o.push(("Ranger mon arme".into(), true)); o.push(("Au revoir".into(), true)); let pics = vec![Pic { icon: Some("sword"), ..Default::default() }, Pic::default()]; return Some(Dialog { title, sub, said: "Rangez d'abord votre arme, je vous prie.".into(), options: o, kind: DKind::Main, pics, station: cm.and_then(|c| c.works.first().map(|w| w.0)), mayor: f.job == 9, rep: self.rep(v.id), village: v.name.clone() }); }
         let econ = self.econ.as_ref().filter(|e| e.id == v.id && f.job == 9); let mut pics: Vec<Pic> = Vec::new(); let have = |id: &str| if self.creative { 999 } else { self.count(id) };

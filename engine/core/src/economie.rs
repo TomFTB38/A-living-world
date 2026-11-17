@@ -89,7 +89,7 @@ pub struct Econ {
     /// Une attaque de brigands en cours, et le dernier jour où l'on a tiré au sort s'il en viendrait une.
     pub raid: Option<crate::raids::Raid>, pub raid_day: i64,
     /// Ce que les brigands ont frappé : la herse, des pans de muraille, leur solidité (réparée de jour par les maçons).
-    pub marks: Vec<crate::raids::Mark>, pub mend_t: f64,
+    pub marks: Vec<crate::raids::Mark>, pub mend_t: f64, /** le dernier jour de caravanes */ pub caravan_day: u32,
 }
 
 /// Combien de bâtiments un village veut encore ajouter à ce qu'il était, selon son tempérament : aucun pour qui tient à sa
@@ -108,7 +108,7 @@ impl Econ {
     pub fn found(v: &Village, t: f64) -> Econ {
         let pop = people(v) as f64; let wealth = v.ident.map_or(0.5, |i| i.wealth); let mut stock = BTreeMap::new();
         for (k, n) in [("wheat", pop * 3.0), ("flour", pop), ("bread", pop * 2.5), ("cooked_meat", pop * 0.5), ("oak_log", 16.0 + 20.0 * wealth), ("planks", 10.0 + 24.0 * wealth), ("cobblestone", 8.0 + 20.0 * wealth), ("iron_ore", 4.0), ("coal", 6.0), ("iron_ingot", 2.0 + 4.0 * wealth), ("leather", 2.0), (COIN, 12.0 + 30.0 * wealth)] { stock.insert(k, n.floor()); }
-        Econ { id: v.id, stock, t, fed: 1.0, lean: 0, extra: Vec::new(), due: Vec::new(), project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0, watch: Default::default(), raid: None, raid_day: -1, marks: Vec::new(), mend_t: -1.0 }
+        Econ { id: v.id, stock, t, fed: 1.0, lean: 0, extra: Vec::new(), due: Vec::new(), project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0, watch: Default::default(), raid: None, raid_day: -1, marks: Vec::new(), mend_t: -1.0, caravan_day: u32::MAX }
     }
     /// Oublie ce qu'on sait des alentours : on regardera de nouveau à la prochaine heure de travail.
     pub fn scan_reset(&mut self) { self.scan_t = -1.0; }
@@ -286,6 +286,8 @@ impl Session {
         while e.t + 1.0 <= self.hours { e.t += 1.0; let hod = (self.hour - (self.hours - e.t)).rem_euclid(24.0).floor() as u32; let c = e.census(&v); e.step(&c, hod, (e.t / 24.0) as u32);
             // les nuits passées loin du village : les brigands sont peut-être venus, l'affaire s'est réglée selon ses défenses
             if hod == 23 && self.hours - e.t > 2.0 { let d = (e.t / 24.0).floor() as i64; crate::raids::raid_away(&mut e, &c, d); } }
+        // le lendemain du marché, à midi : les caravanes des villages voisins
+        let today = (self.hours / 24.0) as u32; if today % 7 == 4 && self.hour >= 12.0 && e.caravan_day != today { e.caravan_day = today; self.caravans(&mut e, today); }
         if e.log.len() > before || (e.log.len() == 12 && before == 12) { if let Some(l) = e.log.last() { said.push(format!("{} : {}", v.name, l.1)); } }
         let near = self.town.here.iter().any(|h| h.id == v.id);
         // la réserve : on repère ses coffres une fois le village chargé ; quand le joueur referme, on recompte
@@ -394,7 +396,7 @@ impl Session {
                 if let Some(old) = self.econ.take() { self.econs.insert(old.id, old); } let mut stock = BTreeMap::new();
                 for kv in a.iter().skip(6) { if let Some((k, v)) = kv.split_once(':') { if let (Some(it), Ok(v)) = (crate::session::item(k), v.parse::<f64>()) { stock.insert(it.id, v); } } }
                 stock.entry(COIN).or_insert(20.0); // une partie d'avant le commerce : une caisse modeste
-                self.econ = Some(Econ { id, stock, t, fed: f(3).unwrap_or(1.0), lean: n(4).unwrap_or(0) as u32, extra: Vec::new(), due: vec![Kind::Maison; n(5).unwrap_or(0).max(0) as usize], project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0, watch: Default::default(), raid: None, raid_day: -1, marks: Vec::new(), mend_t: -1.0 }); }
+                self.econ = Some(Econ { id, stock, t, fed: f(3).unwrap_or(1.0), lean: n(4).unwrap_or(0) as u32, extra: Vec::new(), due: vec![Kind::Maison; n(5).unwrap_or(0).max(0) as usize], project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0, watch: Default::default(), raid: None, raid_day: -1, marks: Vec::new(), mend_t: -1.0, caravan_day: u32::MAX }); }
             "econ_house" => { if let (Some(e), Some(v)) = (self.econ.as_mut(), (0..7).map(n).collect::<Option<Vec<i32>>>()) { e.extra.push(Extra { lot: Lot { o: (v[0], v[1]), u: (v[2], v[3]), w: (v[4], v[5]) }, y: v[6], kind: n(7).and_then(|i| PROJECTS.get(i as usize)).map_or(Kind::Maison, |p| p.kind) }); } }
             "econ_due" => { if let (Some(e), Some(i)) = (self.econ.as_mut(), n(0)) { e.due.push(PROJECTS.get(i as usize).map_or(Kind::Maison, |p| p.kind)); } }
             "econ_project" => { if let (Some(e), Some(i)) = (self.econ.as_mut(), n(0)) { e.project = Some((PROJECTS.get(i as usize).map_or(Kind::Maison, |p| p.kind), n(1) == Some(1))); } }
@@ -459,6 +461,12 @@ impl Session {
             self.town.folk[k] = f;
         }
     }
+    /// Les marchands de passage : l'après-midi à la réserve ; à cinq heures ils reprennent le chemin et disparaissent au loin.
+    fn merchants(&mut self, v: &Village) {
+        let leave = self.hour >= 17.0 || self.hour < 6.0;
+        self.town.folk.retain(|f| !(f.job == 7 && f.v == v.id && leave && f.task.is_some_and(|t| (t[0] - f.p[0]).hypot(t[2] - f.p[2]) < 1.0) && f.aim[1] < 0.0));
+        for f in self.town.folk.iter_mut().filter(|f| f.job == 7 && f.v == v.id) { if leave && f.aim[1] >= 0.0 { let out = [f.aim[0], f.aim[2]]; f.aim[1] = -1.0; f.task = Some([out[0], f.p[1], out[1]]); f.task_k += 1; } }
+    }
     pub(crate) fn econ_chores(&mut self, e: &mut Econ, v: &Village, dt: f64) {
         let c = e.census(v); let hod = self.hour; let work = (7.5..12.0).contains(&hod) || (13.0..18.0).contains(&hod);
         // ce qu'il y a à faire autour : rafraîchi toutes les deux minutes
@@ -468,7 +476,8 @@ impl Session {
         let now = self.hours; let grown: Vec<[i32; 3]> = e.saplings.iter().filter(|s| now - s.1 >= SAPLING_HOURS).map(|s| s.0).collect();
         for p in grown { if self.world.get(p[0], p[1], p[2]) == Some(B::SAPLING) { let tree: Vec<(i32, i32, i32, Id)> = crate::gen::young_oak(p[0], p[1], p[2], (p[0] * 31 + p[2] * 17) as u32).into_iter().filter(|d| d[3] > 0 && self.world.get(d[0], d[1], d[2]).is_some_and(|b| b == 0 || crate::blocks::BLOCKS[b as usize].shape == crate::blocks::Shape::Deco || b == B::SAPLING)).map(|d| (d[0], d[1], d[2], d[3] as Id)).collect(); self.world.edit_many(&tree); e.trees.push(p); } e.saplings.retain(|s| s.0 != p); }
         // qui fait quoi : les métiers suivent le recensement, dans l'ordre des habitants
-        let mine: Vec<usize> = (0..self.town.folk.len()).filter(|&k| self.town.folk[k].v == v.id && self.town.folk[k].craft.is_none()).collect();
+        let mine: Vec<usize> = (0..self.town.folk.len()).filter(|&k| self.town.folk[k].v == v.id && self.town.folk[k].craft.is_none() && self.town.folk[k].job != 7).collect();
+        self.merchants(v);
         let (farmers, cutters, miners) = (if c.fields > 0 { c.fields.div_ceil(2).max(1) } else { 0 }, c.cutters, c.miners);
         // le maire : le dernier venu des habitants sans métier, sinon le dernier de la liste ; il reçoit à la place, où l'on vient le voir
         // les gardes : un quand la muraille est là, un de plus toutes les deux tours, trois au plus ; pris juste avant le maire
@@ -482,7 +491,7 @@ impl Session {
         let near_player = |p: [f64; 3], me: [f64; 3]| (p[0] - me[0]).hypot(p[2] - me[2]) < 40.0; let me = self.player.p;
         let mut taken: Vec<[i32; 3]> = mine.iter().filter_map(|&k| { let f = &self.town.folk[k]; f.task.map(|_| [f.aim[0].floor() as i32, f.aim[1].floor() as i32, f.aim[2].floor() as i32]) }).collect();
         for &k in &mine {
-            let mut f = self.town.folk[k].clone(); if f.job == 0 || f.job == 8 || f.scared > 0.0 { continue; }
+            let mut f = self.town.folk[k].clone(); if f.job == 0 || f.job == 7 || f.job == 8 || f.scared > 0.0 { continue; }
             // la journée finie, on dépose ce qu'on porte et on rentre
             if !work { for (id, n) in f.carry.drain(..) { e.add(id, n as f64); } if f.task.is_some() { f.task = None; f.task_k += 1; } self.town.folk[k] = f; continue; }
             if f.task.is_none() {
