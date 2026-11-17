@@ -781,6 +781,11 @@ impl Ui {
                 let p = |r: f32, t: f32| [cx + r * t.cos(), cy + r * t.sin()]; u.quad([p(r0, a), p(r1, a), p(r1, b), p(r0, b)], [[0.0; 2]; 4], if on { if f >= 0.98 { [1.0, 0.55, 0.3, 0.95] } else { [1.0, 1.0, 1.0, 0.85] } } else { [0.0, 0.0, 0.0, 0.3] }, LAYER_FLAT); } }
         if s.guard_t >= 0.0 { let parry = s.guard_t <= alw_core::survival::PARRY_T; let c = if parry { GOLD } else { [0.85, 0.88, 0.9, 0.85] }; let (x, y, r) = (w * 0.5, h * 0.5 + 30.0 * k, 9.0 * k);
             u.quad([[x - r, y - r], [x + r, y - r], [x + r * 0.7, y + r * 0.4], [x - r * 0.7, y + r * 0.4]], [[0.0; 2]; 4], c, LAYER_FLAT); u.quad([[x - r * 0.7, y + r * 0.4], [x + r * 0.7, y + r * 0.4], [x, y + r * 1.3], [x, y + r * 1.3]], [[0.0; 2]; 4], c, LAYER_FLAT); }
+        // Un siège : la solidité de ce que les brigands frappent (la herse, la muraille), en haut de l'écran.
+        if let Some((name, f)) = s.siege_bar() { let (bw, bh, z) = (360.0 * k, 12.0 * k, 18.0 * k); let (x, y) = ((w - bw) * 0.5, 70.0 * k); let f = f.clamp(0.0, 1.0) as f32;
+            let label = if f <= 0.0 { format!("{name} — tombée") } else { format!("{name} — {:.0} %", f * 100.0) };
+            u.text(&label, (w - Ui::text_width(&label, z)) * 0.5, y - 24.0 * k, z, INK); u.rect(x - 3.0 * k, y - 3.0 * k, bw + 6.0 * k, bh + 6.0 * k, PANEL);
+            u.rect(x, y, bw, bh, WELL); u.rect(x, y, bw * f, bh, if f > 0.5 { GOLD } else if f > 0.2 { [0.95, 0.55, 0.25, 1.0] } else { BAD }); }
         // Le réticule rougit quand il est sur un animal à portée.
         let ch = if s.prey.is_some() { [1.0, 0.5, 0.4, 1.0] } else { w1 }; let t = if s.prey.is_some() { 3.0 } else { 2.0 };
         u.rect(w * 0.5 - t * 0.5, h * 0.5 - 8.0, t, 16.0, ch); u.rect(w * 0.5 - 8.0, h * 0.5 - t * 0.5, 16.0, t, ch);

@@ -88,6 +88,8 @@ pub struct Econ {
     pub watch: crate::remparts::Watch,
     /// Une attaque de brigands en cours, et le dernier jour où l'on a tiré au sort s'il en viendrait une.
     pub raid: Option<crate::raids::Raid>, pub raid_day: i64,
+    /// Ce que les brigands ont frappé : la herse, des pans de muraille, leur solidité (réparée de jour par les maçons).
+    pub marks: Vec<crate::raids::Mark>, pub mend_t: f64,
 }
 
 /// Combien de bâtiments un village veut encore ajouter à ce qu'il était, selon son tempérament : aucun pour qui tient à sa
@@ -106,7 +108,7 @@ impl Econ {
     pub fn found(v: &Village, t: f64) -> Econ {
         let pop = people(v) as f64; let wealth = v.ident.map_or(0.5, |i| i.wealth); let mut stock = BTreeMap::new();
         for (k, n) in [("wheat", pop * 3.0), ("flour", pop), ("bread", pop * 2.5), ("cooked_meat", pop * 0.5), ("oak_log", 16.0 + 20.0 * wealth), ("planks", 10.0 + 24.0 * wealth), ("cobblestone", 8.0 + 20.0 * wealth), ("iron_ore", 4.0), ("coal", 6.0), ("iron_ingot", 2.0 + 4.0 * wealth), ("leather", 2.0), (COIN, 12.0 + 30.0 * wealth)] { stock.insert(k, n.floor()); }
-        Econ { id: v.id, stock, t, fed: 1.0, lean: 0, extra: Vec::new(), due: Vec::new(), project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0, watch: Default::default(), raid: None, raid_day: -1 }
+        Econ { id: v.id, stock, t, fed: 1.0, lean: 0, extra: Vec::new(), due: Vec::new(), project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0, watch: Default::default(), raid: None, raid_day: -1, marks: Vec::new(), mend_t: -1.0 }
     }
     /// Oublie ce qu'on sait des alentours : on regardera de nouveau à la prochaine heure de travail.
     pub fn scan_reset(&mut self) { self.scan_t = -1.0; }
@@ -237,6 +239,7 @@ impl Econ {
         for e in &self.extra { s += &format!("econ_house {} {} {} {} {} {} {} {}\n", e.lot.o.0, e.lot.o.1, e.lot.u.0, e.lot.u.1, e.lot.w.0, e.lot.w.1, e.y, kind_index(e.kind)); }
         for k in &self.due { s += &format!("econ_due {}\n", kind_index(*k)); } if let Some((k, m)) = self.project { s += &format!("econ_project {} {}\n", kind_index(k), m as u8); }
         for p in &self.saplings { s += &format!("econ_plant {} {} {} {}\n", p.0[0], p.0[1], p.0[2], p.1); }
+        for m in &self.marks { s += &format!("econ_mark {} {} {} {} {:.1} {:.0}\n", m.gate as u8, m.at[0], m.at[1], m.at[2], m.hp, m.max); for b in &m.broken { s += &format!("econ_brk {} {} {} {}\n", b.0, b.1, b.2, b.3); } }
         for (d, t) in &self.log { s += &format!("econ_log {d} {t}\n"); } s
     }
 }
@@ -276,10 +279,10 @@ impl Session {
         let key = (e.extra.iter().filter(|x| x.kind == Kind::Muraille).count(), e.extra.iter().filter(|x| x.kind == Kind::TourDefense).count());
         if near && key.0 > 0 && (e.watch.key != key || e.watch.patrol.is_empty()) && (e.watch.tried == 0.0 || self.elapsed - e.watch.tried > 3.0) { e.watch.tried = self.elapsed.max(1e-3); if let Some(mut w) = self.rampart_watch(&e) { w.tried = e.watch.tried; e.watch = w; } }
         // les brigands : le tirage de la nuit, la bande qui vient, les gardes qui tirent
-        self.raid_tick(&mut e, &v, near, dt);
+        self.raid_tick(&mut e, &v, near, dt); if near { let h = if e.mend_t < 0.0 { 0.0 } else { (self.hours - e.mend_t).clamp(0.0, 2.0) }; e.mend_t = self.hours; self.raid_mend(&mut e, (self.hours / 24.0) as u32, h); }
         if near && !e.watch.gates.is_empty() { let night = !(6.5..21.0).contains(&self.hour);
             if e.watch.night != Some(night) { if let Some((c, _)) = crate::remparts::ring(&e) { let before = e.watch.night; e.watch.night = Some(night);
-                for g in e.watch.gates.clone() { if self.portcullis_down(c, g) != night { self.portcullis(c, g, night); } }
+                for g in e.watch.gates.clone() { let broken = e.marks.iter().any(|m| m.gate && m.down() && (m.at[0], m.at[2]) == (g.0, g.2)); if !broken && self.portcullis_down(c, g) != night { self.portcullis(c, g, night); } }
                 let me = self.player.p; if before.is_some() && e.watch.gates.iter().any(|g| (g.0 as f64 - me[0]).hypot(g.2 as f64 - me[2]) < 60.0) { self.notes.push(format!("{} : {}", v.name, if night { "la herse se baisse pour la nuit" } else { "la herse se lève, la porte est ouverte" })); } } } }
         let at_store = self.inv_open && [self.chest, self.chest2].into_iter().flatten().any(|c| e.store.contains(&c));
         if e.open && !at_store { self.econ_count(&mut e, &v); } e.open = at_store;
@@ -371,11 +374,13 @@ impl Session {
             "econ" => { let (Some(id), Some(t)) = (n(0).zip(n(1)), f(2)) else { return }; let mut stock = BTreeMap::new();
                 for kv in a.iter().skip(6) { if let Some((k, v)) = kv.split_once(':') { if let (Some(it), Ok(v)) = (crate::session::item(k), v.parse::<f64>()) { stock.insert(it.id, v); } } }
                 stock.entry(COIN).or_insert(20.0); // une partie d'avant le commerce : une caisse modeste
-                self.econ = Some(Econ { id, stock, t, fed: f(3).unwrap_or(1.0), lean: n(4).unwrap_or(0) as u32, extra: Vec::new(), due: vec![Kind::Maison; n(5).unwrap_or(0).max(0) as usize], project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0, watch: Default::default(), raid: None, raid_day: -1 }); }
+                self.econ = Some(Econ { id, stock, t, fed: f(3).unwrap_or(1.0), lean: n(4).unwrap_or(0) as u32, extra: Vec::new(), due: vec![Kind::Maison; n(5).unwrap_or(0).max(0) as usize], project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0, watch: Default::default(), raid: None, raid_day: -1, marks: Vec::new(), mend_t: -1.0 }); }
             "econ_house" => { if let (Some(e), Some(v)) = (self.econ.as_mut(), (0..7).map(n).collect::<Option<Vec<i32>>>()) { e.extra.push(Extra { lot: Lot { o: (v[0], v[1]), u: (v[2], v[3]), w: (v[4], v[5]) }, y: v[6], kind: n(7).and_then(|i| PROJECTS.get(i as usize)).map_or(Kind::Maison, |p| p.kind) }); } }
             "econ_due" => { if let (Some(e), Some(i)) = (self.econ.as_mut(), n(0)) { e.due.push(PROJECTS.get(i as usize).map_or(Kind::Maison, |p| p.kind)); } }
             "econ_project" => { if let (Some(e), Some(i)) = (self.econ.as_mut(), n(0)) { e.project = Some((PROJECTS.get(i as usize).map_or(Kind::Maison, |p| p.kind), n(1) == Some(1))); } }
             "econ_plant" => { if let (Some(e), Some(x), Some(y), Some(z), Some(t)) = (self.econ.as_mut(), n(0), n(1), n(2), f(3)) { e.saplings.push(([x, y, z], t)); } }
+            "econ_mark" => { if let (Some(e), Some(g), Some(x), Some(y), Some(z), Some(hp), Some(mx)) = (self.econ.as_mut(), n(0), n(1), n(2), n(3), f(4), f(5)) { e.marks.push(crate::raids::Mark { gate: g == 1, at: [x, y, z], hp, max: mx, broken: Vec::new(), hit: -99.0 }); } }
+            "econ_brk" => { if let (Some(e), Some(x), Some(y), Some(z), Some(b)) = (self.econ.as_mut(), n(0), n(1), n(2), n(3)) { if let Some(m) = e.marks.last_mut() { m.broken.push((x, y, z, b as crate::blocks::Id)); } } }
             "econ_log" => { if let (Some(e), Some(d)) = (self.econ.as_mut(), n(0)) { e.log.push((d as u32, a[1..].join(" "))); } }
             _ => {}
         }

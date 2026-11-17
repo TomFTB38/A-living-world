@@ -365,7 +365,7 @@ for (const [n, h, p] of [['chair', 0.5, { solid: true }], ['bench', 0.6, { solid
 for (const [n, h, p] of [['table', 0.8, { solid: true }], ['round_table', 0.8, { solid: true }], ['stool', 0.4, {}], ['candle', 0.1, { light: 9 }], ['candelabra', 0.4, { light: 12 }],
   ['chandelier', 0.5, { light: 14 }], ['brazier', 0.8, { light: 14, solid: true }], ['sack', 0.3, {}], ['amphora', 0.5, {}], ['flower_pot', 0.3, {}], ['potted_fern', 0.3, {}],
   ['cauldron', 1.2, { solid: true }], ['bucket', 0.3, {}], ['log_pile', 0.8, { solid: true }], ['carpet_red', 0.1, {}], ['carpet_blue', 0.1, {}], ['carpet_green', 0.1, {}],
-  ['iron_bars', 1.5, { solid: true }], ['books_pile', 0.2, {}], ['bottles', 0.2, {}], ['beehive', 0.5, {}], ['cheese', 0.2, {}], ['bread_basket', 0.2, {}]]) deco(n, h, 'wood', p);
+  ['iron_bars', 1.5, { solid: true, cat: 'rock' }], ['books_pile', 0.2, {}], ['bottles', 0.2, {}], ['beehive', 0.5, {}], ['cheese', 0.2, {}], ['bread_basket', 0.2, {}]]) deco(n, h, 'wood', p);
 // Les blocs ajoutés ensuite vont toujours en fin de liste : les numéros des blocs déjà sauvegardés ne bougent pas.
 // Torche fixée au mur, penchée hors du mur : quatre sens.
 turner('torch_wall', 0.05, 'light', { light: 13, drop: 'torch' });
@@ -443,7 +443,7 @@ defs.push(['glow_vine', 'deco', null, 0.05, { model: 'glow_vine', cat: 'foliage'
   ['rail_x', 'deco', null, 0.6, { model: 'rail', cat: 'wood', drop: 'rail' }], ['rail_z', 'deco', null, 0.6, { model: 'rail', cat: 'wood', drop: 'rail' }]);
 
 // Les barreaux de fer tournent comme un meuble (une grille qui court selon z : la herse d'une porte orientée nord-sud).
-for (const f of ['@1', '@2', '@3']) defs.push([`iron_bars${f}`, 'deco', null, 1.5, { model: 'iron_bars', solid: true, cat: 'wood', drop: 'iron_bars' }]);
+for (const f of ['@1', '@2', '@3']) defs.push([`iron_bars${f}`, 'deco', null, 1.5, { model: 'iron_bars', solid: true, cat: 'rock', drop: 'iron_bars' }]);
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,

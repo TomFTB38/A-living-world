@@ -634,7 +634,7 @@ fn capture(a: &[String]) {
                 if scene == "village_garde" { for _ in 0..900 { s.hour = 9.0; s.tick(0.1, none, Actions::default()); if guard(&s).is_some() { break; } } println!("garde : {:?}", guard(&s).map(|k| (s.town.folk[k].name.clone(), s.town.folk[k].p))); }
                 if scene == "village_herse" { for _ in 0..10 { s.hour = 22.0; s.tick(0.1, none, Actions::default()); } }
                 // une bande de brigands au pied de la muraille, à la tombée du soir ; les gardes tirent du chemin de ronde
-                if scene == "village_brigands" { for _ in 0..40 { s.hour = 21.1; s.tick(0.25, none, Actions::default()); } let ok = s.raid_now(); for _ in 0..360 { s.hour = 21.2; s.tick(0.1, none, Actions::default()); }
+                if scene == "village_brigands" { for _ in 0..40 { s.hour = 21.1; s.tick(0.25, none, Actions::default()); } let ok = s.raid_now(); for _ in 0..1000 { s.hour = 21.2; s.tick(0.1, none, Actions::default()); }
                     println!("brigands : bande {ok}, {} en vie, {} flèches", s.horde.foes.iter().filter(|f| f.dead == 0.0 && !f.raid.is_empty()).count(), s.arrows.iter().filter(|a| a.npc).count()); }
                 // le garde de nuit : il gagne la tour par le chemin de ronde et monte au guet
                 let watching = |s: &alw_core::session::Session| s.town.folk.iter().any(|f| f.post == Some(alw_core::remparts::AT_LOOKOUT));

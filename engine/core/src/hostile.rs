@@ -107,6 +107,7 @@ pub struct Foe {
     /** bouclier levé (brigand), de 0 à 1 */ pub guard: f64, pub dead: f64, pub variant: u8, pub vet: bool, pub air: bool, burst: f64, pub climbing: bool, pub group: u32,
     /** ver des sables : secondes pendant lesquelles il reste dressé hors du sable (on peut alors le frapper) */ pub up: f64,
     /** une bande qui attaque un village : les points par où elle passe (devant la porte, le passage, la réserve) */ pub raid: Vec<[f64; 3]>,
+    /** sa marche : la plus courte distance atteinte vers le point suivant, et depuis combien de temps elle n'avance plus */ best: f64, stuck: f64,
 }
 /// Ce que font les créatures, pour la session (coups, sons, butin).
 #[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool), /** une morsure qui englue : ralenti pendant tant de secondes */ Snare(f64), /** un pillard est arrivé à la réserve du village (sa bande) */ Loot([f64; 3], u32) }
@@ -134,7 +135,7 @@ impl Horde {
     pub fn put(&mut self, sp: usize, p: [f64; 3], yaw: f64, vet: bool) -> usize {
         let s = &bestiary().species[sp]; let max = s.hp * if vet { 1.25 } else { 1.0 }; self.groups += 1; let variant = (self.rng.next() * 3.0) as u8;
         self.foes.push(Foe { sp, p, yaw, hp: max, max, state: if s.ambush { Ai::Embuscade } else { Ai::Repos }, t: self.rng.range(1.0, 4.0), cd: 0.5, wind: 0.0, hit: 0.0, phase: 0.0, speed: 0.0, v: [0.0; 3], gy: p[1],
-            seen: None, lost: 0.0, alert: 0.0, home: p, guard: 0.0, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups, up: 0.0, kept: false, raid: Vec::new() });
+            seen: None, lost: 0.0, alert: 0.0, home: p, guard: 0.0, dead: 0.0, variant, vet, air: false, burst: 0.0, climbing: false, group: self.groups, up: 0.0, kept: false, raid: Vec::new(), best: f64::MAX, stuck: 0.0 });
         self.spawned += 1; self.foes.len() - 1
     }
     /// Un coup porté : moins fort sur une armure, plus fort avec l'arme qui la blesse le mieux ; rend vrai si elle meurt.
@@ -284,8 +285,17 @@ impl Horde {
         // ---- une bande qui attaque un village : tant qu'elle ne se bat pas, elle marche droit sur ses points de passage
         if !f.raid.is_empty() && matches!(f.state, Repos | Patrouille | Retour) {
             let wp = f.raid[0];
-            if hypot2(wp[0] - f.p[0], wp[2] - f.p[2]) < 2.2 { f.raid.remove(0); if f.raid.is_empty() { self.ev.push(FoeEv::Loot(f.p, f.group)); } }
-            else { f.state = Patrouille; f.t = 4.0; f.home = f.p; f.yaw = turn(f.yaw, (wp[0] - f.p[0]).atan2(wp[2] - f.p[2]), dt * 4.0); f.speed = s.walk * 1.8; }
+            let d = hypot2(wp[0] - f.p[0], wp[2] - f.p[2]);
+            if d < 2.2 { f.raid.remove(0); f.best = f64::MAX; f.stuck = 0.0; if f.raid.is_empty() { self.ev.push(FoeEv::Loot(f.p, f.group)); } }
+            else { f.state = Patrouille; f.t = 4.0; f.home = f.p; f.yaw = turn(f.yaw, (wp[0] - f.p[0]).atan2(wp[2] - f.p[2]), dt * 4.0); f.speed = s.walk * 1.8;
+                // elle n'avance plus (un talus, un fossé, un ruisseau) : elle s'y hisse ou s'y laisse glisser, d'un pas vers son but ; d'un
+                // ruisseau, elle remonte sur la berge — jamais par-dessus une muraille, une herse ou un toit
+                // toutes les trois secondes : a-t-elle gagné un pas vers son but ?
+                if f.best == f64::MAX { f.best = d; } f.stuck += dt; let slow = f.stuck > 3.0 && d > f.best - 1.0; if f.stuck > 3.0 { f.stuck = 0.0; f.best = d; }
+                if slow { let wet = (0..3).any(|k| w.get(f.p[0].floor() as i32, f.gy as i32 + k, f.p[2].floor() as i32).is_some_and(crate::blocks::is_water)); let up = if wet { 5.5 } else { 3.1 }; let a0 = (wp[0] - f.p[0]).atan2(wp[2] - f.p[2]); let tall = (foe_box(s.body, s.size).1.ceil() as i32).max(1);
+                    for k in [0.0, 0.6, -0.6, 1.2, -1.2] { let (nx, nz) = (f.p[0] + sin(a0 + k) * 1.3, f.p[2] + cos(a0 + k) * 1.3);
+                        if let Some(y) = ground(w, nx, nz, f.gy + up + 0.1).or_else(|| ford(w, nx, nz, f.gy + 1.0)) { let built = w.get(nx.floor() as i32, y as i32 - 1, nz.floor() as i32).is_some_and(|b| { let n = BLOCKS[b as usize].name; n.starts_with("iron_bars") || n.starts_with("stone_bricks") || n.starts_with("planks") || n.starts_with("roof_tiles") || n.starts_with("oak_log") || n.starts_with("fence") || n.starts_with("plaster") });
+                            if !built && y - f.gy <= up && f.gy - y <= 6.0 && (fits(w, nx, y, nz, a0 + k, tall) || wet_fits(w, nx, y, nz, tall)) { f.p = [nx, y, nz]; f.gy = y; f.best = hypot2(wp[0] - nx, wp[2] - nz); break; } } } } }
         }
         // ---- le coup tombe à la fin de l'annonce, s'il y a contact (distance et angle cohérents avec le geste)
         if f.wind > 0.0 { f.wind -= dt; if f.wind <= 0.0 { f.wind = 0.0; f.cd = s.cd * if f.vet { 0.9 } else { 1.0 };
@@ -308,7 +318,7 @@ impl Horde {
             if let Some(g) = ground(w, f.p[0], f.p[2], f.p[1] + 1.0) { if f.v[1] < 0.0 && f.p[1] <= g { f.p[1] = g; f.gy = g; f.air = false; f.v = [0.0; 3]; if dist < s.reach + 1.0 { f.state = Combat; } } } else if f.v[1] < -20.0 { f.air = false; }
             return; }
         knock(f, dt, w);
-        if f.speed > 0.0 { let step = f.speed * dt; if !walk(f, w, step, s.climb, s.body) && matches!(f.state, Patrouille | Retour) { f.yaw += r.range(1.0, 2.5); } }
+        if f.speed > 0.0 { let step = f.speed * dt; if !walk(f, w, step, s.climb, s.body, !f.raid.is_empty()) && matches!(f.state, Patrouille | Retour) { f.yaw += r.range(1.0, 2.5); } }
         settle(f, dt, w);
     }
     /// Les volants. La harpie tourne au-dessus du joueur, plonge serres en avant, frappe et remonte ; le fantôme dérive droit sur lui,
@@ -384,14 +394,25 @@ fn knock(f: &mut Foe, dt: f64, w: &impl Voxels) {
     if let Some(y) = ground(w, nx, nz, f.gy) { if (y - f.gy).abs() <= 1.0 { f.p[0] = nx; f.p[2] = nz; f.gy = y; } }
     let k = (1.0 - dt * 7.0).max(0.0); f.v[0] *= k; f.v[2] *= k; if f.v[0].abs() + f.v[2].abs() < 0.05 { f.v[0] = 0.0; f.v[2] = 0.0; }
 }
-fn settle(f: &mut Foe, dt: f64, w: &impl Voxels) { if let Some(g) = ground(w, f.p[0], f.p[2], f.p[1] + 1.0) { if !f.climbing { f.gy = g; } } f.p[1] += (f.gy - f.p[1]) * (dt * 10.0).min(1.0); }
+/// Se poser sur le sol sous ses pieds — jamais d'un bond sur ce qui est plus haut qu'une marche (une herse qu'on vient de baisser, un rebord).
+fn settle(f: &mut Foe, dt: f64, w: &impl Voxels) { if let Some(g) = ground(w, f.p[0], f.p[2], f.p[1] + 1.0) { if !f.climbing && g <= f.gy + 1.05 { f.gy = g; } } f.p[1] += (f.gy - f.p[1]) * (dt * 10.0).min(1.0); }
 /// Avancer : tout droit, sinon le cap libre le plus proche ; une marche d'un bloc se franchit ; le rampant grimpe un mur de quatre blocs.
-fn walk(f: &mut Foe, w: &impl Voxels, step: f64, climb: bool, body: Body) -> bool {
+/// Le corps tient-il là, dans l'eau s'il le faut (la bande qui traverse un ruisseau) : rien de plein sur sa hauteur.
+fn wet_fits(w: &impl Voxels, x: f64, y: f64, z: f64, h: i32) -> bool { let (bx, by, bz) = (x.floor() as i32, (y + 0.05).floor() as i32, z.floor() as i32); (0..h).all(|k| w.get(bx, by + k, bz).is_some_and(|b| !is_solid(b))) && w.get(bx, by - 1, bz).is_some_and(is_solid) }
+/// Le fond d'un ruisseau (quatre blocs d'eau au plus : on le passe à la nage), s'il y en a un.
+fn ford(w: &impl Voxels, x: f64, z: f64, y0: f64) -> Option<f64> {
+    let (fx, fz) = (x.floor() as i32, z.floor() as i32); let mut y = y0.floor() as i32 + 2; let mut wet = 0;
+    while y > y0 as i32 - 8 { let b = w.get(fx, y, fz)?; if crate::blocks::is_water(b) { wet += 1; if wet > 4 { return None; } } else if is_solid(b) { return Some((y + 1) as f64); } y -= 1; } None
+}
+fn walk(f: &mut Foe, w: &impl Voxels, step: f64, climb: bool, body: Body, wade: bool) -> bool {
     let tall = match body { Body::Rampant | Body::Bete | Body::Araignee => 1, _ => 2 };
     for k in [0.0, 0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.8, -1.8] {
         let yaw = f.yaw + k; let (nx, nz) = (f.p[0] + sin(yaw) * step, f.p[2] + cos(yaw) * step);
-        if let Some(y) = ground(w, nx, nz, f.gy + 1.0) { if y - f.gy <= 1.05 && f.gy - y <= 3.0 && fits(w, nx, y.max(f.gy - 1.0), nz, yaw, tall) { f.p[0] = nx; f.p[2] = nz; f.gy = y; f.climbing = false; if k != 0.0 { f.yaw += k * 0.5; } return true; } }
-        if climb && k == 0.0 { if let Some(y) = ground(w, nx, nz, f.gy + 4.5) { if y - f.gy > 1.0 && y - f.gy <= 4.5 && fits(w, nx, y, nz, yaw, tall) {
+        // une bande en marche passe les ruisseaux : elle prend pied au fond, ou nage
+        // (sous une voûte basse — le passage d'une porte —, la bande cherche son sol juste sous elle, pas au plafond)
+        if let Some(y) = ground(w, nx, nz, f.gy + 1.0).filter(|y| !wade || y - f.gy <= 1.05).or_else(|| if wade { ground(w, nx, nz, f.gy).or_else(|| ford(w, nx, nz, f.gy + 1.0)) } else { None }) { if y - f.gy <= 1.05 && f.gy - y <= 3.0 && fits(w, nx, y.max(f.gy - 1.0), nz, yaw, tall) { f.p[0] = nx; f.p[2] = nz; f.gy = y; f.climbing = false; if k != 0.0 { f.yaw += k * 0.5; } return true; } }
+        let lim = 4.5;
+        if climb && k == 0.0 { if let Some(y) = ground(w, nx, nz, f.gy + lim) { if y - f.gy > 1.0 && y - f.gy <= lim && fits(w, nx, y, nz, yaw, tall) {
             // Le rampant monte le long du mur, puis passe dessus.
             f.climbing = true; f.p[1] += 2.6 * step / f.speed.max(0.1) * f.speed.min(3.0); if f.p[1] >= y { f.p = [nx, y, nz]; f.gy = y; f.climbing = false; } return true; } } }
     }
