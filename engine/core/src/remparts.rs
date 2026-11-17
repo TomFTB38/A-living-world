@@ -123,7 +123,10 @@ impl Session {
         if (g + 1..=h + 1).any(|y| self.world.get(x, y, z).is_some_and(|b| b != 0 && !natural(b))) { return; }
         // la place le long du tour (un pas par bloc) : les poteaux tous les cinq sur les deux faces, les merlons un sur deux
         let s = (t * r).round() as i32 + if t == 0.0 || t == std::f64::consts::FRAC_PI_2 { x + z } else { 0 }; let along_x = t.sin().abs() > t.cos().abs();
-        let beam = id(if along_x { "oak_log_x_c" } else { "oak_log_z_c" });
+        // la poutre couchée suit le mur là où il court presque droit ; dans les biais l'anneau fait des marches, une poutre y
+        // dépasserait d'un bloc à chaque marche : on y met des planches
+        let skew = t.sin().abs().min(t.cos().abs()) > 0.38;
+        let beam = id(if skew { "planks" } else if along_x { "oak_log_x_c" } else { "oak_log_z_c" });
         for y in g - 1..=g { o.push((x, y, z, cob)); }
         let mut y = g - 2; while self.world.get(x, y, z).is_some_and(is_water) { o.push((x, y, z, cob)); y -= 1; }
         let post = (out || inn) && s.rem_euclid(5) == 0; o.push((x, g + 1, z, cob));
@@ -185,7 +188,7 @@ fn watchtower(p: &mut P) {
 /// en saillie (x 0..2 et 8..10) encadrent un passage voûté ; au-dessus, une galerie de bois couverte où passe le chemin de ronde.
 fn gatehouse(p: &mut P) {
     let towers = |x: i32| x <= 2 || x >= 8;
-    for x in 0..11 { for z in -1..5 { if z == -1 && !towers(x) { continue; } for y in 1..=13 { p.put(x, y, z, 0); }
+    for x in 0..11 { for z in -1..5 { if z == -1 && !towers(x) { continue; } for y in 1..=15 { p.put(x, y, z, 0); }
         let lane = (4..=6).contains(&x); for y in -6..=if lane { -1 } else { 0 } { p.n(x, y, z, "cobblestone"); } } }
     // le massif du milieu : pavé en pied, pierre de taille, le passage de trois sous un arc, la herse relevée, la clef de voûte
     for x in 3..=7 { for z in 0..5 { for y in 1..=4 { p.n(x, y, z, if y == 1 || (x == 3 || x == 7) && (z == 0 || z == 4) { "cobblestone" } else { "stone_bricks" }); }
@@ -196,12 +199,12 @@ fn gatehouse(p: &mut P) {
     // les deux tours : pied de pavé, fût de pierre de taille aux angles de pavé, une salle basse, l'échelle jusqu'au chemin de ronde
     for x0 in [0, 8] { let m = x0 + 1;
         for x in x0..=x0 + 2 { for z in -1..5 { let edge = x != m || z == -1 || z == 4; let corner = x != m && (z == -1 || z == 4);
-            for y in 1..=8 { if edge { p.n(x, y, z, if y == 1 || corner { "cobblestone" } else { "stone_bricks" }); } } } }
+            for y in 1..=10 { if edge { p.n(x, y, z, if y == 1 || corner { "cobblestone" } else { "stone_bricks" }); } } } }
         for z in 0..4 { p.n(m, 0, z, "planks"); p.n(m, 5, z, "planks"); }
         for y in 1..=5 { p.turn(m, y, 0, "ladder", 0, -1); } p.door(m, 1, 4, 0, 1);
         // le chemin de ronde la traverse de part en part, au niveau du plancher de la galerie
         for x in x0..=x0 + 2 { for z in 1..=3 { p.n(x, 5, z, "planks"); for y in 6..=7 { p.put(x, y, z, 0); } } }
-        p.put(m, 3, -1, 0); p.put(m, 7, -1, 0); p.win(m, 7, 4, true);
+        p.put(m, 3, -1, 0); p.put(m, 7, -1, 0); p.put(m, 9, -1, 0); p.win(m, 7, 4, true);
         // leurs bannières, dehors et côté village ; un toit à deux pans, pignon sur le dehors, et le drapeau
         p.turn(m, 5, -2, "banner_red", 0, 1); p.turn(m, 5, 5, "banner_red", 0, -1); }
     // la galerie couverte au-dessus du passage : plancher en encorbellement, poteaux de chêne, garde-corps devant et derrière
@@ -209,8 +212,10 @@ fn gatehouse(p: &mut P) {
     for x in [3, 5, 7] { p.stair(x, 4, -1, "stone_bricks_stairs", 0, 1, true); }
     for z in [-1, 4] { for x in 3..=7 { if x % 2 == 1 { for y in 6..=7 { p.log(x, y, z, 'y'); } } else { p.n(x, 6, z, "fence"); } } }
     p.n(5, 7, 0, "lantern");
+    // les toits : celui de la galerie s'appuie contre les tours, qui montent plus haut que son faîte ; les leurs commencent
+    // au-dessus, si bien que leurs débords passent par-dessus sans jamais le couper
     p.roof((3, 7), (-1, 4), 8, 0, false, "roof_tiles", Some("planks"));
-    for x0 in [0, 8] { p.roof((x0, x0 + 2), (-1, 4), 9, 1, true, "roof_tiles", Some("stone_bricks")); p.n(x0 + 1, 12, -1, "flag"); }
+    for x0 in [0, 8] { p.roof((x0, x0 + 2), (-1, 4), 11, 1, true, "roof_tiles", Some("stone_bricks")); p.n(x0 + 1, 14, 1, "flag"); }
     // les appliques de part et d'autre du passage, dehors et côté village
     for x in [3, 7] { p.sconce(x, 3, -1, 0, 1); p.sconce(x, 3, 5, 0, -1); }
 }
