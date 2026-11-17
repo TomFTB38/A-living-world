@@ -38,6 +38,16 @@ fn said(loot: &[(&'static str, u32)]) -> String {
     loot.iter().map(|(k, n)| format!("{} ×{n}", crate::session::item(k).map_or(k.to_string(), |i| i.label.to_lowercase()))).collect::<Vec<_>>().join(", ")
 }
 
+/// Une nuit loin du village : une bande vient peut-être (le même tirage qu'en présence du joueur) ; une muraille gardée la tient
+/// dehors, sinon elle pille une part de la réserve. Ce que le village en garde : une ligne dans son journal.
+pub fn raid_away(e: &mut Econ, c: &crate::economie::Census, day: i64) {
+    let guards = if c.walls > 0 { (1 + c.towers / 2).min(3) } else { 0 };
+    if crate::noise::hash_float(day as i32, e.id.0, e.id.1, 977) >= raid_chance(e, c.walls > 0, c.towers, guards) { return; }
+    let d = (day.max(0)) as u32;
+    if c.walls > 0 { e.note(d, "des brigands ont rôdé autour du village cette nuit ; la muraille et les gardes les ont tenus dehors".into()); }
+    else { let l = pillage(e, 0.25); e.note(d, format!("des brigands ont pillé la réserve cette nuit : {}", said(&l))); }
+}
+
 impl Session {
     /// Le tirage de la nuit, l'arrivée de la bande, le tir des gardes, l'issue de l'attaque.
     pub(crate) fn raid_tick(&mut self, e: &mut Econ, v: &Village, near: bool, dt: f64) {

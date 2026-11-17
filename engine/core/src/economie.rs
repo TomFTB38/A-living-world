@@ -260,20 +260,38 @@ impl Session {
     /// (le plus proche qui cherche à s'agrandir : celui-là montre tout, la vie et la croissance)
     fn pilot(&self) -> Option<Village> { let all: Vec<Village> = self.gen.villages_near(self.spawn[0], self.spawn[2], 1400.0).into_iter().filter(|v| v.ident.is_some() && !v.works.is_empty()).collect(); all.iter().find(|v| ambition(v) > 0).or(all.first()).cloned() }
     pub(crate) fn pilot_village(&self) -> Option<Village> { let id = self.econ.as_ref()?.id; self.gen.site(id.0, id.1).map(|s| s.v.clone()) }
-    /// Les maisons bâties depuis la création du monde s'ajoutent au village tracé (leurs habitants avec).
-    pub(crate) fn econ_extend(&self, v: &mut Village) { if let Some(e) = self.econ.as_ref().filter(|e| e.id == v.id) { for x in e.extra.iter().filter(|x| x.kind == Kind::Maison) { v.houses.push(raise(x.lot, x.y, x.kind).1); } } }
+    /// Les maisons bâties depuis la création du monde s'ajoutent au village tracé (leurs habitants avec) — pour tout village qui a
+    /// une économie, éveillée ou en sommeil.
+    pub(crate) fn econ_extend(&self, v: &mut Village) { if let Some(e) = self.econ.as_ref().filter(|e| e.id == v.id).or_else(|| self.econs.get(&v.id)) { for x in e.extra.iter().filter(|x| x.kind == Kind::Maison) { v.houses.push(raise(x.lot, x.y, x.kind).1); } } }
+    /// Un village qui vit de lui-même : un village refondu (une identité), avec ses bâtiments et ses champs.
+    pub(crate) fn lives(v: &Village) -> bool { v.ident.is_some() && !v.works.is_empty() }
+    /// Le village dont l'économie tourne en ce moment : celui où se trouve le joueur (le plus proche des villages chargés, s'il est
+    /// à portée) ; l'économie de l'autre s'endort, celle-ci se réveille (ou naît) et rattrape le temps passé.
+    fn econ_focus(&mut self) {
+        let me = self.player.p;
+        let near = self.town.here.iter().filter(|v| Self::lives(v)).map(|v| (v.id, ((v.c[0] as f64 - me[0]).hypot(v.c[2] as f64 - me[2]) - v.r as f64).max(0.0))).filter(|(_, d)| *d < 90.0).min_by(|a, b| a.1.total_cmp(&b.1)).map(|x| x.0);
+        let Some(id) = near else { return }; if self.econ.as_ref().is_some_and(|e| e.id == id) { return; }
+        let Some(v) = self.gen.site(id.0, id.1).map(|s| s.v.clone()) else { return };
+        // l'autre village s'endort : ses gens lâchent leurs tâches (on ne les voit plus travailler de toute façon)
+        if let Some(old) = self.econ.take() { for f in self.town.folk.iter_mut().filter(|f| f.v == old.id) { f.task = None; f.post = None; f.carry.clear(); } self.econs.insert(old.id, old); }
+        let e = self.econs.remove(&id).unwrap_or_else(|| Econ::found(&v, self.hours.floor())); self.econ = Some(e);
+    }
     /// Le temps passe au village pilote : une heure de jeu à la fois, en rattrapant ce qui s'est écoulé loin de lui.
     pub(crate) fn econ_tick(&mut self, dt: f64) {
         if self.econ.is_none() { let Some(v) = self.pilot() else { return }; self.econ = Some(Econ::found(&v, self.hours.floor())); }
+        self.econ_focus();
         let Some(v) = self.pilot_village() else { return }; let mut e = self.econ.take().unwrap();
         if self.hours - e.t > 24.0 * 60.0 { e.t = self.hours - 24.0 * 60.0; } // au-delà de deux mois d'absence, on ne rejoue pas tout
         let mut said = Vec::new(); let before = e.log.len();
-        while e.t + 1.0 <= self.hours { e.t += 1.0; let hod = (self.hour - (self.hours - e.t)).rem_euclid(24.0).floor() as u32; let c = e.census(&v); e.step(&c, hod, (e.t / 24.0) as u32); }
+        while e.t + 1.0 <= self.hours { e.t += 1.0; let hod = (self.hour - (self.hours - e.t)).rem_euclid(24.0).floor() as u32; let c = e.census(&v); e.step(&c, hod, (e.t / 24.0) as u32);
+            // les nuits passées loin du village : les brigands sont peut-être venus, l'affaire s'est réglée selon ses défenses
+            if hod == 23 && self.hours - e.t > 2.0 { let d = (e.t / 24.0).floor() as i64; crate::raids::raid_away(&mut e, &c, d); } }
         if e.log.len() > before || (e.log.len() == 12 && before == 12) { if let Some(l) = e.log.last() { said.push(format!("{} : {}", v.name, l.1)); } }
         let near = self.town.here.iter().any(|h| h.id == v.id);
         // la réserve : on repère ses coffres une fois le village chargé ; quand le joueur referme, on recompte
         // le village a toujours son entrepôt : celui qu'il n'a pas encore (une partie d'avant) se pose dès que le joueur est là
-        if !e.extra.iter().any(|x| x.kind == Kind::Entrepot) && !e.due.contains(&Kind::Entrepot) { e.due.insert(0, Kind::Entrepot); }
+        // (le pilote seulement : les autres villages le bâtissent quand ils en ont le projet et les moyens)
+        if !e.extra.iter().any(|x| x.kind == Kind::Entrepot) && !e.due.contains(&Kind::Entrepot) { if self.pilot_id.is_none() { self.pilot_id = Some(self.pilot().map(|p| p.id)); } if self.pilot_id == Some(Some(v.id)) { e.due.insert(0, Kind::Entrepot); } }
         if near && e.store.is_empty() { e.store = self.econ_chests(&e); }
         // les remparts vus par les gardes : relevés quand ils changent (une tour de plus) ; la herse baissée la nuit, levée au jour
         let key = (e.extra.iter().filter(|x| x.kind == Kind::Muraille).count(), e.extra.iter().filter(|x| x.kind == Kind::TourDefense).count());
@@ -367,11 +385,13 @@ impl Session {
     pub fn pilot_center(&self) -> Option<[i32; 3]> { self.pilot_village().map(|v| v.c) }
     /// `/village` : l'état du village pilote.
     pub fn village_report(&self) -> String { match (self.econ.as_ref(), self.pilot_village()) { (Some(e), Some(v)) => e.report(&v, (e.t / 24.0) as u32).join("\n"), _ => "Aucun village pilote dans les parages du point de départ".into() } }
-    pub(crate) fn econ_save(&self) -> String { self.econ.as_ref().map_or(String::new(), |e| e.save()) }
+    pub(crate) fn econ_save(&self) -> String { self.econ.iter().chain(self.econs.values()).map(|e| e.save()).collect() }
     pub(crate) fn econ_load(&mut self, key: &str, a: &[&str]) {
         let n = |i: usize| a.get(i).and_then(|v| v.parse::<i32>().ok()); let f = |i: usize| a.get(i).and_then(|v| v.parse::<f64>().ok());
         match key {
-            "econ" => { let (Some(id), Some(t)) = (n(0).zip(n(1)), f(2)) else { return }; let mut stock = BTreeMap::new();
+            "econ" => { let (Some(id), Some(t)) = (n(0).zip(n(1)), f(2)) else { return };
+                // une partie qui garde plusieurs villages : celui d'avant s'endort, les lignes qui suivent sont pour celui-ci
+                if let Some(old) = self.econ.take() { self.econs.insert(old.id, old); } let mut stock = BTreeMap::new();
                 for kv in a.iter().skip(6) { if let Some((k, v)) = kv.split_once(':') { if let (Some(it), Ok(v)) = (crate::session::item(k), v.parse::<f64>()) { stock.insert(it.id, v); } } }
                 stock.entry(COIN).or_insert(20.0); // une partie d'avant le commerce : une caisse modeste
                 self.econ = Some(Econ { id, stock, t, fed: f(3).unwrap_or(1.0), lean: n(4).unwrap_or(0) as u32, extra: Vec::new(), due: vec![Kind::Maison; n(5).unwrap_or(0).max(0) as usize], project: None, log: Vec::new(), store: Vec::new(), open: false, held: 0.0, live: [false; 3], saplings: Vec::new(), trees: Vec::new(), crops: Vec::new(), rocks: Vec::new(), scan_t: -1.0, watch: Default::default(), raid: None, raid_day: -1, marks: Vec::new(), mend_t: -1.0 }); }
