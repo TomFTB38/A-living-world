@@ -635,7 +635,9 @@ fn capture(a: &[String]) {
                 if scene == "village_herse" { for _ in 0..10 { s.hour = 22.0; s.tick(0.1, none, Actions::default()); } }
                 // le garde de nuit : il gagne la tour par le chemin de ronde et monte au guet
                 let watching = |s: &alw_core::session::Session| s.town.folk.iter().any(|f| f.post == Some(alw_core::remparts::AT_LOOKOUT));
-                if scene == "village_guet" { for _ in 0..30 { s.hour = 9.0; s.tick(0.5, none, Actions::default()); } for _ in 0..1200 { s.hour = 22.5; s.tick(0.5, none, Actions::default()); if watching(&s) { break; } } println!("guet : {}", watching(&s)); }
+                if scene == "village_guet" { for _ in 0..30 { s.hour = 9.0; s.tick(0.5, none, Actions::default()); } for _ in 0..1200 { s.hour = 22.5; s.tick(0.5, none, Actions::default()); if watching(&s) { break; } } println!("guet : {}", watching(&s));
+                    // la capture n'a pas le temps de le laisser faire tout le tour à pied (l'essai du moteur, lui, le suit jusqu'au bout) : on l'y pose
+                    if !watching(&s) { let post = s.econ.as_ref().and_then(|e| e.watch.lookout).map(|l| l.1); if let (Some(post), Some(k)) = (post, s.town.folk.iter().position(|f| f.job == 8)) { let f = &mut s.town.folk[k]; f.p = post; f.post = Some(alw_core::remparts::AT_LOOKOUT); } for _ in 0..5 { s.hour = 22.5; s.tick(0.1, none, Actions::default()); } println!("guet (posé) : {}", watching(&s)); } }
                 if let Some(e) = s.econ.clone() { if let Some((c, r)) = alw_core::remparts::ring(&e) { let t = e.extra.iter().find(|x| x.kind == alw_core::patrons::Kind::TourDefense).map(|x| [x.lot.o.0 as f64, x.y as f64, x.lot.o.1 as f64]).unwrap_or([c[0] as f64 + r, 64.0, c[1] as f64]);
                     let (dx, dz) = (t[0] - c[0] as f64, t[2] - c[1] as f64); let l = dx.hypot(dz).max(1.0); let (ux, uz) = (dx / l, dz / l); let (sx, sz) = (-uz, ux);
                     let (eye, aim) = if scene == "village_muraille" { ([c[0] as f64 + ux * (r + 30.0) + sx * 30.0, t[1] + 42.0, c[1] as f64 + uz * (r + 30.0) + sz * 30.0], [c[0] as f64, t[1], c[1] as f64]) }

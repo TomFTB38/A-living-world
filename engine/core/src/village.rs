@@ -553,8 +553,8 @@ impl Town {
             put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(-0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_l, 1.0))); put(&format!("folkLeg{l}{rs}"), mul(&base, &trs(0.125, 0.76 + bob * 0.3, 0.0, 0.0, leg_r, 1.0)));
             let al = mul(&body, &trs(-0.35, 1.34, 0.0, yaw_l, arm_l, 1.0)); let ar = mul(&body, &trs(0.35, 1.34, 0.0, yaw_r, arm_r, 1.0));
             put(&format!("folkArm{l}{rs}"), al); put(&format!("folkArm{l}{rs}"), ar);
-            // la lance du garde se tient droite, la pointe en haut (les outils, eux, se tiennent en travers)
-            let hold = |h: crate::actors::Held| if upright { mul(&trs(0.0, -0.58, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.0), &crate::view::roll_z(std::f64::consts::FRAC_PI_4)) } else { crate::actors::hold_m(h.hold) };
+            // la lance du garde se tient droite, longue, la pointe au-dessus de la tête (les outils, eux, se tiennent en travers)
+            let hold = |h: crate::actors::Held| if upright { mul(&trs(0.0, -0.2, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.5), &crate::view::roll_z(std::f64::consts::FRAC_PI_4)) } else { crate::actors::hold_m(h.hold) };
             if let Some(h) = tool.and_then(|n| md.held(n)) { out.push(Draw { m: mul(&ar, &hold(h)), r: h.r, view: false, local: h.local, hero: false, dynamic: false, hurt: 0.0 }); }
         }
         out
