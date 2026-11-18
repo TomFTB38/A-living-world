@@ -9,10 +9,10 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 81] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 82] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket",
-    "lever", "lever_on", "spikes", "spikes_down"];
+    "lever", "lever_on", "spikes", "spikes_down", "dart_trap"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
 /// La couche de texture d'une matière (« rug », « hay »…) ou, à défaut, de la face d'un bloc du même nom.
 fn layer(n: &str) -> f64 {
@@ -402,6 +402,24 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
             k.b([0.3, 0.3, 0.92, 0.7, 0.7, 1.0], IRON); k.b([0.36, 0.36, 0.89, 0.64, 0.64, 0.92], [0.24, 0.24, 0.26]); for (x, y) in [(0.33, 0.33), (0.67, 0.33), (0.33, 0.67), (0.67, 0.67)] { k.b([x - 0.02, y - 0.02, 0.9, x + 0.02, y + 0.02, 0.93], [0.4, 0.4, 0.42]); }
             let up = m == "lever"; let tip = if up { [0.5, 0.86, 0.62] } else { [0.5, 0.14, 0.62] };
             k.cy([0.5, 0.5, 0.88], tip, 0.035, 0.03, 0.0, WOOD); k.cy(tip, [tip[0], tip[1] + if up { 0.05 } else { -0.05 }, tip[2] - 0.02], 0.06, 0.055, 0.0, [0.62, 0.12, 0.1]);
+        }
+        // le lance-fléchettes : un bloc de pierre taillée ; sur chaque face, un masque grimaçant en relief dans un cadre, les yeux
+        // creux, et une bouche sombre d'où dépassent trois pointes de fléchettes en bronze
+        "dart_trap" => {
+            k.t([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "polished_stone", [0.78, 0.76, 0.72]);
+            let (frame, mask, dark, bronze) = ([0.36, 0.34, 0.32], [0.62, 0.58, 0.52], [0.04, 0.03, 0.03], [0.72, 0.5, 0.22]);
+            // une boîte décrite sur la face +z (u en travers, v en hauteur, d vers l'extérieur depuis la face), puis tournée sur les quatre côtés
+            let face = |k: &mut K, q: u8, u0: f64, v0: f64, u1: f64, v1: f64, d0: f64, d1: f64, c: C| {
+                let (a0, a1, b0, b1) = (u0, u1, 1.0 + d0, 1.0 + d1); let pts = [(a0, b0), (a1, b1)];
+                let rot = |(x, z): (f64, f64)| -> (f64, f64) { let (mut x, mut z) = (x - 0.5, z - 0.5); for _ in 0..q { (x, z) = (z, -x); } (x + 0.5, z + 0.5) };
+                let (p, r) = (rot(pts[0]), rot(pts[1])); k.b([p.0.min(r.0), v0, p.1.min(r.1), p.0.max(r.0), v1, p.1.max(r.1)], c); };
+            for q in 0..4u8 {
+                for (u0, v0, u1, v1) in [(0.12, 0.12, 0.88, 0.18), (0.12, 0.82, 0.88, 0.88), (0.12, 0.18, 0.18, 0.82), (0.82, 0.18, 0.88, 0.82)] { face(k, q, u0, v0, u1, v1, -0.002, 0.02, frame); }
+                face(k, q, 0.25, 0.24, 0.75, 0.76, -0.002, 0.035, mask); face(k, q, 0.3, 0.6, 0.45, 0.66, 0.035, 0.05, tone(mask, 0.8)); face(k, q, 0.55, 0.6, 0.7, 0.66, 0.035, 0.05, tone(mask, 0.8));
+                face(k, q, 0.33, 0.5, 0.43, 0.57, 0.03, 0.037, dark); face(k, q, 0.57, 0.5, 0.67, 0.57, 0.03, 0.037, dark);
+                face(k, q, 0.3, 0.3, 0.7, 0.42, 0.03, 0.038, dark);
+                for u in [0.38, 0.5, 0.62] { face(k, q, u - 0.015, 0.345, u + 0.015, 0.375, 0.035, 0.07, bronze); }
+            }
         }
         // les pics : une plaque de fer percée, et, sortis, des pointes acérées ; rentrés, seuls leurs bouts affleurent
         "spikes" | "spikes_down" => {

@@ -540,6 +540,13 @@ fn capture(a: &[String]) {
     }
     // Les mécanismes des donjons, en vitrine sur le monde plat : un mur de pierre avec son levier et sa grille, une dalle à
     // pression et son bloc à pousser, des pics sortis et rentrés, un lance-fléchettes, une bande de sol friable.
+    // Le lance-fléchettes de près : deux blocs dans un mur, à hauteur d'yeux, l'un de face, l'autre en coin.
+    if scene == "plat_flechettes" {
+        let id = |n: &str| alw_core::blocks::by_name(n).unwrap_or(0); let p = s.player.p; let (x, y, z) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32 + 3);
+        s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.player.yaw = 0.25; s.player.pitch = 0.05; s.sel = 8;
+        let mut e = Vec::new(); for dx in -3..=3 { for dy in 0..3 { e.push((x + dx, y + dy, z, id("stone_bricks"))); } } e.push((x, y + 1, z, id("dart_trap"))); e.push((x + 2, y + 1, z - 1, id("dart_trap"))); e.push((x + 2, y, z - 1, id("stone_bricks")));
+        s.world.edit_many(&e); pump(&mut s, &mut g);
+    }
     if scene == "plat_mecanismes" {
         let id = |n: &str| alw_core::blocks::by_name(n).unwrap_or(0); let p = s.player.p; let (x, y, z) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32 + 5);
         s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.player.yaw = 0.0; s.player.pitch = -0.32;
