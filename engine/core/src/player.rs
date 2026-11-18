@@ -8,9 +8,10 @@ pub trait Voxels { fn get(&self, x: i32, y: i32, z: i32) -> Option<Id>; }
 pub struct Input { pub x: f64, pub z: f64, pub jump: bool, pub sprint: bool, pub crouch: bool, pub roll: bool }
 pub const ROLL_TIME: f64 = 0.62; const ROLL_SPEED: f64 = 5.5; /* trois blocs au plus */ const ROLL_WAIT: f64 = 0.3;
 pub struct Player { /** Franchir un bloc entier sans sauter (saut automatique). */ pub autostep: bool, pub p: [f64; 3], pub v: [f64; 3], pub yaw: f64, pub pitch: f64, pub ground: bool, pub crouch: bool, pub in_water: bool, pub speed: f64, pub fly: bool, pub move_yaw: f64, /** ralenti (toile, soie) : la part d'allure perdue, de 0 à 1 */ pub slow: f64, pub roll_t: f64, roll_dir: [f64; 2], pub roll_local: [f64; 2], roll_wait: f64,
-    /** compétences : allure à pied et dans l'eau (1 = normale), vitesse d'escalade (0 : on ne grimpe pas) ; en train de grimper */ pub stride: f64, pub swim_k: f64, pub climb: f64, pub climbing: bool }
+    /** compétences : allure à pied et dans l'eau (1 = normale), vitesse d'escalade (0 : on ne grimpe pas) ; en train de grimper */ pub stride: f64, pub swim_k: f64, pub climb: f64, pub climbing: bool,
+    /** la hauteur gravissable d'une traite (blocs), et le sol d'où l'on est parti */ pub climb_h: f64, foot_y: f64 }
 impl Player {
-    pub fn new(x: f64, y: f64, z: f64) -> Self { Player { autostep: true, p: [x, y, z], v: [0.0; 3], yaw: 0.0, pitch: 0.0, ground: false, crouch: false, in_water: false, speed: 0.0, fly: false, move_yaw: 0.0, slow: 0.0, roll_t: 0.0, roll_dir: [0.0; 2], roll_local: [0.0, 1.0], roll_wait: 0.0, stride: 1.0, swim_k: 1.0, climb: 0.0, climbing: false } }
+    pub fn new(x: f64, y: f64, z: f64) -> Self { Player { autostep: true, p: [x, y, z], v: [0.0; 3], yaw: 0.0, pitch: 0.0, ground: false, crouch: false, in_water: false, speed: 0.0, fly: false, move_yaw: 0.0, slow: 0.0, roll_t: 0.0, roll_dir: [0.0; 2], roll_local: [0.0, 1.0], roll_wait: 0.0, stride: 1.0, swim_k: 1.0, climb: 0.0, climbing: false, climb_h: 0.0, foot_y: y } }
     /// Le corps (une boîte de 0,6 × 1,8) rencontre-t-il quelque chose ? Chaque bloc arrête exactement là où il est dessiné :
     /// les formes de construction par leur géométrie, les meubles et objets par leur dessin, la clôture par son poteau et ses lisses.
     fn hits(&self, w: &impl Voxels, x: f64, y: f64, z: f64) -> bool { self.top_hit(w, x, y, z).is_some() }
@@ -29,7 +30,7 @@ impl Player {
     fn on_ladder(&self, w: &impl Voxels) -> bool { let fl = |v: f64| v.floor() as i32; (0..2).any(|k| w.get(fl(self.p[0]), fl(self.p[1] + 0.2 + k as f64), fl(self.p[2])).is_some_and(crate::shapes::is_ladder)) }
     pub fn update(&mut self, w: &impl Voxels, dt: f64, i: Input) {
         let fly = self.fly; let sp = if fly { if i.sprint { 22.0 } else { 11.0 } } else { self.stride * if i.sprint { 7.2 } else if i.crouch { 2.0 } else { 4.5 } };
-        self.crouch = i.crouch && !fly; self.climbing = false;
+        self.crouch = i.crouch && !fly; self.climbing = false; if self.ground || self.in_water || fly { self.foot_y = self.p[1]; } // d'où l'on part grimper
         self.in_water = w.get(self.p[0].floor() as i32, (self.p[1] + 0.9).floor() as i32, self.p[2].floor() as i32).is_some_and(is_wet);
         let (s, c) = self.yaw.sin_cos();
         let (mut mx, mut mz) = (i.x * c + i.z * s, -i.x * s + i.z * c); let l = (mx * mx + mz * mz).sqrt();
@@ -52,7 +53,7 @@ impl Player {
         else if self.in_water { self.v[1] += (if i.jump { 3.5 } else { -1.2 - self.v[1] }) * (6.0 * dt).min(1.0); }
         else if self.on_ladder(w) { self.v[1] = if i.z > 0.1 || i.jump { 3.2 } else if i.crouch { -2.5 } else { (self.v[1] - GRAV * dt).max(-2.0) }; self.ground = false; }
         // Escalade (compétence) : en avançant contre une paroi, Saut tenu, on monte ; arrivé en haut, le pas suivant passe le rebord.
-        else if self.climb > 0.0 && i.jump && i.z > 0.1 && !self.crouch && self.wall_ahead(w, s, c) { self.v[1] = self.climb; self.ground = false; self.climbing = true; }
+        else if self.climb > 0.0 && i.jump && i.z > 0.1 && !self.crouch && self.p[1] < self.foot_y + self.climb_h + 0.1 && self.wall_ahead(w, s, c) { self.v[1] = self.climb; self.ground = false; self.climbing = true; }
         else { self.v[1] -= GRAV * dt; if i.jump && self.ground { self.v[1] = JUMP; self.ground = false; } }
         if self.v[1] < -40.0 { self.v[1] = -40.0; }
         for a in [0, 2] {
@@ -74,7 +75,7 @@ impl Player {
     }
     pub fn rolling(&self) -> bool { self.roll_t > 0.0 }
     /// Une paroi devant soi (dans le sens du regard), quelque part sur la hauteur du corps.
-    fn wall_ahead(&self, w: &impl Voxels, s: f64, c: f64) -> bool { self.hits(w, self.p[0] + s * 0.32, self.p[1] + 0.05, self.p[2] + c * 0.32) }
+    fn wall_ahead(&self, w: &impl Voxels, s: f64, c: f64) -> bool { self.hits(w, self.p[0] + s * 0.32, self.p[1] + 0.002, self.p[2] + c * 0.32) }
     /// Tête : plus basse accroupi, et qui plonge pendant une roulade, sans faire tourner la vue.
     pub fn eye(&self) -> [f64; 3] { let dip = if self.rolling() { 0.85 * (self.roll_t / ROLL_TIME * std::f64::consts::PI).sin() } else { 0.0 }; [self.p[0], self.p[1] + (if self.crouch { 1.32 } else { 1.62 }) - dip, self.p[2]] }
     pub fn forward(&self) -> [f64; 3] { let cp = self.pitch.cos(); [self.yaw.sin() * cp, self.pitch.sin(), self.yaw.cos() * cp] }

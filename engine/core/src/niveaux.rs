@@ -16,7 +16,7 @@ pub const BRANCHES: [&str; 3] = ["Agilité", "Force", "Endurance"];
 pub const SKILLS: [Skill; 9] = [
     Skill { id: "foulee", name: "Foulée", branch: 0, tier: 0, what: "+6 % de vitesse à pied par rang", icon: "leather_boots" },
     Skill { id: "nage", name: "Nage", branch: 0, tier: 1, what: "+20 % de vitesse dans l'eau et +25 % de souffle par rang", icon: "bucket" },
-    Skill { id: "escalade", name: "Escalade", branch: 0, tier: 2, what: "Grimper les parois (avancer en tenant Saut) ; plus vite à chaque rang", icon: "rope" },
+    Skill { id: "escalade", name: "Escalade", branch: 0, tier: 2, what: "Grimper une paroi de 2 blocs, puis 3, puis 4 (avancer en tenant Saut)", icon: "rope" },
     Skill { id: "frappe", name: "Frappe", branch: 1, tier: 0, what: "+6 % de dégâts par rang", icon: "sword" },
     Skill { id: "portefaix", name: "Portefaix", branch: 1, tier: 1, what: "+20 % de charge portée par rang", icon: "chest" },
     Skill { id: "puissance", name: "Coup puissant", branch: 1, tier: 2, what: "Coup lourd +15 % et chargé 10 % plus vite par rang", icon: "axe" },
@@ -66,6 +66,8 @@ impl Prog {
     pub fn lungs(&self) -> f64 { 1.0 + 0.25 * self.rank("nage") }
     /// Vitesse d'escalade (0 : on ne grimpe pas).
     pub fn climb(&self) -> f64 { match self.rank("escalade") as u8 { 0 => 0.0, 1 => 1.5, 2 => 2.1, _ => 2.8 } }
+    /// La hauteur qu'on peut gravir d'une traite, en blocs : 2 au rang 1, 3 au rang 2, 4 au rang 3.
+    pub fn climb_h(&self) -> f64 { match self.rank("escalade") as u8 { 0 => 0.0, r => 1.0 + r as f64 } }
     /// Ce que coûte une seconde d'escalade en endurance.
     pub fn climb_cost(&self) -> f64 { 11.0 - 2.0 * self.rank("escalade") }
     pub fn melee(&self) -> f64 { 1.0 + 0.06 * self.rank("frappe") }

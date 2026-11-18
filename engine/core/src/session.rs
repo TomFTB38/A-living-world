@@ -183,7 +183,7 @@ impl Session {
         // Englué par une morsure ou pris dans une toile : on avance à moins de la moitié de son allure.
         self.snare = (self.snare - dt).max(0.0); self.player.slow = if self.snare > 0.0 || self.in_web() { 0.6 } else { 0.0 };
         // les compétences de l'explorateur : sa foulée, sa nage, son escalade (qui s'arrête quand l'endurance manque)
-        self.player.stride = self.prog.stride(); self.player.swim_k = self.prog.swim(); self.player.climb = if self.stamina > 1.0 && !self.winded { self.prog.climb() } else { 0.0 };
+        self.player.stride = self.prog.stride(); self.player.swim_k = self.prog.swim(); self.player.climb = if self.stamina > 1.0 && !self.winded { self.prog.climb() } else { 0.0 }; self.player.climb_h = self.prog.climb_h();
         let (rolled, was_ground) = (self.player.rolling(), self.player.ground); if !self.ride_step(dt, i) { self.player.update(&self.world, dt, i); }
         if self.player.climbing && !self.creative { self.spend(self.prog.climb_cost() * dt); } if alive { self.explore_tick(); } // en selle, c'est la monture qui marche
         let roll_start = self.player.rolling() && !rolled; if roll_start { self.sound.roll(); }

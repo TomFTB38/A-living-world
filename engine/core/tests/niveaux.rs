@@ -47,13 +47,13 @@ fn foulee_et_portefaix_changent_le_corps() {
 }
 
 #[test]
-fn l_escalade_fait_grimper_les_parois() {
-    // une falaise de pierre de six blocs devant soi
-    let wall = |s: &mut Session| { let y = s.player.p[1].floor() as i32; for dy in 0..6 { for dx in -2..=2 { for dz in 2..12 { s.world.edit(dx, y + dy, dz, by_name("stone").unwrap()); } } } let _ = s.sync(); };
-    let climb = Input { z: 1.0, jump: true, ..Input::default() };
-    let mut a = flat(); let y0 = a.player.p[1]; wall(&mut a); walk(&mut a, 3.0, climb); let ha = a.player.p[1] - y0;
-    let mut b = flat(); b.prog.ranks[idx("escalade")] = 1; wall(&mut b); walk(&mut b, 5.0, climb); let hb = b.player.p[1] - y0;
-    println!("contre un mur de six blocs : sans la compétence +{ha:.1}, avec Escalade +{hb:.1}"); assert!(ha < 2.0, "sans elle, un saut"); assert!(hb > 5.5, "avec elle, on passe le mur");
+fn l_escalade_monte_un_bloc_de_plus_par_rang() {
+    // une falaise de pierre de `h` blocs devant soi ; on avance en tenant Saut cinq secondes : est-on monté dessus ?
+    let tops = |rank: u8, h: i32| { let mut s = flat(); s.prog.ranks[idx("escalade")] = rank; let y = s.player.p[1].floor() as i32; let y0 = s.player.p[1];
+        for dy in 0..h { for dx in -2..=2 { for dz in 2..40 { s.world.edit(dx, y + dy, dz, by_name("stone").unwrap()); } } } let _ = s.sync();
+        walk(&mut s, 5.0, Input { z: 1.0, jump: true, ..Input::default() }); s.player.p[1] - y0 >= h as f64 - 0.05 };
+    for rank in 0..=3u8 { let got: Vec<bool> = (2..=5).map(|h| tops(rank, h)).collect(); println!("rang {rank} : falaises de 2, 3, 4, 5 blocs gravies {got:?}");
+        for (k, h) in (2..=5).enumerate() { assert_eq!(got[k], rank > 0 && h <= rank as i32 + 1, "rang {rank}, falaise de {h}"); } }
 }
 
 #[test]
