@@ -485,6 +485,8 @@ egg_brigand_archer | Œuf : archer brigand | oeufs | 0.1 | 64 | Clic droit sur u
 egg_brigand_epeiste | Œuf : épéiste brigand | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : épéiste brigand. Pour essayer les créatures en créatif. |
 egg_brigand_cavalier | Œuf : cavalier brigand | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cavalier brigand. Pour essayer les créatures en créatif. |
 egg_brigand_chef | Œuf : chef de guerre brigand | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : chef de guerre brigand. Pour essayer les créatures en créatif. |
+egg_capitaine | Œuf : capitaine squelette | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : capitaine squelette. Pour essayer les créatures en créatif. |
+egg_gardien | Œuf : gardien de la crypte | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : gardien de la crypte. Pour essayer les créatures en créatif. |
 egg_rodeuse | Œuf : bête rôdeuse | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : bête rôdeuse. Pour essayer les créatures en créatif. |
 egg_rampant | Œuf : rampant nocturne | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : rampant nocturne. Pour essayer les créatures en créatif. |
 egg_deer | Œuf : cerf | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cerf. Pour essayer les créatures en créatif. |

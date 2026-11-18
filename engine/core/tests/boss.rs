@@ -105,3 +105,36 @@ fn le_cavalier_tourne_et_varie_ses_attaques() {
     for k in 0..(60.0 / DT) as usize { s.vit = [100.0; 3]; if k % 400 == 0 { s.player.p = p0; } s.tick(DT, Input::default(), Actions::default()); let f = &s.horde.foes[i]; if f.mv != 0 { seen.insert(f.mv); } }
     println!("attaques du cavalier : {seen:?}"); assert!(seen.contains(&h::MV_LANCE) && seen.contains(&h::MV_PASSE), "charge et coup au passage");
 }
+
+fn foe(id: &str, d: f64, vet: bool) -> (Session, usize) {
+    let (mut s, _) = duel(); s.horde.foes.clear(); let p = s.player.p;
+    let i = s.horde.put(h::species(id).unwrap(), [p[0], p[1], p[2] + d], std::f64::consts::PI, vet); let f = &mut s.horde.foes[i]; f.alert = 1.0; f.seen = Some(p); f.state = Ai::Combat; (s, i)
+}
+
+#[test]
+fn le_capitaine_salve_au_bouclier_tir_charge_a_esquiver() {
+    let (mut s, i) = foe("capitaine", 9.0, false); { let f = &mut s.horde.foes[i]; f.mv = h::MV_SALVE; f.wind = 0.1; } play(&mut s, 2.0, true, None); let salve = 100.0 - s.vit[0];
+    let (mut s, i) = foe("capitaine", 9.0, false); { let f = &mut s.horde.foes[i]; f.mv = h::MV_TIR; f.wind = 0.1; } play(&mut s, 1.2, true, None); let tir = 100.0 - s.vit[0];
+    println!("au bouclier : la salve −{salve:.0}, le tir chargé −{tir:.0} ({:?})", s.cause); assert!(tir > 10.0 && salve < tir, "le tir chargé traverse le bouclier"); assert!(s.cause.contains("capitaine"));
+    // de près, le coup de pied, puis il rompt
+    let (mut s, i) = foe("capitaine", 1.8, false); play(&mut s, 2.5, false, None); let d = (s.horde.foes[i].p[2] - s.player.p[2]).hypot(s.horde.foes[i].p[0] - s.player.p[0]);
+    println!("serré de près : « {} », il s'est écarté à {d:.1} pas", s.cause); assert!(s.cause.contains("pied") && d > 3.0);
+}
+
+#[test]
+fn le_gardien_de_la_crypte_se_bat_en_boss() {
+    let (mut s, i) = foe("gardien", 2.0, false); let mut seen = std::collections::BTreeSet::new();
+    for _ in 0..(25.0 / DT) as usize { s.vit = [100.0; 3]; s.tick(DT, Input::default(), Actions::default()); let f = &s.horde.foes[i]; if f.mv != 0 { seen.insert(f.mv); } }
+    println!("gardien : attaques {seen:?}, « {} »", s.cause); assert!(seen.len() >= 3 && s.cause.contains("gardien"));
+    let (mut s, i) = foe("gardien", 2.0, false); s.horde.foes[i].hp = s.horde.foes[i].max * 0.4; play(&mut s, 0.3, false, None);
+    let dead = s.horde.foes.iter().filter(|f| f.sp == h::species("rodeur").unwrap()).count(); println!("à mi-vie : {dead} rôdeurs se lèvent, {:?}", s.notes.last()); assert_eq!(dead, 2);
+}
+
+#[test]
+fn les_veterans_ont_leur_botte() {
+    // l'archer vétéran bande parfois longuement son arc : sa flèche lourde traverse le bouclier
+    let (mut s, i) = foe("brigand_archer", 9.0, true); let mut charged = false; for _ in 0..(20.0 / DT) as usize { s.vit = [100.0; 3]; s.tick(DT, Input::default(), Actions::default()); if s.horde.foes[i].mv == h::MV_TIR { charged = true; } }
+    // l'épéiste vétéran feinte : le geste s'arrête net, puis le vrai coup part vite
+    let (mut s, i) = foe("brigand_epeiste", 1.8, true); let mut feint = false; for _ in 0..(20.0 / DT) as usize { s.vit = [100.0; 3]; s.tick(DT, Input::default(), Actions::default()); if s.horde.foes[i].mv == h::MV_FEINTE { feint = true; } }
+    println!("tir chargé {charged}, feinte {feint}"); assert!(charged && feint);
+}

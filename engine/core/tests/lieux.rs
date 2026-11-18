@@ -46,10 +46,12 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
 fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
     let w = WorldGen::new(SEED); let mut s = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); ready(&mut s); s.hour = 12.0; let sp = |id: &str| alw_core::hostile::species(id).unwrap();
     assert!(s.command("/lieu chateau").contains("inconnu"));
-    for (key, who, n, loot) in [("tour", "archer", 5, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("cimetiere", "archer", 3, "worn_coin")] {
+    for (key, who, n, loot) in [("tour", "archer", 4, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("cimetiere", "archer", 3, "worn_coin")] {
         s.horde.foes.clear(); let msg = s.command(&format!("/lieu {key}")); ready(&mut s); let pl = w.places_near(s.player.p[0], s.player.p[2], 40.0).into_iter().next().unwrap_or_else(|| panic!("{key} : {msg}")); assert_eq!(pl.kind.key(), key, "{msg}");
         s.notes.clear(); for _ in 0..3 { s.tick(0.05, Input::default(), Actions::default()); }
         assert!(s.horde.foes.iter().filter(|f| f.sp == sp(who)).count() >= n, "{key} : {n} {who} attendus, on a {:?}", s.horde.foes.iter().map(|f| (alw_core::hostile::bestiary().species[f.sp].id, f.p.map(|v| v.round()), f.hp)).collect::<Vec<_>>()); assert!(s.notes.iter().any(|t| t.contains("en vue")), "{key} : annoncé");
+        // le chef du lieu est un boss : le capitaine au sommet de la tour, le gardien au fond de la crypte
+        if let Some(boss) = match key { "tour" => Some("capitaine"), "cimetiere" => Some("gardien"), _ => None } { assert_eq!(s.horde.foes.iter().filter(|f| f.sp == sp(boss)).count(), 1, "{key} : son {boss}"); }
         assert_eq!(s.horde.foes.iter().filter(|f| f.sp == sp("fantome")).count(), 0, "pas de fantôme en plein jour");
         let before = s.horde.foes.len(); for _ in 0..40 { s.tick(0.05, Input::default(), Actions::default()); } assert!(s.horde.foes.len() <= before + 2, "{key} : on ne relâche pas des gardiens à chaque image");
         s.open_chest(pl.chest()); let got = &s.chests[&pl.chest()]; assert!(got.iter().flatten().any(|st| st.item == loot), "{key} : {loot} dans le coffre, on a {:?}", got.iter().flatten().map(|st| st.item).collect::<Vec<_>>()); s.close_chest(); s.inv_open = false;

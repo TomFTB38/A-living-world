@@ -121,7 +121,7 @@ pub struct Foe {
 /// Ce que font les créatures, pour la session (coups, sons, butin).
 #[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool, Option<(i32, i32)>), /** une morsure qui englue : ralenti pendant tant de secondes */ Snare(f64), /** un pillard est arrivé à la réserve du village (sa bande) */ Loot([f64; 3], u32),
     /** un coup qu'aucun bouclier n'arrête (seule la roulade l'évite) */ Crush { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 },
-    /** sa garde brisée : il chancelle */ Reel([f64; 3]), /** il entre dans sa seconde phase, et appelle ses hommes */ Rage([f64; 3]), /** le cavalier vide les étriers : son cheval s'enfuit */ Unhorse([f64; 3], f64) }
+    /** sa garde brisée : il chancelle */ Reel([f64; 3]), /** il entre dans sa seconde phase, et appelle ses hommes */ Rage([f64; 3], &'static str), /** le cavalier vide les étriers : son cheval s'enfuit */ Unhorse([f64; 3], f64) }
 
 pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv>, groups: u32, pub spawned: u32, /** braises semées par les rampants de magma : (position, secondes restantes) */ pub embers: Vec<([f64; 3], f64)>, burn_cd: f64, /** flèches des archers en vol : (position, vitesse, âge, dégâts, ce qui l'a tirée) */ pub shots: Vec<([f64; 3], [f64; 3], f64, f64, &'static str)> }
 /// Ce que la session donne à la horde à chaque image.
@@ -158,7 +158,7 @@ impl Horde {
         let face = { let (dx, dz) = (from[0] - f.p[0], from[2] - f.p[2]); let d = dx.hypot(dz).max(0.01); (sin(f.yaw) * dx + cos(f.yaw) * dz) / d };
         let blocked = f.guard > 0.5 && face > 0.3; if blocked { self.ev.push(FoeEv::Blocked(f.p)); if s.guard_up { f.cd = f.cd.min(0.15); } } // l'épéiste pare, et riposte aussitôt
         // Le boss : sa garde encaisse (la vie bouge à peine) tant qu'elle tient ; brisée, il chancelle et chaque coup porte double et demi.
-        let boss = if f.broken > 0.0 { BROKEN_MUL } else if !s.boss { 1.0 } else { f.calm = 0.0; f.posture += dmg * if heavy { 1.0 } else { 0.5 }; let guarded = if s.body == Body::Cavalier { MOUNTED_MUL } else { GUARDED_MUL }; if f.posture >= POSTURE { reel(f, &mut self.ev); BROKEN_MUL } else { guarded } };
+        let boss = if f.broken > 0.0 { BROKEN_MUL } else if !s.boss { 1.0 } else { f.calm = 0.0; f.posture += dmg * if heavy { 1.0 } else { 0.5 }; let guarded = if s.body == Body::Cavalier { MOUNTED_MUL } else if s.bow { 0.7 } else { GUARDED_MUL }; if f.posture >= POSTURE { reel(f, &mut self.ev); BROKEN_MUL } else { guarded } };
         f.hp -= dmg * (1.0 - s.armor) * mul * boss * if blocked { 0.2 } else { 1.0 }; f.hit = if blocked { 0.0 } else { 0.3 };
         let (dx, dz) = (f.p[0] - from[0], f.p[2] - from[2]); let d = dx.hypot(dz).max(0.1); let k = if heavy { 6.5 } else { 3.2 } / s.size / if s.boss { 4.0 } else { 1.0 }; f.v = [dx / d * k, 0.0, dz / d * k];
         // Un coup interrompt l'attaque annoncée (le joueur qui frappe le premier garde l'avantage) ; elle sait maintenant où il est.
@@ -231,7 +231,7 @@ impl Horde {
         for a in shots.iter_mut() { let steps = 3; for _ in 0..steps { let h = dt / steps as f64; a.1[1] -= 12.0 * h; for k in 0..3 { a.0[k] += a.1[k] * h; }
             if w.get(a.0[0].floor() as i32, a.0[1].floor() as i32, a.0[2].floor() as i32).is_none_or(|b| b != 0 && is_solid(b)) { a.2 = 99.0; break; }
             if c.alive && hypot2(a.0[0] - me[0], a.0[2] - me[2]) < 0.42 && a.0[1] > me[1] - 0.1 && a.0[1] < me[1] + 1.85 { let l = hypot2(a.1[0], a.1[2]).max(0.1);
-                self.ev.push(FoeEv::Hit { from: [me[0] - a.1[0] / l * 3.0, me[1], me[2] - a.1[2] / l * 3.0], dmg: a.3, cause: a.4, push: 1.2 }); a.2 = 99.0; break; } }
+                let from = [me[0] - a.1[0] / l * 3.0, me[1], me[2] - a.1[2] / l * 3.0]; self.ev.push(if a.4.starts_with(HEAVY_ARROW) { FoeEv::Crush { from, dmg: a.3, cause: a.4, push: 3.0 } } else { FoeEv::Hit { from, dmg: a.3, cause: a.4, push: 1.2 } }); a.2 = 99.0; break; } }
             a.2 += dt; }
         shots.retain(|a| a.2 < 5.0); self.shots = shots;
         // Les braises s'éteignent ; marcher dessus, ou serrer de trop près un rampant de magma, brûle.
@@ -265,7 +265,7 @@ impl Horde {
         else { f.lost += dt; if hear { f.alert = (f.alert + dt * 0.7).min(1.0); f.seen = Some([me[0] + r.range(-2.0, 2.0), me[1], me[2] + r.range(-2.0, 2.0)]); } else { f.alert = (f.alert - dt * 0.08).max(0.0); } }
         // ---- le boss au combat : sa propre façon de se battre (voir `boss_think`)
         if !s.boss && f.broken > 0.0 { f.broken -= dt; f.speed = 0.0; f.wind = 0.0; f.phase += dt * 1.5; knock(f, dt, w); settle(f, dt, w); return; } // à terre, sonné
-        if s.boss && f.dead == 0.0 { if matches!(f.state, Ai::Poursuite | Ai::Combat) && if s.body == Body::Cavalier { Self::rider_think(r, &mut self.ev, f, dt, c, see, dist, dy, to) } else { Self::boss_think(r, &mut self.ev, f, dt, c, see, dist, dy, to) } {
+        if s.boss && f.dead == 0.0 { if matches!(f.state, Ai::Poursuite | Ai::Combat) && match s.body { Body::Cavalier => Self::rider_think(r, &mut self.ev, f, dt, c, see, dist, dy, to), _ if s.bow => Self::captain_think(r, &mut self.ev, &mut self.shots, f, dt, c, see, dist, dy, to), _ => Self::boss_think(r, &mut self.ev, f, dt, c, see, dist, dy, to) } {
             f.phase += dt * (2.0 + f.speed * 1.8); knock(f, dt, w); if f.speed > 0.0 { let step = f.speed * dt; walk(f, w, step, false, s.body, !f.raid.is_empty()); } settle(f, dt, w); return; }
             f.mv = 0; f.combo = 0; f.lunge = 0.0; if f.broken > 0.0 { f.broken = 0.0; } if !matches!(f.state, Ai::Poursuite | Ai::Combat) { f.wind = 0.0; } }
         // ---- l'état
@@ -303,7 +303,9 @@ impl Horde {
             Combat => {
                 f.speed = 0.0; f.yaw = turn(f.yaw, (me[0] - f.p[0]).atan2(me[2] - f.p[2]), dt * if f.wind > 0.0 { 2.0 } else { 7.0 });
                 // L'attaque s'annonce (bras levé, gueule ouverte, corps ramassé), puis tombe : esquivable, parable.
-                if f.wind <= 0.0 && f.cd <= 0.0 { f.wind = s.windup; self.ev.push(FoeEv::Swing(f.p)); }
+                if f.wind <= 0.0 && f.cd <= 0.0 { f.wind = s.windup; f.mv = 0; self.ev.push(FoeEv::Swing(f.p));
+                    // les vétérans ont leur botte : l'épéiste feinte (un geste à moitié, puis le vrai coup, vite) ; l'archer bande longuement son arc
+                    if f.vet && s.guard_up && r.next() < 0.35 { f.mv = MV_FEINTE; } if f.vet && s.bow && r.next() < 0.4 { f.mv = MV_TIR; f.wind = s.windup + WIND_TIR; } }
                 // Le brigand au bouclier se couvre entre deux coups.
                 if shielded(s, f.variant) { let want = if f.wind <= 0.0 && f.cd > 0.3 { 1.0 } else { 0.0 }; f.guard += (want - f.guard) * (dt * 8.0).min(1.0); }
                 if dist > s.reach + 1.2 && f.wind <= 0.0 { f.state = Poursuite; }
@@ -336,12 +338,14 @@ impl Horde {
                             if !built && y - f.gy <= up && f.gy - y <= 6.0 && (fits(w, nx, y, nz, a0 + k, tall) || wet_fits(w, nx, y, nz, tall)) { f.p = [nx, y, nz]; f.gy = y; f.best = hypot2(wp[0] - nx, wp[2] - nz); break; } } } } }
         }
         // ---- le coup tombe à la fin de l'annonce, s'il y a contact (distance et angle cohérents avec le geste)
-        if f.wind > 0.0 && !s.boss { f.wind -= dt; if f.wind <= 0.0 { f.wind = 0.0; f.cd = s.cd * if f.vet { 0.9 } else { 1.0 } * if s.rage && f.hp < f.max * 0.5 { 0.6 } else { 1.0 };
+        if f.wind > 0.0 && !s.boss { f.wind -= dt; if f.mv == MV_FEINTE && f.wind < s.windup * 0.45 { f.mv = 0; f.wind = 0.2; } // la feinte : le geste s'arrête net, le vrai coup part
+            if f.wind <= 0.0 { f.wind = 0.0; let heavy = f.mv == MV_TIR; f.mv = 0; f.cd = s.cd * if f.vet { 0.9 } else { 1.0 } * if s.rage && f.hp < f.max * 0.5 { 0.6 } else { 1.0 };
             let face = sin(f.yaw) * to[0] + cos(f.yaw) * to[1]; let reach = s.reach + if f.air { 0.8 } else { 0.5 };
             if s.bow { // la flèche part vers où l'on se tient, un peu au-dessus pour la chute ; elle n'est pas infaillible
-                if c.alive && see { let from = [f.p[0] + sin(f.yaw) * 0.4, f.p[1] + 1.35 * s.size, f.p[2] + cos(f.yaw) * 0.4]; let sp = 24.0; let aim = [me[0] + r.range(-0.35, 0.35), me[1] + 1.1, me[2] + r.range(-0.35, 0.35)];
-                    let d = [aim[0] - from[0], aim[1] - from[1], aim[2] - from[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt().max(0.1); let t = l / sp;
-                    self.shots.push((from, [d[0] / t, d[1] / t + 0.5 * 12.0 * t, d[2] / t], 0.0, s.dmg * r.range(0.8, 1.2) * if f.vet { 1.15 } else { 1.0 }, if s.body == Body::Brigand { "La flèche d'un archer brigand" } else { "La flèche d'un archer squelette" })); self.ev.push(FoeEv::Swing(f.p)); }
+                if c.alive && see { let from = [f.p[0] + sin(f.yaw) * 0.4, f.p[1] + 1.35 * s.size, f.p[2] + cos(f.yaw) * 0.4]; let aim = [me[0] + r.range(-0.35, 0.35), me[1] + 1.1, me[2] + r.range(-0.35, 0.35)];
+                    let dmg = s.dmg * r.range(0.8, 1.2) * if f.vet { 1.15 } else { 1.0 };
+                    self.shots.push(if heavy { arrow(from, [me[0], me[1] + 1.1, me[2]], 36.0, dmg * 2.0, if s.body == Body::Brigand { "La flèche lourde d'un archer brigand" } else { "La flèche lourde d'un archer squelette" }) }
+                        else { arrow(from, aim, 24.0, dmg, if s.body == Body::Brigand { "La flèche d'un archer brigand" } else { "La flèche d'un archer squelette" }) }); self.ev.push(FoeEv::Swing(f.p)); }
             } else
             if c.alive && dist < reach && face > 0.35 && dy.abs() < 1.9 { let dmg = s.dmg * r.range(0.8, 1.25) * if f.vet { 1.15 } else { 1.0 } * if f.air { 1.4 } else { 1.0 }; self.ev.push(FoeEv::Hit { from: f.p, dmg, cause: cause_of(s), push: if s.drag { -4.5 } else { match s.body { Body::Bete => 4.0, Body::Golem => 6.5, Body::Cavalier => 4.5, _ if s.leader => 5.5, _ => 2.5 } } }); if s.web { self.ev.push(FoeEv::Snare(3.5)); } } } }
         // ---- le rampant de magma : il sème des braises derrière lui, et l'eau l'éteint
@@ -435,11 +439,11 @@ impl Horde {
         if f.broken > 0.0 { f.broken -= dt; f.speed = 0.0; f.wind = 0.0; f.state = Ai::Combat; if f.broken <= 0.0 { f.cd = 0.4; } return true; }
         let pace = if f.enraged { 0.7 } else { 1.0 };
         // seconde phase
-        if !f.enraged && f.hp < f.max * 0.5 { f.enraged = true; f.wind = 0.0; f.mv = 0; f.combo = 0; f.lunge = 0.0; f.cd = 1.3; f.speed = 0.0; ev.push(FoeEv::Rage(f.p)); return true; }
+        if !f.enraged && f.hp < f.max * 0.5 { f.enraged = true; f.wind = 0.0; f.mv = 0; f.combo = 0; f.lunge = 0.0; f.cd = 1.3; f.speed = 0.0; ev.push(FoeEv::Rage(f.p, boss_calls(s))); return true; }
         let face = sin(f.yaw) * to[0] + cos(f.yaw) * to[1];
         // la ruée : tout droit, cap tenu
         if f.lunge > 0.0 { f.lunge -= dt; f.speed = 11.0; f.state = Ai::Poursuite; f.yaw = turn(f.yaw, (me[0] - f.p[0]).atan2(me[2] - f.p[2]), dt * 0.6);
-            if dist < 1.7 && dy.abs() < 2.0 && face > 0.2 { ev.push(FoeEv::Crush { from: f.p, dmg: s.dmg * 1.3 * rng.range(0.9, 1.15), cause: "La ruée d'un chef de guerre brigand", push: 8.0 }); f.lunge = 0.0; f.mv = 0; f.cd = 1.2 * pace; f.speed = 0.0; }
+            if dist < 1.7 && dy.abs() < 2.0 && face > 0.2 { ev.push(FoeEv::Crush { from: f.p, dmg: s.dmg * 1.3 * rng.range(0.9, 1.15), cause: boss_cause(s, MV_CHARGE), push: 8.0 }); f.lunge = 0.0; f.mv = 0; f.cd = 1.2 * pace; f.speed = 0.0; }
             else if f.lunge <= 0.0 { f.mv = 0; f.cd = OPENING * pace; f.speed = 0.0; } // manquée : il reprend son souffle
             return true; }
         // une attaque annoncée : il la prépare, puis elle tombe
@@ -449,11 +453,11 @@ impl Horde {
             let near = |extra: f64| dist < s.reach + extra && face > 0.3 && dy.abs() < 1.9;
             let roll = rng.range(0.85, 1.2);
             match f.mv {
-                MV_TAILLE => { if near(0.5) { ev.push(FoeEv::Hit { from: f.p, dmg: s.dmg * roll, cause: "La taille d'un chef de guerre brigand", push: 4.0 }); } f.mv = 0; f.cd = 1.2 * pace; }
-                MV_COMBO => { if near(0.4) { ev.push(FoeEv::Hit { from: f.p, dmg: s.dmg * 0.7 * roll, cause: "La grande hache d'un chef de guerre brigand", push: 2.0 }); }
+                MV_TAILLE => { if near(0.5) { ev.push(FoeEv::Hit { from: f.p, dmg: s.dmg * roll, cause: boss_cause(s, MV_TAILLE), push: 4.0 }); } f.mv = 0; f.cd = 1.2 * pace; }
+                MV_COMBO => { if near(0.4) { ev.push(FoeEv::Hit { from: f.p, dmg: s.dmg * 0.7 * roll, cause: boss_cause(s, MV_COMBO), push: 2.0 }); }
                     f.combo = f.combo.saturating_sub(1); ev.push(FoeEv::Swing(f.p));
                     if f.combo > 0 { f.wind = COMBO_BEATS[(3 - f.combo as usize).min(2)] * pace; f.v = [sin(f.yaw) * 3.0, 0.0, cos(f.yaw) * 3.0]; } else { f.mv = 0; f.cd = 1.5 * pace; } }
-                MV_ECRASE => { let hit = near(0.8); if hit { ev.push(FoeEv::Crush { from: f.p, dmg: s.dmg * 1.8 * roll, cause: "La frappe écrasante d'un chef de guerre brigand", push: 7.0 }); }
+                MV_ECRASE => { let hit = near(0.8); if hit { ev.push(FoeEv::Crush { from: f.p, dmg: s.dmg * 1.8 * roll, cause: boss_cause(s, MV_ECRASE), push: 7.0 }); }
                     f.mv = 0; f.cd = if hit { 1.3 } else { OPENING } * pace; } // manquée : la hache plantée en terre, il est à découvert
                 MV_CHARGE => { f.lunge = 0.75; }
                 _ => { f.mv = 0; }
@@ -514,6 +518,40 @@ impl Horde {
             f.speed = 6.5; f.yaw = turn(f.yaw, (goal[0] - f.p[0]).atan2(goal[1] - f.p[2]), dt * 2.5); }
         true
     }
+    /// Le capitaine squelette, au sommet de sa tour. Il garde ses distances et tourne autour de sa proie ; il tire des **salves**
+    /// de trois flèches coup sur coup (le bouclier les arrête), et le **tir chargé** : la corde longuement tendue, il rougeoie, la
+    /// flèche lourde traverse tout bouclier — il faut rouler ou se mettre à couvert. Qui le serre de près reçoit un **coup de pied**
+    /// (il se pare : chaque parade entame sa garde) avant qu'il ne rompe. Garde brisée, il chancelle. À mi-vie, il siffle ses archers.
+    fn captain_think(rng: &mut Rng, ev: &mut Vec<FoeEv>, shots: &mut Vec<([f64; 3], [f64; 3], f64, f64, &'static str)>, f: &mut Foe, dt: f64, c: &Ctx, see: bool, dist: f64, dy: f64, to: [f64; 2]) -> bool {
+        let s = &bestiary().species[f.sp]; let me = c.feet;
+        if !c.alive { f.state = Ai::Retour; return false; }
+        if !see && f.lost > 6.0 && f.wind <= 0.0 { f.state = Ai::Recherche; f.t = 8.0; return false; }
+        f.calm += dt; if f.calm > 2.0 && f.broken <= 0.0 { f.posture = (f.posture - POSTURE_REGEN * dt).max(0.0); }
+        if f.broken > 0.0 { f.broken -= dt; f.speed = 0.0; f.wind = 0.0; f.state = Ai::Combat; if f.broken <= 0.0 { f.cd = 0.4; } return true; }
+        if !f.enraged && f.hp < f.max * 0.5 { f.enraged = true; f.wind = 0.0; f.mv = 0; f.combo = 0; f.cd = 1.0; ev.push(FoeEv::Rage(f.p, boss_calls(s))); return true; }
+        let pace = if f.enraged { 0.7 } else { 1.0 }; let toward = (me[0] - f.p[0]).atan2(me[2] - f.p[2]); let face = sin(f.yaw) * to[0] + cos(f.yaw) * to[1];
+        let from = [f.p[0] + sin(f.yaw) * 0.4, f.p[1] + 1.4 * s.size, f.p[2] + cos(f.yaw) * 0.4];
+        if f.wind > 0.0 { f.speed = 0.0; f.state = Ai::Combat; f.yaw = turn(f.yaw, toward, dt * if f.mv == MV_TIR { 1.5 } else { 4.0 }); f.wind -= dt; if f.wind > 0.0 { return true; } f.wind = 0.0;
+            match f.mv {
+                MV_TIR => { if see { shots.push(arrow(from, [me[0], me[1] + 1.1, me[2]], 38.0, s.dmg * 2.2, "La flèche lourde d'un capitaine squelette")); } ev.push(FoeEv::Swing(f.p)); f.mv = 0; f.cd = 1.6 * pace; }
+                MV_SALVE => { if f.combo == 0 { f.combo = 3; } if see { shots.push(arrow(from, [me[0] + rng.range(-0.4, 0.4), me[1] + 1.1, me[2] + rng.range(-0.4, 0.4)], 26.0, s.dmg * 0.8, "La flèche d'un capitaine squelette")); } ev.push(FoeEv::Swing(f.p));
+                    f.combo = f.combo.saturating_sub(1); if f.combo > 0 { f.wind = 0.28 * pace; } else { f.mv = 0; f.cd = 1.4 * pace; } }
+                MV_COUP => { if dist < s.reach.min(2.2) + 0.5 && face > 0.3 && dy.abs() < 1.9 { ev.push(FoeEv::Hit { from: f.p, dmg: s.dmg * 0.8, cause: "Le coup de pied d'un capitaine squelette", push: 7.5 }); } f.mv = 0; f.cd = 0.6; f.combo = 4; } // puis il rompt
+                _ => { f.mv = 0; }
+            }
+            return true; }
+        // il rompt : quelques pas en arrière, de biais, pour reprendre ses distances
+        if f.combo == 4 { if dist > 6.0 || f.cd < -1.5 { f.combo = 0; } else { f.state = Ai::Poursuite; f.speed = s.run; f.yaw = turn(f.yaw, toward + std::f64::consts::PI + 0.5, dt * 10.0); return true; } }
+        f.yaw = turn(f.yaw, toward, dt * 5.0);
+        if dist < 2.6 && f.cd <= 0.0 { f.mv = MV_COUP; f.wind = WIND_COUP * pace; f.state = Ai::Combat; f.speed = 0.0; ev.push(FoeEv::Swing(f.p)); return true; }
+        if f.cd <= 0.0 && see && dist < 20.0 { let r = rng.next(); f.state = Ai::Combat; f.speed = 0.0;
+            if r < 0.4 { f.mv = MV_TIR; f.wind = WIND_TIR * pace.max(0.8); } else { f.mv = MV_SALVE; f.wind = WIND_SALVE * pace; f.combo = 3; } ev.push(FoeEv::Swing(f.p)); return true; }
+        // il garde ses distances : il s'approche s'il est loin, s'écarte si on le serre, sinon tourne lentement
+        f.state = Ai::Poursuite;
+        if dist > 14.0 || !see { f.speed = s.run; } else if dist < 5.0 { f.speed = s.walk * 1.6; f.yaw = turn(f.yaw, toward + std::f64::consts::PI, dt * 6.0); }
+        else { f.speed = s.walk; let side = if f.group % 2 == 0 { 1.4 } else { -1.4 }; f.yaw = turn(f.yaw, toward + side, dt * 4.0); }
+        true
+    }
     pub fn debug_lines(&self) -> Vec<String> {
         self.foes.iter().take(8).map(|f| { let s = &bestiary().species[f.sp]; format!("  {}{} — {} ({:.0}/{:.0} pv, éveil {:.1})", s.name, if f.vet { " (vétéran)" } else { "" }, if f.dead > 0.0 { "morte" } else { f.state.name() }, f.hp.max(0.0), f.max, f.alert) }).collect()
     }
@@ -542,7 +580,24 @@ pub const MV_LANCE: u8 = 5; pub const MV_PASSE: u8 = 6; pub const MV_CABRE: u8 =
 pub const WIND_LANCE: f64 = 0.9; pub const WIND_PASSE: f64 = 0.45; pub const WIND_CABRE: f64 = 1.0;
 /// À cheval, il encaisse moins (on l'atteint mal) ; sa garde brisée, il est désarçonné.
 pub const MOUNTED_MUL: f64 = 0.5;
-pub fn unblockable(mv: u8) -> bool { matches!(mv, MV_ECRASE | MV_CHARGE | MV_LANCE | MV_CABRE) }
+/// Le tir chargé (l'archer vétéran, le capitaine) : la corde longuement tendue, l'archer rougeoie, la flèche lourde traverse le
+/// bouclier ; la salve (le capitaine) : trois flèches coup sur coup, que le bouclier arrête ; le coup de pied (le capitaine, à qui
+/// le serre de trop près) : il se pare. La feinte (l'épéiste vétéran) : un geste à moitié, puis le vrai coup, vite.
+pub const MV_TIR: u8 = 8; pub const MV_COUP: u8 = 9; pub const MV_SALVE: u8 = 10; pub const MV_FEINTE: u8 = 11;
+pub const WIND_TIR: f64 = 1.5; pub const WIND_COUP: f64 = 0.5; pub const WIND_SALVE: f64 = 0.7;
+pub fn unblockable(mv: u8) -> bool { matches!(mv, MV_ECRASE | MV_CHARGE | MV_LANCE | MV_CABRE | MV_TIR) }
+/// Une flèche tirée de `from` vers `aim`, à `sp` pas par seconde (un peu au-dessus, pour la chute).
+fn arrow(from: [f64; 3], aim: [f64; 3], sp: f64, dmg: f64, cause: &'static str) -> ([f64; 3], [f64; 3], f64, f64, &'static str) {
+    let d = [aim[0] - from[0], aim[1] - from[1], aim[2] - from[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt().max(0.1); let t = l / sp; (from, [d[0] / t, d[1] / t + 0.5 * 12.0 * t, d[2] / t], 0.0, dmg, cause)
+}
+/// Les flèches lourdes traversent le bouclier.
+const HEAVY_ARROW: &str = "La flèche lourde";
+/// Ce que dit le boss qui frappe : le chef de guerre ou le gardien de la crypte.
+fn boss_cause(s: &Species, mv: u8) -> &'static str { match (s.id, mv) {
+    ("gardien", MV_ECRASE) => "Le poing du gardien de la crypte", ("gardien", MV_CHARGE) => "La ruée du gardien de la crypte", ("gardien", _) => "Les griffes du gardien de la crypte",
+    (_, MV_TAILLE) => "La taille d'un chef de guerre brigand", (_, MV_ECRASE) => "La frappe écrasante d'un chef de guerre brigand", (_, MV_CHARGE) => "La ruée d'un chef de guerre brigand", _ => "La grande hache d'un chef de guerre brigand" } }
+/// Ceux qu'appelle le boss à mi-vie.
+fn boss_calls(s: &Species) -> &'static str { match s.id { "gardien" => "rodeur", "capitaine" => "archer", _ => "brigand" } }
 fn reel(f: &mut Foe, ev: &mut Vec<FoeEv>) { f.broken = REEL_T; f.posture = 0.0; f.wind = 0.0; f.mv = 0; f.combo = 0; f.lunge = 0.0; f.speed = 0.0;
     // le cavalier, garde brisée, vide les étriers : il tombe, sonné, et finit à pied ; son cheval s'enfuit
     if bestiary().species[f.sp].body == Body::Cavalier { if let Some(k) = species("brigand") { let part = f.hp / f.max; let s = &bestiary().species[k]; f.sp = k; f.max = s.hp * if f.vet { 1.25 } else { 1.0 }; f.hp = (f.max * part).max(1.0); f.state = Ai::Combat; f.cd = REEL_T + 0.5; ev.push(FoeEv::Unhorse(f.p, f.yaw)); return; } }
@@ -886,10 +941,10 @@ impl Horde {
         for f in &self.foes {
             let s = &bestiary().species[f.sp]; let hurt = (f.hit / 0.3).clamp(0.0, 1.0) as f32;
             // le boss rougeoie quand vient une attaque qu'aucun bouclier n'arrête : il faut rouler
-            let hurt = if s.boss && f.dead == 0.0 && ((f.wind > 0.0 && unblockable(f.mv)) || f.lunge > 0.0) { hurt.max(0.5 + 0.3 * (f.phase * 12.0).sin() as f32) } else { hurt }; let mut put = |n: &str, m: M4| { let m = thick(n, m); out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false, hurt }) };
+            let hurt = if f.dead == 0.0 && ((f.wind > 0.0 && unblockable(f.mv)) || (s.boss && f.lunge > 0.0)) { hurt.max(0.5 + 0.3 * (f.phase * 12.0).sin() as f32) } else { hurt }; let mut put = |n: &str, m: M4| { let m = thick(n, m); out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false, hurt }) };
             let fall = (f.dead / 0.9).min(1.0); let flinch = crate::wild::flinch(f.hit) as f64;
             // L'annonce : de 0 (rien) à 1 (au sommet du geste) ; puis le coup part d'un coup.
-            let total = if s.boss { (match f.mv { MV_TAILLE => WIND_TAILLE, MV_COMBO => WIND_COMBO, MV_ECRASE => WIND_ECRASE, MV_CHARGE => WIND_CHARGE, MV_LANCE => WIND_LANCE, MV_PASSE => WIND_PASSE, MV_CABRE => WIND_CABRE, _ => s.windup }) * if f.enraged { 0.7 } else { 1.0 } } else { s.windup };
+            let total = if s.boss { (match f.mv { MV_TAILLE => WIND_TAILLE, MV_COMBO => WIND_COMBO, MV_ECRASE => WIND_ECRASE, MV_CHARGE => WIND_CHARGE, MV_LANCE => WIND_LANCE, MV_PASSE => WIND_PASSE, MV_CABRE => WIND_CABRE, MV_TIR => WIND_TIR, MV_COUP => WIND_COUP, MV_SALVE => WIND_SALVE, _ => s.windup }) * if f.enraged { 0.7 } else { 1.0 } } else if f.mv == MV_TIR { s.windup + WIND_TIR } else { s.windup };
             let wind = if f.wind > 0.0 { (1.0 - f.wind / total.max(0.05)).clamp(0.0, 1.0) } else { 0.0 }; let strike = if s.boss { if f.wind == 0.0 && f.mv == 0 && f.cd > 0.9 && f.state == Ai::Combat && f.broken <= 0.0 { 1.0 } else { 0.0 } } else if f.wind == 0.0 && f.cd > s.cd - 0.25 && f.state == Ai::Combat { 1.0 } else { 0.0 };
             let run = (f.speed / s.run.max(0.1)).clamp(0.0, 1.0); let sw = if f.speed > 0.0 { sin(f.phase) } else { 0.0 };
             let base = mul(&trs(f.p[0], f.p[1], f.p[2], f.yaw, 0.0, s.size * if f.vet { 1.08 } else { 1.0 }), &roll_z(fall * 1.45 * if f.variant % 2 == 0 { 1.0 } else { -1.0 }));
@@ -1144,8 +1199,8 @@ impl Session {
                     self.wild.put(crate::wild::Kind::Horse, [p[0] + yaw.cos() * 1.5, p[1], p[2] - yaw.sin() * 1.5], yaw, false); let k = self.wild.all.len() - 1; self.wild.strike(k, 0.0, [p[0] - yaw.sin() * 3.0, p[1], p[2] - yaw.cos() * 3.0]); }
                 FoeEv::Reel(p) => { self.sound.thump(p); self.notes.push("Sa garde est brisée : il chancelle, frappez !".into()); }
                 // la seconde phase : il jette son heaume et appelle deux hommes, qui accourent
-                FoeEv::Rage(p) => { self.sound.fox_scream(p); self.notes.push("Le chef de guerre entre en rage et appelle ses hommes !".into());
-                    if let Some(sp) = species("brigand") { let me = self.player.p; for k in 0..2 { let a = k as f64 * 2.4 + 1.0; let (x, z) = (p[0] + a.cos() * 6.0, p[2] + a.sin() * 6.0);
+                FoeEv::Rage(p, who) => { self.sound.fox_scream(p); self.notes.push(match who { "rodeur" => "Le gardien de la crypte rugit : les morts se lèvent !", "archer" => "Le capitaine siffle : ses archers accourent !", _ => "Le chef de guerre entre en rage et appelle ses hommes !" }.into());
+                    if let Some(sp) = species(who) { let me = self.player.p; for k in 0..2 { let a = k as f64 * 2.4 + 1.0; let (x, z) = (p[0] + a.cos() * 6.0, p[2] + a.sin() * 6.0);
                         let y = ground(&self.world, x, z, p[1] + 3.0).unwrap_or(p[1]); let i = self.horde.put(sp, [x, y, z], (me[0] - x).atan2(me[2] - z), true); let f = &mut self.horde.foes[i]; f.kept = true; f.alert = 1.0; f.seen = Some(me); f.state = Ai::Poursuite; } } }
                 FoeEv::Loot(_, g) => self.raid_loot(g),
                 FoeEv::Snare(t) => { if self.snare <= 0.0 { self.notes.push("Englué dans la soie : vous êtes ralenti".into()); } self.snare = self.snare.max(t); }

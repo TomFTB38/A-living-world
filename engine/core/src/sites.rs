@@ -39,10 +39,10 @@ impl Place {
         let at = |dx: f64, dy: f64, dz: f64| { let (dx, dz) = spin_f(dx, dz, self.rot); [self.x as f64 + 0.5 + dx, self.y as f64 + 1.05 + dy, self.z as f64 + 0.5 + dz] };
         match self.kind {
             // le capitaine sur le chemin de ronde ; un guetteur à chaque étage ; la garde au pied de la porte ; un rôdeur à la cave
-            Lieu::Tour => vec![("archer", at(1.0, TOP as f64, 1.0)), ("archer", at(-1.0, TOP as f64, 2.0)), ("archer", at(0.0, 8.0, 1.0)), ("archer", at(1.0, 4.0, -1.0)), ("rodeur", at(-1.0, 0.0, -2.0)),
+            Lieu::Tour => vec![("capitaine", at(1.0, TOP as f64, 1.0)), ("archer", at(-1.0, TOP as f64, 2.0)), ("archer", at(0.0, 8.0, 1.0)), ("archer", at(1.0, 4.0, -1.0)), ("rodeur", at(-1.0, 0.0, -2.0)),
                 ("archer", at(0.0, 0.0, -5.0)), ("rodeur", at(-2.0, 0.0, -5.0)), ("rodeur", at(2.0, 0.0, -5.0)), ("rodeur", at(0.0, -5.0, 1.0))],
             // le gardien de la crypte ; des archers au porche, dans l'allée, sur le parvis ; un rôdeur dans la nef, un autre en bas ; cinq fantômes la nuit
-            Lieu::Cimetiere => vec![("rodeur", at(0.0, -5.0, 7.0)), ("rodeur", at(0.0, -5.0, 4.0)), ("archer", at(2.0, 0.0, -6.0)), ("archer", at(-2.0, 0.0, -8.0)), ("archer", at(0.0, 0.0, 1.0)), ("rodeur", at(0.0, 0.0, 5.0)),
+            Lieu::Cimetiere => vec![("gardien", at(0.0, -5.0, 7.0)), ("rodeur", at(0.0, -5.0, 4.0)), ("archer", at(2.0, 0.0, -6.0)), ("archer", at(-2.0, 0.0, -8.0)), ("archer", at(0.0, 0.0, 1.0)), ("rodeur", at(0.0, 0.0, 5.0)),
                 ("fantome", at(-6.0, 0.0, -3.0)), ("fantome", at(6.0, 0.0, -6.0)), ("fantome", at(0.0, 0.0, -1.0)), ("fantome", at(-8.0, 0.0, 4.0)), ("fantome", at(8.0, 0.0, 2.0))],
             // le chef dans sa tente ; deux hommes au portail, trois au feu, un près de la cage, le guetteur sur sa tour de bois
             Lieu::Camp => vec![("brigand", at(0.0, 0.0, 5.0)), ("brigand", at(-1.0, 0.0, -8.0)), ("brigand", at(1.0, 0.0, -8.0)), ("brigand", at(-2.0, 0.0, -1.5)), ("brigand", at(2.5, 0.0, 2.0)), ("brigand", at(-1.0, 0.0, 3.0)),

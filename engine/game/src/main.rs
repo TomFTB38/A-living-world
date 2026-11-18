@@ -520,6 +520,14 @@ fn capture(a: &[String]) {
         f.kept = true; f.alert = 1.0; f.seen = Some(p); f.state = h::Ai::Poursuite; f.mv = h::MV_CABRE; f.wind = 0.75; f.posture = 30.0;
         pump(&mut s, &mut g);
     }
+    // Les gardiens des lieux : le capitaine squelette qui bande son arc pour le tir chargé, et le gardien de la crypte qui lève le poing.
+    if scene == "plat_gardiens" {
+        use alw_core::hostile as h; let y = alw_core::gen::FLAT_Y as f64 + 1.0; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 2; s.player.yaw = 0.0; s.player.pitch = 0.1; s.player.fly = false;
+        let p = s.player.p;
+        for (id, dx, dz, turn, mv, wind) in [("capitaine", -1.8, 6.5, 2.9, h::MV_TIR, h::WIND_TIR + 0.5), ("gardien", 1.6, 4.8, -2.9, h::MV_ECRASE, h::WIND_ECRASE)] {
+            let k = s.horde.put(h::species(id).unwrap(), [p[0] + dx, y, p[2] + dz], turn, false); let f = &mut s.horde.foes[k]; f.kept = true; f.alert = 1.0; f.seen = Some(p); f.state = h::Ai::Combat; f.mv = mv; f.wind = wind; }
+        pump(&mut s, &mut g);
+    }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
     if scene == "abattage" {
