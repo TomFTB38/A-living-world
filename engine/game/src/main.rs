@@ -503,6 +503,15 @@ fn capture(a: &[String]) {
             match pose { 0 => f.state = h::Ai::Repos, 1 => { f.state = h::Ai::Combat; f.wind = 0.5; } 2 => { f.state = h::Ai::Combat; f.guard = 1.0; } 3 => { f.state = h::Ai::Combat; f.wind = 0.45; } _ => { f.state = h::Ai::Patrouille; f.speed = 9.0; f.phase = 1.2; } } }
         pump(&mut s, &mut g);
     }
+    // Le combat de boss : le chef de guerre face à soi, sa hache levée très haut pour la frappe écrasante (il rougeoie : il faut
+    // rouler), sa garde déjà entamée par deux parades ; la barre du boss en haut de l'écran.
+    if scene == "plat_boss" {
+        use alw_core::hostile as h; let y = alw_core::gen::FLAT_Y as f64 + 1.0; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 2; s.player.yaw = 0.0; s.player.pitch = 0.12; s.player.fly = false;
+        s.equip[5] = Some(alw_core::session::Stack::new("iron_shield", None)); let p = s.player.p;
+        let k = s.horde.put(h::species("brigand_chef").unwrap(), [p[0] + 0.3, y, p[2] + 3.2], 3.05, false); let f = &mut s.horde.foes[k];
+        f.kept = true; f.alert = 1.0; f.seen = Some(p); f.state = h::Ai::Combat; f.mv = h::MV_ECRASE; f.wind = h::WIND_ECRASE; f.posture = 60.0; f.hp = f.max * 0.8;
+        pump(&mut s, &mut g);
+    }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
     if scene == "abattage" {

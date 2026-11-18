@@ -786,6 +786,11 @@ impl Ui {
             let label = if f <= 0.0 { format!("{name} · tombée") } else { format!("{name} · {:.0} %", f * 100.0) };
             u.text(&label, (w - Ui::text_width(&label, z)) * 0.5, y - 24.0 * k, z, INK); u.rect(x - 3.0 * k, y - 3.0 * k, bw + 6.0 * k, bh + 6.0 * k, PANEL);
             u.rect(x, y, bw, bh, WELL); u.rect(x, y, bw * f, bh, if f > 0.5 { GOLD } else if f > 0.2 { [0.95, 0.55, 0.25, 1.0] } else { BAD }); }
+        // Le boss qui vous combat : son nom, sa vie (rouge), et dessous sa garde, qui s'emplit depuis le milieu à chaque parade et se brise.
+        if let Some((name, life, post, reel)) = s.boss_bar() { let (bw, bh, z) = (520.0 * k, 12.0 * k, 18.0 * k); let (x, y) = ((w - bw) * 0.5, (if s.siege_bar().is_some() { 132.0 } else { 70.0 }) * k);
+            u.text(name, (w - Ui::text_width(name, z)) * 0.5, y - 24.0 * k, z, INK); u.rect(x - 3.0 * k, y - 3.0 * k, bw + 6.0 * k, bh + 6.0 * k, PANEL); u.rect(x, y, bw, bh, WELL); u.rect(x, y, bw * life as f32, bh, [0.78, 0.16, 0.12, 1.0]);
+            let (pw, py) = (bw * 0.6, y + bh + 7.0 * k); let px = (w - pw) * 0.5; u.rect(px - 2.0 * k, py - 2.0 * k, pw + 4.0 * k, 6.0 * k + 4.0 * k, PANEL); u.rect(px, py, pw, 6.0 * k, WELL);
+            let f = post as f32; let c: C = if reel { [1.0, 0.92, 0.55, 1.0] } else if f > 0.7 { [0.98, 0.55, 0.2, 1.0] } else { GOLD }; u.rect(w * 0.5 - pw * 0.5 * f, py, pw * f, 6.0 * k, c); }
         // Le réticule rougit quand il est sur un animal à portée.
         let ch = if s.prey.is_some() { [1.0, 0.5, 0.4, 1.0] } else { w1 }; let t = if s.prey.is_some() { 3.0 } else { 2.0 };
         u.rect(w * 0.5 - t * 0.5, h * 0.5 - 8.0, t, 16.0, ch); u.rect(w * 0.5 - 8.0, h * 0.5 - t * 0.5, 16.0, t, ch);

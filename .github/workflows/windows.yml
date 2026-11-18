@@ -95,6 +95,7 @@ jobs:
           shot plat_creatures -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_creatures
           shot plat_surface -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_surface
           shot plat_brigands -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_brigands
+          shot plat_boss -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte
           shot creatures_grotte 0 60 0 0 60 10 12 3 1280 720 2048 creatures_grotte
