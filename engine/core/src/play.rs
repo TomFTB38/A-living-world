@@ -698,6 +698,9 @@ impl Session {
                 Some("wire") => self.mech_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("pulse") => self.pulse_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("seal") => self.seal_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
+                Some("home") => self.home_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
+                Some("hint") => self.hint_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
+                Some("mchest") => self.mchest_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("skills") => { for k in 0..5 { self.skills[k] = num(a.next()).unwrap_or(0.0); } }
                 Some("inv") => { let i = num(a.next())? as usize; let id = a.next().unwrap_or(""); let n = num(a.next())?; let w = num(a.next()).unwrap_or(0.0); if let (Some(s), true) = (stack(id, n, w), i < INV_SIZE) { inv[i] = Some(s); } }
                 Some("equip") => { let i = num(a.next())? as usize; let id = a.next().unwrap_or(""); let n = num(a.next())?; let w = num(a.next()).unwrap_or(0.0); if let (Some(s), true) = (stack(id, n, w), i < 5) { self.equip[i] = Some(s); } }

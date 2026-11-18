@@ -547,6 +547,19 @@ fn capture(a: &[String]) {
         let mut e = Vec::new(); for dx in -3..=3 { for dy in 0..3 { e.push((x + dx, y + dy, z, id("stone_bricks"))); } } e.push((x, y + 1, z, id("dart_trap"))); e.push((x + 2, y + 1, z - 1, id("dart_trap"))); e.push((x + 2, y, z - 1, id("stone_bricks")));
         s.world.edit_many(&e); pump(&mut s, &mut g);
     }
+    // Le Sanctuaire englouti, bâti sur le monde plat : la ruine de l'entrée, la salle de l'eau noire, les trois leviers, le
+    // couloir des pièges, la nef, la chambre de l'idole.
+    if let Some(vw) = scene.strip_prefix("plat_sanctuaire") {
+        use alw_core::sanctuaire::DEPTH; let o = [-41, alw_core::gen::FLAT_Y, -24]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = false; s.set_creative(false);
+        s.build_sanctuary(o); pump(&mut s, &mut g); let f = (o[1] - DEPTH) as f64;
+        let (u, v, w, look) = match vw { "_entree" => (1.5, DEPTH as f64 + 1.0, -25.5, [0.0, -3.0, 10.0]), "_eau" => (0.5, 1.0, 2.6, [0.0, -1.2, 10.0]), "_leviers" => (-13.5, 1.0, 7.5, [-10.0, 0.4, 0.0]),
+            "_pieges" => (-9.5, 1.0, 21.5, [10.0, -0.9, 0.0]), "_nef" => (12.6, 1.0, 25.4, [6.4, 4.4, -8.4]), _ => (17.5, 1.0, -2.2, [0.0, -0.9, -6.0]) };
+        s.player.p = [o[0] as f64 + u, f + v, o[2] as f64 + w]; let d = view::norm(look); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin();
+        for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p[0] = p[0]; s.player.p[2] = p[2]; s.player.yaw = y; s.player.pitch = pi; }
+        // les pics de la première rangée, sortis
+        if vw == "_pieges" { let up = |s: &Session| alw_core::player::Voxels::get(&s.world, o[0] - 7, o[1] - DEPTH + 1, o[2] + 21) == alw_core::blocks::by_name("spikes"); for _ in 0..400 { if up(&s) { break; } let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; } }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     if scene == "plat_mecanismes" {
         let id = |n: &str| alw_core::blocks::by_name(n).unwrap_or(0); let p = s.player.p; let (x, y, z) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32 + 5);
         s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.player.yaw = 0.0; s.player.pitch = -0.32;

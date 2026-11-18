@@ -120,6 +120,14 @@ pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
             let sp = crate::noise::hash_float((x * 9.0) as i32, (y * 9.0) as i32, 5, 77) < 0.28 && r < 0.9; let shade = 1.0 - 0.35 * r * r + if dx < -0.06 && dy > 0.06 { 0.15 } else { 0.0 };
             let c = if sp { spot } else { base }; return Some(([c[0] * shade, c[1] * shade, c[2] * shade], FAT));
         }
+        // Idole engloutie : une figurine de jade trapue, la tête ronde, deux yeux d'or, les bras croisés sur le ventre, un socle sombre.
+        "idole_engloutie" => { let jade = |k: f64| -> C { [0.18 * k, 0.55 * k, 0.4 * k] };
+            if y > 0.8 && y < 0.88 && (x - 0.5).abs() < 0.22 { return Some(([0.2, 0.18, 0.16], FAT)); }
+            for ex in [0.44, 0.56] { if disc(x, y, ex, 0.3, 0.035, 0.03) < 1.0 { return Some(([1.0, 0.8, 0.25], FAT)); } }
+            let head = disc(x, y, 0.5, 0.3, 0.15, 0.14); let body = disc(x, y, 0.5, 0.6, 0.19, 0.22);
+            if head < 1.0 { return Some((jade(1.15 - 0.4 * head + if x < 0.46 { 0.15 } else { 0.0 }), FAT)); }
+            if body < 1.0 && y < 0.8 { let arms = (y - 0.58).abs() < 0.035 && (x - 0.5).abs() < 0.16; return Some((jade(if arms { 0.7 } else { 1.05 - 0.35 * body + if x < 0.44 { 0.12 } else { 0.0 } }), FAT)); }
+            None }
         // Perle : une bille nacrée, des reflets roses et verts, un point de lumière.
         "pearl" => { let r = disc(x, y, 0.5, 0.52, 0.2, 0.2); if r >= 1.0 { return None; } let t = (x - 0.42).hypot(y - 0.44); if t < 0.05 { return Some(([1.0, 1.0, 1.0], FAT)); }
             let k = 1.0 - 0.35 * r; let tint = (x * 7.0 + y * 5.0).sin() * 0.04; Some(([(0.92 + tint) * k, (0.88 - tint) * k, (0.9 + tint * 0.5) * k], FAT)) }

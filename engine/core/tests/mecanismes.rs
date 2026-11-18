@@ -107,7 +107,7 @@ fn le_couloir_des_pics_au_rythme() {
 fn le_sceau_de_pierre_ancienne() {
     let (mut s, y) = flat(); s.set_creative(false); let l = levers(&mut s, y); s.world.edit(0, y, 4, b("push_block"));
     s.mech.seals.push(Seal { min: [-4, y - 2, -4], max: [4, y + 4, 6], until: "fin".into() }); s.mech.wires.push(Wire { name: "fin".into(), inputs: vec![l[2]], latch: true, ..Default::default() });
-    assert!(s.sealed([0, y + 1, 2], b("stone")), "le mur est scellé"); assert!(!s.sealed(l[0], b("lever")) && !s.sealed([0, y, 4], b("push_block")), "levier et bloc restent libres");
+    assert!(s.sealed([0, y + 1, 2], b("stone")), "le mur est scellé"); assert!(!s.sealed(l[0], b("lever")), "le levier reste libre"); assert!(s.sealed([0, y, 4], b("push_block")), "le bloc à pousser se pousse, il ne s'emporte pas");
     assert!(!s.sealed([9, y, 9], b("stone")), "hors de la zone"); s.lever_at(l[2]); run(&mut s, 0.1); assert!(!s.sealed([0, y + 1, 2], b("stone")), "résolu : le sceau se lève");
 }
 

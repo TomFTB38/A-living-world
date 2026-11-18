@@ -101,6 +101,12 @@ jobs:
           shot plat_competences -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_competences
           shot plat_mecanismes -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_mecanismes
           shot plat_flechettes -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_flechettes
+          shot plat_sanctuaire_entree -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_entree
+          shot plat_sanctuaire_eau -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_eau
+          shot plat_sanctuaire_leviers -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_leviers
+          shot plat_sanctuaire_pieges -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_pieges
+          shot plat_sanctuaire_nef -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_nef
+          shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte
           shot creatures_grotte 0 60 0 0 60 10 12 3 1280 720 2048 creatures_grotte

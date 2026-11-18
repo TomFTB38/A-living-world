@@ -1,0 +1,253 @@
+//! Le Sanctuaire englouti : le premier donjon, bâti avec les mécanismes génériques (`mecanismes.rs`).
+//!
+//! Sous une ruine de colonnes moussues, un escalier descend à douze blocs sous terre, dans la salle de l'eau noire. De là :
+//! 1. **Les trois leviers** — trois leviers sous des bannières d'or (une, deux, trois) : les abaisser dans l'ordre des
+//!    bannières lève la grille ; un faux pas relève tout et fait cracher les masques.
+//! 2. **Les deux dalles** — deux blocs de pierre à pousser chacun sur sa dalle ; la grille ne tient levée qu'au poids.
+//! 3. **Le couloir des pièges** — deux rangées de pics qui sortent et rentrent (on observe, on passe au bon moment), puis
+//!    des masques qui crachent des fléchettes au fond du couloir : on pousse un bloc devant soi pour s'en abriter.
+//! 4. **La nef** — une salle haute ; on gravit des degrés le long des murs jusqu'à la galerie (une passerelle friable offre
+//!    un raccourci risqué au-dessus du bassin), où un levier lève la grille d'en bas.
+//! 5. **L'épreuve** — tout à la fois : un bloc sur la dalle désarme les pics et lève la grille des leviers ; deux leviers
+//!    dans l'ordre (une bannière bleue, puis deux) ouvrent la dernière porte.
+//! 6. **La chambre de l'idole** — le coffre au trésor sur son autel ; un couloir dérobé et son levier ramènent à l'entrée.
+//!
+//! Le plan est dessiné en coordonnées relatives (`u` en x, `w` en z, `v` en hauteur depuis le sol des salles) et sert deux
+//! fois : posé par la génération du monde (`carve`, sur un `Plan`), et rejoué sur un monde déjà là (`Session::build_sanctuary`,
+//! pour les essais et les captures). Ses mécanismes (`mechs`) se branchent quand le joueur approche. Tout est vérifié par
+//! `tests/sanctuaire.rs`, salle par salle, avec le solveur de chemins `reach`.
+use crate::blocks::{by_name, is_solid, is_water, Id};
+use crate::mecanismes::{Hint, Home, Mech, Pulse, Seal, Wire};
+use crate::noise::hash_float;
+use crate::player::Voxels;
+use crate::session::Session;
+use crate::shapes::{facing_of, is_ladder, variant};
+use crate::sites::{Place, Plan};
+use std::collections::{BTreeSet, VecDeque};
+
+/// Les salles sont à `DEPTH` blocs sous le sol de l'entrée (le niveau `v = 0` est leur sol).
+pub const DEPTH: i32 = 12;
+/// Le coffre au trésor, sur l'autel de la chambre de l'idole.
+pub const CHEST: [i32; 3] = [17, 2, -6];
+
+/// Les salles (intérieur : u0, u1, w0, w1, hauteur).
+pub const HALL: (i32, i32, i32, i32, i32) = (-5, 5, 2, 12, 5);
+pub const R1: (i32, i32, i32, i32, i32) = (-22, -12, 2, 12, 5);
+pub const R2: (i32, i32, i32, i32, i32) = (-22, -12, 16, 26, 5);
+pub const R3: (i32, i32, i32, i32, i32) = (-10, 9, 20, 22, 4);
+pub const R4: (i32, i32, i32, i32, i32) = (12, 22, 16, 26, 9);
+pub const R5: (i32, i32, i32, i32, i32) = (12, 22, 2, 12, 5);
+pub const R6: (i32, i32, i32, i32, i32) = (12, 22, -10, -2, 6);
+
+/// Salle 1 : les leviers, dans l'ordre où il faut les abaisser (une bannière, deux, trois), les masques, la grille.
+pub const R1_LEVERS: [[i32; 3]; 3] = [[-22, 2, 9], [-22, 2, 5], [-22, 2, 7]];
+const R1_DARTS: [[i32; 3]; 2] = [[-17, 2, 1], [-13, 2, 13]];
+const R1_GATE: [[i32; 3]; 4] = [[-18, 1, 13], [-17, 1, 13], [-18, 2, 13], [-17, 2, 13]];
+/// Salle 2 : les dalles, et les blocs à pousser au départ.
+pub const R2_PLATES: [[i32; 3]; 2] = [[-20, 0, 18], [-14, 0, 24]];
+pub const R2_BLOCKS: [[i32; 3]; 2] = [[-18, 1, 20], [-16, 1, 22]];
+const R2_GATE_W: [i32; 3] = [20, 21, 22];
+/// Salle 3 : les rangées de pics (deux rythmes), le bloc d'abri, les masques du fond.
+pub const R3_SPIKES: [[i32; 2]; 2] = [[-7, -6], [-3, -2]];
+pub const R3_BLOCK: [i32; 3] = [0, 1, 21];
+pub const R3_DARTS: [[i32; 3]; 3] = [[10, 1, 20], [10, 1, 21], [10, 1, 22]];
+/// Le rythme des pics (période, part du cycle sortie) et des fléchettes (période).
+pub const SPIKE_PERIOD: f64 = 3.0; pub const SPIKE_UP: f64 = 0.5; pub const DART_PERIOD: f64 = 1.4;
+/// Salle 4 : le levier de la galerie, la grille d'en bas.
+pub const R4_LEVER: [i32; 3] = [17, 6, 16];
+const R4_GATE: [[i32; 3]; 4] = [[13, 1, 15], [14, 1, 15], [13, 2, 15], [14, 2, 15]];
+/// Salle 5 : la dalle et son bloc, le champ de pics, la grille des leviers, les leviers dans l'ordre, la porte.
+pub const R5_PLATE: [i32; 3] = [20, 0, 10];
+pub const R5_BLOCK: [i32; 3] = [18, 1, 10];
+pub const R5_SPIKE_W: [i32; 3] = [6, 7, 8];
+pub const R5_LEVERS: [[i32; 3]; 2] = [[19, 2, 2], [15, 2, 2]];
+const R5_BARS_W: i32 = 4;
+const R5_DARTS: [[i32; 3]; 3] = [[23, 1, 6], [23, 1, 7], [23, 1, 8]];
+const R5_TRAP: [i32; 3] = [11, 2, 3];
+const R5_GATE: [[i32; 3]; 4] = [[17, 1, 1], [18, 1, 1], [17, 2, 1], [18, 2, 1]];
+/// Salle 6 : le levier du raccourci, et sa grille dans le mur nord de la salle de l'eau noire.
+pub const R6_LEVER: [i32; 3] = [5, 2, 0];
+const R6_GATE: [[i32; 3]; 4] = [[4, 1, 1], [5, 1, 1], [4, 2, 1], [5, 2, 1]];
+/// L'étendue scellée (relative) : la pierre ancienne ne se creuse pas.
+const SEAL: ([i32; 3], [i32; 3]) = ([-24, -3, -16], [24, DEPTH - 1, 28]);
+
+/// Le chantier, en coordonnées relatives.
+struct S<'a> { p: &'a mut Plan, x: i32, f: i32, z: i32 }
+impl S<'_> {
+    fn at(&self, u: i32, v: i32, w: i32) -> (i32, i32, i32) { (self.x + u, self.f + v, self.z + w) }
+    fn n(&mut self, u: i32, v: i32, w: i32, n: &'static str) { let (x, y, z) = self.at(u, v, w); self.p.n(x, y, z, n); }
+    fn t(&mut self, u: i32, v: i32, w: i32, n: &'static str, dx: i32, dz: i32) { let (x, y, z) = self.at(u, v, w); self.p.turn(x, y, z, n, dx, dz); }
+    fn air(&mut self, u: i32, v: i32, w: i32) { let (x, y, z) = self.at(u, v, w); self.p.air(x, y, z); }
+    /// La maçonnerie : pierre de taille, moussue par endroits, plus sombre ailleurs.
+    fn stone(&self, u: i32, v: i32, w: i32) -> &'static str { let h = hash_float(self.x + u + 977 * v, self.z + w, 4111, 9); if h < 0.24 { "mossy_stone" } else if h < 0.36 { "stone_bricks_dark" } else { "stone_bricks" } }
+    /// Un mur, sauf là où on a déjà creusé.
+    fn wall(&mut self, u: i32, v: i32, w: i32) { let (x, y, z) = self.at(u, v, w); if self.p.m.get(&(x, y, z)) == Some(&-1) { return; } let s = self.stone(u, v, w); self.p.n(x, y, z, s); }
+    /// Une salle : son intérieur creusé, son sol, ses murs et sa voûte.
+    fn room(&mut self, r: (i32, i32, i32, i32, i32)) {
+        let (u0, u1, w0, w1, h) = r;
+        for u in u0 - 1..=u1 + 1 { for w in w0 - 1..=w1 + 1 { for v in 0..=h + 1 { if u >= u0 && u <= u1 && w >= w0 && w <= w1 && v >= 1 && v <= h { self.air(u, v, w); } else { self.wall(u, v, w); } } } }
+    }
+    /// Un bassin d'eau noire (deux blocs de fond), creusé dans le sol d'une salle.
+    fn basin(&mut self, u0: i32, u1: i32, w0: i32, w1: i32) {
+        for u in u0 - 1..=u1 + 1 { for w in w0 - 1..=w1 + 1 { let edge = u < u0 || u > u1 || w < w0 || w > w1; for v in -2..=0 { if edge || v == -2 { if v < 0 { let s = self.stone(u, v, w); let (x, y, z) = self.at(u, v, w); self.p.n(x, y, z, s); } } else { self.n(u, v, w, "water"); } } } }
+    }
+    /// Une grille : barreaux en travers (le long de x) ou en long (le long de z).
+    fn bars(&mut self, l: &[[i32; 3]], along_z: bool) { for q in l { if along_z { self.t(q[0], q[1], q[2], "iron_bars", 1, 0); } else { self.n(q[0], q[1], q[2], "iron_bars"); } } }
+    fn column(&mut self, u: i32, w: i32, v0: i32, v1: i32, n: &'static str) { for v in v0..=v1 { self.n(u, v, w, n); } }
+}
+
+/// Pose le sanctuaire dans le plan : `o` est le sol de l'entrée (le bloc sur lequel on marche) ; les salles sont dessous.
+pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
+    let mut s = S { p, x: o[0], f: o[1] - DEPTH, z: o[2] };
+    let top = DEPTH; // le sol de la surface, en v
+    // L'escalier : douze marches vers le sud, puis un palier jusqu'à la salle de l'eau noire.
+    for k in 0..DEPTH { let w = -(DEPTH + 1) + k; let st = DEPTH - 1 - k;
+        for u in -1..=1 { for v in st - 3..st { s.wall(u, v, w); } s.t(u, st, w, "stone_bricks_stairs", 0, -1); let open = if k <= 2 { top + 3 } else { st + 3 }; for v in st + 1..=open { s.air(u, v, w); } if k > 2 { s.wall(u, st + 4, w); } }
+        for u in [-2, 2] { for v in st - 1..=(st + 4).min(top) { s.wall(u, v, w); } } }
+    s.room((-1, 1, -1, 0, 3)); for u in -1..=1 { for v in 1..=3 { s.air(u, v, 1); } }
+    // La ruine en surface : des colonnes moussues, une architrave brisée, un muret de part et d'autre de la descente.
+    for (u, w, h) in [(-3, -15, 4), (3, -15, 3), (-3, -10, 2), (3, -10, 4)] { s.column(u, w, top + 1, top + h, "stone_pillar"); s.n(u, top, w, "mossy_stone"); }
+    for u in -3..=1 { s.n(u, top + 5, -15, if u == 1 { "mossy_stone" } else { "stone_bricks" }); }
+    for w in -13..=-11 { for u in [-2, 2] { s.n(u, top + 1, w, "stone_bricks_slab"); } }
+    s.t(-3, top + 3, -16, "banner_blue", 0, 1); s.n(-4, top + 1, -12, "mossy_stone"); s.n(4, top + 1, -13, "stone_bricks_slab"); s.n(-5, top + 1, -9, "mossy_stone");
+    // La salle de l'eau noire.
+    s.room(HALL); s.basin(-2, 2, 6, 9);
+    for (u, w) in [(-4, 4), (4, 4), (-4, 10), (4, 10)] { s.column(u, w, 1, HALL.4, "stone_pillar"); }
+    for (u, w, dx) in [(-5, 4, -1), (5, 4, 1), (-5, 10, -1), (5, 10, 1)] { s.t(u, 3, w, "wall_sconce", dx, 0); }
+    s.t(-3, 4, 2, "banner_blue", 0, -1); s.t(3, 4, 2, "banner_blue", 0, -1); s.n(-3, 1, 12, "brazier"); s.n(3, 1, 12, "brazier");
+    for (u, w) in [(-5, 2), (5, 12), (-5, 12)] { s.n(u, HALL.4, w, "cobweb"); }
+    // vers la salle des leviers, une arche ; le couloir dérobé arrive au nord-est, derrière sa grille
+    s.room((-11, -6, 6, 8, 3));
+    // 1 — les trois leviers
+    s.room(R1);
+    for (k, l) in R1_LEVERS.iter().enumerate() { s.t(l[0], l[1], l[2], "lever", -1, 0); for v in 0..=k as i32 { s.t(l[0], 3 + v, l[2], "banner_gold", -1, 0); } }
+    for d in R1_DARTS { s.n(d[0], d[1], d[2], "dart_trap"); }
+    s.n(-17, 1, 7, "chiseled_stone"); s.n(-17, 2, 7, "candle"); for (u, w, dx, dz) in [(-12, 3, 1, 0), (-12, 11, 1, 0), (-20, 2, 0, -1), (-14, 12, 0, 1)] { s.t(u, 4, w, "wall_sconce", dx, dz); }
+    s.room((-18, -17, 13, 15, 2)); s.bars(&R1_GATE, false);
+    // 2 — les deux dalles
+    s.room(R2);
+    for q in R2_PLATES { s.n(q[0], q[1], q[2], "pressure_plate"); } for q in R2_BLOCKS { s.n(q[0], q[1], q[2], "push_block"); }
+    for (u, w) in [(-21, 17), (-13, 17), (-21, 25), (-13, 25)] { s.column(u, w, 1, R2.4, "stone_pillar"); }
+    for (u, w, dx, dz) in [(-22, 21, -1, 0), (-17, 26, 0, 1), (-17, 16, 0, -1)] { s.t(u, 4, w, "wall_sconce", dx, dz); }
+    s.room(R3);
+    let g2: Vec<[i32; 3]> = R2_GATE_W.iter().flat_map(|&w| [[-11, 1, w], [-11, 2, w]]).collect(); s.bars(&g2, true);
+    // 3 — le couloir des pièges
+    for row in R3_SPIKES { for u in row { for w in R3.2..=R3.3 { s.n(u, 1, w, "spikes_down"); } } }
+    for u in [-9, -4, 3, 8] { s.t(u, 3, 19 + 1, "wall_sconce", 0, -1); }
+    s.room((8, 9, 23, 25, 3)); s.room((10, 11, 24, 25, 3));
+    s.n(R3_BLOCK[0], R3_BLOCK[1], R3_BLOCK[2], "push_block"); for d in R3_DARTS { s.n(d[0], d[1], d[2], "dart_trap"); }
+    // 4 — la nef
+    s.room(R4); s.basin(14, 20, 19, 22);
+    for u in R4.0..=R4.1 { for w in 16..=17 { s.n(u, 5, w, "stone_bricks"); } }
+    s.t(R4_LEVER[0], R4_LEVER[1], R4_LEVER[2], "lever", 0, -1);
+    // les degrés le long du mur sud, puis la corniche le long du mur est, jusqu'à la galerie
+    for (k, u) in (13..=16).enumerate() { s.column(u, 26, 1, k as i32 + 1, "stone_bricks"); }
+    for u in 17..=21 { s.column(u, 26, 1, 4, "stone_bricks"); } s.column(22, 26, 1, 5, "stone_bricks"); for w in 18..=25 { s.n(22, 5, w, "mossy_stone"); }
+    // la passerelle friable : un raccourci au-dessus du bassin
+    for w in 18..=25 { s.n(16, 4, w, "crumbling_floor"); }
+    for (u, w, dx, dz) in [(12, 20, -1, 0), (22, 20, 1, 0), (17, 26, 0, 1)] { s.t(u, 7, w, "wall_sconce", dx, dz); } for v in 6..=R4.4 { s.n(17, v, 21, "chain"); } s.n(17, 5, 21, "lantern");
+    s.room((13, 14, 13, 15, 2)); s.bars(&R4_GATE, false);
+    // 5 — l'épreuve
+    s.room(R5);
+    s.n(R5_PLATE[0], R5_PLATE[1], R5_PLATE[2], "pressure_plate"); s.n(R5_BLOCK[0], R5_BLOCK[1], R5_BLOCK[2], "push_block");
+    for w in R5_SPIKE_W { for u in R5.0..=R5.1 { s.n(u, 1, w, "spikes"); } } for d in R5_DARTS { s.n(d[0], d[1], d[2], "dart_trap"); }
+    for u in R5.0..=R5.1 { for v in 1..=R5.4 { s.n(u, v, R5_BARS_W, "iron_bars"); } }
+    s.room((17, 18, -1, 1, 2)); s.bars(&R5_GATE, false);
+    for (k, l) in R5_LEVERS.iter().enumerate() { s.t(l[0], l[1], l[2], "lever", 0, -1); for v in 0..=k as i32 { s.t(l[0], 3 + v, l[2], "banner_blue", 0, -1); } }
+    s.n(R5_TRAP[0], R5_TRAP[1], R5_TRAP[2], "dart_trap"); for (u, w, dx, dz) in [(12, 10, -1, 0), (22, 11, 1, 0), (12, 3, -1, 0)] { s.t(u, 3, w, "wall_sconce", dx, dz); }
+    // 6 — la chambre de l'idole
+    s.room(R6); s.basin(13, 13, -9, -3); s.basin(21, 21, -9, -3);
+    s.n(CHEST[0], 1, CHEST[2], "chiseled_stone"); s.n(CHEST[0], CHEST[1], CHEST[2], "chest"); for (u, w) in [(16, -6), (18, -6), (17, -5), (17, -7)] { s.n(u, 1, w, "candle"); }
+    for (u, w) in [(15, -9), (19, -9), (15, -3), (19, -3)] { s.column(u, w, 1, R6.4, "stone_pillar"); } for u in [15, 19] { s.t(u, 4, -10, "banner_gold", 0, -1); } s.n(17, R6.4, -6, "chandelier");
+    for (u, w) in [(12, -10), (22, -10)] { s.n(u, 1, w, "brazier"); }
+    // le couloir dérobé, son levier, sa grille
+    s.room((6, 11, -6, -5, 3)); s.room((4, 5, -6, 0, 3)); s.t(R6_LEVER[0], R6_LEVER[1], R6_LEVER[2], "lever", 1, 0); s.bars(&R6_GATE, false);
+    s.n(5, 3, -6, "cobweb");
+}
+
+/// Les mécanismes du sanctuaire bâti en `o`, leurs noms préfixés de `tag` (un par sanctuaire).
+pub fn mechs(o: [i32; 3], tag: &str) -> Mech {
+    let f = o[1] - DEPTH; let at = |q: [i32; 3]| [o[0] + q[0], f + q[1], o[2] + q[2]]; let ats = |l: &[[i32; 3]]| -> Vec<[i32; 3]> { l.iter().map(|q| at(*q)).collect() };
+    let iron = by_name("iron_bars").unwrap_or(0); let iron_z = variant(iron, facing_of(1.0, 0.0), false, false, false);
+    let gate = |l: &[[i32; 3]], b: Id| -> Vec<([i32; 3], Id)> { l.iter().map(|q| (at(*q), b)).collect() };
+    let box_of = |r: (i32, i32, i32, i32, i32)| (at([r.0, 1, r.2]), at([r.1, r.4, r.3]));
+    let name = |n: &str| format!("{tag}{n}");
+    let mut m = Mech::default();
+    // 1
+    m.wires.push(Wire { name: name("r1"), inputs: ats(&R1_LEVERS), seq: true, latch: true, fail_darts: true, darts: ats(&R1_DARTS), doors: gate(&R1_GATE, iron), ..Default::default() });
+    // 2
+    let g2: Vec<[i32; 3]> = R2_GATE_W.iter().flat_map(|&w| [[-11, 1, w], [-11, 2, w]]).collect();
+    m.wires.push(Wire { name: name("r2"), inputs: ats(&R2_PLATES), all: true, doors: gate(&g2, iron_z), ..Default::default() });
+    let (a, b) = box_of(R2); m.homes.push(Home { min: a, max: b, homes: ats(&R2_BLOCKS), keep: name("r2") });
+    // 3
+    for (k, row) in R3_SPIKES.iter().enumerate() { let sp: Vec<[i32; 3]> = row.iter().flat_map(|&u| (R3.2..=R3.3).map(move |w| [u, 1, w])).collect();
+        m.pulses.push(Pulse { spikes: ats(&sp), period: SPIKE_PERIOD, up: SPIKE_UP, phase: k as f64 * SPIKE_PERIOD / 2.0, ..Default::default() }); }
+    m.pulses.push(Pulse { darts: ats(&R3_DARTS), period: DART_PERIOD, up: 0.0, off_by: name("r4"), ..Default::default() });
+    let (a, b) = box_of(R3); m.homes.push(Home { min: a, max: b, homes: vec![at(R3_BLOCK)], keep: String::new() });
+    // 4
+    m.wires.push(Wire { name: name("r4"), inputs: vec![at(R4_LEVER)], latch: true, doors: gate(&R4_GATE, iron), ..Default::default() });
+    // 5
+    let field: Vec<[i32; 3]> = R5_SPIKE_W.iter().flat_map(|&w| (R5.0..=R5.1).map(move |u| [u, 1, w])).collect();
+    let row: Vec<[i32; 3]> = (R5.0..=R5.1).flat_map(|u| (1..=R5.4).map(move |v| [u, v, R5_BARS_W])).collect();
+    m.wires.push(Wire { name: name("r5a"), inputs: vec![at(R5_PLATE)], latch: true, calm: ats(&field), doors: gate(&row, iron), ..Default::default() });
+    m.wires.push(Wire { name: name("r5b"), inputs: ats(&R5_LEVERS), seq: true, latch: true, needs: vec![name("r5a")], fail_darts: true, darts: vec![at(R5_TRAP)], doors: gate(&R5_GATE, iron), ..Default::default() });
+    m.pulses.push(Pulse { darts: ats(&R5_DARTS), period: 1.6, up: 0.0, off_by: name("r5a"), ..Default::default() });
+    let (a, b) = box_of(R5); m.homes.push(Home { min: a, max: b, homes: vec![at(R5_BLOCK)], keep: name("r5a") });
+    // 6
+    m.wires.push(Wire { name: name("r6"), inputs: vec![at(R6_LEVER)], latch: true, doors: gate(&R6_GATE, iron), ..Default::default() });
+    m.chests.push(at(CHEST));
+    // la pierre ancienne
+    m.seals.push(Seal { min: at(SEAL.0), max: at(SEAL.1), until: String::new() });
+    // les inscriptions
+    for (r, t) in [(HALL, "Le Sanctuaire englouti. Sous les voûtes dort une eau noire ; au fond, une idole attend qui saura faire parler les pierres. (Clic droit : abaisser un levier, pousser un bloc.)"),
+        (R1, "Trois leviers sous des bannières d'or. Les anciens comptaient : une, puis deux, puis trois."),
+        (R2, "Deux dalles dans le sol, deux blocs de pierre : la grille ne se lève que sous le poids."),
+        (R3, "Les pics se lèvent et retombent, les masques du fond crachent des fléchettes. Observez le rythme… et poussez la pierre devant vous."),
+        (R4, "Une nef noyée d'ombre. Tout là-haut, sur la galerie, un levier."),
+        (R5, "L'épreuve : le poids, le piège, l'ordre — une bannière bleue, puis deux."),
+        (R6, "La chambre de l'idole. Un couloir dérobé ramène à l'entrée.")] { let (a, b) = box_of(r); m.hints.push(Hint { min: a, max: b, text: t.into(), shown: false }); }
+    m
+}
+
+/// Le solveur de chemins : les cases où le joueur peut se tenir (les pieds), depuis `from`, sans sauter plus d'un bloc,
+/// sans grimper (compétence Escalade) ni casser ou poser quoi que ce soit, dans la boîte `min`..`max`. On marche, on monte
+/// d'un bloc si la tête passe, on se laisse tomber (huit blocs au plus), on monte et descend les échelles, on nage. Le sol
+/// friable ne compte pas comme un appui (il cède) ; les pics comptent comme passables (ils blessent, sans arrêter).
+pub fn reach(w: &impl Voxels, from: [i32; 3], min: [i32; 3], max: [i32; 3]) -> BTreeSet<[i32; 3]> {
+    let crumble = by_name("crumbling_floor").unwrap_or(0);
+    let get = |p: [i32; 3]| w.get(p[0], p[1], p[2]).unwrap_or(1);
+    let pass = |p: [i32; 3]| { let b = get(p); b == 0 || !is_solid(b) };
+    let inb = |p: [i32; 3]| (0..3).all(|i| p[i] >= min[i] && p[i] <= max[i]);
+    let stand = |p: [i32; 3]| { if !inb(p) || !pass(p) || !pass([p[0], p[1] + 1, p[2]]) { return false; } let below = get([p[0], p[1] - 1, p[2]]); let here = get(p);
+        (is_solid(below) && below != crumble) || is_ladder(here) || is_water(here) || is_water(below) };
+    let mut seen = BTreeSet::new(); let mut q = VecDeque::new(); if stand(from) { seen.insert(from); q.push_back(from); }
+    while let Some(c) = q.pop_front() {
+        let mut next = Vec::new(); let up = [c[0], c[1] + 1, c[2]]; let head = [c[0], c[1] + 2, c[2]];
+        let climb = is_ladder(get(c)) || is_water(get(c));
+        if climb && stand(up) { next.push(up); }
+        if climb || is_ladder(get([c[0], c[1] - 1, c[2]])) { let d = [c[0], c[1] - 1, c[2]]; if stand(d) { next.push(d); } }
+        for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            let n = [c[0] + dx, c[1], c[2] + dz];
+            if stand(n) { next.push(n); continue; }
+            let n1 = [n[0], n[1] + 1, n[2]]; if pass(head) && stand(n1) { next.push(n1); continue; }
+            if pass(n) && pass(n1) { for k in 1..=8 { let d = [n[0], n[1] - k, n[2]]; if !inb(d) || !pass(d) { break; } if stand(d) { next.push(d); break; } } }
+        }
+        for n in next { if seen.insert(n) { q.push_back(n); } }
+    }
+    seen
+}
+
+impl Session {
+    /// Bâtit le sanctuaire ici, sur le monde déjà chargé (essais, captures), et branche ses mécanismes. `o` : le sol de l'entrée.
+    pub fn build_sanctuary(&mut self, o: [i32; 3]) {
+        let mut p = Plan::new(); carve(&mut p, o);
+        let e: Vec<(i32, i32, i32, Id)> = p.m.iter().filter(|(_, b)| **b != -2).map(|(&(x, y, z), &b)| (x, y, z, if b < 0 { 0 } else { b as Id })).collect();
+        self.world.edit_many(&e); let tag = format!("s{}:{}:", o[0], o[2]); if !self.mech.wires.iter().any(|w| w.name.starts_with(&tag)) { self.mech.absorb(mechs(o, &tag)); }
+        self.dirty = true;
+    }
+    /// Un sanctuaire de la carte, qu'on approche : ses mécanismes se branchent, une fois.
+    pub(crate) fn sanctuary_wake(&mut self, pl: &Place) {
+        let tag = format!("s{}:{}:", pl.x, pl.z); if self.mech.wires.iter().any(|w| w.name.starts_with(&tag)) { return; }
+        self.mech.absorb(mechs([pl.x, pl.y, pl.z], &tag)); self.dirty = true;
+    }
+}

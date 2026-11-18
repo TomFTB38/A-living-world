@@ -66,9 +66,16 @@ pub struct Pulse { pub spikes: Vec<[i32; 3]>, pub darts: Vec<[i32; 3]>, /** s */
 /// Un sceau : de `min` à `max`, on ne creuse ni ne bâtit, tant que le fil `until` n'est pas enclenché (vide : pour toujours).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Seal { pub min: [i32; 3], pub max: [i32; 3], pub until: String }
+/// Un retour : tant que le fil `keep` n'est pas enclenché, dès que le joueur a quitté la salle (`min`..`max`, à une case près),
+/// ses blocs à pousser reviennent à leur place (`homes`) : on ne se coince jamais pour de bon.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Home { pub min: [i32; 3], pub max: [i32; 3], pub homes: Vec<[i32; 3]>, pub keep: String }
+/// Une inscription, lue une fois en entrant dans la salle (`min`..`max`).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Hint { pub min: [i32; 3], pub max: [i32; 3], pub text: String, pub shown: bool }
 /// Tous les mécanismes du monde.
 #[derive(Clone, Debug, Default)]
-pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64 }
+pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, /** les coffres au trésor d'un donjon */ pub chests: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
 
 /// Les dégâts des pics (par atteinte), d'une fléchette, et le temps que tient le sol friable.
 pub const SPIKE_DMG: f64 = 5.0; pub const DART_DMG: f64 = 7.0; pub const CRUMBLE_T: f64 = 0.6;
@@ -78,12 +85,15 @@ fn name(b: Id) -> &'static str { BLOCKS[b as usize].name }
 fn split(n: &str) -> (&str, &str) { match n.split_once('@') { Some((a, f)) => (a, f), None => (n, "") } }
 fn with_face(base: &str, f: &str) -> Id { id(&if f.is_empty() { base.to_string() } else { format!("{base}@{f}") }) }
 /// Ce qu'on peut manipuler dans une zone scellée.
-fn free(b: Id) -> bool { matches!(split(name(b)).0, "lever" | "lever_on" | "pressure_plate" | "pressure_plate_on" | "push_block" | "chest" | "torch" | "torch_wall" | "lantern") || crate::blocks::is_chest(b) }
+fn free(b: Id) -> bool { matches!(split(name(b)).0, "lever" | "lever_on" | "pressure_plate" | "pressure_plate_on" | "chest" | "torch" | "torch_wall" | "lantern") || crate::blocks::is_chest(b) }
 
 impl Mech {
     pub fn wire(&self, n: &str) -> Option<&Wire> { self.wires.iter().find(|w| w.name == n) }
     fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) }
+    /// Ajoute les mécanismes d'un donjon.
+    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.chests.extend(o.chests); }
 }
+fn inside(p: [i32; 3], min: [i32; 3], max: [i32; 3], m: i32) -> bool { (0..3).all(|i| p[i] >= min[i] - m && p[i] <= max[i] + m) }
 
 impl Session {
     /// Un levier est-il abaissé, une dalle enfoncée ?
@@ -108,8 +118,10 @@ impl Session {
             let cur: Vec<bool> = w.inputs.iter().map(|p| self.input_on(*p)).collect();
             // la séquence : chaque levier abaissé doit être le suivant ; sinon tout se relève
             let mut fail = false; let mut progress = w.progress;
-            if w.seq && !(w.latch && w.on) { let last = if w.last.len() == cur.len() { w.last.clone() } else { cur.clone() };
-                for i in 0..cur.len() { if cur[i] && !last[i] { if i == progress { progress += 1; } else { fail = true; } } if !cur[i] && last[i] && i < progress { progress = i; } } }
+            // (sans mémoire du pas précédent — un fil tout juste branché ou relu —, les leviers sont supposés relevés ; ceux déjà
+            // comptés dans la séquence ne sont pas un faux pas)
+            if w.seq && !(w.latch && w.on) { let last = if w.last.len() == cur.len() { w.last.clone() } else { vec![false; cur.len()] };
+                for i in 0..cur.len() { if cur[i] && !last[i] { if i == progress { progress += 1; } else if i > progress { fail = true; } } if !cur[i] && last[i] && i < progress { progress = i; } } }
             let mut raw = if w.inputs.is_empty() { true } else if w.seq { !fail && progress == w.inputs.len() } else if w.all { cur.iter().all(|c| *c) } else { cur.iter().any(|c| *c) };
             raw = raw && w.needs.iter().all(|n| self.mech.is_on(n));
             let (inputs, fail_darts, darts) = (w.inputs.clone(), w.fail_darts, w.darts.clone());
@@ -137,6 +149,20 @@ impl Session {
             if fire && self.near(&darts, 32.0) { for p in &darts { self.dart(*p); } }
             let pu = &mut self.mech.pulses[k]; pu.was_up = Some(up); pu.cycle = cycle;
         }
+        // les inscriptions, lues en entrant
+        let me = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.1).floor() as i32, self.player.p[2].floor() as i32];
+        for k in 0..self.mech.hints.len() { let h = &self.mech.hints[k]; if !h.shown && self.dead.is_none() && inside(me, h.min, h.max, 0) { let t = h.text.clone(); self.mech.hints[k].shown = true; self.dirty = true; self.notes.push(t); } }
+        // les blocs à pousser d'une salle qu'on a quittée reviennent à leur place
+        self.mech.home_t -= dt;
+        if self.mech.home_t <= 0.0 { self.mech.home_t = 0.5; let pb = id("push_block");
+            for k in 0..self.mech.homes.len() { let h = self.mech.homes[k].clone(); if inside(me, h.min, h.max, 1) || (!h.keep.is_empty() && self.mech.is_on(&h.keep)) || !self.near(&h.homes, 64.0) { continue; }
+                let mut found = Vec::new(); let mut loaded = true;
+                'scan: for x in h.min[0]..=h.max[0] { for y in h.min[1]..=h.max[1] { for z in h.min[2]..=h.max[2] { match self.world.get(x, y, z) { None => { loaded = false; break 'scan; } Some(b) if b == pb => found.push([x, y, z]), _ => {} } } } }
+                if !loaded || h.homes.iter().all(|p| found.contains(p)) { continue; }
+                let mut e: Vec<(i32, i32, i32, Id)> = found.iter().filter(|p| !h.homes.contains(p)).map(|p| (p[0], p[1], p[2], 0)).collect();
+                for p in &h.homes { if !found.contains(p) && self.world.get(p[0], p[1], p[2]) == Some(0) { e.push((p[0], p[1], p[2], pb)); } }
+                self.world.edit_many(&e); self.dirty = true; if self.near(&h.homes, 28.0) { self.notes.push("Un grondement sourd : les blocs de pierre ont repris leur place".into()); self.sound.place("stone"); }
+            } }
         // les pics sortis blessent ; le sol friable cède
         if self.dead.is_some() || self.creative || self.player.fly { return; }
         let f = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.05).floor() as i32, self.player.p[2].floor() as i32];
@@ -194,6 +220,9 @@ impl Session {
                 word(&w.name), w.seq as u8, w.not as u8, w.hold, if w.needs.is_empty() { "-".into() } else { w.needs.join(";") }, pts(&w.calm), w.fail_darts as u8, w.progress, w.timer) }).collect();
         for p in &self.mech.pulses { o += &format!("pulse {} {} {} {} {} {} {}\n", p.period, p.up, p.phase, word(&p.off_by), word(&p.on_by), pts(&p.spikes), pts(&p.darts)); }
         for s in &self.mech.seals { o += &format!("seal {} {} {}\n", pts(&[s.min]), pts(&[s.max]), word(&s.until)); }
+        for h in &self.mech.homes { o += &format!("home {} {} {} {}\n", pts(&[h.min]), pts(&[h.max]), word(&h.keep), pts(&h.homes)); }
+        for h in &self.mech.hints { o += &format!("hint {} {} {} {}\n", pts(&[h.min]), pts(&[h.max]), h.shown as u8, h.text); }
+        if !self.mech.chests.is_empty() { o += &format!("mchest {}\n", pts(&self.mech.chests)); }
         o
     }
     pub(crate) fn mech_load(&mut self, rest: &str) {
@@ -212,5 +241,16 @@ impl Session {
         let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 3 { return; } let (m, n) = (pts(a[0]), pts(a[1])); if m.is_empty() || n.is_empty() { return; }
         self.mech.seals.push(Seal { min: m[0], max: n[0], until: if a[2] == "-" { String::new() } else { a[2].to_string() } });
     }
+}
+impl Session {
+    pub(crate) fn home_load(&mut self, rest: &str) {
+        let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 4 { return; } let (m, n) = (pts(a[0]), pts(a[1])); if m.is_empty() || n.is_empty() { return; }
+        self.mech.homes.push(Home { min: m[0], max: n[0], keep: if a[2] == "-" { String::new() } else { a[2].to_string() }, homes: pts(a[3]) });
+    }
+    pub(crate) fn hint_load(&mut self, rest: &str) {
+        let mut a = rest.splitn(4, ' '); let (Some(m), Some(n), Some(sh), Some(t)) = (a.next(), a.next(), a.next(), a.next()) else { return }; let (m, n) = (pts(m), pts(n)); if m.is_empty() || n.is_empty() { return; }
+        self.mech.hints.push(Hint { min: m[0], max: n[0], shown: sh == "1", text: t.to_string() });
+    }
+    pub(crate) fn mchest_load(&mut self, rest: &str) { self.mech.chests.extend(pts(rest.trim())); }
 }
 fn pts(s: &str) -> Vec<[i32; 3]> { if s == "-" { return Vec::new(); } s.split(';').filter_map(|c| { let v: Vec<i32> = c.split(',').filter_map(|x| x.parse().ok()).collect(); (v.len() == 3).then(|| [v[0], v[1], v[2]]) }).collect() }

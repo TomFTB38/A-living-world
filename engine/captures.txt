@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_flechettes plat_mecanismes
+spawn jeu plat_sanctuaire_entree plat_sanctuaire_eau plat_sanctuaire_leviers plat_sanctuaire_pieges plat_sanctuaire_nef plat_sanctuaire_idole
