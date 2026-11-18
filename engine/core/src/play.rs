@@ -256,6 +256,8 @@ impl Session {
         if go && self.target.is_none() && self.swing_t <= 0.0 { self.swing_t = 0.3; self.sound.swing(v, 1.0); if !self.creative { self.spend(STAMINA_SWING); } }
         let Some(t) = self.target.filter(|_| go) else { self.mine_key = None; self.mine_t = 0.0; return };
         let key = (t.x, t.y, t.z);
+        // la pierre ancienne d'un donjon scellé : rien n'y mord tant que son mécanisme n'est pas résolu
+        if self.sealed([t.x, t.y, t.z], t.id) { if self.mine_key != Some(key) { self.mine_key = Some(key); self.notes.push("Pierre ancienne, scellée : la pioche n'y mord pas".into()); } self.mine_t = 0.0; return; }
         if self.mine_key != Some(key) { self.mine_key = Some(key); self.mine_t = 0.0; self.felling = if tool.is_some_and(|t| t.kind == "hache") { find_tree(&self.world, t.x, t.y, t.z) } else { None };
             // Un arbre immense exige du métal : la hache de pierre ou de silex le travaille bloc à bloc.
             if let (Some(tr), Some(tl)) = (&self.felling, tool) { if tr.logs.len() > 60 && tl.mat.tier < 2 { self.felling = None; self.notes.push("Trop gros pour une hache de pierre : il faut du métal, ou le couper bloc à bloc".into()); } } }
@@ -694,6 +696,8 @@ impl Session {
                 Some("profile") => self.profile = (num(a.next())? as usize).min(PROFILES.len() - 1),
                 Some("prog") => self.prog.load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("wire") => self.mech_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
+                Some("pulse") => self.pulse_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
+                Some("seal") => self.seal_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("skills") => { for k in 0..5 { self.skills[k] = num(a.next()).unwrap_or(0.0); } }
                 Some("inv") => { let i = num(a.next())? as usize; let id = a.next().unwrap_or(""); let n = num(a.next())?; let w = num(a.next()).unwrap_or(0.0); if let (Some(s), true) = (stack(id, n, w), i < INV_SIZE) { inv[i] = Some(s); } }
                 Some("equip") => { let i = num(a.next())? as usize; let id = a.next().unwrap_or(""); let n = num(a.next())?; let w = num(a.next()).unwrap_or(0.0); if let (Some(s), true) = (stack(id, n, w), i < 5) { self.equip[i] = Some(s); } }

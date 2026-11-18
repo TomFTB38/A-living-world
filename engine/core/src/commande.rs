@@ -36,6 +36,7 @@ impl Session {
             "village" => self.village_report(),
             "brigands" => if self.raid_now() { "Une bande de brigands marche sur le village pilote.".into() } else { "Pas de bande possible ici (approchez du village pilote).".into() },
             "lieu" | "lieux" => self.goto_place(arg),
+            "fils" | "mecanismes" => self.wires_report(48.0).join("\n"),
             "coin1" => self.set_corner(0), "coin2" => self.set_corner(1),
             "exporter" | "export" => self.export(arg),
             "structures" => { let v = crate::structures::names(); if v.is_empty() { "Aucune structure exportée pour l'instant : /coin1, /coin2 puis /exporter nom".into() } else { format!("Structures : {}", v.join(", ")) } }

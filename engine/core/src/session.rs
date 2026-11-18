@@ -163,6 +163,7 @@ impl Session {
     pub fn place(&mut self) -> bool {
         let Some(plan) = self.plan() else { return false }; let Some(st) = self.inv[self.sel] else { return false };
         if crate::shapes::info(plan[0].1).is_none_or(|i| i.kind == crate::shapes::Kind::Post) { let f = self.player.forward(); self.axis = Some(gaze_axis(f[0], f[1], f[2], self.orient, self.axis)); }
+        if plan.iter().any(|(p, id)| self.sealed(*p, *id)) { self.notes.push("Lieu scellé : on n'y bâtit pas".into()); return false; }
         let edits: Vec<(i32, i32, i32, Id)> = plan.iter().map(|(p, id)| (p[0], p[1], p[2], *id)).collect();
         if self.world.edit_many(&edits) == 0 { return false; }
         for (p, id) in &plan { self.flow.touch(p[0], p[1], p[2]); self.on_placed(*p, *id); }
