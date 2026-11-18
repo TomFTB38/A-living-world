@@ -98,6 +98,8 @@ impl Session {
     pub fn carried(&self) -> f64 { self.inv.iter().chain(self.equip.iter()).flatten().map(|s| def(s.item).map_or(1.0, |d| d.mass) * s.n.unwrap_or(1) as f64).sum::<f64>() + self.cursor.map_or(0.0, |s| def(s.item).map_or(1.0, |d| d.mass) * s.n.unwrap_or(1) as f64) }
     pub fn capacity(&self) -> f64 { CARRY * self.prog.carry() + self.worn().4 }
     /// Le temps de charge d'un coup lourd (la compétence Coup puissant le raccourcit).
+    /// Discrétion : accroupi, est-on caché (aucune créature hostile ne vous traque à moins de 32 pas) ou repéré ? Debout : rien à dire.
+    pub fn stealth(&self) -> Option<bool> { if !self.player.crouch || self.creative { return None; } Some(!self.horde.hunted(self.player.p, 32.0)) }
     pub fn heavy_t(&self) -> f64 { HEAVY_T * self.prog.charge_time() }
     /// Le délai pour parer au bon moment (la compétence Parade l'allonge).
     pub fn parry_t(&self) -> f64 { PARRY_T + self.prog.parry() }
@@ -341,7 +343,11 @@ impl Session {
         self.sound.swing(voice(tool), 1.0); let me = self.player.p; let knife = self.tool().is_some_and(|t| t.kind == "couteau");
         let spot = match prey { Prey::Deer(k) => self.fauna.deer[k].p, Prey::Wild(k) => self.wild.all[k].p, Prey::Foe(k) => self.horde.foes[k].p };
         // Une créature hostile : son butin tombe par la session quand elle meurt.
-        if let Prey::Foe(k) = prey { self.sound.thump(spot); let kind = self.tool().map_or("", |t| t.kind); if heavy { self.horde.stagger(k, me, 1.0); } self.horde.strike(k, dmg, me, kind, heavy); self.wear_tool(1); self.skills[2] += 0.5; return; }
+        if let Prey::Foe(k) = prey { self.sound.thump(spot); let kind = self.tool().map_or("", |t| t.kind);
+            // Frapper par surprise une créature qui ne vous a pas repéré : le coup porte triple (double sur un boss) ; accroupi, on
+            // l'abat net si ce n'est pas un boss (l'assassinat, après s'être approché à pas de loup).
+            let mut dmg = dmg; if let Some(boss) = self.horde.unaware(k) { if self.player.crouch && !boss { dmg = 1.0e4; self.notes.push("Assassinat !".into()); } else { dmg *= if boss { SNEAK_BOSS } else { SNEAK_MUL }; self.notes.push(format!("Coup en traître ! ×{}", if boss { SNEAK_BOSS } else { SNEAK_MUL })); } }
+            if heavy { self.horde.stagger(k, me, 1.0); } self.horde.strike(k, dmg, me, kind, heavy); self.wear_tool(1); self.skills[2] += 0.5; return; }
         let (loot, extra): (&[(&str, u32)], &[(&str, u32)]) = match prey {
             Prey::Deer(k) => { let at = self.fauna.deer[k].p; self.sound.thump(at); let close = (at[0] - me[0]).hypot(at[2] - me[2]) < 2.4;
                 if self.fauna.strike(k, dmg, me) { (DEER_LOOT, DEER_KNIFE) } else { if close && hash_float((self.elapsed * 977.0) as i32, k as i32, self.seed, 13) < 0.3 { self.harm(6.0, "La ruade d'un cerf", true); } (&[], &[]) } }

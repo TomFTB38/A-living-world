@@ -63,6 +63,12 @@ fn porte_echelle_et_mur_fin() {
     let (mut s, [_, y, _]) = site(); let mut e = Vec::new(); for h in 0..5 { e.push((0, y + h, -1, B::STONE)); e.push((0, y + h, -2, by_name("ladder").unwrap())); } s.world.edit_many(&e);
     s.player.p = [0.5, y as f64, -2.5]; walk(&mut s, 1.2, Input { z: 1.0, ..none() }); assert!(s.player.p[1] > y as f64 + 2.5, "on grimpe : y = {:.2}", s.player.p[1] - y as f64);
     let top = s.player.p[1]; walk(&mut s, 1.0, Input { crouch: true, ..none() }); assert!(s.player.p[1] < top - 1.0, "accroupi, on redescend");
+    // en haut de l'échelle, on passe le rebord et on se retrouve sur le mur (on ne reste pas coincé juste dessous)
+    let mut e = Vec::new(); for h in 0..5 { for z in 0..4 { e.push((0, y + h, z, B::STONE)); } } s.world.edit_many(&e);
+    s.player.p = [0.5, y as f64, -2.5]; walk(&mut s, 2.5, Input { z: 1.0, ..none() }); assert!(s.player.p[1] >= y as f64 + 4.99 && s.player.p[2] > -1.0, "sur le mur : y = {:.2}, z = {:.2}", s.player.p[1] - y as f64, s.player.p[2]);
+    // une échelle qui s'arrête un bloc sous le haut du mur (comme sur les murailles) : on se hisse quand même dessus
+    let (mut s, [_, y, _]) = site(); let mut e = Vec::new(); for h in 0..5 { for z in -1..4 { e.push((0, y + h, z, B::STONE)); } } for h in 0..4 { e.push((0, y + h, -2, by_name("ladder").unwrap())); } s.world.edit_many(&e);
+    s.player.p = [0.5, y as f64, -2.5]; walk(&mut s, 3.0, Input { z: 1.0, ..none() }); assert!(s.player.p[1] >= y as f64 + 4.99 && s.player.p[2] > -1.0, "hissé sur le mur : y = {:.2}, z = {:.2}", s.player.p[1] - y as f64, s.player.p[2]);
     // mur fin et pilier : on s'en approche plus près qu'un bloc plein
     let (mut s, [_, y, _]) = site(); s.world.edit_many(&[(0, y, -1, by_name("stone_wall").unwrap()), (0, y + 1, -1, by_name("stone_wall").unwrap())]); walk(&mut s, 1.0, Input { z: 1.0, ..none() });
     assert!(s.player.p[2] > -1.0 + 0.0 && s.player.p[2] < -0.6, "arrêté par le mur fin, plus près qu'un bloc : z = {:.3}", s.player.p[2]);

@@ -52,6 +52,8 @@ pub const STAMINA_REGEN: f64 = 22.0; pub const STAMINA_WAIT: f64 = 1.0; pub cons
 pub const STAMINA_SWING: f64 = 1.5;
 /// Coup lourd : temps de charge, dégâts multipliés, endurance multipliée.
 pub const HEAVY_T: f64 = 0.75; pub const HEAVY_MUL: f64 = 2.2; pub const HEAVY_COST: f64 = 2.5;
+/// Frapper par surprise une créature qui ne vous a pas repéré : dégâts ×3 (×2 sur un boss) ; accroupi, on l'abat net (sauf un boss).
+pub const SNEAK_MUL: f64 = 3.0; pub const SNEAK_BOSS: f64 = 2.0;
 /// Garde : une parade dans ce délai après avoir levé le bouclier pare tout et fait reculer la bête.
 pub const PARRY_T: f64 = 0.4;
 /// Part d'une attaque de face qu'arrête un bouclier, selon son armure.

@@ -828,6 +828,8 @@ impl Ui {
         // Le réticule rougit quand il est sur un animal à portée.
         let ch = if s.prey.is_some() { [1.0, 0.5, 0.4, 1.0] } else { w1 }; let t = if s.prey.is_some() { 3.0 } else { 2.0 };
         u.rect(w * 0.5 - t * 0.5, h * 0.5 - 8.0, t, 16.0, ch); u.rect(w * 0.5 - 8.0, h * 0.5 - t * 0.5, 16.0, t, ch);
+        // Accroupi : caché (personne ne vous traque alentour : un coup porté en traître frappe triple), ou repéré.
+        if let Some(hid) = s.stealth() { let (lab, c) = if hid { ("Caché", [0.62, 0.86, 0.62, 0.9]) } else { ("Repéré", [1.0, 0.45, 0.35, 0.95]) }; let z = 14.0 * k; u.text(lab, (w - Ui::text_width(lab, z)) * 0.5, h * 0.5 + 18.0 * k, z, c); }
         let cell = 62.0 * k; let gap = 5.0 * k; let total = 9.0 * cell + 8.0 * gap; let (x0, y0) = ((w - total) * 0.5, h - cell - 16.0 * k);
         for i in 0..9.min(INV_SIZE) {
             let x = x0 + i as f32 * (cell + gap); let on = i == s.sel;

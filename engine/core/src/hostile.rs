@@ -170,6 +170,10 @@ impl Horde {
         false
     }
     /// Repoussée (parade, coup lourd) : elle recule et perd son attaque.
+    /// La créature `i` ignore-t-elle le joueur (au repos, en ronde, intriguée, de retour) ? Rend alors si c'est un boss.
+    pub fn unaware(&self, i: usize) -> Option<bool> { let f = self.foes.get(i)?; (f.dead == 0.0 && matches!(f.state, Ai::Repos | Ai::Patrouille | Ai::Soupcon | Ai::Retour)).then(|| bestiary().species[f.sp].boss) }
+    /// Une créature vous traque-t-elle (repéré, poursuivi, combattu) à moins de `r` pas ?
+    pub fn hunted(&self, p: [f64; 3], r: f64) -> bool { self.foes.iter().any(|f| f.dead == 0.0 && matches!(f.state, Ai::Detection | Ai::Poursuite | Ai::Combat) && (f.p[0] - p[0]).hypot(f.p[2] - p[2]) < r) }
     /// Le boss ne recule pas : une parade (ou un coup lourd) entame sa garde ; trop entamée, elle se brise et il chancelle.
     pub fn stagger(&mut self, i: usize, from: [f64; 3], secs: f64) { if let Some(f) = self.foes.get_mut(i) { if bestiary().species[f.sp].boss { if f.broken <= 0.0 && f.dead == 0.0 { f.calm = 0.0; f.posture += if secs >= 2.0 { PARRY_POSTURE } else { 12.0 }; f.hit = 0.15; if f.posture >= POSTURE { reel(f, &mut self.ev); } } return; } let (dx, dz) = (f.p[0] - from[0], f.p[2] - from[2]); let d = dx.hypot(dz).max(0.1); f.v = [dx / d * 6.0, 0.0, dz / d * 6.0]; f.wind = 0.0; f.cd = f.cd.max(secs); f.hit = 0.3; } }
     /// La créature vivante la plus proche d'un point (celle qui vient de frapper).
