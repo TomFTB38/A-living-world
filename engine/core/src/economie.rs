@@ -310,7 +310,7 @@ impl Session {
         if near { self.econ_chores(&mut e, &v, dt); } else { e.live = [false; 3]; }
         // la maison payée se pose dès que le joueur est là
         // un projet choisi chez le maire se lance dès que la réserve a de quoi (le joueur vient peut-être de la remplir)
-        if let Some((k, true)) = e.project { if e.affords(k) { let day = (e.t / 24.0) as u32; e.start(k, day); said.push(format!("{} : la réserve est pleine, le chantier {} commence", v.name, de(project(k).name))); } }
+        if let Some((k, true)) = e.project { if e.affords(k) { let day = (e.t / 24.0) as u32; e.start(k, day); said.push(format!("{} : la réserve est pleine, le chantier {} commence", v.name, de(project(k).name))); self.earn(crate::niveaux::XP_PROJECT, "projet du village lancé"); } }
         // les remparts suivent le tour du village : ils se posent d'un coup, une fois tout leur tracé chargé
         if near && e.due.first().is_some_and(|k| matches!(k, Kind::Muraille | Kind::TourDefense)) { let kind = e.due[0];
             let made = if kind == Kind::Muraille { self.rampart_wall(&v, &e) } else { self.rampart_tower(&e, e.extra.iter().filter(|x| x.kind == Kind::TourDefense).count()) };

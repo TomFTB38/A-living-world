@@ -91,7 +91,7 @@ impl Session {
     pub(crate) fn camp_kill(&mut self, cell: (i32, i32)) {
         let now = self.hours; let Some(c) = self.camps.get_mut(&cell) else { return }; c.left = c.left.saturating_sub(1);
         if c.left == 0 && !c.down() { c.down_until = now + 24.0 * DOWN_DAYS; c.power = 0.0; self.dirty = true;
-            self.notes.push("Le camp de brigands est dispersé ! Les villages alentour seront tranquilles un temps.".into()); self.sound.pickup(); }
+            self.notes.push("Le camp de brigands est dispersé ! Les villages alentour seront tranquilles un temps.".into()); self.sound.pickup(); self.earn(crate::niveaux::XP_CAMP, "camp de brigands dispersé"); }
     }
     /// Une bande revient : un pillage réussi renforce son camp d'un demi-cran, une bande perdue l'affaiblit d'autant.
     pub(crate) fn camp_news(&mut self, cell: Option<(i32, i32)>, won: bool) {

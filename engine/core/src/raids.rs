@@ -68,7 +68,7 @@ impl Session {
         raid.t += dt; let alive: Vec<usize> = (0..self.horde.foes.len()).filter(|&i| self.horde.foes[i].group == raid.group && self.horde.foes[i].dead == 0.0).collect();
         if alive.is_empty() {
             // tous tombés (sous les flèches des gardes, ou sous les coups du joueur)
-            e.note(day, format!("une bande de {} brigands a été repoussée", raid.size)); self.notes.push(format!("{} : les brigands sont repoussés !", v.name)); self.camp_news(raid.camp, false);
+            e.note(day, format!("une bande de {} brigands a été repoussée", raid.size)); self.notes.push(format!("{} : les brigands sont repoussés !", v.name)); self.camp_news(raid.camp, false); if near { self.earn(crate::niveaux::XP_RAID, "attaque repoussée"); }
             for &k in &guards { self.town.folk[k].work_t = 0.0; } return;
         }
         // au matin, ou après un long siège devant la muraille, la bande renonce et s'en retourne

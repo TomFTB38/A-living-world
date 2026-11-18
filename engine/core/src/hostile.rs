@@ -1205,7 +1205,7 @@ impl Session {
                 FoeEv::Loot(_, g) => self.raid_loot(g),
                 FoeEv::Snare(t) => { if self.snare <= 0.0 { self.notes.push("Englué dans la soie : vous êtes ralenti".into()); } self.snare = self.snare.max(t); }
                 FoeEv::Blocked(p) => { self.sound.thump(p); if (p[0] - self.player.p[0]).hypot(p[2] - self.player.p[2]) < 8.0 { self.notes.push("Bloqué par son bouclier".into()); } }
-                FoeEv::Die(p, sp, vet, camp) => { let s = &bestiary().species[sp]; self.sound.thump(p); self.skills[2] += 2.0; if let Some(c) = camp { self.camp_kill(c); } if self.creative { continue; }
+                FoeEv::Die(p, sp, vet, camp) => { let s = &bestiary().species[sp]; self.sound.thump(p); self.skills[2] += 2.0; if (p[0] - self.player.p[0]).hypot(p[2] - self.player.p[2]) < 32.0 { self.earn(Self::kill_xp(sp, vet), &format!("{} vaincu", s.name)); } /* près de soi : on y a pris part */ if let Some(c) = camp { self.camp_kill(c); } if self.creative { continue; }
                     for &(id, lo, hi, pr) in &s.loot { let roll = self.horde.roll(); let pr = if vet { (pr * 1.3).min(1.0) } else { pr }; if roll < pr { let n = lo + (self.horde.roll() * (hi - lo + 1) as f64) as u32; self.spill(id, n.min(hi).max(lo), [p[0], p[1] + 0.6, p[2]]); } } }
             }
         }

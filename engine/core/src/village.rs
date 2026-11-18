@@ -841,7 +841,7 @@ impl Session {
     }
     pub fn close_talk(&mut self) { self.town.talk = None; }
     pub fn rep(&self, v: (i32, i32)) -> i32 { self.town.rep.get(&v).copied().unwrap_or(0) }
-    fn gain_rep(&mut self, v: (i32, i32), n: i32) { let r = self.town.rep.entry(v).or_insert(0); *r = (*r + n).clamp(-50, 100); self.dirty = true; }
+    fn gain_rep(&mut self, v: (i32, i32), n: i32) { let r = self.town.rep.entry(v).or_insert(0); let was = *r; *r = (*r + n).clamp(-50, 100); let up = *r - was; self.dirty = true; if up > 0 { self.earn(crate::niveaux::XP_REP * up as f64, "réputation au village"); } }
     /// Le paiement qu'on peut fournir pour un service : la première chose acceptée que l'on a en assez grande quantité.
     pub fn price(&self, c: &Craftsman, times: u32) -> Result<(&'static str, u32), String> {
         if self.creative { return Ok(("", 0)); }

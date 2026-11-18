@@ -191,6 +191,13 @@ pub fn dialog_layout(d: &alw_core::village::Dialog, w: f32, h: f32) -> ([f32; 4]
     ([x, y, pw, ph], out)
 }
 pub fn dialog_at(s: &Session, w: f32, h: f32, m: [f32; 2]) -> Option<usize> { let d = s.dialog()?; dialog_layout(&d, w, h).1.iter().position(|r| inside(m, *r)) }
+/// L'écran des compétences : le cadre, et les neuf cartes (trois branches en colonnes, trois étages en lignes), dans l'ordre de `SKILLS`.
+pub fn skills_layout(w: f32, h: f32) -> ([f32; 4], Vec<[f32; 4]>) {
+    let k = inv_scale(w, h); let (pw, ph) = (960.0 * k, 700.0 * k); let r = [(w - pw) * 0.5, (h - ph) * 0.5, pw, ph];
+    let (cw, ch, gx, gy) = (282.0 * k, 142.0 * k, 27.0 * k, 34.0 * k); let x0 = r[0] + (pw - 3.0 * cw - 2.0 * gx) * 0.5; let y0 = r[1] + 150.0 * k;
+    let mut o = Vec::new(); for b in 0..3 { for t in 0..3 { o.push([x0 + b as f32 * (cw + gx), y0 + t as f32 * (ch + gy), cw, ch]); } } (r, o)
+}
+pub fn skill_at(w: f32, h: f32, m: [f32; 2]) -> Option<usize> { skills_layout(w, h).1.iter().position(|r| inside(m, *r)) }
 pub fn death_button(w: f32, h: f32) -> [f32; 4] { let k = scale(h); let (bw, bh) = (300.0 * k, 48.0 * k); [(w - bw) * 0.5, h * 0.58, bw, bh] }
 pub fn death_at(w: f32, h: f32, m: [f32; 2]) -> bool { inside(m, death_button(w, h)) }
 /// Coupe un texte en lignes qui tiennent dans une largeur.
@@ -624,6 +631,33 @@ impl Ui {
         let t = "Clic ou chiffre pour répondre · Échap pour partir"; let z = 13.0 * k; self.text(t, r[0] + 18.0 * k, r[1] + r[3] - 24.0 * k, z, DIM);
     }
     /// Journal des villages : connus, du plus proche au plus lointain, avec leurs artisans (rencontrés en couleur).
+    /// L'arbre de compétences : trois branches côte à côte, trois étages chacune, du plus simple au plus fort.
+    fn skill_tree(&mut self, s: &Session, w: f32, h: f32, mouse: [f32; 2]) {
+        use alw_core::niveaux::{BRANCHES, RANKS, UNLOCK};
+        let k = inv_scale(w, h); let (r, cards) = skills_layout(w, h); self.panel(r, k, PANEL);
+        let (lv, into, need) = s.prog.level(); let pts = s.prog.points();
+        self.text("Compétences de l'explorateur", r[0] + 24.0 * k, r[1] + 18.0 * k, 26.0 * k, INK);
+        let info = format!("Niveau {lv} · {:.0} / {:.0} XP · {pts} point{} à dépenser", into, need, if pts > 1 { "s" } else { "" }); self.text(&info, r[0] + 24.0 * k, r[1] + 60.0 * k, 16.0 * k, if pts > 0 { GOLD } else { DIM });
+        let (bx, by, bw) = (r[0] + 24.0 * k, r[1] + 86.0 * k, r[2] - 48.0 * k); self.rect(bx, by, bw, 8.0 * k, WELL); self.rect(bx, by, bw * (into / need) as f32, 8.0 * k, GOLD);
+        let tip = "Explorer, combattre et aider les villages donne de l'expérience ; chaque niveau donne un point. Chaque rang coûte plus cher que le précédent. K ou Échap pour fermer";
+        for (i, l) in wrap(tip, 13.0 * k, bw).iter().take(2).enumerate() { self.text(l, bx, r[1] + r[3] - 46.0 * k + i as f32 * 18.0 * k, 13.0 * k, DIM); }
+        let cards_v = s.skill_cards();
+        for b in 0..3 { let c0 = cards[b * 3]; let spent = s.prog.branch_spent(b); let head = format!("{} · {spent} pt{}", BRANCHES[b], if spent > 1 { "s" } else { "" }); let z = 18.0 * k; self.text(&head, c0[0] + (c0[2] - Ui::text_width(&head, z)) * 0.5, c0[1] - 32.0 * k, z, INK);
+            // le fil qui relie les étages d'une branche
+            for t in 0..2 { let (a, d) = (cards[b * 3 + t], cards[b * 3 + t + 1]); let open = spent >= UNLOCK[t + 1]; self.rect(a[0] + a[2] * 0.5 - 2.0 * k, a[1] + a[3], 4.0 * k, d[1] - a[1] - a[3], if open { GOLD } else { [1.0, 1.0, 1.0, 0.15] }); } }
+        for (i, (cr, c)) in cards.iter().zip(cards_v.iter()).enumerate() {
+            let _ = i; let on = inside(mouse, *cr); let locked = c.why.as_deref().is_some_and(|w| w.starts_with("S'ouvre")); let full = c.rank >= RANKS;
+            self.panel(*cr, k, if on && c.can { [1.0, 1.0, 1.0, 0.2] } else if full { [0.95, 0.78, 0.36, 0.16] } else { [0.0, 0.0, 0.0, if locked { 0.55 } else { 0.38 }] });
+            let a = if locked { 0.45 } else { 1.0 }; let ink = [INK[0], INK[1], INK[2], a];
+            let z = 44.0 * k; let (ix, iy) = (cr[0] + 10.0 * k, cr[1] + 10.0 * k); self.rect(ix, iy, z, z, [1.0, 1.0, 1.0, 0.06]); self.icon(c.skill.icon, ix + z * 0.5, iy + z * 0.5, z * 0.42);
+            let tx = ix + z + 10.0 * k; self.text(c.skill.name, tx, cr[1] + 10.0 * k, 17.0 * k, ink);
+            // les rangs : trois cases, dorées quand elles sont prises
+            for q in 0..RANKS { let (px, py, ps) = (tx + q as f32 * 18.0 * k, cr[1] + 36.0 * k, 12.0 * k); self.rect(px, py, ps, ps, [0.0, 0.0, 0.0, 0.5]); if q < c.rank { self.rect(px + 2.0 * k, py + 2.0 * k, ps - 4.0 * k, ps - 4.0 * k, GOLD); } }
+            for (j, l) in wrap(c.skill.what, 13.0 * k, cr[2] - 20.0 * k).iter().take(3).enumerate() { self.text(l, cr[0] + 10.0 * k, cr[1] + 62.0 * k + j as f32 * 17.0 * k, 13.0 * k, [DIM[0], DIM[1], DIM[2], a]); }
+            let foot = if full { "Au maximum".to_string() } else if c.can { format!("Rang {} : {} point{} · cliquer", c.rank + 1, c.next_cost, if c.next_cost > 1 { "s" } else { "" }) } else { c.why.clone().unwrap_or_default() };
+            let fz = 13.0 * k; let foot = fit(&foot, fz, cr[2] - 20.0 * k); self.text(&foot, cr[0] + 10.0 * k, cr[1] + cr[3] - 24.0 * k, fz, if full { GOLD } else if c.can { ACCENT } else { [BAD[0], BAD[1], BAD[2], 0.8 * a.max(0.7)] });
+        }
+    }
     fn journal(&mut self, s: &Session, w: f32, h: f32) {
         let k = scale(h); let l = s.journal(); let lh = 46.0 * k; let pw = (760.0 * k).min(w - 40.0); let ph = 104.0 * k + l.len().clamp(1, 9) as f32 * lh; let (x, y) = ((w - pw) * 0.5, h * 0.12);
         self.panel([x, y, pw, ph], k, PANEL); self.text("Journal des villages", x + 18.0 * k, y + 14.0 * k, 23.0 * k, INK);
@@ -776,10 +810,10 @@ impl Ui {
         if !s.creative && s.dead.is_none() && s.vit[0] < 25.0 { let a = (0.16 + 0.1 * if menu.reduce { 0.5 } else { (s.elapsed as f32 * 4.0).sin() }) * (1.0 - s.vit[0] as f32 / 25.0).max(0.35); let e = 60.0 * k; let c = [0.55, 0.03, 0.02, a];
             u.rect(0.0, 0.0, w, e, c); u.rect(0.0, h - e, w, e, c); u.rect(0.0, e, e, h - 2.0 * e, c); u.rect(w - e, e, e, h - 2.0 * e, c); }
         // Coup chargé : un anneau qui se remplit autour du réticule ; garde levée : un écu sous le réticule, doré tant qu'elle pare.
-        if s.charge > 0.04 { let f = (s.charge / alw_core::survival::HEAVY_T).min(1.0) as f32; let n = 28; let (r0, r1) = (13.0 * k, 17.0 * k); let (cx, cy) = (w * 0.5, h * 0.5);
+        if s.charge > 0.04 { let f = (s.charge / s.heavy_t()).min(1.0) as f32; let n = 28; let (r0, r1) = (13.0 * k, 17.0 * k); let (cx, cy) = (w * 0.5, h * 0.5);
             for i in 0..n { let (a, b) = (-std::f32::consts::FRAC_PI_2 + i as f32 / n as f32 * std::f32::consts::TAU, -std::f32::consts::FRAC_PI_2 + (i + 1) as f32 / n as f32 * std::f32::consts::TAU); let on = (i as f32 + 0.5) / n as f32 <= f;
                 let p = |r: f32, t: f32| [cx + r * t.cos(), cy + r * t.sin()]; u.quad([p(r0, a), p(r1, a), p(r1, b), p(r0, b)], [[0.0; 2]; 4], if on { if f >= 0.98 { [1.0, 0.55, 0.3, 0.95] } else { [1.0, 1.0, 1.0, 0.85] } } else { [0.0, 0.0, 0.0, 0.3] }, LAYER_FLAT); } }
-        if s.guard_t >= 0.0 { let parry = s.guard_t <= alw_core::survival::PARRY_T; let c = if parry { GOLD } else { [0.85, 0.88, 0.9, 0.85] }; let (x, y, r) = (w * 0.5, h * 0.5 + 30.0 * k, 9.0 * k);
+        if s.guard_t >= 0.0 { let parry = s.guard_t <= s.parry_t(); let c = if parry { GOLD } else { [0.85, 0.88, 0.9, 0.85] }; let (x, y, r) = (w * 0.5, h * 0.5 + 30.0 * k, 9.0 * k);
             u.quad([[x - r, y - r], [x + r, y - r], [x + r * 0.7, y + r * 0.4], [x - r * 0.7, y + r * 0.4]], [[0.0; 2]; 4], c, LAYER_FLAT); u.quad([[x - r * 0.7, y + r * 0.4], [x + r * 0.7, y + r * 0.4], [x, y + r * 1.3], [x, y + r * 1.3]], [[0.0; 2]; 4], c, LAYER_FLAT); }
         // Un siège : la solidité de ce que les brigands frappent (la herse, la muraille), en haut de l'écran.
         if let Some((name, f)) = s.siege_bar() { let (bw, bh, z) = (360.0 * k, 12.0 * k, 18.0 * k); let (x, y) = ((w - bw) * 0.5, 70.0 * k); let f = f.clamp(0.0, 1.0) as f32;
@@ -809,6 +843,9 @@ impl Ui {
         if !s.creative {
             let o = needs::Opts { mode: menu.hud, reduce: menu.reduce, alt: menu.alt }; needs::row(&mut u, s, h, k, &o);
             if s.carried() > s.capacity() { u.text("Surchargé", 18.0 * k, h - 126.0 * k, 15.0 * k, BAD); }
+            // le niveau de l'explorateur : une fine jauge d'expérience au-dessus de la barre d'objets, son niveau à gauche (et les points à dépenser)
+            let (lv, into, need) = s.prog.level(); let pts = s.prog.points(); let (bx, by) = (x0, y0 - 9.0 * k); u.rect(bx, by, total, 4.0 * k, [0.0, 0.0, 0.0, 0.45]); u.rect(bx, by, total * (into / need) as f32, 4.0 * k, GOLD);
+            let lab = if pts > 0 { format!("Niv. {lv} · {pts} point{} (K)", if pts > 1 { "s" } else { "" }) } else { format!("Niv. {lv}") }; let z = 15.0 * k; u.text(&lab, x0 - Ui::text_width(&lab, z) - 12.0 * k, y0 + cell * 0.5 - z * 0.65, z, if pts > 0 { GOLD } else { DIM });
             if menu.marker && s.dead.is_none() && !s.stashes.is_empty() { u.marker(s, w, k); }
         } else { let z = 18.0 * k; u.text("Mode créatif", 18.0 * k, h - 34.0 * k, z, w1); }
         if !info.is_empty() { let z = 16.0 * k; let bw = info.iter().fold(0.0f32, |a, l| a.max(Ui::text_width(l, z))); u.rect(10.0 * k, 10.0 * k, bw + 24.0 * k, info.len() as f32 * 22.0 * k + 14.0 * k, [0.0, 0.0, 0.0, 0.5]); for (i, l) in info.iter().enumerate() { u.text(l, 22.0 * k, 16.0 * k + i as f32 * 22.0 * k, z, INK); } }
@@ -820,6 +857,7 @@ impl Ui {
         if s.town.journal && s.town.talk.is_none() && !s.inv_open { u.journal(s, w, h); }
         if s.town.talk.is_some() { u.dialog(s, w, h, mouse); }
         if s.inv_open { u.inventory(s, w, h, mouse); }
+        if s.prog.open && !s.inv_open { u.skill_tree(s, w, h, mouse); }
         u.big_map(s, w, h, k);
         if let Some(d) = &s.dead { u.death(s, d, w, h, k, mouse); }
         if menu.open { u.menu(menu, w, h, mouse); }

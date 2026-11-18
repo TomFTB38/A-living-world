@@ -194,7 +194,7 @@ impl Game {
         // les structures relevées par /exporter : un fichier par structure, dans « structures » à côté du jeu
         for (name, text) in std::mem::take(&mut self.s.exports) { let dir = beside_exe("structures"); let _ = std::fs::create_dir_all(&dir); let p = dir.join(&name);
             if let Err(e) = std::fs::write(&p, text) { self.say(format!("Impossible d'écrire {} : {e}", p.display())); } }
-        if (self.s.dead.is_some() || self.s.inv_open || self.s.town.talk.is_some() || self.s.map.open) && self.grabbed && !self.menu.open { self.grab(false); }
+        if (self.s.dead.is_some() || self.s.inv_open || self.s.town.talk.is_some() || self.s.map.open || self.s.prog.open) && self.grabbed && !self.menu.open { self.grab(false); }
         if talking && !titled && self.s.town.talk.is_none() && !self.s.map.open && !self.s.inv_open && !self.menu.open && self.s.dead.is_none() { self.grab(true); } // le villageois s'est éloigné // écran de mort, coffre ouvert d'un clic droit : il faut le pointeur
         let (built, gone) = self.s.sync();
         for b in built { self.gpu.upload(b); }
@@ -269,6 +269,8 @@ impl ApplicationHandler for App {
                 if g.s.dead.is_some() { if button == MouseButton::Left && down && hud::death_at(w, h, g.mouse) { g.s.respawn(); g.grab(true); } return; }
                 // La grande carte : on la fait glisser au clic gauche, le clic droit la recentre ; elle se ferme au clavier.
                 if g.s.map.open { if button == MouseButton::Left { g.map_drag = if down { Some(g.mouse) } else { None }; } else if button == MouseButton::Right && down { g.s.center_map(); } return; }
+                // L'arbre de compétences : un clic sur une compétence prend son rang suivant, si on a les points.
+                if g.s.prog.open { if button == MouseButton::Left && down { if let Some(i) = hud::skill_at(w, h, g.mouse) { match g.s.buy_skill(i) { Ok(m) | Err(m) => g.say(m) } } } return; }
                 // Conversation : un clic sur une réponse.
                 if g.s.town.talk.is_some() { if button == MouseButton::Left && down { if let Some(i) = hud::dialog_at(&g.s, w, h, g.mouse) { g.s.choose(i); if g.s.town.talk.is_none() { g.grab(true); } } } return; }
                 if g.s.inv_open {
@@ -355,7 +357,7 @@ impl ApplicationHandler for App {
                 }
                 if !event.repeat { match c {
                     KeyCode::Enter | KeyCode::NumpadEnter if g.s.dead.is_some() && !g.menu.open => { g.s.respawn(); g.grab(true); }
-                    KeyCode::Escape => { if g.s.map.open { g.s.toggle_map(); g.grab(true); } else if g.s.town.talk.is_some() { g.s.close_talk(); g.grab(true); } else if g.s.town.journal { g.s.town.journal = false; } else if g.s.inv_open { g.s.inv_open = false; g.s.drop_slot(None); g.s.close_chest(); g.grab(true); } else if g.menu.open { if g.menu.controls || g.menu.credits { g.menu.controls = false; g.menu.credits = false; } else { g.close_menu(); } } else { g.menu.open = true; g.grab(false); } }
+                    KeyCode::Escape => { if g.s.map.open { g.s.toggle_map(); g.grab(true); } else if g.s.prog.open { g.s.prog.open = false; g.grab(true); } else if g.s.town.talk.is_some() { g.s.close_talk(); g.grab(true); } else if g.s.town.journal { g.s.town.journal = false; } else if g.s.inv_open { g.s.inv_open = false; g.s.drop_slot(None); g.s.close_chest(); g.grab(true); } else if g.menu.open { if g.menu.controls || g.menu.credits { g.menu.controls = false; g.menu.credits = false; } else { g.close_menu(); } } else { g.menu.open = true; g.grab(false); } }
                     _ if g.menu.open || g.s.dead.is_some() => {}
                     KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::Digit7 | KeyCode::Digit8 | KeyCode::Digit9 if g.s.town.talk.is_some() => { g.s.choose(c as usize - KeyCode::Digit1 as usize); if g.s.town.talk.is_none() { g.grab(true); } }
                     _ if g.s.town.talk.is_some() => {}
@@ -367,6 +369,8 @@ impl ApplicationHandler for App {
                     _ if g.menu.is(hud::A_VIEW, &name) => { g.s.third = !g.s.third; let m = if g.s.third { "Troisième personne" } else { "Première personne" }; g.say(m.into()); }
                     _ if g.menu.is(hud::A_TURN, &name) => { let m = g.s.rotate(); g.say(m); }
                     // T (ou /) ouvre le chat des commandes : /jour, /nuit, /vitesse, /survie, /creatif, /vol… (/aide)
+                    // K : l'arbre de compétences de l'explorateur (niveau, points, compétences)
+                    KeyCode::KeyK if !g.s.inv_open => { g.s.prog.open = !g.s.prog.open; g.grab(!g.s.prog.open); }
                     KeyCode::KeyT | KeyCode::Slash | KeyCode::NumpadDivide if !g.s.inv_open => { g.s.chat = Some("/".into()); g.keys.clear(); g.held.clear(); }
                     KeyCode::F3 => g.debug = !g.debug,
                     // Outils de développement, seulement avec le panneau F3 ouvert : une créature devant soi, la nuit tout de suite.
@@ -527,6 +531,12 @@ fn capture(a: &[String]) {
         for (id, dx, dz, turn, mv, wind) in [("capitaine", -1.8, 6.5, 2.9, h::MV_TIR, h::WIND_TIR + 0.5), ("gardien", 1.6, 4.8, -2.9, h::MV_ECRASE, h::WIND_ECRASE)] {
             let k = s.horde.put(h::species(id).unwrap(), [p[0] + dx, y, p[2] + dz], turn, false); let f = &mut s.horde.foes[k]; f.kept = true; f.alert = 1.0; f.seen = Some(p); f.state = h::Ai::Combat; f.mv = mv; f.wind = wind; }
         pump(&mut s, &mut g);
+    }
+    // L'arbre de compétences ouvert : un explorateur de niveau 14, qui a déjà pris quelques rangs et a des points à dépenser.
+    if scene == "plat_competences" {
+        s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.set_creative(false); s.prog.xp = (1..=13).map(alw_core::niveaux::need).sum::<f64>() + 70.0;
+        for (id, r) in [("foulee", 2), ("nage", 1), ("frappe", 3), ("souffle", 1)] { if let Some(i) = alw_core::niveaux::SKILLS.iter().position(|k| k.id == id) { s.prog.ranks[i] = r; } }
+        s.prog.open = true; pump(&mut s, &mut g);
     }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }

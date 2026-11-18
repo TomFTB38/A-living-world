@@ -96,7 +96,11 @@ impl Session {
     }
     /// Masse portée (sac et équipement) et charge supportable.
     pub fn carried(&self) -> f64 { self.inv.iter().chain(self.equip.iter()).flatten().map(|s| def(s.item).map_or(1.0, |d| d.mass) * s.n.unwrap_or(1) as f64).sum::<f64>() + self.cursor.map_or(0.0, |s| def(s.item).map_or(1.0, |d| d.mass) * s.n.unwrap_or(1) as f64) }
-    pub fn capacity(&self) -> f64 { CARRY + self.worn().4 }
+    pub fn capacity(&self) -> f64 { CARRY * self.prog.carry() + self.worn().4 }
+    /// Le temps de charge d'un coup lourd (la compétence Coup puissant le raccourcit).
+    pub fn heavy_t(&self) -> f64 { HEAVY_T * self.prog.charge_time() }
+    /// Le délai pour parer au bon moment (la compétence Parade l'allonge).
+    pub fn parry_t(&self) -> f64 { PARRY_T + self.prog.parry() }
     /// Ce que l'équipement apporte : chaleur, fraîcheur, armure, (rien), charge en plus.
     pub fn worn(&self) -> (f64, f64, f64, f64, f64) { let mut w = (0.0, 0.0, 0.0, 0.0, 0.0); for s in self.equip.iter().flatten() { if let Some(x) = def(s.item).and_then(|d| d.wear) { w.0 += x.warm; w.1 += x.cool; w.2 += x.armor; w.4 += x.bag; } } w }
 
@@ -325,14 +329,14 @@ impl Session {
         let (dx, dz) = (from[0] - self.player.p[0], from[2] - self.player.p[2]); let d = dx.hypot(dz).max(0.01);
         if (dx * self.look[0] + dz * self.look[2]) / d / self.look[0].hypot(self.look[2]).max(0.01) < 0.05 { return n; } // de côté ou de dos : la garde ne couvre pas
         let armor = def(sh.item).and_then(|d| d.wear).map_or(0.0, |w| w.armor); self.wear_equip(SLOTS.iter().position(|s| s.0 == crate::data::Slot::Hand).unwrap_or(5), 1);
-        if self.guard_t <= PARRY_T { if let Some(k) = self.wild.nearest(from) { self.wild.stagger(k, self.player.p, 2.0); } if let Some(k) = self.horde.nearest(from) { self.horde.stagger(k, self.player.p, 2.2); } self.notes.push("Parade !".into()); self.sound.thump(from); self.skills[2] += 0.5; return 0.0; }
+        if self.guard_t <= self.parry_t() { if let Some(k) = self.wild.nearest(from) { self.wild.stagger(k, self.player.p, 2.0); } if let Some(k) = self.horde.nearest(from) { self.horde.stagger(k, self.player.p, 2.2); } self.notes.push("Parade !".into()); self.sound.thump(from); self.skills[2] += 0.5; return 0.0; }
         let stop = block_share(armor); let cost = n * stop * 0.8; let ok = self.creative || self.stamina >= cost; if !self.creative { self.spend(cost); }
         self.sound.thump(from); n * (1.0 - if ok { stop } else { stop * 0.4 })
     }
     pub(crate) fn attack(&mut self, heavy: bool) {
         use crate::session::Prey;
         let Some(prey) = self.prey.take() else { return }; let tool = self.tool_id(); let (mut dmg, wait) = weapon(tool); self.hit_t = wait;
-        dmg *= skill_bonus(self.skills[2]); let cost = if heavy { STAMINA_HIT * HEAVY_COST } else { STAMINA_HIT }; if heavy { dmg *= HEAVY_MUL; }
+        dmg *= skill_bonus(self.skills[2]) * self.prog.melee(); let cost = if heavy { STAMINA_HIT * HEAVY_COST } else { STAMINA_HIT }; if heavy { dmg *= HEAVY_MUL * self.prog.heavy(); }
         if !self.creative { if self.stamina < cost { dmg *= 0.5; } self.spend(cost); }
         self.sound.swing(voice(tool), 1.0); let me = self.player.p; let knife = self.tool().is_some_and(|t| t.kind == "couteau");
         let spot = match prey { Prey::Deer(k) => self.fauna.deer[k].p, Prey::Wild(k) => self.wild.all[k].p, Prey::Foe(k) => self.horde.foes[k].p };
@@ -520,7 +524,7 @@ impl Session {
     /// Tout ce qui blesse passe par ici : la musique de danger en dépend. `dodge` : un coup qu'une roulade évite et que l'armure amortit.
     pub fn harm(&mut self, n: f64, cause: &'static str, dodge: bool) {
         if self.creative || self.dead.is_some() || (dodge && self.player.rolling()) { return; }
-        let n = n * PROFILES[self.profile].harm * if dodge { armor_cut(self.worn().2) } else { 1.0 };
+        let n = n * PROFILES[self.profile].harm * if dodge { armor_cut(self.worn().2) * self.prog.hide() } else { 1.0 };
         self.vit[0] = (self.vit[0] - n).max(0.0); self.hurt_at = self.elapsed; self.gain(0); self.sound.hurt(); self.cause = cause;
         if self.vit[0] <= 0.0 { self.die(cause); }
     }
@@ -547,7 +551,7 @@ impl Session {
         let over = self.carried() / self.capacity(); if over > 1.0 { let k = if over > 1.5 { 0.45 } else { 0.75 }; i.x *= k; i.z *= k; if over > 1.5 { i.sprint = false; i.jump = false; } }
         i
     }
-    pub(crate) fn spend(&mut self, n: f64) { let k = if self.carried() > self.capacity() { 1.5 } else { 1.0 }; self.stamina = (self.stamina - n * k).max(0.0); self.spent_t = 0.0; if n > 2.0 { self.gain(3); } }
+    pub(crate) fn spend(&mut self, n: f64) { let k = if self.carried() > self.capacity() { 1.5 } else { 1.0 } * self.prog.stamina(); self.stamina = (self.stamina - n * k).max(0.0); self.spent_t = 0.0; if n > 2.0 { self.gain(3); } }
     /// Ce qui pique ou brûle au contact : un cactus frôlé, un feu de camp sous les pieds.
     /// Le corps est-il pris dans une toile d'araignée ?
     pub(crate) fn in_web(&self) -> bool {
@@ -595,7 +599,7 @@ impl Session {
         if self.spent_t > STAMINA_WAIT { let k = if self.vit[2] < 15.0 { 0.5 } else { 1.0 } * if self.fatigue > 70.0 { 0.6 } else { 1.0 } * if cold > 1.5 { 0.7 } else { 1.0 }; self.stamina += dt * STAMINA_REGEN * k; } self.stamina = self.stamina.min(cap);
         if self.stamina <= 0.0 { self.winded = true; } if self.winded && self.stamina >= WINDED_UNTIL { self.winded = false; }
         let h = self.player.eye(); let sub = self.world.get(h[0].floor() as i32, h[1].floor() as i32, h[2].floor() as i32).is_some_and(is_water);
-        self.air = if sub { (self.air - dt * 100.0 / AIR_TIME).max(0.0) } else { (self.air + dt * 60.0).min(100.0) };
+        self.air = if sub { (self.air - dt * 100.0 / (AIR_TIME * self.prog.lungs())).max(0.0) } else { (self.air + dt * 60.0).min(100.0) };
         // Chute : la vitesse la plus forte de la descente, lue au moment de toucher le sol ; l'eau amortit tout.
         if self.player.ground && !was_ground && !self.player.in_water && !self.player.fly { let v = -self.low_v; if v > SAFE_FALL { self.harm(((v - SAFE_FALL) * 4.0).round(), "Une chute", false); } }
         if self.player.ground || self.player.in_water || self.player.fly { self.low_v = 0.0; } else { self.low_v = self.low_v.min(self.player.v[1]); }
@@ -647,7 +651,7 @@ impl Session {
     pub fn save_text(&self) -> String {
         let hm = self.home(); let st = |v: &Stack| format!("{} {} {}", v.item, v.n.map_or(-1, |n| n as i64), v.wear);
         let mut s = format!("A Living World 1\npalette {}\nseed {}\nplayer {} {} {} {} {}\nhour {}\ncreative {}\nsel {}\nvit {} {} {}\nweather {}\n", BLOCKS.iter().map(|b| b.name).collect::<Vec<_>>().join(" "), self.seed, hm.p[0], hm.p[1], hm.p[2], hm.yaw, hm.pitch, self.hour, hm.creative as u8, self.sel, self.vit[0], self.vit[1], self.vit[2], self.weather.t);
-        s += &format!("body {} {} {} {}\nprofile {}\nskills {}\n", self.stamina, self.fatigue, self.body, self.air, self.profile, self.skills.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(" "));
+        s += &format!("body {} {} {} {}\nprofile {}\nskills {}\n", self.stamina, self.fatigue, self.body, self.air, self.profile, self.skills.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(" ")); s += &self.prog.save();
         for (i, it) in self.inv.iter().enumerate() { if let Some(v) = it { s += &format!("inv {} {}\n", i, st(v)); } }
         for (i, it) in self.equip.iter().enumerate() { if let Some(v) = it { s += &format!("equip {} {}\n", i, st(v)); } }
         s += &format!("spawn {} {} {}\nhours {}\n", self.spawn[0], self.spawn[1], self.spawn[2], self.hours);
@@ -680,6 +684,7 @@ impl Session {
                 Some("vit") => { for k in 0..3 { self.vit[k] = num(a.next())?; } }
                 Some("body") => { self.stamina = num(a.next())?; self.fatigue = num(a.next())?; self.body = num(a.next())?; self.air = num(a.next())?; }
                 Some("profile") => self.profile = (num(a.next())? as usize).min(PROFILES.len() - 1),
+                Some("prog") => self.prog.load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("skills") => { for k in 0..5 { self.skills[k] = num(a.next()).unwrap_or(0.0); } }
                 Some("inv") => { let i = num(a.next())? as usize; let id = a.next().unwrap_or(""); let n = num(a.next())?; let w = num(a.next()).unwrap_or(0.0); if let (Some(s), true) = (stack(id, n, w), i < INV_SIZE) { inv[i] = Some(s); } }
                 Some("equip") => { let i = num(a.next())? as usize; let id = a.next().unwrap_or(""); let n = num(a.next())?; let w = num(a.next()).unwrap_or(0.0); if let (Some(s), true) = (stack(id, n, w), i < 5) { self.equip[i] = Some(s); } }
