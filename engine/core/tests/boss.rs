@@ -62,3 +62,46 @@ fn il_enchaine_ses_attaques() {
     for k in 0..(60.0 / DT) as usize { s.vit = [100.0; 3]; if k % 300 == 0 { s.player.p = [p0[0], p0[1], p0[2] + if (k / 300) % 2 == 0 { 0.0 } else { -8.0 }]; } s.tick(DT, Input::default(), Actions::default()); let f = &s.horde.foes[i]; if f.mv != 0 { seen.insert(f.mv); } }
     println!("attaques vues : {seen:?}"); assert_eq!(seen.len(), 4, "taille, écrasante, enchaînement, ruée");
 }
+
+/// Le cavalier d'élite à `d` pas devant soi, face à nous.
+fn rider(d: f64) -> (Session, usize) {
+    let (mut s, _) = duel(); s.horde.foes.clear(); let p = s.player.p;
+    let i = s.horde.put(h::species("brigand_cavalier").unwrap(), [p[0], p[1], p[2] + d], std::f64::consts::PI, false); let f = &mut s.horde.foes[i]; f.alert = 1.0; f.seen = Some(p); f.state = Ai::Poursuite; (s, i)
+}
+fn play(s: &mut Session, secs: f64, guard: bool, roll_at: Option<usize>) { for k in 0..(secs / DT) as usize { s.stamina = s.stamina.max(60.0); s.tick(DT, Input { roll: roll_at == Some(k), x: if roll_at == Some(k) { 1.0 } else { 0.0 }, ..Input::default() }, Actions { guard, ..Default::default() }); } }
+
+#[test]
+fn la_charge_du_cavalier_s_esquive_de_cote() {
+    // bouclier levé : la charge passe au travers
+    let (mut s, i) = rider(10.0); { let f = &mut s.horde.foes[i]; f.mv = h::MV_LANCE; f.wind = 0.1; } play(&mut s, 1.5, true, None);
+    println!("charge sur le bouclier : vie {:.0}, {:?}", s.vit[0], s.notes); assert!(s.vit[0] < 95.0 && !s.notes.iter().any(|n| n.contains("Parade")));
+    // une roulade de côté quand il arrive : il passe, file trop loin, et doit tourner bride au pas
+    let (mut s, i) = rider(10.0); { let f = &mut s.horde.foes[i]; f.mv = h::MV_LANCE; f.wind = 0.1; }
+    let mut at = None; for k in 0..90 { s.tick(DT, Input::default(), Actions::default()); let f = &s.horde.foes[i]; if (f.p[2] - s.player.p[2]).abs() < 4.5 { at = Some(k); break; } }
+    assert!(at.is_some(), "il arrive au galop"); play(&mut s, 1.6, false, Some(0)); let f = &s.horde.foes[i];
+    println!("roulade de côté : vie {:.0}, le cavalier à {:.1} pas, au pas {}", s.vit[0], (f.p[0] - s.player.p[0]).hypot(f.p[2] - s.player.p[2]), f.speed < 3.0);
+    assert!(s.vit[0] >= 99.0, "esquivée"); assert!(f.speed < 3.0, "manquée : il tourne bride, au pas — l'ouverture");
+}
+
+#[test]
+fn le_coup_de_lance_au_passage_se_pare() {
+    let (mut s, i) = rider(2.6); { let f = &mut s.horde.foes[i]; f.mv = h::MV_PASSE; f.wind = 0.2; } play(&mut s, 0.5, true, None);
+    println!("coup au passage paré : vie {:.0}, garde du cavalier {:.0}", s.vit[0], s.horde.foes[i].posture); assert!(s.notes.iter().any(|n| n.contains("Parade")) && s.vit[0] >= 99.0);
+}
+
+#[test]
+fn garde_brisee_le_cavalier_vide_les_etriers() {
+    let (mut s, i) = rider(3.0); let me = s.player.p; let horses = s.wild.all.len();
+    let hp0 = s.horde.foes[i].hp; s.horde.strike(i, 10.0, me, "sword", false); println!("à cheval, un coup d'épée : −{:.1}", hp0 - s.horde.foes[i].hp);
+    for _ in 0..3 { s.horde.stagger(i, me, 2.2); } s.tick(DT, Input::default(), Actions::default());
+    let f = &s.horde.foes[i]; println!("après trois parades : {} ({:?}), à terre {:.1} s, chevaux {} → {}, {:?}", h::bestiary().species[f.sp].name, f.state, f.broken, horses, s.wild.all.len(), s.notes.last());
+    assert_eq!(f.sp, h::species("brigand").unwrap(), "il finit à pied"); assert!(f.broken > 0.0 && s.wild.all.len() == horses + 1 && s.notes.iter().any(|n| n.contains("étriers")));
+    let hp1 = s.horde.foes[i].hp; s.horde.strike(i, 10.0, me, "sword", false); println!("à terre, un coup d'épée : −{:.1}", hp1 - s.horde.foes[i].hp); assert!(hp1 - s.horde.foes[i].hp > 15.0);
+}
+
+#[test]
+fn le_cavalier_tourne_et_varie_ses_attaques() {
+    let (mut s, i) = rider(12.0); let mut seen = std::collections::BTreeSet::new(); let p0 = s.player.p;
+    for k in 0..(60.0 / DT) as usize { s.vit = [100.0; 3]; if k % 400 == 0 { s.player.p = p0; } s.tick(DT, Input::default(), Actions::default()); let f = &s.horde.foes[i]; if f.mv != 0 { seen.insert(f.mv); } }
+    println!("attaques du cavalier : {seen:?}"); assert!(seen.contains(&h::MV_LANCE) && seen.contains(&h::MV_PASSE), "charge et coup au passage");
+}

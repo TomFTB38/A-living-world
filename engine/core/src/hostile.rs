@@ -121,7 +121,7 @@ pub struct Foe {
 /// Ce que font les créatures, pour la session (coups, sons, butin).
 #[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool, Option<(i32, i32)>), /** une morsure qui englue : ralenti pendant tant de secondes */ Snare(f64), /** un pillard est arrivé à la réserve du village (sa bande) */ Loot([f64; 3], u32),
     /** un coup qu'aucun bouclier n'arrête (seule la roulade l'évite) */ Crush { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 },
-    /** sa garde brisée : il chancelle */ Reel([f64; 3]), /** il entre dans sa seconde phase, et appelle ses hommes */ Rage([f64; 3]) }
+    /** sa garde brisée : il chancelle */ Reel([f64; 3]), /** il entre dans sa seconde phase, et appelle ses hommes */ Rage([f64; 3]), /** le cavalier vide les étriers : son cheval s'enfuit */ Unhorse([f64; 3], f64) }
 
 pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv>, groups: u32, pub spawned: u32, /** braises semées par les rampants de magma : (position, secondes restantes) */ pub embers: Vec<([f64; 3], f64)>, burn_cd: f64, /** flèches des archers en vol : (position, vitesse, âge, dégâts, ce qui l'a tirée) */ pub shots: Vec<([f64; 3], [f64; 3], f64, f64, &'static str)> }
 /// Ce que la session donne à la horde à chaque image.
@@ -158,7 +158,7 @@ impl Horde {
         let face = { let (dx, dz) = (from[0] - f.p[0], from[2] - f.p[2]); let d = dx.hypot(dz).max(0.01); (sin(f.yaw) * dx + cos(f.yaw) * dz) / d };
         let blocked = f.guard > 0.5 && face > 0.3; if blocked { self.ev.push(FoeEv::Blocked(f.p)); if s.guard_up { f.cd = f.cd.min(0.15); } } // l'épéiste pare, et riposte aussitôt
         // Le boss : sa garde encaisse (la vie bouge à peine) tant qu'elle tient ; brisée, il chancelle et chaque coup porte double et demi.
-        let boss = if !s.boss { 1.0 } else if f.broken > 0.0 { BROKEN_MUL } else { f.calm = 0.0; f.posture += dmg * if heavy { 1.0 } else { 0.5 }; if f.posture >= POSTURE { reel(f, &mut self.ev); BROKEN_MUL } else { GUARDED_MUL } };
+        let boss = if f.broken > 0.0 { BROKEN_MUL } else if !s.boss { 1.0 } else { f.calm = 0.0; f.posture += dmg * if heavy { 1.0 } else { 0.5 }; let guarded = if s.body == Body::Cavalier { MOUNTED_MUL } else { GUARDED_MUL }; if f.posture >= POSTURE { reel(f, &mut self.ev); BROKEN_MUL } else { guarded } };
         f.hp -= dmg * (1.0 - s.armor) * mul * boss * if blocked { 0.2 } else { 1.0 }; f.hit = if blocked { 0.0 } else { 0.3 };
         let (dx, dz) = (f.p[0] - from[0], f.p[2] - from[2]); let d = dx.hypot(dz).max(0.1); let k = if heavy { 6.5 } else { 3.2 } / s.size / if s.boss { 4.0 } else { 1.0 }; f.v = [dx / d * k, 0.0, dz / d * k];
         // Un coup interrompt l'attaque annoncée (le joueur qui frappe le premier garde l'avantage) ; elle sait maintenant où il est.
@@ -264,7 +264,8 @@ impl Horde {
         if see { f.alert = (f.alert + dt * (1.4 + 6.0 / dist.max(1.0))).min(1.0); f.seen = Some(me); f.lost = 0.0; }
         else { f.lost += dt; if hear { f.alert = (f.alert + dt * 0.7).min(1.0); f.seen = Some([me[0] + r.range(-2.0, 2.0), me[1], me[2] + r.range(-2.0, 2.0)]); } else { f.alert = (f.alert - dt * 0.08).max(0.0); } }
         // ---- le boss au combat : sa propre façon de se battre (voir `boss_think`)
-        if s.boss && f.dead == 0.0 { if matches!(f.state, Ai::Poursuite | Ai::Combat) && Self::boss_think(r, &mut self.ev, f, dt, c, see, dist, dy, to) {
+        if !s.boss && f.broken > 0.0 { f.broken -= dt; f.speed = 0.0; f.wind = 0.0; f.phase += dt * 1.5; knock(f, dt, w); settle(f, dt, w); return; } // à terre, sonné
+        if s.boss && f.dead == 0.0 { if matches!(f.state, Ai::Poursuite | Ai::Combat) && if s.body == Body::Cavalier { Self::rider_think(r, &mut self.ev, f, dt, c, see, dist, dy, to) } else { Self::boss_think(r, &mut self.ev, f, dt, c, see, dist, dy, to) } {
             f.phase += dt * (2.0 + f.speed * 1.8); knock(f, dt, w); if f.speed > 0.0 { let step = f.speed * dt; walk(f, w, step, false, s.body, !f.raid.is_empty()); } settle(f, dt, w); return; }
             f.mv = 0; f.combo = 0; f.lunge = 0.0; if f.broken > 0.0 { f.broken = 0.0; } if !matches!(f.state, Ai::Poursuite | Ai::Combat) { f.wind = 0.0; } }
         // ---- l'état
@@ -469,6 +470,50 @@ impl Horde {
             f.mv = mv; f.wind = wind * pace; if mv == MV_COMBO { f.combo = 3; } ev.push(FoeEv::Swing(f.p)); }
         true
     }
+    /// Le cavalier d'élite. Il tourne autour de sa proie au trot, puis attaque : de loin, la **charge** lance couchée (le
+    /// cavalier rougeoie : aucun bouclier ne l'arrête, on l'évite d'un pas ou d'une roulade de côté ; manquée, il file trop loin
+    /// et doit faire demi-tour au pas — l'ouverture) ; à mi-distance, le **coup de lance au passage**, qui se pare ; à qui se
+    /// colle au cheval, le **cabrage** : les sabots retombent (rougeoie aussi : on s'éloigne d'une roulade). Chaque parade
+    /// entame sa garde ; brisée, il vide les étriers et finit à pied, sonné. Rend faux s'il quitte le combat.
+    fn rider_think(rng: &mut Rng, ev: &mut Vec<FoeEv>, f: &mut Foe, dt: f64, c: &Ctx, see: bool, dist: f64, dy: f64, to: [f64; 2]) -> bool {
+        let s = &bestiary().species[f.sp]; let me = c.feet;
+        if !c.alive { f.state = Ai::Retour; return false; }
+        if !see && f.lost > 8.0 && f.wind <= 0.0 && f.lunge <= 0.0 { f.state = Ai::Recherche; f.t = 8.0; return false; }
+        f.calm += dt; if f.calm > 2.0 { f.posture = (f.posture - POSTURE_REGEN * dt).max(0.0); }
+        f.state = Ai::Poursuite; let face = sin(f.yaw) * to[0] + cos(f.yaw) * to[1]; let toward = (me[0] - f.p[0]).atan2(me[2] - f.p[2]);
+        // la charge lancée : cap presque tenu ; elle porte au contact, puis il file au-delà avant de tourner bride
+        if f.lunge > 0.0 { f.lunge -= dt; f.speed = 13.0; if f.combo == 0 { f.yaw = turn(f.yaw, toward, dt * 0.5); }
+            if f.combo < 2 && dist < 1.6 && dy.abs() < 2.2 && face > 0.0 { ev.push(FoeEv::Crush { from: f.p, dmg: s.dmg * 1.7 * rng.range(0.9, 1.15), cause: "La charge d'un cavalier brigand", push: 8.0 }); f.combo = 2; }
+            if f.combo == 0 && dist < 2.6 { f.combo = 1; } // il est passé tout près : manquée si rien n'a porté
+            if (f.combo > 0 && dist > 5.0) || f.lunge <= 0.0 { let missed = f.combo != 2; f.lunge = 0.0; f.mv = 0; f.combo = 0; f.cd = 1.2; if missed { f.burst = OPENING; } }
+            return true; }
+        // une attaque annoncée
+        if f.wind > 0.0 { f.wind -= dt;
+            match f.mv { MV_PASSE => { f.speed = 6.5; f.yaw = turn(f.yaw, toward, dt * 3.0); } MV_CABRE => { f.speed = 0.0; } _ => { f.speed = 0.0; f.yaw = turn(f.yaw, toward, dt * 4.0); } }
+            if f.wind > 0.0 { return true; } f.wind = 0.0; let roll = rng.range(0.85, 1.2);
+            match f.mv {
+                MV_LANCE => { f.lunge = 2.4; f.combo = 0; }
+                MV_PASSE => { if dist < s.reach + 0.9 && dy.abs() < 2.2 && face > -0.2 { ev.push(FoeEv::Hit { from: f.p, dmg: s.dmg * roll, cause: "La lance d'un cavalier brigand", push: 3.5 }); } ev.push(FoeEv::Swing(f.p)); f.mv = 0; f.cd = 1.3; if rng.next() < 0.6 { f.combo = 3; } } // puis, souvent, il prend du champ pour charger
+                MV_CABRE => { if dist < 2.8 && dy.abs() < 2.2 { ev.push(FoeEv::Crush { from: f.p, dmg: s.dmg * 1.4 * roll, cause: "Les sabots du cheval d'un cavalier brigand", push: 6.5 }); } f.mv = 0; f.cd = 1.5; }
+                _ => { f.mv = 0; }
+            }
+            return true; }
+        // après une charge manquée, il a filé trop loin : il tourne bride au pas (c'est le moment de le frapper)
+        if f.burst > 0.0 { f.speed = 2.2; f.yaw = turn(f.yaw, toward, dt * 1.2); return true; }
+        // il prend du champ : au galop, droit devant lui, loin de vous, avant de faire volte-face pour charger
+        if f.combo == 3 { if dist > 13.0 { f.combo = 0; } else { f.speed = s.run; f.yaw = turn(f.yaw, toward + std::f64::consts::PI, dt * 2.0); return true; } }
+        // il choisit son attaque
+        if f.cd <= 0.0 && see && dy.abs() < 2.0 {
+            if dist < 3.0 { f.mv = MV_CABRE; f.wind = WIND_CABRE; f.speed = 0.0; ev.push(FoeEv::Growl(f.p, s.body)); return true; }
+            if (3.5..9.0).contains(&dist) && rng.next() < dt * 1.2 { f.mv = MV_PASSE; f.wind = WIND_PASSE + 0.25; return true; } // il fond sur vous au trot, lance levée
+            if (10.0..24.0).contains(&dist) && rng.next() < dt * 1.5 { f.mv = MV_LANCE; f.wind = WIND_LANCE; f.speed = 0.0; ev.push(FoeEv::Growl(f.p, s.body)); return true; }
+        }
+        // sinon, il tourne autour au trot, à sept pas, s'éloigne pour prendre son élan, ou vient au galop s'il est loin
+        if dist > 16.0 { f.speed = s.run; f.yaw = turn(f.yaw, toward, dt * 3.0); }
+        else { let side = if f.group % 2 == 0 { 1.0 } else { -1.0 }; let a = (f.p[2] - me[2]).atan2(f.p[0] - me[0]) + side * 0.7; let goal = [me[0] + a.cos() * 7.0, me[2] + a.sin() * 7.0];
+            f.speed = 6.5; f.yaw = turn(f.yaw, (goal[0] - f.p[0]).atan2(goal[1] - f.p[2]), dt * 2.5); }
+        true
+    }
     pub fn debug_lines(&self) -> Vec<String> {
         self.foes.iter().take(8).map(|f| { let s = &bestiary().species[f.sp]; format!("  {}{} — {} ({:.0}/{:.0} pv, éveil {:.1})", s.name, if f.vet { " (vétéran)" } else { "" }, if f.dead > 0.0 { "morte" } else { f.state.name() }, f.hp.max(0.0), f.max, f.alert) }).collect()
     }
@@ -491,8 +536,17 @@ pub const GUARDED_MUL: f64 = 0.35; pub const BROKEN_MUL: f64 = 2.5;
 /// Le répit après une frappe ou une ruée manquée (s), et le temps qu'il chancelle, garde brisée.
 pub const OPENING: f64 = 2.2; pub const REEL_T: f64 = 3.0;
 /// Cette attaque se pare-t-elle (taille, enchaînement) ou faut-il l'esquiver (frappe écrasante, ruée) ?
-pub fn unblockable(mv: u8) -> bool { mv == MV_ECRASE || mv == MV_CHARGE }
-fn reel(f: &mut Foe, ev: &mut Vec<FoeEv>) { f.broken = REEL_T; f.posture = 0.0; f.wind = 0.0; f.mv = 0; f.combo = 0; f.lunge = 0.0; ev.push(FoeEv::Reel(f.p)); }
+/// Les attaques du cavalier : la charge lance couchée (à esquiver de côté), le coup de lance au passage (à parer), le cabrage
+/// (les sabots qui retombent sur qui s'est collé au cheval : à fuir d'une roulade).
+pub const MV_LANCE: u8 = 5; pub const MV_PASSE: u8 = 6; pub const MV_CABRE: u8 = 7;
+pub const WIND_LANCE: f64 = 0.9; pub const WIND_PASSE: f64 = 0.45; pub const WIND_CABRE: f64 = 1.0;
+/// À cheval, il encaisse moins (on l'atteint mal) ; sa garde brisée, il est désarçonné.
+pub const MOUNTED_MUL: f64 = 0.5;
+pub fn unblockable(mv: u8) -> bool { matches!(mv, MV_ECRASE | MV_CHARGE | MV_LANCE | MV_CABRE) }
+fn reel(f: &mut Foe, ev: &mut Vec<FoeEv>) { f.broken = REEL_T; f.posture = 0.0; f.wind = 0.0; f.mv = 0; f.combo = 0; f.lunge = 0.0; f.speed = 0.0;
+    // le cavalier, garde brisée, vide les étriers : il tombe, sonné, et finit à pied ; son cheval s'enfuit
+    if bestiary().species[f.sp].body == Body::Cavalier { if let Some(k) = species("brigand") { let part = f.hp / f.max; let s = &bestiary().species[k]; f.sp = k; f.max = s.hp * if f.vet { 1.25 } else { 1.0 }; f.hp = (f.max * part).max(1.0); f.state = Ai::Combat; f.cd = REEL_T + 0.5; ev.push(FoeEv::Unhorse(f.p, f.yaw)); return; } }
+    ev.push(FoeEv::Reel(f.p)); }
 fn shielded(s: &Species, variant: u8) -> bool { s.body == Body::Brigand && match s.skin { "epeiste" => true, "" => variant % 3 != 2, _ => false } }
 fn turn(a: f64, b: f64, k: f64) -> f64 { let d = (b - a + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI; a + d.clamp(-k, k) }
 /// Du sable (ou du gravier) sous ce point : le terrain du ver.
@@ -835,7 +889,7 @@ impl Horde {
             let hurt = if s.boss && f.dead == 0.0 && ((f.wind > 0.0 && unblockable(f.mv)) || f.lunge > 0.0) { hurt.max(0.5 + 0.3 * (f.phase * 12.0).sin() as f32) } else { hurt }; let mut put = |n: &str, m: M4| { let m = thick(n, m); out.push(Draw { m, r: md.part(n), view: false, local: false, hero: false, dynamic: false, hurt }) };
             let fall = (f.dead / 0.9).min(1.0); let flinch = crate::wild::flinch(f.hit) as f64;
             // L'annonce : de 0 (rien) à 1 (au sommet du geste) ; puis le coup part d'un coup.
-            let total = if s.boss { (match f.mv { MV_TAILLE => WIND_TAILLE, MV_COMBO => WIND_COMBO, MV_ECRASE => WIND_ECRASE, MV_CHARGE => WIND_CHARGE, _ => s.windup }) * if f.enraged { 0.7 } else { 1.0 } } else { s.windup };
+            let total = if s.boss { (match f.mv { MV_TAILLE => WIND_TAILLE, MV_COMBO => WIND_COMBO, MV_ECRASE => WIND_ECRASE, MV_CHARGE => WIND_CHARGE, MV_LANCE => WIND_LANCE, MV_PASSE => WIND_PASSE, MV_CABRE => WIND_CABRE, _ => s.windup }) * if f.enraged { 0.7 } else { 1.0 } } else { s.windup };
             let wind = if f.wind > 0.0 { (1.0 - f.wind / total.max(0.05)).clamp(0.0, 1.0) } else { 0.0 }; let strike = if s.boss { if f.wind == 0.0 && f.mv == 0 && f.cd > 0.9 && f.state == Ai::Combat && f.broken <= 0.0 { 1.0 } else { 0.0 } } else if f.wind == 0.0 && f.cd > s.cd - 0.25 && f.state == Ai::Combat { 1.0 } else { 0.0 };
             let run = (f.speed / s.run.max(0.1)).clamp(0.0, 1.0); let sw = if f.speed > 0.0 { sin(f.phase) } else { 0.0 };
             let base = mul(&trs(f.p[0], f.p[1], f.p[2], f.yaw, 0.0, s.size * if f.vet { 1.08 } else { 1.0 }), &roll_z(fall * 1.45 * if f.variant % 2 == 0 { 1.0 } else { -1.0 }));
@@ -875,7 +929,7 @@ impl Horde {
                     let lean = 0.06 + 0.26 * run - 0.08 * det + 0.14 * guard + wind * 0.08 - strike * 0.05 - flinch * 0.8 - 1.2 * die;
                     // Le boss : chaque attaque a son geste. La taille : le buste vrillé, la hache rejetée de côté ; la frappe écrasante : la
                     // hache dressée très haut, le corps cambré ; la ruée : l'épaule en avant, tête baissée ; garde brisée : il titube.
-                    let bmv = if s.boss && f.dead == 0.0 { if f.lunge > 0.0 { MV_CHARGE } else { f.mv } } else { 0 }; let reel = if s.boss && f.broken > 0.0 { 1.0 } else { 0.0 };
+                    let bmv = if s.boss && f.dead == 0.0 { if f.lunge > 0.0 { MV_CHARGE } else { f.mv } } else { 0 }; let reel = if f.broken > 0.0 && f.dead == 0.0 { 1.0 } else { 0.0 };
                     let lean = match bmv { MV_ECRASE => lean - 0.3 * wind, MV_CHARGE => 0.55, _ => lean } - 0.3 * reel + 0.12 * reel * (t * 3.0).sin();
                     let twist = if bmv == MV_TAILLE { 0.9 * wind } else if s.boss && strike > 0.0 { -0.5 } else { -0.3 * wind + 0.35 * strike } + 0.2 * reel * (t * 2.3).sin();
                     let hip = hip - 0.14 * reel - if bmv == MV_CHARGE { 0.08 } else { 0.0 };
@@ -905,12 +959,14 @@ impl Horde {
                     // bride dans la main gauche, la lance dans la droite : dressée au pas, couchée en avant dans la charge, levée puis abattue
                     // pour frapper. Mort : cheval et cavalier basculent sur le flanc.
                     let t = f.phase; let det = if f.state == Ai::Detection || f.state == Ai::Soupcon { 1.0 } else { 0.0 }; let die = fall; let v = (f.variant % 3) as usize;
-                    let charging = s.charge && f.burst > 0.0 && f.state == Ai::Poursuite && f.dead == 0.0;
+                    let charging = f.dead == 0.0 && if s.boss { f.lunge > 0.0 || (f.mv == MV_LANCE && f.wind > 0.0) } else { s.charge && f.burst > 0.0 && f.state == Ai::Poursuite };
+                    // le cabrage : le cheval se dresse sur ses postérieurs, les antérieurs battant l'air, puis retombe
+                    let rear = if f.mv == MV_CABRE && f.wind > 0.0 { (wind * 1.6).min(1.0) } else { 0.0 };
                     let (bob, tilt, legs, nod) = crate::wild::gait(crate::wild::Kind::Horse, f.speed, t, if f.speed > 5.0 { 0.9 } else { 0.6 });
-                    let hb = mul(&trs(f.p[0], f.p[1] + bob, f.p[2], f.yaw, tilt - flinch * 0.3 - 0.25 * wind, 2.5), &roll_z(die * 1.4 * if f.variant % 2 == 0 { 1.0 } else { -1.0 }));
+                    let hb = mul(&trs(f.p[0], f.p[1] + bob + 0.55 * rear, f.p[2], f.yaw, tilt - flinch * 0.3 - if rear > 0.0 { 0.75 * rear } else { 0.25 * wind }, 2.5), &roll_z(die * 1.4 * if f.variant % 2 == 0 { 1.0 } else { -1.0 }));
                     let hip = 0.45; put(["horse0", "horse1", "horse2"][v], mul(&hb, &trs(0.0, hip, 0.0, 0.0, 0.0, 1.0)));
                     put(["horseHead0", "horseHead1", "horseHead2"][v], mul(&hb, &trs(0.0, hip + 0.2, 0.38, 0.0, nod - 0.3 * det - 0.2 * wind + 0.3 * die, 1.0)));
-                    for (k, ((x, z), a)) in [(-0.1, 0.3), (0.1, 0.3), (-0.1, -0.3), (0.1, -0.3)].into_iter().zip(legs).enumerate() { put(if k < 2 { ["horseLeg0", "horseLeg1", "horseLeg2"][v] } else { ["horseHind0", "horseHind1", "horseHind2"][v] }, mul(&hb, &trs(x, hip, z, 0.0, a + if k < 2 { -0.6 * wind } else { 0.0 }, 1.0))); }
+                    for (k, ((x, z), a)) in [(-0.1, 0.3), (0.1, 0.3), (-0.1, -0.3), (0.1, -0.3)].into_iter().zip(legs).enumerate() { put(if k < 2 { ["horseLeg0", "horseLeg1", "horseLeg2"][v] } else { ["horseHind0", "horseHind1", "horseHind2"][v] }, mul(&hb, &trs(x, hip, z, 0.0, a + if k < 2 { -0.6 * wind - 0.5 * rear + 0.4 * rear * (t * 9.0).sin() } else { 0.6 * rear }, 1.0))); }
                     put(["horseTail0", "horseTail1", "horseTail2"][v], mul(&hb, &trs(0.0, hip + 0.29, -0.46, 0.3 * (t * 0.4).sin() * (1.0 - run), -(0.2 + 0.6 * run), 1.0)));
                     put("saddle", mul(&hb, &trs(0.0, hip + 0.33, 0.04, 0.0, 0.0, 1.0)));
                     let seat = mul(&hb, &trs(0.0, hip + 0.35, 0.0, 0.0, 0.0, s.size / 2.5));
@@ -1080,8 +1136,12 @@ impl Session {
                 FoeEv::Growl(p, b) => match b { Body::Bete => self.sound.fox_scream(p), Body::Rampant => self.sound.rustle(p), Body::Cavalier => self.sound.hoof(p, true), _ => self.sound.thump(p) },
                 FoeEv::Swing(_) => self.sound.swing(None, 0.8),
                 // un coup qu'aucun bouclier n'arrête : seule la roulade l'évite
-                FoeEv::Crush { from, dmg, cause, push } => { self.sound.thump(from); if self.player.rolling() { continue; } self.harm(dmg.round().max(1.0), cause, true);
+                FoeEv::Crush { from, dmg, cause, push } => { self.sound.thump(from);
+                    // esquivé d'une roulade : l'attaque a porté dans le vide, et il reste à découvert
+                    if self.player.rolling() { if let Some(k) = self.horde.nearest(from) { let f = &mut self.horde.foes[k]; if bestiary().species[f.sp].body == Body::Cavalier { f.burst = OPENING; } else { f.cd = f.cd.max(OPENING); } } self.notes.push("Esquivé !".into()); continue; } self.harm(dmg.round().max(1.0), cause, true);
                     if !self.creative && self.dead.is_none() { let (dx, dz) = (self.player.p[0] - from[0], self.player.p[2] - from[2]); let d = dx.hypot(dz).max(0.1); self.player.v[0] += dx / d * push; self.player.v[2] += dz / d * push; self.player.v[1] = self.player.v[1].max(3.0); } }
+                FoeEv::Unhorse(p, yaw) => { self.sound.thump(p); self.sound.hoof(p, true); self.notes.push("Le cavalier vide les étriers : il est à terre, frappez !".into());
+                    self.wild.put(crate::wild::Kind::Horse, [p[0] + yaw.cos() * 1.5, p[1], p[2] - yaw.sin() * 1.5], yaw, false); let k = self.wild.all.len() - 1; self.wild.strike(k, 0.0, [p[0] - yaw.sin() * 3.0, p[1], p[2] - yaw.cos() * 3.0]); }
                 FoeEv::Reel(p) => { self.sound.thump(p); self.notes.push("Sa garde est brisée : il chancelle, frappez !".into()); }
                 // la seconde phase : il jette son heaume et appelle deux hommes, qui accourent
                 FoeEv::Rage(p) => { self.sound.fox_scream(p); self.notes.push("Le chef de guerre entre en rage et appelle ses hommes !".into());

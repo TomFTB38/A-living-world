@@ -512,6 +512,14 @@ fn capture(a: &[String]) {
         f.kept = true; f.alert = 1.0; f.seen = Some(p); f.state = h::Ai::Combat; f.mv = h::MV_ECRASE; f.wind = h::WIND_ECRASE; f.posture = 60.0; f.hp = f.max * 0.8;
         pump(&mut s, &mut g);
     }
+    // Le cavalier d'élite qui se cabre, de trois quarts : le cheval dressé, les antérieurs battant l'air (il rougeoie : il faut rouler).
+    if scene == "plat_cavalier" {
+        use alw_core::hostile as h; let y = alw_core::gen::FLAT_Y as f64 + 1.0; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 2; s.player.yaw = 0.0; s.player.pitch = 0.18; s.player.fly = false;
+        s.equip[5] = Some(alw_core::session::Stack::new("iron_shield", None)); let p = s.player.p;
+        let k = s.horde.put(h::species("brigand_cavalier").unwrap(), [p[0] + 1.2, y, p[2] + 5.5], -2.3, false); let f = &mut s.horde.foes[k];
+        f.kept = true; f.alert = 1.0; f.seen = Some(p); f.state = h::Ai::Poursuite; f.mv = h::MV_CABRE; f.wind = 0.75; f.posture = 30.0;
+        pump(&mut s, &mut g);
+    }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
     if scene == "abattage" {
