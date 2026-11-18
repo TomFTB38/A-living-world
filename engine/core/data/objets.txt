@@ -601,3 +601,9 @@ gravestone | Stèle | decor | 3.0 | 8 | Une pierre tombale au sommet arrondi, ma
 grave_cross | Croix de bois | decor | 1.0 | 8 | Une croix plantée de travers sur un tertre. |
 flour | Farine | matieres | 0.1 | 99 | Du blé passé sous la meule : ce dont on fait le pain. |
 sapling | Plant de chêne | plantes | 0.2 | 64 | Un jeune chêne en motte : planté, il devient arbre en quelques jours. |
+lever | Levier | batir | 1.0 | 16 | Contre un mur : clic droit pour le lever ou l'abaisser. Dans les donjons, il ouvre des grilles. |
+pressure_plate | Dalle à pression | batir | 2.0 | 16 | S'enfonce sous le pied, ou sous un bloc qu'on y pousse : dans les donjons, elle ouvre ou déclenche. |
+push_block | Bloc à pousser | batir | 3.0 | 16 | Clic droit pour le pousser d'un bloc, droit devant soi. |
+spikes | Pics | batir | 2.0 | 16 | Des pointes de fer qui blessent qui marche dessus. |
+crumbling_floor | Sol friable | batir | 1.5 | 16 | Il tient un instant sous le pied, puis s'effondre. |
+dart_trap | Lance-fléchettes | batir | 2.0 | 16 | Tire une fléchette quand une dalle voisine s'enfonce. |

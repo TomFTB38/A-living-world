@@ -4,7 +4,7 @@ use crate::blocks::{Block, Shape};
 pub const VARIANTS: u32 = 4;
 pub const MATERIALS: [&str; 113] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm", "ore_copper", "ore_tin", "ore_iron", "ore_coal", "clay", "stone_bricks", "bricks", "thatch", "planks_birch", "planks_spruce", "cobble", "farmland_top", "plaster", "dark_timber", "roof_tiles", "slate", "marble", "ashlar", "fieldstone", "setts", "polished_stone", "checker", "terracotta", "parquet", "shingles", "wool", "rug", "frame_square", "frame_cross", "frame_diag", "wattle", "books", "hay", "crate", "chiseled", "stained_glass", "iron_plate", "verdigris", "coral", "planks_wreck", "lime_masonry", "rubble", "beam_end", "boards", "tiles_moss", "path_top", "flowstone", "basalt", "obsidian", "lava", "magma", "crystal_violet", "crystal_blue", "crystal_pink", "crystal_white", "abyss_rock", "glow_moss", "mycelium", "mushroom_stem", "cap_red", "cap_violet", "cap_blue", "gills", "ice_blue", "rail_bed"];
 
-pub const BLOCKS: [Block; 1157] = [
+pub const BLOCKS: [Block; 1172] = [
     Block { id: 0, name: "air", shape: Shape::Air, hardness: 0.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "decor", drop: Some("air") },
     Block { id: 1, name: "grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
     Block { id: 2, name: "dirt", shape: Shape::Cube, hardness: 0.45, faces: [8,8,8], dir_faces: [8,8,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
@@ -1162,6 +1162,21 @@ pub const BLOCKS: [Block; 1157] = [
     Block { id: 1154, name: "iron_bars@1", shape: Shape::Deco, hardness: 1.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("iron_bars"), cat: "rock", drop: Some("iron_bars") },
     Block { id: 1155, name: "iron_bars@2", shape: Shape::Deco, hardness: 1.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("iron_bars"), cat: "rock", drop: Some("iron_bars") },
     Block { id: 1156, name: "iron_bars@3", shape: Shape::Deco, hardness: 1.5, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("iron_bars"), cat: "rock", drop: Some("iron_bars") },
+    Block { id: 1157, name: "lever", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lever"), cat: "wood", drop: Some("lever") },
+    Block { id: 1158, name: "lever_on", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lever_on"), cat: "wood", drop: Some("lever") },
+    Block { id: 1159, name: "lever@1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lever"), cat: "wood", drop: Some("lever") },
+    Block { id: 1160, name: "lever_on@1", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lever_on"), cat: "wood", drop: Some("lever") },
+    Block { id: 1161, name: "lever@2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lever"), cat: "wood", drop: Some("lever") },
+    Block { id: 1162, name: "lever_on@2", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lever_on"), cat: "wood", drop: Some("lever") },
+    Block { id: 1163, name: "lever@3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lever"), cat: "wood", drop: Some("lever") },
+    Block { id: 1164, name: "lever_on@3", shape: Shape::Deco, hardness: 0.8, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lever_on"), cat: "wood", drop: Some("lever") },
+    Block { id: 1165, name: "pressure_plate", shape: Shape::Cube, hardness: 1.6, faces: [328,328,328], dir_faces: [328,328,328,328], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.95,0.82,0.58], model: None, cat: "rock", drop: Some("pressure_plate") },
+    Block { id: 1166, name: "pressure_plate_on", shape: Shape::Cube, hardness: 1.6, faces: [328,328,328], dir_faces: [328,328,328,328], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.62,0.52,0.36], model: None, cat: "rock", drop: Some("pressure_plate") },
+    Block { id: 1167, name: "push_block", shape: Shape::Cube, hardness: 2.5, faces: [260,260,260], dir_faces: [260,260,260,260], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.78,0.86,1.05], model: None, cat: "rock", drop: Some("push_block") },
+    Block { id: 1168, name: "crumbling_floor", shape: Shape::Cube, hardness: 0.4, faces: [264,264,264], dir_faces: [264,264,264,264], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.82,0.72,0.6], model: None, cat: "rock", drop: Some("crumbling_floor") },
+    Block { id: 1169, name: "dart_trap", shape: Shape::Cube, hardness: 2.0, faces: [328,328,328], dir_faces: [328,328,328,328], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.85,0.55,0.48], model: None, cat: "rock", drop: Some("dart_trap") },
+    Block { id: 1170, name: "spikes", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("spikes"), cat: "rock", drop: Some("spikes") },
+    Block { id: 1171, name: "spikes_down", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("spikes_down"), cat: "rock", drop: Some("spikes") },
 ];
 
 #[allow(non_snake_case)]
@@ -2203,4 +2218,13 @@ pub mod B {
     pub const ROOTS: crate::blocks::Id = 1151;
     pub const RAIL_X: crate::blocks::Id = 1152;
     pub const RAIL_Z: crate::blocks::Id = 1153;
+    pub const LEVER: crate::blocks::Id = 1157;
+    pub const LEVER_ON: crate::blocks::Id = 1158;
+    pub const PRESSURE_PLATE: crate::blocks::Id = 1165;
+    pub const PRESSURE_PLATE_ON: crate::blocks::Id = 1166;
+    pub const PUSH_BLOCK: crate::blocks::Id = 1167;
+    pub const CRUMBLING_FLOOR: crate::blocks::Id = 1168;
+    pub const DART_TRAP: crate::blocks::Id = 1169;
+    pub const SPIKES: crate::blocks::Id = 1170;
+    pub const SPIKES_DOWN: crate::blocks::Id = 1171;
 }

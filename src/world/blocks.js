@@ -444,6 +444,12 @@ defs.push(['glow_vine', 'deco', null, 0.05, { model: 'glow_vine', cat: 'foliage'
 
 // Les barreaux de fer tournent comme un meuble (une grille qui court selon z : la herse d'une porte orientée nord-sud).
 for (const f of ['@1', '@2', '@3']) defs.push([`iron_bars${f}`, 'deco', null, 1.5, { model: 'iron_bars', solid: true, cat: 'rock', drop: 'iron_bars' }]);
+// Mécanismes des donjons : le levier contre un mur (levé ou abaissé), la dalle à pression (enfoncée quand on marche dessus, ou
+// qu'un bloc la charge), les pics (sortis ou rentrés), le bloc à pousser, le sol qui s'effondre, le lance-fléchettes.
+for (const f of ['', '@1', '@2', '@3']) defs.push([`lever${f}`, 'deco', null, 0.8, { model: 'lever', solid: false, cat: 'wood', drop: 'lever' }], [`lever_on${f}`, 'deco', null, 0.8, { model: 'lever_on', solid: false, cat: 'wood', drop: 'lever' }]);
+cube('pressure_plate', 'chiseled', 1.6, 'rock', { tint: [0.95, 0.82, 0.58] }); cube('pressure_plate_on', 'chiseled', 1.6, 'rock', { tint: [0.62, 0.52, 0.36], drop: 'pressure_plate' });
+cube('push_block', 'ashlar', 2.5, 'rock', { tint: [0.78, 0.86, 1.05] }); cube('crumbling_floor', 'fieldstone', 0.4, 'rock', { tint: [0.82, 0.72, 0.6] }); cube('dart_trap', 'chiseled', 2.0, 'rock', { tint: [0.85, 0.55, 0.48] });
+defs.push(['spikes', 'deco', null, 1.2, { model: 'spikes', solid: false, cat: 'rock', drop: 'spikes' }], ['spikes_down', 'deco', null, 1.2, { model: 'spikes_down', solid: false, cat: 'rock', drop: 'spikes' }]);
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,

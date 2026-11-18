@@ -381,6 +381,8 @@ impl Session {
                 if self.use_t > 0.0 && (pickup(name).is_some() || harvest(name).is_some()) { return true; }
                 if let Some((id, n)) = pickup(name) { if self.world.edit(t.x, t.y, t.z, 0) { self.add_item(id, n); self.sound.place(name); self.anim.trigger(); self.use_t = 0.3; self.dirty = true; } return true; }
                 if let Some((id, n, bare)) = harvest(name) { if let Some(b) = by_name(bare) { if self.world.edit(t.x, t.y, t.z, b) { self.add_item(id, n); self.regrow.push((p, self.hours)); self.sound.place(name); self.anim.trigger(); self.use_t = 0.4; self.dirty = true; } } return true; }
+                // Mécanismes : le levier bascule, le bloc à pousser glisse d'une case (accroupi, on pose contre eux).
+                if !self.player.crouch && self.use_t <= 0.0 && (self.lever_at(p) || self.push_at(p)) { self.use_t = 0.3; self.anim.trigger(); return true; }
                 // Porte et trappe : clic droit pour ouvrir ou fermer (accroupi, on pose contre elles).
                 if let Some(si) = crate::shapes::info(t.id).filter(|i| matches!(i.kind, crate::shapes::Kind::Door | crate::shapes::Kind::Trapdoor | crate::shapes::Kind::Shutter)) { if !self.player.crouch {
                     if self.use_t > 0.0 { return true; } self.toggle(p, si); self.use_t = 0.25; return true; } }
@@ -657,7 +659,7 @@ impl Session {
     pub fn save_text(&self) -> String {
         let hm = self.home(); let st = |v: &Stack| format!("{} {} {}", v.item, v.n.map_or(-1, |n| n as i64), v.wear);
         let mut s = format!("A Living World 1\npalette {}\nseed {}\nplayer {} {} {} {} {}\nhour {}\ncreative {}\nsel {}\nvit {} {} {}\nweather {}\n", BLOCKS.iter().map(|b| b.name).collect::<Vec<_>>().join(" "), self.seed, hm.p[0], hm.p[1], hm.p[2], hm.yaw, hm.pitch, self.hour, hm.creative as u8, self.sel, self.vit[0], self.vit[1], self.vit[2], self.weather.t);
-        s += &format!("body {} {} {} {}\nprofile {}\nskills {}\n", self.stamina, self.fatigue, self.body, self.air, self.profile, self.skills.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(" ")); s += &self.prog.save();
+        s += &format!("body {} {} {} {}\nprofile {}\nskills {}\n", self.stamina, self.fatigue, self.body, self.air, self.profile, self.skills.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(" ")); s += &self.prog.save(); s += &self.mech_save();
         for (i, it) in self.inv.iter().enumerate() { if let Some(v) = it { s += &format!("inv {} {}\n", i, st(v)); } }
         for (i, it) in self.equip.iter().enumerate() { if let Some(v) = it { s += &format!("equip {} {}\n", i, st(v)); } }
         s += &format!("spawn {} {} {}\nhours {}\n", self.spawn[0], self.spawn[1], self.spawn[2], self.hours);
@@ -691,6 +693,7 @@ impl Session {
                 Some("body") => { self.stamina = num(a.next())?; self.fatigue = num(a.next())?; self.body = num(a.next())?; self.air = num(a.next())?; }
                 Some("profile") => self.profile = (num(a.next())? as usize).min(PROFILES.len() - 1),
                 Some("prog") => self.prog.load(&a.by_ref().collect::<Vec<_>>().join(" ")),
+                Some("wire") => self.mech_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("skills") => { for k in 0..5 { self.skills[k] = num(a.next()).unwrap_or(0.0); } }
                 Some("inv") => { let i = num(a.next())? as usize; let id = a.next().unwrap_or(""); let n = num(a.next())?; let w = num(a.next()).unwrap_or(0.0); if let (Some(s), true) = (stack(id, n, w), i < INV_SIZE) { inv[i] = Some(s); } }
                 Some("equip") => { let i = num(a.next())? as usize; let id = a.next().unwrap_or(""); let n = num(a.next())?; let w = num(a.next()).unwrap_or(0.0); if let (Some(s), true) = (stack(id, n, w), i < 5) { self.equip[i] = Some(s); } }

@@ -538,6 +538,17 @@ fn capture(a: &[String]) {
         for (id, r) in [("foulee", 2), ("nage", 1), ("frappe", 3), ("souffle", 1)] { if let Some(i) = alw_core::niveaux::SKILLS.iter().position(|k| k.id == id) { s.prog.ranks[i] = r; } }
         s.prog.open = true; pump(&mut s, &mut g);
     }
+    // Les mécanismes des donjons, en vitrine sur le monde plat : un mur de pierre avec son levier et sa grille, une dalle à
+    // pression et son bloc à pousser, des pics sortis et rentrés, un lance-fléchettes, une bande de sol friable.
+    if scene == "plat_mecanismes" {
+        let id = |n: &str| alw_core::blocks::by_name(n).unwrap_or(0); let p = s.player.p; let (x, y, z) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32 + 5);
+        s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.player.yaw = 0.0; s.player.pitch = -0.32;
+        let mut e = Vec::new(); for dx in -4..=4 { for dy in 0..3 { e.push((x + dx, y + dy, z + 2, id("stone_bricks"))); } }
+        e.push((x - 3, y + 1, z + 1, id("lever"))); e.push((x - 2, y + 1, z + 1, id("lever_on"))); for dy in 0..2 { e.push((x, y + dy, z + 2, id("iron_bars"))); }
+        e.push((x + 2, y - 1, z, id("pressure_plate"))); e.push((x + 3, y - 1, z, id("pressure_plate_on"))); e.push((x + 3, y, z, id("push_block")));
+        e.push((x - 3, y, z - 1, id("spikes"))); e.push((x - 2, y, z - 1, id("spikes_down"))); e.push((x + 1, y + 1, z + 2, id("dart_trap")));
+        for dx in -1..=1 { e.push((x + dx, y - 1, z - 2, id("crumbling_floor"))); } s.world.edit_many(&e); pump(&mut s, &mut g);
+    }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
     if scene == "pluie" { s.weather.snap(Kind::Pluie); s.sel = 8; println!("pluie : couvert {}", s.covered(s.eye)); } if scene == "brume" { s.weather.snap(Kind::Brouillard); s.sel = 8; }
     if scene == "abattage" {

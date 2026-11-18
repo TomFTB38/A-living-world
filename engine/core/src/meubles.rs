@@ -9,9 +9,10 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 77] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 81] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
-    "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket"];
+    "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket",
+    "lever", "lever_on", "spikes", "spikes_down"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
 /// La couche de texture d'une matière (« rug », « hay »…) ou, à défaut, de la face d'un bloc du même nom.
 fn layer(n: &str) -> f64 {
@@ -395,6 +396,18 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
         }
         "iron_bars" => {
             for i in 0..5 { let x = 0.1 + i as f64 * 0.2; k.b([x - 0.03, 0.0, 0.47, x + 0.03, 1.0, 0.53], IRON); } for y in [0.08, 0.9] { k.b([0.0, y, 0.46, 1.0, y + 0.05, 0.54], IRON); }
+        }
+        // le levier : une platine de fer contre le mur, une manette de bois au pommeau rouge, levée (« lever ») ou abaissée (« lever_on »)
+        "lever" | "lever_on" => {
+            k.b([0.3, 0.3, 0.92, 0.7, 0.7, 1.0], IRON); k.b([0.36, 0.36, 0.89, 0.64, 0.64, 0.92], [0.24, 0.24, 0.26]); for (x, y) in [(0.33, 0.33), (0.67, 0.33), (0.33, 0.67), (0.67, 0.67)] { k.b([x - 0.02, y - 0.02, 0.9, x + 0.02, y + 0.02, 0.93], [0.4, 0.4, 0.42]); }
+            let up = m == "lever"; let tip = if up { [0.5, 0.86, 0.62] } else { [0.5, 0.14, 0.62] };
+            k.cy([0.5, 0.5, 0.88], tip, 0.035, 0.03, 0.0, WOOD); k.cy(tip, [tip[0], tip[1] + if up { 0.05 } else { -0.05 }, tip[2] - 0.02], 0.06, 0.055, 0.0, [0.62, 0.12, 0.1]);
+        }
+        // les pics : une plaque de fer percée, et, sortis, des pointes acérées ; rentrés, seuls leurs bouts affleurent
+        "spikes" | "spikes_down" => {
+            k.b([0.02, 0.0, 0.02, 0.98, 0.06, 0.98], [0.22, 0.22, 0.24]); let out = m == "spikes";
+            for i in 0..4 { for j in 0..4 { let (x, z) = (0.14 + i as f64 * 0.24, 0.14 + j as f64 * 0.24); k.b([x - 0.045, 0.06, z - 0.045, x + 0.045, 0.07, z + 0.045], [0.08, 0.08, 0.09]);
+                if out { k.cy([x, 0.06, z], [x, 0.72, z], 0.05, 0.004, 0.0, [0.55, 0.55, 0.58]); } else { k.cy([x, 0.06, z], [x, 0.11, z], 0.04, 0.02, 0.0, [0.45, 0.45, 0.48]); } } }
         }
         "books_pile" => {
             let cols = [[0.45, 0.1, 0.08], [0.12, 0.2, 0.38], [0.2, 0.32, 0.15], [0.45, 0.3, 0.14], [0.3, 0.12, 0.25]]; let mut y = 0.0;
