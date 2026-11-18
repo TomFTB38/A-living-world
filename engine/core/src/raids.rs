@@ -113,7 +113,7 @@ impl Session {
             let k = match e.marks.iter().position(|m| m.gate == is_gate && (m.at[0] - key[0]).abs() <= 1 && (m.at[2] - key[2]).abs() <= 1) { Some(k) => k, None => { let max = if is_gate { GATE_HP } else { WALL_HP }; e.marks.push(Mark { gate: is_gate, at: key, hp: max, max, broken: Vec::new(), hit: now }); e.marks.len() - 1 } };
             if e.marks[k].down() { continue; }
             // le coup : le geste du brigand, le choc, la solidité qui baisse
-            let dmg = (if self.horde.foes[i].vet { 2.6 } else { 2.0 }) * (1.0 + 0.2 * e.raid.as_ref().map_or(1.0, |r| r.power)); let f = &mut self.horde.foes[i]; f.yaw = (aim[0] - p[0]).atan2(aim[2] - p[2]); f.wind = f.wind.max(0.35);
+            let dmg = (if self.horde.foes[i].vet { 2.6 } else { 2.0 }) * (1.0 + 0.2 * e.raid.as_ref().map_or(1.0, |r| r.power)) * crate::hostile::bestiary().species[self.horde.foes[i].sp].siege; let f = &mut self.horde.foes[i]; f.yaw = (aim[0] - p[0]).atan2(aim[2] - p[2]); f.wind = f.wind.max(0.35);
             let m = &mut e.marks[k]; m.hp -= dmg; m.hit = now; if (aim[0] - me[0]).hypot(aim[2] - me[2]) < 48.0 { self.sound.thump(aim); }
             if m.hp > 0.0 { continue; }
             m.hp = 0.0;
@@ -159,7 +159,6 @@ impl Session {
     fn creative_raids_off(&self) -> bool { self.creative }
     /// Une bande arrive : par la porte s'il y en a une (elle vise le passage), sinon droit sur la réserve, du côté le plus vide.
     pub fn raid_start(&mut self, e: &mut Econ, v: &Village) -> bool {
-        let Some(sp) = species("brigand") else { return false };
         let store = e.store.first().map(|p| [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5]).unwrap_or([v.c[0] as f64 + 0.5, v.c[1] as f64, v.c[2] as f64 + 0.5]);
         let ring = crate::remparts::ring(e); let reach = ring.map_or(v.r as f64 + 8.0, |r| r.1);
         let gate = (!e.watch.gates.is_empty()).then(|| e.watch.gates[(self.horde.roll() * e.watch.gates.len() as f64) as usize % e.watch.gates.len()]);
@@ -177,11 +176,12 @@ impl Session {
         let Some(from) = at else { return false };
         // la bande : sa taille et ses vétérans selon la puissance de son camp
         let threat = self.threat(v); let power = threat.map_or(1.0, |t| t.1.max(1.0)); let size = band_size(power); let vets = (power - 1.0).floor().max(0.0) as u32; let mut group = 0;
-        for k in 0..size { let o = [from[0] + (k as f64 % 3.0 - 1.0) * 1.6, from[1], from[2] + (k as f64 / 3.0).floor() * 1.6];
+        let who = crate::camps::roster(power.round() as u32, size as usize, false);
+        for k in 0..size { let Some(sp) = who.get(k as usize).and_then(|id| species(id)) else { continue }; let o = [from[0] + (k as f64 % 3.0 - 1.0) * 1.6, from[1], from[2] + (k as f64 / 3.0).floor() * 1.6];
             let y = crate::fauna::ground(&self.world, o[0], o[2], from[1] + 3.0).unwrap_or(from[1]);
             let i = self.horde.put(sp, [o[0], y, o[2]], (store[0] - o[0]).atan2(store[2] - o[2]), k <= vets); if k == 0 { group = self.horde.foes[i].group; } let f = &mut self.horde.foes[i]; f.group = group; f.raid = path.clone(); f.state = Ai::Patrouille; f.kept = true; }
-        let day = (self.hours / 24.0) as u32; e.note(day, format!("une bande de {size} brigands est venue attaquer le village"));
-        self.notes.push(format!("Des brigands marchent sur {} !", v.name)); self.sound.fox_scream(from);
+        let day = (self.hours / 24.0) as u32; let words = crate::camps::band_words(&who); e.note(day, format!("une bande de {size} brigands{words} est venue attaquer le village"));
+        self.notes.push(format!("Des brigands marchent sur {} !{}", v.name, if who.contains(&"brigand_chef") { " Un chef de guerre les mène." } else { "" })); self.sound.fox_scream(from);
         e.raid = Some(Raid { group, from, t: 0.0, size, hit_t: 1.5, camp: threat.map(|t| t.0.cell), power }); true
     }
     /// Un pillard a atteint la réserve : la bande emporte sa part, et s'enfuit.

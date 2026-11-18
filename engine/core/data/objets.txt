@@ -481,6 +481,10 @@ worn_coin | Pièce usée | matieres | 0.01 | 99 | Une vieille pièce au profil e
 # Œufs d'apparition (mode créatif) : clic droit sur un bloc pour faire naître la créature.
 egg_rodeur | Œuf : rôdeur décharné | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : rôdeur décharné. Pour essayer les créatures en créatif. |
 egg_brigand | Œuf : brigand errant | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : brigand errant. Pour essayer les créatures en créatif. |
+egg_brigand_archer | Œuf : archer brigand | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : archer brigand. Pour essayer les créatures en créatif. |
+egg_brigand_epeiste | Œuf : épéiste brigand | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : épéiste brigand. Pour essayer les créatures en créatif. |
+egg_brigand_cavalier | Œuf : cavalier brigand | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cavalier brigand. Pour essayer les créatures en créatif. |
+egg_brigand_chef | Œuf : chef de guerre brigand | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : chef de guerre brigand. Pour essayer les créatures en créatif. |
 egg_rodeuse | Œuf : bête rôdeuse | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : bête rôdeuse. Pour essayer les créatures en créatif. |
 egg_rampant | Œuf : rampant nocturne | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : rampant nocturne. Pour essayer les créatures en créatif. |
 egg_deer | Œuf : cerf | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cerf. Pour essayer les créatures en créatif. |

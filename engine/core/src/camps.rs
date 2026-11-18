@@ -34,7 +34,30 @@ pub fn garrison(pl: &Place, level: u32) -> Vec<(&'static str, [f64; 3], bool)> {
     let mut o: Vec<(&'static str, [f64; 3], bool)> = base.iter().take(n.min(base.len())).enumerate().map(|(k, g)| (g.0, g.1, k == Place::CHIEF)).collect();
     // les renforts : autour du feu, en cercle
     let mut k = 0; while o.len() < n { let a = k as f64 * 1.3; o.push(("brigand", [pl.x as f64 + 0.5 + a.cos() * 3.5, pl.y as f64 + 1.05, pl.z as f64 + 0.5 + a.sin() * 3.5], false)); k += 1; }
-    for (i, g) in o.iter_mut().enumerate() { if i > 0 && (i as u32) < level.saturating_sub(1) { g.2 = true; } } o
+    for (i, g) in o.iter_mut().enumerate() { if i > 0 && (i as u32) < level.saturating_sub(1) { g.2 = true; } }
+    // qui ils sont : le chef de guerre dans la tente, le guetteur de la tour de bois à l'arc, les autres selon la puissance
+    let who = roster(level, o.len(), true); for (g, id) in o.iter_mut().zip(who) { g.0 = id; }
+    if o.len() > 7 && o[7].0 != "brigand_archer" { if let Some(k) = o.iter().position(|g| g.0 == "brigand_archer") { let id = o[k].0; o[k].0 = o[7].0; o[7].0 = id; } } o
+}
+/// La composition d'une troupe de brigands selon la puissance de son camp (1 à 5) : au cran 1, des brigands errants ; au cran 2, un
+/// premier archer ; au cran 3, des épéistes et (au camp) un chef de guerre ; au cran 4, un cavalier ; au cran 5, deux cavaliers et
+/// davantage de tout. Le reste, des brigands errants. `chief` : un chef de guerre en tête dès le cran 3 (le camp) ; sinon, dès le
+/// cran 4 (les bandes, que le chef ne mène qu'une fois le camp bien établi).
+/// Ce qu'on dit d'une troupe : « dont 2 archers, 1 épéiste et leur chef de guerre » (rien si ce ne sont que des brigands errants).
+pub fn band_words(who: &[&str]) -> String {
+    let n = |id: &str| who.iter().filter(|w| **w == id).count();
+    let mut parts: Vec<String> = Vec::new();
+    for (id, one, many) in [("brigand_archer", "archer", "archers"), ("brigand_epeiste", "épéiste", "épéistes"), ("brigand_cavalier", "cavalier", "cavaliers")] { let k = n(id); if k > 0 { parts.push(format!("{k} {}", if k > 1 { many } else { one })); } }
+    if n("brigand_chef") > 0 { parts.push("leur chef de guerre".into()); }
+    match parts.len() { 0 => String::new(), 1 => format!(" dont {}", parts[0]), k => format!(" dont {} et {}", parts[..k - 1].join(", "), parts[k - 1]) }
+}
+pub fn roster(level: u32, n: usize, chief: bool) -> Vec<&'static str> {
+    let mut o: Vec<&'static str> = Vec::with_capacity(n);
+    if level >= if chief { 3 } else { 4 } { o.push("brigand_chef"); }
+    let (cav, arc, epe) = match level { 0 | 1 => (0, 0, 0), 2 => (0, 1, 0), 3 => (0, 2, if chief { 2 } else { 1 }), 4 => (1, 2, 2), _ => (2, if chief { 3 } else { 2 }, if chief { 3 } else { 2 }) };
+    // mêlés, pour que la troupe ne soit pas rangée par métier
+    let mut rest: Vec<&'static str> = Vec::new(); for k in 0..arc.max(epe).max(cav) { if k < epe { rest.push("brigand_epeiste"); } if k < arc { rest.push("brigand_archer"); } if k < cav { rest.push("brigand_cavalier"); } }
+    o.extend(rest); while o.len() < n { o.insert(o.len().min(1 + o.len() / 2), "brigand"); } o.truncate(n); o
 }
 
 impl Session {

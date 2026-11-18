@@ -8,8 +8,9 @@ use crate::session::Session;
 use crate::wild::Kind;
 
 /// Les œufs d'apparition : identifiant de l'objet, nom de la créature.
-pub const EGGS: [(&str, &str); 38] = [
+pub const EGGS: [(&str, &str); 42] = [
     ("egg_rodeur", "rôdeur décharné"), ("egg_brigand", "brigand errant"), ("egg_rodeuse", "bête rôdeuse"), ("egg_rampant", "rampant nocturne"),
+    ("egg_brigand_archer", "archer brigand"), ("egg_brigand_epeiste", "épéiste brigand"), ("egg_brigand_cavalier", "cavalier brigand"), ("egg_brigand_chef", "chef de guerre brigand"),
     ("egg_deer", "cerf"), ("egg_fox", "renard"), ("egg_hare", "lièvre"), ("egg_crow", "corbeau"), ("egg_wolf", "loup"), ("egg_boar", "sanglier"), ("egg_bear", "ours"),
     ("egg_ibex", "bouquetin"), ("egg_lizard", "lézard"), ("egg_mackerel", "maquereau"), ("egg_reef", "poisson de récif"), ("egg_dolphin", "dauphin"), ("egg_crab", "crabe"),
     ("egg_gull", "goéland"), ("egg_shark", "requin"), ("egg_whale", "baleine"),

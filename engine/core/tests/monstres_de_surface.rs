@@ -15,7 +15,7 @@ fn le_bestiaire_de_surface_est_complet_et_se_dessine() {
     let b = h::bestiary(); let md = alw_core::actors::Models::build(); let mut hd = Horde::new(1);
     for id in ["sylvain", "noye", "archer", "fantome", "ver", "harpie"] { let k = sp(id); let s = &b.species[k]; assert!(!s.loot.is_empty() && s.hp > 0.0, "{id}"); let i = hd.put(k, [0.5, 11.0, 5.5], 0.0, false); hd.foes[i].up = 1.0; }
     assert!(b.species[sp("harpie")].fly && b.species[sp("fantome")].ghost && b.species[sp("fantome")].fly && b.species[sp("archer")].bow && b.species[sp("ver")].burrow && b.species[sp("noye")].drag && b.species[sp("noye")].water && b.species[sp("sylvain")].ambush);
-    assert!(hd.draws(&md).len() >= 6 * 3, "chaque créature a ses pièces"); hd.shots.push(([0.0, 12.0, 0.0], [0.0, 0.0, 9.0], 0.0, 3.0)); let n = hd.draws(&md).len(); hd.shots.clear(); assert_eq!(hd.draws(&md).len(), n - 1, "une flèche en vol se dessine");
+    assert!(hd.draws(&md).len() >= 6 * 3, "chaque créature a ses pièces"); hd.shots.push(([0.0, 12.0, 0.0], [0.0, 0.0, 9.0], 0.0, 3.0, "")); let n = hd.draws(&md).len(); hd.shots.clear(); assert_eq!(hd.draws(&md).len(), n - 1, "une flèche en vol se dessine");
 }
 
 #[test]
@@ -26,7 +26,7 @@ fn l_archer_tire_de_loin_et_ne_vient_pas_au_contact() {
         for e in hd.ev.drain(..) { if let FoeEv::Hit { cause, from, .. } = e { assert!(cause.contains("flèche"), "{cause}"); assert!(from[2] > 0.5, "le coup vient du côté de l'archer : {from:?}"); hit = true; } } }
     assert!(shot >= 1, "aucune flèche tirée"); assert!(hit, "aucune flèche n'a touché un joueur immobile en vingt-cinq secondes"); assert!(closest > 3.0, "l'archer est venu au contact ({closest:.1})");
     // une flèche s'arrête dans un mur
-    let wall = Land { top: B::STONE, wall: true }; let mut hd = Horde::new(2); hd.shots.push(([0.5, 12.0, 10.0], [0.0, 0.0, -20.0], 0.0, 5.0));
+    let wall = Land { top: B::STONE, wall: true }; let mut hd = Horde::new(2); hd.shots.push(([0.5, 12.0, 10.0], [0.0, 0.0, -20.0], 0.0, 5.0, ""));
     for _ in 0..40 { hd.update(DT, &wall, &ctx(ME, 1.0, &light, &protect)); } assert!(hd.shots.is_empty() && hd.ev.iter().all(|e| !matches!(e, FoeEv::Hit { .. })), "la flèche a traversé le mur");
 }
 

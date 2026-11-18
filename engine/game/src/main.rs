@@ -490,7 +490,17 @@ fn capture(a: &[String]) {
         for (id, dx, up, dz, turn, pose) in [("sylvain", -5.0, 0.0, 7.5, 2.9, 0), ("sylvain", -3.0, 0.0, 8.0, 3.1, 1), ("noye", -1.3, 0.0, 5.5, 3.0, 2), ("archer", 0.4, 0.0, 6.5, 3.1, 3), ("fantome", 2.0, 0.5, 5.5, -2.9, 2), ("ver", 4.2, 0.0, 7.5, 3.1, 4), ("harpie", -1.5, 4.0, 8.0, 2.6, 2), ("harpie", 2.5, 3.2, 7.0, -2.6, 5)] {
             let k = s.horde.put(h::species(id).unwrap(), [p[0] + dx, y + up, p[2] + dz], turn, false); let f = &mut s.horde.foes[k];
             match pose { 0 => {} 1 | 2 => f.state = h::Ai::Repos, 3 => { f.state = h::Ai::Combat; f.wind = 0.4; } 4 => f.up = 1.5, _ => f.air = true } f.phase = dx; }
-        s.horde.shots.push(([p[0] + 0.6, y + 1.3, p[2] + 4.0], [0.0, 0.5, -18.0], 0.0, 0.0));
+        s.horde.shots.push(([p[0] + 0.6, y + 1.3, p[2] + 4.0], [0.0, 0.5, -18.0], 0.0, 0.0, ""));
+        pump(&mut s, &mut g);
+    }
+    // Le bestiaire des brigands aligné sur le monde plat, de nuit tombante : l'errant au repos, l'archer qui vise, l'épéiste bouclier levé,
+    // le chef de guerre qui lève sa grande hache, et le cavalier au galop, vu de profil.
+    if scene == "plat_brigands" {
+        use alw_core::hostile as h; let y = alw_core::gen::FLAT_Y as f64 + 1.0; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.yaw = 0.0; s.player.pitch = -0.08; s.set_creative(true);
+        let p = s.player.p;
+        for (id, dx, dz, turn, pose) in [("brigand", -3.4, 6.0, 2.8, 0), ("brigand_archer", -1.7, 7.0, 3.0, 1), ("brigand_epeiste", 0.0, 5.6, 3.1, 2), ("brigand_chef", 1.9, 6.6, -3.0, 3), ("brigand_cavalier", 0.6, 10.5, 1.57, 4)] {
+            let k = s.horde.put(h::species(id).unwrap(), [p[0] + dx, y, p[2] + dz], turn, false); let f = &mut s.horde.foes[k]; f.kept = true;
+            match pose { 0 => f.state = h::Ai::Repos, 1 => { f.state = h::Ai::Combat; f.wind = 0.5; } 2 => { f.state = h::Ai::Combat; f.guard = 1.0; } 3 => { f.state = h::Ai::Combat; f.wind = 0.45; } _ => { f.state = h::Ai::Patrouille; f.speed = 9.0; f.phase = 1.2; } } }
         pump(&mut s, &mut g);
     }
     if scene == "creatif" || scene == "roches" { s.set_creative(true); s.inv_open = true; s.tab = if scene == "roches" { 2 } else { 5 } /* Mobilier */; s.tick(0.0, none, Actions::default()); }
@@ -625,6 +635,8 @@ fn capture(a: &[String]) {
             // diagnostic de la carte logicielle : « _nolum » retire appliques et lanternes des remparts, « _noclot » leurs barrières
             // « _sans-a+b » : retire les blocs a et b des remparts une fois bâtis (« _sans-rien » : la retouche seule)
             let (scene, strip): (String, Vec<String>) = match scene.split_once("_sans-") { Some((a, b)) => (a.to_string(), b.split('+').map(|x| x.to_string()).collect()), None => (scene.clone(), Vec::new()) };
+            // « village_assaut » : la même bande, mais d'un camp laissé trente jours à grandir (archers, épéistes, cavaliers, chef de guerre)
+            let strong = scene == "village_assaut"; let scene = if strong { s.pass_hours(24.0 * 30.0); "village_brigands".to_string() } else { scene };
             if scene == "village_muraille" || scene == "village_tour" || scene == "village_porte" || scene == "village_chemin" || scene == "village_garde" || scene == "village_herse" || scene == "village_guet" || scene == "village_brigands" { s.hour = 10.0;
                 for k in [alw_core::patrons::Kind::Muraille, alw_core::patrons::Kind::TourDefense, alw_core::patrons::Kind::TourDefense] { if let Some(e) = s.econ.as_mut() { e.project = Some((k, true)); for (id, n) in [("cobblestone", 380.0), ("planks", 120.0), ("oak_log", 60.0), ("iron_ingot", 10.0), ("worn_coin", 60.0), ("bread", 200.0)] { e.stock.insert(id, n); } } for _ in 0..10 { s.tick(0.1, none, Actions::default()); } }
                 if let Some((c, r)) = s.econ.as_ref().and_then(alw_core::remparts::ring) { if !strip.is_empty() { use alw_core::player::Voxels; let k = r as i32 + 10; let mut off = Vec::new();

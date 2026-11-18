@@ -15,7 +15,7 @@ use std::sync::OnceLock;
 pub const DATA: &str = include_str!("../data/creatures.txt");
 
 // ------------------------------------------------------------------------------------------------------------- données
-#[derive(Clone, Copy, PartialEq, Debug)] pub enum Body { Rodeur, Brigand, Bete, Rampant, /** araignée des cavernes : huit pattes */ Araignee, /** golem de cristal : un colosse de roche */ Golem, /** charpente d'homme sculptée, selon la peau : noyé, archer, fantôme, sylvain */ Humain, /** ver des sables */ Ver, /** harpie */ Harpie }
+#[derive(Clone, Copy, PartialEq, Debug)] pub enum Body { Rodeur, Brigand, Bete, Rampant, /** araignée des cavernes : huit pattes */ Araignee, /** golem de cristal : un colosse de roche */ Golem, /** charpente d'homme sculptée, selon la peau : noyé, archer, fantôme, sylvain */ Humain, /** ver des sables */ Ver, /** harpie */ Harpie, /** un brigand monté sur son cheval */ Cavalier }
 #[derive(Clone, Debug)]
 pub struct Species {
     pub id: &'static str, pub name: &'static str, pub tier: u8, pub body: Body, pub size: f64, pub hp: f64, pub dmg: f64, pub walk: f64, pub run: f64,
@@ -31,6 +31,9 @@ pub struct Species {
     pub fly: bool, pub ghost: bool, pub bow: bool, pub burrow: bool, pub drag: bool,
     /// Elle ne naît que la nuit ; qu'au bord de l'eau ; jamais sous terre.
     pub night: bool, pub water: bool, pub surface: bool,
+    /// Brigands des camps : la force de ses coups contre une herse ou une muraille (1 : un brigand ordinaire) ; il lève son bouclier
+    /// en approchant et riposte après un coup paré ; il charge au galop ; il mène les siens (ils ne fuient pas, son cri ameute) ; blessé, il enrage.
+    pub siege: f64, pub guard_up: bool, pub charge: bool, pub leader: bool, pub rage: bool,
     pub loot: Vec<(&'static str, u32, u32, f64)>,
 }
 /// Règles d'apparition et de difficulté (voir `data/creatures.txt`).
@@ -63,16 +66,16 @@ fn parse(t: &'static str) -> Bestiary {
         }
         let Some(rest) = line.strip_prefix("espece ") else { continue };
         let f: Vec<&'static str> = rest.split('|').map(str::trim).collect(); if f.len() < 3 { continue; }
-        let mut s = Species { id: f[0], name: f[1], tier: 1, body: Body::Rodeur, size: 1.0, hp: 25.0, dmg: 6.0, walk: 1.0, run: 4.5, reach: 1.5, sight: 16.0, hear: 10.0, cd: 1.6, windup: 0.5, armor: 0.0, weak: "", biomes: Vec::new(), weight: 1.0, group: (1, 1), flee: 0.0, leap: false, climb: false, ambush: false, bursts: false, flank: false, caves: Vec::new(), skin: "", ember: false, web: false, fly: false, ghost: false, bow: false, burrow: false, drag: false, night: false, water: false, surface: false, loot: Vec::new() };
+        let mut s = Species { id: f[0], name: f[1], tier: 1, body: Body::Rodeur, size: 1.0, hp: 25.0, dmg: 6.0, walk: 1.0, run: 4.5, reach: 1.5, sight: 16.0, hear: 10.0, cd: 1.6, windup: 0.5, armor: 0.0, weak: "", biomes: Vec::new(), weight: 1.0, group: (1, 1), flee: 0.0, leap: false, climb: false, ambush: false, bursts: false, flank: false, caves: Vec::new(), skin: "", ember: false, web: false, fly: false, ghost: false, bow: false, burrow: false, drag: false, night: false, water: false, surface: false, siege: 1.0, guard_up: false, charge: false, leader: false, rage: false, loot: Vec::new() };
         for kv in f[2].split_whitespace() { let Some((k, v)) = kv.split_once('=') else { continue }; let x = v.parse::<f64>().unwrap_or(0.0);
             match k {
-                "niveau" => s.tier = x as u8, "corps" => s.body = match v { "brigand" => Body::Brigand, "bete" => Body::Bete, "rampant" => Body::Rampant, "araignee" => Body::Araignee, "golem" => Body::Golem, "humain" => Body::Humain, "ver" => Body::Ver, "harpie" => Body::Harpie, _ => Body::Rodeur },
+                "niveau" => s.tier = x as u8, "corps" => s.body = match v { "brigand" => Body::Brigand, "bete" => Body::Bete, "rampant" => Body::Rampant, "araignee" => Body::Araignee, "golem" => Body::Golem, "humain" => Body::Humain, "ver" => Body::Ver, "harpie" => Body::Harpie, "cavalier" => Body::Cavalier, _ => Body::Rodeur },
                 "taille" => s.size = x, "pv" => s.hp = x, "degats" => s.dmg = x, "marche" => s.walk = x, "course" => s.run = x, "portee" => s.reach = x, "vue" => s.sight = x, "ouie" => s.hear = x,
-                "recharge" => s.cd = x, "armement" => s.windup = x, "armure" => s.armor = x.clamp(0.0, 0.8), "faible" => s.weak = v, "poids" => s.weight = x, "fuite" => s.flee = x,
+                "recharge" => s.cd = x, "armement" => s.windup = x, "armure" => s.armor = x.clamp(0.0, 0.8), "faible" => s.weak = v, "poids" => s.weight = x, "fuite" => s.flee = x, "siege" => s.siege = x,
                 "groupe" => { let (a, b) = v.split_once('-').unwrap_or((v, v)); s.group = (a.parse().unwrap_or(1), b.parse().unwrap_or(1)); }
                 "biomes" => if v != "tous" { s.biomes = v.split(',').filter_map(|n| crate::biome::NAMES.iter().position(|b| b.replace(' ', "_").eq_ignore_ascii_case(n) || *b == n)).collect(); },
                 "grottes" => s.caves = v.split(',').collect(), "peau" => s.skin = v, "nuit" => s.night = x > 0.5, "eau" => s.water = x > 0.5, "surface" => s.surface = x > 0.5,
-                "talents" => for t in v.split(',') { match t { "bond" => s.leap = true, "grimpe" => s.climb = true, "embuscade" => s.ambush = true, "poussees" => s.bursts = true, "contourne" => s.flank = true, "brasier" => s.ember = true, "toile" => s.web = true, "vol" => s.fly = true, "spectre" => { s.fly = true; s.ghost = true; } "arc" => s.bow = true, "fouit" => s.burrow = true, "entraine" => s.drag = true, _ => {} } },
+                "talents" => for t in v.split(',') { match t { "bond" => s.leap = true, "grimpe" => s.climb = true, "embuscade" => s.ambush = true, "poussees" => s.bursts = true, "contourne" => s.flank = true, "brasier" => s.ember = true, "toile" => s.web = true, "vol" => s.fly = true, "spectre" => { s.fly = true; s.ghost = true; } "arc" => s.bow = true, "fouit" => s.burrow = true, "entraine" => s.drag = true, "garde" => s.guard_up = true, "charge" => s.charge = true, "meneur" => s.leader = true, "rage" => s.rage = true, _ => {} } },
                 "butin" => s.loot = v.split(',').filter_map(|e| { let p: Vec<&'static str> = e.split(':').collect(); if p.len() < 3 { return None; } let (a, b) = p[1].split_once('-').unwrap_or((p[1], p[1])); Some((p[0], a.parse().ok()?, b.parse().ok()?, p[2].parse().ok()?)) }).collect(),
                 _ => {}
             }
@@ -113,7 +116,7 @@ pub struct Foe {
 /// Ce que font les créatures, pour la session (coups, sons, butin).
 #[derive(Clone, Debug)] pub enum FoeEv { Hit { from: [f64; 3], dmg: f64, cause: &'static str, push: f64 }, Growl([f64; 3], Body), Swing([f64; 3]), Blocked([f64; 3]), Die([f64; 3], usize, bool, Option<(i32, i32)>), /** une morsure qui englue : ralenti pendant tant de secondes */ Snare(f64), /** un pillard est arrivé à la réserve du village (sa bande) */ Loot([f64; 3], u32) }
 
-pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv>, groups: u32, pub spawned: u32, /** braises semées par les rampants de magma : (position, secondes restantes) */ pub embers: Vec<([f64; 3], f64)>, burn_cd: f64, /** flèches des archers en vol : (position, vitesse, âge, dégâts) */ pub shots: Vec<([f64; 3], [f64; 3], f64, f64)> }
+pub struct Horde { pub foes: Vec<Foe>, rng: Rng, spawn_t: f64, pub ev: Vec<FoeEv>, groups: u32, pub spawned: u32, /** braises semées par les rampants de magma : (position, secondes restantes) */ pub embers: Vec<([f64; 3], f64)>, burn_cd: f64, /** flèches des archers en vol : (position, vitesse, âge, dégâts, ce qui l'a tirée) */ pub shots: Vec<([f64; 3], [f64; 3], f64, f64, &'static str)> }
 /// Ce que la session donne à la horde à chaque image.
 pub struct Ctx<'a> {
     pub eye: [f64; 3], pub feet: [f64; 3], pub look: [f64; 3], pub noise: f64, pub lit: bool, pub crouch: bool, pub alive: bool,
@@ -126,9 +129,9 @@ fn sees(w: &impl Voxels, a: [f64; 3], b: [f64; 3]) -> bool {
     let d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt(); let n = (l / 0.45).ceil() as i32;
     for i in 1..n { let t = i as f64 / n as f64; let q = [a[0] + d[0] * t, a[1] + d[1] * t, a[2] + d[2] * t]; if w.get(q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32).is_none_or(is_opaque) { return false; } } true
 }
-fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.55, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.55, Body::Araignee => 0.4, Body::Golem => 1.9, Body::Humain => 1.5, Body::Ver => 0.6, Body::Harpie => 0.3 } }
+fn eye_h(b: Body) -> f64 { match b { Body::Rodeur => 1.55, Body::Brigand => 1.62, Body::Bete => 0.8, Body::Rampant => 0.55, Body::Araignee => 0.4, Body::Golem => 1.9, Body::Humain => 1.5, Body::Ver => 0.6, Body::Harpie => 0.3, Body::Cavalier => 2.65 } }
 /// Boîte de visée et de collision (demi-largeur, hauteur).
-pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.42, 1.85), Body::Brigand => (0.42, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.55, 0.8), Body::Araignee => (0.55, 0.65), Body::Golem => (0.6, 2.25), Body::Humain => (0.4, 1.8) /* le sylvain, plus massif, garde cette boîte : on le frappe au tronc */, Body::Ver => (0.5, 2.4), Body::Harpie => (0.6, 0.9) }; (w * size, h * size) }
+pub fn foe_box(b: Body, size: f64) -> (f64, f64) { let (w, h) = match b { Body::Rodeur => (0.42, 1.85), Body::Brigand => (0.42, 1.85), Body::Bete => (0.5, 1.0), Body::Rampant => (0.55, 0.8), Body::Araignee => (0.55, 0.65), Body::Golem => (0.6, 2.25), Body::Humain => (0.4, 1.8) /* le sylvain, plus massif, garde cette boîte : on le frappe au tronc */, Body::Ver => (0.5, 2.4), Body::Harpie => (0.6, 0.9), Body::Cavalier => (0.62, 2.8) }; (w * size, h * size) }
 
 impl Horde {
     pub fn new(seed: i32) -> Self { Horde { foes: Vec::new(), rng: Rng::new((seed ^ 0x6d21) as u32), spawn_t: 2.0, ev: Vec::new(), groups: 0, spawned: 0, embers: Vec::new(), burn_cd: 0.0, shots: Vec::new() } }
@@ -146,7 +149,7 @@ impl Horde {
         let mul = if !s.weak.is_empty() && s.weak == weapon { 1.35 } else { 1.0 };
         // Bouclier levé et coup de face : il arrête l'essentiel (une flèche aussi).
         let face = { let (dx, dz) = (from[0] - f.p[0], from[2] - f.p[2]); let d = dx.hypot(dz).max(0.01); (sin(f.yaw) * dx + cos(f.yaw) * dz) / d };
-        let blocked = f.guard > 0.5 && face > 0.3; if blocked { self.ev.push(FoeEv::Blocked(f.p)); }
+        let blocked = f.guard > 0.5 && face > 0.3; if blocked { self.ev.push(FoeEv::Blocked(f.p)); if s.guard_up { f.cd = f.cd.min(0.15); } } // l'épéiste pare, et riposte aussitôt
         f.hp -= dmg * (1.0 - s.armor) * mul * if blocked { 0.2 } else { 1.0 }; f.hit = if blocked { 0.0 } else { 0.3 };
         let (dx, dz) = (f.p[0] - from[0], f.p[2] - from[2]); let d = dx.hypot(dz).max(0.1); let k = if heavy { 6.5 } else { 3.2 } / s.size; f.v = [dx / d * k, 0.0, dz / d * k];
         // Un coup interrompt l'attaque annoncée (le joueur qui frappe le premier garde l'avantage) ; elle sait maintenant où il est.
@@ -206,13 +209,18 @@ impl Horde {
         if c.can_spawn { self.spawn_t -= dt; if self.spawn_t <= 0.0 { self.spawn_t = r.every * self.rng.range(0.7, 1.3) * if c.night > 0.5 { 0.55 } else if c.cave > 0.5 { 0.8 } else { 1.0 }; if c.night > 0.5 || c.cave > 0.5 || (c.light)(me[0].floor() as i32, me[1].floor() as i32 + 1, me[2].floor() as i32) < 4 { self.try_spawn(w, c); } } }
         let mut all = std::mem::take(&mut self.foes); let n = all.len();
         let groups: Vec<(u32, [f64; 3])> = all.iter().map(|f| (f.group, f.p)).collect();
-        for i in 0..n { let f = &mut all[i]; self.think(f, dt, w, c, &groups); }
+        // Le chef de guerre : tant qu'il vit, les siens tiennent ; quand il se bat, son cri ameute tous les brigands alentour.
+        let leaders: Vec<[f64; 3]> = all.iter().filter(|f| f.dead == 0.0 && bestiary().species[f.sp].leader).map(|f| f.p).collect();
+        let cry: Vec<[f64; 3]> = all.iter().filter(|f| f.dead == 0.0 && bestiary().species[f.sp].leader && matches!(f.state, Ai::Poursuite | Ai::Combat)).map(|f| f.p).collect();
+        if !cry.is_empty() && c.alive { for f in all.iter_mut() { let s = &bestiary().species[f.sp];
+            if f.dead == 0.0 && matches!(s.body, Body::Brigand | Body::Cavalier) && matches!(f.state, Ai::Repos | Ai::Patrouille | Ai::Soupcon | Ai::Retour | Ai::Recherche) && cry.iter().any(|q| hypot2(q[0] - f.p[0], q[2] - f.p[2]) < 22.0) { f.alert = 1.0; f.seen = Some(me); f.lost = 0.0; f.state = Ai::Detection; f.t = 0.3; } } }
+        for i in 0..n { let f = &mut all[i]; self.think(f, dt, w, c, &groups, &leaders); }
         // Les flèches des archers : elles volent, retombent, se plantent ; celle qui atteint le joueur le blesse (le bouclier l'arrête de face).
         let mut shots = std::mem::take(&mut self.shots);
         for a in shots.iter_mut() { let steps = 3; for _ in 0..steps { let h = dt / steps as f64; a.1[1] -= 12.0 * h; for k in 0..3 { a.0[k] += a.1[k] * h; }
             if w.get(a.0[0].floor() as i32, a.0[1].floor() as i32, a.0[2].floor() as i32).is_none_or(|b| b != 0 && is_solid(b)) { a.2 = 99.0; break; }
             if c.alive && hypot2(a.0[0] - me[0], a.0[2] - me[2]) < 0.42 && a.0[1] > me[1] - 0.1 && a.0[1] < me[1] + 1.85 { let l = hypot2(a.1[0], a.1[2]).max(0.1);
-                self.ev.push(FoeEv::Hit { from: [me[0] - a.1[0] / l * 3.0, me[1], me[2] - a.1[2] / l * 3.0], dmg: a.3, cause: "La flèche d'un archer squelette", push: 1.2 }); a.2 = 99.0; break; } }
+                self.ev.push(FoeEv::Hit { from: [me[0] - a.1[0] / l * 3.0, me[1], me[2] - a.1[2] / l * 3.0], dmg: a.3, cause: a.4, push: 1.2 }); a.2 = 99.0; break; } }
             a.2 += dt; }
         shots.retain(|a| a.2 < 5.0); self.shots = shots;
         // Les braises s'éteignent ; marcher dessus, ou serrer de trop près un rampant de magma, brûle.
@@ -228,7 +236,7 @@ impl Horde {
         self.foes = all;
     }
 
-    fn think(&mut self, f: &mut Foe, dt: f64, w: &impl Voxels, c: &Ctx, groups: &[(u32, [f64; 3])]) {
+    fn think(&mut self, f: &mut Foe, dt: f64, w: &impl Voxels, c: &Ctx, groups: &[(u32, [f64; 3])], leaders: &[[f64; 3]]) {
         let s = &bestiary().species[f.sp]; let r = &mut self.rng; f.hit = (f.hit - dt).max(0.0);
         if f.dead > 0.0 { f.dead += dt; f.speed = 0.0; settle(f, dt, w); return; }
         if s.fly { self.fly_think(f, dt, w, c); return; } if s.burrow { self.worm_think(f, dt, w, c); return; }
@@ -258,11 +266,20 @@ impl Horde {
                 let goal = f.seen.unwrap_or(me); let mut want = (goal[0] - f.p[0]).atan2(goal[2] - f.p[2]);
                 // Les brigands contournent : chacun de leur côté, avant de fondre sur le joueur.
                 if s.flank && dist > 3.0 && dist < 9.0 { let side = if f.group % 2 == 0 { 0.85 } else { -0.85 }; let same = groups.iter().filter(|g| g.0 == f.group).count(); if same > 1 { want += side; } }
-                f.yaw = turn(f.yaw, want, dt * 6.0);
+                // Le cavalier en pleine charge tient son cap : on l'esquive d'un pas de côté.
+                let charging = s.charge && f.burst > 0.0;
+                f.yaw = turn(f.yaw, want, dt * if charging { 0.9 } else { 6.0 });
                 // Le rôdeur traîne, puis accélère d'un coup ; la bête fond ; les autres courent.
                 let run = if s.bursts { if f.burst > 0.0 { s.run } else { if r.next() < dt * 0.35 { f.burst = r.range(1.2, 2.0); } s.walk * 1.6 } } else { s.run };
-                f.speed = run * if f.vet { 1.08 } else { 1.0 };
-                if see && dist < s.reach + 0.05 && dy.abs() < 2.2 { f.state = Combat; f.speed = 0.0; }
+                f.speed = run * if f.vet { 1.08 } else { 1.0 } * if s.rage && f.hp < f.max * 0.5 { 1.15 } else { 1.0 };
+                // La charge : de loin, il fond au galop, lance couchée ; au passage, le coup porte fort et renverse ; puis il fait volte-face.
+                if s.charge {
+                    if charging { f.speed = s.run * 1.3;
+                        let face = sin(f.yaw) * to[0] + cos(f.yaw) * to[1];
+                        if c.alive && f.cd <= 0.0 && dist < s.reach + 0.7 && dy.abs() < 2.2 && face > 0.2 { self.ev.push(FoeEv::Hit { from: f.p, dmg: s.dmg * 1.6 * r.range(0.9, 1.2) * if f.vet { 1.15 } else { 1.0 }, cause: "La charge d'un cavalier brigand", push: 7.0 }); f.cd = s.cd + 1.2; f.burst = f.burst.min(0.6); }
+                    } else if see && f.cd <= 0.0 && (6.0..22.0).contains(&dist) && dy.abs() < 2.5 && r.next() < dt * 2.5 { f.burst = (dist / (s.run * 1.3) + 0.9).min(3.0); self.ev.push(FoeEv::Growl(f.p, s.body)); }
+                }
+                if !charging && see && dist < s.reach + 0.05 && dy.abs() < 2.2 { f.state = Combat; f.speed = 0.0; }
                 if s.leap && see && f.cd <= 0.0 && !f.air && (3.0..6.5).contains(&dist) && dy.abs() < 1.5 && r.next() < dt * 3.0 { f.air = true; f.v = [to[0] * 9.5, 5.5, to[1] * 9.5]; f.wind = 0.6; f.cd = s.cd + 1.0; self.ev.push(FoeEv::Growl(f.p, s.body)); }
                 if !see && f.lost > 4.0 { f.state = Recherche; f.t = 8.0; }
                 if !c.alive { f.state = Retour; }
@@ -272,7 +289,7 @@ impl Horde {
                 // L'attaque s'annonce (bras levé, gueule ouverte, corps ramassé), puis tombe : esquivable, parable.
                 if f.wind <= 0.0 && f.cd <= 0.0 { f.wind = s.windup; self.ev.push(FoeEv::Swing(f.p)); }
                 // Le brigand au bouclier se couvre entre deux coups.
-                if s.body == Body::Brigand && f.variant % 3 != 2 { let want = if f.wind <= 0.0 && f.cd > 0.3 { 1.0 } else { 0.0 }; f.guard += (want - f.guard) * (dt * 8.0).min(1.0); }
+                if shielded(s, f.variant) { let want = if f.wind <= 0.0 && f.cd > 0.3 { 1.0 } else { 0.0 }; f.guard += (want - f.guard) * (dt * 8.0).min(1.0); }
                 if dist > s.reach + 1.2 && f.wind <= 0.0 { f.state = Poursuite; }
                 if s.bow && (dist < 3.5 || !see) && f.wind <= 0.0 { if dist < 3.5 { f.state = Fuite; f.t = 2.2; } else { f.state = Poursuite; } } // l'archer rompt quand on le serre, et cherche une ligne de tir
                 if !c.alive { f.state = Retour; }
@@ -282,7 +299,11 @@ impl Horde {
             Retour => { f.speed = s.walk; f.yaw = turn(f.yaw, (f.home[0] - f.p[0]).atan2(f.home[2] - f.p[2]), dt * 3.0); if hypot2(f.p[0] - f.home[0], f.p[2] - f.home[2]) < 2.0 { f.state = Repos; f.t = r.range(2.0, 5.0); } if f.alert > 0.6 && see { f.state = Poursuite; } }
             Fuite => { f.speed = s.run * 0.9; f.yaw = turn(f.yaw, (f.p[0] - me[0]).atan2(f.p[2] - me[2]), dt * 6.0); if f.t <= 0.0 { f.state = Retour; f.home = f.p; } }
         }
-        if f.state != Combat { f.guard = (f.guard - dt * 4.0).max(0.0); }
+        // L'épéiste avance bouclier levé (contre les flèches aussi), plus lentement ; les autres le baissent hors du combat.
+        let cover = s.guard_up && f.wind <= 0.0 && ((f.state == Poursuite && see && dist < 12.0) || (!f.raid.is_empty() && f.state != Combat));
+        if cover { f.guard += (1.0 - f.guard) * (dt * 6.0).min(1.0); if f.state == Poursuite { f.speed *= 0.75; } } else if f.state != Combat { f.guard = (f.guard - dt * 4.0).max(0.0); }
+        // Près de leur chef, les brigands ne fuient pas (l'archer qui rompt pour tirer de plus loin, si).
+        if f.state == Fuite && !s.bow && !s.leader && matches!(s.body, Body::Brigand | Body::Cavalier) && leaders.iter().any(|q| hypot2(q[0] - f.p[0], q[2] - f.p[2]) < 20.0) { f.state = Poursuite; f.t = 20.0; }
         // ---- une bande qui attaque un village : tant qu'elle ne se bat pas, elle marche droit sur ses points de passage
         if !f.raid.is_empty() && matches!(f.state, Repos | Patrouille | Retour) {
             let wp = f.raid[0];
@@ -299,14 +320,14 @@ impl Horde {
                             if !built && y - f.gy <= up && f.gy - y <= 6.0 && (fits(w, nx, y, nz, a0 + k, tall) || wet_fits(w, nx, y, nz, tall)) { f.p = [nx, y, nz]; f.gy = y; f.best = hypot2(wp[0] - nx, wp[2] - nz); break; } } } } }
         }
         // ---- le coup tombe à la fin de l'annonce, s'il y a contact (distance et angle cohérents avec le geste)
-        if f.wind > 0.0 { f.wind -= dt; if f.wind <= 0.0 { f.wind = 0.0; f.cd = s.cd * if f.vet { 0.9 } else { 1.0 };
+        if f.wind > 0.0 { f.wind -= dt; if f.wind <= 0.0 { f.wind = 0.0; f.cd = s.cd * if f.vet { 0.9 } else { 1.0 } * if s.rage && f.hp < f.max * 0.5 { 0.6 } else { 1.0 };
             let face = sin(f.yaw) * to[0] + cos(f.yaw) * to[1]; let reach = s.reach + if f.air { 0.8 } else { 0.5 };
             if s.bow { // la flèche part vers où l'on se tient, un peu au-dessus pour la chute ; elle n'est pas infaillible
                 if c.alive && see { let from = [f.p[0] + sin(f.yaw) * 0.4, f.p[1] + 1.35 * s.size, f.p[2] + cos(f.yaw) * 0.4]; let sp = 24.0; let aim = [me[0] + r.range(-0.35, 0.35), me[1] + 1.1, me[2] + r.range(-0.35, 0.35)];
                     let d = [aim[0] - from[0], aim[1] - from[1], aim[2] - from[2]]; let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt().max(0.1); let t = l / sp;
-                    self.shots.push((from, [d[0] / t, d[1] / t + 0.5 * 12.0 * t, d[2] / t], 0.0, s.dmg * r.range(0.8, 1.2))); self.ev.push(FoeEv::Swing(f.p)); }
+                    self.shots.push((from, [d[0] / t, d[1] / t + 0.5 * 12.0 * t, d[2] / t], 0.0, s.dmg * r.range(0.8, 1.2) * if f.vet { 1.15 } else { 1.0 }, if s.body == Body::Brigand { "La flèche d'un archer brigand" } else { "La flèche d'un archer squelette" })); self.ev.push(FoeEv::Swing(f.p)); }
             } else
-            if c.alive && dist < reach && face > 0.35 && dy.abs() < 1.9 { let dmg = s.dmg * r.range(0.8, 1.25) * if f.vet { 1.15 } else { 1.0 } * if f.air { 1.4 } else { 1.0 }; self.ev.push(FoeEv::Hit { from: f.p, dmg, cause: if s.ember { "Les mandibules brûlantes d'un rampant de magma" } else { cause(s.body) }, push: if s.drag { -4.5 } else { match s.body { Body::Bete => 4.0, Body::Golem => 6.5, _ => 2.5 } } }); if s.web { self.ev.push(FoeEv::Snare(3.5)); } } } }
+            if c.alive && dist < reach && face > 0.35 && dy.abs() < 1.9 { let dmg = s.dmg * r.range(0.8, 1.25) * if f.vet { 1.15 } else { 1.0 } * if f.air { 1.4 } else { 1.0 }; self.ev.push(FoeEv::Hit { from: f.p, dmg, cause: cause_of(s), push: if s.drag { -4.5 } else { match s.body { Body::Bete => 4.0, Body::Golem => 6.5, Body::Cavalier => 4.5, _ if s.leader => 5.5, _ => 2.5 } } }); if s.web { self.ev.push(FoeEv::Snare(3.5)); } } } }
         // ---- le rampant de magma : il sème des braises derrière lui, et l'eau l'éteint
         if s.ember {
             if f.speed > 0.5 && self.embers.last().is_none_or(|e| hypot2(e.0[0] - f.p[0], e.0[2] - f.p[2]) > 0.9) && self.embers.len() < 80 { self.embers.push(([f.p[0], f.gy, f.p[2]], 5.0)); }
@@ -386,7 +407,11 @@ impl Horde {
         self.foes.iter().take(8).map(|f| { let s = &bestiary().species[f.sp]; format!("  {}{} — {} ({:.0}/{:.0} pv, éveil {:.1})", s.name, if f.vet { " (vétéran)" } else { "" }, if f.dead > 0.0 { "morte" } else { f.state.name() }, f.hp.max(0.0), f.max, f.alert) }).collect()
     }
 }
-fn cause(b: Body) -> &'static str { match b { Body::Rodeur => "Les griffes d'un rôdeur décharné", Body::Brigand => "L'arme d'un brigand", Body::Humain => "Le trident d'un noyé", Body::Ver => "La gueule d'un ver des sables", Body::Harpie => "Les serres d'une harpie", Body::Araignee => "Les crochets d'une araignée des cavernes", Body::Golem => "Le poing d'un golem de cristal", Body::Bete => "Les crocs d'une bête rôdeuse", Body::Rampant => "Les mandibules d'un rampant nocturne" } }
+fn cause(b: Body) -> &'static str { match b { Body::Rodeur => "Les griffes d'un rôdeur décharné", Body::Brigand => "L'arme d'un brigand", Body::Humain => "Le trident d'un noyé", Body::Ver => "La gueule d'un ver des sables", Body::Harpie => "Les serres d'une harpie", Body::Araignee => "Les crochets d'une araignée des cavernes", Body::Golem => "Le poing d'un golem de cristal", Body::Bete => "Les crocs d'une bête rôdeuse", Body::Rampant => "Les mandibules d'un rampant nocturne", Body::Cavalier => "La lance d'un cavalier brigand" } }
+/// Ce qui a frappé, selon l'espèce (les brigands des camps ont chacun leur arme).
+fn cause_of(s: &Species) -> &'static str { match s.skin { "epeiste" => "L'épée d'un épéiste brigand", "chef" => "La grande hache d'un chef de guerre brigand", _ if s.ember => "Les mandibules brûlantes d'un rampant de magma", _ => cause(s.body) } }
+/// Le brigand porte-t-il un bouclier : l'épéiste toujours, le brigand errant deux fois sur trois ; ni l'archer, ni le chef (sa hache se tient à deux mains).
+fn shielded(s: &Species, variant: u8) -> bool { s.body == Body::Brigand && match s.skin { "epeiste" => true, "" => variant % 3 != 2, _ => false } }
 fn turn(a: f64, b: f64, k: f64) -> f64 { let d = (b - a + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI; a + d.clamp(-k, k) }
 /// Du sable (ou du gravier) sous ce point : le terrain du ver.
 fn sandy(w: &impl Voxels, x: f64, y: f64, z: f64) -> bool { w.get(x.floor() as i32, y.floor() as i32 - 1, z.floor() as i32).is_some_and(|b| b == B::SAND || b == B::GRAVEL) }
@@ -509,6 +534,39 @@ const SKINB: [f64; 3] = [0.74, 0.56, 0.44]; const CAPE: [f64; 3] = [0.44, 0.13, 
 const FURD: [f64; 3] = [0.25, 0.22, 0.28]; const FURM: [f64; 3] = [0.4, 0.36, 0.43]; const FURL: [f64; 3] = [0.8, 0.7, 0.57];
 const ABDO: [f64; 3] = [0.58, 0.15, 0.14]; const ABDO2: [f64; 3] = [0.4, 0.1, 0.11]; const CHITD: [f64; 3] = [0.17, 0.12, 0.2]; const EYEO: [f64; 3] = [1.0, 0.68, 0.12]; const LEGC: [f64; 3] = [0.86, 0.72, 0.5]; const LEGD: [f64; 3] = [0.58, 0.44, 0.3];
 const CHIT: [f64; 3] = [0.38, 0.27, 0.42]; const CHIT2: [f64; 3] = [0.5, 0.38, 0.54]; const SPOT: [f64; 3] = [0.6, 0.62, 0.48]; const GEYE: [f64; 3] = [0.72, 1.0, 0.6]; const LEATHER: [f64; 3] = [0.36, 0.24, 0.14];
+/// La tenue d'un brigand des camps : ses teintes (veste, cape, symbole du clan), ses épaulières (une de fer, ou deux), sa bandoulière.
+struct BriPal { t1: [f64; 3], t2: [f64; 3], c1: [f64; 3], c2: [f64; 3], sy: [f64; 3], steel: bool, belt: bool }
+const BRI_ERRANT: BriPal = BriPal { t1: TUNIC, t2: TUNIC2, c1: CAPE, c2: CAPE2, sy: SYMBOL, steel: false, belt: true };
+/// L'archer : veste et cape vert de sous-bois, pour se fondre dans les fourrés.
+const BRI_ARCHER: BriPal = BriPal { t1: [0.3, 0.31, 0.2], t2: [0.22, 0.23, 0.15], c1: [0.24, 0.32, 0.18], c2: [0.16, 0.22, 0.12], sy: [0.78, 0.74, 0.6], steel: false, belt: true };
+/// L'épéiste : une cotte de mailles grise sous un tabard rouge, deux épaulières de fer.
+const BRI_EPEISTE: BriPal = BriPal { t1: [0.45, 0.46, 0.49], t2: [0.34, 0.35, 0.38], c1: [0.5, 0.12, 0.12], c2: [0.36, 0.09, 0.09], sy: SYMBOL, steel: true, belt: false };
+/// Le cavalier : un cuir fauve de chevaucheur, la cape rouge du clan.
+const BRI_CAVALIER: BriPal = BriPal { t1: [0.42, 0.29, 0.18], t2: [0.31, 0.21, 0.13], c1: CAPE, c2: CAPE2, sy: SYMBOL, steel: false, belt: true };
+/// Le chef de guerre : cuir noir, grande cape pourpre au symbole d'or, deux lourdes épaulières de fer.
+const BRI_CHEF: BriPal = BriPal { t1: [0.15, 0.13, 0.13], t2: [0.1, 0.09, 0.09], c1: [0.5, 0.06, 0.08], c2: [0.34, 0.04, 0.06], sy: [0.9, 0.72, 0.26], steel: true, belt: true };
+fn bri_torso(q: &mut VBuf, pal: &BriPal) {
+        b(q, [-0.22, 0.06, -0.13, 0.22, 0.62, 0.13], pal.t1); b(q, [-0.2, 0.3, 0.13, -0.04, 0.6, 0.145], pal.t2); b(q, [0.04, 0.3, 0.13, 0.2, 0.6, 0.145], pal.t2);
+        b(q, [-0.05, 0.08, 0.13, 0.05, 0.56, 0.14], [0.12, 0.11, 0.1]); for y in [0.2, 0.32, 0.44] { b(q, [-0.06, y, 0.135, 0.06, y + 0.025, 0.15], LEATH2); }
+        // Bandoulière de l'épaule droite à la hanche gauche, et sangle du dos.
+        if pal.belt { for k in 0..8 { let t = k as f64 / 7.0; let (x, y) = (-0.19 + 0.38 * t, 0.6 - 0.5 * t); b(q, [x - 0.035, y - 0.035, 0.135, x + 0.035, y + 0.035, 0.155], LEATH); b(q, [x - 0.035, y - 0.035, -0.155, x + 0.035, y + 0.035, -0.13], LEATH); } }
+        b(q, [0.02, 0.3, 0.15, 0.08, 0.36, 0.165], RUSTM);
+        // Ceinture large, boucle, sacoche à gauche, bourse à droite.
+        b(q, [-0.235, -0.02, -0.14, 0.235, 0.09, 0.145], LEATH); b(q, [-0.05, -0.01, 0.145, 0.05, 0.08, 0.165], STEEL2); b(q, [-0.03, 0.01, 0.16, 0.03, 0.06, 0.17], LEATH2);
+        b(q, [0.13, -0.17, 0.04, 0.26, 0.06, 0.16], LEATH2); b(q, [0.12, -0.0, 0.03, 0.27, 0.07, 0.17], LEATH); b(q, [0.18, -0.06, 0.16, 0.21, -0.02, 0.172], STEEL2); b(q, [-0.22, -0.12, 0.05, -0.14, 0.0, 0.13], LEATH2);
+        // Pans de veste effrangés, rouges et bruns, de longueurs inégales.
+        for (i, x) in [-0.19, -0.11, -0.03, 0.05, 0.13, 0.2].iter().enumerate() { let low = [-0.3, -0.24, -0.34, -0.26, -0.32, -0.22][i]; let c = if i % 3 == 1 { pal.c2 } else { pal.t2 }; b(q, [*x - 0.04, low, 0.04, *x + 0.04, 0.0, 0.14], c); }
+        for z in [-0.1, 0.0] { b(q, [-0.235, -0.26, z, -0.2, 0.0, z + 0.09], pal.t2); b(q, [0.2, -0.24, z, 0.235, 0.0, z + 0.09], pal.c2); }
+        // Cape dans le dos, bas en lambeaux, croix du clan.
+        b(q, [-0.21, 0.0, -0.17, 0.21, 0.62, -0.14], pal.c1); for (x, low) in [(-0.17, -0.34), (-0.09, -0.24), (0.0, -0.38), (0.09, -0.26), (0.17, -0.32)] { b(q, [x - 0.045, low, -0.172, x + 0.045, 0.02, -0.142], if low < -0.3 { pal.c2 } else { pal.c1 }); }
+        for k in 0..7 { let t = k as f64 / 6.0; let (x, y) = (-0.12 + 0.24 * t, 0.5 - 0.3 * t); b(q, [x - 0.03, y - 0.03, -0.185, x + 0.03, y + 0.03, -0.168], pal.sy); b(q, [-x - 0.03, y - 0.03, -0.185, -x + 0.03, y + 0.03, -0.168], pal.sy); }
+        // Épaules : fer cabossé à gauche (deux plaques, rivets), cuir épais à droite.
+        b(q, [0.14, 0.5, -0.16, 0.34, 0.66, 0.16], STEEL); b(q, [0.15, 0.43, -0.165, 0.35, 0.52, 0.165], STEEL2); b(q, [0.3, 0.58, 0.14, 0.33, 0.62, 0.17], [0.2, 0.2, 0.22]); b(q, [0.2, 0.62, -0.05, 0.28, 0.665, 0.08], RUSTM);
+        if pal.steel { b(q, [-0.34, 0.5, -0.16, -0.14, 0.66, 0.16], STEEL); b(q, [-0.35, 0.43, -0.165, -0.15, 0.52, 0.165], STEEL2); b(q, [-0.33, 0.58, 0.14, -0.3, 0.62, 0.17], [0.2, 0.2, 0.22]); }
+        else { b(q, [-0.33, 0.5, -0.15, -0.14, 0.64, 0.15], LEATH); b(q, [-0.335, 0.46, -0.155, -0.15, 0.52, 0.155], LEATH2); }
+        // Col de foulard rouge.
+        b(q, [-0.13, 0.6, -0.11, 0.13, 0.68, 0.12], pal.c2);
+}
 pub fn parts() -> Vec<(&'static str, VBuf)> {
     let mut o: Vec<(&'static str, VBuf)> = crate::monstres::parts(); let mut m = |n: &'static str, f: &dyn Fn(&mut VBuf)| { let mut v = VBuf::new(600); f(&mut v); o.push((n, v)); };
     // Rôdeur décharné (planche du bestiaire) : chair décharnée gris-rose, côtes saillantes, sangles de cuir croisées, ceinture
@@ -571,27 +629,20 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
     // sur le bas du visage, veste épaisse, bandoulières, ceinture à boucle et sacoche, pans de veste effrangés, cape rouge
     // au symbole de clan (une croix claire) dans le dos, épaulière de fer à gauche et de cuir à droite, brassards et bottes
     // sanglées ; hache rudimentaire (ou épée, ou gourdin) et souvent un bouclier de planches cerclé à la croix.
-    m("briTorso", &|q| {
-        b(q, [-0.22, 0.06, -0.13, 0.22, 0.62, 0.13], TUNIC); b(q, [-0.2, 0.3, 0.13, -0.04, 0.6, 0.145], TUNIC2); b(q, [0.04, 0.3, 0.13, 0.2, 0.6, 0.145], TUNIC2);
-        b(q, [-0.05, 0.08, 0.13, 0.05, 0.56, 0.14], [0.12, 0.11, 0.1]); for y in [0.2, 0.32, 0.44] { b(q, [-0.06, y, 0.135, 0.06, y + 0.025, 0.15], LEATH2); }
-        // Bandoulière de l'épaule droite à la hanche gauche, et sangle du dos.
-        for k in 0..8 { let t = k as f64 / 7.0; let (x, y) = (-0.19 + 0.38 * t, 0.6 - 0.5 * t); b(q, [x - 0.035, y - 0.035, 0.135, x + 0.035, y + 0.035, 0.155], LEATH); b(q, [x - 0.035, y - 0.035, -0.155, x + 0.035, y + 0.035, -0.13], LEATH); }
-        b(q, [0.02, 0.3, 0.15, 0.08, 0.36, 0.165], RUSTM);
-        // Ceinture large, boucle, sacoche à gauche, bourse à droite.
-        b(q, [-0.235, -0.02, -0.14, 0.235, 0.09, 0.145], LEATH); b(q, [-0.05, -0.01, 0.145, 0.05, 0.08, 0.165], STEEL2); b(q, [-0.03, 0.01, 0.16, 0.03, 0.06, 0.17], LEATH2);
-        b(q, [0.13, -0.17, 0.04, 0.26, 0.06, 0.16], LEATH2); b(q, [0.12, -0.0, 0.03, 0.27, 0.07, 0.17], LEATH); b(q, [0.18, -0.06, 0.16, 0.21, -0.02, 0.172], STEEL2); b(q, [-0.22, -0.12, 0.05, -0.14, 0.0, 0.13], LEATH2);
-        // Pans de veste effrangés, rouges et bruns, de longueurs inégales.
-        for (i, x) in [-0.19, -0.11, -0.03, 0.05, 0.13, 0.2].iter().enumerate() { let low = [-0.3, -0.24, -0.34, -0.26, -0.32, -0.22][i]; let c = if i % 3 == 1 { CAPE2 } else { TUNIC2 }; b(q, [*x - 0.04, low, 0.04, *x + 0.04, 0.0, 0.14], c); }
-        for z in [-0.1, 0.0] { b(q, [-0.235, -0.26, z, -0.2, 0.0, z + 0.09], TUNIC2); b(q, [0.2, -0.24, z, 0.235, 0.0, z + 0.09], CAPE2); }
-        // Cape dans le dos, bas en lambeaux, croix du clan.
-        b(q, [-0.21, 0.0, -0.17, 0.21, 0.62, -0.14], CAPE); for (x, low) in [(-0.17, -0.34), (-0.09, -0.24), (0.0, -0.38), (0.09, -0.26), (0.17, -0.32)] { b(q, [x - 0.045, low, -0.172, x + 0.045, 0.02, -0.142], if low < -0.3 { CAPE2 } else { CAPE }); }
-        for k in 0..7 { let t = k as f64 / 6.0; let (x, y) = (-0.12 + 0.24 * t, 0.5 - 0.3 * t); b(q, [x - 0.03, y - 0.03, -0.185, x + 0.03, y + 0.03, -0.168], SYMBOL); b(q, [-x - 0.03, y - 0.03, -0.185, -x + 0.03, y + 0.03, -0.168], SYMBOL); }
-        // Épaules : fer cabossé à gauche (deux plaques, rivets), cuir épais à droite.
-        b(q, [0.14, 0.5, -0.16, 0.34, 0.66, 0.16], STEEL); b(q, [0.15, 0.43, -0.165, 0.35, 0.52, 0.165], STEEL2); b(q, [0.3, 0.58, 0.14, 0.33, 0.62, 0.17], [0.2, 0.2, 0.22]); b(q, [0.2, 0.62, -0.05, 0.28, 0.665, 0.08], RUSTM);
-        b(q, [-0.33, 0.5, -0.15, -0.14, 0.64, 0.15], LEATH); b(q, [-0.335, 0.46, -0.155, -0.15, 0.52, 0.155], LEATH2);
-        // Col de foulard rouge.
-        b(q, [-0.13, 0.6, -0.11, 0.13, 0.68, 0.12], CAPE2);
-    });
+    m("briTorso", &|q| bri_torso(q, &BRI_ERRANT));
+    m("briTorsoArc", &|q| { bri_torso(q, &BRI_ARCHER); b(q, [-0.22, 0.1, 0.145, 0.22, 0.16, 0.16], [0.24, 0.23, 0.15]); });
+    // L'épéiste : les mailles (des rangs sombres), le tabard rouge par-dessus, ceint d'un baudrier, la croix du clan sur la poitrine.
+    m("briTorsoEpe", &|q| { bri_torso(q, &BRI_EPEISTE); let p = &BRI_EPEISTE;
+        for y in [0.12, 0.2, 0.28, 0.36, 0.44, 0.52] { b(q, [-0.225, y, -0.135, -0.13, y + 0.018, 0.135], [0.27, 0.28, 0.3]); b(q, [0.13, y, -0.135, 0.225, y + 0.018, 0.135], [0.27, 0.28, 0.3]); }
+        b(q, [-0.13, -0.3, 0.14, 0.13, 0.58, 0.162], p.c1); b(q, [-0.13, -0.3, 0.155, -0.1, 0.58, 0.165], p.c2); b(q, [0.1, -0.3, 0.155, 0.13, 0.58, 0.165], p.c2);
+        b(q, [-0.025, 0.2, 0.162, 0.025, 0.5, 0.17], p.sy); b(q, [-0.09, 0.37, 0.162, 0.09, 0.42, 0.17], p.sy); b(q, [-0.15, 0.02, 0.16, 0.15, 0.09, 0.175], LEATH); });
+    m("briTorsoCav", &|q| { bri_torso(q, &BRI_CAVALIER); b(q, [-0.25, 0.56, -0.17, 0.25, 0.7, 0.15], [0.46, 0.38, 0.28]); for x in [-0.2, -0.08, 0.04, 0.16] { b(q, [x, 0.5, -0.18, x + 0.07, 0.58, 0.16], [0.4, 0.32, 0.23]); } });
+    // Le chef : col de fourrure, pointes de fer sur les épaulières, chaînes et trophées à la ceinture.
+    m("briTorsoChef", &|q| { bri_torso(q, &BRI_CHEF);
+        b(q, [-0.27, 0.58, -0.18, 0.27, 0.74, 0.17], [0.36, 0.3, 0.24]); for x in [-0.24, -0.12, 0.0, 0.12, 0.2] { b(q, [x, 0.54, -0.19, x + 0.07, 0.62, 0.18], [0.28, 0.23, 0.18]); }
+        for sx in [-1.0f64, 1.0] { for z in [-0.08, 0.06] { let x = 0.25 * sx; b(q, [x - 0.025, 0.66, z - 0.025, x + 0.025, 0.76, z + 0.025], [0.6, 0.6, 0.62]); b(q, [x - 0.012, 0.76, z - 0.012, x + 0.012, 0.81, z + 0.012], [0.75, 0.75, 0.77]); } }
+        for k in 0..6 { let x = -0.2 + k as f64 * 0.08; b(q, [x, 0.05 - (k % 2) as f64 * 0.03, 0.15, x + 0.04, 0.08, 0.17], [0.55, 0.55, 0.58]); }
+        b(q, [-0.2, -0.16, 0.15, -0.12, -0.04, 0.2], BONE); b(q, [-0.185, -0.1, 0.2, -0.165, -0.07, 0.205], [0.1, 0.08, 0.08]); b(q, [-0.15, -0.1, 0.2, -0.13, -0.07, 0.205], [0.1, 0.08, 0.08]); });
     m("briHead", &|q| {
         b(q, [-0.12, 0.0, -0.1, 0.12, 0.27, 0.11], SKINB); b(q, [-0.1, 0.17, 0.105, -0.03, 0.2, 0.115], [0.95, 0.93, 0.88]); b(q, [0.03, 0.17, 0.105, 0.1, 0.2, 0.115], [0.95, 0.93, 0.88]);
         b(q, [-0.075, 0.172, 0.11, -0.045, 0.198, 0.12], [0.18, 0.12, 0.08]); b(q, [0.045, 0.172, 0.11, 0.075, 0.198, 0.12], [0.18, 0.12, 0.08]); b(q, [-0.11, 0.205, 0.105, -0.02, 0.225, 0.118], [0.2, 0.13, 0.09]); b(q, [0.02, 0.205, 0.105, 0.11, 0.225, 0.118], [0.2, 0.13, 0.09]);
@@ -619,6 +670,29 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
         b(q, [-0.05, -0.38, -0.03, -0.03, 0.36, 0.03], STEEL2); b(q, [-0.05, -0.03, -0.3, -0.03, 0.03, 0.3], STEEL2);
         for k in 0..7 { let t = k as f64 / 6.0 - 0.5; b(q, [-0.06, t * 0.5 - 0.035, t * 0.4 - 0.035, -0.035, t * 0.5 + 0.035, t * 0.4 + 0.035], SYMBOL); b(q, [-0.06, t * 0.5 - 0.035, -t * 0.4 - 0.035, -0.035, t * 0.5 + 0.035, -t * 0.4 + 0.035], SYMBOL); }
         b(q, [-0.075, -0.04, -0.04, -0.045, 0.04, 0.04], STEEL); b(q, [0.0, -0.1, -0.03, 0.04, 0.1, 0.03], LEATH2); });
+    // Le chapel de fer de l'épéiste : calotte ronde, large bord rabattu, nasal sur le nez, par-dessus la capuche.
+    m("briHelm", &|q| { b(q, [-0.18, 0.25, -0.18, 0.18, 0.42, 0.18], STEEL); b(q, [-0.14, 0.42, -0.14, 0.14, 0.47, 0.14], STEEL2); b(q, [-0.02, 0.3, -0.16, 0.02, 0.49, 0.16], STEEL2);
+        b(q, [-0.25, 0.24, -0.25, 0.25, 0.28, 0.25], STEEL2); b(q, [-0.26, 0.22, -0.26, 0.26, 0.245, 0.26], [0.3, 0.3, 0.33]); b(q, [-0.022, 0.1, 0.17, 0.022, 0.26, 0.2], STEEL);
+        for (x, z) in [(-0.17, 0.0), (0.17, 0.0), (0.0, 0.17), (0.0, -0.17)] { b(q, [x - 0.015, 0.33, z - 0.015, x + 0.015, 0.36, z + 0.015], [0.22, 0.22, 0.24]); } });
+    // Le heaume du chef : fermé, une fente noire pour les yeux, des trous de souffle, deux cornes recourbées, un panache rouge.
+    m("briHelmChef", &|q| { let (k, k2) = ([0.3, 0.29, 0.31], [0.22, 0.21, 0.23]);
+        b(q, [-0.19, -0.04, -0.19, 0.19, 0.42, 0.19], k); b(q, [-0.15, 0.42, -0.15, 0.15, 0.48, 0.15], k2); b(q, [-0.2, 0.2, -0.2, 0.2, 0.24, 0.2], k2);
+        b(q, [-0.15, 0.15, 0.19, 0.15, 0.2, 0.2], [0.04, 0.03, 0.03]); b(q, [-0.02, 0.0, 0.19, 0.02, 0.15, 0.205], k2); for (x, y) in [(-0.1, 0.05), (-0.1, 0.09), (0.07, 0.05), (0.07, 0.09)] { b(q, [x, y, 0.19, x + 0.03, y + 0.02, 0.2], [0.04, 0.03, 0.03]); }
+        b(q, [-0.2, -0.06, -0.2, 0.2, -0.02, 0.2], [0.9, 0.72, 0.26]);
+        for sx in [-1.0f64, 1.0] { for (i, (x, y, w)) in [(0.2, 0.3, 0.05), (0.27, 0.35, 0.045), (0.32, 0.43, 0.04), (0.34, 0.52, 0.032), (0.33, 0.6, 0.024)].iter().enumerate() {
+            b(q, [sx * x - *w, *y - *w, -*w, sx * x + *w, *y + *w, *w], if i < 2 { [0.86, 0.8, 0.66] } else { [0.78, 0.71, 0.56] }); } }
+        for (z, h) in [(0.08, 0.6), (0.0, 0.66), (-0.08, 0.64), (-0.16, 0.58), (-0.22, 0.5)] { b(q, [-0.03, 0.46, z - 0.045, 0.03, h, z + 0.045], [0.6, 0.08, 0.08]); } });
+    // Le carquois de l'archer, en travers du dos, les empennages qui dépassent par-dessus l'épaule.
+    m("briQuiver", &|q| { b(q, [0.02, 0.1, -0.29, 0.16, 0.72, -0.18], LEATH); b(q, [0.01, 0.62, -0.3, 0.17, 0.68, -0.17], LEATH2); b(q, [0.01, 0.2, -0.3, 0.17, 0.25, -0.17], LEATH2);
+        for (i, (x, z)) in [(0.05, -0.27), (0.1, -0.24), (0.13, -0.21), (0.07, -0.21)].iter().enumerate() { b(q, [*x - 0.012, 0.72, *z - 0.012, *x + 0.012, 0.82, *z + 0.012], WOODH); b(q, [*x - 0.025, 0.8, *z - 0.006, *x + 0.025, 0.9, *z + 0.006], if i % 2 == 0 { [0.88, 0.86, 0.8] } else { [0.6, 0.12, 0.1] }); } });
+    // La grande hache du chef, à deux mains : longue hampe cerclée, double fer en croissant, pointe au sommet.
+    m("briGreatAxe", &|q| { b(q, [-0.03, -0.45, -0.03, 0.03, 1.05, 0.03], [0.3, 0.2, 0.12]); for y in [-0.38, -0.1, 0.4] { b(q, [-0.035, y, -0.035, 0.035, y + 0.05, 0.035], STEEL2); }
+        b(q, [-0.045, 0.78, -0.07, 0.045, 1.0, 0.07], STEEL2); b(q, [-0.02, 1.0, -0.02, 0.02, 1.16, 0.02], STEEL);
+        for sz in [-1.0f64, 1.0] { for (z, y0, y1) in [(0.1, 0.76, 1.02), (0.18, 0.7, 1.08), (0.26, 0.64, 1.14), (0.31, 0.62, 1.16)] { b(q, [-0.022, y0, if sz > 0.0 { z - 0.05 } else { -z }, 0.022, y1, if sz > 0.0 { z } else { -z + 0.05 }], if z > 0.28 { [0.74, 0.74, 0.77] } else { STEEL }); } } });
+    // La lance du cavalier : longue hampe, fer en feuille, fanion rouge du clan sous la pointe.
+    m("briSpear", &|q| { b(q, [-0.025, -0.6, -0.025, 0.025, 1.55, 0.025], WOODH); b(q, [-0.03, -0.1, -0.03, 0.03, 0.08, 0.03], LEATH2);
+        b(q, [-0.04, 1.5, -0.012, 0.04, 1.62, 0.012], STEEL2); b(q, [-0.05, 1.62, -0.01, 0.05, 1.76, 0.01], STEEL); b(q, [-0.025, 1.76, -0.008, 0.025, 1.86, 0.008], [0.72, 0.72, 0.74]);
+        b(q, [-0.008, 1.22, 0.02, 0.008, 1.46, 0.22], CAPE); b(q, [-0.008, 1.22, 0.22, 0.008, 1.36, 0.32], CAPE2); b(q, [-0.008, 1.36, 0.22, 0.008, 1.46, 0.3], CAPE2); });
     // Bête rôdeuse (planche) : un grand loup noir hérissé, crinière en épis sur la nuque et le garrot, flancs gris,
     // ventre et pattes clairs, yeux jaunes, gueule rouge aux crocs blancs, griffes, queue touffue.
     m("bstBody", &|q| {
@@ -666,7 +740,7 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
 
 /// Les humanoïdes plus épais : buste élargi, membres plus forts (largeur et profondeur), tête un peu plus grosse.
 fn thick(n: &str, m: M4) -> M4 {
-    let (sx, sz) = match n { "rodTorso" => (1.22, 1.25), "briTorso" => (1.18, 1.22), "rodHead" | "briHead" => (1.1, 1.08), "rodUpper" | "rodFore" | "rodThigh" | "rodShin" => (1.4, 1.35), "briUpper" | "briFore" | "briThigh" | "briShin" => (1.3, 1.28), _ => return m };
+    let (sx, sz) = match n { "rodTorso" => (1.22, 1.25), "briTorso" | "briTorsoArc" | "briTorsoEpe" | "briTorsoCav" | "briTorsoChef" | "briQuiver" => (1.18, 1.22), "rodHead" | "briHead" | "briHelm" | "briHelmChef" => (1.1, 1.08), "rodUpper" | "rodFore" | "rodThigh" | "rodShin" => (1.4, 1.35), "briUpper" | "briFore" | "briThigh" | "briShin" => (1.3, 1.28), _ => return m };
     let mut k = m; for r in 0..3 { k[r] *= sx as f32; k[8 + r] *= sz as f32; } k
 }
 impl Horde {
@@ -715,19 +789,50 @@ impl Horde {
                     let hip = 0.92 - 0.04 * guard - 0.6 * die + if f.speed == 0.0 { 0.012 * (t * 1.2).sin() } else { 0.0 } - (t * 2.0).sin().abs() * 0.03 * run;
                     let lean = 0.06 + 0.26 * run - 0.08 * det + 0.14 * guard + wind * 0.08 - strike * 0.05 - flinch * 0.8 - 1.2 * die;
                     let body = mul(&trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size), &trs(0.0, 0.0, 0.0, 0.06 * (t * 0.4).sin() * (1.0 - run) - 0.3 * wind + 0.35 * strike, lean, 1.0));
-                    put("briTorso", body);
+                    // Chacun sa tenue : l'archer en vert, carquois au dos ; l'épéiste en mailles et chapel de fer ; le chef en noir, heaume à cornes.
+                    put(match s.skin { "archer" => "briTorsoArc", "epeiste" => "briTorsoEpe", "chef" => "briTorsoChef", _ => "briTorso" }, body);
+                    if s.skin == "archer" { put("briQuiver", body); }
                     let hy = if f.state == Ai::Soupcon || (f.speed == 0.0 && f.state == Ai::Repos) { 0.5 * (t * 0.35).sin() } else { 0.0 };
-                    put("briHead", mul(&body, &trs(0.0, 0.66, 0.02, hy, -lean * 0.5 - 0.25 * det + 0.3 * die, 1.0)));
+                    let head = mul(&body, &trs(0.0, 0.66, 0.02, hy, -lean * 0.5 - 0.25 * det + 0.3 * die, 1.0)); put("briHead", head);
+                    match s.skin { "epeiste" => put("briHelm", head), "chef" => put("briHelmChef", head), _ => {} }
                     let legs = trs(f.p[0], f.p[1] + hip * s.size, f.p[2], f.yaw, 0.0, s.size);
                     for (x, st) in [(-0.135, stride), (0.135, -stride)] { let th = mul(&legs, &trs(x, 0.0, 0.0, 0.0, thigh0 + st, 1.0)); put("briThigh", th); put("briShin", mul(&th, &trs(0.0, -0.44, 0.0, 0.0, knee0 + if st > 0.0 { 0.0 } else { -st * 1.1 }, 1.0))); }
-                    let shield = f.variant % 3 != 2;
-                    // Bras gauche : bouclier au repos le long du corps, levé devant soi en garde ; bras droit : l'arme.
-                    let (ul, fl, yl) = if guard > 0.0 { (-1.1 * guard - 0.2, -0.9 * guard, 0.6 * guard) } else { (-sw * (0.3 + 0.5 * run) - 0.15 - 0.3 * det + 1.2 * die - 0.3 * flee, -0.35 - 0.4 * run, 0.0) };
-                    let (ur, fr) = if wind > 0.0 || strike > 0.0 { (-0.4 - 2.4 * wind + strike * 1.3, -0.7 * wind - 0.15) } else { (sw * (0.3 + 0.5 * run) - 0.25 - 0.3 * det + 1.2 * die, -0.4 - 0.4 * run) };
+                    let shield = shielded(s, f.variant); let aiming = s.bow && f.dead == 0.0 && (f.wind > 0.0 || f.state == Ai::Combat); let chef = s.skin == "chef";
+                    // Bras gauche : bouclier au repos le long du corps, levé devant soi en garde ; l'arc tendu à bout de bras ; ou la hampe de
+                    // la grande hache, à deux mains. Bras droit : l'arme, ou la corde tirée jusqu'à la joue.
+                    let (ur, fr) = if aiming { (-1.4 + 0.1 * wind, -1.2 - 0.5 * wind) } else if wind > 0.0 || strike > 0.0 { (-0.4 - 2.4 * wind + strike * 1.3, -0.7 * wind - 0.15) } else { (sw * (0.3 + 0.5 * run) - 0.25 - 0.3 * det + 1.2 * die, -0.4 - 0.4 * run) };
+                    let (ul, fl, yl) = if aiming { (-1.5, -0.05, -0.15) } else if chef { (ur - 0.1, fr - 0.3, 0.45) } else if guard > 0.0 { (-1.1 * guard - 0.2, -0.9 * guard, 0.6 * guard) } else { (-sw * (0.3 + 0.5 * run) - 0.15 - 0.3 * det + 1.2 * die - 0.3 * flee, -0.35 - 0.4 * run, 0.0) };
                     let ua = mul(&body, &trs(0.36, 0.56, 0.0, -yl, ul, 1.0)); put("briUpper", ua); let fa = mul(&ua, &trs(0.0, -0.34, 0.0, 0.0, fl, 1.0)); put("briFore", fa);
                     if shield { put("briShield", mul(&fa, &trs(0.13, -0.2, 0.0, 0.0, 0.0, 1.0))); }
+                    if s.bow { put("arcBow", mul(&fa, &trs(0.0, -0.4, 0.04, 0.0, if aiming { 1.5 } else { 0.3 }, 1.0))); }
+                    let ub = mul(&body, &trs(-0.36, 0.56, 0.0, if aiming { 0.3 } else { 0.0 }, ur, 1.0)); put("briUpper", ub); let fb = mul(&ub, &trs(0.0, -0.34, 0.0, 0.0, fr, 1.0)); put("briFore", fb);
+                    let weapon = match s.skin { "archer" => None, "epeiste" => Some("briSword"), "chef" => Some("briGreatAxe"), _ => Some(["briAxe", "briSword", "briClub"][f.variant as usize % 3]) };
+                    if let Some(wpn) = weapon { put(wpn, mul(&fb, &trs(0.0, -0.38, if chef { 0.0 } else { 0.05 }, 0.0, std::f64::consts::FRAC_PI_2 * 0.92, 1.0))); }
+                }
+                Body::Cavalier => {
+                    // Le cheval (les pièces de l'élevage) au pas, au trot ou au galop ; le brigand en selle, les jambes de part et d'autre, la
+                    // bride dans la main gauche, la lance dans la droite : dressée au pas, couchée en avant dans la charge, levée puis abattue
+                    // pour frapper. Mort : cheval et cavalier basculent sur le flanc.
+                    let t = f.phase; let det = if f.state == Ai::Detection || f.state == Ai::Soupcon { 1.0 } else { 0.0 }; let die = fall; let v = (f.variant % 3) as usize;
+                    let charging = s.charge && f.burst > 0.0 && f.state == Ai::Poursuite && f.dead == 0.0;
+                    let (bob, tilt, legs, nod) = crate::wild::gait(crate::wild::Kind::Horse, f.speed, t, if f.speed > 5.0 { 0.9 } else { 0.6 });
+                    let hb = mul(&trs(f.p[0], f.p[1] + bob, f.p[2], f.yaw, tilt - flinch * 0.3 - 0.25 * wind, 2.5), &roll_z(die * 1.4 * if f.variant % 2 == 0 { 1.0 } else { -1.0 }));
+                    let hip = 0.45; put(["horse0", "horse1", "horse2"][v], mul(&hb, &trs(0.0, hip, 0.0, 0.0, 0.0, 1.0)));
+                    put(["horseHead0", "horseHead1", "horseHead2"][v], mul(&hb, &trs(0.0, hip + 0.2, 0.38, 0.0, nod - 0.3 * det - 0.2 * wind + 0.3 * die, 1.0)));
+                    for (k, ((x, z), a)) in [(-0.1, 0.3), (0.1, 0.3), (-0.1, -0.3), (0.1, -0.3)].into_iter().zip(legs).enumerate() { put(if k < 2 { ["horseLeg0", "horseLeg1", "horseLeg2"][v] } else { ["horseHind0", "horseHind1", "horseHind2"][v] }, mul(&hb, &trs(x, hip, z, 0.0, a + if k < 2 { -0.6 * wind } else { 0.0 }, 1.0))); }
+                    put(["horseTail0", "horseTail1", "horseTail2"][v], mul(&hb, &trs(0.0, hip + 0.29, -0.46, 0.3 * (t * 0.4).sin() * (1.0 - run), -(0.2 + 0.6 * run), 1.0)));
+                    put("saddle", mul(&hb, &trs(0.0, hip + 0.33, 0.04, 0.0, 0.0, 1.0)));
+                    let seat = mul(&hb, &trs(0.0, hip + 0.35, 0.0, 0.0, 0.0, s.size / 2.5));
+                    let lean = 0.08 + 0.18 * run + if charging { 0.3 } else { 0.0 } - 0.1 * wind + 0.3 * strike - flinch * 0.6;
+                    let body = mul(&seat, &trs(0.0, 0.0, 0.0, 0.0, lean, 1.0)); put("briTorsoCav", body);
+                    put("briHead", mul(&body, &trs(0.0, 0.66, 0.02, 0.0, -lean * 0.7 - 0.2 * det, 1.0)));
+                    for sx in [-1.0f64, 1.0] { let th = mul(&seat, &mul(&trs(0.2 * sx, 0.02, 0.02, 0.0, -1.3, 1.0), &roll_z(0.55 * sx))); put("briThigh", th);
+                        put("briShin", mul(&th, &mul(&trs(0.0, -0.44, 0.0, 0.0, 1.45, 1.0), &roll_z(-0.45 * sx)))); }
+                    // la bride, à gauche ; la lance, à droite
+                    let ua = mul(&body, &trs(0.36, 0.56, 0.0, -0.2, -0.75 + 0.1 * (t * 0.5).sin(), 1.0)); put("briUpper", ua); put("briFore", mul(&ua, &trs(0.0, -0.34, 0.0, 0.0, -0.7, 1.0)));
+                    let (ur, fr, lance) = if charging { (-0.35, -0.15, std::f64::consts::FRAC_PI_2 * 0.97) } else if wind > 0.0 || strike > 0.0 { (-0.4 - 2.4 * wind + strike * 1.3, -0.7 * wind - 0.15, std::f64::consts::FRAC_PI_2 * 0.92) } else { (-0.2, -0.55, 0.45) };
                     let ub = mul(&body, &trs(-0.36, 0.56, 0.0, 0.0, ur, 1.0)); put("briUpper", ub); let fb = mul(&ub, &trs(0.0, -0.34, 0.0, 0.0, fr, 1.0)); put("briFore", fb);
-                    put(["briAxe", "briSword", "briClub"][f.variant as usize % 3], mul(&fb, &trs(0.0, -0.38, 0.05, 0.0, std::f64::consts::FRAC_PI_2 * 0.92, 1.0)));
+                    put("briSpear", mul(&fb, &trs(0.0, -0.38, 0.05, 0.0, lance, 1.0)));
                 }
                 Body::Bete => {
                     // Repos : il souffle, la queue balance ; marche ; course (galop) ; repérage : tête et oreilles dressées ;
@@ -881,11 +986,11 @@ impl Session {
             match e {
                 FoeEv::Hit { from, dmg, cause, push } => { self.sound.thump(from); let n = self.block(from, dmg); if n > 0.0 { self.harm(n.round().max(1.0), cause, true);
                     let (dx, dz) = (self.player.p[0] - from[0], self.player.p[2] - from[2]); let d = dx.hypot(dz).max(0.1); self.player.v[0] += dx / d * push; self.player.v[2] += dz / d * push; self.player.v[1] = self.player.v[1].max(2.5); } }
-                FoeEv::Growl(p, b) => match b { Body::Bete => self.sound.fox_scream(p), Body::Rampant => self.sound.rustle(p), _ => self.sound.thump(p) },
+                FoeEv::Growl(p, b) => match b { Body::Bete => self.sound.fox_scream(p), Body::Rampant => self.sound.rustle(p), Body::Cavalier => self.sound.hoof(p, true), _ => self.sound.thump(p) },
                 FoeEv::Swing(_) => self.sound.swing(None, 0.8),
                 FoeEv::Loot(_, g) => self.raid_loot(g),
                 FoeEv::Snare(t) => { if self.snare <= 0.0 { self.notes.push("Englué dans la soie : vous êtes ralenti".into()); } self.snare = self.snare.max(t); }
-                FoeEv::Blocked(p) => { self.sound.thump(p); self.notes.push("Bloqué par son bouclier".into()); }
+                FoeEv::Blocked(p) => { self.sound.thump(p); if (p[0] - self.player.p[0]).hypot(p[2] - self.player.p[2]) < 8.0 { self.notes.push("Bloqué par son bouclier".into()); } }
                 FoeEv::Die(p, sp, vet, camp) => { let s = &bestiary().species[sp]; self.sound.thump(p); self.skills[2] += 2.0; if let Some(c) = camp { self.camp_kill(c); } if self.creative { continue; }
                     for &(id, lo, hi, pr) in &s.loot { let roll = self.horde.roll(); let pr = if vet { (pr * 1.3).min(1.0) } else { pr }; if roll < pr { let n = lo + (self.horde.roll() * (hi - lo + 1) as f64) as u32; self.spill(id, n.min(hi).max(lo), [p[0], p[1] + 0.6, p[2]]); } } }
             }

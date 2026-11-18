@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu lieu_brigands lieu_brigands_fort
+spawn jeu plat_brigands village_assaut lieu_brigands_fort
