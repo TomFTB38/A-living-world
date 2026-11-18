@@ -16,13 +16,13 @@ pub const BRANCHES: [&str; 3] = ["Agilité", "Force", "Endurance"];
 pub const SKILLS: [Skill; 9] = [
     Skill { id: "foulee", name: "Foulée", branch: 0, tier: 0, what: "+6 % de vitesse à pied par rang", icon: "leather_boots" },
     Skill { id: "nage", name: "Nage", branch: 0, tier: 1, what: "+20 % de vitesse dans l'eau et +25 % de souffle par rang", icon: "bucket" },
-    Skill { id: "escalade", name: "Escalade", branch: 0, tier: 2, what: "Grimper les parois : avancer contre la roche en tenant Saut ; plus vite à chaque rang", icon: "rope" },
+    Skill { id: "escalade", name: "Escalade", branch: 0, tier: 2, what: "Grimper les parois (avancer en tenant Saut) ; plus vite à chaque rang", icon: "rope" },
     Skill { id: "frappe", name: "Frappe", branch: 1, tier: 0, what: "+6 % de dégâts par rang", icon: "sword" },
     Skill { id: "portefaix", name: "Portefaix", branch: 1, tier: 1, what: "+20 % de charge portée par rang", icon: "chest" },
-    Skill { id: "puissance", name: "Coup puissant", branch: 1, tier: 2, what: "Coup lourd +15 % plus fort et chargé 10 % plus vite par rang", icon: "axe" },
-    Skill { id: "souffle", name: "Souffle", branch: 2, tier: 0, what: "−8 % d'endurance dépensée par rang", icon: "bread" },
+    Skill { id: "puissance", name: "Coup puissant", branch: 1, tier: 2, what: "Coup lourd +15 % et chargé 10 % plus vite par rang", icon: "axe" },
+    Skill { id: "souffle", name: "Souffle", branch: 2, tier: 0, what: "-8 % d'endurance dépensée par rang", icon: "bread" },
     Skill { id: "parade", name: "Parade", branch: 2, tier: 1, what: "+0,06 s pour parer au bon moment par rang", icon: "iron_shield" },
-    Skill { id: "peau", name: "Peau dure", branch: 2, tier: 2, what: "−6 % de dégâts subis en combat par rang", icon: "leather" },
+    Skill { id: "peau", name: "Peau dure", branch: 2, tier: 2, what: "-6 % de dégâts subis en combat par rang", icon: "leather" },
 ];
 /// Les rangs d'une compétence.
 pub const RANKS: u8 = 3;
