@@ -601,7 +601,11 @@ fn capture(a: &[String]) {
     }
     // Les vestiges souterrains : on arrive devant, comme avec /grotte camp, autel ou caveau.
     // Un lieu de surface (tour, cimetiere, brigands) : on s'y rend, on le regarde de quelques pas, ses gardiens sortis.
-    if let Some(k) = scene.strip_prefix("lieu_") { pump(&mut s, &mut g); s.set_creative(true); let arg = match k.strip_suffix("_dedans") { Some(b) => format!("{b}!"), None => k.to_string() }; let m = s.goto_place(Some(&arg)); println!("{scene} : {m}"); s.third = false; s.sel = 8; pump(&mut s, &mut g); let (p, yaw, pitch) = (s.player.p, s.player.yaw, s.player.pitch);
+    if let Some(k) = scene.strip_prefix("lieu_") { pump(&mut s, &mut g); s.set_creative(true);
+        // « _fort » : un mois a passé sans que personne ne s'en prenne au camp — il est au plus fort
+        let (k, strong) = match k.strip_suffix("_fort") { Some(b) => (b, true), None => (k, false) }; if strong { let h = s.hour; s.pass_hours(24.0 * 30.0); s.hour = h; }
+        let arg = match k.strip_suffix("_dedans") { Some(b) => format!("{b}!"), None => k.to_string() }; let m = s.goto_place(Some(&arg)); println!("{scene} : {m}"); s.third = false; s.sel = 8; pump(&mut s, &mut g);
+        for _ in 0..4 { s.tick(0.05, none, Actions::default()); } pump(&mut s, &mut g); let (p, yaw, pitch) = (s.player.p, s.player.yaw, s.player.pitch);
         for _ in 0..30 { s.tick(0.1, none, Actions::default()); } s.player.p = [p[0], s.player.p[1], p[2]]; s.player.yaw = yaw; s.player.pitch = pitch; s.tick(0.0, none, Actions::default()); }
     // Le village pilote : on s'y rend ; « village_maison » lui donne de quoi bâtir et regarde la maison neuve, « village_reserve » ouvre un coffre de sa réserve.
     if scene.starts_with("village_") { pump(&mut s, &mut g); s.set_creative(true); for _ in 0..3 { s.tick(0.1, none, Actions::default()); }

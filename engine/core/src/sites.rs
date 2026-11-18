@@ -132,6 +132,31 @@ impl WorldGen {
             for y in h.max(level) + 1..=pl.y + up { p.air(x, y, z); }
         } }
     }
+    /// Ce qu'un camp de brigands ajoute en grandissant, cran par cran (posé tourné comme le camp) :
+    /// 2 — une troisième tente, un râtelier d'armes près du feu, des caisses et des sacs de butin ;
+    /// 3 — une forge (enclume, meule), des torches tout autour de la palissade, une passerelle de guet sur le portail ;
+    /// 4 — un second feu et ses bancs, deux hautes bannières rouges, d'autres râteliers ;
+    /// 5 — le grand étendard du chef derrière sa tente, des ossements au pied de la cage et devant le portail.
+    pub fn camp_layer(&self, pl: &Place, level: u32) -> Vec<(i32, i32, i32, Id)> {
+        let (x0, y0, z0) = (pl.x, pl.y, pl.z); let mut p = Plan { m: BTreeMap::new(), ids: Default::default() };
+        match level {
+            2 => { for w in -5..=-2 { p.turn(x0 - 7, y0 + 1, z0 + w, "thatch_slope", 1, 0); p.turn(x0 - 4, y0 + 1, z0 + w, "thatch_slope", -1, 0); p.turn(x0 - 6, y0 + 2, z0 + w, "thatch_slope", 1, 0); p.turn(x0 - 5, y0 + 2, z0 + w, "thatch_slope", -1, 0); }
+                p.n(x0 - 6, y0 + 1, z0 - 4, "bedroll"); p.n(x0 - 5, y0 + 1, z0 - 3, "bedroll"); p.turn(x0 + 2, y0 + 1, z0 + 2, "weapon_rack", -1, 0);
+                for (u, w, n) in [(7, 6, "crate"), (7, 5, "sack"), (3, 6, "sack"), (-3, 7, "crate")] { p.n(x0 + u, y0 + 1, z0 + w, n); } }
+            3 => { p.n(x0 + 3, y0 + 1, z0 - 3, "anvil"); p.n(x0 + 4, y0 + 1, z0 - 3, "grindstone"); p.n(x0 + 3, y0 + 1, z0 - 4, "barrel");
+                for k in 0..10 { let a = k as f64 / 10.0 * std::f64::consts::TAU + 0.3; let (u, w) = ((a.cos() * 9.0).round() as i32, (a.sin() * 9.0).round() as i32); if w < -7 && u.abs() <= 3 { continue; } p.n(x0 + u, y0 + 1, z0 + w, "fence"); p.n(x0 + u, y0 + 2, z0 + w, "torch"); }
+                for u in -2..=2 { p.n(x0 + u, y0 + 6, z0 - 9, "planks"); p.n(x0 + u, y0 + 7, z0 - 9, if u.abs() == 2 { "oak_post" } else { "fence" }); } p.n(x0 - 2, y0 + 8, z0 - 9, "torch"); p.n(x0 + 2, y0 + 8, z0 - 9, "torch"); }
+            4 => { p.n(x0 - 5, y0 + 1, z0 - 7, "campfire"); p.n(x0 - 7, y0 + 1, z0 - 7, "dead_log_z"); p.n(x0 - 3, y0 + 1, z0 - 7, "dead_log_z");
+                for (u, w) in [(-3, -8), (3, -6)] { for y in 1..=7 { p.n(x0 + u, y0 + y, z0 + w, "oak_post"); } p.turn(x0 + u, y0 + 6, z0 + w - 1, "banner_red", 0, 1); p.turn(x0 + u, y0 + 5, z0 + w - 1, "banner_red", 0, 1); }
+                p.turn(x0 - 2, y0 + 1, z0 + 3, "weapon_rack", 0, -1); p.turn(x0 + 8, y0 + 1, z0 + 3, "weapon_rack", -1, 0); }
+            5 => { for y in 1..=10 { p.n(x0, y0 + y, z0 + 9, "oak_post"); } for y in [8, 9] { p.turn(x0, y0 + y, z0 + 8, "banner_red", 0, -1); p.turn(x0 - 1, y0 + y, z0 + 9, "banner_gold", -1, 0); p.turn(x0 + 1, y0 + y, z0 + 9, "banner_gold", 1, 0); }
+                for (u, w) in [(-4, 4), (-4, 6), (-5, 3), (-3, -9), (3, -9), (-1, -8), (1, -8)] { p.n(x0 + u, y0 + 1, z0 + w, "bone"); } }
+            _ => {}
+        }
+        p.m.into_iter().map(|((a, b, c), id)| { let (u, w) = spin_xz(a - pl.x, c - pl.z, pl.rot); (pl.x + u, b, pl.z + w, if id > 0 { spin_block(id as Id, pl.rot) } else { 0 }) }).collect()
+    }
+    /// Le feu du camp (éteint quand il est dispersé).
+    pub fn camp_fire(&self, pl: &Place) -> [i32; 3] { [pl.x, pl.y + 1, pl.z] }
     pub(crate) fn site_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
         let pl = self.place(gx, gz)?; self.site_rot.set((pl.x, pl.z, pl.rot)); let mut r = Rng::new(hash_int(gx, gz, self.seed, 175)); let mut p = Plan { m: BTreeMap::new(), ids: Default::default() };
         match pl.kind { Lieu::Tour => self.build_tower(&mut p, &pl, &mut r), Lieu::Cimetiere => self.build_cemetery(&mut p, &pl, &mut r), Lieu::Camp => self.build_camp(&mut p, &pl, &mut r) }
@@ -277,6 +302,8 @@ impl crate::session::Session {
     /// les fantômes du cimetière ne se lèvent que la nuit.
     pub(crate) fn site_tick(&mut self) {
         if self.dead.is_some() { return; } let me = self.player.p; let night = self.sun_height() < 0.0;
+        // un camp de brigands qu'on voit : il montre ce qu'il a bâti en grandissant
+        for pl in self.gen.places_near(me[0], me[2], 90.0).into_iter().filter(|p| p.kind == Lieu::Camp) { self.camp_show(&pl); }
         for pl in self.gen.places_near(me[0], me[2], 44.0) {
             for ghosts in [false, true] {
                 if ghosts && !night { continue; } let key = (pl.cell, ghosts); if self.sites_awake.get(&key).is_some_and(|t| self.elapsed - t < 900.0) { self.sites_awake.insert(key, self.elapsed); continue; }
