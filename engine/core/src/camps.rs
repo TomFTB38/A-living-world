@@ -44,14 +44,13 @@ impl Session {
         let pl = self.gen.places_near(v.c[0] as f64, v.c[2] as f64, REACH).into_iter().filter(|p| p.kind == Lieu::Camp).min_by_key(|p| (p.x - v.c[0]).pow(2) + (p.z - v.c[2]).pow(2))?;
         let c = self.camp(pl.cell); let p = if c.down() { 0.0 } else { c.power }; Some((pl, p))
     }
-    /// Ce que le village sait de la menace (sans rien changer) : « le camp de brigands à 650 pas au nord-ouest · puissance 3/5 ».
+    /// Ce que le village sait de la menace (sans rien changer) : seulement sa force, pas où se cache le camp — à chacun de le
+    /// trouver. « Menace : un camp de brigands rôde dans la région · puissance 3/5 ».
     pub fn threat_line(&self, v: &crate::village::Village) -> Option<String> {
         let pl = self.gen.places_near(v.c[0] as f64, v.c[2] as f64, REACH).into_iter().filter(|p| p.kind == Lieu::Camp).min_by_key(|p| (p.x - v.c[0]).pow(2) + (p.z - v.c[2]).pow(2))?;
         let mut c = self.camps.get(&pl.cell).cloned().unwrap_or_else(|| Camp::new(0.0)); c.grow(self.hours);
-        let (dx, dz) = ((pl.x - v.c[0]) as f64, (pl.z - v.c[2]) as f64); let d = dx.hypot(dz);
-        let dir = ["l'est", "le sud-est", "le sud", "le sud-ouest", "l'ouest", "le nord-ouest", "le nord", "le nord-est"][((dz.atan2(dx) / std::f64::consts::FRAC_PI_4).round() as i32).rem_euclid(8) as usize];
-        Some(if c.down() { format!("Menace : le camp de brigands vers {dir}, à {:.0} pas, est dispersé (il se reformera dans {:.0} jours)", d, ((c.down_until - self.hours) / 24.0).ceil()) }
-            else { format!("Menace : un camp de brigands vers {dir}, à {:.0} pas · puissance {}/5", d, c.level()) })
+        Some(if c.down() { format!("Menace : le camp de brigands de la région a été dispersé ; il se reformera dans {:.0} jours", ((c.down_until - self.hours) / 24.0).ceil()) }
+            else { format!("Menace : un camp de brigands rôde dans la région · puissance {}/5", c.level()) })
     }
     /// Un homme du camp est tombé ; quand tous ceux qu'on a réveillés sont à terre, le camp est dispersé.
     pub(crate) fn camp_kill(&mut self, cell: (i32, i32)) {
