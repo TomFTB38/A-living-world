@@ -100,5 +100,5 @@ fn les_rois_regardent_leur_temple_dans_l_ordre_qu_on_veut_et_le_roi_noye_se_leve
     // tout se sauvegarde : la citerne, les rois, les fils
     let t = s.save_text(); assert!(t.lines().any(|l| l.starts_with("pool ")));
     let faces = s.mech.wires.iter().find(|w| w.name.ends_with("regard")).unwrap().faces.iter().map(|(p, f)| format!("{},{},{},{f}", p[0], p[1], p[2])).collect::<Vec<_>>().join(";");
-    assert!(t.lines().any(|l| l.starts_with("wire") && l.ends_with(&faces)), "les regards attendus des rois sont sauvegardés");
+    assert!(t.lines().any(|l| l.starts_with("wire") && l.split_whitespace().nth(17) == Some(faces.as_str())), "les regards attendus des rois sont sauvegardés");
 }

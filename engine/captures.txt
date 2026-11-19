@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_forge_fournaise plat_forge_atelier
+spawn jeu plat_glace_facade plat_glace_nef plat_glace_bassin plat_glace_estrade plat_glace_coeur

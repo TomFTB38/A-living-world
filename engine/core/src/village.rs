@@ -774,6 +774,7 @@ impl Session {
                 // le trésor du sanctuaire : l'idole engloutie, toujours ; des pièces, des perles, de l'acier
                 Lieu::Sanctuaire => &[("idole_engloutie", 1, 1, 1.0), ("worn_coin", 14, 32, 1.0), ("pearl", 2, 4, 0.85), ("steel_ingot", 1, 3, 0.6), ("steel_sword", 1, 1, 0.35), ("candle", 2, 4, 0.6), ("bandage", 1, 3, 0.5)],
                 Lieu::Soleil => &[("worn_coin", 24, 48, 1.0), ("steel_ingot", 3, 5, 0.9), ("steel_sword", 1, 1, 0.6), ("steel_shield", 1, 1, 0.5), ("candle", 2, 4, 0.6), ("bandage", 2, 4, 0.6)],
+                Lieu::Glace => &[("worn_coin", 24, 48, 1.0), ("pearl", 2, 4, 0.8), ("steel_ingot", 3, 5, 0.9), ("steel_sword", 1, 1, 0.6), ("steel_shield", 1, 1, 0.5), ("bandage", 2, 4, 0.6)],
                 Lieu::Forge => &[("worn_coin", 24, 48, 1.0), ("steel_ingot", 4, 7, 1.0), ("coal", 6, 12, 0.9), ("steel_sword", 1, 1, 0.6), ("steel_helmet", 1, 1, 0.5), ("bandage", 2, 4, 0.6)],
                 Lieu::Catacombes => &[("worn_coin", 24, 48, 1.0), ("steel_ingot", 3, 5, 0.9), ("steel_sword", 1, 1, 0.6), ("steel_helmet", 1, 1, 0.5), ("candle", 3, 6, 0.8), ("bandage", 2, 4, 0.6)],
                 Lieu::Grotte => &[("worn_coin", 24, 48, 1.0), ("pearl", 4, 8, 1.0), ("steel_ingot", 3, 5, 0.9), ("steel_sword", 1, 1, 0.6), ("steel_helmet", 1, 1, 0.5), ("bandage", 2, 4, 0.6)],

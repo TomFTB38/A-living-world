@@ -142,6 +142,11 @@ jobs:
           shot plat_forge_monte -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_forge_monte
           shot plat_forge_coulee -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_forge_coulee
           shot plat_forge_fournaise -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_forge_fournaise
+          shot plat_glace_facade -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_glace_facade
+          shot plat_glace_nef -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_glace_nef
+          shot plat_glace_bassin -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_glace_bassin
+          shot plat_glace_estrade -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_glace_estrade
+          shot plat_glace_coeur -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_glace_coeur
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte
