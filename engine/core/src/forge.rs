@@ -39,8 +39,9 @@ impl F<'_> {
     fn t(&mut self, u: i32, v: i32, w: i32, n: &'static str, dx: i32, dz: i32) { let (x, y, z) = self.at(u, v, w); self.p.turn(x, y, z, n, dx, dz); }
     fn air(&mut self, u: i32, v: i32, w: i32) { let (x, y, z) = self.at(u, v, w); self.p.air(x, y, z); }
     fn h(&self, u: i32, v: i32, w: i32, k: i32) -> f64 { hash_float(self.x + u + 401 * v, self.z + w, 9157, k) }
-    fn rock(&self, u: i32, v: i32, w: i32) -> &'static str { let h = self.h(u, v, w, 1); if h < 0.08 { "magma" } else if h < 0.25 { "obsidian" } else if h < 0.45 { "bricks_dark" } else { "basalt" } }
-    fn floor(&self, u: i32, w: i32) -> &'static str { let h = self.h(u, 0, w, 2); if h < 0.3 { "stone_bricks_dark" } else if h < 0.4 { "cobblestone" } else { "basalt" } }
+    /// Les murs : du basalte, un rang de brique sombre tous les quatre blocs, quelques veines de magma et d'obsidienne.
+    fn rock(&self, u: i32, v: i32, w: i32) -> &'static str { let h = self.h(u, v, w, 1); if h < 0.025 { "magma" } else if v.rem_euclid(4) == 1 && v > 0 { "bricks_dark" } else if h < 0.12 { "obsidian" } else { "basalt" } }
+    fn floor(&self, u: i32, w: i32) -> &'static str { let h = self.h(u, 0, w, 2); if h < 0.6 { "stone_bricks_dark" } else if h < 0.9 { "basalt" } else { "cobblestone" } }
     /// Une boîte pleine (murs, sol, voûte), puis l'air de son intérieur.
     fn room(&mut self, u0: i32, u1: i32, w0: i32, w1: i32, v1: i32) {
         for u in u0 - 1..=u1 + 1 { for w in w0 - 1..=w1 + 1 { for v in -1..=v1 + 1 { let inside = u >= u0 && u <= u1 && w >= w0 && w <= w1 && v >= 1 && v <= v1;
