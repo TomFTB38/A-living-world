@@ -110,13 +110,15 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     for u in -5..=5 { for w in 12..=24 { g.n(u, 8, w, "stone_bricks"); } }
     for u in [-5, -3, 3, 5] { g.column(u, 12, 2, 7); } for w in [15, 18, 21] { for u in [-5, 5] { g.column(u, w, 2, 7); } } g.column(-5, 24, 2, 7); g.column(5, 24, 2, 7);
     for u in -4..=4 { g.n(u, 9, 12, "sandstone"); } for u in -2..=2 { g.n(u, 10, 12, "sandstone"); } g.n(0, 11, 12, "sandstone"); for u in -1..=1 { g.t(u, 9, 12, "wall_relief", 0, 1); } g.t(0, 10, 12, "wall_relief", 0, 1);
-    for u in -1..=1 { for v in 2..=4 { g.n(u, v, DOOR_W, "iron_bars"); g.n(u, v, CHAINS_W, "chain"); } }
+    for u in -1..=1 { for v in 2..=4 { g.n(u, v, DOOR_W, "iron_bars"); g.n(u, v, CHAINS_W, "great_chain"); } } for u in [-4, 4] { g.n(u, 2, 12, "brazier_stand"); }
     // dans la cella : l'autel et le coffre, deux rois de pierre, des brasiers, l'eau noire du trône
     g.t(CHEST[0], 2, CHEST[2], "altar", 0, 1); g.n(CHEST[0], CHEST[1], CHEST[2], "chest"); for u in [-3, 3] { g.statue(u, 2, 22, (0, 1)); g.n(u, 2, 15, "brazier_stand"); }
     for u in -1..=1 { g.n(u, 1, 18, "water"); } g.n(0, 7, 18, "chandelier");
     // les rois de pierre sur leurs socles, détournés du temple ; des brasiers sur les rives
     for (q, start, _) in KINGS { g.n(q[0], 1, q[2], "chiseled_stone"); g.statue(q[0], q[1], q[2], (-start.0, -start.1)); }
-    for (u, w) in [(-10, 3), (10, 3), (-22, 12), (22, 22), (-12, 31), (12, 31), (-6, 8), (6, 8)] { if !lake(u, w) && ceil(u, w).is_some() { g.n(u, 1, w, "brazier_stand"); } }
+    // des lanternes pendues à la voûte, au bout de leurs chaînes, au-dessus du lac et des rives
+    for (u, w) in [(-10, 20), (10, 20), (0, 8), (-14, 28), (14, 28), (-18, 8), (18, 10), (0, 30), (-22, 18)] { if let Some(c) = ceil(u, w) { if c - 4 > floor(u, w) + 3 { for v in c - 3..=c { g.n(u, v, w, "chain"); } g.n(u, c - 4, w, "lantern"); } } }
+    for (u, w) in [(-10, 3), (10, 3), (-22, 12), (22, 22), (-12, 31), (12, 31), (-6, 8), (6, 8), (-7, 6), (7, 6), (-17, 26), (17, 4)] { if !lake(u, w) && ceil(u, w).is_some() { g.n(u, 1, w, "brazier_stand"); } }
     // des ruines sur les rives : colonnes brisées, urnes, un sarcophage
     for (u, w, hgt) in [(-14, 6, 3), (-8, 32, 2), (8, 33, 4), (16, 7, 2), (-23, 22, 3)] { if ceil(u, w).is_some_and(|c| c > hgt + 2) && !lake(u, w) { g.column(u, w, 1, hgt); if hgt < 4 { g.n(u, hgt, w, "column_shaft"); } } }
     for (u, w) in [(-13, 7), (9, 32), (-22, 23), (17, 8)] { if !lake(u, w) && ceil(u, w).is_some() { g.n(u, 1, w, "funeral_urn"); } }
@@ -140,7 +142,7 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
 /// Les mécanismes de la grotte bâtie en `o`, préfixés de `tag`.
 pub fn mechs(o: [i32; 3], tag: &str) -> Mech {
     let f = o[1] - DEPTH; let at = |u: i32, v: i32, w: i32| [o[0] + u, f + v, o[2] + w]; let name = |n: &str| format!("{tag}{n}");
-    let chain = by_name("chain").unwrap_or(0); let iron = by_name("iron_bars").unwrap_or(0);
+    let chain = by_name("great_chain").unwrap_or(0); let iron = by_name("iron_bars").unwrap_or(0);
     let chain_of = |u: i32| (2..=4).map(|v| (at(u, v, CHAINS_W), chain)).collect::<Vec<_>>();
     let mut m = Mech::default();
     // l'eau : la chaîne au fond de la citerne ; la vanne qui la remplit

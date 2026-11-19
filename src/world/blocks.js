@@ -453,6 +453,7 @@ defs.push(['spikes', 'deco', null, 1.2, { model: 'spikes', solid: false, cat: 'r
 // L'architecture ancestrale des donjons : colonne cannelée (base, fût, chapiteau), urne funéraire et brasier sur pied (sans
 // sens), puis les pièces orientées : statue de gardien (deux blocs), sarcophage à gisant (deux blocs), bas-relief, linteau, autel.
 for (const [n, h, p] of [['column_base', 2.0, {}], ['column_shaft', 2.0, {}], ['column_capital', 2.0, {}], ['funeral_urn', 1.2, {}], ['brazier_stand', 1.6, { light: 14 }]]) defs.push([n, 'deco', null, h, { model: n, solid: true, cat: 'rock', drop: n, ...p }]);
+defs.push(['great_chain', 'deco', null, 3.0, { model: 'great_chain', solid: true, cat: 'rock', drop: 'iron_ingot' }]);
 for (const f of ['', '@1', '@2', '@3']) for (const [n, drop] of [['statue_base', 'stone'], ['statue_top', 'stone'], ['tomb_head', 'stone'], ['tomb_foot', 'stone'], ['wall_relief', 'wall_relief'], ['lintel', 'lintel'], ['altar', 'altar']]) defs.push([`${n}${f}`, 'deco', null, 2.2, { model: n, solid: true, cat: 'rock', drop }]);
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,

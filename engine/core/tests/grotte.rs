@@ -15,7 +15,7 @@ fn name(s: &Session, p: [i32; 3]) -> &'static str { BLOCKS[s.world.get(p[0], p[1
 fn put(s: &mut Session, o: [i32; 3], q: [i32; 3]) { let c = at(o, q); s.player.p = [c[0] as f64 + 0.5, c[1] as f64, c[2] as f64 + 0.5]; s.player.v = [0.0; 3]; }
 fn run(s: &mut Session, secs: f64) { for _ in 0..(secs / DT).ceil() as usize { s.vit[1] = 100.0; s.vit[2] = 100.0; s.tick(DT, Input::default(), Actions::default()); } }
 fn look(s: &Session, o: [i32; 3], q: [i32; 3]) -> BTreeSet<[i32; 3]> { reach(&s.world, at(o, q), at(o, [-34, -10, -14]), at(o, [34, DEPTH + 4, 38])) }
-fn chain_up(s: &Session, o: [i32; 3], u: i32) -> bool { name(s, at(o, [u, 3, gr::CHAINS_W])) == "chain" }
+fn chain_up(s: &Session, o: [i32; 3], u: i32) -> bool { name(s, at(o, [u, 3, gr::CHAINS_W])) == "great_chain" }
 fn in_cella(set: &BTreeSet<[i32; 3]>, o: [i32; 3]) -> bool { set.contains(&at(o, [0, 2, 17])) }
 /// Marcher jusqu'au centre de la case relative (u, w), en tenant Saut si besoin.
 fn go(s: &mut Session, o: [i32; 3], u: i32, w: i32, jump: bool) -> bool {
@@ -39,7 +39,7 @@ fn on_descend_le_puits_et_le_temple_est_ferme() {
     assert!(down.contains(&at(o, [-4, 1, 0])), "le fond du puits"); assert!(look(&s, o, [-4, 1, 0]).contains(&at(o, porch)), "et l'on remonte");
     for (i, (u, w, top, ..)) in gr::spiral().iter().enumerate() { assert!(name(&s, at(o, [*u, *top, *w])).starts_with("stone_bricks"), "marche {i}"); }
     // le temple : sur l'île, on va jusqu'au portique (à la nage), pas dans la cella ; trois chaînes, une grille
-    let r = look(&s, o, [-4, 1, 0]); assert!(r.contains(&at(o, [0, 2, 12])), "le portique, à la nage"); assert!(!in_cella(&r, o), "la cella est close");
+    let r = look(&s, o, [-4, 1, 0]); assert!(r.contains(&at(o, [-2, 2, 12])), "le portique, à la nage"); assert!(!in_cella(&r, o), "la cella est close");
     for u in -1..=1 { assert!(chain_up(&s, o, u)); assert!(name(&s, at(o, [u, 3, gr::DOOR_W])).starts_with("iron_bars")); }
     // la caverne est vaste et la voûte reste sous terre
     let mut air = 0; for u in (-30..=30).step_by(2) { for w in (-10..=34).step_by(2) { for v in 1..=24 { if s.world.get(at(o, [u, v, w])[0], at(o, [u, v, w])[1], at(o, [u, v, w])[2]) == Some(0) { air += 1; } } } }

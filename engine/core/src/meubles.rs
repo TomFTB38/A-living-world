@@ -9,11 +9,11 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 94] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 95] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket",
     "lever", "lever_on", "spikes", "spikes_down", "dart_trap",
-    "column_base", "column_shaft", "column_capital", "statue_base", "statue_top", "tomb_head", "tomb_foot", "wall_relief", "lintel", "funeral_urn", "altar", "brazier_stand"];
+    "column_base", "column_shaft", "column_capital", "statue_base", "statue_top", "tomb_head", "tomb_foot", "wall_relief", "lintel", "funeral_urn", "altar", "brazier_stand", "great_chain"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
 /// La couche de texture d'une matière (« rug », « hay »…) ou, à défaut, de la face d'un bloc du même nom.
 fn layer(n: &str) -> f64 {
@@ -137,6 +137,11 @@ fn ancient(k: &mut K, m: &str, r: &mut Rng) {
             k.cy([0.5, 0.49, 0.075], [0.5, 0.49, 0.1], 0.17, 0.17, 0.82, GOLD); k.cy([0.5, 0.49, 0.08], [0.5, 0.49, 0.1], 0.12, 0.12, 0.0, tone(STONE, 1.05));
             for i in 0..8 { let a = i as f64 * TAU / 8.0; let (ca, sa) = (a.cos(), a.sin()); limb(k, [0.5 + ca * 0.19, 0.49 + sa * 0.19, 0.09], [0.5 + ca * 0.26, 0.49 + sa * 0.26, 0.09], 0.015, STONE2); }
             moss(k, r, 2, 0.0, 0.12, 0.45);
+        }
+        "great_chain" => { // une lourde chaîne de fer : quatre gros maillons par bloc, l'un de face, l'autre de profil, rouillés par endroits
+            for i in 0..4 { let y0 = i as f64 * 0.25 - 0.04; let (y1, w, t) = (y0 + 0.33, 0.14, 0.055); let c = if r.next() < 0.3 { [0.36, 0.22, 0.14] } else { [0.24, 0.24, 0.26] };
+                if i % 2 == 0 { k.b([0.5 - w, y0, 0.5 - t * 0.5, 0.5 - w + t, y1, 0.5 + t * 0.5], c); k.b([0.5 + w - t, y0, 0.5 - t * 0.5, 0.5 + w, y1, 0.5 + t * 0.5], c); k.b([0.5 - w, y0, 0.5 - t * 0.5, 0.5 + w, y0 + t, 0.5 + t * 0.5], c); k.b([0.5 - w, y1 - t, 0.5 - t * 0.5, 0.5 + w, y1, 0.5 + t * 0.5], c); }
+                else { k.b([0.5 - t * 0.5, y0, 0.5 - w, 0.5 + t * 0.5, y1, 0.5 - w + t], c); k.b([0.5 - t * 0.5, y0, 0.5 + w - t, 0.5 + t * 0.5, y1, 0.5 + w], c); k.b([0.5 - t * 0.5, y0, 0.5 - w, 0.5 + t * 0.5, y0 + t, 0.5 + w], c); k.b([0.5 - t * 0.5, y1 - t, 0.5 - w, 0.5 + t * 0.5, y1, 0.5 + w], c); } }
         }
         _ => { // le brasier sur pied : un fût cannelé court, une vasque de bronze, les braises et les flammes
             k.t([0.18, 0.0, 0.18, 0.82, 0.1, 0.82], "polished_stone", tone(t, 0.85)); k.cy([0.5, 0.1, 0.5], [0.5, 0.56, 0.5], 0.14, 0.14, 0.0, tone(STONE, 0.8));
@@ -531,7 +536,7 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
         // L'architecture ancestrale des donjons : une colonne cannelée en trois pièces (base, fût, chapiteau), une statue de gardien
         // sur deux blocs, un sarcophage et son gisant sur deux blocs, un bas-relief, un linteau à frise, une urne funéraire, un autel
         // sculpté, un brasier sur pied. Pierre calcaire vieillie, rehaussée de mousse au hasard.
-        "column_base" | "column_shaft" | "column_capital" | "statue_base" | "statue_top" | "tomb_head" | "tomb_foot" | "wall_relief" | "lintel" | "funeral_urn" | "altar" | "brazier_stand" => ancient(k, m, r),
+        "column_base" | "column_shaft" | "column_capital" | "statue_base" | "statue_top" | "tomb_head" | "tomb_foot" | "wall_relief" | "lintel" | "funeral_urn" | "altar" | "brazier_stand" | "great_chain" => ancient(k, m, r),
         // les pics : une plaque de fer percée, et, sortis, des pointes acérées ; rentrés, seuls leurs bouts affleurent
         "spikes" | "spikes_down" => {
             k.b([0.02, 0.0, 0.02, 0.98, 0.06, 0.98], [0.22, 0.22, 0.24]); let out = m == "spikes";

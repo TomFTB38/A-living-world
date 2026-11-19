@@ -145,7 +145,7 @@ impl Session {
             if act == w.on || (w.latch && w.on) { continue; }
             let w = self.mech.wires[k].clone(); self.mech.wires[k].on = act; self.dirty = true;
             for (p, closed) in &w.doors { let now = self.world.get(p[0], p[1], p[2]); if act && now == Some(*closed) { self.world.edit(p[0], p[1], p[2], 0); } else if !act && now == Some(0) { self.world.edit(p[0], p[1], p[2], *closed); } }
-            if !w.doors.is_empty() { self.sound.place("iron_bars"); if act { self.notes.push(if w.doors.iter().all(|(_, b)| split(name(*b)).0 == "iron_bars") { "Une grille se lève" } else if w.doors.iter().all(|(_, b)| name(*b) == "chain") { "Une chaîne se détache et tombe dans un fracas" } else { "Un pan de mur pivote : un passage !" }.into()); } }
+            if !w.doors.is_empty() { self.sound.place("iron_bars"); if act { self.notes.push(if w.doors.iter().all(|(_, b)| split(name(*b)).0 == "iron_bars") { "Une grille se lève" } else if w.doors.iter().all(|(_, b)| matches!(name(*b), "chain" | "great_chain")) { "Une chaîne se détache et tombe dans un fracas" } else { "Un pan de mur pivote : un passage !" }.into()); } }
             for p in &w.spikes { self.world.edit(p[0], p[1], p[2], id(if act { "spikes" } else { "spikes_down" })); }
             for p in &w.calm { self.world.edit(p[0], p[1], p[2], id(if act { "spikes_down" } else { "spikes" })); }
             if act { for p in &w.darts { self.dart(*p); } if w.hold > 0.0 { self.notes.push(format!("Vite : {:.0} secondes avant que ça ne retombe", w.hold)); } }

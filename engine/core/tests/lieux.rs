@@ -44,7 +44,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
                 use alw_core::grotte::{self as gr, DEPTH}; let f = pl.y - DEPTH; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, f + v, pl.z + w);
                 assert!(name(rel(0, DEPTH + 4, 10)).starts_with("statue_top"), "la statue du roi"); assert_eq!(name(rel(0, DEPTH + 1, -10)), "column_base", "la colonnade");
                 for (i, (u, w, top, ..)) in gr::spiral().iter().enumerate() { assert!(name(rel(*u, *top, *w)).starts_with("stone_bricks"), "marche {i}"); }
-                assert!(name(rel(0, 3, gr::DOOR_W)).starts_with("iron_bars"), "la grille du temple"); assert_eq!(name(rel(0, 3, gr::CHAINS_W)), "chain");
+                assert!(name(rel(0, 3, gr::DOOR_W)).starts_with("iron_bars"), "la grille du temple"); assert_eq!(name(rel(0, 3, gr::CHAINS_W)), "great_chain");
                 assert_eq!(rel(0, 5, 18), 0, "la cella"); assert_eq!(name(rel(0, -1, 9)), "water", "le lac");
                 for (u, ww) in [(-20, 12), (0, 12), (20, 12), (0, 30)] { let g = w_ground(&w, pl.x + u, pl.z + ww); assert!(g >= f + 24, "la voûte reste sous terre en {u} {ww} : sol {g}"); }
             }
