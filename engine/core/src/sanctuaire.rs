@@ -248,7 +248,7 @@ pub fn mechs(o: [i32; 3], tag: &str) -> Mech {
 pub fn reach(w: &impl Voxels, from: [i32; 3], min: [i32; 3], max: [i32; 3]) -> BTreeSet<[i32; 3]> {
     let crumble = by_name("crumbling_floor").unwrap_or(0);
     let get = |p: [i32; 3]| w.get(p[0], p[1], p[2]).unwrap_or(1);
-    let pass = |p: [i32; 3]| { let b = get(p); b == 0 || !is_solid(b) };
+    let pass = |p: [i32; 3]| { let b = get(p); b == 0 || (!is_solid(b) && b != crate::blocks::B::LAVA) }; // la lave ne se traverse pas
     let inb = |p: [i32; 3]| (0..3).all(|i| p[i] >= min[i] && p[i] <= max[i]);
     let stand = |p: [i32; 3]| { if !inb(p) || !pass(p) || !pass([p[0], p[1] + 1, p[2]]) { return false; } let below = get([p[0], p[1] - 1, p[2]]); let here = get(p);
         (is_solid(below) && below != crumble) || is_ladder(here) || is_water(here) || is_water(below) };

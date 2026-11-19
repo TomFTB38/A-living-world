@@ -149,7 +149,7 @@ pub fn mechs(o: [i32; 3], tag: &str) -> Mech {
     m.wires.push(Wire { name: name("eau"), inputs: vec![at(LEVER_WATER[0], LEVER_WATER[1], LEVER_WATER[2])], latch: true, doors: chain_of(-1), ..Default::default() });
     m.wires.push(Wire { name: name("vanne"), inputs: vec![at(VALVE[0], VALVE[1], VALVE[2])], ..Default::default() });
     let cols: Vec<[i32; 3]> = (CISTERN.0..=CISTERN.1).flat_map(|u| (CISTERN.2..=CISTERN.3).map(move |w| [o[0] + u, o[2] + w, f + CISTERN.4])).collect();
-    m.pools.push(Pool { cols, top: f, by: name("vanne"), level: f + CISTERN.4 - 1, t: 0.0 });
+    m.pools.push(Pool { cols, top: f, by: name("vanne"), level: f + CISTERN.4 - 1, t: 0.0, ..Default::default() });
     // la paroi : le levier de la niche
     m.wires.push(Wire { name: name("paroi"), inputs: vec![at(LEVER_WALL[0], LEVER_WALL[1], LEVER_WALL[2])], latch: true, doors: chain_of(0), ..Default::default() });
     // le regard : les trois rois tournés vers le temple

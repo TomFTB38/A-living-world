@@ -136,6 +136,11 @@ jobs:
           shot plat_catacombes_crypte -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catacombes_crypte
           shot plat_catacombes_porte -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catacombes_porte
           shot plat_catacombes_lames -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catacombes_lames
+          shot plat_forge_atelier -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_forge_atelier
+          shot plat_forge_salle -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_forge_salle
+          shot plat_forge_pont -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_forge_pont
+          shot plat_forge_monte -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_forge_monte
+          shot plat_forge_coulee -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_forge_coulee
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

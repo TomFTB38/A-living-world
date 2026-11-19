@@ -6,7 +6,7 @@ fn ready(s: &mut Session) { for _ in 0..8000 { let p = s.player.p; s.world.updat
 
 #[test]
 fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
-    let w = WorldGen::new(SEED); let all = w.places_near(-38.0, 0.0, 2500.0); let mut seen = [0usize; 8];
+    let w = WorldGen::new(SEED); let all = w.places_near(-38.0, 0.0, 2800.0); let mut seen = [0usize; 9];
     let name = |b: u16| BLOCKS[b as usize].name;
     for pl in &all {
         let k = LIEUX.iter().position(|l| *l == pl.kind).unwrap(); seen[k] += 1; if seen[k] > 3 { continue; } // trois de chaque sorte, bloc à bloc
@@ -46,6 +46,14 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
                 for (q, _) in so::MIRRORS { assert!(name(rel(q[0], q[1], q[2])).starts_with("sun_mirror")); } for (q, _) in so::SEALS { assert!(name(rel(q[0], q[1], q[2])).starts_with("sun_receptor")); }
                 assert_eq!(rel(0, 4, -6), 0, "la salle"); assert_eq!(rel(0, 12, 0), 0, "l'oculus"); assert!(is_solid(rel(12, 6, 0)), "le deuxième degré"); assert!(name(rel(0, 8, 15)).starts_with("sandstone_stairs"), "le grand escalier");
             }
+            Lieu::Forge => {
+                // l'atelier et sa cheminée, l'escalier, la grande forge et son fleuve de lave, le pont au fond, la porte du foyer
+                use alw_core::forge::{self as fo, DEPTH}; let f = pl.y - DEPTH; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, f + v, pl.z + w);
+                assert_eq!(name(rel(3, DEPTH + 14, -17)), "campfire", "la fumée de la cheminée"); for k in 0..DEPTH { assert!(name(rel(0, DEPTH - 1 - k, -19 + k)).starts_with("stone_bricks_stairs"), "marche {k}"); }
+                assert_eq!(rel(0, 5, 5), 0, "la grande forge"); assert_eq!(name(rel(5, 0, 11)), "lava", "le fleuve de lave"); assert_eq!(name(rel(0, fo::BRIDGE_LOW, 11)), "basalt", "le pont au fond");
+                assert_eq!(name(rel(0, 2, fo::CHAINS_W)), "great_chain"); assert_eq!(name(rel(-12, -3, 21)), "lava", "la coulée");
+                for (u, ww) in [(-14, 0), (14, 26), (0, 14), (0, 34)] { let g = w_ground(&w, pl.x + u, pl.z + ww); assert!(g >= f + 14, "la voûte reste sous terre en {u} {ww} : sol {g}"); }
+            }
             Lieu::Catacombes => {
                 // le mausolée et son portique, l'escalier, le vestibule et sa porte des morts, la crypte et ses rois ; la voûte reste sous terre
                 use alw_core::catacombes::{self as ca, DEPTH}; let f = pl.y - DEPTH; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, f + v, pl.z + w);
@@ -69,7 +77,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
                 use alw_core::sanctuaire::DEPTH; let f = pl.y - DEPTH; let l = pl.ruins(); let rel = |q: [i32; 3]| at(pl.x + q[0], f + q[1], pl.z + q[2]);
                 for z in -5..=5 { let st = rel(l.rooms[0].at([-5, 6 + z, z])); assert!(name(st).starts_with("stone_bricks_stairs"), "la marche {z} du grand escalier : {}", name(st)); }
                 let e = l.rooms[0]; let zt = (6..=13).find(|z| name(rel(e.at([-6, 6 + z + 1, z + 1]))) == "column_base").expect("les colonnes du portail");
-                assert!(name(rel(e.at([-5, 6 + zt + 6, zt + 1]))).starts_with("lintel"), "le linteau du portail"); assert!(name(rel(e.at([-8, 6 + zt + 2, zt + 1]))).starts_with("statue_top"), "un gardien du portail");
+                assert!(name(rel(e.at([-5, 6 + zt + 6, zt + 1]))).starts_with("lintel"), "le linteau du portail"); assert!(name(rel(e.at([-8, 6 + zt + 2, zt + 1]))).starts_with("statue_top"), "un gardien du portail en {} {} {} : {}", pl.x, pl.y, pl.z, name(rel(e.at([-8, 6 + zt + 2, zt + 1]))));
                 for r in &l.rooms { assert_eq!(rel(r.at([0, 3, -3])), 0, "{:?} creusée", r.kind); let c = r.c; let g = w_ground(&w, pl.x + c.0, pl.z + c.1); assert!(g >= f + r.kind.h() + 2, "la voûte de {:?} reste sous terre", r.kind); }
             }
             Lieu::Camp => {
@@ -81,7 +89,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
         // les gardiens ont les pieds sur du plein et la tête à l'air
         for (id, g) in pl.guards() { assert!(alw_core::hostile::species(id).is_some(), "{id}"); let (x, y, z) = (g[0].floor() as i32, g[1].floor() as i32, g[2].floor() as i32); assert!(is_solid(at(x, y - 1, z)), "{id} de {:?} n'a rien sous les pieds en {x} {y} {z}", pl.kind); assert!(!is_solid(at(x, y + 1, z)), "{id} de {:?} emmuré", pl.kind); }
     }
-    println!("lieux : {} tours, {} cimetières, {} camps, {} sanctuaires, {} ruines, {} grottes, {} temples du soleil, {} catacombes", seen[0], seen[1], seen[2], seen[3], seen[4], seen[5], seen[6], seen[7]); assert!(seen.iter().all(|n| *n >= 6), "chaque sorte de lieu existe : {seen:?}"); assert!(seen[0] * 10 < seen.iter().sum::<usize>() * 6, "les tours ne prennent pas toute la place");
+    println!("lieux : {} tours, {} cimetières, {} camps, {} sanctuaires, {} ruines, {} grottes, {} temples du soleil, {} catacombes, {} forges", seen[0], seen[1], seen[2], seen[3], seen[4], seen[5], seen[6], seen[7], seen[8]); assert!(seen.iter().all(|n| *n >= 6), "chaque sorte de lieu existe : {seen:?}"); assert!(seen[0] * 10 < seen.iter().sum::<usize>() * 6, "les tours ne prennent pas toute la place");
     assert!(WorldGen::new(alw_core::gen::FLAT).places_near(0.0, 0.0, 800.0).is_empty(), "rien dans le monde plat");
 }
 
@@ -89,7 +97,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
 fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
     let w = WorldGen::new(SEED); let mut s = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); ready(&mut s); s.hour = 12.0; let sp = |id: &str| alw_core::hostile::species(id).unwrap();
     assert!(s.command("/lieu chateau").contains("inconnu"));
-    for (key, who, n, loot) in [("tour", "archer", 4, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("sanctuaire", "noye", 3, "idole_engloutie"), ("ruines", "rodeur", 2, "worn_coin"), ("grotte", "noye", 3, "worn_coin"), ("soleil", "rodeur", 2, "worn_coin"), ("catacombes", "archer", 2, "worn_coin"), ("cimetiere", "archer", 3, "worn_coin")] {
+    for (key, who, n, loot) in [("tour", "archer", 4, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("sanctuaire", "noye", 3, "idole_engloutie"), ("ruines", "rodeur", 2, "worn_coin"), ("grotte", "noye", 3, "worn_coin"), ("soleil", "rodeur", 2, "worn_coin"), ("catacombes", "archer", 2, "worn_coin"), ("forge", "brigand", 2, "worn_coin"), ("cimetiere", "archer", 3, "worn_coin")] {
         s.horde.foes.clear(); let msg = s.command(&format!("/lieu {key}")); ready(&mut s); let pl = w.places_near(s.player.p[0], s.player.p[2], 40.0).into_iter().next().unwrap_or_else(|| panic!("{key} : {msg}")); assert_eq!(pl.kind.key(), key, "{msg}");
         s.notes.clear(); for _ in 0..3 { s.tick(0.05, Input::default(), Actions::default()); }
         assert!(s.horde.foes.iter().filter(|f| f.sp == sp(who)).count() >= n, "{key} : {n} {who} attendus, on a {:?}", s.horde.foes.iter().map(|f| (alw_core::hostile::bestiary().species[f.sp].id, f.p.map(|v| v.round()), f.hp)).collect::<Vec<_>>()); assert!(s.notes.iter().any(|t| t.contains("en vue")), "{key} : annoncé");
@@ -100,6 +108,7 @@ fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
         s.open_chest(pl.chest()); let got = &s.chests[&pl.chest()]; assert!(got.iter().flatten().any(|st| st.item == loot), "{key} : {loot} dans le coffre, on a {:?}", got.iter().flatten().map(|st| st.item).collect::<Vec<_>>()); s.close_chest(); s.inv_open = false;
         if key == "ruines" { assert!(s.mech.wires.iter().any(|w| w.name.starts_with(&format!("d{}:{}:", pl.x, pl.z))), "les fils des ruines"); assert_eq!(s.mech.guards.len(), 2, "le colosse du sanctuaire et le gardien des ruines"); }
         if key == "soleil" { assert!(s.mech.beams.len() == 1 && s.mech.wires.iter().any(|w| w.name.starts_with(&format!("t{}:{}:", pl.x, pl.z))), "le rayon et les fils du temple"); }
+        if key == "forge" { assert!(s.mech.lifts.len() == 2 && s.mech.wires.iter().any(|w| w.name.starts_with(&format!("f{}:{}:", pl.x, pl.z))), "le pont, le monte-charge et les fils de la forge"); }
         if key == "catacombes" { assert!(s.mech.wires.iter().any(|w| w.name.starts_with(&format!("c{}:{}:", pl.x, pl.z))), "les fils des catacombes"); }
         if key == "grotte" { assert!(s.mech.wires.iter().any(|w| w.name.starts_with(&format!("g{}:{}:", pl.x, pl.z))), "les fils de la grotte"); assert_eq!(s.mech.pools.len(), 1, "la citerne"); }
         if key == "sanctuaire" {

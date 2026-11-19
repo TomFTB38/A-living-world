@@ -618,6 +618,17 @@ fn capture(a: &[String]) {
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // La Forge sous la lave : l'atelier et sa cheminée, la grande forge et son fleuve de lave, le pont levé, le monte-charge, la coulée.
+    if let Some(vw) = scene.strip_prefix("plat_forge_") {
+        use alw_core::forge::DEPTH; let o = [-41, alw_core::gen::FLAT_Y, -10]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false); s.hour = 12.0;
+        s.build_forge(o); pump(&mut s, &mut g); let f = o[1] - DEPTH; let d = DEPTH as f64;
+        if vw == "pont" { let q = alw_core::forge::BLOCK; let (a, b) = ([o[0] + q[0], f + q[1], o[2] + q[2]], [o[0] + 3, f + 1, o[2] + 8]); s.world.edit(a[0], a[1], a[2], 0); s.world.edit(b[0], b[1], b[2], alw_core::blocks::by_name("push_block").unwrap_or(0)); for _ in 0..240 { s.tick(1.0 / 60.0, none, Actions::default()); } }
+        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "atelier" => ([-9.5, d + 2.0, -38.5], [0.5, d + 4.0, -19.0]), "salle" => ([-12.5, 6.0, 1.5], [2.0, 1.0, 16.0]), "pont" => ([6.5, 2.0, 3.5], [0.5, 0.0, 14.0]),
+            "monte" => ([2.5, 3.0, 16.5], [12.0, 6.0, 21.0]), _ => ([-6.5, 2.0, 16.5], [-11.5, -2.0, 21.5]) };
+        s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
+        for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     if scene == "plat_mecanismes" {
         let id = |n: &str| alw_core::blocks::by_name(n).unwrap_or(0); let p = s.player.p; let (x, y, z) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32 + 5);
         s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.player.yaw = 0.0; s.player.pitch = -0.32;

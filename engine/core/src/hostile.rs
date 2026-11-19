@@ -601,6 +601,7 @@ fn boss_cause(s: &Species, mv: u8) -> &'static str { match (s.id, mv) {
     ("roi_noye", MV_ECRASE) => "Le trident du Roi noyé, abattu de tout son poids", ("roi_noye", MV_CHARGE) => "La ruée du Roi noyé", ("roi_noye", _) => "Le trident du Roi noyé",
     ("colosse", MV_ECRASE) => "Le trident du colosse englouti, abattu de tout son poids", ("colosse", MV_CHARGE) => "La ruée du colosse englouti", ("colosse", _) => "Le trident du colosse englouti",
     ("gardien_soleil", MV_ECRASE) => "Le poing brûlant du Gardien du Soleil", ("gardien_soleil", MV_CHARGE) => "La ruée du Gardien du Soleil", ("gardien_soleil", _) => "Les griffes du Gardien du Soleil",
+    ("maitre_forge", MV_ECRASE) => "Le marteau du Maître de forge, abattu comme sur l'enclume", ("maitre_forge", MV_CHARGE) => "La ruée du Maître de forge", ("maitre_forge", _) => "Le marteau du Maître de forge",
     ("premier_roi", MV_ECRASE) => "L'épée longue du Premier Roi, abattue à deux mains", ("premier_roi", MV_CHARGE) => "La ruée du Premier Roi", ("premier_roi", _) => "L'épée longue du Premier Roi",
     ("gardien", MV_ECRASE) => "Le poing du gardien de la crypte", ("gardien", MV_CHARGE) => "La ruée du gardien de la crypte", ("gardien", _) => "Les griffes du gardien de la crypte",
     (_, MV_TAILLE) => "La taille d'un chef de guerre brigand", (_, MV_ECRASE) => "La frappe écrasante d'un chef de guerre brigand", (_, MV_CHARGE) => "La ruée d'un chef de guerre brigand", _ => "La grande hache d'un chef de guerre brigand" } }

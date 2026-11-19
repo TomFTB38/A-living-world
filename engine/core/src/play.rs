@@ -703,6 +703,7 @@ impl Session {
                 Some("guard") => self.guard_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("beam") => self.beam_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("pool") => self.pool_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
+                Some("lift") => self.lift_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("mvault") => self.mvault_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("msecret") => self.msecret_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("mchest") => self.mchest_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
