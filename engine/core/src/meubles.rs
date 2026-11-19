@@ -9,12 +9,12 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 100] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 102] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket",
     "lever", "lever_on", "spikes", "spikes_down", "dart_trap",
     "column_base", "column_shaft", "column_capital", "statue_base", "statue_top", "tomb_head", "tomb_foot", "wall_relief", "lintel", "funeral_urn", "altar", "brazier_stand", "great_chain",
-    "sun_mirror", "sun_disc", "sun_receptor", "sun_receptor_on", "light_beam"];
+    "sun_mirror", "sun_disc", "sun_receptor", "sun_receptor_on", "light_beam", "ossuary_wall", "bone_pile"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
 /// La couche de texture d'une matière (« rug », « hay »…) ou, à défaut, de la face d'un bloc du même nom.
 fn layer(n: &str) -> f64 {
@@ -42,6 +42,30 @@ impl K {
 }
 fn tone(c: C, k: f64) -> C { [c[0] * k, c[1] * k, c[2] * k] }
 
+/// Un crâne, la face vers -z : la calotte, la mâchoire, deux orbites et le nez sombres. `c` : le centre de la face avant.
+fn skull(k: &mut K, c: [f64; 3], s: f64, bone: C) {
+    let (x, y, z) = (c[0], c[1], c[2]); let dark = [0.12, 0.1, 0.08];
+    k.b([x - 0.075 * s, y - 0.045 * s, z, x + 0.075 * s, y + 0.075 * s, z + 0.15 * s], bone); k.b([x - 0.06 * s, y + 0.075 * s, z + 0.015 * s, x + 0.06 * s, y + 0.1 * s, z + 0.13 * s], bone);
+    k.b([x - 0.05 * s, y - 0.095 * s, z + 0.012 * s, x + 0.05 * s, y - 0.045 * s, z + 0.11 * s], tone(bone, 0.86));
+    for sx in [-1.0, 1.0] { k.b([x + sx * 0.04 * s - 0.022 * s, y - 0.002 * s, z - 0.004 * s, x + sx * 0.04 * s + 0.022 * s, y + 0.038 * s, z + 0.01 * s], dark); }
+    k.b([x - 0.01 * s, y - 0.035 * s, z - 0.004 * s, x + 0.01 * s, y - 0.01 * s, z + 0.01 * s], dark);
+}
+fn ossuary(k: &mut K, m: &str, r: &mut Rng) {
+    let bone = |r: &mut Rng| tone([0.86, 0.81, 0.68], r.range(0.8, 1.05));
+    match m {
+        "ossuary_wall" => { // le fond de pierre sombre ; trois lits de longs os ; deux rangs de crânes ; çà et là un crâne manque
+            k.t([0.0, 0.0, 0.2, 1.0, 1.0, 1.0], "stone_bricks", [0.5, 0.5, 0.53]); k.b([0.0, 0.0, 0.16, 1.0, 1.0, 0.2], [0.16, 0.14, 0.12]);
+            for y in [0.08, 0.44, 0.8] { for j in 0..4 { let yy = y + j as f64 * 0.032 - 0.04; let c = bone(r); let dx = r.range(-0.06, 0.06); k.cy([0.0 + dx.max(0.0), yy, 0.06 + (j % 2) as f64 * 0.04], [1.0 + dx.min(0.0), yy, 0.06 + (j % 2) as f64 * 0.04], 0.022, 0.022, 0.0, c); }
+                for x in [0.02, 0.98] { k.b([x - 0.025, y - 0.07, 0.03, x + 0.025, y + 0.07, 0.12], bone(r)); } }
+            for y in [0.26, 0.62] { for i in 0..4 { if r.next() < 0.1 { continue; } let x = 0.13 + i as f64 * 0.245 + r.range(-0.015, 0.015); let c = bone(r); skull(k, [x, y, 0.04 + r.range(0.0, 0.02)], 1.15, c); } }
+        }
+        _ => { // le tas d'ossements : de longs os croisés, des côtes, deux crânes
+            for _ in 0..7 { let a = r.range(0.0, std::f64::consts::PI); let (ca, sa) = (a.cos(), a.sin()); let (x, z) = (r.range(0.25, 0.75), r.range(0.25, 0.75)); let y = r.range(0.02, 0.1); let l = r.range(0.18, 0.3); let c = bone(r);
+                k.cy([x - ca * l, y, z - sa * l], [x + ca * l, y + r.range(0.0, 0.06), z + sa * l], 0.024, 0.024, 0.0, c); k.b([x - ca * l - 0.035, y - 0.02, z - sa * l - 0.035, x - ca * l + 0.035, y + 0.035, z - sa * l + 0.035], c); }
+            let c = bone(r); skull(k, [0.42, 0.1, 0.36], 1.2, c); let c = bone(r); skull(k, [0.66, 0.08, 0.58], 1.0, c);
+        }
+    }
+}
 fn solar(k: &mut K, m: &str, r: &mut Rng) {
     use std::f64::consts::TAU; let gold = [0.95, 0.76, 0.3]; let stone = tone(LIME, r.range(0.88, 1.0));
     match m {
@@ -568,6 +592,9 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
         // Le Temple du Soleil : un miroir d'or tournant sur son pied (la glace sur la diagonale du bloc), le disque solaire
         // qui renvoie la lumière tombée de l'oculus, le réceptacle de cristal (éteint, embrasé), et le rayon lui-même.
         "sun_mirror" | "sun_disc" | "sun_receptor" | "sun_receptor_on" | "light_beam" => solar(k, m, r),
+        // Les Catacombes des Rois : un mur d'ossuaire (crânes rangés en rangs entre des lits de longs os, sur un fond de pierre
+        // sombre), un tas d'ossements jeté au sol.
+        "ossuary_wall" | "bone_pile" => ossuary(k, m, r),
         // les pics : une plaque de fer percée, et, sortis, des pointes acérées ; rentrés, seuls leurs bouts affleurent
         "spikes" | "spikes_down" => {
             k.b([0.02, 0.0, 0.02, 0.98, 0.06, 0.98], [0.22, 0.22, 0.24]); let out = m == "spikes";

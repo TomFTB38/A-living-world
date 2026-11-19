@@ -130,6 +130,12 @@ jobs:
           shot plat_soleil_salle -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_soleil_salle
           shot plat_soleil_sceau -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_soleil_sceau
           shot plat_soleil_sommet -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_soleil_sommet
+          shot plat_catacombes_allee -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catacombes_allee
+          shot plat_catacombes_mausolee -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catacombes_mausolee
+          shot plat_catacombes_ossuaire -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catacombes_ossuaire
+          shot plat_catacombes_crypte -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catacombes_crypte
+          shot plat_catacombes_porte -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catacombes_porte
+          shot plat_catacombes_lames -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catacombes_lames
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

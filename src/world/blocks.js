@@ -458,6 +458,7 @@ for (const f of ['', '@1', '@2', '@3']) { defs.push([`sun_mirror${f}`, 'deco', n
   defs.push([`sun_receptor${f}`, 'deco', null, 3.0, { model: 'sun_receptor', solid: true, cat: 'rock', drop: 'stone' }]); defs.push([`sun_receptor_on${f}`, 'deco', null, 3.0, { model: 'sun_receptor_on', solid: true, cat: 'rock', drop: 'stone', light: 13 }]); }
 for (const f of ['', '@1', '@2', '@3']) defs.push([`light_beam${f}`, 'deco', null, 0.0, { model: 'light_beam', cat: 'light', light: 11, drop: 'stone' }]);
 defs.push(['great_chain', 'deco', null, 3.0, { model: 'great_chain', solid: true, cat: 'rock', drop: 'iron_ingot' }]);
+for (const f of ['', '@1', '@2', '@3']) defs.push([`ossuary_wall${f}`, 'deco', null, 2.0, { model: 'ossuary_wall', solid: true, cat: 'rock', drop: 'bone' }]); defs.push(['bone_pile', 'deco', null, 0.4, { model: 'bone_pile', cat: 'rock', drop: 'bone' }]); // les Catacombes des Rois : murs de crânes, tas d'ossements
 for (const f of ['', '@1', '@2', '@3']) for (const [n, drop] of [['statue_base', 'stone'], ['statue_top', 'stone'], ['tomb_head', 'stone'], ['tomb_foot', 'stone'], ['wall_relief', 'wall_relief'], ['lintel', 'lintel'], ['altar', 'altar']]) defs.push([`${n}${f}`, 'deco', null, 2.2, { model: n, solid: true, cat: 'rock', drop }]);
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,

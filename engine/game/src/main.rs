@@ -608,6 +608,16 @@ fn capture(a: &[String]) {
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // Les Catacombes des Rois : l'allée et le mausolée, l'ossuaire, la crypte et ses rois, la porte des morts, le tombeau.
+    if let Some(vw) = scene.strip_prefix("plat_catacombes_") {
+        use alw_core::catacombes::DEPTH; let o = [-41, alw_core::gen::FLAT_Y, -10]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false); s.hour = 12.0;
+        s.build_catacombs(o); pump(&mut s, &mut g); let f = o[1] - DEPTH; let d = DEPTH as f64;
+        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "allee" => ([0.5, d + 3.0, -40.5], [0.5, d + 4.0, -6.0]), "mausolee" => ([8.5, d + 1.0, -15.5], [0.5, d + 4.0, -6.5]),
+            "ossuaire" => ([-3.5, 1.0, 13.5], [-14.0, 2.0, 14.0]), "crypte" => ([0.5, 3.0, -24.5], [0.5, 2.0, -33.0]), "porte" => ([0.5, 1.0, 13.5], [0.5, 2.5, 19.5]), _ => ([0.5, 1.0, 22.5], [0.5, 2.0, 36.5]) };
+        s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
+        for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     if scene == "plat_mecanismes" {
         let id = |n: &str| alw_core::blocks::by_name(n).unwrap_or(0); let p = s.player.p; let (x, y, z) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32 + 5);
         s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.player.yaw = 0.0; s.player.pitch = -0.32;

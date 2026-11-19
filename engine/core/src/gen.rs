@@ -446,7 +446,7 @@ impl WorldGen {
         let (ox, oz) = (cx * CX as i32, cz * CX as i32); let (x0, z0, x1, z1) = (ox - STAMP_REACH, oz - STAMP_REACH, ox + CX as i32 + STAMP_REACH, oz + CX as i32 + STAMP_REACH);
         if self.halls_near(ox, oz, ox + CX as i32 - 1, oz + CX as i32 - 1).is_empty() { return; } let mut h = heights.to_vec();
         for gz in fdiv(z0, SITE_CELL)..=fdiv(z1, SITE_CELL) { for gx in fdiv(x0, SITE_CELL)..=fdiv(x1, SITE_CELL) {
-            if !self.place(gx, gz).is_some_and(|p| matches!(p.kind, crate::sites::Lieu::Sanctuaire | crate::sites::Lieu::Ruines | crate::sites::Lieu::Grotte)) { continue; }
+            if !self.place(gx, gz).is_some_and(|p| matches!(p.kind, crate::sites::Lieu::Sanctuaire | crate::sites::Lieu::Ruines | crate::sites::Lieu::Grotte | crate::sites::Lieu::Catacombes)) { continue; }
             if let Some(st) = self.cached(5, gx, gz) { Self::apply(&st, v, ox, oz, &mut h); }
         } }
     }
