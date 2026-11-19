@@ -215,6 +215,7 @@ pearl | Perle | matieres | 0.02 | 64 | Ronde et nacrée, trouvée dans le coffre
 harpon_englouti | Harpon englouti | outils | 1.7 | 1 | Le trident du colosse qui gardait l'idole : un bronze verdi, plus dur que l'acier, qui frappe de loin. | outil=lance mat=maitre
 idole_engloutie | Idole engloutie | matieres | 0.6 | 1 | Une petite idole de jade aux yeux d'or, gardée au fond du Sanctuaire englouti. Les marchands en offrent une fortune ; les anciens disaient qu'elle porte chance aux explorateurs. |
 couronne_noyee | Couronne du Roi noyé | matieres | 0.8 | 1 | La couronne d'or verdi du roi qui régnait sur le lac noir. Une pièce de musée ; les marchands se la disputent. |
+disque_solaire | Disque du Soleil | matieres | 0.9 | 1 | Le disque d'or que gardait le Gardien du Soleil, gravé de rayons. Il réchauffe encore la main qui le tient. |
 shark_tooth | Dent de requin | matieres | 0.05 | 64 | Triangulaire et dentelée. Les marchands des ports en donnent un bon prix. |
 coral_block_red | Corail rouge | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
 coral_block_orange | Corail orangé | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
@@ -492,6 +493,7 @@ egg_capitaine | Œuf : capitaine squelette | oeufs | 0.1 | 64 | Clic droit sur u
 egg_gardien | Œuf : gardien de la crypte | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : gardien de la crypte. Pour essayer les créatures en créatif. |
 egg_colosse | Œuf : colosse englouti | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : colosse englouti. Pour essayer les créatures en créatif. |
 egg_roi_noye | Œuf : Roi noyé | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : le Roi noyé. Pour essayer les créatures en créatif. |
+egg_gardien_soleil | Œuf : Gardien du Soleil | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : le Gardien du Soleil. Pour essayer les créatures en créatif. |
 egg_rodeuse | Œuf : bête rôdeuse | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : bête rôdeuse. Pour essayer les créatures en créatif. |
 egg_rampant | Œuf : rampant nocturne | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : rampant nocturne. Pour essayer les créatures en créatif. |
 egg_deer | Œuf : cerf | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cerf. Pour essayer les créatures en créatif. |

@@ -164,7 +164,7 @@ pub fn mechs(o: [i32; 3], tag: &str) -> Mech {
     m.seals.push(Seal { min: at(SPAN.0[0] - 1, CISTERN.4 - 2, SPAN.1[0] - 1), max: at(SPAN.0[1] + 1, DEPTH - 1, SPAN.1[1] + 1), until: String::new() });
     let hint = |m: &mut Mech, a: [i32; 3], b: [i32; 3], t: &str| m.hints.push(Hint { min: a, max: b, text: t.into(), shown: false, xp: 0.0 });
     hint(&mut m, at(-12, 1, -6), at(12, 4, 8), "La Grotte du Roi noyé. Sur son île, le temple attend derrière trois chaînes : celle de l'eau (la citerne, à l'ouest), celle de la paroi (la falaise, à l'est), celle du regard (trois rois de pierre se sont détournés de leur temple).");
-    hint(&mut m, at(CISTERN.0 - 2, -7, CISTERN.2 - 2), at(CISTERN.1 + 2, 1, CISTERN.3 + 2), "Une citerne à sec. Au fond, deux leviers de bronze : l'un retient une chaîne, l'autre ouvre l'eau.");
+    hint(&mut m, at(CISTERN.0 - 2, -7, CISTERN.2 - 2), at(CISTERN.1 + 2, 1, CISTERN.3 + 2), "Une citerne à sec, profonde de huit blocs (la chute fait mal). Au fond, deux leviers de bronze : l'un retient une chaîne, l'autre ouvre l'eau.");
     hint(&mut m, at(20, 1, 1), at(26, 4, 8), "Des corniches montent le long de la falaise, jusqu'à une niche. Il faudra sauter par-dessus deux brèches.");
     for (q, _, _) in KINGS { hint(&mut m, at(q[0] - 3, 1, q[2] - 3), at(q[0] + 3, 4, q[2] + 3), "Un roi de pierre, le regard perdu. Clic droit : le faire pivoter vers son temple."); }
     m

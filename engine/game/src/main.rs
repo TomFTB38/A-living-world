@@ -597,6 +597,17 @@ fn capture(a: &[String]) {
         for _ in 0..30 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // Le Temple du Soleil : la pyramide, son portail, la salle et le rayon, un sceau embrasé, le sommet et l'oculus.
+    if let Some(vw) = scene.strip_prefix("plat_soleil_") {
+        let o = [-41, alw_core::gen::FLAT_Y, -10]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false); s.hour = 12.0;
+        s.build_sun_temple(o); pump(&mut s, &mut g);
+        if vw == "sceau" { for k in [0usize, 1] { let q = alw_core::soleil::MIRRORS[k].0; s.turn_statue_at([o[0] + q[0], o[1] + q[1], o[2] + q[2]]); } }
+        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "pyramide" => ([-30.5, 22.0, -40.5], [0.5, 6.0, 0.5]), "portail" => ([0.5, 1.0, -30.5], [0.5, 5.0, -17.5]),
+            "salle" => ([-8.5, 2.0, -9.5], [3.5, 1.0, 2.5]), "sceau" => ([-2.5, 2.0, -9.5], [10.5, 1.0, -4.5]), _ => ([6.5, 16.0, -6.5], [0.5, 10.0, 0.5]) };
+        s.player.p = [o[0] as f64 + eye[0], o[1] as f64 + eye[1], o[2] as f64 + eye[2]]; let d = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin();
+        for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     if scene == "plat_mecanismes" {
         let id = |n: &str| alw_core::blocks::by_name(n).unwrap_or(0); let p = s.player.p; let (x, y, z) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32 + 5);
         s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.player.yaw = 0.0; s.player.pitch = -0.32;

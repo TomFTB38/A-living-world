@@ -125,6 +125,11 @@ jobs:
           shot plat_grotte_citerne -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_grotte_citerne
           shot plat_grotte_paroi -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_grotte_paroi
           shot plat_grotte_rois -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_grotte_rois
+          shot plat_soleil_pyramide -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_soleil_pyramide
+          shot plat_soleil_portail -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_soleil_portail
+          shot plat_soleil_salle -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_soleil_salle
+          shot plat_soleil_sceau -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_soleil_sceau
+          shot plat_soleil_sommet -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_soleil_sommet
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

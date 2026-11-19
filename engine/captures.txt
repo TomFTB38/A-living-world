@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_grotte_puits plat_grotte_temple
+spawn jeu plat_soleil_pyramide plat_soleil_portail plat_soleil_salle plat_soleil_sceau plat_soleil_sommet

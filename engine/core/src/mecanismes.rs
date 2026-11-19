@@ -62,6 +62,11 @@ pub struct Wire {
     /// des statues qui doivent regarder dans une direction (leur orientation, 0 à 3) : toutes, en plus des entrées
     pub faces: Vec<([i32; 3], u8)>,
 }
+/// Un rayon de lumière : il part de `src` dans la direction `dir` (dans le plan horizontal), file dans l'air, tourne d'un
+/// quart de tour sur chaque miroir (selon sa diagonale) et embrase le réceptacle qu'il touche. `day` : seulement en plein jour
+/// (le soleil de l'oculus). Les cases du rayon (`cells`) et les réceptacles embrasés (`lit`) sont gardés pour être éteints.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Beam { pub src: [i32; 3], pub dir: (i32, i32), pub day: bool, pub cells: Vec<[i32; 3]>, pub lit: Vec<[i32; 3]>, pub t: f64 }
 /// Une citerne : des colonnes d'eau (x, z, fond) qui se remplissent jusqu'à `top` tant que le fil `by` est enclenché, et se
 /// vident quand il se relâche, une couche à la fois.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -85,7 +90,7 @@ pub struct Hint { pub min: [i32; 3], pub max: [i32; 3], pub text: String, pub sh
 pub struct Guard { pub min: [i32; 3], pub max: [i32; 3], pub species: String, pub at: [f64; 3], pub doors: Vec<([i32; 3], Id)>, /** 0 endormi, 1 au combat, 2 vaincu */ pub state: u8 }
 /// Tous les mécanismes du monde.
 #[derive(Clone, Debug, Default)]
-pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
+pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
 
 /// Les dégâts des pics (par atteinte), d'une fléchette, et le temps que tient le sol friable.
 pub const SPIKE_DMG: f64 = 5.0; pub const DART_DMG: f64 = 7.0; pub const CRUMBLE_T: f64 = 0.6;
@@ -101,13 +106,13 @@ impl Mech {
     pub fn wire(&self, n: &str) -> Option<&Wire> { self.wires.iter().find(|w| w.name == n) }
     fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) }
     /// Ajoute les mécanismes d'un donjon.
-    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
+    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
 }
 fn inside(p: [i32; 3], min: [i32; 3], max: [i32; 3], m: i32) -> bool { (0..3).all(|i| p[i] >= min[i] - m && p[i] <= max[i] + m) }
 
 impl Session {
     /// Un levier est-il abaissé, une dalle enfoncée ?
-    fn input_on(&self, p: [i32; 3]) -> bool { self.world.get(p[0], p[1], p[2]).is_some_and(|b| { let n = split(name(b)).0; n == "lever_on" || n == "pressure_plate_on" }) }
+    fn input_on(&self, p: [i32; 3]) -> bool { self.world.get(p[0], p[1], p[2]).is_some_and(|b| { let n = split(name(b)).0; n == "lever_on" || n == "pressure_plate_on" || n == "sun_receptor_on" }) }
     /// Quelque chose pèse-t-il sur la dalle `p` : le joueur, une créature, un bloc à pousser ?
     fn weighs(&self, p: [i32; 3]) -> bool {
         let on = |q: [f64; 3]| q[0].floor() as i32 == p[0] && q[2].floor() as i32 == p[2] && ((q[1] - (p[1] + 1) as f64).abs() < 0.3);
@@ -150,6 +155,8 @@ impl Session {
             for p in &w.calm { self.world.edit(p[0], p[1], p[2], id(if act { "spikes_down" } else { "spikes" })); }
             if act { for p in &w.darts { self.dart(*p); } if w.hold > 0.0 { self.notes.push(format!("Vite : {:.0} secondes avant que ça ne retombe", w.hold)); } }
         }
+        // les rayons de lumière, retracés cinq fois par seconde
+        for k in 0..self.mech.beams.len() { self.mech.beams[k].t -= dt; if self.mech.beams[k].t > 0.0 { continue; } self.mech.beams[k].t = 0.2; self.beam_trace(k); }
         // les citernes : une couche d'eau de plus (ou de moins) toutes les 0,3 s
         for k in 0..self.mech.pools.len() { let pl = &self.mech.pools[k]; let bottom = pl.cols.iter().map(|c| c[2]).min().unwrap_or(0);
             let target = if self.mech.is_on(&pl.by) { pl.top } else { bottom - 1 }; if pl.level == target { continue; }
@@ -220,12 +227,36 @@ impl Session {
         self.horde.shots.push((from, [dir[0] * 24.0, 0.6, dir[2] * 24.0], 0.0, DART_DMG, "Une fléchette piégée")); self.sound.swing(None, 0.6);
     }
     /// Clic droit sur un levier : il bascule. Rend vrai si c'en était un.
-    /// L'orientation d'une statue (0 à 3), si c'en est une.
-    pub fn facing_at(&self, p: [i32; 3]) -> Option<u8> { let b = self.world.get(p[0], p[1], p[2])?; let (n, f) = split(name(b)); if !n.starts_with("statue_") { return None; } Some(f.parse().unwrap_or(0)) }
+    /// L'orientation d'une statue ou d'un miroir (0 à 3), si c'en est un.
+    pub fn facing_at(&self, p: [i32; 3]) -> Option<u8> { let b = self.world.get(p[0], p[1], p[2])?; let (n, f) = split(name(b)); if !n.starts_with("statue_") && n != "sun_mirror" { return None; } Some(f.parse().unwrap_or(0)) }
+    /// Le chemin d'un rayon : ses cases (et leur sens : en x ?) et le réceptacle qu'il touche.
+    pub fn beam_path(&self, src: [i32; 3], dir: (i32, i32)) -> (Vec<([i32; 3], bool)>, Option<[i32; 3]>) {
+        let (mut p, mut d) = (src, dir); let mut out = Vec::new(); let mut seen = std::collections::BTreeSet::new();
+        for _ in 0..160 { p = [p[0] + d.0, p[1], p[2] + d.1]; if !seen.insert((p, d)) { break; } let Some(b) = self.world.get(p[0], p[1], p[2]) else { break }; let (n, f) = split(name(b));
+            if b == 0 || n == "light_beam" { out.push((p, d.0 != 0)); continue; }
+            if n == "sun_mirror" { let f: u8 = f.parse().unwrap_or(0); d = if f % 2 == 0 { (d.1, d.0) } else { (-d.1, -d.0) }; continue; }
+            if n == "sun_receptor" || n == "sun_receptor_on" { return (out, Some(p)); }
+            if crate::blocks::is_solid(b) || crate::blocks::is_water(b) { break; } }
+        (out, None)
+    }
+    fn beam_trace(&mut self, k: usize) {
+        let bm = self.mech.beams[k].clone(); let shine = !bm.day || (6.0..20.0).contains(&self.hour);
+        let (path, hit) = if shine { self.beam_path(bm.src, bm.dir) } else { (Vec::new(), None) };
+        let (bz, bx) = (id("light_beam"), with_face("light_beam", "1")); let mut e: Vec<(i32, i32, i32, Id)> = Vec::new();
+        for c in &bm.cells { if !path.iter().any(|(p, _)| p == c) { if let Some(b) = self.world.get(c[0], c[1], c[2]) { if b == bz || b == bx { e.push((c[0], c[1], c[2], 0)); } } } }
+        for (p, along_x) in &path { let want = if *along_x { bx } else { bz }; if self.world.get(p[0], p[1], p[2]) != Some(want) { e.push((p[0], p[1], p[2], want)); } }
+        let mut lit = Vec::new(); if let Some(h) = hit { lit.push(h); }
+        for (c, on) in bm.lit.iter().map(|c| (*c, false)).chain(lit.iter().map(|c| (*c, true))) { if let Some(b) = self.world.get(c[0], c[1], c[2]) { let (n, f) = split(name(b)); let to = if on { "sun_receptor_on" } else { "sun_receptor" };
+            if (n == "sun_receptor" || n == "sun_receptor_on") && n != to && !(!on && lit.contains(&c)) { e.push((c[0], c[1], c[2], with_face(to, f))); if on { self.notes.push("Le rayon frappe un sceau solaire, qui s'embrase".into()); self.sound.place("glass"); } } } }
+        if !e.is_empty() { self.world.edit_many(&e); self.dirty = true; }
+        let b = &mut self.mech.beams[k]; b.cells = path.into_iter().map(|(p, _)| p).collect(); b.lit = lit;
+    }
     /// Faire pivoter d'un quart de tour la statue en `p` (ses deux blocs).
     pub fn turn_statue_at(&mut self, p: [i32; 3]) -> bool {
         let Some(f) = self.facing_at(p) else { return false }; let b = split(name(self.world.get(p[0], p[1], p[2]).unwrap())).0;
-        let base = if b == "statue_top" { [p[0], p[1] - 1, p[2]] } else { p }; let g = (f + 1) % 4; let face = if g == 0 { String::new() } else { g.to_string() };
+        let g = (f + 1) % 4; let face = if g == 0 { String::new() } else { g.to_string() };
+        if b == "sun_mirror" { self.world.edit(p[0], p[1], p[2], with_face("sun_mirror", &face)); self.sound.place("stone"); self.dirty = true; for k in 0..self.mech.beams.len() { self.beam_trace(k); } return true; }
+        let base = if b == "statue_top" { [p[0], p[1] - 1, p[2]] } else { p };
         let e = [(base[0], base[1], base[2], with_face("statue_base", &face)), (base[0], base[1] + 1, base[2], with_face("statue_top", &face))]; self.world.edit_many(&e);
         self.sound.place("stone"); self.dirty = true; true
     }
@@ -265,6 +296,7 @@ impl Session {
         for h in &self.mech.hints { o += &format!("hint {} {} {} {} {}\n", pts(&[h.min]), pts(&[h.max]), h.shown as u8, h.xp, h.text); }
         for g in &self.mech.guards { let doors = if g.doors.is_empty() { "-".to_string() } else { g.doors.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") };
             o += &format!("guard {} {} {} {},{},{} {} {}\n", pts(&[g.min]), pts(&[g.max]), g.species, g.at[0], g.at[1], g.at[2], g.state, doors); }
+        for b in &self.mech.beams { o += &format!("beam {} {},{} {} {} {}\n", pts(&[b.src]), b.dir.0, b.dir.1, b.day as u8, pts(&b.cells), pts(&b.lit)); }
         for p in &self.mech.pools { o += &format!("pool {} {} {} {}\n", p.top, p.level, word(&p.by), pts(&p.cols)); }
         if !self.mech.chests.is_empty() { o += &format!("mchest {}\n", pts(&self.mech.chests)); }
         if !self.mech.secrets.is_empty() { o += &format!("msecret {}\n", pts(&self.mech.secrets)); }
@@ -306,6 +338,10 @@ impl Session {
     }
     pub(crate) fn mchest_load(&mut self, rest: &str) { self.mech.chests.extend(pts(rest.trim())); }
     pub(crate) fn msecret_load(&mut self, rest: &str) { self.mech.secrets.extend(pts(rest.trim())); }
+    pub(crate) fn beam_load(&mut self, rest: &str) {
+        let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 5 { return; } let src = pts(a[0]); if src.is_empty() { return; } let d: Vec<i32> = a[1].split(',').filter_map(|v| v.parse().ok()).collect(); if d.len() != 2 { return; }
+        self.mech.beams.push(Beam { src: src[0], dir: (d[0], d[1]), day: a[2] == "1", cells: pts(a[3]), lit: pts(a[4]), t: 0.0 });
+    }
     pub(crate) fn pool_load(&mut self, rest: &str) {
         let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 4 { return; }
         self.mech.pools.push(Pool { top: a[0].parse().unwrap_or(0), level: a[1].parse().unwrap_or(0), by: if a[2] == "-" { String::new() } else { a[2].to_string() }, cols: pts(a[3]), t: 0.0 });

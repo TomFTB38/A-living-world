@@ -191,7 +191,8 @@ impl Session {
         let jumped = was_ground && !self.player.ground && self.player.v[1] > 8.0;
         let reach = if self.creative { 13.0 } else { 9.5 };
         let (eye, f) = self.camera(dt); self.eye = eye; self.look = f; let (third, head) = (self.third, [self.player.p[0], self.player.p[1] + 1.5, self.player.p[2]]);
-        let hit = raycast(&self.world, eye, f, reach, &|x, y, z, _| third && (x as f64 + 0.5 - head[0]) * f[0] + (y as f64 + 0.5 - head[1]) * f[1] + (z as f64 + 0.5 - head[2]) * f[2] < -0.5);
+        let beams = (crate::blocks::by_name("light_beam").unwrap_or(0), crate::blocks::by_name("light_beam@1").unwrap_or(0)); // le rayon du Temple du Soleil ne se vise pas
+        let hit = raycast(&self.world, eye, f, reach, &|x, y, z, b| (b != 0 && (b == beams.0 || b == beams.1)) || third && (x as f64 + 0.5 - head[0]) * f[0] + (y as f64 + 0.5 - head[1]) * f[1] + (z as f64 + 0.5 - head[2]) * f[2] < -0.5);
         self.target = hit.map(|t| t.0); self.ray_t = hit.map_or(0.0, |t| t.1); // Herbes et fleurs ne cachent pas le gibier : seul un bloc solide fait écran.
         self.prey = if alive { self.aim_prey(eye, f, hit.filter(|t| is_solid(t.0.id)).map_or(f64::INFINITY, |t| t.1)) } else { None };
         let open = self.inv_open || self.player.rolling() || !alive; // ni coup ni pose en pleine roulade
