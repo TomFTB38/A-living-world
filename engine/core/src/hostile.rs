@@ -1077,6 +1077,18 @@ impl Horde {
                         let leg = mul(&root, &mul(&trs(0.3 * sx, 0.1, *z, (if sx > 0.0 { 0.0 } else { std::f64::consts::PI }) + spread * 0.6 + swing, 0.0, 1.0), &roll_z(up + curl)));
                         put(pl, leg); } }
                 }
+                Body::Humain if s.skin == "reine" => {
+                    // La Reine des glaces glisse sans un pas, la robe ondoyant ; le sceptre dressé dans la main droite ; elle lève la
+                    // gauche pour appeler le froid quand elle prépare un coup, puis abat le sceptre ; des éclats tournoient autour d'elle.
+                    let t = f.phase; let float = 0.08 + 0.05 * sin(t * 0.8); let lean = 0.06 + 0.1 * run - wind * 0.15 + strike * 0.3 - flinch * 0.4;
+                    let root = mul(&base, &trs(0.0, 0.9 + float, 0.0, 0.03 * sin(t * 0.5), 0.0, 1.0)); let torso = mul(&root, &trs(0.0, 0.0, 0.0, 0.0, lean, 1.0));
+                    put("rnTorso", torso); put("rnHead", mul(&torso, &trs(0.0, 0.6, 0.0, 0.15 * sin(t * 0.4) * (1.0 - run), -lean * 0.5 + 0.08 * wind, 1.0)));
+                    let right = -0.35 - 0.9 * wind + 1.4 * strike; let left = -0.2 + 0.05 * sin(t * 0.7) - 2.2 * wind + 0.6 * strike;
+                    let ar = mul(&torso, &mul(&trs(0.27, 0.54, 0.0, 0.0, right, 1.0), &roll_z(0.12))); put("rnArm", ar); put("rnStaff", mul(&ar, &trs(0.0, -0.68, 0.06, 0.0, -right - lean + 0.4 * strike, 1.0)));
+                    put("rnArm", mul(&torso, &mul(&trs(-0.27, 0.54, 0.0, 0.0, left, 1.0), &roll_z(-0.18 - 0.5 * wind))));
+                    for i in 0..7 { let a = t * (0.5 + 0.9 * wind) + i as f64 * std::f64::consts::TAU / 7.0; let r = 0.95 + 0.15 * sin(t * 0.6 + i as f64) - 0.3 * wind; let h = 0.5 + 0.35 * sin(t * 0.9 + i as f64 * 1.7) + 0.4 * wind;
+                        put("rnShard", mul(&base, &trs(cos(a) * r, h + float, sin(a) * r, -a, 0.4 * sin(a * 2.0), 1.0))); }
+                }
                 Body::Humain => {
                     // La charpente d'homme : le noyé avance bras tendus, l'archer tient son arc à bout de bras et tire la corde, le fantôme
                     // flotte sans jambes, le sylvain à l'affût lève ses bras comme des branches.

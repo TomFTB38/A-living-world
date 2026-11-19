@@ -635,7 +635,7 @@ fn capture(a: &[String]) {
         let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false); s.hour = 11.0;
         s.build_ice_temple(o); pump(&mut s, &mut g); let f = o[1] + 1;
         let (eye, look): ([f64; 3], [f64; 3]) = match vw { "facade" => ([-16.5, 4.0, -34.5], [0.0, 8.0, -7.0]), "nef" => ([0.5, 6.0, -5.5], [0.5, 1.0, 14.0]), "bassin" => ([-12.5, 4.0, -2.5], [-12.5, -1.0, 5.0]),
-            "estrade" => ([3.5, 2.0, 1.5], [0.5, 2.0, 11.0]), _ => ([0.5, 2.0, 22.5], [0.5, 2.0, 32.0]) };
+            "estrade" => ([3.5, 2.0, 1.5], [0.5, 2.0, 11.0]), "reine" => ([2.5, 1.0, 22.5], [0.5, 3.0, 27.0]), _ => ([0.5, 2.0, 22.5], [0.5, 2.0, 32.0]) };
         s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
