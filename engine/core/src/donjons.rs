@@ -148,8 +148,8 @@ fn build_room(p: &mut Plan, o: [i32; 3], room: Room, k: usize, name: &str, boss:
             let g = 6 + zt; let zp = zt + 1;
             for u in -8..=-1 { for w in zp..=zp + 3 { b.n([u, g, w], if (u + w) % 3 == 0 { "mossy_stone" } else { "stone_bricks" }); for v in g - 3..g { b.wall([u, v, w]); } for v in g + 1..=g + 9 { b.air([u, v, w]); } } }
             for u in [-6, -3] { b.column(u, zp, g + 1, g + 5); } for u in -7..=-2 { b.t([u, g + 6, zp], "lintel", (0, -1)); }
-            b.t([-6, g + 7, zp], "stone_bricks_stairs", (1, 0)); b.n([-5, g + 7, zp], "stone_bricks"); b.n([-4, g + 7, zp], "stone_bricks"); b.t([-3, g + 7, zp], "stone_bricks_stairs", (-1, 0));
-            b.t([-5, g + 8, zp], "stone_bricks_stairs", (1, 0)); b.t([-4, g + 8, zp], "stone_bricks_stairs", (-1, 0));
+            // le fronton, en gradins de grès clair, deux bas-reliefs en son milieu
+            for u in [-7, -6, -3, -2] { b.n([u, g + 7, zp], "sandstone"); } for u in [-5, -4] { b.t([u, g + 7, zp], "wall_relief", (0, -1)); b.n([u, g + 8, zp], "sandstone"); } for u in [-6, -3] { b.n([u, g + 8, zp], "sandstone_slab"); }
             for u in [-8, -1] { b.statue(u, g + 1, zp, (0, -1)); b.n([u, g + 1, zp + 3], "brazier_stand"); }
             for w in 3..zp { for u in [-6, -3] { let gg = rel(&b, u, w).max(if w <= 5 { DEPTH } else { 0 }); b.n([u, gg + 1, w], "stone_bricks_slab"); } }
             hint(&mut m, "Des ruines englouties. Les salles s'enchaînent sous la terre ; au bout, un trésor et son gardien. (Clic droit : abaisser un levier, pousser un bloc.)");

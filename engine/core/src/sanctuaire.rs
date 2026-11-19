@@ -123,8 +123,7 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     // de pierre qui accueillent le visiteur, deux brasiers ; un muret de part et d'autre de la descente.
     for u in -5..=5 { for w in -18..=-14 { s.n(u, top, w, if (u + w) % 3 == 0 { "mossy_stone" } else { "stone_bricks" }); } }
     for u in [-2, 2] { s.column(u, -14, top + 1, top + 5, "stone_pillar"); } for u in -3..=3 { s.t(u, top + 6, -14, "lintel", 0, 1); }
-    s.t(-2, top + 7, -14, "stone_bricks_stairs", 1, 0); for u in -1..=1 { s.n(u, top + 7, -14, "stone_bricks"); } s.t(2, top + 7, -14, "stone_bricks_stairs", -1, 0);
-    s.t(-1, top + 8, -14, "stone_bricks_stairs", 1, 0); s.n(0, top + 8, -14, "stone_bricks"); s.t(1, top + 8, -14, "stone_bricks_stairs", -1, 0); s.n(0, top + 9, -14, "stone_bricks_slab");
+    for u in [-3, -2, 2, 3] { s.n(u, top + 7, -14, "sandstone"); } for u in -1..=1 { s.t(u, top + 7, -14, "wall_relief", 0, 1); s.n(u, top + 8, -14, "sandstone"); } for u in [-2, 2] { s.n(u, top + 8, -14, "sandstone_slab"); } s.n(0, top + 9, -14, "sandstone");
     for u in [-4, 4] { s.statue(u, top + 1, -14, 0, 1); s.n(u, top + 1, -17, "brazier_stand"); }
     for w in -13..=-11 { for u in [-2, 2] { s.n(u, top + 1, w, "stone_bricks_slab"); } }
     s.n(-4, top + 1, -11, "mossy_stone"); s.n(4, top + 1, -12, "stone_bricks_slab"); s.n(-5, top + 1, -9, "column_shaft");
