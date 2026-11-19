@@ -240,7 +240,8 @@ pub fn mechs(o: [i32; 3], tag: &str) -> Mech {
     m
 }
 
-/// Le solveur de chemins : les cases où le joueur peut se tenir (les pieds), depuis `from`, sans sauter plus d'un bloc,
+/// Le solveur de chemins : les cases où le joueur peut se tenir (les pieds), depuis `from`, sans sauter plus d'un bloc de haut
+/// (ni plus d'un trou d'un bloc de large),
 /// sans grimper (compétence Escalade) ni casser ou poser quoi que ce soit, dans la boîte `min`..`max`. On marche, on monte
 /// d'un bloc si la tête passe, on se laisse tomber (huit blocs au plus), on monte et descend les échelles, on nage. Le sol
 /// friable ne compte pas comme un appui (il cède) ; les pics comptent comme passables (ils blessent, sans arrêter).
@@ -261,6 +262,9 @@ pub fn reach(w: &impl Voxels, from: [i32; 3], min: [i32; 3], max: [i32; 3]) -> B
             let n = [c[0] + dx, c[1], c[2] + dz];
             if stand(n) { next.push(n); continue; }
             let n1 = [n[0], n[1] + 1, n[2]]; if pass(head) && stand(n1) { next.push(n1); continue; }
+            // un saut par-dessus un trou d'un bloc, au même niveau ou un plus bas (en courant, on franchit deux blocs)
+            if pass(n) && pass(n1) && pass(head) && pass([n[0], n[1] + 2, n[2]]) && !stand(n) { let t = [c[0] + 2 * dx, c[1], c[2] + 2 * dz]; let t2 = [t[0], t[1] + 2, t[2]];
+                if stand(t) && pass(t2) { next.push(t); } else { let t1 = [t[0], t[1] - 1, t[2]]; if pass(t) && stand(t1) && !stand([n[0], n[1] - 1, n[2]]) { next.push(t1); } } }
             if pass(n) && pass(n1) { for k in 1..=8 { let d = [n[0], n[1] - k, n[2]]; if !inb(d) || !pass(d) { break; } if stand(d) { next.push(d); break; } } }
         }
         for n in next { if seen.insert(n) { q.push_back(n); } }

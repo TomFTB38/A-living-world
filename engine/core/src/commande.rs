@@ -8,9 +8,9 @@ use crate::session::Session;
 use crate::wild::Kind;
 
 /// Les œufs d'apparition : identifiant de l'objet, nom de la créature.
-pub const EGGS: [(&str, &str); 45] = [
+pub const EGGS: [(&str, &str); 46] = [
     ("egg_rodeur", "rôdeur décharné"), ("egg_brigand", "brigand errant"), ("egg_rodeuse", "bête rôdeuse"), ("egg_rampant", "rampant nocturne"),
-    ("egg_colosse", "colosse englouti"), ("egg_brigand_archer", "archer brigand"), ("egg_brigand_epeiste", "épéiste brigand"), ("egg_brigand_cavalier", "cavalier brigand"), ("egg_brigand_chef", "chef de guerre brigand"), ("egg_capitaine", "capitaine squelette"), ("egg_gardien", "gardien de la crypte"),
+    ("egg_colosse", "colosse englouti"), ("egg_roi_noye", "Roi noyé"), ("egg_brigand_archer", "archer brigand"), ("egg_brigand_epeiste", "épéiste brigand"), ("egg_brigand_cavalier", "cavalier brigand"), ("egg_brigand_chef", "chef de guerre brigand"), ("egg_capitaine", "capitaine squelette"), ("egg_gardien", "gardien de la crypte"),
     ("egg_deer", "cerf"), ("egg_fox", "renard"), ("egg_hare", "lièvre"), ("egg_crow", "corbeau"), ("egg_wolf", "loup"), ("egg_boar", "sanglier"), ("egg_bear", "ours"),
     ("egg_ibex", "bouquetin"), ("egg_lizard", "lézard"), ("egg_mackerel", "maquereau"), ("egg_reef", "poisson de récif"), ("egg_dolphin", "dauphin"), ("egg_crab", "crabe"),
     ("egg_gull", "goéland"), ("egg_shark", "requin"), ("egg_whale", "baleine"),
@@ -40,7 +40,7 @@ impl Session {
             "coin1" => self.set_corner(0), "coin2" => self.set_corner(1),
             "exporter" | "export" => self.export(arg),
             "structures" => { let v = crate::structures::names(); if v.is_empty() { "Aucune structure exportée pour l'instant : /coin1, /coin2 puis /exporter nom".into() } else { format!("Structures : {}", v.join(", ")) } }
-            "aide" | "help" | "?" => "Commandes : /jour /midi /soir /nuit /heure <h> /avance [h] /vitesse <x> /figer /survie /creatif /vol ; construction : /coin1 /coin2 /exporter [nom] /structures ; village pilote : /village, /brigands ; exploration : /lieu [tour|cimetiere|brigands|sanctuaire|ruines], /grotte [biome], /grotte mine, /grotte bouche, /grotte camp, /grotte autel, /grotte caveau".into(),
+            "aide" | "help" | "?" => "Commandes : /jour /midi /soir /nuit /heure <h> /avance [h] /vitesse <x> /figer /survie /creatif /vol ; construction : /coin1 /coin2 /exporter [nom] /structures ; village pilote : /village, /brigands ; exploration : /lieu [tour|cimetiere|brigands|sanctuaire|ruines|grotte], /grotte [biome], /grotte mine, /grotte bouche, /grotte camp, /grotte autel, /grotte caveau".into(),
             "jour" | "matin" => at(self, 7.0, "le jour se lève"), "midi" => at(self, 12.0, "plein jour"), "soir" => at(self, 19.0, "le soir tombe"), "nuit" => at(self, 22.0, "la nuit"),
             "heure" | "temps" => match num(arg) { Some(h) => at(self, h.rem_euclid(24.0), "c'est fait"), None => format!("Il est {}h{:02}. Exemple : /heure 18", self.hour as i32, ((self.hour.fract()) * 60.0) as i32) },
             "avance" | "passer" => { let h = num(arg).unwrap_or(1.0).clamp(0.0, 240.0); self.pass_hours(h); format!("{h} heure(s) passent : il est {}h{:02}", self.hour as i32, (self.hour.fract() * 60.0) as i32) }

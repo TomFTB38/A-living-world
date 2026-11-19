@@ -384,7 +384,7 @@ impl Session {
                 if let Some((id, n)) = pickup(name) { if self.world.edit(t.x, t.y, t.z, 0) { self.add_item(id, n); self.sound.place(name); self.anim.trigger(); self.use_t = 0.3; self.dirty = true; } return true; }
                 if let Some((id, n, bare)) = harvest(name) { if let Some(b) = by_name(bare) { if self.world.edit(t.x, t.y, t.z, b) { self.add_item(id, n); self.regrow.push((p, self.hours)); self.sound.place(name); self.anim.trigger(); self.use_t = 0.4; self.dirty = true; } } return true; }
                 // Mécanismes : le levier bascule, le bloc à pousser glisse d'une case (accroupi, on pose contre eux).
-                if !self.player.crouch && self.use_t <= 0.0 && (self.lever_at(p) || self.push_at(p)) { self.use_t = 0.3; self.anim.trigger(); return true; }
+                if !self.player.crouch && self.use_t <= 0.0 && (self.lever_at(p) || self.push_at(p) || self.turn_statue_at(p)) { self.use_t = 0.3; self.anim.trigger(); return true; }
                 // Porte et trappe : clic droit pour ouvrir ou fermer (accroupi, on pose contre elles).
                 if let Some(si) = crate::shapes::info(t.id).filter(|i| matches!(i.kind, crate::shapes::Kind::Door | crate::shapes::Kind::Trapdoor | crate::shapes::Kind::Shutter)) { if !self.player.crouch {
                     if self.use_t > 0.0 { return true; } self.toggle(p, si); self.use_t = 0.25; return true; } }
@@ -701,6 +701,7 @@ impl Session {
                 Some("home") => self.home_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("hint") => self.hint_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("guard") => self.guard_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
+                Some("pool") => self.pool_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("mvault") => self.mvault_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("msecret") => self.msecret_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("mchest") => self.mchest_load(&a.by_ref().collect::<Vec<_>>().join(" ")),

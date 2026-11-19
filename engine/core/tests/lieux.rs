@@ -6,7 +6,7 @@ fn ready(s: &mut Session) { for _ in 0..8000 { let p = s.player.p; s.world.updat
 
 #[test]
 fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
-    let w = WorldGen::new(SEED); let all = w.places_near(-38.0, 0.0, 2500.0); let mut seen = [0usize; 5];
+    let w = WorldGen::new(SEED); let all = w.places_near(-38.0, 0.0, 2500.0); let mut seen = [0usize; 6];
     let name = |b: u16| BLOCKS[b as usize].name;
     for pl in &all {
         let k = LIEUX.iter().position(|l| *l == pl.kind).unwrap(); seen[k] += 1; if seen[k] > 3 { continue; } // trois de chaque sorte, bloc à bloc
@@ -39,6 +39,15 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
                 for (u, w) in [(0, 4), (-15, 7), (-17, 21), (0, 21), (17, 24), (17, 7), (17, -4)] { assert_eq!(at(pl.x + u, f + 2, pl.z + w), 0, "salle creusée en {u} {w}"); }
                 for (u, ww) in [(-20, 20), (0, 25), (20, 20), (17, -8)] { let g = w_ground(&w, pl.x + u, pl.z + ww); assert!(g >= f + sa::R4.4 + 2, "la voûte reste sous terre en {u} {ww} : sol {g}, voûte {}", f + sa::R4.4 + 1); }
             }
+            Lieu::Grotte => {
+                // l'esplanade et sa statue, l'escalier du puits, le temple fermé sur son île ; la voûte reste sous terre
+                use alw_core::grotte::{self as gr, DEPTH}; let f = pl.y - DEPTH; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, f + v, pl.z + w);
+                assert!(name(rel(0, DEPTH + 4, 10)).starts_with("statue_top"), "la statue du roi"); assert_eq!(name(rel(0, DEPTH + 1, -10)), "column_base", "la colonnade");
+                for (i, (u, w, top, ..)) in gr::spiral().iter().enumerate() { assert!(name(rel(*u, *top, *w)).starts_with("stone_bricks"), "marche {i}"); }
+                assert!(name(rel(0, 3, gr::DOOR_W)).starts_with("iron_bars"), "la grille du temple"); assert_eq!(name(rel(0, 3, gr::CHAINS_W)), "chain");
+                assert_eq!(rel(0, 5, 18), 0, "la cella"); assert_eq!(name(rel(0, -1, 9)), "water", "le lac");
+                for (u, ww) in [(-20, 12), (0, 12), (20, 12), (0, 30)] { let g = w_ground(&w, pl.x + u, pl.z + ww); assert!(g >= f + 24, "la voûte reste sous terre en {u} {ww} : sol {g}"); }
+            }
             Lieu::Ruines => {
                 // le puits descend jusqu'à la salle d'entrée ; chaque salle est creusée ; le trésor est au fond ; la voûte reste sous terre
                 use alw_core::sanctuaire::DEPTH; let f = pl.y - DEPTH; let l = pl.ruins(); let rel = |q: [i32; 3]| at(pl.x + q[0], f + q[1], pl.z + q[2]);
@@ -56,7 +65,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
         // les gardiens ont les pieds sur du plein et la tête à l'air
         for (id, g) in pl.guards() { assert!(alw_core::hostile::species(id).is_some(), "{id}"); let (x, y, z) = (g[0].floor() as i32, g[1].floor() as i32, g[2].floor() as i32); assert!(is_solid(at(x, y - 1, z)), "{id} de {:?} n'a rien sous les pieds en {x} {y} {z}", pl.kind); assert!(!is_solid(at(x, y + 1, z)), "{id} de {:?} emmuré", pl.kind); }
     }
-    println!("lieux : {} tours, {} cimetières, {} camps, {} sanctuaires, {} ruines", seen[0], seen[1], seen[2], seen[3], seen[4]); assert!(seen.iter().all(|n| *n >= 6), "chaque sorte de lieu existe : {seen:?}"); assert!(seen[0] * 10 < seen.iter().sum::<usize>() * 6, "les tours ne prennent pas toute la place");
+    println!("lieux : {} tours, {} cimetières, {} camps, {} sanctuaires, {} ruines, {} grottes", seen[0], seen[1], seen[2], seen[3], seen[4], seen[5]); assert!(seen.iter().all(|n| *n >= 6), "chaque sorte de lieu existe : {seen:?}"); assert!(seen[0] * 10 < seen.iter().sum::<usize>() * 6, "les tours ne prennent pas toute la place");
     assert!(WorldGen::new(alw_core::gen::FLAT).places_near(0.0, 0.0, 800.0).is_empty(), "rien dans le monde plat");
 }
 
@@ -64,7 +73,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
 fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
     let w = WorldGen::new(SEED); let mut s = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); ready(&mut s); s.hour = 12.0; let sp = |id: &str| alw_core::hostile::species(id).unwrap();
     assert!(s.command("/lieu chateau").contains("inconnu"));
-    for (key, who, n, loot) in [("tour", "archer", 4, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("sanctuaire", "noye", 3, "idole_engloutie"), ("ruines", "rodeur", 2, "worn_coin"), ("cimetiere", "archer", 3, "worn_coin")] {
+    for (key, who, n, loot) in [("tour", "archer", 4, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("sanctuaire", "noye", 3, "idole_engloutie"), ("ruines", "rodeur", 2, "worn_coin"), ("grotte", "noye", 3, "worn_coin"), ("cimetiere", "archer", 3, "worn_coin")] {
         s.horde.foes.clear(); let msg = s.command(&format!("/lieu {key}")); ready(&mut s); let pl = w.places_near(s.player.p[0], s.player.p[2], 40.0).into_iter().next().unwrap_or_else(|| panic!("{key} : {msg}")); assert_eq!(pl.kind.key(), key, "{msg}");
         s.notes.clear(); for _ in 0..3 { s.tick(0.05, Input::default(), Actions::default()); }
         assert!(s.horde.foes.iter().filter(|f| f.sp == sp(who)).count() >= n, "{key} : {n} {who} attendus, on a {:?}", s.horde.foes.iter().map(|f| (alw_core::hostile::bestiary().species[f.sp].id, f.p.map(|v| v.round()), f.hp)).collect::<Vec<_>>()); assert!(s.notes.iter().any(|t| t.contains("en vue")), "{key} : annoncé");
@@ -74,6 +83,7 @@ fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
         let before = s.horde.foes.len(); for _ in 0..40 { s.tick(0.05, Input::default(), Actions::default()); } assert!(s.horde.foes.len() <= before + 2, "{key} : on ne relâche pas des gardiens à chaque image");
         s.open_chest(pl.chest()); let got = &s.chests[&pl.chest()]; assert!(got.iter().flatten().any(|st| st.item == loot), "{key} : {loot} dans le coffre, on a {:?}", got.iter().flatten().map(|st| st.item).collect::<Vec<_>>()); s.close_chest(); s.inv_open = false;
         if key == "ruines" { assert!(s.mech.wires.iter().any(|w| w.name.starts_with(&format!("d{}:{}:", pl.x, pl.z))), "les fils des ruines"); assert_eq!(s.mech.guards.len(), 2, "le colosse du sanctuaire et le gardien des ruines"); }
+        if key == "grotte" { assert!(s.mech.wires.iter().any(|w| w.name.starts_with(&format!("g{}:{}:", pl.x, pl.z))), "les fils de la grotte"); assert_eq!(s.mech.pools.len(), 1, "la citerne"); }
         if key == "sanctuaire" {
             // ses mécanismes se sont branchés à l'approche, et son plan, posé par la génération du monde, tient : de la salle
             // de l'eau noire on va aux trois leviers, pas au-delà ; résolus, la grille se lève

@@ -598,11 +598,12 @@ fn arrow(from: [f64; 3], aim: [f64; 3], sp: f64, dmg: f64, cause: &'static str) 
 const HEAVY_ARROW: &str = "La flèche lourde";
 /// Ce que dit le boss qui frappe : le chef de guerre ou le gardien de la crypte.
 fn boss_cause(s: &Species, mv: u8) -> &'static str { match (s.id, mv) {
+    ("roi_noye", MV_ECRASE) => "Le trident du Roi noyé, abattu de tout son poids", ("roi_noye", MV_CHARGE) => "La ruée du Roi noyé", ("roi_noye", _) => "Le trident du Roi noyé",
     ("colosse", MV_ECRASE) => "Le trident du colosse englouti, abattu de tout son poids", ("colosse", MV_CHARGE) => "La ruée du colosse englouti", ("colosse", _) => "Le trident du colosse englouti",
     ("gardien", MV_ECRASE) => "Le poing du gardien de la crypte", ("gardien", MV_CHARGE) => "La ruée du gardien de la crypte", ("gardien", _) => "Les griffes du gardien de la crypte",
     (_, MV_TAILLE) => "La taille d'un chef de guerre brigand", (_, MV_ECRASE) => "La frappe écrasante d'un chef de guerre brigand", (_, MV_CHARGE) => "La ruée d'un chef de guerre brigand", _ => "La grande hache d'un chef de guerre brigand" } }
 /// Ceux qu'appelle le boss à mi-vie.
-fn boss_calls(s: &Species) -> &'static str { match s.id { "gardien" => "rodeur", "capitaine" => "archer", "colosse" => "noye", _ => "brigand" } }
+fn boss_calls(s: &Species) -> &'static str { match s.id { "gardien" => "rodeur", "capitaine" => "archer", "colosse" | "roi_noye" => "noye", _ => "brigand" } }
 fn reel(f: &mut Foe, ev: &mut Vec<FoeEv>) { f.broken = REEL_T; f.posture = 0.0; f.wind = 0.0; f.mv = 0; f.combo = 0; f.lunge = 0.0; f.speed = 0.0;
     // le cavalier, garde brisée, vide les étriers : il tombe, sonné, et finit à pied ; son cheval s'enfuit
     if bestiary().species[f.sp].body == Body::Cavalier { if let Some(k) = species("brigand") { let part = f.hp / f.max; let s = &bestiary().species[k]; f.sp = k; f.max = s.hp * if f.vet { 1.25 } else { 1.0 }; f.hp = (f.max * part).max(1.0); f.state = Ai::Combat; f.cd = REEL_T + 0.5; ev.push(FoeEv::Unhorse(f.p, f.yaw)); return; } }

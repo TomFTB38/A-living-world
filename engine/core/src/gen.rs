@@ -297,6 +297,8 @@ impl WorldGen {
         self.scatter_deco(&mut v, ox, oz, &heights, &waters, &info);
         self.hang_vines(&mut v, ox, oz); self.snow_cover(&mut v, ox, oz);
         self.karst(&mut v, ox, oz, &heights);
+        // les lieux souterrains (sanctuaire, ruines, grotte) reprennent le dessus sur une salle karstique qui les croiserait
+        self.restamp_underground(&mut v, cx, cz, &heights);
         v
     }
     fn scatter_deco(&self, v: &mut [Id], ox: i32, oz: i32, heights: &[i32], waters: &[i32], info: &[(f64, f64, f64, f64, f64)]) {
@@ -439,6 +441,14 @@ impl WorldGen {
             if cur == 0 { v[k] = id; } else if id != 0 && (st.force || (is_deco(cur) && !is_branch(cur))) { v[k] = id; } // les branches d'un arbre voisin restent en place
             if st.force && is_solid(id) && y > heights[x as usize + z as usize * CX] { heights[x as usize + z as usize * CX] = y; }
         }
+    }
+    fn restamp_underground(&self, v: &mut [Id], cx: i32, cz: i32, heights: &[i32]) {
+        let (ox, oz) = (cx * CX as i32, cz * CX as i32); let (x0, z0, x1, z1) = (ox - STAMP_REACH, oz - STAMP_REACH, ox + CX as i32 + STAMP_REACH, oz + CX as i32 + STAMP_REACH);
+        if self.halls_near(ox, oz, ox + CX as i32 - 1, oz + CX as i32 - 1).is_empty() { return; } let mut h = heights.to_vec();
+        for gz in fdiv(z0, SITE_CELL)..=fdiv(z1, SITE_CELL) { for gx in fdiv(x0, SITE_CELL)..=fdiv(x1, SITE_CELL) {
+            if !self.place(gx, gz).is_some_and(|p| matches!(p.kind, crate::sites::Lieu::Sanctuaire | crate::sites::Lieu::Ruines | crate::sites::Lieu::Grotte)) { continue; }
+            if let Some(st) = self.cached(5, gx, gz) { Self::apply(&st, v, ox, oz, &mut h); }
+        } }
     }
     fn stamp_all(&self, v: &mut [Id], cx: i32, cz: i32, heights: &mut [i32]) {
         let (ox, oz) = (cx * CX as i32, cz * CX as i32);

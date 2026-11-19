@@ -10,15 +10,15 @@ use crate::noise::{hash_float, hash_int, Rng};
 use crate::shapes::{facing_of, variant};
 use std::collections::BTreeMap;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)] pub enum Lieu { Tour, Cimetiere, Camp, Sanctuaire, Ruines }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)] pub enum Lieu { Tour, Cimetiere, Camp, Sanctuaire, Ruines, Grotte }
 impl Lieu {
-    pub fn name(self) -> &'static str { match self { Lieu::Tour => "Tour de guet en ruine", Lieu::Cimetiere => "Cimetière abandonné", Lieu::Camp => "Camp de brigands", Lieu::Sanctuaire => "Sanctuaire englouti", Lieu::Ruines => "Ruines englouties" } }
-    pub fn key(self) -> &'static str { match self { Lieu::Tour => "tour", Lieu::Cimetiere => "cimetiere", Lieu::Camp => "brigands", Lieu::Sanctuaire => "sanctuaire", Lieu::Ruines => "ruines" } }
+    pub fn name(self) -> &'static str { match self { Lieu::Tour => "Tour de guet en ruine", Lieu::Cimetiere => "Cimetière abandonné", Lieu::Camp => "Camp de brigands", Lieu::Sanctuaire => "Sanctuaire englouti", Lieu::Ruines => "Ruines englouties", Lieu::Grotte => "Grotte du Roi noyé" } }
+    pub fn key(self) -> &'static str { match self { Lieu::Tour => "tour", Lieu::Cimetiere => "cimetiere", Lieu::Camp => "brigands", Lieu::Sanctuaire => "sanctuaire", Lieu::Ruines => "ruines", Lieu::Grotte => "grotte" } }
     /// Demi-emprise (le long de x, le long de z) et dénivelé toléré.
     /// (Le sanctuaire est enterré : on vérifie seulement que le terrain le couvre, voir `place_fits`.)
-    fn fit(self) -> (i32, i32, f64) { match self { Lieu::Tour => (5, 5, 4.0), Lieu::Cimetiere => (12, 11, 3.6), Lieu::Camp => (11, 11, 4.0), Lieu::Sanctuaire => (24, 28, 9.0), Lieu::Ruines => (29, 29, 9.0) } }
+    fn fit(self) -> (i32, i32, f64) { match self { Lieu::Tour => (5, 5, 4.0), Lieu::Cimetiere => (12, 11, 3.6), Lieu::Camp => (11, 11, 4.0), Lieu::Sanctuaire => (24, 28, 9.0), Lieu::Ruines => (29, 29, 9.0), Lieu::Grotte => (31, 35, 10.0) } }
 }
-pub const LIEUX: [Lieu; 5] = [Lieu::Tour, Lieu::Cimetiere, Lieu::Camp, Lieu::Sanctuaire, Lieu::Ruines];
+pub const LIEUX: [Lieu; 6] = [Lieu::Tour, Lieu::Cimetiere, Lieu::Camp, Lieu::Sanctuaire, Lieu::Ruines, Lieu::Grotte];
 /// Un lieu décidé : son centre, le niveau de son sol (le bloc sur lequel on marche), sa maille.
 #[derive(Clone, Copy, Debug, PartialEq)] pub struct Place { pub kind: Lieu, pub x: i32, pub y: i32, pub z: i32, pub cell: (i32, i32), /** quarts de tour : l'entrée regarde -z, -x, +z ou +x */ pub rot: u8 }
 /// Un décalage dessiné « droit » (l'entrée vers -z), tourné de `q` quarts de tour : +z devient +x.
@@ -35,7 +35,8 @@ pub fn spin_block(id: Id, q: u8) -> Id {
 impl Place {
     /// Le coffre du lieu.
     pub fn chest(&self) -> [i32; 3] { let (u, dy, w) = match self.kind { Lieu::Tour => (-3, TOP + 1, 3), Lieu::Cimetiere => (0, -4, 3), Lieu::Camp => (0, 1, 7), Lieu::Sanctuaire => (crate::sanctuaire::CHEST[0], crate::sanctuaire::CHEST[1] - crate::sanctuaire::DEPTH, crate::sanctuaire::CHEST[2]),
-            Lieu::Ruines => { let c = self.ruins().rooms.last().unwrap().at([0, 2, 2]); (c[0], c[1] - crate::sanctuaire::DEPTH, c[2]) } }; let (u, w) = spin_xz(u, w, self.rot); [self.x + u, self.y + dy, self.z + w] }
+            Lieu::Ruines => { let c = self.ruins().rooms.last().unwrap().at([0, 2, 2]); (c[0], c[1] - crate::sanctuaire::DEPTH, c[2]) }
+            Lieu::Grotte => (crate::grotte::CHEST[0], crate::grotte::CHEST[1] - crate::grotte::DEPTH, crate::grotte::CHEST[2]) }; let (u, w) = spin_xz(u, w, self.rot); [self.x + u, self.y + dy, self.z + w] }
     /// Où lâcher les gardiens : espèce, position.
     pub fn guards(&self) -> Vec<(&'static str, [f64; 3])> {
         let at = |dx: f64, dy: f64, dz: f64| { let (dx, dz) = spin_f(dx, dz, self.rot); [self.x as f64 + 0.5 + dx, self.y as f64 + 1.05 + dy, self.z as f64 + 0.5 + dz] };
@@ -51,6 +52,8 @@ impl Place {
                 ("brigand", at(-4.0, 0.0, 3.0)), ("brigand", at(6.0, 5.0, -6.0))],
             // des noyés montent la garde dans la salle de l'eau noire
             Lieu::Sanctuaire => { let d = -(crate::sanctuaire::DEPTH as f64); vec![("noye", at(0.0, d, 11.0)), ("noye", at(-3.0, d, 7.0)), ("noye", at(3.0, d, 7.0))] }
+            // des noyés rôdent sur les rives du lac
+            Lieu::Grotte => { let d = -(crate::grotte::DEPTH as f64); vec![("noye", at(-8.0, d, 3.0)), ("noye", at(8.0, d, 3.0)), ("noye", at(-14.0, d, 30.0))] }
             // deux rôdeurs dans la salle d'entrée des ruines
             Lieu::Ruines => { let e = self.ruins().rooms[0]; [[3, 0, -3], [-3, 0, 3]].iter().map(|l| { let c = e.at(*l); ("rodeur", [self.x as f64 + c[0] as f64 + 0.5, (self.y - crate::sanctuaire::DEPTH) as f64 + 1.05, self.z as f64 + c[2] as f64 + 0.5]) }).collect() }
         }
@@ -60,9 +63,9 @@ impl Place {
     /// Où se tenir pour en voir l'intérieur : le seuil de la tour, la nef de la chapelle, le portail du camp.
     /// Le plan des ruines englouties de ce lieu.
     pub fn ruins(&self) -> crate::donjons::Layout { crate::donjons::layout(crate::donjons::seed_at(self.x, self.z)) }
-    pub fn inside(&self) -> ([f64; 3], f64) { if self.kind == Lieu::Ruines { let s = self.ruins().rooms[0].spot(); return ([self.x as f64 + s[0] as f64 + 0.5, (self.y - crate::sanctuaire::DEPTH) as f64 + 1.1, self.z as f64 + s[2] as f64 + 0.5], 0.0); } let (dz, dy) = match self.kind { Lieu::Tour => (-3.0, 0.0), Lieu::Cimetiere => (3.0, 0.0), Lieu::Camp => (-7.0, 0.0), Lieu::Sanctuaire | Lieu::Ruines => (4.0, -(crate::sanctuaire::DEPTH as f64)) }; let (dx, dz) = spin_f(0.0, dz, self.rot); ([self.x as f64 + 0.5 + dx, self.y as f64 + 1.1 + dy, self.z as f64 + 0.5 + dz], self.rot as f64 * std::f64::consts::FRAC_PI_2) }
+    pub fn inside(&self) -> ([f64; 3], f64) { if self.kind == Lieu::Grotte { return ([self.x as f64 - 3.5, (self.y - crate::grotte::DEPTH) as f64 + 1.1, self.z as f64 + 0.5], 0.0); } if self.kind == Lieu::Ruines { let s = self.ruins().rooms[0].spot(); return ([self.x as f64 + s[0] as f64 + 0.5, (self.y - crate::sanctuaire::DEPTH) as f64 + 1.1, self.z as f64 + s[2] as f64 + 0.5], 0.0); } let (dz, dy) = match self.kind { Lieu::Tour => (-3.0, 0.0), Lieu::Cimetiere => (3.0, 0.0), Lieu::Camp => (-7.0, 0.0), Lieu::Sanctuaire | Lieu::Ruines | Lieu::Grotte => (4.0, -(crate::sanctuaire::DEPTH as f64)) }; let (dx, dz) = spin_f(0.0, dz, self.rot); ([self.x as f64 + 0.5 + dx, self.y as f64 + 1.1 + dy, self.z as f64 + 0.5 + dz], self.rot as f64 * std::f64::consts::FRAC_PI_2) }
     /// Où se tenir pour le regarder (commande, captures) : position et cap.
-    pub fn view(&self) -> ([f64; 3], f64) { if self.kind == Lieu::Ruines { let s = self.ruins().rooms[0].at([-5, 0, -11]); let t = self.ruins().rooms[0].at([-5, 0, -5]); return ([self.x as f64 + s[0] as f64 + 0.5, self.y as f64 + 1.2, self.z as f64 + s[2] as f64 + 0.5], ((t[0] - s[0]) as f64).atan2((t[2] - s[2]) as f64)); } let d = match self.kind { Lieu::Tour => 15.5, Lieu::Cimetiere => 21.0, Lieu::Camp => 21.0, Lieu::Sanctuaire => 24.0, Lieu::Ruines => 20.0 }; /* dans la clairière : on n'arrive pas dans un tronc */ let (dx, dz) = spin_f(0.0, -d, self.rot); ([self.x as f64 + 0.5 + dx, self.y as f64 + 1.2, self.z as f64 + 0.5 + dz], self.rot as f64 * std::f64::consts::FRAC_PI_2) }
+    pub fn view(&self) -> ([f64; 3], f64) { if self.kind == Lieu::Grotte { return ([self.x as f64 + 0.5, self.y as f64 + 1.2, self.z as f64 - 15.5], 0.0); } if self.kind == Lieu::Ruines { let s = self.ruins().rooms[0].at([-5, 0, -11]); let t = self.ruins().rooms[0].at([-5, 0, -5]); return ([self.x as f64 + s[0] as f64 + 0.5, self.y as f64 + 1.2, self.z as f64 + s[2] as f64 + 0.5], ((t[0] - s[0]) as f64).atan2((t[2] - s[2]) as f64)); } let d = match self.kind { Lieu::Tour => 15.5, Lieu::Cimetiere => 21.0, Lieu::Camp => 21.0, Lieu::Sanctuaire => 24.0, Lieu::Ruines => 20.0, Lieu::Grotte => 16.0 }; /* dans la clairière : on n'arrive pas dans un tronc */ let (dx, dz) = spin_f(0.0, -d, self.rot); ([self.x as f64 + 0.5 + dx, self.y as f64 + 1.2, self.z as f64 + 0.5 + dz], self.rot as f64 * std::f64::consts::FRAC_PI_2) }
 }
 /// Hauteur du dernier plancher de la tour au-dessus du sol.
 const TOP: i32 = 12;
@@ -94,15 +97,15 @@ impl WorldGen {
         for k in 0..LIEUX.len() { let kind = LIEUX[(first + k) % LIEUX.len()]; if k > 0 && kind == Lieu::Tour && hash_float(gx, gz, s, 177) > 0.3 { continue; } /* la tour ne bouche pas tous les trous */ for _ in 0..if kind == Lieu::Tour { 8 } else { 70 } {
             let x = ((gx as f64 + r.range(0.15, 0.85)) * SITE_CELL as f64).floor() as i32; let z = ((gz as f64 + r.range(0.15, 0.85)) * SITE_CELL as f64).floor() as i32;
             if ((x + 38) as f64).hypot(z as f64) < 90.0 { continue; } // pas sur le pas de la porte
-            let rot = (r.next() * 4.0) as u8 % 4; let rot = if matches!(kind, Lieu::Sanctuaire | Lieu::Ruines) { 0 } else { rot }; /* le sanctuaire est bâti droit */ if let Some(y) = self.place_fits(kind, x, z, rot) { if !self.villages_near(x as f64, z as f64, 120.0).is_empty() { continue; } return Some(Place { kind, x, y, z, cell: (gx, gz), rot }); } } }
+            let rot = (r.next() * 4.0) as u8 % 4; let rot = if matches!(kind, Lieu::Sanctuaire | Lieu::Ruines | Lieu::Grotte) { 0 } else { rot }; /* le sanctuaire est bâti droit */ if let Some(y) = self.place_fits(kind, x, z, rot) { if !self.villages_near(x as f64, z as f64, 120.0).is_empty() { continue; } return Some(Place { kind, x, y, z, cell: (gx, gz), rot }); } } }
         None
     }
     /// Le terrain porte-t-il ce lieu ici ? Rend le niveau du sol.
     fn place_fits(&self, kind: Lieu, x: i32, z: i32, rot: u8) -> Option<i32> {
         let (hx, hz, tol) = kind.fit(); let (hx, hz) = if rot % 2 == 1 { (hz, hx) } else { (hx, hz) }; let c0 = self.column(x as f64, z as f64);
-        match kind { Lieu::Camp => if c0.forest < 0.2 && c0.mix.of(crate::biome::Biome::Steppe) < 0.5 { return None; }, Lieu::Cimetiere => if c0.forest > 0.75 { return None; }, Lieu::Tour | Lieu::Sanctuaire | Lieu::Ruines => {} }
+        match kind { Lieu::Camp => if c0.forest < 0.2 && c0.mix.of(crate::biome::Biome::Steppe) < 0.5 { return None; }, Lieu::Cimetiere => if c0.forest > 0.75 { return None; }, Lieu::Tour | Lieu::Sanctuaire | Lieu::Ruines | Lieu::Grotte => {} }
         // le sanctuaire : ses salles s'étendent de -24 à +24 en x, de -18 à +28 en z ; le sol le plus bas sert de niveau, pour qu'elles restent sous terre
-        if matches!(kind, Lieu::Sanctuaire | Lieu::Ruines) { let (z0, z1, xr) = if kind == Lieu::Ruines { (-29, 29, 29) } else { (-18, 28, 24) }; let (mut lo, mut hi) = (f64::MAX, f64::MIN); let mut dz = z0; while dz <= z1 { let mut dx = -xr; while dx <= xr {
+        if matches!(kind, Lieu::Sanctuaire | Lieu::Ruines | Lieu::Grotte) { let (z0, z1, xr) = match kind { Lieu::Ruines => (-29, 29, 29), Lieu::Grotte => (-12, 36, 32), _ => (-18, 28, 24) }; let (mut lo, mut hi) = (f64::MAX, f64::MIN); let mut dz = z0; while dz <= z1 { let mut dx = -xr; while dx <= xr {
                 let c = self.column((x + dx) as f64, (z + dz) as f64); if c.mix.sea > 0.02 || c.wet || c.h < SEA + 1.5 || c.h > 118.0 || c.cliff > 0.5 || (kind == Lieu::Sanctuaire && dz < -6 && c.path > 0.3) { return None; } lo = lo.min(c.h); hi = hi.max(c.h); dx += 4; } dz += 4; }
             return (hi - lo <= tol).then(|| lo.floor() as i32); }
         let (mut lo, mut hi, mut sum, mut n) = (f64::MAX, f64::MIN, 0.0, 0.0);
@@ -122,6 +125,7 @@ impl WorldGen {
     pub(crate) fn site_claims(&self, x: f64, z: f64) -> bool {
         if self.flat { return false; } let f = |v: f64| (v / SITE_CELL as f64).floor() as i32; let (gx, gz) = (f(x), f(z));
         for a in gx - 1..=gx + 1 { for b in gz - 1..=gz + 1 { if let Some(p) = self.place(a, b) { if p.kind == Lieu::Sanctuaire { if (x - p.x as f64).abs() <= 16.0 && z - p.z as f64 >= -29.0 && z - p.z as f64 <= 3.0 { return true; } continue; }
+                if p.kind == Lieu::Grotte { if (x - p.x as f64).abs() <= 17.0 && (z - p.z as f64).abs() <= 17.0 { return true; } continue; }
                 if p.kind == Lieu::Ruines { let e = p.ruins().rooms[0].at([-5, 0, -5]); if (x - (p.x + e[0]) as f64).abs() <= 9.0 && (z - (p.z + e[2]) as f64).abs() <= 9.0 { return true; } continue; }
             let (hx, hz, _) = p.kind.fit(); let r = hx.max(hz) as f64 + 6.0 + 5.0; if (x - p.x as f64).abs() <= r && (z - p.z as f64).abs() <= r { return true; } } } }
         false
@@ -175,6 +179,7 @@ impl WorldGen {
     pub(crate) fn site_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
         let pl = self.place(gx, gz)?; self.site_rot.set((pl.x, pl.z, pl.rot)); let mut r = Rng::new(hash_int(gx, gz, self.seed, 175)); let mut p = Plan { m: BTreeMap::new(), ids: Default::default() };
         match pl.kind { Lieu::Tour => self.build_tower(&mut p, &pl, &mut r), Lieu::Cimetiere => self.build_cemetery(&mut p, &pl, &mut r), Lieu::Camp => self.build_camp(&mut p, &pl, &mut r), Lieu::Sanctuaire => { self.pad(&mut p, &pl, |_, dz| (-18..=-8).contains(&dz), 5, 18, 8, None); crate::sanctuaire::carve(&mut p, [pl.x, pl.y, pl.z]); }
+            Lieu::Grotte => crate::grotte::carve(&mut p, [pl.x, pl.y, pl.z]),
             Lieu::Ruines => { let g = |x: i32, z: i32| self.column(x as f64, z as f64).h.floor() as i32; let _ = crate::donjons::carve(&mut p, [pl.x, pl.y, pl.z], &pl.ruins(), "", &g); } }
         // le plan est dessiné droit : on le tourne en le posant (les blocs orientés avec lui) ; rangé par colonne, de bas en haut
         let mut data: Vec<[i32; 4]> = p.m.into_iter().map(|((a, b, c), id)| { let (u, w) = spin_xz(a - pl.x, c - pl.z, pl.rot); [pl.x + u, b, pl.z + w, if id > 0 { spin_block(id as Id, pl.rot) as i32 } else { id }] }).collect(); data.sort_by_key(|d| (d[0], d[2], d[1]));
@@ -321,7 +326,7 @@ impl crate::session::Session {
         // un camp de brigands qu'on voit : il montre ce qu'il a bâti en grandissant
         for pl in self.gen.places_near(me[0], me[2], 90.0).into_iter().filter(|p| p.kind == Lieu::Camp) { self.camp_show(&pl); }
         // un sanctuaire qu'on approche : ses mécanismes se mettent en place (une fois)
-        for pl in self.gen.places_near(me[0], me[2], 56.0).into_iter().filter(|p| matches!(p.kind, Lieu::Sanctuaire | Lieu::Ruines)) { if pl.kind == Lieu::Ruines { self.dungeon_wake(&pl); } else { self.sanctuary_wake(&pl); } }
+        for pl in self.gen.places_near(me[0], me[2], 56.0).into_iter().filter(|p| matches!(p.kind, Lieu::Sanctuaire | Lieu::Ruines | Lieu::Grotte)) { match pl.kind { Lieu::Ruines => self.dungeon_wake(&pl), Lieu::Grotte => self.grotto_wake(&pl), _ => self.sanctuary_wake(&pl) } }
         for pl in self.gen.places_near(me[0], me[2], 44.0) {
             for ghosts in [false, true] {
                 if ghosts && !night { continue; } let key = (pl.cell, ghosts); if self.sites_awake.get(&key).is_some_and(|t| self.elapsed - t < 900.0) { self.sites_awake.insert(key, self.elapsed); continue; }
@@ -336,10 +341,10 @@ impl crate::session::Session {
             }
         }
     }
-    /// `/lieu [tour|cimetiere|brigands|sanctuaire|ruines]` : va au lieu de surface le plus proche (de ce genre).
+    /// `/lieu [tour|cimetiere|brigands|sanctuaire|ruines|grotte]` : va au lieu de surface le plus proche (de ce genre).
     pub fn goto_place(&mut self, arg: Option<&str>) -> String {
         let inside = arg.is_some_and(|a| a.ends_with('!')); let arg = arg.map(|a| a.trim_end_matches('!'));
-        let kind = match arg { None => None, Some(a) => match LIEUX.iter().find(|k| k.key().starts_with(a) || a.starts_with(k.key()) || (a == "camp" && **k == Lieu::Camp)) { Some(k) => Some(*k), None => return "Lieu inconnu. Au choix : tour, cimetiere, brigands, sanctuaire, ruines".into() } };
+        let kind = match arg { None => None, Some(a) => match LIEUX.iter().find(|k| k.key().starts_with(a) || a.starts_with(k.key()) || (a == "camp" && **k == Lieu::Camp)) { Some(k) => Some(*k), None => return "Lieu inconnu. Au choix : tour, cimetiere, brigands, sanctuaire, ruines, grotte".into() } };
         let p = self.player.p; let Some(pl) = self.gen.places_near(p[0], p[2], 2600.0).into_iter().find(|pl| kind.is_none_or(|k| k == pl.kind)) else { return "Aucun lieu de ce genre dans les parages".into() };
         let (at, yaw) = if inside { pl.inside() } else { pl.view() }; let y = if inside { at[1] } else { self.gen.column(at[0], at[2]).h.max(pl.y as f64) + 1.5 }; self.player.p = [at[0], y, at[2]]; self.player.v = [0.0; 3]; self.player.yaw = yaw; self.player.pitch = if !inside && pl.kind == Lieu::Tour { 0.28 } else { 0.05 };
         format!("{} à {}, {}, {}", pl.kind.name(), pl.x, pl.y, pl.z)

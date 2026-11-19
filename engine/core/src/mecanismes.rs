@@ -59,7 +59,13 @@ pub struct Wire {
     /// où en est la séquence
     pub progress: usize,
     /** état interne : le temps qui reste, les entrées au pas précédent, la logique avant durée et inversion */ pub timer: f64, pub last: Vec<bool>, pub raw: bool,
+    /// des statues qui doivent regarder dans une direction (leur orientation, 0 à 3) : toutes, en plus des entrées
+    pub faces: Vec<([i32; 3], u8)>,
 }
+/// Une citerne : des colonnes d'eau (x, z, fond) qui se remplissent jusqu'à `top` tant que le fil `by` est enclenché, et se
+/// vident quand il se relâche, une couche à la fois.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Pool { pub cols: Vec<[i32; 3]>, pub top: i32, pub by: String, /** le haut de l'eau (sous le fond : vide) */ pub level: i32, pub t: f64 }
 /// Un rythme : des pics qui sortent un temps à chaque cycle, des fléchettes qui partent au début de chaque cycle.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Pulse { pub spikes: Vec<[i32; 3]>, pub darts: Vec<[i32; 3]>, /** s */ pub period: f64, /** part du cycle où les pics sont sortis */ pub up: f64, /** décalage (s) */ pub phase: f64, /** un fil enclenché l'arrête */ pub off_by: String, /** seul un fil enclenché le met en marche */ pub on_by: String, pub was_up: Option<bool>, pub cycle: i64 }
@@ -79,7 +85,7 @@ pub struct Hint { pub min: [i32; 3], pub max: [i32; 3], pub text: String, pub sh
 pub struct Guard { pub min: [i32; 3], pub max: [i32; 3], pub species: String, pub at: [f64; 3], pub doors: Vec<([i32; 3], Id)>, /** 0 endormi, 1 au combat, 2 vaincu */ pub state: u8 }
 /// Tous les mécanismes du monde.
 #[derive(Clone, Debug, Default)]
-pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
+pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
 
 /// Les dégâts des pics (par atteinte), d'une fléchette, et le temps que tient le sol friable.
 pub const SPIKE_DMG: f64 = 5.0; pub const DART_DMG: f64 = 7.0; pub const CRUMBLE_T: f64 = 0.6;
@@ -95,7 +101,7 @@ impl Mech {
     pub fn wire(&self, n: &str) -> Option<&Wire> { self.wires.iter().find(|w| w.name == n) }
     fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) }
     /// Ajoute les mécanismes d'un donjon.
-    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
+    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
 }
 fn inside(p: [i32; 3], min: [i32; 3], max: [i32; 3], m: i32) -> bool { (0..3).all(|i| p[i] >= min[i] - m && p[i] <= max[i] + m) }
 
@@ -118,7 +124,8 @@ impl Session {
         for p in plates { let down = self.weighs(p); if down != self.input_on(p) { self.world.edit(p[0], p[1], p[2], id(if down { "pressure_plate_on" } else { "pressure_plate" })); self.sound.place("stone"); } }
         // les fils lisent leurs entrées
         for k in 0..self.mech.wires.len() {
-            let w = &self.mech.wires[k]; if w.inputs.is_empty() && w.needs.is_empty() { continue; }
+            let w = &self.mech.wires[k]; if w.inputs.is_empty() && w.needs.is_empty() && w.faces.is_empty() { continue; }
+            let faces_ok = w.faces.iter().all(|(p, f)| self.facing_at(*p) == Some(*f));
             let cur: Vec<bool> = w.inputs.iter().map(|p| self.input_on(*p)).collect();
             // la séquence : chaque levier abaissé doit être le suivant ; sinon tout se relève
             let mut fail = false; let mut progress = w.progress;
@@ -126,7 +133,7 @@ impl Session {
             // comptés dans la séquence ne sont pas un faux pas)
             if w.seq && !(w.latch && w.on) { let last = if w.last.len() == cur.len() { w.last.clone() } else { vec![false; cur.len()] };
                 for i in 0..cur.len() { if cur[i] && !last[i] { if i == progress { progress += 1; } else if i > progress { fail = true; } } if !cur[i] && last[i] && i < progress { progress = i; } } }
-            let mut raw = if w.inputs.is_empty() { true } else if w.seq { !fail && progress == w.inputs.len() } else if w.all { cur.iter().all(|c| *c) } else { cur.iter().any(|c| *c) };
+            let mut raw = if w.inputs.is_empty() { faces_ok } else if !faces_ok { false } else if w.seq { !fail && progress == w.inputs.len() } else if w.all { cur.iter().all(|c| *c) } else { cur.iter().any(|c| *c) };
             raw = raw && w.needs.iter().all(|n| self.mech.is_on(n));
             let (inputs, fail_darts, darts) = (w.inputs.clone(), w.fail_darts, w.darts.clone());
             let w = &mut self.mech.wires[k]; w.last = cur; w.progress = if fail { 0 } else { progress };
@@ -138,11 +145,19 @@ impl Session {
             if act == w.on || (w.latch && w.on) { continue; }
             let w = self.mech.wires[k].clone(); self.mech.wires[k].on = act; self.dirty = true;
             for (p, closed) in &w.doors { let now = self.world.get(p[0], p[1], p[2]); if act && now == Some(*closed) { self.world.edit(p[0], p[1], p[2], 0); } else if !act && now == Some(0) { self.world.edit(p[0], p[1], p[2], *closed); } }
-            if !w.doors.is_empty() { self.sound.place("iron_bars"); if act { self.notes.push(if w.doors.iter().all(|(_, b)| split(name(*b)).0 == "iron_bars") { "Une grille se lève" } else { "Un pan de mur pivote : un passage !" }.into()); } }
+            if !w.doors.is_empty() { self.sound.place("iron_bars"); if act { self.notes.push(if w.doors.iter().all(|(_, b)| split(name(*b)).0 == "iron_bars") { "Une grille se lève" } else if w.doors.iter().all(|(_, b)| name(*b) == "chain") { "Une chaîne se détache et tombe dans un fracas" } else { "Un pan de mur pivote : un passage !" }.into()); } }
             for p in &w.spikes { self.world.edit(p[0], p[1], p[2], id(if act { "spikes" } else { "spikes_down" })); }
             for p in &w.calm { self.world.edit(p[0], p[1], p[2], id(if act { "spikes_down" } else { "spikes" })); }
             if act { for p in &w.darts { self.dart(*p); } if w.hold > 0.0 { self.notes.push(format!("Vite : {:.0} secondes avant que ça ne retombe", w.hold)); } }
         }
+        // les citernes : une couche d'eau de plus (ou de moins) toutes les 0,3 s
+        for k in 0..self.mech.pools.len() { let pl = &self.mech.pools[k]; let bottom = pl.cols.iter().map(|c| c[2]).min().unwrap_or(0);
+            let target = if self.mech.is_on(&pl.by) { pl.top } else { bottom - 1 }; if pl.level == target { continue; }
+            let t = pl.t - dt; if t > 0.0 { self.mech.pools[k].t = t; continue; } let pl = self.mech.pools[k].clone(); let water = crate::blocks::B::WATER;
+            let (y, put, next) = if target > pl.level { (pl.level + 1, water, pl.level + 1) } else { (pl.level, 0, pl.level - 1) };
+            let e: Vec<(i32, i32, i32, Id)> = pl.cols.iter().filter(|c| c[2] <= y).filter(|c| self.world.get(c[0], y, c[1]) == Some(if put == 0 { water } else { 0 })).map(|c| (c[0], y, c[1], put)).collect();
+            self.world.edit_many(&e); self.mech.pools[k].level = next; self.mech.pools[k].t = 0.3; self.dirty = true;
+            if self.near(&pl.cols.iter().map(|c| [c[0], y, c[1]]).take(1).collect::<Vec<_>>(), 24.0) && (pl.level == bottom - 1 || next == bottom - 1) { self.sound.place("water"); self.notes.push(if put != 0 { "L'eau monte en grondant".into() } else { "L'eau se retire".into() }); } }
         // les rythmes
         let clock = self.mech.clock;
         for k in 0..self.mech.pulses.len() {
@@ -205,6 +220,15 @@ impl Session {
         self.horde.shots.push((from, [dir[0] * 24.0, 0.6, dir[2] * 24.0], 0.0, DART_DMG, "Une fléchette piégée")); self.sound.swing(None, 0.6);
     }
     /// Clic droit sur un levier : il bascule. Rend vrai si c'en était un.
+    /// L'orientation d'une statue (0 à 3), si c'en est une.
+    pub fn facing_at(&self, p: [i32; 3]) -> Option<u8> { let b = self.world.get(p[0], p[1], p[2])?; let (n, f) = split(name(b)); if !n.starts_with("statue_") { return None; } Some(f.parse().unwrap_or(0)) }
+    /// Faire pivoter d'un quart de tour la statue en `p` (ses deux blocs).
+    pub fn turn_statue_at(&mut self, p: [i32; 3]) -> bool {
+        let Some(f) = self.facing_at(p) else { return false }; let b = split(name(self.world.get(p[0], p[1], p[2]).unwrap())).0;
+        let base = if b == "statue_top" { [p[0], p[1] - 1, p[2]] } else { p }; let g = (f + 1) % 4; let face = if g == 0 { String::new() } else { g.to_string() };
+        let e = [(base[0], base[1], base[2], with_face("statue_base", &face)), (base[0], base[1] + 1, base[2], with_face("statue_top", &face))]; self.world.edit_many(&e);
+        self.sound.place("stone"); self.dirty = true; true
+    }
     pub fn lever_at(&mut self, p: [i32; 3]) -> bool {
         let Some(b) = self.world.get(p[0], p[1], p[2]) else { return false }; let (n, f) = split(name(b));
         let to = match n { "lever" => "lever_on", "lever_on" => "lever", _ => return false };
@@ -233,14 +257,15 @@ impl Session {
         let pts = |v: &[[i32; 3]]| if v.is_empty() { "-".to_string() } else { v.iter().map(|p| format!("{},{},{}", p[0], p[1], p[2])).collect::<Vec<_>>().join(";") };
         let word = |s: &str| if s.is_empty() { "-".to_string() } else { s.to_string() };
         let mut o: String = self.mech.wires.iter().map(|w| { let doors = if w.doors.is_empty() { "-".to_string() } else { w.doors.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") };
-            format!("wire {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}\n", w.all as u8, w.latch as u8, w.on as u8, pts(&w.inputs), doors, pts(&w.darts), pts(&w.spikes),
-                word(&w.name), w.seq as u8, w.not as u8, w.hold, if w.needs.is_empty() { "-".into() } else { w.needs.join(";") }, pts(&w.calm), w.fail_darts as u8, w.progress, w.timer) }).collect();
+            format!("wire {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}\n", w.all as u8, w.latch as u8, w.on as u8, pts(&w.inputs), doors, pts(&w.darts), pts(&w.spikes),
+                word(&w.name), w.seq as u8, w.not as u8, w.hold, if w.needs.is_empty() { "-".into() } else { w.needs.join(";") }, pts(&w.calm), w.fail_darts as u8, w.progress, w.timer, if w.faces.is_empty() { "-".to_string() } else { w.faces.iter().map(|(p, f)| format!("{},{},{},{f}", p[0], p[1], p[2])).collect::<Vec<_>>().join(";") }) }).collect();
         for p in &self.mech.pulses { o += &format!("pulse {} {} {} {} {} {} {}\n", p.period, p.up, p.phase, word(&p.off_by), word(&p.on_by), pts(&p.spikes), pts(&p.darts)); }
         for s in &self.mech.seals { o += &format!("seal {} {} {}\n", pts(&[s.min]), pts(&[s.max]), word(&s.until)); }
         for h in &self.mech.homes { o += &format!("home {} {} {} {}\n", pts(&[h.min]), pts(&[h.max]), word(&h.keep), pts(&h.homes)); }
         for h in &self.mech.hints { o += &format!("hint {} {} {} {} {}\n", pts(&[h.min]), pts(&[h.max]), h.shown as u8, h.xp, h.text); }
         for g in &self.mech.guards { let doors = if g.doors.is_empty() { "-".to_string() } else { g.doors.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") };
             o += &format!("guard {} {} {} {},{},{} {} {}\n", pts(&[g.min]), pts(&[g.max]), g.species, g.at[0], g.at[1], g.at[2], g.state, doors); }
+        for p in &self.mech.pools { o += &format!("pool {} {} {} {}\n", p.top, p.level, word(&p.by), pts(&p.cols)); }
         if !self.mech.chests.is_empty() { o += &format!("mchest {}\n", pts(&self.mech.chests)); }
         if !self.mech.secrets.is_empty() { o += &format!("msecret {}\n", pts(&self.mech.secrets)); }
         if !self.mech.vaults.is_empty() { o += &format!("mvault {}\n", pts(&self.mech.vaults)); }
@@ -252,7 +277,8 @@ impl Session {
         let opt = |i: usize| a.get(i).copied().filter(|s| *s != "-").unwrap_or("");
         self.mech.wires.push(Wire { all: a[0] == "1", latch: a[1] == "1", on: a[2] == "1", inputs: pts(a[3]), doors, darts: pts(a[5]), spikes: pts(a[6]),
             name: opt(7).to_string(), seq: opt(8) == "1", not: opt(9) == "1", hold: opt(10).parse().unwrap_or(0.0), needs: if opt(11).is_empty() { Vec::new() } else { opt(11).split(';').map(|s| s.to_string()).collect() },
-            calm: pts(a.get(12).copied().unwrap_or("-")), fail_darts: opt(13) == "1", progress: opt(14).parse().unwrap_or(0), timer: opt(15).parse().unwrap_or(0.0), raw: a[2] == "1", ..Default::default() });
+            calm: pts(a.get(12).copied().unwrap_or("-")), fail_darts: opt(13) == "1", progress: opt(14).parse().unwrap_or(0), timer: opt(15).parse().unwrap_or(0.0), raw: a[2] == "1",
+            faces: opt(16).split(';').filter_map(|c| { let v: Vec<&str> = c.split(',').collect(); if v.len() < 4 { return None; } Some(([v[0].parse().ok()?, v[1].parse().ok()?, v[2].parse().ok()?], v[3].parse().ok()?)) }).collect(), ..Default::default() });
     }
     pub(crate) fn pulse_load(&mut self, rest: &str) {
         let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 7 { return; } let w = |s: &str| if s == "-" { String::new() } else { s.to_string() };
@@ -280,6 +306,10 @@ impl Session {
     }
     pub(crate) fn mchest_load(&mut self, rest: &str) { self.mech.chests.extend(pts(rest.trim())); }
     pub(crate) fn msecret_load(&mut self, rest: &str) { self.mech.secrets.extend(pts(rest.trim())); }
+    pub(crate) fn pool_load(&mut self, rest: &str) {
+        let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 4 { return; }
+        self.mech.pools.push(Pool { top: a[0].parse().unwrap_or(0), level: a[1].parse().unwrap_or(0), by: if a[2] == "-" { String::new() } else { a[2].to_string() }, cols: pts(a[3]), t: 0.0 });
+    }
     pub(crate) fn mvault_load(&mut self, rest: &str) { self.mech.vaults.extend(pts(rest.trim())); }
 }
 fn pts(s: &str) -> Vec<[i32; 3]> { if s == "-" { return Vec::new(); } s.split(';').filter_map(|c| { let v: Vec<i32> = c.split(',').filter_map(|x| x.parse().ok()).collect(); (v.len() == 3).then(|| [v[0], v[1], v[2]]) }).collect() }
