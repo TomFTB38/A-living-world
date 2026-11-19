@@ -33,7 +33,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
             Lieu::Sanctuaire => {
                 // l'escalier descend sous la ruine, les salles sont creusées, les grilles fermées, les leviers en place ; la voûte reste sous terre
                 use alw_core::sanctuaire::{self as sa, DEPTH}; let f = pl.y - DEPTH; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, f + v, pl.z + w);
-                for (u, w) in [(-3, -15), (3, -15), (-3, -10), (3, -10)] { assert_eq!(name(rel(u, DEPTH + 1, w)), "stone_pillar", "la ruine en surface"); } for k in 0..DEPTH - 1 { assert!(name(rel(0, DEPTH - 1 - k, -(DEPTH + 1) + k)).starts_with("stone_bricks_stairs"), "marche {k}"); }
+                for u in [-2, 2] { assert_eq!(name(rel(u, DEPTH + 1, -14)), "column_base", "le portail en surface"); assert_eq!(name(rel(u, DEPTH + 5, -14)), "column_capital"); } assert!(name(rel(0, DEPTH + 6, -14)).starts_with("lintel"), "son linteau"); assert!(name(rel(-4, DEPTH + 2, -14)).starts_with("statue_top"), "ses gardiens"); for k in 0..DEPTH - 1 { assert!(name(rel(0, DEPTH - 1 - k, -(DEPTH + 1) + k)).starts_with("stone_bricks_stairs"), "marche {k}"); }
                 for l in sa::R1_LEVERS { assert!(name(rel(l[0], l[1], l[2])).starts_with("lever"), "levier de la salle 1"); } assert!(name(rel(-18, 1, 13)).starts_with("iron_bars"), "la grille de la salle 1");
                 for q in sa::R2_PLATES { assert_eq!(name(rel(q[0], q[1], q[2])), "pressure_plate"); } assert_eq!(name(rel(sa::R4_LEVER[0], sa::R4_LEVER[1], sa::R4_LEVER[2])).split('@').next(), Some("lever"));
                 for (u, w) in [(0, 4), (-15, 7), (-17, 21), (0, 21), (17, 24), (17, 7), (17, -4)] { assert_eq!(at(pl.x + u, f + 2, pl.z + w), 0, "salle creusée en {u} {w}"); }
@@ -42,7 +42,9 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
             Lieu::Ruines => {
                 // le puits descend jusqu'à la salle d'entrée ; chaque salle est creusée ; le trésor est au fond ; la voûte reste sous terre
                 use alw_core::sanctuaire::DEPTH; let f = pl.y - DEPTH; let l = pl.ruins(); let rel = |q: [i32; 3]| at(pl.x + q[0], f + q[1], pl.z + q[2]);
-                for v in 1..=DEPTH - 1 { assert!(name(rel(l.rooms[0].at([-5, v, -5]))).starts_with("ladder"), "l'échelle du puits ({v})"); }
+                for z in -5..=5 { let st = rel(l.rooms[0].at([-5, 6 + z, z])); assert!(name(st).starts_with("stone_bricks_stairs"), "la marche {z} du grand escalier : {}", name(st)); }
+                let e = l.rooms[0]; let zt = (6..=13).find(|z| name(rel(e.at([-6, 6 + z + 1, z + 1]))) == "column_base").expect("les colonnes du portail");
+                assert!(name(rel(e.at([-5, 6 + zt + 6, zt + 1]))).starts_with("lintel"), "le linteau du portail"); assert!(name(rel(e.at([-8, 6 + zt + 2, zt + 1]))).starts_with("statue_top"), "un gardien du portail");
                 for r in &l.rooms { assert_eq!(rel(r.at([0, 3, -3])), 0, "{:?} creusée", r.kind); let c = r.c; let g = w_ground(&w, pl.x + c.0, pl.z + c.1); assert!(g >= f + r.kind.h() + 2, "la voûte de {:?} reste sous terre", r.kind); }
             }
             Lieu::Camp => {

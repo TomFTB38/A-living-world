@@ -31,14 +31,13 @@ fn chaque_plan_tient_sur_sa_grille_et_les_donjons_varient() {
 
 /// Bâtit le donjon de la graine `seed` sur le monde plat et le parcourt : de la surface au trésor.
 fn play(seed: u32) {
-    let y = alw_core::gen::FLAT_Y; let mut s = Session::new(alw_core::gen::FLAT | 0x123, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [0.5, y as f64 + 1.0, 0.5]); ready(&mut s); s.set_creative(false); s.hour = 12.0;
-    run(&mut s, 0.1); s.wild.all.clear(); s.horde.foes.clear(); let o = [0, y, 0]; let (l, sol) = s.build_dungeon(o, seed); let _ = s.sync();
+    let y = alw_core::gen::FLAT_Y; let mut s = Session::new(alw_core::gen::FLAT | 0x123, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [300.5, y as f64 + 1.0, 300.5]); ready(&mut s); s.set_creative(false); s.hour = 12.0;
+    run(&mut s, 0.1); s.wild.all.clear(); s.horde.foes.clear(); let o = [300, y, 300]; let (l, sol) = s.build_dungeon(o, seed); let _ = s.sync();
     let f = y - DEPTH; let w = |c: [i32; 3]| [o[0] + c[0], f + c[1], o[2] + c[2]];
     let look = |s: &Session, from: [i32; 3]| reach(&s.world, from, [o[0] - 30, f - 3, o[2] - 30], [o[0] + 30, y + 6, o[2] + 30]);
     println!("graine {seed} : {:?}", l.rooms.iter().map(|r| r.kind.name()).collect::<Vec<_>>());
-    // on descend par le puits (le monde plat a ses villages : on dégage la surface autour, comme la génération écarte les lieux des villages)
-    { let c = w(l.rooms[0].at([-5, 0, -5])); let mut e = Vec::new(); for x in -4..=4 { for z in -4..=4 { for v in 1..=10 { if !(x == 0 && z == 0) && s.world.get(c[0] + x, y + v, c[2] + z).is_some_and(|b| b != 0 && !name_is(b, "stone_pillar") && !name_is(b, "mossy_stone")) { e.push((c[0] + x, y + v, c[2] + z, 0)); } } } } s.world.edit_many(&e); }
-    let top = w(l.rooms[0].at([-5, DEPTH + 1, -4])); assert!(look(&s, top).contains(&w(l.rooms[0].spot())), "{seed} : le puits descend jusqu'à l'entrée");
+    // du parvis du portail, on descend le grand escalier jusqu'à la salle d'entrée, et l'on en remonte
+    let top = w(l.rooms[0].porch()); assert!(look(&s, top).contains(&w(l.rooms[0].spot())), "{seed} : le grand escalier descend jusqu'à l'entrée"); assert!(look(&s, w(l.rooms[0].spot())).contains(&top), "{seed} : et remonte");
     for k in 0..l.rooms.len() - 1 {
         let (room, next) = (l.rooms[k], l.rooms[k + 1]); let from = w(room.spot()); let to = w(next.spot()); put(&mut s, from); run(&mut s, 0.2);
         let gated = room.kind.gated() && room.kind != Kind::Gardien;

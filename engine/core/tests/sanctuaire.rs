@@ -51,7 +51,7 @@ fn le_sanctuaire_est_bati_et_ses_salles_se_suivent_fermees() {
     let r = reach(&s, o, [0, 1, 4]); assert!(r.contains(&at(o, [0, DEPTH + 1, -16])), "on remonte à la surface");
     assert!(into(&r, o, sa::R1)); for (room, n) in [(sa::R2, 2), (sa::R3, 3), (sa::R4, 4), (sa::R5, 5), (sa::R6, 6)] { assert!(!into(&r, o, room), "salle {n} hors d'atteinte au départ"); }
     // le coffre, sur son autel, au fond
-    let c = at(o, sa::CHEST); assert!(is_chest_shut(s.world.get(c[0], c[1], c[2]).unwrap())); assert_eq!(name(&s, [c[0], c[1] - 1, c[2]]), "chiseled_stone");
+    let c = at(o, sa::CHEST); assert!(is_chest_shut(s.world.get(c[0], c[1], c[2]).unwrap())); assert!(name(&s, [c[0], c[1] - 1, c[2]]).starts_with("altar"), "un autel");
     println!("fils : {:?}", s.mech.wires.iter().map(|w| w.name.as_str()).collect::<Vec<_>>()); assert_eq!(s.mech.wires.len(), 7); assert_eq!(s.mech.pulses.len(), 4); assert_eq!(s.mech.hints.len(), 8); assert_eq!(s.mech.guards.len(), 1); assert_eq!(s.mech.homes.len(), 3);
 }
 

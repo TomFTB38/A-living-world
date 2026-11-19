@@ -114,6 +114,10 @@ jobs:
           shot plat_ruines_nef -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_nef
           shot plat_ruines_epreuve -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_epreuve
           shot plat_ruines_tresor -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_tresor
+          shot plat_ancestral -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ancestral
+          shot plat_ruines_hall -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_hall
+          shot plat_ruines_gardien -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_gardien
+          shot plat_sanctuaire_hall -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_hall
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

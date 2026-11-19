@@ -610,3 +610,11 @@ push_block | Bloc à pousser | batir | 3.0 | 16 | Clic droit pour le pousser d'u
 spikes | Pics | batir | 2.0 | 16 | Des pointes de fer qui blessent qui marche dessus. |
 crumbling_floor | Sol friable | batir | 1.5 | 16 | Il tient un instant sous le pied, puis s'effondre. |
 dart_trap | Lance-fléchettes | batir | 2.0 | 16 | Tire une fléchette quand une dalle voisine s'enfonce. |
+column_base | Base de colonne | batir | 2.0 | 16 | Le pied d'une colonne cannelée : un socle carré, des moulures. Posez des fûts dessus, puis un chapiteau. |
+column_shaft | Fût de colonne | batir | 2.0 | 16 | Un tronçon de colonne cannelée, en calcaire vieilli. |
+column_capital | Chapiteau | batir | 2.0 | 16 | Le sommet d'une colonne : une couronne de feuilles d'acanthe, des volutes, un abaque. |
+wall_relief | Bas-relief | batir | 2.2 | 16 | Un bloc de pierre sculpté : un soleil, un porteur de lance ou un serpent, dans un cadre. |
+lintel | Linteau | batir | 2.2 | 16 | Une poutre de pierre à frise de méandres et corniche, pour couronner un portail. |
+funeral_urn | Urne funéraire | batir | 1.2 | 16 | Une urne de pierre à couvercle, sur son socle. |
+altar | Autel | batir | 2.2 | 16 | Un autel sculpté : un soleil cerclé d'or sur sa face. |
+brazier_stand | Brasier sur pied | batir | 1.6 | 16 | Une vasque de bronze sur un fût cannelé : elle éclaire comme un grand feu. |

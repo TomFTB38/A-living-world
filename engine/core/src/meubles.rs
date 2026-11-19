@@ -9,10 +9,11 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 82] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 94] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket",
-    "lever", "lever_on", "spikes", "spikes_down", "dart_trap"];
+    "lever", "lever_on", "spikes", "spikes_down", "dart_trap",
+    "column_base", "column_shaft", "column_capital", "statue_base", "statue_top", "tomb_head", "tomb_foot", "wall_relief", "lintel", "funeral_urn", "altar", "brazier_stand"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
 /// La couche de texture d'une matière (« rug », « hay »…) ou, à défaut, de la face d'un bloc du même nom.
 fn layer(n: &str) -> f64 {
@@ -39,6 +40,112 @@ impl K {
     fn candle(&mut self, x: f64, y: f64, z: f64, h: f64) { self.b([x - 0.035, y, z - 0.035, x + 0.035, y + h, z + 0.035], WAX); self.b([x - 0.006, y + h, z - 0.006, x + 0.006, y + h + 0.03, z + 0.006], [0.1, 0.08, 0.06]); self.flame(x, y + h + 0.02, z, 0.09); }
 }
 fn tone(c: C, k: f64) -> C { [c[0] * k, c[1] * k, c[2] * k] }
+
+/// La pierre des anciens : calcaire vieilli, ses ombres, la mousse.
+const STONE: C = [0.71, 0.67, 0.58]; const STONE2: C = [0.52, 0.49, 0.43]; const MOSS: C = [0.3, 0.4, 0.17];
+const LIME: C = [0.98, 0.94, 0.84];
+fn ancient(k: &mut K, m: &str, r: &mut Rng) {
+    use std::f64::consts::TAU;
+    // la mousse : quelques plaques sur les surfaces du dessus ou les flancs, au hasard
+    let moss = |k: &mut K, r: &mut Rng, n: usize, y0: f64, y1: f64, rad: f64| { for _ in 0..n { if r.next() < 0.45 { continue; } let a = r.range(0.0, TAU); let y = r.range(y0, y1); let (x, z) = (0.5 + a.cos() * rad, 0.5 + a.sin() * rad); let w = r.range(0.05, 0.11);
+        k.b([x - w, y, z - w, x + w, y + r.range(0.03, 0.12), z + w], tone(MOSS, r.range(0.8, 1.2))); } };
+    // un membre (bras, avant-bras) : une boîte orientée entre deux points
+    let limb = |k: &mut K, p0: [f64; 3], p1: [f64; 3], w: f64, c: C| { let a0 = [(p1[0] - p0[0]) * 0.5, (p1[1] - p0[1]) * 0.5, (p1[2] - p0[2]) * 0.5]; let l = (a0[0] * a0[0] + a0[1] * a0[1] + a0[2] * a0[2]).sqrt().max(1e-6);
+        let mut a1 = [a0[2], 0.0, -a0[0]]; let l1 = (a1[0] * a1[0] + a1[2] * a1[2]).sqrt(); if l1 < 1e-6 { a1 = [1.0, 0.0, 0.0]; } else { a1 = [a1[0] / l1, 0.0, a1[2] / l1]; }
+        let n = [a0[0] / l, a0[1] / l, a0[2] / l]; let a2 = [n[1] * a1[2] - n[2] * a1[1], n[2] * a1[0] - n[0] * a1[2], n[0] * a1[1] - n[1] * a1[0]];
+        k.r([(p0[0] + p1[0]) * 0.5, (p0[1] + p1[1]) * 0.5, (p0[2] + p1[2]) * 0.5], [a0, [a1[0] * w, 0.0, a1[2] * w], [a2[0] * w, a2[1] * w, a2[2] * w]], c); };
+    // un fût cannelé : un cœur sombre, douze listels clairs
+    let shaft = |k: &mut K, y0: f64, y1: f64| { k.cy([0.5, y0, 0.5], [0.5, y1, 0.5], 0.31, 0.31, 0.0, tone(STONE, 0.78)); for i in 0..12 { let a = i as f64 * TAU / 12.0; k.cy([0.5 + a.cos() * 0.31, y0, 0.5 + a.sin() * 0.31], [0.5 + a.cos() * 0.31, y1, 0.5 + a.sin() * 0.31], 0.032, 0.032, 0.0, STONE); } };
+    // une face sculptée (+ un cadre) : boîtes décrites en (u, v) sur la face avant (z = 0, vers -z), en relief de `d`
+    let front = |k: &mut K, u0: f64, v0: f64, u1: f64, v1: f64, d: f64, c: C| k.b([u0, v0, -d, u1, v1, 0.002], c);
+    let t = tone(LIME, r.range(0.9, 1.04));
+    match m {
+        "column_base" => {
+            k.t([0.03, 0.0, 0.03, 0.97, 0.16, 0.97], "polished_stone", tone(t, 0.85)); k.lathe(0.5, 0.5, &[(0.16, 0.44), (0.22, 0.45), (0.27, 0.4), (0.31, 0.37), (0.36, 0.38), (0.4, 0.34)], STONE);
+            shaft(k, 0.4, 1.0); moss(k, r, 4, 0.12, 0.3, 0.42);
+        }
+        "column_shaft" => { shaft(k, 0.0, 1.0); if r.next() < 0.35 { k.cy([0.5, 0.46, 0.5], [0.5, 0.52, 0.5], 0.345, 0.345, 0.0, STONE2); } if r.next() < 0.3 { let y = r.range(0.2, 0.7); k.b([0.17, y, 0.47, 0.19, y + 0.25, 0.5], [0.12, 0.11, 0.1]); } moss(k, r, 3, 0.0, 0.8, 0.33); }
+        "column_capital" => {
+            shaft(k, 0.0, 0.32); k.cy([0.5, 0.32, 0.5], [0.5, 0.38, 0.5], 0.36, 0.36, 0.0, STONE2);
+            k.lathe(0.5, 0.5, &[(0.38, 0.33), (0.5, 0.4), (0.6, 0.47), (0.66, 0.5)], STONE);
+            // une couronne de feuilles d'acanthe, recourbées
+            for i in 0..8 { let a = i as f64 * TAU / 8.0 + 0.2; let (ca, sa) = (a.cos(), a.sin()); limb(k, [0.5 + ca * 0.34, 0.4, 0.5 + sa * 0.34], [0.5 + ca * 0.47, 0.6, 0.5 + sa * 0.47], 0.045, tone(STONE, 1.05)); k.b([0.5 + ca * 0.47 - 0.03, 0.58, 0.5 + sa * 0.47 - 0.03, 0.5 + ca * 0.47 + 0.03, 0.64, 0.5 + sa * 0.47 + 0.03], STONE2); }
+            k.t([0.0, 0.66, 0.0, 1.0, 0.84, 1.0], "polished_stone", t); k.b([0.04, 0.84, 0.04, 0.96, 0.92, 0.96], STONE2); k.t([0.0, 0.92, 0.0, 1.0, 1.0, 1.0], "ashlar", tone(t, 0.9));
+            // des volutes aux quatre coins
+            for (x, z) in [(0.08, 0.08), (0.92, 0.08), (0.08, 0.92), (0.92, 0.92)] { k.cy([x, 0.62, z], [x, 0.7, z], 0.07, 0.07, 0.4, STONE2); } moss(k, r, 3, 0.84, 1.0, 0.4);
+        }
+        "statue_base" => { // le piédestal, la robe, les pieds, l'épée plantée entre eux
+            k.t([0.08, 0.0, 0.1, 0.92, 0.22, 0.9], "polished_stone", tone(t, 0.85)); k.b([0.05, 0.22, 0.07, 0.95, 0.28, 0.93], STONE2);
+            for i in 0..6 { let x = 0.22 + i as f64 * 0.11; k.b([x, 0.08, 0.095, x + 0.06, 0.14, 0.1], [0.2, 0.18, 0.16]); }
+            k.b([0.3, 0.28, 0.2, 0.44, 0.36, 0.4], STONE); k.b([0.56, 0.28, 0.2, 0.7, 0.36, 0.4], STONE);
+            k.lathe(0.5, 0.54, &[(0.28, 0.27), (0.55, 0.24), (1.0, 0.21)], STONE); for i in 0..5 { let x = 0.36 + i as f64 * 0.07; k.b([x - 0.012, 0.32, 0.28, x + 0.012, 1.0, 0.31], tone(STONE, 0.86)); }
+            k.b([0.478, 0.3, 0.185, 0.522, 1.0, 0.2], tone(STONE, 0.92)); k.b([0.493, 0.3, 0.18, 0.507, 1.0, 0.185], tone(STONE, 1.08)); moss(k, r, 3, 0.22, 0.3, 0.45);
+        }
+        "statue_top" => { // le buste en armure, les épaulières, les mains jointes sur le pommeau, la tête casquée au cimier
+            k.b([0.478, 0.0, 0.185, 0.522, 0.05, 0.2], tone(STONE, 0.92)); k.b([0.34, 0.05, 0.17, 0.66, 0.09, 0.23], STONE2); k.cy([0.5, 0.09, 0.2], [0.5, 0.24, 0.2], 0.022, 0.022, 0.0, STONE2); k.cy([0.5, 0.24, 0.2], [0.5, 0.29, 0.2], 0.04, 0.03, 0.0, STONE2);
+            k.lathe(0.5, 0.54, &[(0.0, 0.21), (0.25, 0.22), (0.42, 0.26), (0.46, 0.2)], STONE); k.b([0.34, 0.12, 0.27, 0.66, 0.42, 0.31], tone(STONE, 0.95)); k.b([0.35, 0.2, 0.26, 0.65, 0.23, 0.28], STONE2);
+            for sx in [-1.0, 1.0] { let x = 0.5 + sx * 0.23; k.b([x - 0.1, 0.38, 0.38, x + 0.1, 0.5, 0.7], STONE2); k.b([x - 0.09, 0.47, 0.4, x + 0.09, 0.53, 0.68], STONE);
+                limb(k, [x, 0.42, 0.5], [0.5 + sx * 0.2, 0.2, 0.36], 0.055, STONE); limb(k, [0.5 + sx * 0.2, 0.2, 0.36], [0.5 + sx * 0.05, 0.16, 0.22], 0.05, STONE); }
+            k.b([0.42, 0.11, 0.15, 0.58, 0.22, 0.25], tone(STONE, 1.05));
+            k.cy([0.5, 0.46, 0.53], [0.5, 0.54, 0.53], 0.07, 0.07, 0.0, STONE);
+            k.lathe(0.5, 0.5, &[(0.52, 0.06), (0.56, 0.11), (0.64, 0.13), (0.74, 0.125), (0.81, 0.09), (0.85, 0.0)], STONE); k.cy([0.5, 0.68, 0.5], [0.5, 0.73, 0.5], 0.14, 0.14, 0.0, STONE2);
+            k.b([0.485, 0.73, 0.36, 0.515, 0.93, 0.66], STONE2); k.b([0.485, 0.85, 0.62, 0.515, 0.9, 0.72], STONE2);
+            k.b([0.43, 0.63, 0.365, 0.47, 0.655, 0.375], [0.12, 0.11, 0.1]); k.b([0.53, 0.63, 0.365, 0.57, 0.655, 0.375], [0.12, 0.11, 0.1]); k.b([0.485, 0.58, 0.355, 0.515, 0.64, 0.375], STONE);
+            k.b([0.42, 0.5, 0.37, 0.58, 0.58, 0.42], STONE2); moss(k, r, 4, 0.48, 0.55, 0.28);
+        }
+        "tomb_head" | "tomb_foot" => { // le sarcophage, ses panneaux sculptés, son couvercle ; le gisant, tête sur un coussin, mains jointes
+            let head = m == "tomb_head"; let (x0, x1) = if head { (0.04, 1.0) } else { (0.0, 0.96) };
+            k.t([x0, 0.0, 0.08, x1, 0.1, 0.92], "polished_stone", tone(t, 0.8)); k.t([x0 + 0.04, 0.1, 0.12, x1 - if head { 0.0 } else { 0.04 }, 0.5, 0.88], "ashlar", t);
+            for z in [0.1, 0.88] { let (z0, z1) = (z, z + 0.02); let p = if head { (0.14, 0.96) } else { (0.04, 0.86) };
+                for bb in [[p.0, 0.15, z0, p.1, 0.18, z1], [p.0, 0.42, z0, p.1, 0.45, z1], [p.0, 0.15, z0, p.0 + 0.03, 0.45, z1], [p.1 - 0.03, 0.15, z0, p.1, 0.45, z1]] { k.b(bb, STONE2); }
+                let c = (p.0 + p.1) * 0.5; k.cy([c, 0.3, z0 - 0.002], [c, 0.3, z1 + 0.002], 0.08, 0.08, 0.5, STONE2); k.b([c - 0.012, 0.22, z0 - 0.004, c + 0.012, 0.38, z1 + 0.004], STONE2); }
+            let end = if head { x0 + 0.04 } else { x1 - 0.04 }; k.b([end - 0.02, 0.15, 0.2, end + 0.02, 0.45, 0.8], STONE2);
+            k.t([x0 - 0.02, 0.5, 0.09, x1 + if head { 0.0 } else { 0.02 }, 0.6, 0.91], "polished_stone", tone(t, 0.95));
+            if head { k.b([0.1, 0.6, 0.3, 0.34, 0.66, 0.7], STONE); k.lathe(0.24, 0.5, &[(0.64, 0.05), (0.68, 0.09), (0.74, 0.1), (0.79, 0.07), (0.81, 0.0)], STONE);
+                k.b([0.34, 0.6, 0.27, 0.52, 0.76, 0.73], STONE); k.b([0.52, 0.6, 0.31, 1.0, 0.74, 0.69], STONE); k.b([0.66, 0.74, 0.44, 0.78, 0.81, 0.56], tone(STONE, 1.06));
+                for i in 0..3 { let z = 0.38 + i as f64 * 0.12; k.b([0.55, 0.735, z, 1.0, 0.745, z + 0.015], STONE2); } }
+            else { k.b([0.0, 0.6, 0.33, 0.6, 0.72, 0.67], STONE); k.b([0.6, 0.6, 0.35, 0.7, 0.84, 0.48], STONE); k.b([0.6, 0.6, 0.52, 0.7, 0.84, 0.65], STONE); k.b([0.0, 0.715, 0.48, 0.55, 0.725, 0.52], STONE2); }
+            moss(k, r, 3, 0.5, 0.6, 0.42);
+        }
+        "wall_relief" => { // un bloc de pierre au bas-relief : un cadre, et l'une de trois scènes (un soleil, un porteur de lance, un serpent)
+            k.t([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "ashlar", tone(t, 0.8)); let rel = tone(STONE, 1.08);
+            for (u0, v0, u1, v1) in [(0.06, 0.06, 0.94, 0.12), (0.06, 0.88, 0.94, 0.94), (0.06, 0.12, 0.12, 0.88), (0.88, 0.12, 0.94, 0.88)] { front(k, u0, v0, u1, v1, 0.035, STONE2); }
+            match r.int(0, 2) {
+                0 => { k.cy([0.5, 0.5, -0.035], [0.5, 0.5, 0.002], 0.15, 0.15, 0.0, rel); k.cy([0.5, 0.5, -0.045], [0.5, 0.5, -0.03], 0.07, 0.07, 0.0, tone(rel, 0.9));
+                    for i in 0..12 { let a = i as f64 * TAU / 12.0; let (ca, sa) = (a.cos(), a.sin()); limb(k, [0.5 + ca * 0.19, 0.5 + sa * 0.19, -0.015], [0.5 + ca * 0.32, 0.5 + sa * 0.32, -0.015], 0.018, rel); } }
+                1 => { k.cy([0.42, 0.74, -0.03], [0.42, 0.74, 0.002], 0.06, 0.06, 0.0, rel); front(k, 0.36, 0.42, 0.5, 0.68, 0.03, rel); front(k, 0.35, 0.2, 0.42, 0.42, 0.03, rel); front(k, 0.45, 0.2, 0.52, 0.42, 0.03, rel);
+                    limb(k, [0.48, 0.62, -0.015], [0.62, 0.7, -0.015], 0.025, rel); front(k, 0.62, 0.16, 0.65, 0.86, 0.025, tone(rel, 0.9)); limb(k, [0.6, 0.86, -0.015], [0.635, 0.94, -0.015], 0.02, tone(rel, 0.9)); limb(k, [0.67, 0.86, -0.015], [0.635, 0.94, -0.015], 0.02, tone(rel, 0.9)); }
+                _ => { let mut prev = [0.18, 0.5, -0.015]; for i in 1..=14 { let u = 0.18 + i as f64 * 0.045; let p = [u, 0.5 + (u * 14.0).sin() * 0.16, -0.015]; limb(k, prev, p, 0.03, rel); prev = p; } k.cy([prev[0] + 0.02, prev[1], -0.03], [prev[0] + 0.02, prev[1], 0.002], 0.05, 0.05, 0.0, rel); }
+            }
+            if r.next() < 0.4 { let x = r.range(0.1, 0.8); front(k, x, 0.0, x + r.range(0.08, 0.2), r.range(0.05, 0.25), 0.02, tone(MOSS, 0.9)); }
+        }
+        "lintel" => { // un linteau : la frise à méandres, les denticules, la corniche en surplomb
+            k.t([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "ashlar", tone(t, 0.85)); front(k, 0.0, 0.84, 1.0, 1.0, 0.1, tone(STONE, 1.05)); front(k, 0.0, 0.8, 1.0, 0.84, 0.06, STONE2);
+            for i in 0..6 { let u = 0.04 + i as f64 * 0.167; front(k, u, 0.68, u + 0.09, 0.8, 0.045, STONE); }
+            for i in 0..2 { let u = i as f64 * 0.5; for (a, b, c, d) in [(0.04, 0.18, 0.46, 0.23), (0.04, 0.18, 0.09, 0.56), (0.04, 0.51, 0.36, 0.56), (0.31, 0.3, 0.36, 0.56), (0.18, 0.3, 0.36, 0.35), (0.18, 0.3, 0.23, 0.45), (0.41, 0.18, 0.46, 0.62)] { front(k, u + a, b, u + c, d, 0.03, STONE); } }
+            front(k, 0.0, 0.08, 1.0, 0.12, 0.04, STONE2);
+        }
+        "funeral_urn" => { // une urne de pierre sur son socle, deux anses, un couvercle à bouton
+            k.b([0.28, 0.0, 0.28, 0.72, 0.08, 0.72], STONE2); k.lathe(0.5, 0.5, &[(0.08, 0.1), (0.14, 0.17), (0.32, 0.23), (0.5, 0.21), (0.6, 0.13), (0.64, 0.15), (0.68, 0.15)], STONE);
+            k.lathe(0.5, 0.5, &[(0.68, 0.14), (0.74, 0.09), (0.78, 0.04), (0.8, 0.05), (0.84, 0.0)], tone(STONE, 0.95)); k.cy([0.5, 0.3, 0.5], [0.5, 0.34, 0.5], 0.232, 0.232, 0.85, STONE2);
+            for sx in [-1.0, 1.0] { let x = 0.5 + sx * 0.22; limb(k, [x, 0.58, 0.5], [x + sx * 0.06, 0.48, 0.5], 0.02, STONE2); limb(k, [x + sx * 0.06, 0.48, 0.5], [x, 0.4, 0.5], 0.02, STONE2); }
+            moss(k, r, 2, 0.08, 0.2, 0.22);
+        }
+        "altar" => { // un autel : socle, bloc sculpté (un soleil cerclé d'or sur la face), table en surplomb
+            k.t([0.02, 0.0, 0.04, 0.98, 0.12, 0.96], "polished_stone", tone(t, 0.8)); k.t([0.08, 0.12, 0.1, 0.92, 0.86, 0.9], "ashlar", t); k.t([0.0, 0.86, 0.02, 1.0, 1.0, 0.98], "polished_stone", t);
+            for (u0, v0, u1, v1) in [(0.14, 0.18, 0.86, 0.22), (0.14, 0.76, 0.86, 0.8), (0.14, 0.22, 0.18, 0.76), (0.82, 0.22, 0.86, 0.76)] { k.b([u0, v0, 0.08, u1, v1, 0.1], STONE2); }
+            k.cy([0.5, 0.49, 0.075], [0.5, 0.49, 0.1], 0.17, 0.17, 0.82, GOLD); k.cy([0.5, 0.49, 0.08], [0.5, 0.49, 0.1], 0.12, 0.12, 0.0, tone(STONE, 1.05));
+            for i in 0..8 { let a = i as f64 * TAU / 8.0; let (ca, sa) = (a.cos(), a.sin()); limb(k, [0.5 + ca * 0.19, 0.49 + sa * 0.19, 0.09], [0.5 + ca * 0.26, 0.49 + sa * 0.26, 0.09], 0.015, STONE2); }
+            moss(k, r, 2, 0.0, 0.12, 0.45);
+        }
+        _ => { // le brasier sur pied : un fût cannelé court, une vasque de bronze, les braises et les flammes
+            k.t([0.18, 0.0, 0.18, 0.82, 0.1, 0.82], "polished_stone", tone(t, 0.85)); k.cy([0.5, 0.1, 0.5], [0.5, 0.56, 0.5], 0.14, 0.14, 0.0, tone(STONE, 0.8));
+            for i in 0..8 { let a = i as f64 * TAU / 8.0; k.cy([0.5 + a.cos() * 0.14, 0.1, 0.5 + a.sin() * 0.14], [0.5 + a.cos() * 0.14, 0.56, 0.5 + a.sin() * 0.14], 0.022, 0.022, 0.0, STONE); }
+            let bronze = [0.55, 0.36, 0.18]; k.lathe(0.5, 0.5, &[(0.56, 0.16), (0.62, 0.3), (0.72, 0.38), (0.76, 0.4)], bronze); k.cy([0.5, 0.74, 0.5], [0.5, 0.78, 0.5], 0.41, 0.41, 0.88, tone(bronze, 1.2));
+            k.e([0.2, 0.7, 0.2, 0.8, 0.74, 0.8], [1.7, 0.45, 0.1]); k.flame(0.42, 0.72, 0.45, 0.26); k.flame(0.58, 0.72, 0.55, 0.32); k.flame(0.5, 0.72, 0.38, 0.22);
+        }
+    }
+}
 
 /// Dessine le meuble `model` du bloc `name` en (x, y, z). Rend faux si ce n'est pas un modèle de ce module.
 #[allow(clippy::too_many_arguments)]
@@ -421,6 +528,10 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
                 for u in [0.38, 0.5, 0.62] { face(k, q, u - 0.015, 0.345, u + 0.015, 0.375, 0.035, 0.07, bronze); }
             }
         }
+        // L'architecture ancestrale des donjons : une colonne cannelée en trois pièces (base, fût, chapiteau), une statue de gardien
+        // sur deux blocs, un sarcophage et son gisant sur deux blocs, un bas-relief, un linteau à frise, une urne funéraire, un autel
+        // sculpté, un brasier sur pied. Pierre calcaire vieillie, rehaussée de mousse au hasard.
+        "column_base" | "column_shaft" | "column_capital" | "statue_base" | "statue_top" | "tomb_head" | "tomb_foot" | "wall_relief" | "lintel" | "funeral_urn" | "altar" | "brazier_stand" => ancient(k, m, r),
         // les pics : une plaque de fer percée, et, sortis, des pointes acérées ; rentrés, seuls leurs bouts affleurent
         "spikes" | "spikes_down" => {
             k.b([0.02, 0.0, 0.02, 0.98, 0.06, 0.98], [0.22, 0.22, 0.24]); let out = m == "spikes";

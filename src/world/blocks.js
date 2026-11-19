@@ -450,6 +450,10 @@ for (const f of ['', '@1', '@2', '@3']) defs.push([`lever${f}`, 'deco', null, 0.
 cube('pressure_plate', 'chiseled', 1.6, 'rock', { tint: [0.95, 0.82, 0.58] }); cube('pressure_plate_on', 'chiseled', 1.6, 'rock', { tint: [0.62, 0.52, 0.36], drop: 'pressure_plate' });
 cube('push_block', 'ashlar', 2.5, 'rock', { tint: [0.78, 0.86, 1.05] }); cube('crumbling_floor', 'fieldstone', 0.4, 'rock', { tint: [0.82, 0.72, 0.6] }); defs.push(['dart_trap', 'deco', null, 2.0, { model: 'dart_trap', solid: true, cat: 'rock', drop: 'dart_trap' }]); // un bloc de pierre au masque grimaçant : par sa bouche, trois fléchettes
 defs.push(['spikes', 'deco', null, 1.2, { model: 'spikes', solid: false, cat: 'rock', drop: 'spikes' }], ['spikes_down', 'deco', null, 1.2, { model: 'spikes_down', solid: false, cat: 'rock', drop: 'spikes' }]);
+// L'architecture ancestrale des donjons : colonne cannelée (base, fût, chapiteau), urne funéraire et brasier sur pied (sans
+// sens), puis les pièces orientées : statue de gardien (deux blocs), sarcophage à gisant (deux blocs), bas-relief, linteau, autel.
+for (const [n, h, p] of [['column_base', 2.0, {}], ['column_shaft', 2.0, {}], ['column_capital', 2.0, {}], ['funeral_urn', 1.2, {}], ['brazier_stand', 1.6, { light: 14 }]]) defs.push([n, 'deco', null, h, { model: n, solid: true, cat: 'rock', drop: n, ...p }]);
+for (const f of ['', '@1', '@2', '@3']) for (const [n, drop] of [['statue_base', 'stone'], ['statue_top', 'stone'], ['tomb_head', 'stone'], ['tomb_foot', 'stone'], ['wall_relief', 'wall_relief'], ['lintel', 'lintel'], ['altar', 'altar']]) defs.push([`${n}${f}`, 'deco', null, 2.2, { model: n, solid: true, cat: 'rock', drop }]);
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,

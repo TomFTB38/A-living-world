@@ -4,7 +4,7 @@ use crate::blocks::{Block, Shape};
 pub const VARIANTS: u32 = 4;
 pub const MATERIALS: [&str; 113] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm", "ore_copper", "ore_tin", "ore_iron", "ore_coal", "clay", "stone_bricks", "bricks", "thatch", "planks_birch", "planks_spruce", "cobble", "farmland_top", "plaster", "dark_timber", "roof_tiles", "slate", "marble", "ashlar", "fieldstone", "setts", "polished_stone", "checker", "terracotta", "parquet", "shingles", "wool", "rug", "frame_square", "frame_cross", "frame_diag", "wattle", "books", "hay", "crate", "chiseled", "stained_glass", "iron_plate", "verdigris", "coral", "planks_wreck", "lime_masonry", "rubble", "beam_end", "boards", "tiles_moss", "path_top", "flowstone", "basalt", "obsidian", "lava", "magma", "crystal_violet", "crystal_blue", "crystal_pink", "crystal_white", "abyss_rock", "glow_moss", "mycelium", "mushroom_stem", "cap_red", "cap_violet", "cap_blue", "gills", "ice_blue", "rail_bed"];
 
-pub const BLOCKS: [Block; 1172] = [
+pub const BLOCKS: [Block; 1205] = [
     Block { id: 0, name: "air", shape: Shape::Air, hardness: 0.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "decor", drop: Some("air") },
     Block { id: 1, name: "grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
     Block { id: 2, name: "dirt", shape: Shape::Cube, hardness: 0.45, faces: [8,8,8], dir_faces: [8,8,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
@@ -1177,6 +1177,39 @@ pub const BLOCKS: [Block; 1172] = [
     Block { id: 1169, name: "dart_trap", shape: Shape::Deco, hardness: 2.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("dart_trap"), cat: "rock", drop: Some("dart_trap") },
     Block { id: 1170, name: "spikes", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("spikes"), cat: "rock", drop: Some("spikes") },
     Block { id: 1171, name: "spikes_down", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("spikes_down"), cat: "rock", drop: Some("spikes") },
+    Block { id: 1172, name: "column_base", shape: Shape::Deco, hardness: 2.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("column_base"), cat: "rock", drop: Some("column_base") },
+    Block { id: 1173, name: "column_shaft", shape: Shape::Deco, hardness: 2.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("column_shaft"), cat: "rock", drop: Some("column_shaft") },
+    Block { id: 1174, name: "column_capital", shape: Shape::Deco, hardness: 2.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("column_capital"), cat: "rock", drop: Some("column_capital") },
+    Block { id: 1175, name: "funeral_urn", shape: Shape::Deco, hardness: 1.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("funeral_urn"), cat: "rock", drop: Some("funeral_urn") },
+    Block { id: 1176, name: "brazier_stand", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 14, tint: [1.0,1.0,1.0], model: Some("brazier_stand"), cat: "rock", drop: Some("brazier_stand") },
+    Block { id: 1177, name: "statue_base", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("statue_base"), cat: "rock", drop: Some("stone") },
+    Block { id: 1178, name: "statue_top", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("statue_top"), cat: "rock", drop: Some("stone") },
+    Block { id: 1179, name: "tomb_head", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("tomb_head"), cat: "rock", drop: Some("stone") },
+    Block { id: 1180, name: "tomb_foot", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("tomb_foot"), cat: "rock", drop: Some("stone") },
+    Block { id: 1181, name: "wall_relief", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("wall_relief"), cat: "rock", drop: Some("wall_relief") },
+    Block { id: 1182, name: "lintel", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lintel"), cat: "rock", drop: Some("lintel") },
+    Block { id: 1183, name: "altar", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("altar"), cat: "rock", drop: Some("altar") },
+    Block { id: 1184, name: "statue_base@1", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("statue_base"), cat: "rock", drop: Some("stone") },
+    Block { id: 1185, name: "statue_top@1", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("statue_top"), cat: "rock", drop: Some("stone") },
+    Block { id: 1186, name: "tomb_head@1", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("tomb_head"), cat: "rock", drop: Some("stone") },
+    Block { id: 1187, name: "tomb_foot@1", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("tomb_foot"), cat: "rock", drop: Some("stone") },
+    Block { id: 1188, name: "wall_relief@1", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("wall_relief"), cat: "rock", drop: Some("wall_relief") },
+    Block { id: 1189, name: "lintel@1", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lintel"), cat: "rock", drop: Some("lintel") },
+    Block { id: 1190, name: "altar@1", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("altar"), cat: "rock", drop: Some("altar") },
+    Block { id: 1191, name: "statue_base@2", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("statue_base"), cat: "rock", drop: Some("stone") },
+    Block { id: 1192, name: "statue_top@2", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("statue_top"), cat: "rock", drop: Some("stone") },
+    Block { id: 1193, name: "tomb_head@2", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("tomb_head"), cat: "rock", drop: Some("stone") },
+    Block { id: 1194, name: "tomb_foot@2", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("tomb_foot"), cat: "rock", drop: Some("stone") },
+    Block { id: 1195, name: "wall_relief@2", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("wall_relief"), cat: "rock", drop: Some("wall_relief") },
+    Block { id: 1196, name: "lintel@2", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lintel"), cat: "rock", drop: Some("lintel") },
+    Block { id: 1197, name: "altar@2", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("altar"), cat: "rock", drop: Some("altar") },
+    Block { id: 1198, name: "statue_base@3", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("statue_base"), cat: "rock", drop: Some("stone") },
+    Block { id: 1199, name: "statue_top@3", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("statue_top"), cat: "rock", drop: Some("stone") },
+    Block { id: 1200, name: "tomb_head@3", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("tomb_head"), cat: "rock", drop: Some("stone") },
+    Block { id: 1201, name: "tomb_foot@3", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("tomb_foot"), cat: "rock", drop: Some("stone") },
+    Block { id: 1202, name: "wall_relief@3", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("wall_relief"), cat: "rock", drop: Some("wall_relief") },
+    Block { id: 1203, name: "lintel@3", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lintel"), cat: "rock", drop: Some("lintel") },
+    Block { id: 1204, name: "altar@3", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("altar"), cat: "rock", drop: Some("altar") },
 ];
 
 #[allow(non_snake_case)]
@@ -2227,4 +2260,16 @@ pub mod B {
     pub const DART_TRAP: crate::blocks::Id = 1169;
     pub const SPIKES: crate::blocks::Id = 1170;
     pub const SPIKES_DOWN: crate::blocks::Id = 1171;
+    pub const COLUMN_BASE: crate::blocks::Id = 1172;
+    pub const COLUMN_SHAFT: crate::blocks::Id = 1173;
+    pub const COLUMN_CAPITAL: crate::blocks::Id = 1174;
+    pub const FUNERAL_URN: crate::blocks::Id = 1175;
+    pub const BRAZIER_STAND: crate::blocks::Id = 1176;
+    pub const STATUE_BASE: crate::blocks::Id = 1177;
+    pub const STATUE_TOP: crate::blocks::Id = 1178;
+    pub const TOMB_HEAD: crate::blocks::Id = 1179;
+    pub const TOMB_FOOT: crate::blocks::Id = 1180;
+    pub const WALL_RELIEF: crate::blocks::Id = 1181;
+    pub const LINTEL: crate::blocks::Id = 1182;
+    pub const ALTAR: crate::blocks::Id = 1183;
 }

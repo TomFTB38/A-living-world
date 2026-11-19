@@ -552,7 +552,7 @@ fn capture(a: &[String]) {
     if let Some(vw) = scene.strip_prefix("plat_sanctuaire") {
         use alw_core::sanctuaire::DEPTH; let o = [-41, alw_core::gen::FLAT_Y, -24]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = false; s.set_creative(false);
         s.build_sanctuary(o); pump(&mut s, &mut g); let f = (o[1] - DEPTH) as f64;
-        let (u, v, w, look) = match vw { "_entree" => (1.5, DEPTH as f64 + 1.0, -25.5, [0.0, -3.0, 10.0]), "_eau" => (0.5, 1.0, 2.6, [0.0, -1.2, 10.0]), "_leviers" => (-13.5, 1.0, 7.5, [-10.0, 0.4, 0.0]),
+        let (u, v, w, look) = match vw { "_entree" => (1.5, DEPTH as f64 + 1.0, -25.5, [0.0, -3.0, 10.0]), "_eau" => (0.5, 1.0, 2.6, [0.0, -1.2, 10.0]), "_hall" => (0.5, 1.0, 11.4, [0.0, 1.0, -10.0]), "_leviers" => (-13.5, 1.0, 7.5, [-10.0, 0.4, 0.0]),
             "_pieges" => (-9.5, 1.0, 21.5, [10.0, -0.9, 0.0]), "_nef" => (21.5, 6.0, 17.5, [-8.0, -4.2, 8.5]), "_secrete" => (12.5, 6.0, 17.5, [-10.0, -1.0, 0.3]), _ => (17.5, 1.0, -2.2, [0.0, -0.9, -6.0]) };
         s.player.p = [o[0] as f64 + u, f + v, o[2] as f64 + w]; let d = view::norm(look); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin();
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p[0] = p[0]; s.player.p[2] = p[2]; s.player.yaw = y; s.player.pitch = pi; }
@@ -567,13 +567,23 @@ fn capture(a: &[String]) {
     // dont le plan la contient).
     if let Some(vw) = scene.strip_prefix("plat_ruines_") {
         use alw_core::{donjons::{layout, Kind}, sanctuaire::DEPTH}; let o = [-41, alw_core::gen::FLAT_Y, -24]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = false; s.set_creative(false);
-        let kind = match vw { "leviers" => Kind::Leviers, "dalles" => Kind::Dalles, "pics" => Kind::Pics, "nef" => Kind::Nef, "epreuve" => Kind::Epreuve, "tresor" => Kind::Tresor, _ => Kind::Entree };
+        let kind = match vw { "leviers" => Kind::Leviers, "dalles" => Kind::Dalles, "pics" => Kind::Pics, "nef" => Kind::Nef, "epreuve" => Kind::Epreuve, "tresor" => Kind::Tresor, "gardien" => Kind::Gardien, _ => Kind::Entree };
         let seed = (0..500u32).find(|&k| layout(k).rooms.iter().any(|r| r.kind == kind)).unwrap_or(0); let (l, _) = s.build_dungeon(o, seed); pump(&mut s, &mut g);
         let r = *l.rooms.iter().find(|r| r.kind == kind).unwrap(); let f = (o[1] - DEPTH) as f64;
-        let (eye, look) = if kind == Kind::Entree { (r.at([-5, DEPTH + 1, -12]), r.at([-5, DEPTH - 1, -5])) } else if kind == Kind::Nef { (r.at([0, 1, -4]), r.at([1, 7, 5])) } else { (r.at([0, 1, -5]), r.at([0, 1, 3])) };
+        let (eye, look) = if vw == "entree" { (r.at([-4, DEPTH + 2, 18]), r.at([-4, DEPTH + 4, 7])) } else if vw == "hall" { (r.at([-4, 11, 4]), r.at([4, 1, -3])) } else if kind == Kind::Nef { (r.at([0, 1, -4]), r.at([1, 7, 5])) } else { (r.at([0, 1, -5]), r.at([0, 1, 3])) };
         s.player.p = [o[0] as f64 + eye[0] as f64 + 0.5, f + eye[1] as f64, o[2] as f64 + eye[2] as f64 + 0.5]; let d = view::norm([(look[0] - eye[0]) as f64, (look[1] - eye[1]) as f64 - 1.2, (look[2] - eye[2]) as f64]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin();
         for _ in 0..30 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p[0] = p[0]; s.player.p[2] = p[2]; s.player.yaw = y; s.player.pitch = pi; }
         println!("ruines {vw} : graine {seed}, {:?}", l.rooms.iter().map(|r| r.kind.name()).collect::<Vec<_>>()); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
+    // L'architecture ancestrale, pièce par pièce, au jour : colonne, statue, sarcophage, bas-reliefs, linteau, urne, autel, brasier.
+    if scene == "plat_ancestral" {
+        let y = alw_core::gen::FLAT_Y + 1; let (x0, z0) = (-46, -31); let id = |n: &str| alw_core::blocks::by_name(n).unwrap(); let mut e = Vec::new();
+        e.push((x0, y, z0, id("column_base"))); for k in 1..4 { e.push((x0, y + k, z0, id("column_shaft"))); } e.push((x0, y + 4, z0, id("column_capital")));
+        e.push((x0 + 2, y, z0, id("statue_base"))); e.push((x0 + 2, y + 1, z0, id("statue_top"))); e.push((x0 + 4, y, z0, id("tomb_head"))); e.push((x0 + 5, y, z0, id("tomb_foot")));
+        for k in 0..3 { e.push((x0 + 7 + k, y + 1, z0 + 1, id("wall_relief"))); e.push((x0 + 7 + k, y, z0 + 1, id("stone_bricks"))); e.push((x0 + 7 + k, y + 2, z0 + 1, id("lintel"))); }
+        e.push((x0 + 11, y, z0, id("funeral_urn"))); e.push((x0 + 12, y, z0, id("altar"))); e.push((x0 + 13, y, z0, id("brazier_stand")));
+        s.world.edit_many(&e); s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.player.fly = true;
+        s.player.p = [x0 as f64 + 6.5, y as f64 + 0.6, z0 as f64 - 6.5]; s.player.yaw = 0.0; s.player.pitch = -0.12; pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
     if scene == "plat_mecanismes" {
         let id = |n: &str| alw_core::blocks::by_name(n).unwrap_or(0); let p = s.player.p; let (x, y, z) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32 + 5);

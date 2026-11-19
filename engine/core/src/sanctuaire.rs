@@ -104,7 +104,10 @@ impl S<'_> {
     }
     /// Une grille : barreaux en travers (le long de x) ou en long (le long de z).
     fn bars(&mut self, l: &[[i32; 3]], along_z: bool) { for q in l { if along_z { self.t(q[0], q[1], q[2], "iron_bars", 1, 0); } else { self.n(q[0], q[1], q[2], "iron_bars"); } } }
-    fn column(&mut self, u: i32, w: i32, v0: i32, v1: i32, n: &'static str) { for v in v0..=v1 { self.n(u, v, w, n); } }
+    /// Une colonne : cannelée (base, fûts, chapiteau) pour « stone_pillar », sinon une pile de `n`.
+    fn column(&mut self, u: i32, w: i32, v0: i32, v1: i32, n: &'static str) { for v in v0..=v1 { self.n(u, v, w, if n != "stone_pillar" { n } else if v == v0 { "column_base" } else if v == v1 { "column_capital" } else { "column_shaft" }); } }
+    fn statue(&mut self, u: i32, v: i32, w: i32, dx: i32, dz: i32) { self.t(u, v, w, "statue_base", dx, dz); self.t(u, v + 1, w, "statue_top", dx, dz); }
+    fn tomb(&mut self, u: i32, v: i32, w: i32) { self.t(u, v, w, "tomb_head", 0, 1); self.t(u + 1, v, w, "tomb_foot", 0, 1); }
 }
 
 /// Pose le sanctuaire dans le plan : `o` est le sol de l'entrée (le bloc sur lequel on marche) ; les salles sont dessous.
@@ -116,14 +119,21 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
         for u in -1..=1 { for v in st - 3..st { s.wall(u, v, w); } s.t(u, st, w, "stone_bricks_stairs", 0, -1); let open = if k <= 2 { top + 3 } else { st + 3 }; for v in st + 1..=open { s.air(u, v, w); } if k > 2 { s.wall(u, st + 4, w); } }
         for u in [-2, 2] { for v in st - 1..=(st + 4).min(top) { s.wall(u, v, w); } } }
     s.room((-1, 1, -1, 0, 3)); for u in -1..=1 { for v in 1..=3 { s.air(u, v, 1); } }
-    // La ruine en surface : des colonnes moussues, une architrave brisée, un muret de part et d'autre de la descente.
-    for (u, w, h) in [(-3, -15, 4), (3, -15, 3), (-3, -10, 2), (3, -10, 4)] { s.column(u, w, top + 1, top + h, "stone_pillar"); s.n(u, top, w, "mossy_stone"); }
-    for u in -3..=1 { s.n(u, top + 5, -15, if u == 1 { "mossy_stone" } else { "stone_bricks" }); }
+    // Le portail, en surface : un parvis dallé, deux colonnes cannelées sous un linteau à frise et son fronton, deux gardiens
+    // de pierre qui accueillent le visiteur, deux brasiers ; un muret de part et d'autre de la descente.
+    for u in -5..=5 { for w in -18..=-14 { s.n(u, top, w, if (u + w) % 3 == 0 { "mossy_stone" } else { "stone_bricks" }); } }
+    for u in [-2, 2] { s.column(u, -14, top + 1, top + 5, "stone_pillar"); } for u in -3..=3 { s.t(u, top + 6, -14, "lintel", 0, 1); }
+    s.t(-2, top + 7, -14, "stone_bricks_stairs", 1, 0); for u in -1..=1 { s.n(u, top + 7, -14, "stone_bricks"); } s.t(2, top + 7, -14, "stone_bricks_stairs", -1, 0);
+    s.t(-1, top + 8, -14, "stone_bricks_stairs", 1, 0); s.n(0, top + 8, -14, "stone_bricks"); s.t(1, top + 8, -14, "stone_bricks_stairs", -1, 0); s.n(0, top + 9, -14, "stone_bricks_slab");
+    for u in [-4, 4] { s.statue(u, top + 1, -14, 0, 1); s.n(u, top + 1, -17, "brazier_stand"); }
     for w in -13..=-11 { for u in [-2, 2] { s.n(u, top + 1, w, "stone_bricks_slab"); } }
-    s.t(-3, top + 3, -16, "banner_blue", 0, 1); s.n(-4, top + 1, -12, "mossy_stone"); s.n(4, top + 1, -13, "stone_bricks_slab"); s.n(-5, top + 1, -9, "mossy_stone");
+    s.n(-4, top + 1, -11, "mossy_stone"); s.n(4, top + 1, -12, "stone_bricks_slab"); s.n(-5, top + 1, -9, "column_shaft");
     // La salle de l'eau noire.
     s.room(HALL); s.basin(-2, 2, 6, 9);
     for (u, w) in [(-4, 4), (4, 4), (-4, 10), (4, 10)] { s.column(u, w, 1, HALL.4, "stone_pillar"); }
+    // deux gardiens de pierre au pied de l'escalier ; des bas-reliefs aux murs ; un sarcophage contre le mur sud
+    for u in [-2, 2] { s.statue(u, 1, 2, 0, -1); } for w in [3, 5, 9, 11] { s.t(6, 4, w, "wall_relief", 1, 0); } for u in [-4, -2, 2, 4] { s.t(u, 4, 13, "wall_relief", 0, 1); }
+    for w in [3, 4, 10, 11] { s.t(-6, 4, w, "wall_relief", -1, 0); } s.tomb(-1, 1, 12); s.n(-4, 1, 12, "funeral_urn"); s.n(4, 1, 12, "funeral_urn");
     for (u, w, dx) in [(-5, 4, -1), (5, 4, 1), (-5, 10, -1), (5, 10, 1)] { s.t(u, 3, w, "wall_sconce", dx, 0); }
     s.t(-3, 4, 2, "banner_blue", 0, -1); s.t(3, 4, 2, "banner_blue", 0, -1); s.n(-3, 1, 12, "brazier"); s.n(3, 1, 12, "brazier");
     for (u, w) in [(-5, 2), (5, 12), (-5, 12)] { s.n(u, HALL.4, w, "cobweb"); }
@@ -133,7 +143,7 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     s.room(R1);
     for (k, l) in R1_LEVERS.iter().enumerate() { s.t(l[0], l[1], l[2], "lever", -1, 0); for v in 0..=k as i32 { s.t(l[0], 3 + v, l[2], "banner_gold", -1, 0); } }
     for d in R1_DARTS { s.n(d[0], d[1], d[2], "dart_trap"); }
-    s.n(-17, 1, 7, "chiseled_stone"); s.n(-17, 2, 7, "candle"); for (u, w, dx, dz) in [(-12, 3, 1, 0), (-12, 11, 1, 0), (-20, 2, 0, -1), (-14, 12, 0, 1)] { s.t(u, 4, w, "wall_sconce", dx, dz); }
+    s.t(-17, 1, 7, "altar", -1, 0); s.n(-17, 2, 7, "candle"); for w in [4, 10] { s.t(-17, 4, w + if w < 7 { -3 } else { 3 }, "wall_relief", 0, if w < 7 { -1 } else { 1 }); } for (u, w, dx, dz) in [(-12, 3, 1, 0), (-12, 11, 1, 0), (-20, 2, 0, -1), (-14, 12, 0, 1)] { s.t(u, 4, w, "wall_sconce", dx, dz); }
     s.room((-18, -17, 13, 15, 2)); s.bars(&R1_GATE, false);
     // 2 — les deux dalles
     s.room(R2);
@@ -172,7 +182,7 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     s.n(R5_TRAP[0], R5_TRAP[1], R5_TRAP[2], "dart_trap"); for (u, w, dx, dz) in [(12, 10, -1, 0), (22, 11, 1, 0), (12, 3, -1, 0)] { s.t(u, 3, w, "wall_sconce", dx, dz); }
     // 6 — la chambre de l'idole
     s.room(R6); s.basin(13, 13, -9, -3); s.basin(21, 21, -9, -3);
-    s.n(CHEST[0], 1, CHEST[2], "chiseled_stone"); s.n(CHEST[0], CHEST[1], CHEST[2], "chest"); for (u, w) in [(16, -6), (18, -6), (17, -5), (17, -7)] { s.n(u, 1, w, "candle"); }
+    s.t(CHEST[0], 1, CHEST[2], "altar", 0, -1); s.tomb(14, 1, -10); s.tomb(19, 1, -10); for u in [13, 21] { s.statue(u, 1, -2, 0, 1); } s.n(CHEST[0], CHEST[1], CHEST[2], "chest"); for (u, w) in [(16, -6), (18, -6), (17, -5), (17, -7)] { s.n(u, 1, w, "candle"); }
     for (u, w) in [(15, -9), (19, -9), (15, -3), (19, -3)] { s.column(u, w, 1, R6.4, "stone_pillar"); } for u in [15, 19] { s.t(u, 4, -10, "banner_gold", 0, -1); } s.n(17, R6.4, -6, "chandelier");
     for (u, w) in [(12, -10), (22, -10)] { s.n(u, 1, w, "brazier"); }
     // le couloir dérobé, son levier, sa grille

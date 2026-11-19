@@ -22,7 +22,7 @@ pub enum Kind { Entree, Leviers, Dalles, Pics, Nef, Epreuve, Gardien, Tresor }
 impl Kind {
     pub fn name(self) -> &'static str { match self { Kind::Entree => "l'entrée", Kind::Leviers => "les leviers", Kind::Dalles => "les dalles", Kind::Pics => "les pics", Kind::Nef => "la nef", Kind::Epreuve => "l'épreuve", Kind::Gardien => "le gardien", Kind::Tresor => "le trésor" } }
     /// La hauteur sous voûte.
-    pub fn h(self) -> i32 { match self { Kind::Nef => 9, Kind::Gardien => 6, _ => 5 } }
+    pub fn h(self) -> i32 { match self { Kind::Entree => DEPTH - 1, Kind::Nef => 9, Kind::Gardien => 6, _ => 5 } }
     /// Une grille ferme-t-elle la sortie tant que l'épreuve n'est pas résolue ?
     pub fn gated(self) -> bool { matches!(self, Kind::Leviers | Kind::Dalles | Kind::Nef | Kind::Epreuve | Kind::Gardien) }
     /// Les sorties possibles, dans le repère de la salle : en face (0, 1), à droite (1, 0) ou à gauche (-1, 0).
@@ -44,7 +44,9 @@ impl Room {
     /// La sortie, dans le repère de la salle.
     fn exit_local(&self) -> Option<(i32, i32)> { self.exit.map(|d| spin_xz(d.0, d.1, (4 - self.q) % 4)) }
     /// Où l'on se tient en entrant.
-    pub fn spot(&self) -> [i32; 3] { self.at(if self.kind == Kind::Entree { [-4, 1, -4] } else { [0, 1, -4] }) }
+    pub fn spot(&self) -> [i32; 3] { self.at(if self.kind == Kind::Entree { [-2, 1, -4] } else { [0, 1, -4] }) }
+    /// Sur le parvis du portail de l'entrée, quand le sol est plat au-dessus (le haut de l'escalier est alors en `z = 6`).
+    pub fn porch(&self) -> [i32; 3] { self.at([-5, DEPTH + 1, 9]) }
 }
 /// Un donjon : ses salles dans l'ordre, et ses tirages.
 #[derive(Clone, Debug)]
@@ -99,6 +101,12 @@ impl B<'_> {
     fn wall(&mut self, l: [i32; 3]) { let (x, y, z) = self.w(l); if self.p.m.get(&(x, y, z)) == Some(&-1) { return; } let s = self.stone(x, y, z); self.p.n(x, y, z, s); }
     /// Les barreaux d'une porte percée dans le mur de côté `side` (repère de la salle).
     fn bars_id(&self, side: (i32, i32)) -> Id { let d = self.room.dir(side); variant(by_name("iron_bars").unwrap_or(0), if d.0 != 0 { facing_of(1.0, 0.0) } else { 0 }, false, false, false) }
+    /// Une colonne cannelée de `v0` à `v1` : sa base, ses fûts, son chapiteau.
+    fn column(&mut self, u: i32, w: i32, v0: i32, v1: i32) { for v in v0..=v1 { self.n([u, v, w], if v == v0 { "column_base" } else if v == v1 { "column_capital" } else { "column_shaft" }); } }
+    /// Une statue de gardien (deux blocs), le dos vers `back`.
+    fn statue(&mut self, u: i32, v: i32, w: i32, back: (i32, i32)) { self.t([u, v, w], "statue_base", back); self.t([u, v + 1, w], "statue_top", back); }
+    /// Un sarcophage : la tête en (u, w), les pieds en (u + 1, w).
+    fn tomb(&mut self, u: i32, v: i32, w: i32) { self.t([u, v, w], "tomb_head", (0, 1)); self.t([u + 1, v, w], "tomb_foot", (0, 1)); }
     fn door(&self, side: (i32, i32), v: i32) -> Vec<[i32; 3]> { let perp = (side.1.abs(), side.0.abs()); (-1..=1).map(|k| [side.0 * 6 + perp.0 * k, v, side.1 * 6 + perp.1 * k]).collect() }
 }
 
@@ -113,20 +121,37 @@ fn build_room(p: &mut Plan, o: [i32; 3], room: Room, k: usize, name: &str, boss:
     // la coque : sol, murs, voûte ; l'intérieur creusé
     for u in -6..=6i32 { for w in -6..=6i32 { for v in 0..=h + 1 { if u.abs() <= 5 && w.abs() <= 5 && v >= 1 && v <= h { b.air([u, v, w]); } else { b.wall([u, v, w]); } } } }
     for (u, w, back) in [(5, 4, (1, 0)), (-5, 4, (-1, 0)), (5, -4, (1, 0)), (-5, -4, (-1, 0))] { b.t([u, 3, w], "wall_sconce", back); }
+    // des bas-reliefs dans les murs, de part et d'autre des portes
+    for side in [(0i32, 1i32), (1, 0), (-1, 0), (0, -1)] { let perp = (side.1.abs(), side.0.abs()); for k in [-3, 3] { b.t([side.0 * 6 + perp.0 * k, 3, side.1 * 6 + perp.1 * k], "wall_relief", side); } }
     let exit = room.exit_local(); let gate = |b: &B| exit.map(|s| { let id = b.bars_id(s); (1..=3).flat_map(|v| b.door(s, v)).map(|l| (at(b, l), id)).collect::<Vec<_>>() }).unwrap_or_default();
     let wire = |m: &mut Mech, w: Wire| m.wires.push(Wire { name: format!("{name}{}", w.name), ..w });
     let (lo, hi) = (at(&b, [-5, 1, -5]), at(&b, [5, h, 5])); let (lo, hi) = ([lo[0].min(hi[0]), lo[1], lo[2].min(hi[2])], [lo[0].max(hi[0]), hi[1], lo[2].max(hi[2])]);
     let hint = |m: &mut Mech, t: &str| m.hints.push(Hint { min: lo, max: hi, text: t.into(), shown: false, xp: 0.0 });
     match room.kind {
         Kind::Entree => {
-            // le puits : une échelle contre le mur ouest monte jusqu'au jour ; un bassin au milieu de la salle
-            let (sx, _, sz) = b.w([-5, 0, -5]); let top = ground(sx, sz) - (b.o[1] - DEPTH);
-            for v in 1..=top { b.t([-5, v, -5], "ladder", (-1, 0)); } for v in h + 1..=top { for (du, dw) in [(-1, 0), (1, 0), (0, -1), (0, 1)] { b.wall([-5 + du, v, -5 + dw]); } }
-            for v in top + 1..=top + 3 { b.air([-5, v, -5]); }
+            // Le grand escalier : deux de large contre le mur ouest, du jour (au nord) jusqu'au sol d'une salle haute de onze blocs.
+            // Là où le sol est plus haut, il se prolonge dans une tranchée murée jusqu'à la surface.
+            let rel = |b: &B, u: i32, w: i32| { let (x, _, z) = b.w([u, 0, w]); ground(x, z) - (b.o[1] - DEPTH) };
+            let mut zt = 6; while zt < 13 && 6 + zt < rel(&b, -5, zt + 1).max(rel(&b, -4, zt + 1)) { zt += 1; }
+            for z in -5..=zt { let top = 6 + z;
+                for u in [-5, -4] { b.t([u, top, z], "stone_bricks_stairs", (0, 1)); if z.abs() >= 2 && z <= 5 { for v in 1..top { b.n([u, v, z], "stone_bricks"); } }
+                    let open = if z >= 3 { rel(&b, u, z).max(top + 3) + 2 } else { top + 3 }; for v in top + 1..=open { b.air([u, v, z]); } }
+                if z > 5 { for u in [-6, -3] { for v in top - 1..=rel(&b, u, z) { b.wall([u, v, z]); } } } }
+            // la salle : deux colonnes cannelées, deux gardiens de pierre, un sarcophage, des brasiers, un lustre ; un bassin
+            b.column(2, -3, 1, h); b.column(2, 3, 1, h); b.statue(5, 1, -4, (1, 0)); b.statue(5, 1, 4, (1, 0)); b.tomb(0, 1, -5); b.n([3, 1, -5], "funeral_urn");
+            b.n([3, 1, 5], "brazier_stand"); b.n([-2, 1, 5], "brazier_stand"); for v in h - 2..=h { b.n([0, v, 0], "chain"); } b.n([0, h - 3, 0], "chandelier");
+            for (u, w, back) in [(5, 0, (1, 0)), (-1, 5, (0, 1)), (0, -5, (0, -1))] { b.t([u, 7, w], "wall_sconce", back); }
+            for side in [(1i32, 0i32), (0, -1)] { let perp = (side.1.abs(), side.0.abs()); for k in [-4, -2, 2, 4] { b.t([side.0 * 6 + perp.0 * k, 7, side.1 * 6 + perp.1 * k], "wall_relief", side); } }
             for u in -1..=1 { for w in 0..=2 { b.n([u, 0, w], "water"); b.n([u, -1, w], "stone_bricks"); } }
-            // la ruine en surface : des colonnes moussues autour du puits, une pierre d'architrave tombée
-            for (u, w, hh) in [(-6, -6, 3), (-4, -6, 2), (-6, -4, 4), (-4, -4, 1)] { let (x, _, z) = b.w([u, 0, w]); let g = ground(x, z) - (b.o[1] - DEPTH); for v in g + 1..=g + hh { b.n([u, v, w], "stone_pillar"); } }
-            { let (x, _, z) = b.w([-3, 0, -5]); let g = ground(x, z) - (b.o[1] - DEPTH); b.n([-3, g + 1, -5], "mossy_stone"); }
+            // Le portail, au sommet de l'escalier : un parvis dallé, deux colonnes, un linteau à frise sous un fronton, deux statues
+            // qui accueillent le visiteur, deux brasiers ; un muret borde la trémie au-dessus des marches.
+            let g = 6 + zt; let zp = zt + 1;
+            for u in -8..=-1 { for w in zp..=zp + 3 { b.n([u, g, w], if (u + w) % 3 == 0 { "mossy_stone" } else { "stone_bricks" }); for v in g - 3..g { b.wall([u, v, w]); } for v in g + 1..=g + 9 { b.air([u, v, w]); } } }
+            for u in [-6, -3] { b.column(u, zp, g + 1, g + 5); } for u in -7..=-2 { b.t([u, g + 6, zp], "lintel", (0, -1)); }
+            b.t([-6, g + 7, zp], "stone_bricks_stairs", (1, 0)); b.n([-5, g + 7, zp], "stone_bricks"); b.n([-4, g + 7, zp], "stone_bricks"); b.t([-3, g + 7, zp], "stone_bricks_stairs", (-1, 0));
+            b.t([-5, g + 8, zp], "stone_bricks_stairs", (1, 0)); b.t([-4, g + 8, zp], "stone_bricks_stairs", (-1, 0));
+            for u in [-8, -1] { b.statue(u, g + 1, zp, (0, -1)); b.n([u, g + 1, zp + 3], "brazier_stand"); }
+            for w in 3..zp { for u in [-6, -3] { let gg = rel(&b, u, w).max(if w <= 5 { DEPTH } else { 0 }); b.n([u, gg + 1, w], "stone_bricks_slab"); } }
             hint(&mut m, "Des ruines englouties. Les salles s'enchaînent sous la terre ; au bout, un trésor et son gardien. (Clic droit : abaisser un levier, pousser un bloc.)");
         }
         Kind::Leviers => {
@@ -135,7 +160,7 @@ fn build_room(p: &mut Plan, o: [i32; 3], room: Room, k: usize, name: &str, boss:
             let color = d.pick(&["banner_gold", "banner_blue", "banner_red"]);
             let levers: Vec<[i32; 3]> = spots.iter().map(|&u| [u, 2, -5]).collect();
             for (n, l) in levers.iter().enumerate() { b.t(*l, "lever", (0, -1)); for v in 0..=n as i32 { b.t([l[0], 3 + v, -5], color, (0, -1)); } }
-            for u in [-2, 2] { b.n([u, 2, -6], "dart_trap"); } b.n([0, 1, 1], "chiseled_stone"); b.n([0, 2, 1], "candle");
+            for u in [-2, 2] { b.n([u, 2, -6], "dart_trap"); } b.t([0, 1, 1], "altar", (0, 1)); b.n([0, 2, 1], "candle"); b.n([5, 1, 5], "funeral_urn"); b.n([-5, 1, 5], "funeral_urn");
             let g = gate(&b); wire(&mut m, Wire { name: "lev".into(), inputs: levers.iter().map(|l| at(&b, *l)).collect(), seq: true, latch: true, fail_darts: true, darts: vec![at(&b, [-2, 2, -6]), at(&b, [2, 2, -6])], doors: g, ..Default::default() });
             for l in &levers { acts.push(Act::Lever(at(&b, *l))); }
             hint(&mut m, "Des leviers sous des bannières : une, puis deux, puis trois.");
@@ -145,7 +170,7 @@ fn build_room(p: &mut Plan, o: [i32; 3], room: Room, k: usize, name: &str, boss:
             let cols = [d.pick(&[-4, -3]), d.pick(&[3, 4])]; let mut homes = Vec::new(); let mut plates = Vec::new();
             for &u in &cols { let k = d.r.int(2, 4); let (bl, pl) = ([u, 1, -2], [u, 0, -2 + k]); b.n(bl, "push_block"); b.n(pl, "pressure_plate"); homes.push(at(&b, bl)); plates.push(at(&b, pl));
                 for s in 0..k { acts.push(Act::Push { from: at(&b, [u, 1, -3 + s]), block: at(&b, [u, 1, -2 + s]) }); } }
-            for (u, w) in [(-5, 5), (5, 5)] { for v in 1..=h { b.n([u, v, w], "stone_pillar"); } }
+            for (u, w) in [(-5, 5), (5, 5)] { b.column(u, w, 1, h); }
             let g = gate(&b); wire(&mut m, Wire { name: "dal".into(), inputs: plates, all: true, doors: g, ..Default::default() });
             m.homes.push(Home { min: lo, max: hi, homes, keep: format!("{name}dal") });
             hint(&mut m, "Deux dalles, deux blocs de pierre : la grille ne se lève que sous le poids.");
@@ -156,13 +181,14 @@ fn build_room(p: &mut Plan, o: [i32; 3], room: Room, k: usize, name: &str, boss:
             for (n, w) in [-2, 1].into_iter().enumerate() { let row: Vec<[i32; 3]> = (-5..=5).map(|u| [u, 1, w]).collect(); for l in &row { b.n(*l, "spikes_down"); }
                 m.pulses.push(Pulse { spikes: row.iter().map(|l| at(&b, *l)).collect(), period, up: 0.5, phase: n as f64 * period / 2.0, ..Default::default() }); }
             for u in -5..=-4 { for w in 3..=4 { b.n([u, 0, w], "crumbling_floor"); b.air([u, -1, w]); b.wall([u, -2, w]); } }
+            for (u, w) in [(5, 5), (5, -5), (-5, -5)] { b.n([u, 1, w], "funeral_urn"); }
             hint(&mut m, "Les pics se lèvent et retombent : observez le rythme.");
         }
         Kind::Nef => {
             // des degrés le long du mur d'entrée, une corniche le long du mur ouest, une galerie au fond ; un levier là-haut
             for (n, u) in (-5..=-2).rev().enumerate() { let _ = n; let top = -1 - u; for v in 1..=top { b.n([u, v, -5], "stone_bricks"); } }
             for w in -4..=3 { b.n([-5, 5, w], "mossy_stone"); } for u in -5..=5 { for w in 4..=5 { b.n([u, 5, w], "stone_bricks"); } }
-            b.t([2, 6, 5], "lever", (0, 1)); b.n([0, h, 0], "chain"); b.n([0, h - 1, 0], "chain"); b.n([0, h - 2, 0], "lantern");
+            b.t([2, 6, 5], "lever", (0, 1)); b.column(5, -5, 1, h); for u in [-3, 4] { b.n([u, 6, 5], "brazier_stand"); } b.n([0, h, 0], "chain"); b.n([0, h - 1, 0], "chain"); b.n([0, h - 2, 0], "lantern");
             for u in -1..=1 { for w in -1..=1 { b.n([u, 0, w], "water"); b.n([u, -1, w], "stone_bricks"); } }
             let g = gate(&b); wire(&mut m, Wire { name: "nef".into(), inputs: vec![at(&b, [2, 6, 5])], latch: true, doors: g, ..Default::default() });
             acts.push(Act::Reach(at(&b, [2, 6, 4]))); acts.push(Act::Lever(at(&b, [2, 6, 5])));
@@ -182,7 +208,7 @@ fn build_room(p: &mut Plan, o: [i32; 3], room: Room, k: usize, name: &str, boss:
             hint(&mut m, "L'épreuve : le poids, le piège, l'ordre.");
         }
         Kind::Gardien => {
-            for (u, w) in [(-3, -3), (3, -3), (-3, 3), (3, 3)] { for v in 1..=h { b.n([u, v, w], "stone_pillar"); } } b.n([0, h, 0], "chandelier");
+            for (u, w) in [(-3, -3), (3, -3), (-3, 3), (3, 3)] { b.column(u, w, 1, h); } b.n([0, h, 0], "chandelier"); for u in [-4, 4] { b.statue(u, 1, 5, (0, 1)); b.n([u, 1, -5], "brazier_stand"); }
             let entry = { let id = b.bars_id((0, -1)); (1..=3).flat_map(|v| b.door((0, -1), v)).map(|l| (at(&b, l), id)).collect::<Vec<_>>() };
             let mut doors = gate(&b); doors.extend(entry); let a = at(&b, [0, 1, 3]);
             m.guards.push(Guard { min: lo, max: hi, species: boss.into(), at: [a[0] as f64 + 0.5, a[1] as f64, a[2] as f64 + 0.5], doors: doors.iter().map(|(p, id)| ([p[0], p[1], p[2]], *id)).collect(), state: 0 });
@@ -190,8 +216,10 @@ fn build_room(p: &mut Plan, o: [i32; 3], room: Room, k: usize, name: &str, boss:
             acts.push(Act::Slay);
         }
         Kind::Tresor => {
-            b.n([0, 1, 2], "chiseled_stone"); b.n([0, 2, 2], "chest"); for (u, w) in [(-1, 2), (1, 2), (0, 1)] { b.n([u, 1, w], "candle"); }
-            for u in [-3, 3] { b.t([u, 4, 5], "banner_gold", (0, 1)); for v in 1..=h { b.n([u, v, 4], "stone_pillar"); } } b.n([0, h, 2], "chandelier");
+            b.t([0, 1, 2], "altar", (0, 1)); b.n([0, 2, 2], "chest"); for (u, w) in [(-1, 2), (1, 2), (0, 1)] { b.n([u, 1, w], "candle"); }
+            for u in [-3, 3] { b.t([u, 4, 5], "banner_gold", (0, 1)); b.column(u, 4, 1, h); } b.n([0, h, 2], "chandelier");
+            // les tombeaux des anciens, des urnes, deux gardiens de pierre
+            b.tomb(-5, 1, -2); b.tomb(3, 1, -2); for u in [-2, 2] { b.n([u, 1, 4], "funeral_urn"); } for u in [-5, 5] { b.statue(u, 1, 2, (u.signum(), 0)); }
             m.vaults.push(at(&b, [0, 2, 2])); hint(&mut m, "La salle du trésor.");
         }
     }
