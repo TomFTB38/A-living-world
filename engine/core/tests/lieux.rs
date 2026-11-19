@@ -49,7 +49,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
             Lieu::Forge => {
                 // l'atelier et sa cheminée, l'escalier, la grande forge et son fleuve de lave, le pont au fond, la porte du foyer
                 use alw_core::forge::{self as fo, DEPTH}; let f = pl.y - DEPTH; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, f + v, pl.z + w);
-                assert_eq!(name(rel(3, DEPTH + 14, -17)), "campfire", "la fumée de la cheminée"); for k in 0..DEPTH { assert!(name(rel(0, DEPTH - 1 - k, -19 + k)).starts_with("stone_bricks_stairs"), "marche {k}"); }
+                assert_eq!(name(rel(9, DEPTH + 21, -19)), "campfire", "la fumée de la cheminée"); assert!(name(rel(5, DEPTH + 10, -18)).starts_with("slate_slope"), "le grand toit"); for k in 0..DEPTH { assert!(name(rel(0, DEPTH - 1 - k, -19 + k)).starts_with("stone_bricks_stairs"), "marche {k}"); }
                 assert_eq!(rel(0, 5, 5), 0, "la grande forge"); assert_eq!(name(rel(5, 0, 11)), "lava", "le fleuve de lave"); assert_eq!(name(rel(0, fo::BRIDGE_LOW, 11)), "basalt", "le pont au fond");
                 assert_eq!(name(rel(0, 2, fo::CHAINS_W)), "great_chain"); assert_eq!(name(rel(-12, -3, 21)), "lava", "la coulée");
                 for (u, ww) in [(-14, 0), (14, 26), (0, 14), (0, 34)] { let g = w_ground(&w, pl.x + u, pl.z + ww); assert!(g >= f + 14, "la voûte reste sous terre en {u} {ww} : sol {g}"); }

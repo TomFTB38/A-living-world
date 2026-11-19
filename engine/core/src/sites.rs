@@ -197,7 +197,7 @@ impl WorldGen {
         match pl.kind { Lieu::Tour => self.build_tower(&mut p, &pl, &mut r), Lieu::Cimetiere => self.build_cemetery(&mut p, &pl, &mut r), Lieu::Camp => self.build_camp(&mut p, &pl, &mut r), Lieu::Sanctuaire => { self.pad(&mut p, &pl, |_, dz| (-18..=-8).contains(&dz), 5, 18, 8, None); crate::sanctuaire::carve(&mut p, [pl.x, pl.y, pl.z]); }
             Lieu::Grotte => crate::grotte::carve(&mut p, [pl.x, pl.y, pl.z]),
             Lieu::Soleil => { self.pad(&mut p, &pl, |_, _| true, 19, 24, 20, None); crate::soleil::carve(&mut p, [pl.x, pl.y, pl.z]); }
-            Lieu::Forge => { self.pad(&mut p, &pl, |_, dz| dz <= -13, 10, 32, 16, None); crate::forge::carve(&mut p, [pl.x, pl.y, pl.z]); }
+            Lieu::Forge => { self.pad(&mut p, &pl, |_, dz| dz <= -10, 12, 32, 16, None); crate::forge::carve(&mut p, [pl.x, pl.y, pl.z]); }
             Lieu::Catacombes => { self.pad(&mut p, &pl, |_, dz| dz <= 9, 12, 32, 14, None); crate::catacombes::carve(&mut p, [pl.x, pl.y, pl.z]); }
             Lieu::Ruines => { let g = |x: i32, z: i32| self.column(x as f64, z as f64).h.floor() as i32; let _ = crate::donjons::carve(&mut p, [pl.x, pl.y, pl.z], &pl.ruins(), "", &g); } }
         // le plan est dessiné droit : on le tourne en le posant (les blocs orientés avec lui) ; rangé par colonne, de bas en haut

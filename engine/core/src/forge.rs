@@ -42,64 +42,110 @@ impl F<'_> {
     /// Les murs : du basalte, un rang de brique sombre tous les quatre blocs, quelques veines de magma et d'obsidienne.
     fn rock(&self, u: i32, v: i32, w: i32) -> &'static str { let h = self.h(u, v, w, 1); if h < 0.025 { "magma" } else if v.rem_euclid(4) == 1 && v > 0 { "bricks_dark" } else if h < 0.12 { "obsidian" } else { "basalt" } }
     fn floor(&self, u: i32, w: i32) -> &'static str { let h = self.h(u, 0, w, 2); if h < 0.6 { "stone_bricks_dark" } else if h < 0.9 { "basalt" } else { "cobblestone" } }
-    /// Une boîte pleine (murs, sol, voûte), puis l'air de son intérieur.
-    fn room(&mut self, u0: i32, u1: i32, w0: i32, w1: i32, v1: i32) {
-        for u in u0 - 1..=u1 + 1 { for w in w0 - 1..=w1 + 1 { for v in -1..=v1 + 1 { let inside = u >= u0 && u <= u1 && w >= w0 && w <= w1 && v >= 1 && v <= v1;
-            if inside { self.air(u, v, w); } else if v <= 0 { let f = if v == 0 { self.floor(u, w) } else { "basalt" }; self.n(u, v, w, f); } else { let s = self.rock(u, v, w); self.n(u, v, w, s); } } } }
-    }
 }
+
+/// La voûte de la grande forge : un berceau, haut de quinze blocs au milieu, de onze contre les murs.
+pub fn vault(u: i32) -> i32 { 9 + (6.0 * (1.0 - (u as f64 / 17.5).powi(2)).max(0.0).sqrt()).round() as i32 }
+/// Les arcs doubleaux de la voûte (w), portés par des pilastres le long des murs.
+pub const RIBS: [i32; 5] = [2, 8, 16, 22, 27];
+/// Dans la grande forge ? (les angles sont abattus)
+fn in_hall(u: i32, w: i32) -> bool { let (u0, u1, w0, w1, _) = HALL; u >= u0 && u <= u1 && w >= w0 && w <= w1 && (u.abs() <= 13 || u.abs() - 13 <= (w - w0).min(w1 - w)) }
+/// Dans la Fournaise ? (une ellipse) ; sa coupole.
+fn in_furnace(u: i32, w: i32) -> Option<f64> { let r = (u as f64 / 9.6).powi(2) + ((w as f64 - 33.5) / 4.4).powi(2); (r < 1.0).then_some(r) }
 
 /// Pose la forge dans le plan : `o` est le sol de la cour, au centre de l'atelier.
 pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     let mut c = F { p, x: o[0], f: o[1] - DEPTH, z: o[2] }; let s = DEPTH;
-    // la grande forge ; le fleuve de lave qui la coupe, son lit ; le pont au fond
-    let (u0, u1, w0, w1, hv) = HALL; c.room(u0, u1, w0, w1, hv);
-    for u in u0..=u1 { for w in RIVER.0..=RIVER.1 { c.n(u, -3, w, "basalt"); for v in -2..=0 { c.n(u, v, w, "lava"); } } for v in -3..=0 { for w in [RIVER.0 - 1, RIVER.1 + 1] { if v < 0 { c.n(u, v, w, "basalt"); } } } }
-    for v in -3..=0 { for u in [u0 - 1, u1 + 1] { for w in RIVER.0..=RIVER.1 { c.n(u, v, w, "basalt"); } } }
+    // La grande forge : un bloc de basalte, creusé d'une nef aux angles abattus sous une voûte en berceau ; des arcs doubleaux
+    // sur des pilastres ; un dallage de basalte, une allée de brique sombre, des filets d'obsidienne sous les arcs
+    let (u0, u1, w0, w1, _) = HALL;
+    for u in u0 - 5..=u1 + 5 { for w in w0 - 2..=w1 + 1 { for v in -3..=s - 1 { let r = if v <= 0 { "basalt" } else { c.rock(u, v, w) }; c.n(u, v, w, r); } } }
+    for u in u0..=u1 { for w in w0..=w1 { if !in_hall(u, w) { continue; } let rib = RIBS.contains(&w); let top = vault(u) - rib as i32;
+        for v in 1..=top { c.air(u, v, w); } c.n(u, top + 1, w, if rib { "bricks_dark" } else if (u + w).rem_euclid(5) == 0 { "stone_bricks_dark" } else { "basalt" });
+        let fl = if u.abs() <= 2 { "stone_bricks_dark" } else if rib { "obsidian" } else { c.floor(u, w) }; c.n(u, 0, w, fl); } }
+    for w in RIBS { for side in [-1, 1] { let u = (u1 + 0) * side; for v in 1..=vault(u) { c.n(u, v, w, if v == 1 { "stone_bricks_dark" } else if v % 3 == 0 { "bricks_dark" } else { "basalt" }); } c.n(u - side, vault(u - side) - 1, w, "bricks_dark"); } }
+    // le fleuve de lave, son lit, ses margelles ; deux chutes de lave qui tombent des murs et le nourrissent ; des creusets pendus
+    for u in u0..=u1 { for w in RIVER.0..=RIVER.1 { c.n(u, -3, w, "basalt"); for v in -2..=0 { c.n(u, v, w, "lava"); } } }
+    for u in u0..=u1 { if u.abs() >= 3 { for w in [RIVER.0 - 1, RIVER.1 + 1] { c.n(u, 1, w, "stone_bricks_slab"); } } }
+    for side in [-1, 1] { for w in RIVER.0 + 1..=RIVER.1 - 1 { for v in -2..=7 { c.n(17 * side, v, w, "lava"); } c.n(17 * side, 8, w, "magma"); c.n(16 * side, 8, w, "bricks_dark"); } }
+    for (u, v, w) in [(-8, 7, 11), (8, 6, 12)] { c.n(u, v, w, "cauldron"); for y in v + 1..=vault(u) { c.n(u, y, w, "chain"); } }
     for u in BRIDGE.0..=BRIDGE.1 { for w in RIVER.0..=RIVER.1 { c.n(u, BRIDGE_LOW, w, "basalt"); } }
     c.n(BRIDGE_PLATE[0], BRIDGE_PLATE[1], BRIDGE_PLATE[2], "pressure_plate"); c.n(BLOCK[0], BLOCK[1], BLOCK[2], "push_block");
     for v in 1..=2 { c.n(LOCK[0] + 1, v, LOCK[2], "basalt"); } c.n(LOCK[0] + 1, 3, LOCK[2], "lantern"); c.t(LOCK[0], LOCK[1], LOCK[2], "lever", 1, 0);
-    for (u, w) in [(-2, 9), (2, 9), (-2, 14), (2, 14)] { c.n(u, 1, w, "brazier_stand"); }
-    // le monte-charge : sa plate-forme (au ras du sol), son plateau de contrepoids sous ses chaînes, la galerie haute, l'échelle
+    for (u, w) in [(-2, 9), (2, 9), (-2, 14), (2, 14), (-2, 4), (2, 4), (-2, 20), (2, 24)] { c.n(u, 1, w, "brazier_stand"); }
+    // l'entrée : deux colonnes géantes portant des brasiers, et au-dessus de la porte, un marteau de magma dans le mur
+    for u in [-4, 4] { for v in 1..=8 { c.n(u, v, w0, if v % 3 == 1 { "bricks_dark" } else { "basalt" }); } c.n(u, 9, w0, "brazier_stand"); }
+    for v in 5..=8 { c.n(0, v, w0 - 1, "magma"); } for u in -2..=2 { for v in 9..=10 { c.n(u, v, w0 - 1, "magma"); } } for u in [-3, 3] { c.n(u, 9, w0 - 1, "obsidian"); c.n(u, 10, w0 - 1, "obsidian"); }
+    // les foyers : deux âtres creusés dans le mur de l'ouest (fourneaux au fond, linteau, hotte) ; le bac de trempe à l'est
+    for a in [4, 23] { for u in -19..=-17 { for w in a..=a + 2 { for v in 1..=3 { c.air(u, v, w); } c.n(u, 0, w, "stone_bricks_dark"); c.n(-17, 4, w, "stone_bricks_slab_top"); } }
+        for w in a..=a + 2 { c.t(-20, 1, w, "furnace_lit", -1, 0); c.t(-20, 2, w, "furnace_lit", -1, 0); c.n(-20, 3, w, "magma"); } c.n(-18, 1, a + 1, "coal_heap"); c.n(-19, 3, a, "lantern"); }
+    for u in 17..=19 { for w in 3..=6 { for v in 1..=3 { c.air(u, v, w); } c.n(u, 0, w, "water"); c.n(u, -1, w, "stone_bricks_dark"); } } c.n(17, 4, 4, "stone_bricks_slab_top"); c.n(17, 4, 5, "stone_bricks_slab_top"); c.t(16, 1, 2, "grindstone", 1, 0);
+    // le monte-charge : sa plate-forme (au ras du sol) entre deux poteaux-guides, son plateau de contrepoids sous ses chaînes,
+    // la galerie haute sur ses corbeaux, sa balustrade, l'échelle
     for u in LIFT.0..=LIFT.1 { for w in LIFT.2..=LIFT.3 { c.n(u, 0, w, "bricks_dark"); for v in [-1, -2] { c.n(u, v, w, "basalt"); } } }
-    c.n(TRAY[0], TRAY[1], TRAY[2], "pressure_plate"); for v in 9..=hv { c.n(TRAY[0], v, TRAY[2], "chain"); }
+    c.n(TRAY[0], TRAY[1], TRAY[2], "pressure_plate"); for v in 9..=vault(TRAY[0]) { c.n(TRAY[0], v, TRAY[2], "chain"); }
     let (g0, g1, gw0, gw1, gv) = GALLERY; for u in g0..=g1 { for w in gw0..=gw1 { c.n(u, gv, w, if (u + w) % 3 == 0 { "bricks_dark" } else { "stone_bricks_dark" }); } }
-    for w in gw0..=gw1 { if w < LIFT.2 || w > LIFT.3 { c.n(g0, gv + 1, w, "stone_bricks_slab"); } } for w in [gw0, gw1] { for v in 1..gv { c.n(g0, v, w, "basalt"); } }
+    for w in gw0..=gw1 { if w < LIFT.2 - 1 || w > LIFT.3 + 1 { c.n(g0, gv + 1, w, if w % 3 == 0 { "basalt" } else { "stone_bricks_slab" }); if w % 3 == 0 { c.n(g0, gv + 2, w, "lantern"); } } if w != LIFT.2 && w != LIFT.3 { c.n(g0, gv - 1, w, "stone_bricks_slab_top"); } }
+    for w in [gw0, LIFT.2 - 1, LIFT.3 + 1, gw1] { for v in 1..gv { c.n(g0, v, w, if v % 3 == 0 { "bricks_dark" } else { "basalt" }); } }
     c.t(BELLOWS[0], BELLOWS[1], BELLOWS[2], "lever", 1, 0); c.t(15, 9, 22, "anvil", 1, 0); c.n(14, 9, 24, "coal_heap"); c.n(16, 9, 18, "barrel");
     let (lu, lw, l0, l1) = LADDER; for v in l0..=l1 { c.t(lu, v, lw, "ladder", 1, 0); }
-    // la coulée : une fosse pleine de lave, son échelle, le levier du fond, la vanne sur son poteau
+    // la coulée : une fosse pleine de lave, sa margelle grillée, son échelle, le levier du fond, la vanne sur son poteau
     let (p0, p1, q0, q1, pb) = PIT; for u in p0 - 1..=p1 + 1 { for w in q0 - 1..=q1 + 1 { for v in pb - 1..=0 { let inside = u >= p0 && u <= p1 && w >= q0 && w <= q1 && v >= pb; c.n(u, v, w, if inside { "lava" } else if v == 0 { "stone_bricks_dark" } else { "basalt" }); } } }
     for v in pb..=0 { c.t(PIT_LADDER.0, v, PIT_LADDER.1, "ladder", 0, -1); } c.t(DEEP[0], DEEP[1], DEEP[2], "lever", 0, 1);
-    c.n(VALVE[0], 1, VALVE[2] - 1, "basalt"); c.n(VALVE[0], 2, VALVE[2] - 1, "basalt"); c.t(VALVE[0], VALVE[1], VALVE[2], "lever", 0, -1); for w in q0..=q1 { c.n(p0 - 1, 1, w, "iron_bars"); }
-    // la forge proprement dite : des fourneaux le long du mur de l'ouest, des enclumes, du charbon, des chaînes et des lanternes
-    for w in [3, 5, 7] { c.t(u0, 1, w, "furnace_lit", -1, 0); c.t(u0, 2, w, "furnace_lit", -1, 0); } for (u, w) in [(-11, 4), (-9, 7), (-12, 17), (6, 25)] { c.t(u, 1, w, "anvil", 1, 0); }
-    for (u, w) in [(-14, 1), (-14, 8), (14, 1), (-15, 27), (13, 27)] { c.n(u, 1, w, "coal_heap"); } for (u, w) in [(-6, 2), (12, 4), (-3, 26)] { c.n(u, 1, w, "barrel"); } c.n(-7, 1, 26, "cauldron"); c.t(14, 1, 7, "grindstone", 1, 0);
-    for (u, w) in [(-8, 4), (8, 3), (-6, 17), (4, 22), (-12, 26), (0, 20)] { for v in hv - 2..=hv { c.n(u, v, w, "chain"); } c.n(u, hv - 3, w, "lantern"); }
-    for (u, w) in [(-16, 12), (16, 12)] { c.n(u, 1, w, "brazier_stand"); }
-    // la Porte du Foyer : trois chaînes devant une grille, deux brasiers
-    for u in -1..=1 { for v in 1..=3 { c.n(u, v, CHAINS_W, "great_chain"); c.n(u, v, GATE_W, "iron_bars"); } } for u in [-3, 3] { c.n(u, 1, CHAINS_W, "brazier_stand"); }
-    // la Fournaise : des rigoles de lave derrière des grilles, l'autel du maître, ses enclumes, ses fourneaux
-    let (m0, m1, n0, n1, mv) = FURNACE; c.room(m0, m1, n0, n1, mv); for u in -1..=1 { for v in 1..=3 { c.n(u, v, GATE_W, "iron_bars"); } }
-    for side in [-1, 1] { for w in n0 + 1..=n1 - 1 { c.n(9 * side, 0, w, "lava"); c.n(8 * side, 1, w, "iron_bars"); } }
-    c.t(CHEST[0], 1, CHEST[2], "altar", 0, 1); c.n(CHEST[0], CHEST[1], CHEST[2], "chest"); for u in [-3, 3] { c.t(u, 1, 35, "anvil", 1, 0); } for u in [-6, 6] { c.t(u, 1, n1, "furnace_lit", 0, 1); c.t(u, 2, n1, "furnace_lit", 0, 1); }
-    for (u, w) in [(-5, 31), (5, 31)] { for v in mv - 2..=mv { c.n(u, v, w, "chain"); } c.n(u, mv - 3, w, "lantern"); }
-    // l'escalier, de l'atelier à la forge : dix-huit marches, trois de large
+    c.n(VALVE[0], 1, VALVE[2] - 1, "basalt"); c.n(VALVE[0], 2, VALVE[2] - 1, "basalt"); c.n(VALVE[0], 3, VALVE[2] - 1, "lantern"); c.t(VALVE[0], VALVE[1], VALVE[2], "lever", 0, -1);
+    for w in q0..=q1 { c.n(p0 - 1, 1, w, "iron_bars"); } for u in p0..=p1 { c.n(u, 1, q1 + 1, "iron_bars"); }
+    // l'outillage : des enclumes, du charbon, des tonneaux, un chaudron ; des lanternes au bout de longues chaînes
+    for (u, w) in [(-11, 4), (-9, 7), (-12, 17), (6, 25)] { c.t(u, 1, w, "anvil", 1, 0); }
+    for (u, w) in [(-12, 2), (-14, 8), (13, 2), (-14, 26), (13, 27)] { c.n(u, 1, w, "coal_heap"); } for (u, w) in [(-6, 2), (12, 4), (-3, 26)] { c.n(u, 1, w, "barrel"); } c.n(-7, 1, 26, "cauldron");
+    for (u, w) in [(-8, 4), (8, 3), (-6, 17), (4, 22), (-11, 26), (0, 20), (-6, 11), (6, 6)] { let top = vault(u) - RIBS.contains(&w) as i32; for v in top - 3..=top { c.n(u, v, w, "chain"); } c.n(u, top - 4, w, "lantern"); }
+    // la Porte du Foyer : un grand arc de brique sombre sur deux piles de basalte, trois chaînes devant une grille, un œil de magma
+    for u in -1..=1 { for v in 1..=3 { c.n(u, v, CHAINS_W, "great_chain"); c.n(u, v, GATE_W, "iron_bars"); } }
+    for u in [-3, -2, 2, 3] { for v in 1..=5 { c.n(u, v, CHAINS_W, if v == 5 { "bricks_dark" } else { "basalt" }); } } for u in -1..=1 { c.n(u, 4, CHAINS_W, "stone_bricks_slab_top"); c.n(u, 5, CHAINS_W, "bricks_dark"); }
+    for u in -2..=2 { c.n(u, 6, CHAINS_W, "bricks_dark"); } c.n(0, 7, CHAINS_W, "bricks_dark"); c.n(0, 6, CHAINS_W, "magma"); for u in [-5, 5] { c.n(u, 1, CHAINS_W - 1, "brazier_stand"); }
+    // la Fournaise : une arène ovale sous une coupole, des fosses de lave derrière des grilles, l'autel du maître devant un âtre géant
+    for u in -11..=11 { for w in GATE_W..=39 { for v in -1..=12 { c.n(u, v, w, if v <= 0 { "basalt" } else { c.rock(u, v, w) }); } } }
+    for u in -10..=10 { for w in GATE_W + 1..=38 { let Some(r) = in_furnace(u, w) else { continue }; let top = 4 + (5.0 * (1.0 - r).sqrt()).round() as i32;
+        for v in 1..=top { c.air(u, v, w); } c.n(u, top + 1, w, if r < 0.25 { "magma" } else if (u + w) % 4 == 0 { "bricks_dark" } else { "basalt" }); c.n(u, 0, w, if u.abs() <= 1 { "stone_bricks_dark" } else if r < 0.3 { "obsidian" } else { "basalt" });
+        if u.abs() >= 7 { c.n(u, 0, w, "lava"); } else if u.abs() == 6 && (w - 33).abs() <= 3 { c.n(u, 1, w, "iron_bars"); } } }
+    for u in -1..=1 { for v in 1..=3 { c.n(u, v, GATE_W, "iron_bars"); } }
+    c.t(CHEST[0], 1, CHEST[2], "altar", 0, 1); c.n(CHEST[0], CHEST[1], CHEST[2], "chest"); for u in [-3, 3] { c.t(u, 1, 35, "anvil", 1, 0); } for u in [-4, 4] { c.t(u, 1, 37, "furnace_lit", 0, 1); c.t(u, 2, 37, "furnace_lit", 0, 1); }
+    for u in -3..=3i32 { for v in 1..=4 { if !(u.abs() <= 1 && v <= 2) { c.n(u, v, 38, "magma"); } } } for u in -2..=2 { c.n(u, 5, 38, "bricks_dark"); }
+    for (u, w) in [(-5, 31), (5, 31)] { for v in 5..=7 { c.n(u, v, w, "chain"); } c.n(u, 4, w, "lantern"); }
+    // l'escalier, de l'atelier à la forge : dix-huit marches, trois de large, sous une voûte de brique
     for k in 0..DEPTH { let w = -19 + k; let top = DEPTH - 1 - k; let open_top = if w <= -15 { s } else { top + 4 };
-        for u in -2..=2i32 { if u.abs() == 2 { for v in top - 1..=open_top.max(top + 5) { if v < s { c.n(u, v, w, if v == top - 1 { "basalt" } else { "bricks_dark" }); } } continue; }
-            c.n(u, top - 1, w, "basalt"); c.t(u, top, w, "stone_bricks_stairs", 0, -1); for v in top + 1..=open_top { c.air(u, v, w); } if w > -15 { c.n(u, top + 5, w, "basalt"); } }
+        for u in -2..=2i32 { if u.abs() == 2 { for v in top - 1..=open_top.max(top + 5) { if v < s { c.n(u, v, w, if v == top - 1 { "basalt" } else if k % 3 == 0 { "bricks_dark" } else { "basalt" }); } } continue; }
+            c.n(u, top - 1, w, "basalt"); c.t(u, top, w, "stone_bricks_stairs", 0, -1); for v in top + 1..=open_top { c.air(u, v, w); } if w > -15 { c.n(u, top + 5, w, if u == 0 { "bricks_dark" } else { "stone_bricks_dark" }); if u != 0 { c.n(u, top + 4, w, "stone_bricks_slab_top"); } } }
         if k % 4 == 2 && w > -15 { c.t(-1, top + 2, w, "wall_sconce", -1, 0); } }
     for u in -1..=1 { for v in 1..=4 { c.air(u, v, w0 - 1); } }
 
-    // En surface : l'atelier (brique sombre, angles de basalte), sa grande cheminée, la cour et ses enclumes
-    for u in -6..=6i32 { for w in -24..=-14i32 { c.n(u, s, w, if u.abs() <= 2 && (-19..=-15).contains(&w) { "basalt" } else { "stone_bricks" });
-        let edge = u.abs() == 6 || w == -24 || w == -14; for v in s + 1..=s + 5 { if edge { c.n(u, v, w, if u.abs() == 6 && (w == -24 || w == -14) { "basalt" } else { "bricks_dark" }); } else { c.air(u, v, w); } } c.n(u, s + 6, w, "stone_bricks_dark"); } }
-    for u in -1..=1 { for w in -19..=-15 { c.air(u, s, w); } for v in s + 1..=s + 3 { c.air(u, v, -24); } } for u in [-2, 2] { for w in -19..=-15 { c.n(u, s + 1, w, "stone_bricks_slab"); } }
-    for u in 3..=4 { for w in -17..=-16 { for v in s + 1..=s + 13 { c.n(u, v, w, if v % 4 == 0 { "basalt" } else { "bricks_dark" }); } } } c.n(3, s + 14, -17, "campfire");
-    c.t(3, s + 1, -18, "furnace_lit", 0, 1); c.t(-4, s + 1, -21, "anvil", 1, 0); c.n(-5, s + 1, -16, "coal_heap"); c.n(5, s + 1, -22, "barrel"); c.n(4, s + 1, -23, "crate"); c.t(-5, s + 1, -23, "grindstone", 1, 0);
-    for (u, w, dx, dz) in [(-5, -19, -1, 0), (5, -20, 1, 0)] { c.t(u, s + 3, w, "wall_sconce", dx, dz); }
-    for u in -9..=9 { for w in -32..=-25 { c.n(u, s, w, if c.h(u, s, w, 3) < 0.3 { "gravel" } else { "cobblestone" }); } }
-    for (u, w) in [(-6, -28), (6, -27)] { c.t(u, s + 1, w, "anvil", 1, 0); } c.t(-7, s + 1, -31, "trough", 1, 0); c.t(7, s + 1, -30, "cart", 0, 1); c.n(8, s + 1, -26, "log_pile"); c.n(-8, s + 1, -26, "crate"); c.n(-8, s + 2, -26, "crate");
-    for u in [-9, 9] { for v in s + 1..=s + 3 { c.n(u, v, -32, "basalt"); } c.n(u, s + 4, -32, "lantern"); }
+    // En surface. L'atelier : un soubassement de basalte, des murs de brique sombre aux chaînes d'angle de pierre, des contreforts,
+    // de hautes baies grillées ; un grand toit d'ardoise à deux pentes, ses pignons et leur oculus ; une porte en arc.
+    let (bx, bw0, bw1) = (8, -24, -12); let roof = |u: i32| s + 6 + (bx + 1 - u.abs());
+    for u in -bx..=bx { for w in bw0..=bw1 { let edge = u.abs() == bx || w == bw0 || w == bw1; let well = u.abs() <= 2 && (-19..=-14).contains(&w);
+        if !well { for v in s - 3..s { c.n(u, v, w, "basalt"); } } c.n(u, s, w, if edge { "basalt" } else if (u + w).rem_euclid(2) == 0 { "polished_stone" } else { "stone_bricks" });
+        for v in s + 1..=s + 6 { if edge { let corner = u.abs() == bx && (w == bw0 || w == bw1); c.n(u, v, w, if v == s + 1 { "basalt" } else if corner && (v - s) % 2 == 0 { "stone_bricks" } else if corner { "polished_stone" } else { "bricks_dark" }); } else { c.air(u, v, w); } }
+        if !edge { for v in s + 7..roof(u) { c.air(u, v, w); } } } }
+    for w in [bw0, bw1] { for u in -bx..=bx { for v in s + 7..roof(u) { c.n(u, v, w, if v == s + 7 { "basalt" } else { "bricks_dark" }); } } }
+    for w in bw0 - 1..=bw1 + 1 { for u in -bx - 1..=bx + 1 { if u == 0 { c.n(0, roof(1) + 1, w, "slate_ridge_1"); } else { c.t(u, roof(u), w, "slate_slope", -u.signum(), 0); } } }
+    for (u, v) in [(0, s + 10), (-1, s + 10), (1, s + 10), (0, s + 9), (0, s + 11)] { for w in [bw0, bw1] { c.n(u, v, w, "iron_bars"); } }
+    for u in -1..=1 { for v in s + 1..=s + 3 { c.air(u, v, bw0); } } c.air(0, s + 4, bw0); for u in [-1, 1] { c.n(u, s + 4, bw0, "stone_bricks_slab_top"); } c.n(0, s + 5, bw0, "polished_stone"); for u in [-3, 3] { c.t(u, s + 3, bw0 - 1, "wall_sconce", 0, 1); }
+    for w in [-21, -15] { for side in [-1, 1] { for v in s + 2..=s + 4 { c.n(side * bx, v, w, "iron_bars"); } c.n(side * bx, s + 5, w, "stone_bricks_slab_top"); } }
+    for (side, w) in [(-1, -23), (-1, -18), (-1, -13), (1, -23), (1, -13)] { for v in s + 1..=s + 4 { c.n(side * (bx + 1), v, w, "basalt"); } c.n(side * (bx + 1), s + 5, w, "stone_bricks_slab"); }
+    // sa grande cheminée, adossée au mur de l'est : un massif de basalte, puis une souche de brique cerclée de basalte, qui fume
+    for u in 9..=11 { for w in -20..=-17 { for v in s - 2..=s + 7 { c.n(u, v, w, if v % 4 == 0 { "bricks_dark" } else { "basalt" }); } } }
+    for u in 9..=10 { for w in -19..=-18 { for v in s + 8..=s + 20 { c.n(u, v, w, if v % 4 == 0 { "basalt" } else { "bricks_dark" }); } } } for u in 9..=10 { for w in -19..=-18 { c.n(u, s + 21, w, "stone_bricks_slab"); } } c.n(9, s + 21, -19, "campfire");
+    // dedans : l'âtre contre le mur de l'est sous sa hotte, des enclumes, l'établi, l'escalier qui descend sous sa rambarde
+    for w in -20..=-17 { c.t(7, s + 1, w, "furnace_lit", 1, 0); c.n(7, s + 2, w, "magma"); c.n(7, s + 3, w, "bricks_dark"); c.n(6, s + 4, w, "stone_bricks_slab_top"); c.n(7, s + 4, w, "bricks_dark"); }
+    for u in -1..=1 { for w in -19..=-15 { c.air(u, s, w); } } for u in [-2, 2] { for w in -19..=-14 { c.n(u, s + 1, w, "stone_bricks_slab"); } } for u in -1..=1 { c.n(u, s + 1, -14, "stone_bricks_slab"); }
+    c.t(4, s + 1, -18, "anvil", 1, 0); c.t(-5, s + 1, -21, "anvil", 1, 0); c.n(-6, s + 1, -16, "coal_heap"); c.n(6, s + 1, -23, "barrel"); c.n(5, s + 1, -23, "crate"); c.t(-6, s + 1, -23, "grindstone", 1, 0); c.t(4, s + 1, -13, "tool_rack", 0, 1);
+    for (u, w) in [(-4, -17), (4, -21)] { for v in s + 10..=roof(u) - 1 { c.n(u, v, w, "chain"); } c.n(u, s + 9, w, "lantern"); }
+    // la cour : un pavé, un muret à chaperon, un portail entre deux piliers à lanternes ; un appentis de forgeron à l'ouest
+    for u in -10..=10 { for w in -31..=bw0 - 1 { c.n(u, s, w, if c.h(u, s, w, 3) < 0.25 { "gravel" } else { "cobblestone" }); } }
+    for u in -11..=11i32 { for w in -32..=bw0 - 1 { let edge = u.abs() == 11 || w == -32; if edge && !(w == -32 && u.abs() <= 2) { c.n(u, s, w, "cobblestone"); c.n(u, s + 1, w, "cobblestone"); c.n(u, s + 2, w, "cobblestone_slab"); } } }
+    for u in [-3, 3] { for v in s + 1..=s + 3 { c.n(u, v, -32, "basalt"); } c.n(u, s + 4, -32, "lantern"); }
+    for (u, w) in [(-5, -31), (-5, -27)] { for v in s + 1..=s + 3 { c.n(u, v, w, "oak_log"); } } for w in -32..=-26 { c.t(-5, s + 4, w, "slate_slope", -1, 0); for u in -10..=-6 { c.n(u, s + 4, w, "slate_slab_top"); } }
+    c.t(-8, s + 1, -30, "anvil", 1, 0); c.t(-9, s + 1, -27, "trough", 1, 0); c.t(-7, s + 1, -28, "grindstone", 1, 0); c.n(-10, s + 1, -31, "coal_heap"); c.n(-10, s + 1, -29, "log_pile");
+    c.t(7, s + 1, -30, "cart", 0, 1); c.n(8, s + 1, -26, "log_pile"); c.n(9, s + 1, -26, "crate"); c.n(9, s + 2, -26, "crate"); c.n(9, s + 1, -28, "barrel"); c.t(6, s + 1, -27, "anvil", 1, 0);
 }
 
 /// Les mécanismes de la forge bâtie en `o`, préfixés de `tag`.
