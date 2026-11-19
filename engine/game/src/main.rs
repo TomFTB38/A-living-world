@@ -553,7 +553,7 @@ fn capture(a: &[String]) {
         use alw_core::sanctuaire::DEPTH; let o = [-41, alw_core::gen::FLAT_Y, -24]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = false; s.set_creative(false);
         s.build_sanctuary(o); pump(&mut s, &mut g); let f = (o[1] - DEPTH) as f64;
         let (u, v, w, look) = match vw { "_entree" => (1.5, DEPTH as f64 + 1.0, -25.5, [0.0, -3.0, 10.0]), "_eau" => (0.5, 1.0, 2.6, [0.0, -1.2, 10.0]), "_leviers" => (-13.5, 1.0, 7.5, [-10.0, 0.4, 0.0]),
-            "_pieges" => (-9.5, 1.0, 21.5, [10.0, -0.9, 0.0]), "_nef" => (12.6, 1.0, 25.4, [6.4, 4.4, -8.4]), _ => (17.5, 1.0, -2.2, [0.0, -0.9, -6.0]) };
+            "_pieges" => (-9.5, 1.0, 21.5, [10.0, -0.9, 0.0]), "_nef" => (21.5, 6.0, 17.5, [-8.0, -4.2, 8.5]), "_secrete" => (12.5, 6.0, 17.5, [-10.0, -1.0, 0.3]), _ => (17.5, 1.0, -2.2, [0.0, -0.9, -6.0]) };
         s.player.p = [o[0] as f64 + u, f + v, o[2] as f64 + w]; let d = view::norm(look); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin();
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p[0] = p[0]; s.player.p[2] = p[2]; s.player.yaw = y; s.player.pitch = pi; }
         // les pics de la première rangée, sortis

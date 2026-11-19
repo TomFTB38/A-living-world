@@ -52,7 +52,7 @@ fn le_sanctuaire_est_bati_et_ses_salles_se_suivent_fermees() {
     assert!(into(&r, o, sa::R1)); for (room, n) in [(sa::R2, 2), (sa::R3, 3), (sa::R4, 4), (sa::R5, 5), (sa::R6, 6)] { assert!(!into(&r, o, room), "salle {n} hors d'atteinte au départ"); }
     // le coffre, sur son autel, au fond
     let c = at(o, sa::CHEST); assert!(is_chest_shut(s.world.get(c[0], c[1], c[2]).unwrap())); assert_eq!(name(&s, [c[0], c[1] - 1, c[2]]), "chiseled_stone");
-    println!("fils : {:?}", s.mech.wires.iter().map(|w| w.name.as_str()).collect::<Vec<_>>()); assert_eq!(s.mech.wires.len(), 6); assert_eq!(s.mech.pulses.len(), 4); assert_eq!(s.mech.hints.len(), 7); assert_eq!(s.mech.homes.len(), 3);
+    println!("fils : {:?}", s.mech.wires.iter().map(|w| w.name.as_str()).collect::<Vec<_>>()); assert_eq!(s.mech.wires.len(), 7); assert_eq!(s.mech.pulses.len(), 4); assert_eq!(s.mech.hints.len(), 8); assert_eq!(s.mech.guards.len(), 1); assert_eq!(s.mech.homes.len(), 3);
 }
 
 #[test]
@@ -172,4 +172,41 @@ fn la_pierre_ancienne_ne_se_creuse_pas() {
     assert!(s.sealed(at(o, [-6, 2, 3]), id("stone")), "un mur"); assert!(s.sealed(at(o, [-18, 1, 13]), id("iron_bars")), "une grille"); assert!(s.sealed(at(o, sa::R2_BLOCKS[0]), id("push_block")), "un bloc à pousser");
     assert!(!s.sealed(at(o, sa::R1_LEVERS[0]), id("lever")), "un levier"); assert!(!s.sealed(at(o, [0, 1, 4]), id("torch")), "on peut poser une torche");
     assert!(!s.sealed(at(o, [0, DEPTH + 1, -20]), id("stone")), "la surface reste libre");
+}
+
+#[test]
+fn la_salle_secrete_s_ouvre_par_la_dalle_de_la_galerie() {
+    let (mut s, o) = world(); let inside = (sa::SECRET, sa::SECRET_FLOOR); let gallery = [17, 6, 17];
+    let secret = |set: &BTreeSet<[i32; 3]>| set.iter().any(|c| { let (u, v, w) = (c[0] - o[0], c[1] - (o[1] - DEPTH), c[2] - o[2]); u >= inside.0 .0 && u <= inside.0 .1 && w >= inside.0 .2 && w <= inside.0 .3 && v == inside.1 + 1 });
+    assert!(!secret(&reach(&s, o, gallery)), "un mur comme un autre");
+    // on marche jusqu'à l'angle de la galerie : la dalle s'enfonce, le pan de mur pivote, et reste ouvert
+    put(&mut s, o, gallery); run(&mut s, 0.1); assert!(go(&mut s, o, 12, 17, false)); run(&mut s, 0.3); println!("{:?}", s.notes);
+    assert!(s.notes.iter().any(|n| n.contains("pan de mur")), "le passage s'ouvre"); assert_eq!(name(&s, at(o, [11, 6, 16])), "air");
+    assert!(go(&mut s, o, 14, 17, false)); run(&mut s, 0.5); assert_eq!(name(&s, at(o, [11, 6, 16])), "air", "il reste ouvert"); assert!(secret(&reach(&s, o, gallery)));
+    // on entre : l'inscription, de l'expérience ; le coffre caché a ses offrandes
+    let xp = s.prog.xp; assert!(go(&mut s, o, 11, 17, false) && go(&mut s, o, 9, 16, false)); run(&mut s, 0.3); println!("{:?}", s.notes.iter().rev().take(2).collect::<Vec<_>>());
+    assert!(s.notes.iter().any(|n| n.contains("salle secrète")) && s.prog.xp > xp, "découverte récompensée");
+    s.open_chest(at(o, sa::SECRET_CHEST)); let got: Vec<&str> = s.chests[&at(o, sa::SECRET_CHEST)].iter().flatten().map(|st| st.item).collect(); println!("coffre caché : {got:?}"); assert!(got.contains(&"steel_shield"));
+}
+
+#[test]
+fn le_colosse_englouti_garde_l_idole() {
+    let (mut s, o) = world(); let sp = alw_core::hostile::species(sa::BOSS).unwrap();
+    let boss = |s: &Session| s.horde.foes.iter().position(|f| f.sp == sp && f.dead == 0.0);
+    put(&mut s, o, [17, 1, -3]); run(&mut s, 0.3); println!("{:?}", s.notes);
+    let i = boss(&s).expect("le colosse s'éveille"); assert!(s.horde.foes[i].kept); assert!(bars(&s, o, [17, 1, -1]) && bars(&s, o, [11, 1, -6]), "les deux issues se ferment");
+    assert!(!into(&reach(&s, o, [17, 1, -3]), o, sa::R5), "on ne fuit pas"); let (hp, at) = (s.horde.foes[i].hp, s.horde.foes[i].p); println!("colosse : {hp:.0} PV en {at:?}"); assert!(hp >= 120.0);
+    // on s'en va (ou l'on meurt) : il se rendort, tout se rouvre ; on revient, il se relève
+    put(&mut s, o, [0, 1, 4]); run(&mut s, 0.2); assert!(boss(&s).is_none() && !bars(&s, o, [17, 1, -1]), "rendormi, la porte rouverte");
+    put(&mut s, o, [17, 1, -3]); run(&mut s, 0.2); let i = boss(&s).expect("il se relève");
+    // à mi-vie, les noyés remontent
+    let noye = alw_core::hostile::species("noye").unwrap(); s.horde.foes[i].hp = s.horde.foes[i].max * 0.45; s.horde.foes[i].p = at; run(&mut s, 0.6);
+    println!("{:?}", s.notes.last()); assert!(s.notes.iter().any(|n| n.contains("noyés remontent")) && s.horde.foes.iter().filter(|f| f.sp == noye).count() >= 2);
+    // vaincu : les grilles se relèvent, le harpon tombe, l'expérience d'un boss
+    let xp = s.prog.xp; let i = boss(&s).unwrap(); s.horde.foes[i].hp = 1.0; let me = s.player.p; s.horde.strike(i, 99.0, me, "sword", false); run(&mut s, 1.0);
+    println!("{:?}", s.notes.iter().rev().take(3).collect::<Vec<_>>()); assert!(s.notes.iter().any(|n| n.contains("Le gardien est vaincu"))); assert!(!bars(&s, o, [17, 1, -1]) && !bars(&s, o, [11, 1, -6]));
+    assert!(s.loose.iter().any(|l| l.item == "harpon_englouti") || s.inv.iter().flatten().any(|st| st.item == "harpon_englouti"), "le harpon englouti"); assert!(s.prog.xp - xp >= 300.0, "{} XP", s.prog.xp - xp);
+    put(&mut s, o, [0, 1, 4]); run(&mut s, 0.2); put(&mut s, o, [17, 1, -3]); run(&mut s, 0.3); assert!(boss(&s).is_none(), "vaincu pour de bon");
+    // et ça se sauvegarde
+    let t = s.save_text(); assert!(t.lines().any(|l| l.starts_with("guard") && l.contains("colosse") && l.split_whitespace().nth(5) == Some("2")), "{}", t.lines().filter(|l| l.starts_with("guard")).collect::<Vec<_>>().join("\n"));
 }

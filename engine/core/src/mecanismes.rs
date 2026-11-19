@@ -72,10 +72,14 @@ pub struct Seal { pub min: [i32; 3], pub max: [i32; 3], pub until: String }
 pub struct Home { pub min: [i32; 3], pub max: [i32; 3], pub homes: Vec<[i32; 3]>, pub keep: String }
 /// Une inscription, lue une fois en entrant dans la salle (`min`..`max`).
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Hint { pub min: [i32; 3], pub max: [i32; 3], pub text: String, pub shown: bool }
+pub struct Hint { pub min: [i32; 3], pub max: [i32; 3], pub text: String, pub shown: bool, /** l'expérience d'une découverte (une salle secrète) */ pub xp: f64 }
+/// Le gardien d'une salle : il s'éveille quand le joueur y entre (`min`..`max`), les grilles (`doors`) se referment derrière
+/// lui ; vaincu, elles se relèvent pour de bon. Si le joueur s'en va (ou meurt), le gardien se rendort et tout se rouvre.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Guard { pub min: [i32; 3], pub max: [i32; 3], pub species: String, pub at: [f64; 3], pub doors: Vec<([i32; 3], Id)>, /** 0 endormi, 1 au combat, 2 vaincu */ pub state: u8 }
 /// Tous les mécanismes du monde.
 #[derive(Clone, Debug, Default)]
-pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, /** les coffres au trésor d'un donjon */ pub chests: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
+pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
 
 /// Les dégâts des pics (par atteinte), d'une fléchette, et le temps que tient le sol friable.
 pub const SPIKE_DMG: f64 = 5.0; pub const DART_DMG: f64 = 7.0; pub const CRUMBLE_T: f64 = 0.6;
@@ -91,7 +95,7 @@ impl Mech {
     pub fn wire(&self, n: &str) -> Option<&Wire> { self.wires.iter().find(|w| w.name == n) }
     fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) }
     /// Ajoute les mécanismes d'un donjon.
-    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.chests.extend(o.chests); }
+    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.chests.extend(o.chests); self.secrets.extend(o.secrets); }
 }
 fn inside(p: [i32; 3], min: [i32; 3], max: [i32; 3], m: i32) -> bool { (0..3).all(|i| p[i] >= min[i] - m && p[i] <= max[i] + m) }
 
@@ -151,7 +155,20 @@ impl Session {
         }
         // les inscriptions, lues en entrant
         let me = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.1).floor() as i32, self.player.p[2].floor() as i32];
-        for k in 0..self.mech.hints.len() { let h = &self.mech.hints[k]; if !h.shown && self.dead.is_none() && inside(me, h.min, h.max, 0) { let t = h.text.clone(); self.mech.hints[k].shown = true; self.dirty = true; self.notes.push(t); } }
+        for k in 0..self.mech.hints.len() { let h = &self.mech.hints[k]; if !h.shown && self.dead.is_none() && inside(me, h.min, h.max, 0) { let (t, xp) = (h.text.clone(), h.xp); self.mech.hints[k].shown = true; self.dirty = true; self.notes.push(t); if xp > 0.0 { self.earn(xp, "salle secrète découverte"); } } }
+        // les gardiens des salles
+        for k in 0..self.mech.guards.len() { let g = self.mech.guards[k].clone(); let Some(sp) = crate::hostile::species(&g.species) else { continue };
+            let here = self.dead.is_none() && inside(me, g.min, g.max, 0);
+            let alive = |s: &Session| s.horde.foes.iter().any(|f| f.sp == sp && f.dead == 0.0 && inside([f.p[0].floor() as i32, f.p[1].floor() as i32, f.p[2].floor() as i32], g.min, g.max, 2));
+            let doors = |s: &mut Session, shut: bool| { for (p, b) in &g.doors { let now = s.world.get(p[0], p[1], p[2]); if shut && now == Some(0) { s.world.edit(p[0], p[1], p[2], *b); } else if !shut && now == Some(*b) { s.world.edit(p[0], p[1], p[2], 0); } } s.sound.place("iron_bars"); };
+            match g.state {
+                0 if here => { let me_f = self.player.p; let i = self.horde.put(sp, g.at, (me_f[0] - g.at[0]).atan2(me_f[2] - g.at[2]), true); let f = &mut self.horde.foes[i]; f.kept = true; f.hp *= 2.0; f.max = f.hp; f.alert = 1.0; f.seen = Some(me_f); f.state = crate::hostile::Ai::Poursuite;
+                    doors(self, true); self.mech.guards[k].state = 1; self.dirty = true; self.notes.push(format!("Le gardien s'éveille : {} ! Les grilles retombent derrière vous", crate::hostile::bestiary().species[sp].name)); }
+                1 => { let a = alive(self);
+                    if !a && here { doors(self, false); self.mech.guards[k].state = 2; self.dirty = true; self.notes.push("Le gardien est vaincu : les grilles se relèvent".into()); }
+                    else if !here { let (lo, hi) = (g.min, g.max); self.horde.foes.retain(|f| !(f.sp == sp && inside([f.p[0].floor() as i32, f.p[1].floor() as i32, f.p[2].floor() as i32], lo, hi, 2))); doors(self, false); self.mech.guards[k].state = 0; self.dirty = true; } }
+                _ => {}
+            } }
         // les blocs à pousser d'une salle qu'on a quittée reviennent à leur place
         self.mech.home_t -= dt;
         if self.mech.home_t <= 0.0 { self.mech.home_t = 0.5; let pb = id("push_block");
@@ -221,8 +238,11 @@ impl Session {
         for p in &self.mech.pulses { o += &format!("pulse {} {} {} {} {} {} {}\n", p.period, p.up, p.phase, word(&p.off_by), word(&p.on_by), pts(&p.spikes), pts(&p.darts)); }
         for s in &self.mech.seals { o += &format!("seal {} {} {}\n", pts(&[s.min]), pts(&[s.max]), word(&s.until)); }
         for h in &self.mech.homes { o += &format!("home {} {} {} {}\n", pts(&[h.min]), pts(&[h.max]), word(&h.keep), pts(&h.homes)); }
-        for h in &self.mech.hints { o += &format!("hint {} {} {} {}\n", pts(&[h.min]), pts(&[h.max]), h.shown as u8, h.text); }
+        for h in &self.mech.hints { o += &format!("hint {} {} {} {} {}\n", pts(&[h.min]), pts(&[h.max]), h.shown as u8, h.xp, h.text); }
+        for g in &self.mech.guards { let doors = if g.doors.is_empty() { "-".to_string() } else { g.doors.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") };
+            o += &format!("guard {} {} {} {},{},{} {} {}\n", pts(&[g.min]), pts(&[g.max]), g.species, g.at[0], g.at[1], g.at[2], g.state, doors); }
         if !self.mech.chests.is_empty() { o += &format!("mchest {}\n", pts(&self.mech.chests)); }
+        if !self.mech.secrets.is_empty() { o += &format!("msecret {}\n", pts(&self.mech.secrets)); }
         o
     }
     pub(crate) fn mech_load(&mut self, rest: &str) {
@@ -248,9 +268,16 @@ impl Session {
         self.mech.homes.push(Home { min: m[0], max: n[0], keep: if a[2] == "-" { String::new() } else { a[2].to_string() }, homes: pts(a[3]) });
     }
     pub(crate) fn hint_load(&mut self, rest: &str) {
-        let mut a = rest.splitn(4, ' '); let (Some(m), Some(n), Some(sh), Some(t)) = (a.next(), a.next(), a.next(), a.next()) else { return }; let (m, n) = (pts(m), pts(n)); if m.is_empty() || n.is_empty() { return; }
-        self.mech.hints.push(Hint { min: m[0], max: n[0], shown: sh == "1", text: t.to_string() });
+        let mut a = rest.splitn(5, ' '); let (Some(m), Some(n), Some(sh), Some(xp), Some(t)) = (a.next(), a.next(), a.next(), a.next(), a.next()) else { return }; let (m, n) = (pts(m), pts(n)); if m.is_empty() || n.is_empty() { return; }
+        self.mech.hints.push(Hint { min: m[0], max: n[0], shown: sh == "1", xp: xp.parse().unwrap_or(0.0), text: t.to_string() });
+    }
+    pub(crate) fn guard_load(&mut self, rest: &str) {
+        let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 6 { return; } let (m, n) = (pts(a[0]), pts(a[1])); if m.is_empty() || n.is_empty() { return; }
+        let at: Vec<f64> = a[3].split(',').filter_map(|v| v.parse().ok()).collect(); if at.len() != 3 { return; }
+        let doors = if a[5] == "-" { Vec::new() } else { a[5].split(';').filter_map(|c| { let v: Vec<&str> = c.splitn(4, ',').collect(); if v.len() < 4 { return None; } Some(([v[0].parse().ok()?, v[1].parse().ok()?, v[2].parse().ok()?], by_name(v[3])?)) }).collect() };
+        self.mech.guards.push(Guard { min: m[0], max: n[0], species: a[2].to_string(), at: [at[0], at[1], at[2]], state: a[4].parse().unwrap_or(0), doors });
     }
     pub(crate) fn mchest_load(&mut self, rest: &str) { self.mech.chests.extend(pts(rest.trim())); }
+    pub(crate) fn msecret_load(&mut self, rest: &str) { self.mech.secrets.extend(pts(rest.trim())); }
 }
 fn pts(s: &str) -> Vec<[i32; 3]> { if s == "-" { return Vec::new(); } s.split(';').filter_map(|c| { let v: Vec<i32> = c.split(',').filter_map(|x| x.parse().ok()).collect(); (v.len() == 3).then(|| [v[0], v[1], v[2]]) }).collect() }

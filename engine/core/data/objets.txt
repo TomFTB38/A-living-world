@@ -212,6 +212,7 @@ dead_hollow | Tronc creux de bois mort | bois | 1.2 | 64 | | combustible=20
 twigs | Branches au sol | plantes | 0.3 | 64 | |
 pebbles | Cailloux au sol | plantes | 0.6 | 64 | |
 pearl | Perle | matieres | 0.02 | 64 | Ronde et nacrée, trouvée dans le coffre d'une épave. Les marchands la paient très cher. |
+harpon_englouti | Harpon englouti | outils | 1.7 | 1 | Le trident du colosse qui gardait l'idole : un bronze verdi, plus dur que l'acier, qui frappe de loin. | outil=lance mat=maitre
 idole_engloutie | Idole engloutie | matieres | 0.6 | 1 | Une petite idole de jade aux yeux d'or, gardée au fond du Sanctuaire englouti. Les marchands en offrent une fortune ; les anciens disaient qu'elle porte chance aux explorateurs. |
 shark_tooth | Dent de requin | matieres | 0.05 | 64 | Triangulaire et dentelée. Les marchands des ports en donnent un bon prix. |
 coral_block_red | Corail rouge | batir | 1.0 | 64 | Un bloc de corail massif, rapporté d'un récif des mers chaudes. |
@@ -488,6 +489,7 @@ egg_brigand_cavalier | Œuf : cavalier brigand | oeufs | 0.1 | 64 | Clic droit s
 egg_brigand_chef | Œuf : chef de guerre brigand | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : chef de guerre brigand. Pour essayer les créatures en créatif. |
 egg_capitaine | Œuf : capitaine squelette | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : capitaine squelette. Pour essayer les créatures en créatif. |
 egg_gardien | Œuf : gardien de la crypte | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : gardien de la crypte. Pour essayer les créatures en créatif. |
+egg_colosse | Œuf : colosse englouti | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : colosse englouti. Pour essayer les créatures en créatif. |
 egg_rodeuse | Œuf : bête rôdeuse | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : bête rôdeuse. Pour essayer les créatures en créatif. |
 egg_rampant | Œuf : rampant nocturne | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : rampant nocturne. Pour essayer les créatures en créatif. |
 egg_deer | Œuf : cerf | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cerf. Pour essayer les créatures en créatif. |

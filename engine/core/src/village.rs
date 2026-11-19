@@ -749,6 +749,14 @@ impl Session {
                 slot = (slot + 1 + (r.next() * 3.0) as usize) % out.len(); while out[slot].is_some() { slot = (slot + 1) % out.len(); } out[slot] = Some(Stack { item: it.id, n: if one { None } else { Some(n.min(hi)) }, wear: 0 }); }
             return out;
         }
+        // Le coffre d'une salle secrète de donjon : les offrandes cachées des bâtisseurs.
+        if self.mech.secrets.contains(&p) {
+            let mut r = crate::noise::Rng::new((p[0].wrapping_mul(73856093) ^ p[1].wrapping_mul(19349663) ^ p[2].wrapping_mul(83492791) ^ self.seed) as u32); let mut slot = 0;
+            for &(id, lo, hi, pr) in &[("steel_shield", 1u32, 1u32, 1.0), ("pearl", 3, 6, 1.0), ("worn_coin", 20, 40, 1.0), ("steel_ingot", 2, 4, 0.8), ("bandage", 2, 4, 0.7), ("candle", 2, 3, 0.5)] {
+                if r.next() >= pr { continue; } let Some(it) = item(id) else { continue }; let n = lo + (r.next() * (hi - lo + 1) as f64) as u32; let one = def(it.id).is_some_and(|d| d.stack <= 1);
+                slot = (slot + 1 + (r.next() * 3.0) as usize) % out.len(); while out[slot].is_some() { slot = (slot + 1) % out.len(); } out[slot] = Some(Stack { item: it.id, n: if one { None } else { Some(n.min(hi)) }, wear: 0 }); }
+            return out;
+        }
         // Le coffre d'un lieu de surface : la réserve des guetteurs, les offrandes d'un caveau, le butin des brigands.
         if let Some(lieu) = self.gen.place_chest(p).or(self.mech.chests.contains(&p).then_some(crate::sites::Lieu::Sanctuaire)) {
             use crate::sites::Lieu;

@@ -69,7 +69,7 @@ fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
             // ses mécanismes se sont branchés à l'approche, et son plan, posé par la génération du monde, tient : de la salle
             // de l'eau noire on va aux trois leviers, pas au-delà ; résolus, la grille se lève
             use alw_core::sanctuaire::{self as sa, DEPTH}; let f = pl.y - DEPTH; let rel = |q: [i32; 3]| [pl.x + q[0], f + q[1], pl.z + q[2]];
-            assert_eq!(s.mech.wires.iter().filter(|w| w.name.starts_with(&format!("s{}:{}:", pl.x, pl.z))).count(), 6, "les fils du sanctuaire");
+            assert_eq!(s.mech.wires.iter().filter(|w| w.name.starts_with(&format!("s{}:{}:", pl.x, pl.z))).count(), 7, "les fils du sanctuaire");
             let into = |r: &std::collections::BTreeSet<[i32; 3]>, room: (i32, i32, i32, i32, i32)| r.iter().any(|c| { let (u, v, w) = (c[0] - pl.x, c[1] - f, c[2] - pl.z); u >= room.0 && u <= room.1 && w >= room.2 && w <= room.3 && v >= 1 && v <= room.4 });
             let look = |s: &Session| sa::reach(&s.world, rel([0, 1, 4]), rel([-26, -3, -18]), rel([26, DEPTH + 4, 30]));
             let r = look(&s); assert!(into(&r, sa::R1) && !into(&r, sa::R2), "salle 1 ouverte, salle 2 fermée");

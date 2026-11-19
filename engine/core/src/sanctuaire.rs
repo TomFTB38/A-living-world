@@ -17,7 +17,7 @@
 //! pour les essais et les captures). Ses mécanismes (`mechs`) se branchent quand le joueur approche. Tout est vérifié par
 //! `tests/sanctuaire.rs`, salle par salle, avec le solveur de chemins `reach`.
 use crate::blocks::{by_name, is_solid, is_water, Id};
-use crate::mecanismes::{Hint, Home, Mech, Pulse, Seal, Wire};
+use crate::mecanismes::{Guard, Hint, Home, Mech, Pulse, Seal, Wire};
 use crate::noise::hash_float;
 use crate::player::Voxels;
 use crate::session::Session;
@@ -67,6 +67,15 @@ const R5_TRAP: [i32; 3] = [11, 2, 3];
 const R5_GATE: [[i32; 3]; 4] = [[17, 1, 1], [18, 1, 1], [17, 2, 1], [18, 2, 1]];
 /// Salle 6 : le levier du raccourci, et sa grille dans le mur nord de la salle de l'eau noire.
 pub const R6_LEVER: [i32; 3] = [5, 2, 0];
+/// La salle secrète (son sol en `SECRET_FLOOR`), la dalle qui l'ouvre, le pan de mur, son coffre.
+pub const SECRET: (i32, i32, i32, i32, i32) = (6, 10, 15, 18, 3); pub const SECRET_FLOOR: i32 = 5;
+pub const SECRET_PLATE: [i32; 3] = [12, 5, 17];
+const SECRET_PANEL: [[i32; 3]; 4] = [[11, 6, 16], [11, 6, 17], [11, 7, 16], [11, 7, 17]];
+pub const SECRET_CHEST: [i32; 3] = [8, 6, 17];
+/// Le gardien de la chambre de l'idole, et où il se lève.
+pub const BOSS: &str = "colosse"; pub const BOSS_AT: [f64; 3] = [17.5, 1.0, -8.5];
+const BOSS_DOORS: [[i32; 3]; 4] = [[17, 1, -1], [18, 1, -1], [17, 2, -1], [18, 2, -1]];
+const BOSS_DOORS_W: [[i32; 3]; 4] = [[11, 1, -6], [11, 1, -5], [11, 2, -6], [11, 2, -5]];
 const R6_GATE: [[i32; 3]; 4] = [[4, 1, 1], [5, 1, 1], [4, 2, 1], [5, 2, 1]];
 /// L'étendue scellée (relative) : la pierre ancienne ne se creuse pas.
 const SEAL: ([i32; 3], [i32; 3]) = ([-24, -3, -16], [24, DEPTH - 1, 28]);
@@ -83,9 +92,11 @@ impl S<'_> {
     /// Un mur, sauf là où on a déjà creusé.
     fn wall(&mut self, u: i32, v: i32, w: i32) { let (x, y, z) = self.at(u, v, w); if self.p.m.get(&(x, y, z)) == Some(&-1) { return; } let s = self.stone(u, v, w); self.p.n(x, y, z, s); }
     /// Une salle : son intérieur creusé, son sol, ses murs et sa voûte.
-    fn room(&mut self, r: (i32, i32, i32, i32, i32)) {
+    fn room(&mut self, r: (i32, i32, i32, i32, i32)) { self.room_at(r, 0); }
+    /// Une salle dont le sol est à la hauteur `base`.
+    fn room_at(&mut self, r: (i32, i32, i32, i32, i32), base: i32) {
         let (u0, u1, w0, w1, h) = r;
-        for u in u0 - 1..=u1 + 1 { for w in w0 - 1..=w1 + 1 { for v in 0..=h + 1 { if u >= u0 && u <= u1 && w >= w0 && w <= w1 && v >= 1 && v <= h { self.air(u, v, w); } else { self.wall(u, v, w); } } } }
+        for u in u0 - 1..=u1 + 1 { for w in w0 - 1..=w1 + 1 { for v in 0..=h + 1 { if u >= u0 && u <= u1 && w >= w0 && w <= w1 && v >= 1 && v <= h { self.air(u, base + v, w); } else { self.wall(u, base + v, w); } } } }
     }
     /// Un bassin d'eau noire (deux blocs de fond), creusé dans le sol d'une salle.
     fn basin(&mut self, u0: i32, u1: i32, w0: i32, w1: i32) {
@@ -147,6 +158,10 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     for w in 18..=25 { s.n(16, 4, w, "crumbling_floor"); }
     for (u, w, dx, dz) in [(12, 20, -1, 0), (22, 20, 1, 0), (17, 26, 0, 1)] { s.t(u, 7, w, "wall_sconce", dx, dz); } for v in 6..=R4.4 { s.n(17, v, 21, "chain"); } s.n(17, 5, 21, "lantern");
     s.room((13, 14, 13, 15, 2)); s.bars(&R4_GATE, false);
+    // la salle secrète, derrière le mur ouest de la galerie : une dalle à l'angle de la galerie fait pivoter un pan de mur
+    s.room_at(SECRET, SECRET_FLOOR); s.n(SECRET_PLATE[0], SECRET_PLATE[1], SECRET_PLATE[2], "pressure_plate"); for q in SECRET_PANEL { s.n(q[0], q[1], q[2], "mossy_stone"); }
+    s.n(SECRET_CHEST[0], SECRET_CHEST[1], SECRET_CHEST[2], "chest"); s.n(9, SECRET_FLOOR + 1, 15, "candle"); s.n(7, SECRET_FLOOR + 1, 18, "candle"); s.n(6, SECRET_FLOOR + 1, 15, "amphora"); s.n(10, SECRET_FLOOR + 1, 18, "bone");
+    s.t(8, SECRET_FLOOR + 3, 18, "banner_gold", 0, 1); s.n(6, SECRET_FLOOR + 3, 18, "cobweb");
     // 5 — l'épreuve
     s.room(R5);
     s.n(R5_PLATE[0], R5_PLATE[1], R5_PLATE[2], "pressure_plate"); s.n(R5_BLOCK[0], R5_BLOCK[1], R5_BLOCK[2], "push_block");
@@ -196,6 +211,12 @@ pub fn mechs(o: [i32; 3], tag: &str) -> Mech {
     // 6
     m.wires.push(Wire { name: name("r6"), inputs: vec![at(R6_LEVER)], latch: true, doors: gate(&R6_GATE, iron), ..Default::default() });
     m.chests.push(at(CHEST));
+    // la salle secrète : la dalle de la galerie fait pivoter le pan de mur, pour de bon
+    let stone = by_name("mossy_stone").unwrap_or(0); m.wires.push(Wire { name: name("secret"), inputs: vec![at(SECRET_PLATE)], latch: true, doors: gate(&SECRET_PANEL, stone), ..Default::default() });
+    m.secrets.push(at(SECRET_CHEST));
+    // le colosse englouti garde l'idole : il s'éveille quand on entre, les deux issues se ferment
+    let mut d = gate(&BOSS_DOORS, iron); d.extend(gate(&BOSS_DOORS_W, iron_z)); let (a, b) = box_of(R6);
+    m.guards.push(Guard { min: a, max: b, species: BOSS.into(), at: [o[0] as f64 + BOSS_AT[0], f as f64 + BOSS_AT[1], o[2] as f64 + BOSS_AT[2]], doors: d, state: 0 });
     // la pierre ancienne
     m.seals.push(Seal { min: at(SEAL.0), max: at(SEAL.1), until: String::new() });
     // les inscriptions
@@ -205,7 +226,8 @@ pub fn mechs(o: [i32; 3], tag: &str) -> Mech {
         (R3, "Les pics se lèvent et retombent, les masques du fond crachent des fléchettes. Observez le rythme… et poussez la pierre devant vous."),
         (R4, "Une nef noyée d'ombre. Tout là-haut, sur la galerie, un levier."),
         (R5, "L'épreuve : le poids, le piège, l'ordre — une bannière bleue, puis deux."),
-        (R6, "La chambre de l'idole. Un couloir dérobé ramène à l'entrée.")] { let (a, b) = box_of(r); m.hints.push(Hint { min: a, max: b, text: t.into(), shown: false }); }
+        (R6, "La chambre de l'idole. Quelque chose remue sous l'eau noire… Un couloir dérobé ramène à l'entrée.")] { let (a, b) = box_of(r); m.hints.push(Hint { min: a, max: b, text: t.into(), shown: false, xp: 0.0 }); }
+    let (a, b) = (at([SECRET.0, SECRET_FLOOR + 1, SECRET.2]), at([SECRET.1, SECRET_FLOOR + SECRET.4, SECRET.3])); m.hints.push(Hint { min: a, max: b, text: "Une salle secrète ! Les bâtisseurs y ont caché leurs offrandes.".into(), shown: false, xp: crate::niveaux::XP_PLACE * 1.5 });
     m
 }
 

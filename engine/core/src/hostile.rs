@@ -598,10 +598,11 @@ fn arrow(from: [f64; 3], aim: [f64; 3], sp: f64, dmg: f64, cause: &'static str) 
 const HEAVY_ARROW: &str = "La flèche lourde";
 /// Ce que dit le boss qui frappe : le chef de guerre ou le gardien de la crypte.
 fn boss_cause(s: &Species, mv: u8) -> &'static str { match (s.id, mv) {
+    ("colosse", MV_ECRASE) => "Le trident du colosse englouti, abattu de tout son poids", ("colosse", MV_CHARGE) => "La ruée du colosse englouti", ("colosse", _) => "Le trident du colosse englouti",
     ("gardien", MV_ECRASE) => "Le poing du gardien de la crypte", ("gardien", MV_CHARGE) => "La ruée du gardien de la crypte", ("gardien", _) => "Les griffes du gardien de la crypte",
     (_, MV_TAILLE) => "La taille d'un chef de guerre brigand", (_, MV_ECRASE) => "La frappe écrasante d'un chef de guerre brigand", (_, MV_CHARGE) => "La ruée d'un chef de guerre brigand", _ => "La grande hache d'un chef de guerre brigand" } }
 /// Ceux qu'appelle le boss à mi-vie.
-fn boss_calls(s: &Species) -> &'static str { match s.id { "gardien" => "rodeur", "capitaine" => "archer", _ => "brigand" } }
+fn boss_calls(s: &Species) -> &'static str { match s.id { "gardien" => "rodeur", "capitaine" => "archer", "colosse" => "noye", _ => "brigand" } }
 fn reel(f: &mut Foe, ev: &mut Vec<FoeEv>) { f.broken = REEL_T; f.posture = 0.0; f.wind = 0.0; f.mv = 0; f.combo = 0; f.lunge = 0.0; f.speed = 0.0;
     // le cavalier, garde brisée, vide les étriers : il tombe, sonné, et finit à pied ; son cheval s'enfuit
     if bestiary().species[f.sp].body == Body::Cavalier { if let Some(k) = species("brigand") { let part = f.hp / f.max; let s = &bestiary().species[k]; f.sp = k; f.max = s.hp * if f.vet { 1.25 } else { 1.0 }; f.hp = (f.max * part).max(1.0); f.state = Ai::Combat; f.cd = REEL_T + 0.5; ev.push(FoeEv::Unhorse(f.p, f.yaw)); return; } }
@@ -1203,7 +1204,7 @@ impl Session {
                     self.wild.put(crate::wild::Kind::Horse, [p[0] + yaw.cos() * 1.5, p[1], p[2] - yaw.sin() * 1.5], yaw, false); let k = self.wild.all.len() - 1; self.wild.strike(k, 0.0, [p[0] - yaw.sin() * 3.0, p[1], p[2] - yaw.cos() * 3.0]); }
                 FoeEv::Reel(p) => { self.sound.thump(p); self.notes.push("Sa garde est brisée : il chancelle, frappez !".into()); }
                 // la seconde phase : il jette son heaume et appelle deux hommes, qui accourent
-                FoeEv::Rage(p, who) => { self.sound.fox_scream(p); self.notes.push(match who { "rodeur" => "Le gardien de la crypte rugit : les morts se lèvent !", "archer" => "Le capitaine siffle : ses archers accourent !", _ => "Le chef de guerre entre en rage et appelle ses hommes !" }.into());
+                FoeEv::Rage(p, who) => { self.sound.fox_scream(p); self.notes.push(match who { "rodeur" => "Le gardien de la crypte rugit : les morts se lèvent !", "archer" => "Le capitaine siffle : ses archers accourent !", "noye" => "Le colosse englouti gronde : les noyés remontent des eaux noires !", _ => "Le chef de guerre entre en rage et appelle ses hommes !" }.into());
                     if let Some(sp) = species(who) { let me = self.player.p; for k in 0..2 { let a = k as f64 * 2.4 + 1.0; let (x, z) = (p[0] + a.cos() * 6.0, p[2] + a.sin() * 6.0);
                         let y = ground(&self.world, x, z, p[1] + 3.0).unwrap_or(p[1]); let i = self.horde.put(sp, [x, y, z], (me[0] - x).atan2(me[2] - z), true); let f = &mut self.horde.foes[i]; f.kept = true; f.alert = 1.0; f.seen = Some(me); f.state = Ai::Poursuite; } } }
                 FoeEv::Loot(_, g) => self.raid_loot(g),
