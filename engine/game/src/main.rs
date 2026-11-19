@@ -590,7 +590,7 @@ fn capture(a: &[String]) {
     if let Some(vw) = scene.strip_prefix("plat_grotte_") {
         use alw_core::grotte::DEPTH; let o = [-41, alw_core::gen::FLAT_Y, -24]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false);
         s.build_grotto(o); pump(&mut s, &mut g); let f = o[1] - DEPTH;
-        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "esplanade" => ([0.5, DEPTH as f64 + 2.0, -19.5], [0.5, DEPTH as f64 + 2.0, 8.5]), "puits" => ([0.5, DEPTH as f64 + 1.0, -9.0], [0.5, 2.0, 1.5]),
+        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "esplanade" => ([0.5, DEPTH as f64 + 2.0, -19.5], [0.5, DEPTH as f64 + 2.0, 8.5]), "puits" => ([0.5, DEPTH as f64 + 2.0, -4.5], [0.5, 1.0, 3.0]),
             "caverne" => ([5.5, 13.0, 0.5], [0.5, 3.0, 18.5]), "temple" => ([0.5, 1.0, 5.5], [0.5, 4.5, 13.5]), "citerne" => ([-25.5, 1.0, -0.5], [-25.0, -6.0, 3.5]),
             "paroi" => ([17.5, 2.0, 5.5], [26.5, 9.0, 11.5]), _ => ([-15.5, 1.0, 15.5], [-20.0, 3.0, 18.5]) };
         s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let d = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin();
