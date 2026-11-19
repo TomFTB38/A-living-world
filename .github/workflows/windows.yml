@@ -107,6 +107,13 @@ jobs:
           shot plat_sanctuaire_pieges -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_pieges
           shot plat_sanctuaire_nef -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_nef
           shot plat_sanctuaire_secrete -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_secrete
+          shot plat_ruines_entree -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_entree
+          shot plat_ruines_leviers -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_leviers
+          shot plat_ruines_dalles -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_dalles
+          shot plat_ruines_pics -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_pics
+          shot plat_ruines_nef -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_nef
+          shot plat_ruines_epreuve -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_epreuve
+          shot plat_ruines_tresor -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_tresor
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

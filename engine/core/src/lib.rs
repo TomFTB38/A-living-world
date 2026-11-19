@@ -46,5 +46,5 @@ pub mod armures;
 pub mod karst; pub mod sites; pub mod economie; pub mod remparts;
 pub mod raids;
 pub mod caravanes;
-pub mod camps; pub mod niveaux; pub mod mecanismes; pub mod sanctuaire;
+pub mod camps; pub mod niveaux; pub mod mecanismes; pub mod sanctuaire; pub mod donjons;
 pub mod commande;

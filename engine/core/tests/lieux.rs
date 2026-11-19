@@ -6,7 +6,7 @@ fn ready(s: &mut Session) { for _ in 0..8000 { let p = s.player.p; s.world.updat
 
 #[test]
 fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
-    let w = WorldGen::new(SEED); let all = w.places_near(-38.0, 0.0, 2500.0); let mut seen = [0usize; 4];
+    let w = WorldGen::new(SEED); let all = w.places_near(-38.0, 0.0, 2500.0); let mut seen = [0usize; 5];
     let name = |b: u16| BLOCKS[b as usize].name;
     for pl in &all {
         let k = LIEUX.iter().position(|l| *l == pl.kind).unwrap(); seen[k] += 1; if seen[k] > 3 { continue; } // trois de chaque sorte, bloc à bloc
@@ -39,6 +39,12 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
                 for (u, w) in [(0, 4), (-15, 7), (-17, 21), (0, 21), (17, 24), (17, 7), (17, -4)] { assert_eq!(at(pl.x + u, f + 2, pl.z + w), 0, "salle creusée en {u} {w}"); }
                 for (u, ww) in [(-20, 20), (0, 25), (20, 20), (17, -8)] { let g = w_ground(&w, pl.x + u, pl.z + ww); assert!(g >= f + sa::R4.4 + 2, "la voûte reste sous terre en {u} {ww} : sol {g}, voûte {}", f + sa::R4.4 + 1); }
             }
+            Lieu::Ruines => {
+                // le puits descend jusqu'à la salle d'entrée ; chaque salle est creusée ; le trésor est au fond ; la voûte reste sous terre
+                use alw_core::sanctuaire::DEPTH; let f = pl.y - DEPTH; let l = pl.ruins(); let rel = |q: [i32; 3]| at(pl.x + q[0], f + q[1], pl.z + q[2]);
+                for v in 1..=DEPTH - 1 { assert!(name(rel(l.rooms[0].at([-5, v, -5]))).starts_with("ladder"), "l'échelle du puits ({v})"); }
+                for r in &l.rooms { assert_eq!(rel(r.at([0, 3, -3])), 0, "{:?} creusée", r.kind); let c = r.c; let g = w_ground(&w, pl.x + c.0, pl.z + c.1); assert!(g >= f + r.kind.h() + 2, "la voûte de {:?} reste sous terre", r.kind); }
+            }
             Lieu::Camp => {
                 assert_eq!(count(&|n| n == "campfire", 1, 2), 1, "le feu"); assert!(count(&|n| n == "oak_log", 11, 5) > 150, "la palissade"); assert!(count(&|n| n.starts_with("thatch_slope"), 9, 4) >= 60, "les tentes"); assert_eq!(count(&|n| n == "bedroll", 9, 2), 4);
                 assert!(count(&|n| n.starts_with("iron_bars"), 8, 3) >= 14, "la cage"); assert!(count(&|n| n.starts_with("ladder"), 8, 6) >= 5, "l'échelle de la tour de guet"); assert!(count(&|n| n.starts_with("throne"), 8, 2) == 1 && count(&|n| n.starts_with("cart"), 6, 2) == 1, "le siège du chef, la charrette");
@@ -48,7 +54,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
         // les gardiens ont les pieds sur du plein et la tête à l'air
         for (id, g) in pl.guards() { assert!(alw_core::hostile::species(id).is_some(), "{id}"); let (x, y, z) = (g[0].floor() as i32, g[1].floor() as i32, g[2].floor() as i32); assert!(is_solid(at(x, y - 1, z)), "{id} de {:?} n'a rien sous les pieds en {x} {y} {z}", pl.kind); assert!(!is_solid(at(x, y + 1, z)), "{id} de {:?} emmuré", pl.kind); }
     }
-    println!("lieux : {} tours, {} cimetières, {} camps, {} sanctuaires", seen[0], seen[1], seen[2], seen[3]); assert!(seen.iter().all(|n| *n >= 6), "chaque sorte de lieu existe : {seen:?}"); assert!(seen[0] * 10 < seen.iter().sum::<usize>() * 6, "les tours ne prennent pas toute la place");
+    println!("lieux : {} tours, {} cimetières, {} camps, {} sanctuaires, {} ruines", seen[0], seen[1], seen[2], seen[3], seen[4]); assert!(seen.iter().all(|n| *n >= 6), "chaque sorte de lieu existe : {seen:?}"); assert!(seen[0] * 10 < seen.iter().sum::<usize>() * 6, "les tours ne prennent pas toute la place");
     assert!(WorldGen::new(alw_core::gen::FLAT).places_near(0.0, 0.0, 800.0).is_empty(), "rien dans le monde plat");
 }
 
@@ -56,7 +62,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
 fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
     let w = WorldGen::new(SEED); let mut s = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); ready(&mut s); s.hour = 12.0; let sp = |id: &str| alw_core::hostile::species(id).unwrap();
     assert!(s.command("/lieu chateau").contains("inconnu"));
-    for (key, who, n, loot) in [("tour", "archer", 4, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("sanctuaire", "noye", 3, "idole_engloutie"), ("cimetiere", "archer", 3, "worn_coin")] {
+    for (key, who, n, loot) in [("tour", "archer", 4, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("sanctuaire", "noye", 3, "idole_engloutie"), ("ruines", "rodeur", 2, "worn_coin"), ("cimetiere", "archer", 3, "worn_coin")] {
         s.horde.foes.clear(); let msg = s.command(&format!("/lieu {key}")); ready(&mut s); let pl = w.places_near(s.player.p[0], s.player.p[2], 40.0).into_iter().next().unwrap_or_else(|| panic!("{key} : {msg}")); assert_eq!(pl.kind.key(), key, "{msg}");
         s.notes.clear(); for _ in 0..3 { s.tick(0.05, Input::default(), Actions::default()); }
         assert!(s.horde.foes.iter().filter(|f| f.sp == sp(who)).count() >= n, "{key} : {n} {who} attendus, on a {:?}", s.horde.foes.iter().map(|f| (alw_core::hostile::bestiary().species[f.sp].id, f.p.map(|v| v.round()), f.hp)).collect::<Vec<_>>()); assert!(s.notes.iter().any(|t| t.contains("en vue")), "{key} : annoncé");
@@ -65,6 +71,7 @@ fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
         assert_eq!(s.horde.foes.iter().filter(|f| f.sp == sp("fantome")).count(), 0, "pas de fantôme en plein jour");
         let before = s.horde.foes.len(); for _ in 0..40 { s.tick(0.05, Input::default(), Actions::default()); } assert!(s.horde.foes.len() <= before + 2, "{key} : on ne relâche pas des gardiens à chaque image");
         s.open_chest(pl.chest()); let got = &s.chests[&pl.chest()]; assert!(got.iter().flatten().any(|st| st.item == loot), "{key} : {loot} dans le coffre, on a {:?}", got.iter().flatten().map(|st| st.item).collect::<Vec<_>>()); s.close_chest(); s.inv_open = false;
+        if key == "ruines" { assert!(s.mech.wires.iter().any(|w| w.name.starts_with(&format!("d{}:{}:", pl.x, pl.z))), "les fils des ruines"); assert_eq!(s.mech.guards.len(), 2, "le colosse du sanctuaire et le gardien des ruines"); }
         if key == "sanctuaire" {
             // ses mécanismes se sont branchés à l'approche, et son plan, posé par la génération du monde, tient : de la salle
             // de l'eau noire on va aux trois leviers, pas au-delà ; résolus, la grille se lève

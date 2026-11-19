@@ -701,6 +701,7 @@ impl Session {
                 Some("home") => self.home_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("hint") => self.hint_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("guard") => self.guard_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
+                Some("mvault") => self.mvault_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("msecret") => self.msecret_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("mchest") => self.mchest_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("skills") => { for k in 0..5 { self.skills[k] = num(a.next()).unwrap_or(0.0); } }

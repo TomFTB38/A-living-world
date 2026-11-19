@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_sanctuaire_secrete
+spawn jeu plat_ruines_entree plat_ruines_leviers plat_ruines_dalles plat_ruines_pics plat_ruines_nef plat_ruines_epreuve plat_ruines_tresor
