@@ -556,6 +556,9 @@ fn capture(a: &[String]) {
             "_pieges" => (-9.5, 1.0, 21.5, [10.0, -0.9, 0.0]), "_nef" => (21.5, 6.0, 17.5, [-8.0, -4.2, 8.5]), "_secrete" => (12.5, 6.0, 17.5, [-10.0, -1.0, 0.3]), _ => (17.5, 1.0, -2.2, [0.0, -0.9, -6.0]) };
         s.player.p = [o[0] as f64 + u, f + v, o[2] as f64 + w]; let d = view::norm(look); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin();
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p[0] = p[0]; s.player.p[2] = p[2]; s.player.yaw = y; s.player.pitch = pi; }
+        // le pan de mur a pivoté sous la dalle : on fait un pas dans l'ouverture, et l'on regarde la salle secrète
+        if vw == "_secrete" { s.player.p = [o[0] as f64 + 11.7, f + 6.0, o[2] as f64 + 17.0]; let d = view::norm([-5.0, -1.3, 0.4]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin();
+            for _ in 0..10 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p[0] = p[0]; s.player.p[2] = p[2]; s.player.yaw = y; s.player.pitch = pi; } println!("salle secrète : {:?}", s.notes); }
         // les pics de la première rangée, sortis
         if vw == "_pieges" { let up = |s: &Session| alw_core::player::Voxels::get(&s.world, o[0] - 7, o[1] - DEPTH + 1, o[2] + 21) == alw_core::blocks::by_name("spikes"); for _ in 0..400 { if up(&s) { break; } let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; } }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
