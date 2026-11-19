@@ -53,7 +53,7 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     for u in u0 - 1..=u1 + 1 { for w in w0 - 1..=w1 + 1 { let wall = u < u0 || u > u1 || w < w0 || w > w1;
         g.n(u, -1, w, "marble"); g.n(u, 0, w, if wall { "marble" } else if (u + w).rem_euclid(2) == 0 { "marble" } else { "marble_black" });
         let top = if wall { 0 } else { vault(u) }; for v in 1..=top { g.air(u, v, w); }
-        for v in top + 1..=roof(u) { let band = v == 1 || v == 6 || v == 11 || v == roof(u); g.n(u, v, w, if band { "marble" } else if wall && g.h(u, v, w, 1) < 0.3 { "ice_blue" } else { "ice" }); }
+        for v in top + 1..=roof(u) { let band = v == 1 || v == 6 || v == 11 || v == roof(u); g.n(u, v, w, if band { "marble" } else if wall && (v == 2 || v == 10) { "ice_blue" } else { "ice" }); }
         if u.abs() == 0 && w.rem_euclid(3) == 0 { g.n(0, roof(0) + 1, w, "ice_point_up_1"); } } }
     // des glaçons pendus à la voûte
     for u in u0..=u1 { for w in w0..=w1 { if g.h(u, 9, w, 2) < 0.07 { let k = (g.h(u, 8, w, 3) * 3.0) as usize % 3; g.n(u, vault(u), w, ["ice_point_down_0", "ice_point_down_1", "ice_point_down_2"][k]); } } }
