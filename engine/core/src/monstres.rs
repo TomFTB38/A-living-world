@@ -667,6 +667,53 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
         for sx in [-1.0f64, 1.0] { p.blob_m([sx * 0.12, 1.12, 0.06], [0.02, 0.02, 0.02], [0.6, 0.7, 0.95], [0.9, 0.95, 1.0], PLAIN); }
     });
 
+    // ---- La Mère-Racine : un grand corps d'écorce tordue, des racines pendues en jupe jusqu'au sol, des chapeaux de champignons en
+    // épaulières, de la mousse, des pustules de spores qui luisent ; au creux du poitrail, une graine qui bat. Pour tête, une
+    // énorme fleur carnivore : une gueule à dents d'épine sous une corolle pourpre, des étamines lumineuses. Des bras-racines à
+    // trois griffes, une massue de ronces.
+    let (bk1, bk2, bk3, mos, pet1, pet2, glow, thorn) = ([0.32, 0.22, 0.13], [0.45, 0.32, 0.18], [0.2, 0.13, 0.08], [0.3, 0.48, 0.16], [0.62, 0.1, 0.32], [0.88, 0.3, 0.5], [0.75, 0.95, 0.4], [0.85, 0.8, 0.6]);
+    let thorns = |p: &mut Pen, a: V, b: V, n: usize, r: f64| { for k in 0..n { let t = (k as f64 + 0.5) / n as f64; let c = lp(a, b, t); let ang = k as f64 * 2.4; let d = [ang.sin(), 0.3, ang.cos()]; rod(p, c, [c[0] + d[0] * r, c[1] + d[1] * r, c[2] + d[2] * r], 0.012, 0.002, bk3, thorn, 2); } };
+    m("mraTorso", Mat::Cloth, 0.016, &|p| {
+        // le tronc : cinq brins d'écorce tordus l'un sur l'autre, du bassin aux épaules
+        for k in 0..5 { let a = k as f64 * std::f64::consts::TAU / 5.0; let mut prev = [a.sin() * 0.14, -0.1, a.cos() * 0.11];
+            for i in 1..=6 { let t = i as f64 / 6.0; let b = a + t * 1.3; let r = 0.14 + 0.08 * (t * std::f64::consts::PI).sin(); let q = [b.sin() * r, -0.1 + t * 0.72, b.cos() * r * 0.8]; rod(p, prev, q, 0.08, 0.075, if k % 2 == 0 { bk1 } else { bk2 }, bk2, 1); prev = q; } }
+        // le creux du poitrail et sa graine qui luit ; la mousse ; les pustules de spores
+        p.blob_m([0.0, 0.36, 0.13], [0.07, 0.08, 0.04], glow, [1.0, 1.0, 0.7], PLAIN); for k in 0..6 { let a = k as f64 * 1.05; rod(p, [0.0, 0.36, 0.13], [a.sin() * 0.1, 0.36 + a.cos() * 0.11, 0.16], 0.014, 0.008, bk3, bk2, 1); }
+        for (x, y, z) in [(-0.15, 0.5, 0.12), (0.18, 0.15, 0.13), (-0.1, 0.05, -0.16), (0.12, 0.55, -0.13)] { egg(p, [x, y, z], [0.07, 0.04, 0.05], mos, mix(mos, glow, 0.3), 6); }
+        for (x, y, z) in [(0.16, 0.42, 0.1), (-0.18, 0.25, 0.08), (0.05, 0.6, -0.15), (-0.12, 0.38, -0.17), (0.19, 0.0, -0.08)] { p.blob_m([x, y, z], [0.022, 0.022, 0.022], [0.7, 0.5, 1.0], [0.9, 0.85, 1.0], PLAIN); }
+        // les épaulières : deux chapeaux de champignon en console
+        for sx in [-1.0f64, 1.0] { egg(p, [sx * 0.27, 0.66, -0.02], [0.17, 0.05, 0.14], [0.55, 0.15, 0.12], [0.75, 0.3, 0.2], 10); p.blob_m([sx * 0.27, 0.63, -0.02], [0.13, 0.015, 0.11], [0.85, 0.75, 0.6], [0.85, 0.75, 0.6], PLAIN);
+            for k in 0..4 { let a = k as f64 * 1.57 + 0.4; p.blob_m([sx * 0.27 + a.sin() * 0.09, 0.69, -0.02 + a.cos() * 0.08], [0.018, 0.012, 0.018], [0.95, 0.9, 0.8], [0.95, 0.9, 0.8], PLAIN); } }
+        // la jupe de racines pendues jusqu'au sol, qui s'écartent en touchant terre
+        for k in 0..11 { let a = k as f64 * std::f64::consts::TAU / 11.0 + 0.2; let (sx, sz) = (a.sin(), a.cos()); let l = 0.6 + 0.15 * ((k * 7 % 5) as f64 / 4.0);
+            let (p0, p1, p2) = ([sx * 0.17, -0.08, sz * 0.14], [sx * 0.24, -0.08 - l * 0.6, sz * 0.2], [sx * 0.34, -0.08 - l, sz * 0.3]); rod(p, p0, p1, 0.04, 0.03, bk2, bk1, 2); rod(p, p1, p2, 0.03, 0.012, bk1, bk3, 2); }
+        thorns(p, [0.0, 0.0, -0.17], [0.0, 0.6, -0.15], 6, 0.07);
+    });
+    m("mraHead", Mat::Cloth, 0.014, &|p| {
+        // la gueule : un bulbe sombre fendu, des dents d'épine en couronne ; la corolle de huit grands pétales ; les étamines
+        egg(p, [0.0, 0.12, 0.04], [0.15, 0.13, 0.15], [0.28, 0.35, 0.12], mix(pet1, [0.2, 0.05, 0.1], 0.5), 10); crate::mesher::obox(p.q, [0.0, 0.11, 0.17], [[0.11, 0.0, 0.0], [0.0, 0.025, 0.0], [0.0, 0.0, 0.03]], [0.12, 0.02, 0.05], -1.0, 255.0, 0.0);
+        for k in 0..9 { let x = (k as f64 - 4.0) * 0.025; for sy in [-1.0f64, 1.0] { rod(p, [x, 0.11 + sy * 0.03, 0.17], [x, 0.11 + sy * 0.005, 0.19], 0.009, 0.002, thorn, [1.0, 1.0, 0.95], 1); } }
+        for k in 0..8 { let a = k as f64 * std::f64::consts::TAU / 8.0; let (dx, dy) = (a.sin(), a.cos()); slab(p, [dx * 0.12, 0.12 + dy * 0.11, -0.02], [dx * 0.36, 0.12 + dy * 0.33, -0.12], 0.13, 0.05, 0.016, [0.0, 0.0, 1.0], pet1, pet2, 4);
+            slab(p, [dx * 0.2, 0.12 + dy * 0.19, -0.04], [dx * 0.3, 0.12 + dy * 0.28, -0.09], 0.02, 0.01, 0.02, [0.0, 0.0, 1.0], [0.98, 0.85, 0.5], [0.98, 0.85, 0.5], 1); }
+        for k in 0..6 { let a = k as f64 * 1.05 + 0.3; let tip = [a.sin() * 0.1, 0.12 + a.cos() * 0.1 + 0.18, 0.06]; rod(p, [a.sin() * 0.04, 0.24, 0.02], tip, 0.008, 0.006, [0.5, 0.6, 0.2], [0.6, 0.7, 0.3], 2); p.blob_m(tip, [0.02, 0.02, 0.02], glow, [1.0, 1.0, 0.8], PLAIN); }
+        for k in 0..10 { let a = k as f64 * std::f64::consts::TAU / 10.0; slab(p, [a.sin() * 0.12, -0.02, a.cos() * 0.12], [a.sin() * 0.2, -0.08, a.cos() * 0.2], 0.08, 0.02, 0.012, [a.sin(), 0.5, a.cos()], mos, [0.2, 0.35, 0.1], 2); }
+    });
+    m("mraArm", Mat::Cloth, 0.014, &|p| {
+        // un bras-racine noueux, gainé de mousse au coude, des épines ; trois griffes de racine
+        rod(p, [0.0, 0.0, 0.0], [0.02, -0.34, 0.02], 0.07, 0.055, bk2, bk1, 4); p.blob_m([0.02, -0.35, 0.02], [0.07, 0.06, 0.07], bk1, mos, PLAIN); rod(p, [0.02, -0.36, 0.02], [0.0, -0.6, 0.06], 0.055, 0.045, bk1, bk2, 4);
+        egg(p, [0.0, -0.36, -0.02], [0.08, 0.05, 0.07], mos, mix(mos, glow, 0.2), 6); thorns(p, [0.0, -0.05, 0.0], [0.0, -0.55, 0.05], 5, 0.06);
+        for k in 0..3 { let x = (k as f64 - 1.0) * 0.04; rod(p, [x * 0.5, -0.6, 0.06], [x, -0.7, 0.1], 0.025, 0.018, bk2, bk1, 2); rod(p, [x, -0.7, 0.1], [x * 1.3, -0.8, 0.16], 0.018, 0.003, bk1, thorn, 2); }
+    });
+    m("mraLeg", Mat::Cloth, 0.016, &|p| {
+        rod(p, [0.0, 0.0, 0.0], [0.0, -0.4, 0.03], 0.085, 0.07, bk2, bk1, 4); p.blob_m([0.0, -0.4, 0.03], [0.07, 0.06, 0.07], bk1, bk2, PLAIN); rod(p, [0.0, -0.4, 0.03], [0.0, -0.74, 0.0], 0.07, 0.06, bk1, bk2, 4);
+        for k in 0..5 { let a = (k as f64 - 2.0) * 0.7; rod(p, [0.0, -0.74, 0.0], [a.sin() * 0.17, -0.8, a.cos() * 0.15 + 0.03], 0.035, 0.008, bk2, bk3, 2); }
+    });
+    m("mraClub", Mat::Cloth, 0.014, &|p| {
+        // une massue de ronces : une branche tordue qui s'épaissit, hérissée d'épines, une gousse de spores au bout
+        let mut prev = [0.0, -0.5, 0.0]; for i in 1..=8 { let t = i as f64 / 8.0; let q = [(t * 4.0).sin() * 0.04, -0.5 + t * 1.25, (t * 3.0).cos() * 0.03 - 0.03]; rod(p, prev, q, 0.025 + 0.03 * t, 0.025 + 0.035 * t, bk1, bk2, 1); thorns(p, prev, q, 2, 0.06 + 0.04 * t); prev = q; }
+        egg(p, [prev[0], prev[1] + 0.08, prev[2]], [0.08, 0.11, 0.08], [0.45, 0.3, 0.5], [0.7, 0.5, 1.0], 8); for k in 0..5 { let a = k as f64 * 1.26; p.blob_m([prev[0] + a.sin() * 0.075, prev[1] + 0.08 + a.cos() * 0.05, prev[2] + 0.05], [0.02, 0.02, 0.02], [0.75, 0.6, 1.0], [1.0, 0.95, 1.0], PLAIN); }
+    });
+
     // Noyé : la peau turquoise des fonds, des yeux qui luisent, la tête et les épaules coiffées d'algues qui dégoulinent,
     // une tunique brune trouée et effilochée, des bernacles ; il tient un trident.
     let (teal, teal2, teal3) = ([0.3, 0.68, 0.68], [0.16, 0.44, 0.48], [0.42, 0.82, 0.8]); let (alg, alg2, rag, rag2) = ([0.36, 0.5, 0.14], [0.2, 0.34, 0.12], [0.44, 0.25, 0.14], [0.28, 0.16, 0.1]);

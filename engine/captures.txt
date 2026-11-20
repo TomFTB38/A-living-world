@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_observatoire_cour plat_observatoire_rotonde plat_observatoire_planetaire plat_observatoire_coupole plat_boss_astronome
+spawn jeu plat_serre_jardin plat_serre_spores plat_serre_nef plat_serre_canopee plat_serre_racine plat_boss_mere_racine

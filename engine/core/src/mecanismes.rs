@@ -94,12 +94,16 @@ pub struct Pulse { pub spikes: Vec<[i32; 3]>, pub darts: Vec<[i32; 3]>, /** s */
 /// `auto` secondes (`swing` : en aller-retour). `hit` : les dégâts de ce qu'il dessine sur le joueur, qui est projeté.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Dial { pub name: String, pub n: u8, pub state: u8, pub goal: u8, pub draw: Vec<Vec<([i32; 3], Id)>>, pub levers: Vec<([i32; 3], u8)>, pub auto: f64, pub swing: bool, pub hit: f64, /** `carry` : il emporte qui se tient dessus (les planètes d'un planétaire) ; dans chaque cran, la case `i` du dessin
-    est la même pièce, déplacée */ pub carry: bool, /** état : le temps avant le prochain cran, le sens du balancier */ pub t: f64, pub back: bool }
+    est la même pièce, déplacée */ pub carry: bool, /** `grow` : il pousse (d'un cran toutes les `auto` secondes, jusqu'au dernier) tant que ce fil est enclenché, et se
+    flétrit (jusqu'au cran 0) sinon : une liane, un pont de ronces */ pub grow: String, /** état : le temps avant le prochain cran, le sens du balancier */ pub t: f64, pub back: bool }
 impl Dial {
     /// Le cran suivant (du balancier : en aller-retour) et le nouveau sens.
     pub fn next(&self) -> (u8, bool) { if !self.swing || self.n < 2 { return ((self.state + 1) % self.n.max(1), false); }
         let back = if self.state + 1 >= self.n { true } else if self.state == 0 { false } else { self.back }; (if back { self.state - 1 } else { self.state + 1 }, back) }
 }
+/// Des spores : de `min` à `max`, tant que le fil `until` n'est pas enclenché, le joueur perd `dps` points de vie par seconde.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Miasma { pub min: [i32; 3], pub max: [i32; 3], pub dps: f64, pub until: String, /** état : le temps avant la prochaine bouffée, dedans au pas précédent */ pub t: f64, pub was: bool }
 /// Un sceau : de `min` à `max`, on ne creuse ni ne bâtit, tant que le fil `until` n'est pas enclenché (vide : pour toujours).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Seal { pub min: [i32; 3], pub max: [i32; 3], pub until: String }
@@ -116,7 +120,7 @@ pub struct Hint { pub min: [i32; 3], pub max: [i32; 3], pub text: String, pub sh
 pub struct Guard { pub min: [i32; 3], pub max: [i32; 3], pub species: String, pub at: [f64; 3], pub doors: Vec<([i32; 3], Id)>, /** 0 endormi, 1 au combat, 2 vaincu */ pub state: u8 }
 /// Tous les mécanismes du monde.
 #[derive(Clone, Debug, Default)]
-pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, pub dials: Vec<Dial>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
+pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, pub dials: Vec<Dial>, pub miasmas: Vec<Miasma>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
 
 /// Les dégâts des pics (par atteinte), d'une fléchette, et le temps que tient le sol friable.
 pub const SPIKE_DMG: f64 = 5.0; pub const DART_DMG: f64 = 7.0; pub const CRUMBLE_T: f64 = 0.6;
@@ -134,7 +138,7 @@ impl Mech {
     fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) || self.dials.iter().any(|d| d.name == n && d.state == d.goal) }
     pub fn dial(&self, n: &str) -> Option<&Dial> { self.dials.iter().find(|d| d.name == n) }
     /// Ajoute les mécanismes d'un donjon.
-    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.dials.extend(o.dials); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
+    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.dials.extend(o.dials); self.miasmas.extend(o.miasmas); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
 }
 fn inside(p: [i32; 3], min: [i32; 3], max: [i32; 3], m: i32) -> bool { (0..3).all(|i| p[i] >= min[i] - m && p[i] <= max[i] + m) }
 
@@ -162,7 +166,11 @@ impl Session {
             self.levers_up(&[*p]); }
         if !pressed.is_empty() { self.sound.place("iron_bars"); self.notes.push("Les rouages tournent dans un long cliquetis".into()); }
         for k in 0..self.mech.dials.len() { if self.mech.dials[k].auto <= 0.0 { continue; } self.mech.dials[k].t -= dt; if self.mech.dials[k].t > 0.0 { continue; }
-            let d = &self.mech.dials[k]; let (to, back) = d.next(); let t = d.t + d.auto; self.dial_set(k, to, back); self.mech.dials[k].t = t.max(0.0); }
+            let d = &self.mech.dials[k]; let t = d.t + d.auto;
+            if !d.grow.is_empty() { let (n, st) = (d.n.max(1), d.state); let on = self.mech.is_on(&d.grow); let to = if on && st + 1 < n { st + 1 } else if !on && st > 0 { st - 1 } else { st };
+                if to != st { let bridge = d.name.ends_with("pont"); if st == 0 { self.notes.push(if bridge { "Un pont de ronces pousse au-dessus du vide" } else { "Une liane jaillit et grimpe" }.into()); } else if !on && st + 1 == n { self.notes.push(if bridge { "Le pont de ronces se flétrit" } else { "La liane se flétrit" }.into()); } self.dial_set(k, to, false); }
+                self.mech.dials[k].t = t.max(0.0); continue; }
+            let (to, back) = d.next(); self.dial_set(k, to, back); self.mech.dials[k].t = t.max(0.0); }
         // les fils lisent leurs entrées
         for k in 0..self.mech.wires.len() {
             let w = &self.mech.wires[k]; if w.inputs.is_empty() && w.needs.is_empty() && w.faces.is_empty() && w.blocks.is_empty() { continue; }
@@ -221,6 +229,12 @@ impl Session {
             if fire && self.near(&darts, 32.0) { for p in &darts { self.dart(*p); } }
             let pu = &mut self.mech.pulses[k]; pu.was_up = Some(up); pu.cycle = cycle;
         }
+        // les spores : une bouffée par seconde à qui respire dans la salle
+        { let me = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.1).floor() as i32, self.player.p[2].floor() as i32];
+            for k in 0..self.mech.miasmas.len() { let m = self.mech.miasmas[k].clone(); let here = inside(me, m.min, m.max, 0) && self.dead.is_none() && !self.creative && (m.until.is_empty() || !self.mech.is_on(&m.until));
+                if !here { self.mech.miasmas[k].was = false; self.mech.miasmas[k].t = 0.0; continue; }
+                if !m.was { self.notes.push("Des spores vous brûlent la gorge !".into()); self.mech.miasmas[k].t = 1.0; } self.mech.miasmas[k].was = true; self.mech.miasmas[k].t -= dt;
+                if self.mech.miasmas[k].t <= 0.0 { self.mech.miasmas[k].t += 1.0; self.harm(m.dps, "Les spores", false); } } }
         // les inscriptions, lues en entrant
         let me = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.1).floor() as i32, self.player.p[2].floor() as i32];
         for k in 0..self.mech.hints.len() { let h = &self.mech.hints[k]; if !h.shown && self.dead.is_none() && inside(me, h.min, h.max, 0) { let (t, xp) = (h.text.clone(), h.xp); self.mech.hints[k].shown = true; self.dirty = true; self.notes.push(t); if xp > 0.0 { self.earn(xp, "salle secrète découverte"); } } }
@@ -371,7 +385,8 @@ impl Session {
         for l in &self.mech.lifts { o += &format!("lift {} {} {} {} {} {} {} {} {}\n", l.cols.iter().map(|c| format!("{},{}", c[0], c[1])).collect::<Vec<_>>().join(";"), l.base, l.per, l.max, pts(&l.plates), word(&l.lock), name(l.block), name(l.fill), l.level); }
         for d in &self.mech.dials { let lv = if d.levers.is_empty() { "-".to_string() } else { d.levers.iter().map(|(p, s)| format!("{},{},{},{s}", p[0], p[1], p[2])).collect::<Vec<_>>().join(";") };
             let dr = d.draw.iter().map(|st| if st.is_empty() { "-".to_string() } else { st.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") }).collect::<Vec<_>>().join("|");
-            o += &format!("dial {} {} {} {} {} {} {} {} {} {} {}\n", word(&d.name), d.n, d.state, d.goal, d.auto, d.swing as u8, d.hit, d.back as u8, lv, dr, d.carry as u8); }
+            o += &format!("dial {} {} {} {} {} {} {} {} {} {} {} {}\n", word(&d.name), d.n, d.state, d.goal, d.auto, d.swing as u8, d.hit, d.back as u8, lv, dr, d.carry as u8, word(&d.grow)); }
+        for m in &self.mech.miasmas { o += &format!("miasma {} {} {} {}\n", pts(&[m.min]), pts(&[m.max]), m.dps, word(&m.until)); }
         if !self.mech.chests.is_empty() { o += &format!("mchest {}\n", pts(&self.mech.chests)); }
         if !self.mech.secrets.is_empty() { o += &format!("msecret {}\n", pts(&self.mech.secrets)); }
         if !self.mech.vaults.is_empty() { o += &format!("mvault {}\n", pts(&self.mech.vaults)); }
@@ -389,6 +404,10 @@ impl Session {
     pub(crate) fn pulse_load(&mut self, rest: &str) {
         let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 7 { return; } let w = |s: &str| if s == "-" { String::new() } else { s.to_string() };
         self.mech.pulses.push(Pulse { period: a[0].parse().unwrap_or(2.0), up: a[1].parse().unwrap_or(0.5), phase: a[2].parse().unwrap_or(0.0), off_by: w(a[3]), on_by: w(a[4]), spikes: pts(a[5]), darts: pts(a[6]), ..Default::default() });
+    }
+    pub(crate) fn miasma_load(&mut self, rest: &str) {
+        let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 4 { return; } let (m, n) = (pts(a[0]), pts(a[1])); if m.is_empty() || n.is_empty() { return; }
+        self.mech.miasmas.push(Miasma { min: m[0], max: n[0], dps: a[2].parse().unwrap_or(1.0), until: if a[3] == "-" { String::new() } else { a[3].to_string() }, t: 0.0, was: false });
     }
     pub(crate) fn seal_load(&mut self, rest: &str) {
         let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 3 { return; } let (m, n) = (pts(a[0]), pts(a[1])); if m.is_empty() || n.is_empty() { return; }
@@ -430,7 +449,7 @@ impl Session {
         let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 10 { return; }
         let levers = if a[8] == "-" { Vec::new() } else { a[8].split(';').filter_map(|c| { let v: Vec<i32> = c.split(',').filter_map(|x| x.parse().ok()).collect(); (v.len() == 4).then(|| ([v[0], v[1], v[2]], v[3] as u8)) }).collect() };
         let draw = a[9].split('|').map(|st| if st == "-" { Vec::new() } else { st.split(';').filter_map(|c| { let v: Vec<&str> = c.splitn(4, ',').collect(); if v.len() < 4 { return None; } Some(([v[0].parse().ok()?, v[1].parse().ok()?, v[2].parse().ok()?], by_name(v[3])?)) }).collect() }).collect();
-        self.mech.dials.push(Dial { name: if a[0] == "-" { String::new() } else { a[0].to_string() }, n: a[1].parse().unwrap_or(1), state: a[2].parse().unwrap_or(0), goal: a[3].parse().unwrap_or(0), auto: a[4].parse().unwrap_or(0.0), swing: a[5] == "1", hit: a[6].parse().unwrap_or(0.0), back: a[7] == "1", levers, draw, carry: a.get(10) == Some(&"1"), t: 0.0 });
+        self.mech.dials.push(Dial { name: if a[0] == "-" { String::new() } else { a[0].to_string() }, n: a[1].parse().unwrap_or(1), state: a[2].parse().unwrap_or(0), goal: a[3].parse().unwrap_or(0), auto: a[4].parse().unwrap_or(0.0), swing: a[5] == "1", hit: a[6].parse().unwrap_or(0.0), back: a[7] == "1", levers, draw, carry: a.get(10) == Some(&"1"), grow: a.get(11).filter(|g| **g != "-").map(|g| g.to_string()).unwrap_or_default(), t: 0.0 });
     }
 }
 fn pts(s: &str) -> Vec<[i32; 3]> { if s == "-" { return Vec::new(); } s.split(';').filter_map(|c| { let v: Vec<i32> = c.split(',').filter_map(|x| x.parse().ok()).collect(); (v.len() == 3).then(|| [v[0], v[1], v[2]]) }).collect() }

@@ -464,6 +464,8 @@ for (const f of ['', '@1', '@2', '@3']) for (const [n, drop] of [['statue_base',
 cube('brass', 'marble', 2.5, 'rock', { tint: [0.98, 0.74, 0.32], drop: 'iron_ingot' }); cube('brass_dark', 'polished_stone', 2.5, 'rock', { tint: [0.86, 0.58, 0.26], drop: 'iron_ingot' }); cube('clock_face', 'marble', 1.8, 'rock', { tint: [1.0, 0.95, 0.84], drop: 'marble' });
 // l'Observatoire céleste : l'étoile allumée, l'étoile éteinte, la pierre de nuit du dôme
 cube('star_lit', 'marble', 2.0, 'rock', { tint: [1.0, 0.94, 0.62], light: 13, drop: 'marble' }); cube('star_dark', 'polished_stone', 2.0, 'rock', { tint: [0.32, 0.36, 0.6], drop: 'stone' }); cube('night_stone', 'polished_stone', 2.0, 'rock', { tint: [0.24, 0.27, 0.5], drop: 'stone' });
+// la Serre empoisonnée : la liane vivante (ligneuse, verte)
+cube('liana', 'bark_oak', 0.8, 'wood', { tint: [0.62, 0.95, 0.45], drop: 'stick' });
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,

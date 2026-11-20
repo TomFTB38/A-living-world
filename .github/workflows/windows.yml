@@ -171,6 +171,12 @@ jobs:
           shot plat_observatoire_planetaire -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_observatoire_planetaire
           shot plat_observatoire_coupole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_observatoire_coupole
           shot plat_boss_astronome -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_astronome
+          shot plat_serre_jardin -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_serre_jardin
+          shot plat_serre_spores -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_serre_spores
+          shot plat_serre_nef -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_serre_nef
+          shot plat_serre_canopee -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_serre_canopee
+          shot plat_serre_racine -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_serre_racine
+          shot plat_boss_mere_racine -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_mere_racine
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte
