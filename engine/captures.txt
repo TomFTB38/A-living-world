@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_boss_colosse plat_boss_roi_noye plat_boss_gardien_soleil plat_boss_premier_roi plat_boss_maitre_forge plat_boss_reine_glaces
+spawn jeu plat_ruines_labyrinthe plat_ruines_inondee plat_ruines_fleches plat_ruines_secrete plat_ruines_descente

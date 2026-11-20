@@ -154,6 +154,11 @@ jobs:
           shot plat_boss_premier_roi -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_premier_roi
           shot plat_boss_maitre_forge -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_maitre_forge
           shot plat_boss_reine_glaces -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_reine_glaces
+          shot plat_ruines_labyrinthe -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_labyrinthe
+          shot plat_ruines_inondee -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_inondee
+          shot plat_ruines_fleches -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_fleches
+          shot plat_ruines_secrete -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_secrete
+          shot plat_ruines_descente -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_descente
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

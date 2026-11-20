@@ -5,9 +5,10 @@
 //! son entrée regarde d'où l'on vient. Chaque salle sait aussi se résoudre (`Act`) : les tests rejouent ces solutions, et le
 //! solveur de chemins (`sanctuaire::reach`) vérifie qu'avant, la salle suivante est hors d'atteinte, et après, qu'on y va.
 //!
-//! Le générateur trace un chemin sur une grille de 4 × 4 mailles de 14 blocs (sept salles, sans se recouper), puis distribue
-//! les salles : l'entrée (un puits à échelle descend de la surface), quatre épreuves tirées de la bibliothèque, le gardien,
-//! le trésor. Une même graine donne toujours le même donjon.
+//! Le générateur bâtit deux étages sur une grille de 4 × 4 mailles de 14 blocs. Au premier : l'entrée (le grand escalier
+//! descend de la surface), trois épreuves, puis la descente — un puits à degrés qui plonge de quinze blocs. Au second, sous le
+//! premier : trois épreuves encore, le gardien, le trésor. Chaque étage est un chemin qui ne se recoupe pas ; les six épreuves
+//! sont tirées, sans redite, d'une bibliothèque de neuf. Une même graine donne toujours le même donjon.
 use crate::blocks::{by_name, Id};
 use crate::mecanismes::{Guard, Hint, Home, Mech, Pulse, Seal, Wire};
 use crate::noise::{hash_float, hash_int, Rng};
@@ -18,33 +19,34 @@ use crate::sites::{spin_xz, Plan};
 
 /// Les salles de la bibliothèque.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Kind { Entree, Leviers, Dalles, Pics, Nef, Epreuve, Gardien, Tresor }
+pub enum Kind { Entree, Leviers, Dalles, Pics, Nef, Epreuve, Labyrinthe, Inondee, Fleches, Secrete, Descente, Gardien, Tresor }
 impl Kind {
-    pub fn name(self) -> &'static str { match self { Kind::Entree => "l'entrée", Kind::Leviers => "les leviers", Kind::Dalles => "les dalles", Kind::Pics => "les pics", Kind::Nef => "la nef", Kind::Epreuve => "l'épreuve", Kind::Gardien => "le gardien", Kind::Tresor => "le trésor" } }
+    pub fn name(self) -> &'static str { match self { Kind::Entree => "l'entrée", Kind::Leviers => "les leviers", Kind::Dalles => "les dalles", Kind::Pics => "les pics", Kind::Nef => "la nef", Kind::Epreuve => "l'épreuve", Kind::Labyrinthe => "le labyrinthe", Kind::Inondee => "la salle inondée", Kind::Fleches => "le couloir des fléchettes", Kind::Secrete => "la salle sans issue", Kind::Descente => "la descente", Kind::Gardien => "le gardien", Kind::Tresor => "le trésor" } }
     /// La hauteur sous voûte.
-    pub fn h(self) -> i32 { match self { Kind::Entree => DEPTH - 1, Kind::Nef => 9, Kind::Gardien => 6, _ => 5 } }
+    pub fn h(self) -> i32 { match self { Kind::Entree => DEPTH - 1, Kind::Nef => 9, Kind::Gardien => 6, Kind::Descente => LEVEL + 5, _ => 5 } }
     /// Une grille ferme-t-elle la sortie tant que l'épreuve n'est pas résolue ?
-    pub fn gated(self) -> bool { matches!(self, Kind::Leviers | Kind::Dalles | Kind::Nef | Kind::Epreuve | Kind::Gardien) }
+    pub fn gated(self) -> bool { matches!(self, Kind::Leviers | Kind::Dalles | Kind::Nef | Kind::Epreuve | Kind::Labyrinthe | Kind::Inondee | Kind::Fleches | Kind::Secrete | Kind::Gardien) }
     /// Les sorties possibles, dans le repère de la salle : en face (0, 1), à droite (1, 0) ou à gauche (-1, 0).
-    fn exits(self) -> &'static [(i32, i32)] { match self { Kind::Epreuve => &[(0, 1)], _ => &[(0, 1), (1, 0), (-1, 0)] } }
+    fn exits(self) -> &'static [(i32, i32)] { match self { Kind::Epreuve => &[(0, 1)], Kind::Descente => &[(1, 0)], _ => &[(0, 1), (1, 0), (-1, 0)] } }
 }
 /// Les épreuves qu'on tire pour le milieu du donjon.
-pub const TRIALS: [Kind; 5] = [Kind::Leviers, Kind::Dalles, Kind::Pics, Kind::Nef, Kind::Epreuve];
-/// Le pas de la grille, le nombre de mailles par côté, le nombre de salles.
-pub const PITCH: i32 = 14; pub const GRID: i32 = 4; pub const ROOMS: usize = 7;
+pub const TRIALS: [Kind; 9] = [Kind::Leviers, Kind::Dalles, Kind::Pics, Kind::Nef, Kind::Epreuve, Kind::Labyrinthe, Kind::Inondee, Kind::Fleches, Kind::Secrete];
+/// Le pas de la grille, le nombre de mailles par côté, le nombre de salles (cinq par étage), la hauteur d'un étage.
+pub const PITCH: i32 = 14; pub const GRID: i32 = 4; pub const ROOMS: usize = 10; pub const LEVEL: i32 = 15;
 
-/// Une salle posée : son genre, son centre (relatif au donjon), son quart de tour, sa sortie (dans le monde).
+/// Une salle posée : son genre, son centre (relatif au donjon), son quart de tour, sa sortie (dans le monde), la hauteur de son
+/// sol (0 au premier étage, -LEVEL au second ; la descente a son sol en bas, et son entrée quinze blocs plus haut).
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Room { pub kind: Kind, pub c: (i32, i32), pub q: u8, pub exit: Option<(i32, i32)> }
+pub struct Room { pub kind: Kind, pub c: (i32, i32), pub q: u8, pub exit: Option<(i32, i32)>, pub y: i32 }
 impl Room {
-    /// Un point de la salle, de son repère au donjon (`v` depuis le sol des salles).
-    pub fn at(&self, l: [i32; 3]) -> [i32; 3] { let (u, w) = spin_xz(l[0], l[2], self.q); [self.c.0 + u, l[1], self.c.1 + w] }
+    /// Un point de la salle, de son repère au donjon (`v` depuis le sol de la salle).
+    pub fn at(&self, l: [i32; 3]) -> [i32; 3] { let (u, w) = spin_xz(l[0], l[2], self.q); [self.c.0 + u, l[1] + self.y, self.c.1 + w] }
     /// Une direction de la salle, dans le donjon.
     fn dir(&self, d: (i32, i32)) -> (i32, i32) { spin_xz(d.0, d.1, self.q) }
     /// La sortie, dans le repère de la salle.
     fn exit_local(&self) -> Option<(i32, i32)> { self.exit.map(|d| spin_xz(d.0, d.1, (4 - self.q) % 4)) }
     /// Où l'on se tient en entrant.
-    pub fn spot(&self) -> [i32; 3] { self.at(if self.kind == Kind::Entree { [-2, 1, -4] } else { [0, 1, -4] }) }
+    pub fn spot(&self) -> [i32; 3] { self.at(match self.kind { Kind::Entree => [-2, 1, -4], Kind::Descente => [0, LEVEL + 1, -4], _ => [0, 1, -4] }) }
     /// Sur le parvis du portail de l'entrée, quand le sol est plat au-dessus (le haut de l'escalier est alors en `z = 6`).
     pub fn porch(&self) -> [i32; 3] { self.at([-5, DEPTH + 1, 9]) }
 }
@@ -55,26 +57,28 @@ pub struct Layout { pub rooms: Vec<Room>, pub seed: u32, pub boss: &'static str 
 /// Le donjon de cette graine.
 pub fn layout(seed: u32) -> Layout {
     let mut r = Rng::new(seed ^ 0x5eed_d07e);
-    // le chemin : une marche sur la grille qui ne se recoupe pas
-    let path = 'walk: loop {
-        let mut p = vec![(r.int(0, GRID - 1), r.int(0, GRID - 1))];
-        while p.len() < ROOMS { let (x, z) = *p.last().unwrap(); let mut n: Vec<(i32, i32)> = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().map(|d| (x + d.0, z + d.1)).filter(|c| c.0 >= 0 && c.0 < GRID && c.1 >= 0 && c.1 < GRID && !p.contains(c)).collect();
-            if n.is_empty() { continue 'walk; } let k = (r.next() * n.len() as f64) as usize % n.len(); p.push(n.swap_remove(k)); }
-        break p;
-    };
     let center = |c: (i32, i32)| (-(GRID - 1) * PITCH / 2 + c.0 * PITCH, -(GRID - 1) * PITCH / 2 + c.1 * PITCH);
-    let step = |a: (i32, i32), b: (i32, i32)| (b.0 - a.0, b.1 - a.1);
+    let step = |a: (i32, i32), b: (i32, i32)| (b.0 - a.0, b.1 - a.1); let inside = |c: (i32, i32)| c.0 >= 0 && c.0 < GRID && c.1 >= 0 && c.1 < GRID;
     // le quart de tour qui amène (0, 1) sur la direction `d`
     let q_of = |d: (i32, i32)| (0..4u8).find(|&q| spin_xz(0, 1, q) == d).unwrap();
+    // une marche sur la grille qui ne se recoupe pas, de `n` mailles, depuis `p`
+    let walk = |r: &mut Rng, mut p: Vec<(i32, i32)>, n: usize| -> Option<Vec<(i32, i32)>> { while p.len() < n { let (x, z) = *p.last().unwrap(); let mut nb: Vec<(i32, i32)> = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().map(|d| (x + d.0, z + d.1)).filter(|c| inside(*c) && !p.contains(c)).collect();
+        if nb.is_empty() { return None; } let k = (r.next() * nb.len() as f64) as usize % nb.len(); p.push(nb.swap_remove(k)); } Some(p) };
+    // le premier étage, puis le second : il part de la maille de la descente, vers sa droite (la seule sortie de la descente)
+    let (up, down) = loop {
+        let s0 = (r.int(0, GRID - 1), r.int(0, GRID - 1)); let Some(up) = walk(&mut r, vec![s0], 5) else { continue };
+        let c = up[4]; let q = q_of(step(up[3], c)); let d = spin_xz(1, 0, q); let n = (c.0 + d.0, c.1 + d.1); if !inside(n) { continue; }
+        if let Some(down) = walk(&mut r, vec![c, n], 6) { break (up, down); }
+    };
     // les épreuves, mélangées, chacune là où sa sortie le permet
     let mut pool: Vec<Kind> = TRIALS.to_vec(); for i in (1..pool.len()).rev() { let j = (r.next() * (i + 1) as f64) as usize % (i + 1); pool.swap(i, j); }
     let mut rooms = Vec::new();
-    for (i, &c) in path.iter().enumerate() {
-        let d_in = if i == 0 { step(c, path[1]) } else { step(path[i - 1], c) }; let q = q_of(d_in); let exit = path.get(i + 1).map(|n| step(c, *n));
+    let cells: Vec<((i32, i32), i32)> = up.iter().map(|c| (*c, 0)).chain(down[1..].iter().map(|c| (*c, -LEVEL))).collect();
+    for (i, &(c, _)) in cells.iter().enumerate() {
+        let d_in = if i == 0 { step(c, cells[1].0) } else { step(cells[i - 1].0, c) }; let q = q_of(d_in); let exit = cells.get(i + 1).map(|n| step(c, n.0));
         let local = exit.map(|d| spin_xz(d.0, d.1, (4 - q) % 4));
-        let kind = if i == 0 { Kind::Entree } else if i == ROOMS - 1 { Kind::Tresor } else if i == ROOMS - 2 { Kind::Gardien } else {
-            let k = pool.iter().position(|k| local.is_none_or(|l| k.exits().contains(&l))).unwrap_or(0); pool.remove(k) };
-        rooms.push(Room { kind, c: center(c), q, exit });
+        let kind = match i { 0 => Kind::Entree, 4 => Kind::Descente, 8 => Kind::Gardien, 9 => Kind::Tresor, _ => { let k = pool.iter().position(|k| local.is_none_or(|l| k.exits().contains(&l))).unwrap_or(0); pool.remove(k) } };
+        rooms.push(Room { kind, c: center(c), q, exit, y: if i >= 4 { -LEVEL } else { 0 } });
     }
     let boss = if r.next() < 0.5 { "colosse" } else { "gardien" };
     Layout { rooms, seed, boss }
@@ -123,7 +127,7 @@ fn build_room(p: &mut Plan, o: [i32; 3], room: Room, k: usize, name: &str, boss:
     for (u, w, back) in [(5, 4, (1, 0)), (-5, 4, (-1, 0)), (5, -4, (1, 0)), (-5, -4, (-1, 0))] { b.t([u, 3, w], "wall_sconce", back); }
     // des bas-reliefs dans les murs, de part et d'autre des portes
     for side in [(0i32, 1i32), (1, 0), (-1, 0), (0, -1)] { let perp = (side.1.abs(), side.0.abs()); for k in [-3, 3] { b.t([side.0 * 6 + perp.0 * k, 3, side.1 * 6 + perp.1 * k], "wall_relief", side); } }
-    let exit = room.exit_local(); let gate = |b: &B| exit.map(|s| { let id = b.bars_id(s); (1..=3).flat_map(|v| b.door(s, v)).map(|l| (at(b, l), id)).collect::<Vec<_>>() }).unwrap_or_default();
+    let exit = room.exit_local(); let gate = |b: &B| exit.map(|s| { let id = if room.kind == Kind::Secrete { by_name("stone_bricks").unwrap_or(0) } else { b.bars_id(s) }; (1..=3).flat_map(|v| b.door(s, v)).map(|l| (at(b, l), id)).collect::<Vec<_>>() }).unwrap_or_default();
     let wire = |m: &mut Mech, w: Wire| m.wires.push(Wire { name: format!("{name}{}", w.name), ..w });
     let (lo, hi) = (at(&b, [-5, 1, -5]), at(&b, [5, h, 5])); let (lo, hi) = ([lo[0].min(hi[0]), lo[1], lo[2].min(hi[2])], [lo[0].max(hi[0]), hi[1], lo[2].max(hi[2])]);
     let hint = |m: &mut Mech, t: &str| m.hints.push(Hint { min: lo, max: hi, text: t.into(), shown: false, xp: 0.0 });
@@ -207,6 +211,63 @@ fn build_room(p: &mut Plan, o: [i32; 3], room: Room, k: usize, name: &str, boss:
             acts.push(Act::Reach(at(&b, [0, 1, 4]))); for l in &levers { acts.push(Act::Lever(at(&b, *l))); }
             hint(&mut m, "L'épreuve : le poids, le piège, l'ordre.");
         }
+        Kind::Labyrinthe => {
+            // un labyrinthe de couloirs d'un bloc, tiré au hasard ; le levier dans l'impasse la plus lointaine
+            for u in -5..=5 { for w in -5..=5 { for v in 1..=h { b.wall([u, v, w]); } } }
+            let cells: Vec<(i32, i32)> = (-2..=2).flat_map(|i| (-2..=2).map(move |j| (i, j))).collect(); let ex = exit.unwrap_or((0, 1));
+            let (start, goal) = ((0, -2), (ex.0 * 2, ex.1 * 2)); let mut open: Vec<((i32, i32), (i32, i32))> = Vec::new(); let mut seen = vec![start]; let mut stack = vec![start];
+            while let Some(&c) = stack.last() { let nb: Vec<(i32, i32)> = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().map(|dd| (c.0 + dd.0, c.1 + dd.1)).filter(|n| cells.contains(n) && !seen.contains(n)).collect();
+                if nb.is_empty() { stack.pop(); continue; } let n = nb[(d.r.next() * nb.len() as f64) as usize % nb.len()]; open.push((c, n)); seen.push(n); stack.push(n); }
+            for &(i, j) in &cells { for v in 1..=h { b.air([i * 2, v, j * 2]); } } for &(a, c) in &open { for v in 1..=h { b.air([a.0 + c.0, v, a.1 + c.1]); } }
+            for k in -1..=1 { for v in 1..=3 { b.air([k, v, -5]); b.air([ex.0 * 5 + ex.1.abs() * k, v, ex.1 * 5 + ex.0.abs() * k]); } }
+            // l'impasse la plus lointaine de l'entrée (ni l'entrée, ni la sortie)
+            let mut dist = vec![(start, 0)]; let mut q = std::collections::VecDeque::from([start]);
+            while let Some(c) = q.pop_front() { let dc = dist.iter().find(|x| x.0 == c).unwrap().1; for &(a, bb) in &open { let n = if a == c { bb } else if bb == c { a } else { continue }; if !dist.iter().any(|x| x.0 == n) { dist.push((n, dc + 1)); q.push_back(n); } } }
+            let links = |c: (i32, i32)| open.iter().filter(|(a, bb)| *a == c || *bb == c).count();
+            let far = dist.iter().filter(|(c, _)| *c != start && *c != goal && links(*c) == 1).max_by_key(|(c, dd)| (*dd, c.0, c.1)).map(|x| x.0).unwrap_or((2, 2));
+            let side = [(1, 0), (-1, 0), (0, 1), (0, -1)].into_iter().find(|dd| !open.iter().any(|(a, bb)| (*a == far && *bb == (far.0 + dd.0, far.1 + dd.1)) || (*bb == far && *a == (far.0 + dd.0, far.1 + dd.1)))).unwrap();
+            let lv = [far.0 * 2, 2, far.1 * 2]; b.t(lv, "lever", side); b.n([far.0 * 2, 1, far.1 * 2], "bone_pile");
+            for &(i, j) in cells.iter().filter(|c| (c.0 + c.1).rem_euclid(3) == 0 && **c != far) { if let Some(dd) = [(1, 0), (-1, 0), (0, 1), (0, -1)].into_iter().find(|dd| !open.iter().any(|(a, bb)| (*a == (i, j) && *bb == (i + dd.0, j + dd.1)) || (*bb == (i, j) && *a == (i + dd.0, j + dd.1))) && !((i, j) == start && *dd == (0, -1)) && !((i, j) == goal && *dd == ex)) { b.t([i * 2, 3, j * 2], "wall_sconce", dd); } }
+            let g = gate(&b); wire(&mut m, Wire { name: "lab".into(), inputs: vec![at(&b, lv)], latch: true, doors: g, ..Default::default() });
+            acts.push(Act::Reach(at(&b, [far.0 * 2, 1, far.1 * 2]))); acts.push(Act::Lever(at(&b, lv)));
+            hint(&mut m, "Un labyrinthe. Quelque part au fond, un levier lève la grille.");
+        }
+        Kind::Inondee => {
+            // un grand bassin au milieu de la salle, une margelle tout autour ; au fond, un levier qu'il faut aller chercher en apnée
+            for u in -5..=5i32 { for w in -4..=4i32 { for v in -3..=-1 { b.wall([u, v, w]); } } }
+            for u in -4..=4 { for w in -3..=3 { b.n([u, -3, w], "stone_bricks_dark"); for v in -2..=0 { b.n([u, v, w], "water"); } } }
+            let lv = [3, -2, 3]; b.t(lv, "lever", (0, 1)); for (u, w) in [(-5, -5), (5, -5), (-5, 5), (5, 5)] { b.column(u, w, 1, h); } for v in h - 1..=h { b.n([0, v, 0], "chain"); } b.n([0, h - 2, 0], "lantern");
+            for (u, w) in [(-2, -1), (1, 2), (-3, 2)] { b.n([u, -2, w], "seagrass"); }
+            let g = gate(&b); wire(&mut m, Wire { name: "ino".into(), inputs: vec![at(&b, lv)], latch: true, doors: g, ..Default::default() });
+            acts.push(Act::Reach(at(&b, [3, -2, 2]))); acts.push(Act::Lever(at(&b, lv)));
+            hint(&mut m, "Une salle inondée. Au fond du bassin, un levier : retenez votre souffle.");
+        }
+        Kind::Fleches => {
+            // des lance-fléchettes dans les murs, qui tirent en salves décalées ; des colonnes pour s'abriter ; un levier au fond
+            let traps: Vec<[i32; 3]> = [-4, -2, 2, 4].iter().flat_map(|&w| [[-6, 2, w], [6, 2, w]]).collect(); for t in &traps { b.n(*t, "dart_trap"); }
+            for (k, pair) in traps.chunks(2).enumerate() { m.pulses.push(Pulse { darts: pair.iter().map(|t| at(&b, *t)).collect(), period: 2.0, up: 0.0, phase: k as f64 * 0.5, ..Default::default() }); }
+            for (u, w) in [(-2, -2), (2, 0), (-2, 2), (2, 4)] { b.column(u, w, 1, h); } let lv = [4, 2, 5]; b.t(lv, "lever", (0, 1)); b.n([-4, 1, 5], "funeral_urn");
+            let g = gate(&b); wire(&mut m, Wire { name: "fle".into(), inputs: vec![at(&b, lv)], latch: true, doors: g, ..Default::default() });
+            acts.push(Act::Reach(at(&b, [4, 1, 4]))); acts.push(Act::Lever(at(&b, lv)));
+            hint(&mut m, "Des lance-fléchettes dans les murs : avancez entre deux salves, à l'abri des colonnes. Le levier est au fond.");
+        }
+        Kind::Secrete => {
+            // une salle d'archives sans autre issue ; un levier caché derrière un sarcophage fait pivoter un pan de mur
+            b.tomb(-4, 1, 3); b.tomb(2, 1, -3); for (u, w) in [(-5, -5), (5, 5), (4, -5)] { b.n([u, 1, w], "funeral_urn"); } for u in [-2, 2] { b.statue(u, 1, 5, (0, 1)); } b.t([0, 1, 1], "altar", (0, 1)); b.n([0, 2, 1], "candle");
+            let lv = [-5, 1, 3]; b.t(lv, "lever", (-1, 0)); b.n([-5, 2, 4], "cobweb");
+            let g = gate(&b); wire(&mut m, Wire { name: "sec".into(), inputs: vec![at(&b, lv)], latch: true, doors: g, ..Default::default() });
+            acts.push(Act::Reach(at(&b, [-5, 1, 2]))); acts.push(Act::Lever(at(&b, lv)));
+            hint(&mut m, "Une salle sans autre issue… et pourtant, un courant d'air passe le long d'un mur.");
+        }
+        Kind::Descente => {
+            // un puits carré qui plonge d'un étage : un palier à l'entrée, puis des degrés qui tournent le long des murs jusqu'au fond
+            for u in -5..=5 { for w in -5..=-3 { b.n([u, LEVEL, w], "stone_bricks"); } } for u in -4..=5 { b.n([u, LEVEL + 1, -3], "stone_bricks_slab"); }
+            let ring: Vec<(i32, i32)> = (-2..=5).map(|w| (-5, w)).chain((-4..=1).map(|u| (u, 5))).collect();
+            for (i, &(u, w)) in ring.iter().enumerate() { let top = LEVEL - 1 - i as i32; if top < 1 { break; } for v in 1..=top { b.n([u, v, w], if v == top { "stone_bricks" } else { "stone_bricks_dark" }); } }
+            for v in h - 4..=h { b.n([0, v, 0], "chain"); } b.n([0, h - 5, 0], "chandelier"); for (u, w, back) in [(5, 0, (1, 0)), (5, 3, (1, 0)), (0, -5, (0, -1))] { for v in [6, 12] { b.t([u, v, w], "wall_sconce", back); } }
+            b.n([3, 1, -4], "brazier_stand"); b.statue(5, 1, -4, (1, 0)); b.n([2, 1, 3], "bone_pile");
+            hint(&mut m, "Un escalier plonge dans les profondeurs : un second étage de ruines.");
+        }
         Kind::Gardien => {
             for (u, w) in [(-3, -3), (3, -3), (-3, 3), (3, 3)] { b.column(u, w, 1, h); } b.n([0, h, 0], "chandelier"); for u in [-4, 4] { b.statue(u, 1, 5, (0, 1)); b.n([u, 1, -5], "brazier_stand"); }
             let entry = { let id = b.bars_id((0, -1)); (1..=3).flat_map(|v| b.door((0, -1), v)).map(|l| (at(&b, l), id)).collect::<Vec<_>>() };
@@ -224,7 +285,7 @@ fn build_room(p: &mut Plan, o: [i32; 3], room: Room, k: usize, name: &str, boss:
         }
     }
     // la sortie du gardien : ses grilles sont celles du gardien ; on les pose fermées seulement pendant le combat
-    if room.kind.gated() && room.kind != Kind::Gardien { if let Some(s) = exit { let id = b.bars_id(s); for v in 1..=3 { for l in b.door(s, v) { let (x, y, z) = b.w(l); b.p.put(x, y, z, id); } } } }
+    if room.kind.gated() && room.kind != Kind::Gardien { if let Some(s) = exit { let id = if room.kind == Kind::Secrete { by_name("stone_bricks").unwrap_or(0) } else { b.bars_id(s) }; for v in 1..=3 { for l in b.door(s, v) { let (x, y, z) = b.w(l); b.p.put(x, y, z, id); } } } }
     Out { m, acts }
 }
 
@@ -237,9 +298,9 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3], l: &Layout, tag: &str, ground: &d
     let f = o[1] - DEPTH;
     for room in &l.rooms { let Some(d) = room.exit else { continue }; let perp = (d.1.abs(), d.0.abs());
         for t in 6..=8 { for k in -2..=2 { for v in 0..=4 { let (x, z) = (o[0] + room.c.0 + d.0 * t + perp.0 * k, o[2] + room.c.1 + d.1 * t + perp.1 * k); let y = f + v;
-            let inner = k.abs() <= 1 && (1..=3).contains(&v);
+            let y = y + room.y; let inner = k.abs() <= 1 && (1..=3).contains(&v);
             if inner { if t != 6 || !room.kind.gated() || room.kind == Kind::Gardien { p.air(x, y, z); } } else if p.m.get(&(x, y, z)) != Some(&-1) { p.n(x, y, z, "stone_bricks"); } } } } }
-    let r = (GRID * PITCH) / 2 + 1; m.seals.push(Seal { min: [o[0] - r, f - 3, o[2] - r], max: [o[0] + r, o[1] - 1, o[2] + r], until: String::new() });
+    let r = (GRID * PITCH) / 2 + 1; m.seals.push(Seal { min: [o[0] - r, f - LEVEL - 3, o[2] - r], max: [o[0] + r, o[1] - 1, o[2] + r], until: String::new() });
     (m, sol)
 }
 

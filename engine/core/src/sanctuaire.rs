@@ -257,7 +257,7 @@ pub fn reach(w: &impl Voxels, from: [i32; 3], min: [i32; 3], max: [i32; 3]) -> B
         let mut next = Vec::new(); let up = [c[0], c[1] + 1, c[2]]; let head = [c[0], c[1] + 2, c[2]];
         let climb = is_ladder(get(c)) || is_water(get(c));
         if climb && stand(up) { next.push(up); }
-        if climb || is_ladder(get([c[0], c[1] - 1, c[2]])) { let d = [c[0], c[1] - 1, c[2]]; if stand(d) { next.push(d); } }
+        if climb || is_ladder(get([c[0], c[1] - 1, c[2]])) || is_water(get([c[0], c[1] - 1, c[2]])) { let d = [c[0], c[1] - 1, c[2]]; if stand(d) { next.push(d); } } // on plonge
         for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
             let n = [c[0] + dx, c[1], c[2] + dz];
             if stand(n) { next.push(n); continue; }

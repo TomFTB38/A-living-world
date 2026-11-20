@@ -227,7 +227,8 @@ impl WorldGen {
                 let mut d = 20.0; let mut from = None;
                 while d < 120.0 { let (fx, fz) = (to[0] + dx * d, to[2] + dz * d); let col = self.column(fx, fz);
                     if col.water == 0.0 && col.mix.sea == 0.0 && (col.h - to[1]) <= d * 0.48 && col.h - to[1] > 6.0 { from = Some([fx, col.h, fz]); break; } d += 4.0; }
-                if let Some(from) = from { if !near_town(from[0], from[2], 10.0) { hall.way = Some(Way::Path { from, to, mine }); } }
+                // pas à travers un donjon enterré (sanctuaire, ruines et leur second étage, grotte, catacombes, forge) : il la couperait
+                if let Some(from) = from { if !near_town(from[0], from[2], 10.0) && !self.crosses_dungeon(from, to) { hall.way = Some(Way::Path { from, to, mine }); } }
             }
         }
         Some(hall)
@@ -487,6 +488,12 @@ impl WorldGen {
             if tall > 0 && cv.get(cx + dx, c.fl + tall, cz + dz).is_some_and(is_water) && h > 0.5 { cv.set(cx + dx, c.fl + tall, cz + dz, B::CORAL_FAN); } } }
     }
 
+    /// Le couloir de `from` à `to` passerait-il à moins de 64 blocs d'un donjon enterré ?
+    fn crosses_dungeon(&self, from: [f64; 3], to: [f64; 3]) -> bool {
+        let (mx, mz) = ((from[0] + to[0]) / 2.0, (from[2] + to[2]) / 2.0); let half = (to[0] - from[0]).hypot(to[2] - from[2]) / 2.0;
+        self.places_near(mx, mz, half + 64.0).iter().any(|p| matches!(p.kind, crate::sites::Lieu::Sanctuaire | crate::sites::Lieu::Ruines | crate::sites::Lieu::Grotte | crate::sites::Lieu::Catacombes | crate::sites::Lieu::Forge)
+            && (0..=32).any(|k| { let t = k as f64 / 32.0; (from[0] + (to[0] - from[0]) * t - p.x as f64).hypot(from[2] + (to[2] - from[2]) * t - p.z as f64) < 64.0 }))
+    }
     /// Une bouche naturelle (un boyau sinueux) ou une vieille mine (droite, boisée, rails et lanternes), en pente douce.
     fn carve_path(&self, cv: &mut Carver, hl: &Hall, from: [f64; 3], to: [f64; 3], mine: bool) {
         let n = &self.n_cave; let s = self.seed; let (ox, oz) = (cv.ox, cv.oz);
