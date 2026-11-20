@@ -564,6 +564,61 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
         for sx in [-1.0f64, 1.0] { rod(p, [sx * 0.12, 0.9, 0.0], [sx * 0.12, 1.14, 0.0], 0.02, 0.02, soot, soot, 2); }
     });
 
+    // ---- L'Automate de l'horloger : un chevalier mécanique de laiton. Un poitrail en tonneau riveté, percé d'un hublot de verre
+    // où tourne un rouage ; des épaulières, une taille d'abeille ; un heaume en dôme, une visière en T qui luit d'ambre ; des
+    // membres en tubes articulés sur des rotules ; dans le dos, la grande clé qui le remonte (et tourne) ; pour arme, l'aiguille
+    // des heures de la tour, forgée en lance, lestée d'un contrepoids.
+    let (br, br2, brd, cop, verd, stl, amb, glass) = ([0.88, 0.68, 0.32], [0.62, 0.45, 0.2], [0.36, 0.25, 0.12], [0.74, 0.42, 0.25], [0.32, 0.6, 0.5], [0.6, 0.62, 0.66], [1.0, 0.72, 0.25], [0.66, 0.84, 0.9]);
+    let rivets = |p: &mut Pen, c: V, rx: f64, rz: f64, y: f64, n: usize| { for k in 0..n { let a = k as f64 * std::f64::consts::TAU / n as f64; p.blob_m([c[0] + a.sin() * rx, c[1] + y, c[2] + a.cos() * rz], [0.014, 0.014, 0.014], brd, br2, Mat::Metal); } };
+    m("autTorso", Mat::Metal, 0.016, &|p| {
+        // le tonneau du poitrail, ses cerclages et ses rivets ; la taille d'abeille ; le bassin
+        egg(p, [0.0, 0.38, 0.0], [0.27, 0.26, 0.21], br2, br, 14); for y in [0.22, 0.52] { arc(p, [0.0, 0.0, 0.0], 0.255, 0.0, std::f64::consts::TAU, y, 0.018, brd, br2, 16, 0.8); } rivets(p, [0.0, 0.0, 0.0], 0.262, 0.212, 0.37, 14);
+        rod(p, [0.0, 0.14, 0.0], [0.0, -0.02, 0.0], 0.1, 0.075, brd, br2, 3); egg(p, [0.0, -0.06, 0.0], [0.17, 0.1, 0.13], br2, br, 12); rod(p, [-0.17, -0.06, 0.02], [0.17, -0.06, 0.02], 0.03, 0.03, cop, cop, 5);
+        // le hublot du poitrail : un anneau de cuivre, une vitre, le rouage qui tourne derrière
+        for k in 0..12 { let a = k as f64 * std::f64::consts::TAU / 12.0; let (x, y) = (a.sin() * 0.1, a.cos() * 0.1 + 0.4); rod(p, [x, y, 0.2], [x * 1.0, y, 0.215], 0.016, 0.016, cop, cop, 1); }
+        p.blob_m([0.0, 0.4, 0.2], [0.085, 0.085, 0.01], glass, mix(glass, amb, 0.3), PLAIN); p.blob_m([0.0, 0.4, 0.19], [0.06, 0.06, 0.01], amb, br, PLAIN);
+        for k in 0..6 { let a = k as f64 * std::f64::consts::PI / 6.0; rod(p, [a.sin() * -0.07, 0.4 + a.cos() * -0.07, 0.205], [a.sin() * 0.07, 0.4 + a.cos() * 0.07, 0.205], 0.008, 0.008, brd, brd, 2); }
+        // les épaulières de laiton à trois lames, un col de cuivre vert-de-gris
+        for sx in [-1.0f64, 1.0] { egg(p, [sx * 0.27, 0.6, 0.0], [0.12, 0.1, 0.13], br2, br, 10); for k in 0..3 { let y = 0.62 - k as f64 * 0.06; slab(p, [sx * 0.2, y, 0.0], [sx * (0.38 + k as f64 * 0.02), y - 0.08, 0.0], 0.26, 0.24, 0.02, [sx, 0.6, 0.0], br, brd, 2); } }
+        rod(p, [0.0, 0.62, 0.0], [0.0, 0.7, 0.0], 0.09, 0.07, verd, cop, 3);
+        // la jupe de lames articulées sur les hanches
+        for k in 0..8 { let a = (k as f64 - 3.5) * 0.36; slab(p, [a.sin() * 0.15, -0.08, a.cos() * 0.12], [a.sin() * 0.21, -0.32, a.cos() * 0.17], 0.09, 0.1, 0.016, [a.sin(), -0.2, a.cos()], br, br2, 3); }
+        for k in 0..3 { let a = std::f64::consts::PI + (k as f64 - 1.0) * 0.5; slab(p, [a.sin() * 0.15, -0.08, a.cos() * 0.12], [a.sin() * 0.21, -0.3, a.cos() * 0.17], 0.1, 0.1, 0.016, [a.sin(), -0.2, a.cos()], br2, brd, 3); }
+        // le moyeu de la clé, dans le dos
+        rod(p, [0.0, 0.4, -0.18], [0.0, 0.4, -0.25], 0.04, 0.04, brd, br2, 2);
+    });
+    m("autKey", Mat::Metal, 0.016, &|p| {
+        rod(p, [0.0, 0.0, 0.0], [0.0, 0.0, -0.18], 0.022, 0.022, br2, br, 3);
+        for sx in [-1.0f64, 1.0] { arc(p, [sx * 0.1, 0.0, -0.2], 0.075, 0.0, std::f64::consts::TAU, 0.0, 0.018, br, br2, 10, 0.4); p.blob_m([sx * 0.1, 0.0, -0.2], [0.03, 0.03, 0.03], brd, brd, Mat::Metal); }
+    });
+    m("autHead", Mat::Metal, 0.012, &|p| {
+        // un heaume en dôme, une visière en T qui luit, une crête de lames, des rouages aux tempes
+        egg(p, [0.0, 0.14, 0.0], [0.12, 0.14, 0.13], br2, br, 12); rod(p, [0.0, 0.0, 0.0], [0.0, 0.05, 0.0], 0.11, 0.12, brd, br2, 2);
+        crate::mesher::obox(p.q, [0.0, 0.15, 0.118], [[0.08, 0.0, 0.0], [0.0, 0.016, 0.0], [0.0, 0.0, 0.012]], amb, -1.0, 255.0, 0.0); crate::mesher::obox(p.q, [0.0, 0.1, 0.122], [[0.016, 0.0, 0.0], [0.0, 0.05, 0.0], [0.0, 0.0, 0.012]], amb, -1.0, 255.0, 0.0);
+        for k in 0..5 { let z = 0.1 - k as f64 * 0.05; slab(p, [0.0, 0.26, z], [0.0, 0.34 - (k as f64 - 2.0).abs() * 0.02, z - 0.03], 0.05, 0.03, 0.014, [1.0, 0.0, 0.0], cop, verd, 2); }
+        for sx in [-1.0f64, 1.0] { arc(p, [sx * 0.125, 0.14, 0.0], 0.045, 0.0, std::f64::consts::TAU, 0.0, 0.012, brd, br2, 8, 1.0); p.blob_m([sx * 0.13, 0.14, 0.0], [0.016, 0.03, 0.03], cop, cop, Mat::Metal); }
+        rivets(p, [0.0, 0.0, 0.0], 0.12, 0.13, 0.05, 10);
+    });
+    m("autArm", Mat::Metal, 0.014, &|p| {
+        p.blob_m([0.0, 0.0, 0.0], [0.07, 0.07, 0.07], brd, br2, Mat::Metal); rod(p, [0.0, -0.03, 0.0], [0.0, -0.3, 0.0], 0.055, 0.05, br, br2, 4); for y in [-0.1, -0.22] { rod(p, [0.0, y, 0.0], [0.0, y - 0.015, 0.0], 0.062, 0.062, cop, cop, 1); }
+        p.blob_m([0.0, -0.32, 0.0], [0.055, 0.055, 0.055], brd, stl, Mat::Metal); rod(p, [0.0, -0.34, 0.0], [0.0, -0.55, 0.02], 0.05, 0.06, br2, br, 4); slab(p, [0.0, -0.36, 0.06], [0.0, -0.54, 0.07], 0.08, 0.1, 0.014, [0.0, 0.0, 1.0], br, br2, 2);
+        // la main : une paume, quatre doigts en tubes, un pouce
+        egg(p, [0.0, -0.61, 0.03], [0.05, 0.045, 0.05], br2, brd, 8); for k in 0..4 { let x = (k as f64 - 1.5) * 0.025; rod(p, [x, -0.64, 0.05], [x, -0.7, 0.07], 0.012, 0.01, stl, br2, 2); } rod(p, [0.04, -0.6, 0.05], [0.06, -0.64, 0.08], 0.012, 0.01, stl, br2, 2);
+    });
+    m("autLeg", Mat::Metal, 0.016, &|p| {
+        p.blob_m([0.0, 0.0, 0.0], [0.08, 0.07, 0.08], brd, br2, Mat::Metal); rod(p, [0.0, -0.03, 0.0], [0.0, -0.38, 0.02], 0.075, 0.065, br, br2, 4); rod(p, [0.0, -0.18, 0.0], [0.0, -0.2, 0.0], 0.08, 0.08, cop, cop, 1);
+        p.blob_m([0.0, -0.4, 0.02], [0.065, 0.065, 0.065], brd, stl, Mat::Metal); slab(p, [0.0, -0.36, 0.08], [0.0, -0.46, 0.09], 0.1, 0.08, 0.02, [0.0, 0.0, 1.0], br, br2, 2);
+        rod(p, [0.0, -0.42, 0.02], [0.0, -0.74, 0.0], 0.065, 0.055, br2, br, 4); slab(p, [0.0, -0.5, 0.07], [0.0, -0.72, 0.06], 0.09, 0.075, 0.016, [0.0, 0.0, 1.0], br, br2, 3);
+        crate::mesher::obox(p.q, [0.0, -0.8, 0.05], [[0.075, 0.0, 0.0], [0.0, 0.035, 0.0], [0.0, 0.0, 0.14]], br2, -1.0, 255.0, 0.0); crate::mesher::obox(p.q, [0.0, -0.8, 0.19], [[0.065, 0.0, 0.0], [0.0, 0.03, 0.0], [0.0, 0.0, 0.035]], brd, -1.0, 255.0, 0.0);
+    });
+    m("autLance", Mat::Metal, 0.014, &|p| {
+        // la hampe d'acier, le contrepoids en bas, puis l'aiguille des heures : une lame en fer de lance ajourée, du cuivre au laiton
+        rod(p, [0.0, -0.45, 0.0], [0.0, 0.85, 0.0], 0.022, 0.022, stl, mix(stl, brd, 0.4), 8); egg(p, [0.0, -0.5, 0.0], [0.06, 0.07, 0.06], br2, brd, 8); arc(p, [0.0, 0.0, 0.0], 0.06, 0.0, std::f64::consts::TAU, -0.36, 0.012, br, br, 8, 1.0);
+        for y in [-0.2, 0.0, 0.3] { rod(p, [0.0, y, 0.0], [0.0, y + 0.03, 0.0], 0.03, 0.03, br2, br2, 1); }
+        slab(p, [0.0, 0.85, 0.0], [0.0, 1.12, 0.0], 0.03, 0.22, 0.02, [0.0, 0.0, 1.0], br2, br, 4); slab(p, [0.0, 1.12, 0.0], [0.0, 1.5, 0.0], 0.22, 0.01, 0.02, [0.0, 0.0, 1.0], br, mix(br, [1.0, 0.95, 0.7], 0.4), 6);
+        p.blob_m([0.0, 1.12, 0.0], [0.045, 0.045, 0.02], brd, brd, Mat::Metal); for sx in [-1.0f64, 1.0] { arc(p, [sx * 0.06, 1.1, 0.0], 0.03, 0.0, std::f64::consts::TAU, 0.0, 0.006, brd, brd, 6, 1.0); }
+    });
+
     // Noyé : la peau turquoise des fonds, des yeux qui luisent, la tête et les épaules coiffées d'algues qui dégoulinent,
     // une tunique brune trouée et effilochée, des bernacles ; il tient un trident.
     let (teal, teal2, teal3) = ([0.3, 0.68, 0.68], [0.16, 0.44, 0.48], [0.42, 0.82, 0.8]); let (alg, alg2, rag, rag2) = ([0.36, 0.5, 0.14], [0.2, 0.34, 0.12], [0.44, 0.25, 0.14], [0.28, 0.16, 0.1]);

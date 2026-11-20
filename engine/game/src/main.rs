@@ -640,6 +640,16 @@ fn capture(a: &[String]) {
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // La Tour de l'Horloge : la tour dans sa cour, la façade et son horloge arrêtée, les rouages, le cadran, le balancier, le beffroi.
+    if let Some(vw) = scene.strip_prefix("plat_horloge_") {
+        let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false); s.hour = 11.0;
+        s.build_clock_tower(o); pump(&mut s, &mut g); let f = o[1] + 1;
+        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "tour" => ([-26.5, 8.0, -44.5], [0.5, 26.0, 0.5]), "facade" => ([5.5, 3.0, -31.5], [0.5, 15.0, -9.0]), "rouages" => ([4.5, 1.5, -7.5], [0.5, 3.5, -3.0]),
+            "cadran" => ([2.5, 10.0, 3.5], [0.5, 15.0, -8.0]), "balancier" => ([-5.5, 26.5, 7.5], [0.5, 27.0, 1.0]), _ => ([5.5, 37.5, -6.5], [0.5, 39.0, 3.0]) };
+        s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
+        for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     // La galerie des boss : chacun posé devant l'objectif, de trois quarts, sur une herbe rase, en plein jour.
     if let Some(id) = scene.strip_prefix("plat_boss_") {
         let y = alw_core::gen::FLAT_Y as f64 + 1.0; let (x, z) = (-41.5, -40.5); s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(true); s.hour = 11.0;

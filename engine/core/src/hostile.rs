@@ -603,11 +603,12 @@ fn boss_cause(s: &Species, mv: u8) -> &'static str { match (s.id, mv) {
     ("gardien_soleil", MV_ECRASE) => "Le poing brûlant du Gardien du Soleil", ("gardien_soleil", MV_CHARGE) => "La ruée du Gardien du Soleil", ("gardien_soleil", _) => "Les griffes du Gardien du Soleil",
     ("reine_glaces", MV_ECRASE) => "La lance de givre de la Reine des glaces, abattue de haut", ("reine_glaces", MV_CHARGE) => "La ruée glacée de la Reine des glaces", ("reine_glaces", _) => "La lance de givre de la Reine des glaces",
     ("maitre_forge", MV_ECRASE) => "Le marteau du Maître de forge, abattu comme sur l'enclume", ("maitre_forge", MV_CHARGE) => "La ruée du Maître de forge", ("maitre_forge", _) => "Le marteau du Maître de forge",
+    ("automate", MV_ECRASE) => "L'aiguille de l'Automate, abattue comme sonne l'heure", ("automate", MV_CHARGE) => "La ruée de l'Automate de l'horloger", ("automate", _) => "L'aiguille de l'Automate de l'horloger",
     ("premier_roi", MV_ECRASE) => "L'épée longue du Premier Roi, abattue à deux mains", ("premier_roi", MV_CHARGE) => "La ruée du Premier Roi", ("premier_roi", _) => "L'épée longue du Premier Roi",
     ("gardien", MV_ECRASE) => "Le poing du gardien de la crypte", ("gardien", MV_CHARGE) => "La ruée du gardien de la crypte", ("gardien", _) => "Les griffes du gardien de la crypte",
     (_, MV_TAILLE) => "La taille d'un chef de guerre brigand", (_, MV_ECRASE) => "La frappe écrasante d'un chef de guerre brigand", (_, MV_CHARGE) => "La ruée d'un chef de guerre brigand", _ => "La grande hache d'un chef de guerre brigand" } }
 /// Ceux qu'appelle le boss à mi-vie.
-fn boss_calls(s: &Species) -> &'static str { match s.id { "gardien" | "gardien_soleil" => "rodeur", "reine_glaces" => "fantome", "capitaine" | "premier_roi" => "archer", "colosse" | "roi_noye" => "noye", _ => "brigand" } }
+fn boss_calls(s: &Species) -> &'static str { match s.id { "gardien" | "gardien_soleil" => "rodeur", "reine_glaces" => "fantome", "automate" => "rodeur", "capitaine" | "premier_roi" => "archer", "colosse" | "roi_noye" => "noye", _ => "brigand" } }
 fn reel(f: &mut Foe, ev: &mut Vec<FoeEv>) { f.broken = REEL_T; f.posture = 0.0; f.wind = 0.0; f.mv = 0; f.combo = 0; f.lunge = 0.0; f.speed = 0.0;
     // le cavalier, garde brisée, vide les étriers : il tombe, sonné, et finit à pied ; son cheval s'enfuit
     if bestiary().species[f.sp].body == Body::Cavalier { if let Some(k) = species("brigand") { let part = f.hp / f.max; let s = &bestiary().species[k]; f.sp = k; f.max = s.hp * if f.vet { 1.25 } else { 1.0 }; f.hp = (f.max * part).max(1.0); f.state = Ai::Combat; f.cd = REEL_T + 0.5; ev.push(FoeEv::Unhorse(f.p, f.yaw)); return; } }
@@ -1077,14 +1078,14 @@ impl Horde {
                         let leg = mul(&root, &mul(&trs(0.3 * sx, 0.1, *z, (if sx > 0.0 { 0.0 } else { std::f64::consts::PI }) + spread * 0.6 + swing, 0.0, 1.0), &roll_z(up + curl)));
                         put(pl, leg); } }
                 }
-                Body::Humain if matches!(s.skin, "colosse" | "roinoye" | "gsoleil" | "premroi" | "forgeron") => {
+                Body::Humain if matches!(s.skin, "colosse" | "roinoye" | "gsoleil" | "premroi" | "forgeron" | "automate") => {
                     // Les boss sculptés : une démarche lourde, l'arme dans la main droite ; ils la lèvent au-dessus de la tête pour
                     // annoncer le coup, puis l'abattent ; la main gauche garde, ou balance.
                     let (pre, hips, sh_x, sh_y, head_y, head_z, leg_x, hunch, weapon) = match s.skin {
                         "colosse" => ("col", 0.92, 0.42, 0.6, 0.66, 0.05, 0.16, 0.22, "colClub"), "roinoye" => ("rny", 0.88, 0.22, 0.55, 0.62, 0.0, 0.1, 0.14, "rnyTrident"),
-                        "gsoleil" => ("gso", 0.9, 0.25, 0.56, 0.62, 0.02, 0.11, 0.0, "gsoSpear"), "premroi" => ("prr", 0.88, 0.22, 0.55, 0.62, 0.02, 0.1, 0.06, "prrSword"), _ => ("mfo", 0.84, 0.42, 0.58, 0.66, 0.06, 0.15, 0.1, "mfoHammer") };
+                        "gsoleil" => ("gso", 0.9, 0.25, 0.56, 0.62, 0.02, 0.11, 0.0, "gsoSpear"), "premroi" => ("prr", 0.88, 0.22, 0.55, 0.62, 0.02, 0.1, 0.06, "prrSword"), "automate" => ("aut", 0.86, 0.36, 0.6, 0.7, 0.0, 0.12, 0.04, "autLance"), _ => ("mfo", 0.84, 0.42, 0.58, 0.66, 0.06, 0.15, 0.1, "mfoHammer") };
                     let n = |k: &str| -> &'static str { match (pre, k) { ("col", "T") => "colTorso", ("col", "H") => "colHead", ("col", "A") => "colArm", ("col", _) => "colLeg", ("rny", "T") => "rnyTorso", ("rny", "H") => "rnyHead", ("rny", "A") => "rnyArm", ("rny", _) => "rnyLeg",
-                        ("gso", "T") => "gsoTorso", ("gso", "H") => "gsoHead", ("gso", "A") => "gsoArm", ("gso", _) => "gsoLeg", ("prr", "T") => "prrTorso", ("prr", "H") => "prrHead", ("prr", "A") => "prrArm", ("prr", _) => "prrLeg", (_, "T") => "mfoTorso", (_, "H") => "mfoHead", (_, "A") => "mfoArm", _ => "mfoLeg" } };
+                        ("gso", "T") => "gsoTorso", ("gso", "H") => "gsoHead", ("gso", "A") => "gsoArm", ("gso", _) => "gsoLeg", ("prr", "T") => "prrTorso", ("prr", "H") => "prrHead", ("prr", "A") => "prrArm", ("prr", _) => "prrLeg", ("aut", "T") => "autTorso", ("aut", "H") => "autHead", ("aut", "A") => "autArm", ("aut", _) => "autLeg", (_, "T") => "mfoTorso", (_, "H") => "mfoHead", (_, "A") => "mfoArm", _ => "mfoLeg" } };
                     let t = f.phase; let stride = sw * (0.32 + 0.28 * run); let bob = -(f.phase * 2.0).sin().abs() * 0.03 * (0.4 + run);
                     let lean = hunch + 0.1 * run - wind * 0.25 + strike * 0.45 - flinch * 0.5;
                     let root = mul(&base, &trs(0.0, hips + bob, 0.0, 0.06 * stride, 0.0, 1.0)); let torso = mul(&root, &trs(0.0, 0.0, 0.0, -0.08 * stride, lean, 1.0));
@@ -1094,6 +1095,7 @@ impl Horde {
                     put(weapon, mul(&ar, &trs(0.0, -0.62, 0.05, 0.0, -right - lean + 1.25 * strike + 0.15, 1.0)));
                     put(n("A"), mul(&torso, &mul(&trs(-sh_x, sh_y, 0.0, 0.0, left, 1.0), &roll_z(-0.12 - 0.1 * wind))));
                     for sx in [-1.0f64, 1.0] { put(n("L"), mul(&root, &trs(leg_x * sx, 0.0, 0.0, 0.0, sx * stride, 1.0))); }
+                    if pre == "aut" { put("autKey", mul(&torso, &mul(&trs(0.0, 0.4, -0.25, 0.0, 0.0, 1.0), &roll_z(t * 1.6)))); } // la clé qui le remonte tourne dans son dos
                 }
                 Body::Humain if s.skin == "reine" => {
                     // La Reine des glaces glisse sans un pas, la robe ondoyant ; le sceptre dressé dans la main droite ; elle lève la

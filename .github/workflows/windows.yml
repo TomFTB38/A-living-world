@@ -159,6 +159,13 @@ jobs:
           shot plat_ruines_fleches -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_fleches
           shot plat_ruines_secrete -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_secrete
           shot plat_ruines_descente -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_ruines_descente
+          shot plat_horloge_tour -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_horloge_tour
+          shot plat_horloge_facade -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_horloge_facade
+          shot plat_horloge_rouages -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_horloge_rouages
+          shot plat_horloge_cadran -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_horloge_cadran
+          shot plat_horloge_balancier -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_horloge_balancier
+          shot plat_horloge_beffroi -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_horloge_beffroi
+          shot plat_boss_automate -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_automate
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

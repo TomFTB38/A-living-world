@@ -6,7 +6,7 @@ fn ready(s: &mut Session) { for _ in 0..8000 { let p = s.player.p; s.world.updat
 
 #[test]
 fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
-    let w = WorldGen::new(SEED); let all = w.places_near(-38.0, 0.0, 3200.0); let mut seen = [0usize; 10];
+    let w = WorldGen::new(SEED); let all = w.places_near(-38.0, 0.0, 3200.0); let mut seen = [0usize; 11];
     let name = |b: u16| BLOCKS[b as usize].name;
     for pl in &all {
         let k = LIEUX.iter().position(|l| *l == pl.kind).unwrap(); seen[k] += 1; if seen[k] > 3 { continue; } // trois de chaque sorte, bloc à bloc
@@ -45,6 +45,14 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
                 assert_eq!(name(rel(-3, 1, -18)), "column_base", "le portail"); assert!(name(rel(0, 1, 0)).starts_with("sun_disc"), "le disque d'or");
                 for (q, _) in so::MIRRORS { assert!(name(rel(q[0], q[1], q[2])).starts_with("sun_mirror")); } for (q, _) in so::SEALS { assert!(name(rel(q[0], q[1], q[2])).starts_with("sun_receptor")); }
                 assert_eq!(rel(0, 4, -6), 0, "la salle"); assert_eq!(rel(0, 12, 0), 0, "l'oculus"); assert!(is_solid(rel(12, 6, 0)), "le deuxième degré"); assert!(name(rel(0, 8, 15)).starts_with("sandstone_stairs"), "le grand escalier");
+            }
+            Lieu::Horloge => {
+                // la cour, la tour et son toit de cuivre, l'horloge de la façade, les trois rouages, le cadran, le pont du balancier, la cloche
+                use alw_core::horloge as ho; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, pl.y + 1 + v, pl.z + w);
+                assert!(name(rel(0, 0, 0)).starts_with("marble"), "le dallage"); assert_eq!(rel(0, 2, -7), 0, "la salle des rouages"); assert!(name(rel(0, ho::TOP + 2, ho::SOUTH - 1)).starts_with("copper_roof"), "le toit de cuivre");
+                assert_eq!(name(rel(0, 15, ho::NORTH - 2)), "iron_block", "l'axe de l'horloge"); assert_eq!(name(rel(3, 13, ho::NORTH - 1)), "clock_face", "le cadran de la façade");
+                for w in ho::GEARS { assert_eq!(name(rel(0, 4, w)), "iron_block", "l'axe d'un rouage"); } for l in ho::GEAR_LEVERS { assert!(name(rel(l[0], l[1], l[2])).starts_with("lever")); }
+                assert_eq!(name(rel(0, ho::BRIDGE.1, ho::BRIDGE.0)), "planks", "le pont"); assert_eq!(name(rel(0, ho::TOP - 1, 0)), "iron_block", "la cloche"); assert!(pl.y + 1 + ho::TOP + 13 < CH as i32, "sous le ciel du monde");
             }
             Lieu::Glace => {
                 // la nef et son dallage, les trois bassins gelés, l'estrade, la porte du sud, les tours à aiguilles
@@ -96,7 +104,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
         // les gardiens ont les pieds sur du plein et la tête à l'air
         for (id, g) in pl.guards() { assert!(alw_core::hostile::species(id).is_some(), "{id}"); let (x, y, z) = (g[0].floor() as i32, g[1].floor() as i32, g[2].floor() as i32); assert!(is_solid(at(x, y - 1, z)), "{id} de {:?} n'a rien sous les pieds en {x} {y} {z}", pl.kind); assert!(!is_solid(at(x, y + 1, z)), "{id} de {:?} emmuré", pl.kind); }
     }
-    println!("lieux : {} tours, {} cimetières, {} camps, {} sanctuaires, {} ruines, {} grottes, {} temples du soleil, {} catacombes, {} forges, {} temples de glace", seen[0], seen[1], seen[2], seen[3], seen[4], seen[5], seen[6], seen[7], seen[8], seen[9]); assert!(seen.iter().all(|n| *n >= 6), "chaque sorte de lieu existe : {seen:?}"); assert!(seen[0] * 10 < seen.iter().sum::<usize>() * 6, "les tours ne prennent pas toute la place");
+    println!("lieux : {} tours, {} cimetières, {} camps, {} sanctuaires, {} ruines, {} grottes, {} temples du soleil, {} catacombes, {} forges, {} temples de glace, {} tours de l'horloge", seen[0], seen[1], seen[2], seen[3], seen[4], seen[5], seen[6], seen[7], seen[8], seen[9], seen[10]); assert!(seen.iter().all(|n| *n >= 6), "chaque sorte de lieu existe : {seen:?}"); assert!(seen[0] * 10 < seen.iter().sum::<usize>() * 6, "les tours ne prennent pas toute la place");
     assert!(WorldGen::new(alw_core::gen::FLAT).places_near(0.0, 0.0, 800.0).is_empty(), "rien dans le monde plat");
 }
 
@@ -104,7 +112,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
 fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
     let w = WorldGen::new(SEED); let mut s = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); ready(&mut s); s.hour = 12.0; let sp = |id: &str| alw_core::hostile::species(id).unwrap();
     assert!(s.command("/lieu chateau").contains("inconnu"));
-    for (key, who, n, loot) in [("tour", "archer", 4, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("sanctuaire", "noye", 3, "idole_engloutie"), ("ruines", "rodeur", 2, "worn_coin"), ("grotte", "noye", 3, "worn_coin"), ("soleil", "rodeur", 2, "worn_coin"), ("catacombes", "archer", 2, "worn_coin"), ("forge", "brigand", 2, "worn_coin"), ("glace", "rodeur", 3, "worn_coin"), ("cimetiere", "archer", 3, "worn_coin")] {
+    for (key, who, n, loot) in [("tour", "archer", 4, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("sanctuaire", "noye", 3, "idole_engloutie"), ("ruines", "rodeur", 2, "worn_coin"), ("grotte", "noye", 3, "worn_coin"), ("soleil", "rodeur", 2, "worn_coin"), ("catacombes", "archer", 2, "worn_coin"), ("forge", "brigand", 2, "worn_coin"), ("glace", "rodeur", 3, "worn_coin"), ("horloge", "brigand", 2, "worn_coin"), ("cimetiere", "archer", 3, "worn_coin")] {
         s.horde.foes.clear(); let msg = s.command(&format!("/lieu {key}")); ready(&mut s); let pl = w.places_near(s.player.p[0], s.player.p[2], 40.0).into_iter().next().unwrap_or_else(|| panic!("{key} : {msg}")); assert_eq!(pl.kind.key(), key, "{msg}");
         s.notes.clear(); for _ in 0..3 { s.tick(0.05, Input::default(), Actions::default()); }
         assert!(s.horde.foes.iter().filter(|f| f.sp == sp(who)).count() >= n, "{key} : {n} {who} attendus, on a {:?}", s.horde.foes.iter().map(|f| (alw_core::hostile::bestiary().species[f.sp].id, f.p.map(|v| v.round()), f.hp)).collect::<Vec<_>>()); assert!(s.notes.iter().any(|t| t.contains("en vue")), "{key} : annoncé");
@@ -115,6 +123,7 @@ fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
         s.open_chest(pl.chest()); let got = &s.chests[&pl.chest()]; assert!(got.iter().flatten().any(|st| st.item == loot), "{key} : {loot} dans le coffre, on a {:?}", got.iter().flatten().map(|st| st.item).collect::<Vec<_>>()); s.close_chest(); s.inv_open = false;
         if key == "ruines" { assert!(s.mech.wires.iter().any(|w| w.name.starts_with(&format!("d{}:{}:", pl.x, pl.z))), "les fils des ruines"); assert_eq!(s.mech.guards.len(), 2, "le colosse du sanctuaire et le gardien des ruines"); }
         if key == "soleil" { assert!(s.mech.beams.len() == 1 && s.mech.wires.iter().any(|w| w.name.starts_with(&format!("t{}:{}:", pl.x, pl.z))), "le rayon et les fils du temple"); }
+        if key == "horloge" { assert_eq!(s.mech.dials.iter().filter(|d| d.name.starts_with(&format!("h{}:{}:", pl.x, pl.z))).count(), 6, "les trois rouages, les deux aiguilles, le balancier"); }
         if key == "glace" { assert!(s.mech.wires.iter().any(|w| w.name.starts_with(&format!("i{}:{}:", pl.x, pl.z)) && !w.blocks.is_empty()), "les fils du temple de glace"); }
         if key == "forge" { assert!(s.mech.lifts.len() == 2 && s.mech.wires.iter().any(|w| w.name.starts_with(&format!("f{}:{}:", pl.x, pl.z))), "le pont, le monte-charge et les fils de la forge"); }
         if key == "catacombes" { assert!(s.mech.wires.iter().any(|w| w.name.starts_with(&format!("c{}:{}:", pl.x, pl.z))), "les fils des catacombes"); }

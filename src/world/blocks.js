@@ -460,6 +460,8 @@ for (const f of ['', '@1', '@2', '@3']) defs.push([`light_beam${f}`, 'deco', nul
 defs.push(['great_chain', 'deco', null, 3.0, { model: 'great_chain', solid: true, cat: 'rock', drop: 'iron_ingot' }]);
 for (const f of ['', '@1', '@2', '@3']) defs.push([`ossuary_wall${f}`, 'deco', null, 2.0, { model: 'ossuary_wall', solid: true, cat: 'rock', drop: 'bone' }]); defs.push(['bone_pile', 'deco', null, 0.4, { model: 'bone_pile', cat: 'rock', drop: 'bone' }]); // les Catacombes des Rois : murs de crânes, tas d'ossements
 for (const f of ['', '@1', '@2', '@3']) for (const [n, drop] of [['statue_base', 'stone'], ['statue_top', 'stone'], ['tomb_head', 'stone'], ['tomb_foot', 'stone'], ['wall_relief', 'wall_relief'], ['lintel', 'lintel'], ['altar', 'altar']]) defs.push([`${n}${f}`, 'deco', null, 2.2, { model: n, solid: true, cat: 'rock', drop }]);
+// la Tour de l'Horloge : le laiton des rouages (clair, sombre) et l'émail du cadran
+cube('brass', 'iron_plate', 2.5, 'rock', { tint: [1.08, 0.8, 0.4], drop: 'iron_ingot' }); cube('brass_dark', 'iron_plate', 2.5, 'rock', { tint: [0.62, 0.44, 0.22], drop: 'iron_ingot' }); cube('clock_face', 'marble', 1.8, 'rock', { tint: [1.0, 0.95, 0.84], drop: 'marble' });
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,

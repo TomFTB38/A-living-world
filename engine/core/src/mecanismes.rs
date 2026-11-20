@@ -15,6 +15,11 @@
 //! **Le rythme** (`Pulse`) : des pics qui sortent et rentrent à intervalle régulier, des lance-fléchettes qui tirent à chaque
 //! cycle, que l'on observe avant de passer ; un fil peut l'arrêter (`off_by`) ou le mettre en marche (`on_by`).
 //!
+//! **Le rouage** (`Dial`) : une roue à crans dessinée en blocs (un engrenage percé d'une encoche, l'aiguille d'un cadran, un
+//! balancier). Des leviers la font tourner d'un ou plusieurs crans (et se relèvent aussitôt) ; un levier peut en entraîner
+//! plusieurs (des engrenages couplés). Ou bien elle tourne seule, en aller-retour (le balancier), et projette qui se trouve
+//! sur son passage. Sur le bon cran, elle compte comme un fil enclenché (`needs`).
+//!
 //! **Le sceau** (`Seal`) : une zone de pierre ancienne qu'on ne peut ni creuser ni bâtir tant qu'un fil n'est pas enclenché
 //! (ou jamais) ; les blocs faits pour être manipulés (leviers, dalles, blocs à pousser, coffres, torches) restent libres. Le
 //! mode créatif passe outre.
@@ -84,6 +89,16 @@ pub const LIFT_T: f64 = 0.35;
 /// Un rythme : des pics qui sortent un temps à chaque cycle, des fléchettes qui partent au début de chaque cycle.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Pulse { pub spikes: Vec<[i32; 3]>, pub darts: Vec<[i32; 3]>, /** s */ pub period: f64, /** part du cycle où les pics sont sortis */ pub up: f64, /** décalage (s) */ pub phase: f64, /** un fil enclenché l'arrête */ pub off_by: String, /** seul un fil enclenché le met en marche */ pub on_by: String, pub was_up: Option<bool>, pub cycle: i64 }
+/// Un rouage : `n` crans, chacun son dessin (`draw` : des cases et leurs blocs) ; il est sur le cran `state`, « à l'heure » sur
+/// `goal`. Des leviers le font tourner (`levers` : le levier et son nombre de crans) ; ou il tourne seul d'un cran toutes les
+/// `auto` secondes (`swing` : en aller-retour). `hit` : les dégâts de ce qu'il dessine sur le joueur, qui est projeté.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Dial { pub name: String, pub n: u8, pub state: u8, pub goal: u8, pub draw: Vec<Vec<([i32; 3], Id)>>, pub levers: Vec<([i32; 3], u8)>, pub auto: f64, pub swing: bool, pub hit: f64, /** état : le temps avant le prochain cran, le sens du balancier */ pub t: f64, pub back: bool }
+impl Dial {
+    /// Le cran suivant (du balancier : en aller-retour) et le nouveau sens.
+    pub fn next(&self) -> (u8, bool) { if !self.swing || self.n < 2 { return ((self.state + 1) % self.n.max(1), false); }
+        let back = if self.state + 1 >= self.n { true } else if self.state == 0 { false } else { self.back }; (if back { self.state - 1 } else { self.state + 1 }, back) }
+}
 /// Un sceau : de `min` à `max`, on ne creuse ni ne bâtit, tant que le fil `until` n'est pas enclenché (vide : pour toujours).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Seal { pub min: [i32; 3], pub max: [i32; 3], pub until: String }
@@ -100,7 +115,7 @@ pub struct Hint { pub min: [i32; 3], pub max: [i32; 3], pub text: String, pub sh
 pub struct Guard { pub min: [i32; 3], pub max: [i32; 3], pub species: String, pub at: [f64; 3], pub doors: Vec<([i32; 3], Id)>, /** 0 endormi, 1 au combat, 2 vaincu */ pub state: u8 }
 /// Tous les mécanismes du monde.
 #[derive(Clone, Debug, Default)]
-pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
+pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, pub dials: Vec<Dial>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
 
 /// Les dégâts des pics (par atteinte), d'une fléchette, et le temps que tient le sol friable.
 pub const SPIKE_DMG: f64 = 5.0; pub const DART_DMG: f64 = 7.0; pub const CRUMBLE_T: f64 = 0.6;
@@ -114,9 +129,11 @@ fn free(b: Id) -> bool { matches!(split(name(b)).0, "lever" | "lever_on" | "pres
 
 impl Mech {
     pub fn wire(&self, n: &str) -> Option<&Wire> { self.wires.iter().find(|w| w.name == n) }
-    fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) }
+    /// Un fil enclenché, ou un rouage sur son bon cran.
+    fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) || self.dials.iter().any(|d| d.name == n && d.state == d.goal) }
+    pub fn dial(&self, n: &str) -> Option<&Dial> { self.dials.iter().find(|d| d.name == n) }
     /// Ajoute les mécanismes d'un donjon.
-    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
+    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.dials.extend(o.dials); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
 }
 fn inside(p: [i32; 3], min: [i32; 3], max: [i32; 3], m: i32) -> bool { (0..3).all(|i| p[i] >= min[i] - m && p[i] <= max[i] + m) }
 
@@ -137,6 +154,14 @@ impl Session {
         // les dalles des fils s'enfoncent ou remontent
         let plates: Vec<[i32; 3]> = self.mech.wires.iter().flat_map(|w| w.inputs.iter().copied()).chain(self.mech.lifts.iter().flat_map(|l| l.plates.iter().copied())).filter(|p| self.world.get(p[0], p[1], p[2]).is_some_and(|b| split(name(b)).0.starts_with("pressure_plate"))).collect();
         for p in plates { let down = self.weighs(p); if down != self.input_on(p) { self.world.edit(p[0], p[1], p[2], id(if down { "pressure_plate_on" } else { "pressure_plate" })); self.sound.place("stone"); } }
+        // les rouages : les leviers les font tourner (et se relèvent) ; les balanciers vont et viennent
+        let pressed: Vec<[i32; 3]> = { let mut v: Vec<[i32; 3]> = self.mech.dials.iter().flat_map(|d| d.levers.iter().map(|l| l.0)).filter(|p| self.input_on(*p)).collect(); v.sort(); v.dedup(); v };
+        for p in &pressed { for k in 0..self.mech.dials.len() { let steps: u32 = self.mech.dials[k].levers.iter().filter(|l| l.0 == *p).map(|l| l.1 as u32).sum(); if steps == 0 { continue; }
+                let d = &self.mech.dials[k]; let to = ((d.state as u32 + steps) % d.n.max(1) as u32) as u8; self.dial_set(k, to, false); }
+            self.levers_up(&[*p]); }
+        if !pressed.is_empty() { self.sound.place("iron_bars"); self.notes.push("Les rouages tournent dans un long cliquetis".into()); }
+        for k in 0..self.mech.dials.len() { if self.mech.dials[k].auto <= 0.0 { continue; } self.mech.dials[k].t -= dt; if self.mech.dials[k].t > 0.0 { continue; }
+            let d = &self.mech.dials[k]; let (to, back) = d.next(); let t = d.t + d.auto; self.dial_set(k, to, back); self.mech.dials[k].t = t.max(0.0); }
         // les fils lisent leurs entrées
         for k in 0..self.mech.wires.len() {
             let w = &self.mech.wires[k]; if w.inputs.is_empty() && w.needs.is_empty() && w.faces.is_empty() && w.blocks.is_empty() { continue; }
@@ -205,7 +230,7 @@ impl Session {
             let doors = |s: &mut Session, shut: bool| { for (p, b) in &g.doors { let now = s.world.get(p[0], p[1], p[2]); if shut && now == Some(0) { s.world.edit(p[0], p[1], p[2], *b); } else if !shut && now == Some(*b) { s.world.edit(p[0], p[1], p[2], 0); } } s.sound.place("iron_bars"); };
             match g.state {
                 0 if here => { let me_f = self.player.p; let i = self.horde.put(sp, g.at, (me_f[0] - g.at[0]).atan2(me_f[2] - g.at[2]), true); let f = &mut self.horde.foes[i]; f.kept = true; f.hp *= 2.0; f.max = f.hp; f.alert = 1.0; f.seen = Some(me_f); f.state = crate::hostile::Ai::Poursuite;
-                    doors(self, true); self.mech.guards[k].state = 1; self.dirty = true; self.notes.push(format!("Le gardien s'éveille : {} ! Les grilles retombent derrière vous", crate::hostile::bestiary().species[sp].name)); }
+                    doors(self, true); self.mech.guards[k].state = 1; self.dirty = true; let who = &crate::hostile::bestiary().species[sp].name; self.notes.push(if g.doors.is_empty() { format!("Le gardien s'éveille : {who} !") } else { format!("Le gardien s'éveille : {who} ! Les grilles retombent derrière vous") }); }
                 1 => { let a = alive(self);
                     if !a && here { doors(self, false); self.mech.guards[k].state = 2; self.dirty = true; self.notes.push("Le gardien est vaincu : les grilles se relèvent".into()); }
                     else if !here { let (lo, hi) = (g.min, g.max); self.horde.foes.retain(|f| !(f.sp == sp && inside([f.p[0].floor() as i32, f.p[1].floor() as i32, f.p[2].floor() as i32], lo, hi, 2))); doors(self, false); self.mech.guards[k].state = 0; self.dirty = true; } }
@@ -230,6 +255,22 @@ impl Session {
         if self.player.ground && self.world.get(below[0], below[1], below[2]) == Some(id("crumbling_floor")) && !self.mech.crumble.contains_key(&below) { self.mech.crumble.insert(below, CRUMBLE_T); self.sound.place("gravel"); }
         let mut fall = Vec::new(); for (p, t) in self.mech.crumble.iter_mut() { *t -= dt; if *t <= 0.0 { fall.push(*p); } }
         for p in fall { self.mech.crumble.remove(&p); if self.world.get(p[0], p[1], p[2]) == Some(id("crumbling_floor")) { self.world.edit(p[0], p[1], p[2], 0); self.sound.place("gravel"); self.dirty = true; } }
+    }
+    /// Mettre le rouage `k` sur le cran `to` : effacer l'ancien dessin, poser le nouveau. Ce qui est dessiné sur le joueur le
+    /// blesse et le projette (le balancier), ou n'est pas posé (un engrenage ne l'emmure pas).
+    pub fn dial_set(&mut self, k: usize, to: u8, back: bool) {
+        let d = self.mech.dials[k].clone(); if to == d.state { self.mech.dials[k].back = back; return; }
+        let (old, new) = (d.draw.get(d.state as usize).cloned().unwrap_or_default(), d.draw.get(to as usize).cloned().unwrap_or_default());
+        let me = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.05).floor() as i32, self.player.p[2].floor() as i32]; let mine = |c: &[i32; 3]| c[0] == me[0] && c[2] == me[2] && (c[1] == me[1] || c[1] == me[1] + 1);
+        let mut e: Vec<(i32, i32, i32, Id)> = Vec::new();
+        for (c, b) in &old { if !new.iter().any(|(q, _)| q == c) && self.world.get(c[0], c[1], c[2]) == Some(*b) { e.push((c[0], c[1], c[2], 0)); } }
+        let mut struck = false;
+        for (c, b) in &new { let now = self.world.get(c[0], c[1], c[2]); if now == Some(*b) { continue; } if mine(c) && self.dead.is_none() && !self.creative { if d.hit > 0.0 { struck = true; } else { continue; } }
+            if now == Some(0) || old.iter().any(|(q, ob)| q == c && Some(*ob) == now) { e.push((c[0], c[1], c[2], *b)); } }
+        self.world.edit_many(&e); self.dirty = true; let dd = &mut self.mech.dials[k]; dd.state = to; dd.back = back;
+        if struck && !self.player.fly { let mid = |l: &[([i32; 3], Id)]| { let n = l.len().max(1) as f64; [l.iter().map(|c| c.0[0] as f64).sum::<f64>() / n, l.iter().map(|c| c.0[2] as f64).sum::<f64>() / n] };
+            let (a, b) = (mid(&old), mid(&new)); let (dx, dz) = (b[0] - a[0], b[1] - a[1]); let l = dx.hypot(dz).max(1e-6);
+            self.harm(d.hit, "Le balancier de l'horloge", false); self.player.v = [dx / l * 9.0, 5.0, dz / l * 9.0]; self.player.p[0] += dx / l * 0.6; self.player.p[2] += dz / l * 0.6; self.notes.push("Le balancier vous fauche !".into()); }
     }
     fn near(&self, l: &[[i32; 3]], r: f64) -> bool { l.iter().any(|p| (p[0] as f64 + 0.5 - self.player.p[0]).hypot(p[2] as f64 + 0.5 - self.player.p[2]) < r) }
     /// Une case scellée : on n'y creuse ni n'y bâtit (sauf ce qui est fait pour être manipulé, et en créatif).
@@ -324,6 +365,9 @@ impl Session {
         for b in &self.mech.beams { o += &format!("beam {} {},{} {} {} {}\n", pts(&[b.src]), b.dir.0, b.dir.1, b.day as u8, pts(&b.cells), pts(&b.lit)); }
         for p in &self.mech.pools { o += &format!("pool {} {} {} {} {}\n", p.top, p.level, word(&p.by), pts(&p.cols), if p.liquid == 0 { "-" } else { name(p.liquid) }); }
         for l in &self.mech.lifts { o += &format!("lift {} {} {} {} {} {} {} {} {}\n", l.cols.iter().map(|c| format!("{},{}", c[0], c[1])).collect::<Vec<_>>().join(";"), l.base, l.per, l.max, pts(&l.plates), word(&l.lock), name(l.block), name(l.fill), l.level); }
+        for d in &self.mech.dials { let lv = if d.levers.is_empty() { "-".to_string() } else { d.levers.iter().map(|(p, s)| format!("{},{},{},{s}", p[0], p[1], p[2])).collect::<Vec<_>>().join(";") };
+            let dr = d.draw.iter().map(|st| if st.is_empty() { "-".to_string() } else { st.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") }).collect::<Vec<_>>().join("|");
+            o += &format!("dial {} {} {} {} {} {} {} {} {} {}\n", word(&d.name), d.n, d.state, d.goal, d.auto, d.swing as u8, d.hit, d.back as u8, lv, dr); }
         if !self.mech.chests.is_empty() { o += &format!("mchest {}\n", pts(&self.mech.chests)); }
         if !self.mech.secrets.is_empty() { o += &format!("msecret {}\n", pts(&self.mech.secrets)); }
         if !self.mech.vaults.is_empty() { o += &format!("mvault {}\n", pts(&self.mech.vaults)); }
@@ -378,5 +422,11 @@ impl Session {
         self.mech.lifts.push(Lift { cols, base: a[1].parse().unwrap_or(0), per: a[2].parse().unwrap_or(1), max: a[3].parse().unwrap_or(1), plates: pts(a[4]), lock: if a[5] == "-" { String::new() } else { a[5].to_string() }, block: by_name(a[6]).unwrap_or(0), fill: by_name(a[7]).unwrap_or(0), level: a[8].parse().unwrap_or(0), t: 0.0 });
     }
     pub(crate) fn mvault_load(&mut self, rest: &str) { self.mech.vaults.extend(pts(rest.trim())); }
+    pub(crate) fn dial_load(&mut self, rest: &str) {
+        let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 10 { return; }
+        let levers = if a[8] == "-" { Vec::new() } else { a[8].split(';').filter_map(|c| { let v: Vec<i32> = c.split(',').filter_map(|x| x.parse().ok()).collect(); (v.len() == 4).then(|| ([v[0], v[1], v[2]], v[3] as u8)) }).collect() };
+        let draw = a[9].split('|').map(|st| if st == "-" { Vec::new() } else { st.split(';').filter_map(|c| { let v: Vec<&str> = c.splitn(4, ',').collect(); if v.len() < 4 { return None; } Some(([v[0].parse().ok()?, v[1].parse().ok()?, v[2].parse().ok()?], by_name(v[3])?)) }).collect() }).collect();
+        self.mech.dials.push(Dial { name: if a[0] == "-" { String::new() } else { a[0].to_string() }, n: a[1].parse().unwrap_or(1), state: a[2].parse().unwrap_or(0), goal: a[3].parse().unwrap_or(0), auto: a[4].parse().unwrap_or(0.0), swing: a[5] == "1", hit: a[6].parse().unwrap_or(0.0), back: a[7] == "1", levers, draw, t: 0.0 });
+    }
 }
 fn pts(s: &str) -> Vec<[i32; 3]> { if s == "-" { return Vec::new(); } s.split(';').filter_map(|c| { let v: Vec<i32> = c.split(',').filter_map(|x| x.parse().ok()).collect(); (v.len() == 3).then(|| [v[0], v[1], v[2]]) }).collect() }
