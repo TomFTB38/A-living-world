@@ -1236,8 +1236,8 @@ pub const BLOCKS: [Block; 1234] = [
     Block { id: 1228, name: "wall_relief@3", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("wall_relief"), cat: "rock", drop: Some("wall_relief") },
     Block { id: 1229, name: "lintel@3", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("lintel"), cat: "rock", drop: Some("lintel") },
     Block { id: 1230, name: "altar@3", shape: Shape::Deco, hardness: 2.2, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("altar"), cat: "rock", drop: Some("altar") },
-    Block { id: 1231, name: "brass", shape: Shape::Cube, hardness: 2.5, faces: [336,336,336], dir_faces: [336,336,336,336], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.08,0.8,0.4], model: None, cat: "rock", drop: Some("iron_ingot") },
-    Block { id: 1232, name: "brass_dark", shape: Shape::Cube, hardness: 2.5, faces: [336,336,336], dir_faces: [336,336,336,336], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.62,0.44,0.22], model: None, cat: "rock", drop: Some("iron_ingot") },
+    Block { id: 1231, name: "brass", shape: Shape::Cube, hardness: 2.5, faces: [256,256,256], dir_faces: [256,256,256,256], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.98,0.74,0.32], model: None, cat: "rock", drop: Some("iron_ingot") },
+    Block { id: 1232, name: "brass_dark", shape: Shape::Cube, hardness: 2.5, faces: [272,272,272], dir_faces: [272,272,272,272], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.86,0.58,0.26], model: None, cat: "rock", drop: Some("iron_ingot") },
     Block { id: 1233, name: "clock_face", shape: Shape::Cube, hardness: 1.8, faces: [256,256,256], dir_faces: [256,256,256,256], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,0.95,0.84], model: None, cat: "rock", drop: Some("marble") },
 ];
 

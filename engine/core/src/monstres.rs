@@ -575,9 +575,9 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
         egg(p, [0.0, 0.38, 0.0], [0.27, 0.26, 0.21], br2, br, 14); for y in [0.22, 0.52] { arc(p, [0.0, 0.0, 0.0], 0.255, 0.0, std::f64::consts::TAU, y, 0.018, brd, br2, 16, 0.8); } rivets(p, [0.0, 0.0, 0.0], 0.262, 0.212, 0.37, 14);
         rod(p, [0.0, 0.14, 0.0], [0.0, -0.02, 0.0], 0.1, 0.075, brd, br2, 3); egg(p, [0.0, -0.06, 0.0], [0.17, 0.1, 0.13], br2, br, 12); rod(p, [-0.17, -0.06, 0.02], [0.17, -0.06, 0.02], 0.03, 0.03, cop, cop, 5);
         // le hublot du poitrail : un anneau de cuivre, une vitre, le rouage qui tourne derrière
-        for k in 0..12 { let a = k as f64 * std::f64::consts::TAU / 12.0; let (x, y) = (a.sin() * 0.1, a.cos() * 0.1 + 0.4); rod(p, [x, y, 0.2], [x * 1.0, y, 0.215], 0.016, 0.016, cop, cop, 1); }
-        p.blob_m([0.0, 0.4, 0.2], [0.085, 0.085, 0.01], glass, mix(glass, amb, 0.3), PLAIN); p.blob_m([0.0, 0.4, 0.19], [0.06, 0.06, 0.01], amb, br, PLAIN);
-        for k in 0..6 { let a = k as f64 * std::f64::consts::PI / 6.0; rod(p, [a.sin() * -0.07, 0.4 + a.cos() * -0.07, 0.205], [a.sin() * 0.07, 0.4 + a.cos() * 0.07, 0.205], 0.008, 0.008, brd, brd, 2); }
+        for k in 0..14 { let a = k as f64 * std::f64::consts::TAU / 14.0; let (x, y) = (a.sin() * 0.11, a.cos() * 0.11 + 0.4); rod(p, [x, y, 0.2], [x, y, 0.245], 0.022, 0.022, cop, cop, 1); }
+        p.blob_m([0.0, 0.4, 0.228], [0.095, 0.095, 0.008], mix(glass, amb, 0.35), glass, PLAIN); p.blob_m([0.0, 0.4, 0.232], [0.06, 0.06, 0.008], amb, [1.0, 0.9, 0.5], PLAIN);
+        for k in 0..6 { let a = k as f64 * std::f64::consts::PI / 6.0; rod(p, [a.sin() * -0.075, 0.4 + a.cos() * -0.075, 0.24], [a.sin() * 0.075, 0.4 + a.cos() * 0.075, 0.24], 0.009, 0.009, brd, brd, 2); } p.blob_m([0.0, 0.4, 0.245], [0.022, 0.022, 0.01], brd, brd, Mat::Metal);
         // les épaulières de laiton à trois lames, un col de cuivre vert-de-gris
         for sx in [-1.0f64, 1.0] { egg(p, [sx * 0.27, 0.6, 0.0], [0.12, 0.1, 0.13], br2, br, 10); for k in 0..3 { let y = 0.62 - k as f64 * 0.06; slab(p, [sx * 0.2, y, 0.0], [sx * (0.38 + k as f64 * 0.02), y - 0.08, 0.0], 0.26, 0.24, 0.02, [sx, 0.6, 0.0], br, brd, 2); } }
         rod(p, [0.0, 0.62, 0.0], [0.0, 0.7, 0.0], 0.09, 0.07, verd, cop, 3);
@@ -594,7 +594,7 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
     m("autHead", Mat::Metal, 0.012, &|p| {
         // un heaume en dôme, une visière en T qui luit, une crête de lames, des rouages aux tempes
         egg(p, [0.0, 0.14, 0.0], [0.12, 0.14, 0.13], br2, br, 12); rod(p, [0.0, 0.0, 0.0], [0.0, 0.05, 0.0], 0.11, 0.12, brd, br2, 2);
-        crate::mesher::obox(p.q, [0.0, 0.15, 0.118], [[0.08, 0.0, 0.0], [0.0, 0.016, 0.0], [0.0, 0.0, 0.012]], amb, -1.0, 255.0, 0.0); crate::mesher::obox(p.q, [0.0, 0.1, 0.122], [[0.016, 0.0, 0.0], [0.0, 0.05, 0.0], [0.0, 0.0, 0.012]], amb, -1.0, 255.0, 0.0);
+        crate::mesher::obox(p.q, [0.0, 0.15, 0.13], [[0.085, 0.0, 0.0], [0.0, 0.02, 0.0], [0.0, 0.0, 0.016]], amb, -1.0, 255.0, 0.0); crate::mesher::obox(p.q, [0.0, 0.1, 0.135], [[0.02, 0.0, 0.0], [0.0, 0.055, 0.0], [0.0, 0.0, 0.014]], amb, -1.0, 255.0, 0.0);
         for k in 0..5 { let z = 0.1 - k as f64 * 0.05; slab(p, [0.0, 0.26, z], [0.0, 0.34 - (k as f64 - 2.0).abs() * 0.02, z - 0.03], 0.05, 0.03, 0.014, [1.0, 0.0, 0.0], cop, verd, 2); }
         for sx in [-1.0f64, 1.0] { arc(p, [sx * 0.125, 0.14, 0.0], 0.045, 0.0, std::f64::consts::TAU, 0.0, 0.012, brd, br2, 8, 1.0); p.blob_m([sx * 0.13, 0.14, 0.0], [0.016, 0.03, 0.03], cop, cop, Mat::Metal); }
         rivets(p, [0.0, 0.0, 0.0], 0.12, 0.13, 0.05, 10);
