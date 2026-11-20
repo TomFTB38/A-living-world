@@ -676,11 +676,13 @@ fn capture(a: &[String]) {
     // L'Épave du navire-fantôme : le galion sur la grève, la cale à marée haute, l'entrepont des canons, la grand-voile déployée, le Capitaine.
     if let Some(vw) = scene.strip_prefix("plat_epave_") {
         let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false); s.hour = 11.0;
+        // une mer autour du banc de sable (le monde plat des captures n'en a pas)
+        { let w = alw_core::blocks::B::WATER; let mut e = Vec::new(); for x in -60..=60 { for z in -75..=75 { for y in o[1] - 4..=o[1] { e.push((o[0] + x, y, o[2] + z, if y == o[1] { 0 } else { w })); } } } s.world.edit_many(&e); }
         s.build_wreck(o); pump(&mut s, &mut g); let f = o[1] + 1;
         // la marée haute pour la cale ; la voile déployée pour le pont
         if vw == "cale" { if let Some(t) = s.mech.tides.last_mut() { t.high = 1.0; } for _ in 0..120 { s.tick(1.0 / 60.0, none, Actions::default()); } }
         if vw == "voile" { let k = s.mech.dials.iter().position(|d| d.name.ends_with("voile")).unwrap(); s.dial_set(k, 1, false); }
-        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "greve" => ([-24.5, 6.0, -30.5], [0.5, 8.0, 0.0]), "cale" => ([-5.5, 4.6, -12.5], [1.0, 3.0, 2.0]),
+        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "greve" => ([-30.5, 9.0, -34.5], [0.5, 9.0, 0.0]), "cale" => ([-5.5, 4.6, -12.5], [1.0, 3.0, 2.0]),
             "canons" => ([0.5, 6.5, 9.5], [0.5, 6.5, -8.0]), "voile" => ([-9.5, 15.0, -11.5], [0.5, 15.0, 2.0]), _ => ([4.5, 10.5, 13.5], [0.5, 10.5, 18.0]) };
         s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }

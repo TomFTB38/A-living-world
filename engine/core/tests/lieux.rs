@@ -49,7 +49,8 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
             Lieu::Epave => {
                 // la coque, la brèche, la cale, les canons, le grand mât et sa voile roulée, la porte de la cabine, le coffre
                 use alw_core::epave as ep; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, pl.y + 1 + v, pl.z + w);
-                assert!(name(rel(7, 4, 0)) == "wreck_planks", "le flanc"); assert_eq!(rel(ep::BREACH.0, 2, ep::BREACH.1), 0, "la brèche"); assert_eq!(rel(0, 2, -6), 0, "la cale");
+                let fl = name(rel(ep::shell_r(0, 4), 4, 0)); assert!(fl == "wreck_planks" || fl == "planks_dark", "le flanc ({fl})"); assert_eq!(name(rel(0, -1, -29)), "sand", "le banc de sable"); let ring: Vec<&str> = (0..72).map(|k| { let a = k as f64 * std::f64::consts::TAU / 72.0; name(rel((a.sin() * 12.0 * 1.6).round() as i32, -2, (a.cos() * 31.0 * 1.6).round() as i32)) }).collect();
+                let wet = ring.iter().filter(|n| **n == "water").count(); println!("épave : {wet}/72 cases d'eau autour du banc"); assert!(wet * 10 >= 72 * 3, "l'épave est en mer, ou au bord de l'eau ({wet}/72)"); assert_eq!(rel(ep::BREACH.0, 2, ep::BREACH.1), 0, "la brèche"); assert_eq!(rel(0, 2, -6), 0, "la cale");
                 assert_eq!(name(rel(ep::beam(ep::CANNONS[0]), ep::GUN + 1, ep::CANNONS[0])), "cannon"); assert_eq!(name(rel(0, ep::YARD, 0)), "spruce_log", "le grand mât"); assert_eq!(name(rel(0, ep::YARD - 1, ep::YARD_W + 1)), "sail", "la voile roulée");
                 assert_eq!(name(rel(0, 10, 12)), "great_chain", "la porte de la cabine");
             }

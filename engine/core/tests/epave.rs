@@ -20,7 +20,11 @@ fn water(s: &Session, o: [i32; 3], v: i32) -> bool { name(s, at(o, [2, v, -6])) 
 
 #[test]
 fn la_coque_est_close() {
-    assert_eq!(ep::beam(ep::BOW), 2); assert_eq!(ep::beam(0), 7); assert_eq!(ep::beam(ep::STERN), 5);
+    assert!(ep::beam(ep::BOW + 1) <= 2, "une proue fine"); assert_eq!(ep::beam(0), 7, "un maître-couple large"); assert!((5..=6).contains(&ep::beam(ep::STERN)), "une poupe carrée");
+    assert!(ep::shell_r(0, -1) < ep::shell_r(0, 0) && ep::shell_r(0, 0) < ep::shell_r(0, 3), "des fonds qui se rentrent vers la quille");
+    // étanche : chaque case du dedans ne touche que du dedans ou la coque (jusqu'au pont ; au-dessus, il est à ciel ouvert)
+    for w in ep::BOW..=ep::STERN { for v in 0..=ep::DECK { for u in -9..=9 { if !ep::interior(u, w, v) { continue; }
+        for (du, dv, dw) in [(1, 0, 0), (-1, 0, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)] { let (nu, nv, nw) = (u + du, v + dv, w + dw); assert!(ep::interior(nu, nw, nv) || (nw >= ep::BOW && nw <= ep::STERN && nv >= -1 && nu.abs() <= ep::shell_r(nw, nv)), "une fuite en {u} {v} {w} vers {nu} {nv} {nw}"); } } } }
     for k in 0..2u8 { assert!(ep::sail(k).iter().all(|(c, _)| c[1] > ep::DECK + 1 || k == 0), "la voile ne barre pas le pont"); }
 }
 

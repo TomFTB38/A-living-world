@@ -71,7 +71,7 @@ impl Place {
             // deux rôdeurs dans la cour de l'observatoire
             // deux rôdeurs dans le jardin en friche de la serre
             // deux brigands (des pilleurs d'épave) sur la grève
-            Lieu::Epave => vec![("brigand", at(-11.0, 0.0, -14.0)), ("brigand", at(11.0, 0.0, 12.0))],
+            Lieu::Epave => vec![("brigand", at(-9.0, 0.0, -10.0)), ("brigand", at(9.0, 0.0, 10.0))],
             Lieu::Serre => vec![("rodeur", at(-11.0, 0.0, -19.0)), ("rodeur", at(11.0, 0.0, 18.0))],
             Lieu::Observatoire => vec![("rodeur", at(-9.0, 0.0, -18.0)), ("rodeur", at(9.0, 0.0, -18.0))],
             Lieu::Horloge => vec![("brigand", at(-8.0, 0.0, -13.0)), ("brigand", at(8.0, 0.0, -13.0)), ("rodeur", at(0.0, 0.0, -14.0))],
@@ -139,6 +139,12 @@ impl WorldGen {
         // le temple de glace : une grande emprise ; on ne veut ni mer, ni rivière, ni route, et une pente modérée (le terrain est
         // ensuite aplani autour de lui, falaises comprises)
         // la tour de l'horloge : haute de près de soixante blocs ; elle ne doit pas crever le ciel du monde
+        // l'épave : en mer, sur un haut-fond près du rivage (la plus grande part de l'ovale est de l'eau peu profonde, le reste une grève
+        // basse) ; son banc de sable affleure juste au-dessus de l'eau
+        if kind == Lieu::Epave { let (mut wet, mut n, mut level) = (0.0, 0.0, f64::MIN); let mut cols = Vec::new(); let mut dz = -36; while dz <= 34 { let mut dx = -14; while dx <= 14 { if (dx as f64 / 14.0).powi(2) + (dz as f64 / 36.0).powi(2) <= 1.0 {
+                let c = self.column((x + dx) as f64, (z + dz) as f64); if c.path > 0.3 || c.cliff > 0.5 { return None; } let water = c.water > c.h + 0.5; if water { wet += 1.0; level = level.max(c.water); if c.water - c.h > 9.0 { return None; } } cols.push((c.h, water)); n += 1.0; } dx += 3; } dz += 3; }
+            if n == 0.0 || wet / n < 0.5 || wet / n > 0.97 || level < SEA - 0.5 { return None; } if cols.iter().any(|(h, w)| !*w && *h > level + 3.0) { return None; }
+            return Some(level.floor() as i32 + 1); }
         if matches!(kind, Lieu::Glace | Lieu::Horloge | Lieu::Observatoire | Lieu::Serre | Lieu::Epave) { let (ax, az0, az1, top) = match kind { Lieu::Glace => (24, -30, 34, 118.0), Lieu::Horloge => (12, -17, 13, 66.0), Lieu::Serre => (14, -21, 20, 100.0), Lieu::Epave => (14, -30, 28, SEA as f64 + 14.0), _ => (13, -21, 16, 104.0) }; let (mut lo, mut hi, mut sum, mut n) = (f64::MAX, f64::MIN, 0.0, 0.0); let mut dz = az0; while dz <= az1 { let mut dx = -ax; while dx <= ax {
                 let c = self.column((x + dx) as f64, (z + dz) as f64); if c.mix.sea > 0.02 || c.wet || c.h < SEA + 1.5 || c.h > top || c.path > 0.3 { return None; } lo = lo.min(c.h); hi = hi.max(c.h); sum += c.h; n += 1.0; dx += 3; } dz += 3; }
             return (hi - lo <= tol).then(|| (sum / n).floor() as i32); }
@@ -224,7 +230,7 @@ impl WorldGen {
         match pl.kind { Lieu::Tour => self.build_tower(&mut p, &pl, &mut r), Lieu::Cimetiere => self.build_cemetery(&mut p, &pl, &mut r), Lieu::Camp => self.build_camp(&mut p, &pl, &mut r), Lieu::Sanctuaire => { self.pad(&mut p, &pl, |_, dz| (-18..=-8).contains(&dz), 5, 18, 8, None); crate::sanctuaire::carve(&mut p, [pl.x, pl.y, pl.z]); }
             Lieu::Grotte => crate::grotte::carve(&mut p, [pl.x, pl.y, pl.z]),
             Lieu::Soleil => { self.pad(&mut p, &pl, |_, _| true, 19, 24, 20, None); crate::soleil::carve(&mut p, [pl.x, pl.y, pl.z]); }
-            Lieu::Epave => { self.pad(&mut p, &pl, |_, _| true, 14, 30, 30, Some(crate::blocks::B::SAND)); crate::epave::carve(&mut p, [pl.x, pl.y, pl.z]); }
+            Lieu::Epave => { crate::epave::carve(&mut p, [pl.x, pl.y, pl.z]); }
             Lieu::Serre => { self.pad(&mut p, &pl, |_, _| true, 14, 21, 26, None); crate::serre::carve(&mut p, [pl.x, pl.y, pl.z]); }
             Lieu::Observatoire => { self.pad(&mut p, &pl, |_, _| true, 13, 21, 24, None); crate::observatoire::carve(&mut p, [pl.x, pl.y, pl.z]); }
             Lieu::Horloge => { self.pad(&mut p, &pl, |_, _| true, 12, 17, 60, None); crate::horloge::carve(&mut p, [pl.x, pl.y, pl.z]); }
