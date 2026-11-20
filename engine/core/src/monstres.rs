@@ -714,6 +714,52 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
         egg(p, [prev[0], prev[1] + 0.08, prev[2]], [0.08, 0.11, 0.08], [0.45, 0.3, 0.5], [0.7, 0.5, 1.0], 8); for k in 0..5 { let a = k as f64 * 1.26; p.blob_m([prev[0] + a.sin() * 0.075, prev[1] + 0.08 + a.cos() * 0.05, prev[2] + 0.05], [0.02, 0.02, 0.02], [0.75, 0.6, 1.0], [1.0, 0.95, 1.0], PLAIN); }
     });
 
+    // ---- Le Capitaine : un spectre de capitaine. Une longue redingote bleu nuit à basques, des revers et des boutons d'or, une
+    // ceinture et son baudrier ; un tricorne à plume ; un visage pâle et verdâtre, des orbites qui luisent, une barbe où pend du
+    // varech ; des bottes à revers. Au poing, un sabre d'abordage courbe, sa garde en coquille.
+    let (cot1, cot2, gol, gol2, ghost, ghost2, glw, hat, kelp, lea) = ([0.1, 0.13, 0.25], [0.16, 0.2, 0.36], [0.92, 0.75, 0.32], [0.65, 0.5, 0.2], [0.62, 0.8, 0.76], [0.42, 0.58, 0.56], [0.55, 1.0, 0.9], [0.08, 0.08, 0.1], [0.25, 0.45, 0.2], [0.24, 0.16, 0.1]);
+    m("cptTorso", Mat::Cloth, 0.014, &|p| {
+        // le buste de la redingote, ses revers d'or, la double rangée de boutons ; la ceinture, le baudrier ; les basques jusqu'aux genoux
+        shell(p, [0.0, 0.0, 0.0], &[(-0.05, 0.17, 0.13, 0.0), (0.2, 0.19, 0.14, 0.0), (0.45, 0.21, 0.14, 0.0), (0.6, 0.18, 0.12, 0.0), (0.68, 0.07, 0.07, 0.0)], 12, cot1, cot2, 0.025);
+        for sx in [-1.0f64, 1.0] { slab(p, [sx * 0.04, 0.62, 0.11], [sx * 0.11, 0.2, 0.15], 0.06, 0.03, 0.012, [sx * 0.3, 0.0, 1.0], gol, gol2, 4); for k in 0..5 { p.blob_m([sx * 0.07, 0.52 - k as f64 * 0.075, 0.155], [0.016, 0.016, 0.01], gol, [1.0, 0.95, 0.7], Mat::Metal); } }
+        arc(p, [0.0, 0.0, 0.0], 0.175, 0.0, std::f64::consts::TAU, 0.06, 0.03, lea, lea, 12, 0.82); crate::mesher::obox(p.q, [0.0, 0.06, 0.15], [[0.04, 0.0, 0.0], [0.0, 0.035, 0.0], [0.0, 0.0, 0.01]], gol, -1.0, 255.0, 0.0);
+        slab(p, [0.17, 0.6, 0.06], [-0.15, 0.04, 0.12], 0.05, 0.05, 0.012, [0.0, 0.0, 1.0], lea, lea, 6);
+        for k in 0..8 { let a = (k as f64 - 3.5) * 0.4 + std::f64::consts::PI; slab(p, [a.sin() * 0.17, 0.02, a.cos() * 0.13], [a.sin() * 0.26, -0.5, a.cos() * 0.2], 0.08, 0.11, 0.016, [a.sin(), -0.15, a.cos()], cot2, cot1, 5); }
+        for sx in [-1.0f64, 1.0] { slab(p, [sx * 0.15, 0.02, 0.06], [sx * 0.22, -0.45, 0.1], 0.07, 0.1, 0.016, [sx, 0.0, 0.5], cot2, cot1, 5); }
+        // les épaulettes d'or à franges ; la lueur spectrale qui suinte du col
+        for sx in [-1.0f64, 1.0] { egg(p, [sx * 0.2, 0.6, 0.0], [0.08, 0.03, 0.08], gol, gol2, 8); for k in 0..6 { let z = (k as f64 - 2.5) * 0.025; rod(p, [sx * 0.27, 0.59, z], [sx * 0.29, 0.53, z], 0.006, 0.004, gol, gol2, 1); } }
+        p.blob_m([0.0, 0.66, 0.0], [0.07, 0.03, 0.06], glw, [0.9, 1.0, 1.0], PLAIN);
+    });
+    m("cptHead", Mat::Cloth, 0.012, &|p| {
+        // un visage maigre, pâle et verdâtre, des orbites qui luisent ; une barbe noire et ses tresses de varech ; le tricorne à plume
+        egg(p, [0.0, 0.12, 0.01], [0.08, 0.1, 0.09], ghost, ghost2, 10); p.blob_m([0.0, 0.11, 0.09], [0.015, 0.025, 0.02], ghost, ghost2, PLAIN);
+        for sx in [-1.0f64, 1.0] { p.blob_m([sx * 0.032, 0.14, 0.078], [0.02, 0.014, 0.01], [0.05, 0.08, 0.08], [0.05, 0.08, 0.08], PLAIN); p.blob_m([sx * 0.032, 0.14, 0.085], [0.009, 0.009, 0.006], glw, [1.0, 1.0, 1.0], PLAIN); }
+        for k in 0..5 { let x = (k as f64 - 2.0) * 0.024; slab(p, [x * 1.4, 0.07, 0.07], [x, -0.08 - (2.0 - (k as f64 - 2.0).abs()) * 0.02, 0.06], 0.035, 0.012, 0.014, [0.0, 0.0, 1.0], hat, [0.15, 0.15, 0.17], 3); }
+        for x in [-0.04, 0.03] { rod(p, [x, 0.0, 0.08], [x + 0.01, -0.16, 0.06], 0.01, 0.006, kelp, mix(kelp, glw, 0.3), 3); }
+        // le tricorne : un fond bombé, trois bords relevés, un galon d'or, la plume
+        egg(p, [0.0, 0.22, 0.0], [0.1, 0.06, 0.1], hat, [0.14, 0.14, 0.16], 10);
+        for k in 0..3 { let a = k as f64 * std::f64::consts::TAU / 3.0; let (dx, dz) = (a.sin(), a.cos()); slab(p, [dx * 0.06 - dz * 0.12, 0.2, dz * 0.06 + dx * 0.12], [dx * 0.06 + dz * 0.12, 0.2, dz * 0.06 - dx * 0.12], 0.07, 0.07, 0.012, [dx, 0.6, dz], hat, [0.14, 0.14, 0.16], 3);
+            rod(p, [dx * 0.12 - dz * 0.12, 0.25, dz * 0.12 + dx * 0.12], [dx * 0.12 + dz * 0.12, 0.25, dz * 0.12 - dx * 0.12], 0.008, 0.008, gol, gol, 3); }
+        let mut q = [0.08, 0.26, -0.04]; for i in 0..5 { let n = [q[0] + 0.03, q[1] + 0.045 - i as f64 * 0.006, q[2] - 0.035]; rod(p, q, n, 0.022 - i as f64 * 0.003, 0.02 - i as f64 * 0.003, [0.85, 0.85, 0.82], [0.95, 0.95, 0.92], 1); q = n; }
+    });
+    m("cptArm", Mat::Cloth, 0.014, &|p| {
+        // la manche de redingote, son grand parement à boutons d'or, la manchette de dentelle, une main de spectre
+        rod(p, [0.0, 0.0, 0.0], [0.0, -0.32, 0.0], 0.058, 0.05, cot1, cot2, 4); rod(p, [0.0, -0.32, 0.0], [0.0, -0.5, 0.03], 0.05, 0.05, cot2, cot1, 3); rod(p, [0.0, -0.42, 0.03], [0.0, -0.52, 0.035], 0.064, 0.066, gol2, gol, 2);
+        for y in [-0.45, -0.49] { p.blob_m([0.0, y, 0.095], [0.012, 0.012, 0.008], gol, gol, Mat::Metal); } for k in 0..6 { let a = k as f64 * 1.05; rod(p, [a.sin() * 0.05, -0.52, 0.03 + a.cos() * 0.05], [a.sin() * 0.06, -0.57, 0.035 + a.cos() * 0.06], 0.01, 0.004, [0.92, 0.92, 0.88], [1.0, 1.0, 0.95], 1); }
+        egg(p, [0.0, -0.6, 0.04], [0.035, 0.045, 0.035], ghost, ghost2, 8); for k in 0..4 { let x = (k as f64 - 1.5) * 0.016; rod(p, [x, -0.63, 0.05], [x, -0.69, 0.065], 0.008, 0.006, ghost, ghost2, 2); }
+    });
+    m("cptLeg", Mat::Cloth, 0.014, &|p| {
+        // une culotte claire, de hautes bottes à revers
+        rod(p, [0.0, 0.0, 0.0], [0.0, -0.36, 0.02], 0.065, 0.055, [0.75, 0.72, 0.62], [0.62, 0.6, 0.52], 3); rod(p, [0.0, -0.34, 0.02], [0.0, -0.74, 0.0], 0.06, 0.055, lea, mix(lea, hat, 0.4), 4);
+        rod(p, [0.0, -0.32, 0.02], [0.0, -0.4, 0.02], 0.075, 0.07, mix(lea, [0.5, 0.35, 0.2], 0.5), lea, 2); crate::mesher::obox(p.q, [0.0, -0.78, 0.04], [[0.055, 0.0, 0.0], [0.0, 0.035, 0.0], [0.0, 0.0, 0.11]], lea, -1.0, 255.0, 0.0);
+    });
+    m("cptSabre", Mat::Metal, 0.012, &|p| {
+        // le sabre d'abordage : une lame large et courbe, sa garde en coquille dorée, la poignée de cuir, le pommeau
+        rod(p, [0.0, -0.12, 0.0], [0.0, 0.02, 0.0], 0.02, 0.018, lea, lea, 3); p.blob_m([0.0, -0.13, 0.0], [0.025, 0.025, 0.025], gol, gol2, Mat::Metal);
+        egg(p, [0.0, 0.04, 0.03], [0.06, 0.025, 0.06], gol, gol2, 8); arc(p, [0.0, 0.0, 0.0], 0.05, 0.0, std::f64::consts::PI, -0.05, 0.008, gol, gol, 6, 1.0);
+        let mut q = [0.0, 0.05, 0.0]; for i in 0..8 { let t = (i + 1) as f64 / 8.0; let n = [0.0, 0.05 + t * 0.7, -0.15 * t * t]; slab(p, q, n, 0.045 - t * 0.012, 0.045 - (t + 0.125) * 0.012, 0.006, [1.0, 0.0, 0.0], [0.75, 0.82, 0.85], [0.92, 0.96, 1.0], 1); q = n; }
+    });
+
     // Noyé : la peau turquoise des fonds, des yeux qui luisent, la tête et les épaules coiffées d'algues qui dégoulinent,
     // une tunique brune trouée et effilochée, des bernacles ; il tient un trident.
     let (teal, teal2, teal3) = ([0.3, 0.68, 0.68], [0.16, 0.44, 0.48], [0.42, 0.82, 0.8]); let (alg, alg2, rag, rag2) = ([0.36, 0.5, 0.14], [0.2, 0.34, 0.12], [0.44, 0.25, 0.14], [0.28, 0.16, 0.1]);

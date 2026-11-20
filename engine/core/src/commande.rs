@@ -8,9 +8,9 @@ use crate::session::Session;
 use crate::wild::Kind;
 
 /// Les œufs d'apparition : identifiant de l'objet, nom de la créature.
-pub const EGGS: [(&str, &str); 53] = [
+pub const EGGS: [(&str, &str); 54] = [
     ("egg_rodeur", "rôdeur décharné"), ("egg_brigand", "brigand errant"), ("egg_rodeuse", "bête rôdeuse"), ("egg_rampant", "rampant nocturne"),
-    ("egg_colosse", "colosse englouti"), ("egg_roi_noye", "Roi noyé"), ("egg_gardien_soleil", "Gardien du Soleil"), ("egg_premier_roi", "Premier Roi"), ("egg_maitre_forge", "Maître de forge"), ("egg_reine_glaces", "Reine des glaces"), ("egg_automate", "Automate de l'horloger"), ("egg_astronome", "Astronome"), ("egg_mere_racine", "Mère-Racine"), ("egg_brigand_archer", "archer brigand"), ("egg_brigand_epeiste", "épéiste brigand"), ("egg_brigand_cavalier", "cavalier brigand"), ("egg_brigand_chef", "chef de guerre brigand"), ("egg_capitaine", "capitaine squelette"), ("egg_gardien", "gardien de la crypte"),
+    ("egg_colosse", "colosse englouti"), ("egg_roi_noye", "Roi noyé"), ("egg_gardien_soleil", "Gardien du Soleil"), ("egg_premier_roi", "Premier Roi"), ("egg_maitre_forge", "Maître de forge"), ("egg_reine_glaces", "Reine des glaces"), ("egg_automate", "Automate de l'horloger"), ("egg_astronome", "Astronome"), ("egg_mere_racine", "Mère-Racine"), ("egg_capitaine_fantome", "Capitaine fantôme"), ("egg_brigand_archer", "archer brigand"), ("egg_brigand_epeiste", "épéiste brigand"), ("egg_brigand_cavalier", "cavalier brigand"), ("egg_brigand_chef", "chef de guerre brigand"), ("egg_capitaine", "capitaine squelette"), ("egg_gardien", "gardien de la crypte"),
     ("egg_deer", "cerf"), ("egg_fox", "renard"), ("egg_hare", "lièvre"), ("egg_crow", "corbeau"), ("egg_wolf", "loup"), ("egg_boar", "sanglier"), ("egg_bear", "ours"),
     ("egg_ibex", "bouquetin"), ("egg_lizard", "lézard"), ("egg_mackerel", "maquereau"), ("egg_reef", "poisson de récif"), ("egg_dolphin", "dauphin"), ("egg_crab", "crabe"),
     ("egg_gull", "goéland"), ("egg_shark", "requin"), ("egg_whale", "baleine"),

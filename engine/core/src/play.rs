@@ -706,6 +706,7 @@ impl Session {
                 Some("lift") => self.lift_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("dial") => self.dial_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("miasma") => self.miasma_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
+                Some("tide") => self.tide_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("mvault") => self.mvault_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("msecret") => self.msecret_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("mchest") => self.mchest_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
