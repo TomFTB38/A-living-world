@@ -44,6 +44,8 @@ fn play(seed: u32) {
     for k in 0..l.rooms.len() - 1 {
         let (room, next) = (l.rooms[k], l.rooms[k + 1]); let from = w(room.spot()); let to = w(next.spot()); put(&mut s, from); run(&mut s, 0.2);
         let gated = room.kind.gated() && room.kind != Kind::Gardien;
+        if room.kind == Kind::Labyrinthe { let walls = (-4..=4).flat_map(|u| (-4..=4).map(move |v| (u, v))).filter(|&(u, v)| { let c = w(room.at([u, 1, v])); is_solid(s.world.get(c[0], c[1], c[2]).unwrap()) }).count();
+            assert!(walls >= 16, "{seed} : le labyrinthe a ses murs ({walls})"); }
         if gated { assert!(!look(&s, from).contains(&to), "{seed} : {} — la grille tient", room.kind.name()); }
         for a in &sol[k] { match *a {
             Act::Lever(p) => { assert!(s.lever_at(p), "{seed} : levier en {p:?}"); run(&mut s, 0.2); }

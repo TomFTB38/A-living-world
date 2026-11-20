@@ -102,6 +102,8 @@ impl B<'_> {
     /// Un bloc orienté : `back` est son dos (le mur d'un levier, d'une bannière), dans le repère de la salle.
     fn t(&mut self, l: [i32; 3], n: &'static str, back: (i32, i32)) { let (x, y, z) = self.w(l); let d = self.room.dir(back); self.p.turn(x, y, z, n, d.0, d.1); }
     fn air(&mut self, l: [i32; 3]) { let (x, y, z) = self.w(l); self.p.air(x, y, z); }
+    /// De la pierre, même là où la salle est déjà creusée (les murs d'un labyrinthe).
+    fn fill(&mut self, l: [i32; 3]) { let (x, y, z) = self.w(l); let s = self.stone(x, y, z); self.p.n(x, y, z, s); }
     fn wall(&mut self, l: [i32; 3]) { let (x, y, z) = self.w(l); if self.p.m.get(&(x, y, z)) == Some(&-1) { return; } let s = self.stone(x, y, z); self.p.n(x, y, z, s); }
     /// Les barreaux d'une porte percée dans le mur de côté `side` (repère de la salle).
     fn bars_id(&self, side: (i32, i32)) -> Id { let d = self.room.dir(side); variant(by_name("iron_bars").unwrap_or(0), if d.0 != 0 { facing_of(1.0, 0.0) } else { 0 }, false, false, false) }
@@ -213,7 +215,7 @@ fn build_room(p: &mut Plan, o: [i32; 3], room: Room, k: usize, name: &str, boss:
         }
         Kind::Labyrinthe => {
             // un labyrinthe de couloirs d'un bloc, tiré au hasard ; le levier dans l'impasse la plus lointaine
-            for u in -5..=5 { for w in -5..=5 { for v in 1..=h { b.wall([u, v, w]); } } }
+            for u in -5..=5 { for w in -5..=5 { for v in 1..=h { b.fill([u, v, w]); } } }
             let cells: Vec<(i32, i32)> = (-2..=2).flat_map(|i| (-2..=2).map(move |j| (i, j))).collect(); let ex = exit.unwrap_or((0, 1));
             let (start, goal) = ((0, -2), (ex.0 * 2, ex.1 * 2)); let mut open: Vec<((i32, i32), (i32, i32))> = Vec::new(); let mut seen = vec![start]; let mut stack = vec![start];
             while let Some(&c) = stack.last() { let nb: Vec<(i32, i32)> = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().map(|dd| (c.0 + dd.0, c.1 + dd.1)).filter(|n| cells.contains(n) && !seen.contains(n)).collect();
