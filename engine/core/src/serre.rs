@@ -1,4 +1,4 @@
-//! La Serre empoisonnée : une immense serre à l'ancienne, verrières sur un socle de brique, voûte de nervures de fer dont les
+//! La Serre empoisonnée : une immense serre à l'ancienne, verrières sur un socle de brique, voûte de nervures blanches dont les
 //! carreaux sont tombés, au milieu d'un jardin retourné à la friche. Dedans, trois épreuves et un boss :
 //! - **la salle des spores** : des champignons géants y crachent des spores qui brûlent la gorge (on perd de la vie tant qu'on
 //!   y respire). Deux leviers d'aération, chacun au sommet d'un champignon géant qu'on gravit de chapeau en chapeau ; les deux
@@ -61,11 +61,11 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     // le socle de brique, les verrières sur leurs montants de fer, la grande voûte de nervures
     for u in -HALF..=HALF { for w in NORTH..=SOUTH { let edge = u.abs() == HALF || w == NORTH || w == SOUTH;
         for v in 0..=WALL_TOP + 9 { if edge && v <= WALL_TOP { let post = (if u.abs() == HALF { w } else { u }).rem_euclid(4) == 0 || u.abs() == HALF && (w == NORTH || w == SOUTH);
-                if v <= 2 { g.n(u, v, w, "clay_bricks"); } else if post || v == WALL_TOP || v == 8 { g.n(u, v, w, "iron_block"); } else if u.abs() == HALF { g.t(u, v, w, "window", 1, 0); } else { g.t(u, v, w, "window", 0, 1); } }
+                if v <= 2 { g.n(u, v, w, "clay_bricks"); } else if post || v == WALL_TOP || v == 8 { g.n(u, v, w, "marble"); } else if u.abs() == HALF { g.t(u, v, w, "window", 1, 0); } else { g.t(u, v, w, "window", 0, 1); } }
             else if v == 0 { g.n(u, v, w, if g.h(u, 0, w, 3) < 0.2 { "mossy_stone" } else { "dirt" }); } else { g.air(u, v, w); } } } }
     let arch = |u: i32| (WALL_TOP as f64 + (100.0 - (u * u) as f64).max(0.0).sqrt() * 0.8).round() as i32;
-    for w in (NORTH..=SOUTH).filter(|w| (w - NORTH) % 4 == 0) { for u in -HALF..=HALF { let lo = if u.abs() == HALF { arch(u) } else { arch(u + u.signum()).min(arch(u)) }; for v in lo..=arch(u) { g.n(u, v, w, "iron_block"); } } }
-    for u in [-7, 0, 7] { let top = (WALL_TOP as f64 + (100.0 - (u * u) as f64).sqrt() * 0.8).round() as i32; for w in NORTH..=SOUTH { g.n(u, top, w, "iron_block"); if g.h(u, top, w, 4) < 0.3 { g.n(u, top - 1, w, if g.h(u, top, w, 5) < 0.5 { "glow_vine" } else { "vine" }); } } }
+    for w in (NORTH..=SOUTH).filter(|w| (w - NORTH) % 4 == 0) { for u in -HALF..=HALF { let lo = if u.abs() == HALF { arch(u) } else { arch(u + u.signum()).min(arch(u)) }; for v in lo..=arch(u) { g.n(u, v, w, "marble"); } } }
+    for u in [-7, 0, 7] { let top = (WALL_TOP as f64 + (100.0 - (u * u) as f64).sqrt() * 0.8).round() as i32; for w in NORTH..=SOUTH { g.n(u, top, w, "marble"); if g.h(u, top, w, 4) < 0.3 { g.n(u, top - 1, w, if g.h(u, top, w, 5) < 0.5 { "glow_vine" } else { "vine" }); } } }
     // la porte du nord : un arc de fer, des marches
     for u in -1..=1 { for v in 1..=3 { g.air(u, v, NORTH); } } for u in -2..=2 { g.n(u, 4, NORTH, "iron_block"); } for u in -2..=2 { g.n(u, 0, NORTH - 1, "stone_bricks"); }
     // — LA SALLE DES SPORES — le plafond moussu (la terrasse du nord), la cloison et sa grille ; les champignons géants

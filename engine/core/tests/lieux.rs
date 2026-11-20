@@ -51,7 +51,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
                 use alw_core::serre as se; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, pl.y + 1 + v, pl.z + w);
                 assert!(name(rel(1, 5, se::NORTH)).starts_with("window"), "une verrière"); assert_eq!(name(rel(0, 1, se::MID)), "iron_bars", "la grille de la nef");
                 assert!(name(rel(se::CAP_E.0, se::CAP_E.2, se::CAP_E.1)).starts_with("mushroom_cap"), "un champignon géant"); assert_eq!(name(rel(se::TRUNK.0, 5, se::TRUNK.1)), "liana", "le tronc de la liane");
-                assert_eq!(name(rel(se::BLOCK[0], 1, se::BLOCK[2])), "push_block"); assert_eq!(name(rel(0, se::DECK, 12)), "planks", "la canopée"); assert_eq!(name(rel(0, se::WALL_TOP + 8, se::NORTH)), "iron_block", "la voûte");
+                assert_eq!(name(rel(se::BLOCK[0], 1, se::BLOCK[2])), "push_block"); assert_eq!(name(rel(0, se::DECK, 12)), "planks", "la canopée"); assert_eq!(name(rel(0, se::WALL_TOP + 8, se::NORTH)), "marble", "la voûte");
             }
             Lieu::Observatoire => {
                 // le dallage de la rotonde, les neuf étoiles, le plafond de nuit, le soleil du planétaire, la coupole de cuivre, la lunette

@@ -668,7 +668,7 @@ fn capture(a: &[String]) {
         if vw == "nef" || vw == "canopee" { let k = s.mech.dials.iter().position(|d| d.name.ends_with("liane")).unwrap(); let n = s.mech.dials[k].n - 1; s.dial_set(k, n, false); s.mech.dials[k].auto = 0.0; }
         if vw == "canopee" { let k = s.mech.dials.iter().position(|d| d.name.ends_with("pont")).unwrap(); let n = s.mech.dials[k].n - 1; s.dial_set(k, n, false); s.mech.dials[k].auto = 0.0; }
         let (eye, look): ([f64; 3], [f64; 3]) = match vw { "jardin" => ([-21.5, 7.0, -36.5], [0.5, 9.0, 0.0]), "spores" => ([0.5, 1.5, -14.5], [1.0, 4.0, -8.0]),
-            "nef" => ([6.5, 3.0, -3.5], [0.0, 6.0, 7.0]), "canopee" => ([4.5, 13.5, 14.5], [-6.0, 12.0, -2.0]), _ => ([5.5, 13.5, -5.5], [0.5, 14.0, -11.0]) };
+            "nef" => ([6.5, 3.0, -3.5], [0.0, 6.0, 7.0]), "canopee" => ([-3.5, 15.0, 14.5], [-6.0, 12.0, -3.0]), _ => ([5.5, 13.5, -5.5], [0.5, 14.0, -11.0]) };
         s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
