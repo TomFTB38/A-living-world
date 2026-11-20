@@ -640,6 +640,14 @@ fn capture(a: &[String]) {
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // La galerie des boss : chacun posé devant l'objectif, de trois quarts, sur une herbe rase, en plein jour.
+    if let Some(id) = scene.strip_prefix("plat_boss_") {
+        let y = alw_core::gen::FLAT_Y as f64 + 1.0; let (x, z) = (-41.5, -40.5); s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(true); s.hour = 11.0;
+        pump(&mut s, &mut g); let sp = alw_core::hostile::species(id).unwrap_or(0); let at = [x + 2.2, y, z + 5.0]; let i = s.horde.put(sp, at, (-2.2f64).atan2(-5.0), true); s.horde.foes[i].kept = true;
+        let eye = [x, y + 0.6, z]; s.player.p = eye; let dd = view::norm([at[0] - eye[0], at[1] + 1.5 - eye[1] - 1.6, at[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
+        for _ in 0..30 { let (p, yw, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = yw; s.player.pitch = pi; if let Some(f) = s.horde.foes.get_mut(i) { f.p = at; } }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     if scene == "plat_mecanismes" {
         let id = |n: &str| alw_core::blocks::by_name(n).unwrap_or(0); let p = s.player.p; let (x, y, z) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32 + 5);
         s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.player.yaw = 0.0; s.player.pitch = -0.32;

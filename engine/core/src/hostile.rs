@@ -1077,6 +1077,24 @@ impl Horde {
                         let leg = mul(&root, &mul(&trs(0.3 * sx, 0.1, *z, (if sx > 0.0 { 0.0 } else { std::f64::consts::PI }) + spread * 0.6 + swing, 0.0, 1.0), &roll_z(up + curl)));
                         put(pl, leg); } }
                 }
+                Body::Humain if matches!(s.skin, "colosse" | "roinoye" | "gsoleil" | "premroi" | "forgeron") => {
+                    // Les boss sculptés : une démarche lourde, l'arme dans la main droite ; ils la lèvent au-dessus de la tête pour
+                    // annoncer le coup, puis l'abattent ; la main gauche garde, ou balance.
+                    let (pre, hips, sh_x, sh_y, head_y, head_z, leg_x, hunch, weapon) = match s.skin {
+                        "colosse" => ("col", 0.92, 0.42, 0.6, 0.66, 0.05, 0.16, 0.22, "colClub"), "roinoye" => ("rny", 0.88, 0.22, 0.55, 0.62, 0.0, 0.1, 0.14, "rnyTrident"),
+                        "gsoleil" => ("gso", 0.9, 0.25, 0.56, 0.62, 0.02, 0.11, 0.0, "gsoSpear"), "premroi" => ("prr", 0.88, 0.22, 0.55, 0.62, 0.02, 0.1, 0.06, "prrSword"), _ => ("mfo", 0.84, 0.42, 0.58, 0.66, 0.06, 0.15, 0.1, "mfoHammer") };
+                    let n = |k: &str| -> &'static str { match (pre, k) { ("col", "T") => "colTorso", ("col", "H") => "colHead", ("col", "A") => "colArm", ("col", _) => "colLeg", ("rny", "T") => "rnyTorso", ("rny", "H") => "rnyHead", ("rny", "A") => "rnyArm", ("rny", _) => "rnyLeg",
+                        ("gso", "T") => "gsoTorso", ("gso", "H") => "gsoHead", ("gso", "A") => "gsoArm", ("gso", _) => "gsoLeg", ("prr", "T") => "prrTorso", ("prr", "H") => "prrHead", ("prr", "A") => "prrArm", ("prr", _) => "prrLeg", (_, "T") => "mfoTorso", (_, "H") => "mfoHead", (_, "A") => "mfoArm", _ => "mfoLeg" } };
+                    let t = f.phase; let stride = sw * (0.32 + 0.28 * run); let bob = -(f.phase * 2.0).sin().abs() * 0.03 * (0.4 + run);
+                    let lean = hunch + 0.1 * run - wind * 0.25 + strike * 0.45 - flinch * 0.5;
+                    let root = mul(&base, &trs(0.0, hips + bob, 0.0, 0.06 * stride, 0.0, 1.0)); let torso = mul(&root, &trs(0.0, 0.0, 0.0, -0.08 * stride, lean, 1.0));
+                    put(n("T"), torso); put(n("H"), mul(&torso, &trs(0.0, head_y, head_z, 0.12 * (t * 0.5).sin() * (1.0 - run), -lean * 0.6 + 0.1 * wind, 1.0)));
+                    let right = -0.25 - 2.5 * wind + 2.9 * strike + 0.35 * stride; let left = -0.3 * stride - 0.5 * wind - 0.2 * strike;
+                    let ar = mul(&torso, &mul(&trs(sh_x, sh_y, 0.0, 0.0, right, 1.0), &roll_z(0.1 + 0.15 * wind))); put(n("A"), ar);
+                    put(weapon, mul(&ar, &trs(0.0, -0.62, 0.05, 0.0, -right - lean + 1.25 * strike + 0.15, 1.0)));
+                    put(n("A"), mul(&torso, &mul(&trs(-sh_x, sh_y, 0.0, 0.0, left, 1.0), &roll_z(-0.12 - 0.1 * wind))));
+                    for sx in [-1.0f64, 1.0] { put(n("L"), mul(&root, &trs(leg_x * sx, 0.0, 0.0, 0.0, sx * stride, 1.0))); }
+                }
                 Body::Humain if s.skin == "reine" => {
                     // La Reine des glaces glisse sans un pas, la robe ondoyant ; le sceptre dressé dans la main droite ; elle lève la
                     // gauche pour appeler le froid quand elle prépare un coup, puis abat le sceptre ; des éclats tournoient autour d'elle.
