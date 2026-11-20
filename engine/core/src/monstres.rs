@@ -238,66 +238,93 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
     });
     m("fanLeg", PLAIN, 0.05, &|p| { p.bx([-0.01, -0.02, -0.01, 0.01, 0.0, 0.01], ice3); }); // (pas de jambes)
 
-    // ---- La Reine des glaces : une silhouette haute et altière qui glisse sans pas. Une longue robe évasée en cloche, du bleu
-    // profond de l'ourlet au blanc de givre du corsage, ourlée de stalactites ; une traîne ; une cape de nuit ; derrière la tête,
-    // une immense collerette d'aiguilles de glace en éventail ; une couronne de cristaux ; des yeux qui brûlent de froid ; un
-    // sceptre de glace couronné d'un astre de cristaux ; des éclats qui tournoient autour d'elle.
-    let (gl1, gl2, gl3, frost, deep, night, glow) = ([0.62, 0.8, 1.0], [0.36, 0.58, 0.95], [0.86, 0.95, 1.0], [0.97, 0.99, 1.0], [0.12, 0.24, 0.62], [0.08, 0.1, 0.3], [0.55, 1.0, 1.0]);
-    let spike = |p: &mut Pen, a: [f64; 3], b: [f64; 3], r: f64| p.tube_m(a, b, [r, r], [r * 0.12, r * 0.12], gl1, frost, PLAIN);
-    m("rnTorso", Mat::Cloth, 0.028, &|p| {
-        // la robe : une cloche, du sol jusqu'à la taille ; le corsage ajusté, jusqu'aux épaules
-        p.column_m(&[(-0.9, 0.56, 0.5), (-0.6, 0.44, 0.38), (-0.3, 0.3, 0.26), (0.0, 0.16, 0.12)], 0.0, deep, gl2, 0.8, Mat::Cloth);
-        p.column_m(&[(0.0, 0.14, 0.1), (0.2, 0.17, 0.11), (0.42, 0.21, 0.12), (0.58, 0.24, 0.12)], 0.0, gl1, gl3, 0.7, PLAIN);
-        // des facettes de givre sur la robe, en losanges qui pâlissent vers le haut
-        for (x, y, k) in [(-0.3, -0.7, 0.0), (0.1, -0.75, 0.0), (0.32, -0.55, 0.2), (-0.12, -0.5, 0.3), (0.16, -0.32, 0.5), (-0.22, -0.25, 0.5), (0.0, -0.12, 0.8)] {
-            let z = 0.5 - (y + 0.9) * 0.55; p.bm([x - 0.05, y - 0.05, z, x + 0.05, y + 0.05, z + 0.03], mix(gl2, frost, k), PLAIN); }
-        // l'ourlet : une couronne de stalactites qui pendent, et des aiguilles qui sortent du bas de la robe
-        for k in 0..16 { let a = k as f64 * std::f64::consts::TAU / 16.0; let (c, sn) = (a.cos(), a.sin()); let l = if k % 2 == 0 { 0.16 } else { 0.1 };
-            p.tube_m([c * 0.54, -0.86, sn * 0.48], [c * 0.6, -0.86 - l, sn * 0.54], [0.035, 0.035], [0.005, 0.005], gl1, frost, PLAIN);
-            if k % 4 == 1 { spike(p, [c * 0.46, -0.78, sn * 0.42], [c * 0.78, -0.58, sn * 0.7], 0.045); } }
-        // la traîne derrière elle, la cape de nuit qui tombe des épaules
-        p.bm([-0.34, -0.9, -0.95, 0.34, -0.85, -0.45], deep, Mat::Cloth); p.bm([-0.24, -0.9, -1.15, 0.24, -0.86, -0.9], night, Mat::Cloth);
-        p.bm([-0.27, -0.82, -0.24, 0.27, 0.58, -0.18], night, Mat::Cloth); for x in [-0.22, -0.08, 0.06, 0.2] { p.bm([x, -0.9, -0.25, x + 0.05, -0.8, -0.19], deep, Mat::Cloth); }
-        // la ceinture et le joyau du cœur, qui luit
-        p.bm([-0.165, 0.0, -0.12, 0.165, 0.05, 0.125], gl3, PLAIN); p.bm([-0.05, 0.28, 0.115, 0.05, 0.4, 0.14], glow, PLAIN); p.bm([-0.025, 0.31, 0.135, 0.025, 0.37, 0.15], frost, PLAIN);
-        // des épaulières de cristaux
-        for sx in [-1.0f64, 1.0] { for (dx, dy, dz, h) in [(0.0, 0.0, 0.0, 0.22), (0.07, -0.03, 0.05, 0.14), (0.05, -0.02, -0.06, 0.16)] { spike(p, [sx * (0.24 + dx), 0.58 + dy, dz], [sx * (0.34 + dx * 1.6), 0.58 + dy + h, dz * 1.5], 0.04); } }
-        // la grande collerette : un éventail d'aiguilles de glace, déployé derrière la tête
-        for k in 0..13 { let a = (k as f64 - 6.0) * 0.25; let l = 0.75 + 0.55 * (1.0 - (k as f64 - 6.0).abs() / 6.0); let (sn, c) = (a.sin(), a.cos());
-            spike(p, [sn * 0.12, 0.56, -0.15], [sn * l, 0.56 + c * l, -0.24 - 0.1 * c], 0.055);
-            if k % 2 == 0 { let l = l * 0.55; spike(p, [sn * 0.1, 0.56, -0.12], [sn * l * 1.1, 0.56 + c * l, -0.17], 0.04); } }
-        p.bm([-0.22, 0.52, -0.17, 0.22, 0.62, -0.11], gl3, PLAIN);
+    // ---- La Reine des glaces : une figure élancée, aux proportions de statue — longue taille, épaules étroites, long cou, petite
+    // tête ovale — qui glisse sans un pas. Ici, pas de tranches en escalier : la robe, la cape, les voiles, la chevelure et les
+    // aiguilles sont faits de lames et de fuseaux orientés, qui suivent leur pente. Une robe à vingt-six plis qui s'évase jusqu'au
+    // sol, du bleu profond de l'ourlet au blanc de givre du corsage, ourlée de stalactites ; une cape de nuit ; une collerette
+    // d'aiguilles fines en éventail ; une tiare d'aiguilles ; de longues mèches d'argent ; des manches d'ange, voiles de givre ; un
+    // sceptre fin couronné d'un astre de cristaux ; des éclats qui tournoient autour d'elle.
+    let (gl1, gl2, gl3, frost, deep, night, glow, pale) = ([0.62, 0.8, 1.0], [0.36, 0.58, 0.95], [0.86, 0.95, 1.0], [0.97, 0.99, 1.0], [0.1, 0.2, 0.55], [0.07, 0.09, 0.26], [0.55, 1.0, 1.0], [0.88, 0.94, 1.0]);
+    type V = [f64; 3];
+    fn sub(a: V, b: V) -> V { [a[0] - b[0], a[1] - b[1], a[2] - b[2]] } fn sc(a: V, k: f64) -> V { [a[0] * k, a[1] * k, a[2] * k] }
+    fn cr(a: V, b: V) -> V { [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]] } fn nz(a: V) -> V { let l = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt().max(1e-9); sc(a, 1.0 / l) }
+    fn lp(a: V, b: V, t: f64) -> V { [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t] }
+    /// Un fuseau orienté de `a` à `b`, de section carrée, du rayon `ra` au rayon `rb`, en `n` tronçons.
+    fn rod(p: &mut Pen, a: V, b: V, ra: f64, rb: f64, ca: C, cb: C, n: usize) {
+        let d = sub(b, a); let up = if d[1].abs() > 0.9 * (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt() { [1.0, 0.0, 0.0] } else { [0.0, 1.0, 0.0] }; let u = nz(cr(d, up)); let v = nz(cr(d, u));
+        for k in 0..n { let (t0, t1) = (k as f64 / n as f64, (k + 1) as f64 / n as f64); let tm = (t0 + t1) * 0.5; let r = ra + (rb - ra) * tm;
+            crate::mesher::obox(p.q, lp(a, b, tm), [sc(d, (t1 - t0) * 0.55), sc(u, r), sc(v, r)], mix(ca, cb, tm), -1.0, 255.0, 0.0); }
+    }
+    /// Une lame d'étoffe ou de glace de `a` à `b`, de la largeur `wa` à `wb`, d'épaisseur `th`, tournée vers `out`, en `n` tronçons.
+    fn slab(p: &mut Pen, a: V, b: V, wa: f64, wb: f64, th: f64, out: V, ca: C, cb: C, n: usize) {
+        let d = sub(b, a); let w = nz(cr(d, out)); let nn = nz(cr(w, d));
+        for k in 0..n { let (t0, t1) = (k as f64 / n as f64, (k + 1) as f64 / n as f64); let tm = (t0 + t1) * 0.5;
+            crate::mesher::obox(p.q, lp(a, b, tm), [sc(d, (t1 - t0) * 0.56), sc(w, (wa + (wb - wa) * tm) * 0.5), sc(nn, th * 0.5)], mix(ca, cb, tm), -1.0, 255.0, 0.0); }
+    }
+    let spike = |p: &mut Pen, a: V, b: V, r: f64| rod(p, a, b, r, r * 0.12, gl1, frost, 4);
+    m("rnTorso", Mat::Cloth, 0.014, &|p| {
+        // la robe : un fond sombre, puis vingt-six plis en lames, de la taille jusqu'au sol, qui s'ouvrent en corolle
+        p.column_m(&[(-0.88, 0.44, 0.4), (-0.5, 0.3, 0.27), (0.0, 0.1, 0.08)], 0.0, night, deep, 1.0, Mat::Cloth);
+        for k in 0..26 { let a = k as f64 * std::f64::consts::TAU / 26.0; let (c, sn) = (a.cos(), a.sin()); let r = if k % 2 == 0 { 0.53 } else { 0.49 };
+            slab(p, [c * 0.1, 0.02, sn * 0.085], [c * r, -0.92, sn * (r - 0.04)], 0.035, 0.15, 0.018, [c, 0.3, sn], gl2, if k % 2 == 0 { deep } else { mix(deep, night, 0.4) }, 7); }
+        // l'ourlet : des stalactites fines tout autour
+        for k in 0..26 { let a = k as f64 * std::f64::consts::TAU / 26.0 + 0.12; let (c, sn) = (a.cos(), a.sin()); let l = [0.09, 0.16, 0.06, 0.13][k % 4];
+            rod(p, [c * 0.52, -0.9, sn * 0.48], [c * 0.55, -0.9 - l, sn * 0.51], 0.014, 0.002, gl1, frost, 3); }
+        // le corsage : la taille fine, la poitrine, les épaules étroites ; un long cou
+        p.column_m(&[(0.0, 0.08, 0.06), (0.3, 0.12, 0.08), (0.54, 0.13, 0.06)], 0.0, gl2, gl1, 1.0, PLAIN);
+        for k in 0..16 { let a = k as f64 * std::f64::consts::TAU / 16.0; let (c, sn) = (a.cos(), a.sin()); let (w0, b, s0) = ([c * 0.095, 0.0, sn * 0.075], [c * 0.142, 0.3, sn * 0.1], [c * 0.155, 0.55, sn * 0.072]);
+            slab(p, w0, b, 0.04, 0.058, 0.018, [c, 0.0, sn], gl1, mix(gl1, gl3, 0.6), 4); slab(p, b, s0, 0.058, 0.05, 0.018, [c, 0.2, sn], mix(gl1, gl3, 0.6), gl3, 4); }
+        rod(p, [-0.17, 0.55, 0.0], [0.17, 0.55, 0.0], 0.045, 0.045, gl3, gl3, 6);
+        rod(p, [0.0, 0.55, 0.0], [0.0, 0.71, 0.012], 0.034, 0.03, pale, pale, 3);
+        // le décolleté de givre, une ceinture fine, le joyau au cœur
+        for sx in [-1.0f64, 1.0] { rod(p, [sx * 0.15, 0.54, 0.05], [sx * 0.015, 0.34, 0.1], 0.01, 0.008, frost, frost, 5); }
+        rod(p, [-0.1, 0.03, 0.075], [0.1, 0.03, 0.075], 0.011, 0.011, frost, frost, 4); p.blob_m([0.0, 0.3, 0.1], [0.028, 0.035, 0.015], glow, frost, PLAIN);
+        // la cape de nuit : deux grands pans qui tombent des épaules, s'élargissent et traînent au sol
+        for sx in [-1.0f64, 1.0] { slab(p, [sx * 0.1, 0.55, -0.08], [sx * 0.34, -0.92, -0.5], 0.12, 0.5, 0.016, [sx * 0.25, 0.15, -1.0], night, deep, 10); }
+        slab(p, [0.0, -0.6, -0.36], [0.0, -0.95, -0.95], 0.5, 0.55, 0.016, [0.0, 1.0, -0.2], deep, night, 5); // la traîne
+        // la collerette : de fines aiguilles de glace en éventail, deux rangs, derrière la tête
+        for k in 0..17 { let a = (k as f64 - 8.0) * 0.19; let l = 0.55 + 0.6 * (1.0 - (k as f64 - 8.0).abs() / 8.0); let (sn, c) = (a.sin(), a.cos());
+            spike(p, [sn * 0.06, 0.6, -0.08], [sn * l, 0.6 + c * l, -0.18 - 0.08 * c], 0.02);
+            if k % 2 == 1 { let l = l * 0.55; spike(p, [sn * 0.05, 0.6, -0.06], [sn * l * 1.15, 0.6 + c * l, -0.12], 0.015); } }
+        // de petites aiguilles aux épaules
+        for sx in [-1.0f64, 1.0] { for (dz, h) in [(0.0, 0.16), (-0.04, 0.11), (0.04, 0.09)] { spike(p, [sx * 0.16, 0.56, dz], [sx * 0.24, 0.56 + h, dz * 1.4], 0.016); } }
     });
-    m("rnHead", Mat::Human, 0.024, &|p| {
-        let pale = [0.86, 0.93, 1.0];
-        p.column_m(&[(0.0, 0.05, 0.05), (0.06, 0.1, 0.1), (0.2, 0.11, 0.11), (0.3, 0.09, 0.09)], 0.0, mix(pale, gl1, 0.3), pale, 0.75, Mat::Human);
-        for sx in [-1.0f64, 1.0] { p.bm([sx * 0.045 - 0.03, 0.15, 0.095, sx * 0.045 + 0.03, 0.185, 0.11], night, PLAIN); p.bm([sx * 0.045 - 0.02, 0.155, 0.105, sx * 0.045 + 0.02, 0.18, 0.118], glow, PLAIN); } // les yeux
-        p.bm([-0.03, 0.06, 0.1, 0.03, 0.075, 0.112], [0.3, 0.45, 0.8], PLAIN); // les lèvres bleuies
-        // la chevelure d'argent, qui tombe jusqu'au bas du dos
-        p.blob_m([0.0, 0.25, -0.02], [0.13, 0.08, 0.13], frost, gl3, Mat::Hair); p.bm([-0.12, -0.75, -0.16, 0.12, 0.26, -0.08], mix(frost, gl1, 0.25), Mat::Hair); for sx in [-1.0f64, 1.0] { p.bm([sx * 0.12 - 0.03, -0.1, -0.08, sx * 0.12 + 0.03, 0.24, 0.05], frost, Mat::Hair); }
-        // la couronne : un bandeau, et des cristaux dressés, le plus haut au milieu
-        p.bm([-0.115, 0.27, -0.115, 0.115, 0.31, 0.115], gl3, PLAIN);
-        for (x, z, h) in [(0.0, 0.1, 0.42), (-0.06, 0.09, 0.28), (0.06, 0.09, 0.28), (-0.1, 0.03, 0.2), (0.1, 0.03, 0.2), (-0.08, -0.07, 0.24), (0.08, -0.07, 0.24), (0.0, -0.1, 0.3)] { spike(p, [x, 0.3, z], [x * 1.4, 0.3 + h, z * 1.2], 0.03); }
-        p.bm([-0.02, 0.33, 0.1, 0.02, 0.37, 0.125], glow, PLAIN);
+    m("rnHead", Mat::Human, 0.012, &|p| {
+        // une petite tête ovale : le crâne, la mâchoire fine, un nez droit
+        p.blob_m([0.0, 0.14, 0.0], [0.07, 0.093, 0.08], pale, mix(pale, gl1, 0.2), Mat::Human); p.blob_m([0.0, 0.078, 0.02], [0.05, 0.05, 0.058], mix(pale, gl1, 0.15), pale, Mat::Human);
+        rod(p, [0.0, 0.14, 0.074], [0.0, 0.098, 0.088], 0.007, 0.01, pale, pale, 3);
+        // des yeux en amande, qui luisent, sous des sourcils de givre ; des lèvres bleuies
+        for sx in [-1.0f64, 1.0] { rod(p, [sx * 0.014, 0.128, 0.076], [sx * 0.048, 0.136, 0.067], 0.006, 0.004, glow, glow, 3); rod(p, [sx * 0.012, 0.148, 0.077], [sx * 0.05, 0.156, 0.066], 0.004, 0.002, frost, frost, 3); }
+        rod(p, [-0.017, 0.07, 0.074], [0.017, 0.07, 0.074], 0.005, 0.005, [0.32, 0.46, 0.82], [0.32, 0.46, 0.82], 3);
+        // la chevelure d'argent : une calotte lisse, puis de longues mèches qui tombent dans le dos
+        p.blob_m([0.0, 0.178, -0.02], [0.078, 0.074, 0.084], frost, gl3, Mat::Hair);
+        for k in 0..11 { let x = (k as f64 - 5.0) * 0.015; let l = 0.62 + 0.12 * ((k * 3 % 5) as f64 / 4.0); rod(p, [x * 0.8, 0.2, -0.06], [x * 2.2, 0.2 - l, -0.14 - 0.03 * (k % 2) as f64], 0.014, 0.004, frost, mix(frost, gl1, 0.45), 6); }
+        for sx in [-1.0f64, 1.0] { rod(p, [sx * 0.068, 0.18, 0.02], [sx * 0.085, -0.02, -0.01], 0.011, 0.004, frost, gl3, 5); }
+        // la tiare : un fin bandeau d'argent, des aiguilles de glace, la plus haute au milieu, un cristal au front
+        rod(p, [-0.075, 0.2, 0.045], [0.075, 0.2, 0.045], 0.006, 0.006, [0.85, 0.9, 0.98], [0.85, 0.9, 0.98], 4);
+        for (x, z, h) in [(0.0, 0.05, 0.3), (-0.03, 0.045, 0.2), (0.03, 0.045, 0.2), (-0.055, 0.03, 0.14), (0.055, 0.03, 0.14), (-0.07, 0.0, 0.09), (0.07, 0.0, 0.09)] { spike(p, [x, 0.2, z], [x * 1.5, 0.2 + h, z * 0.8], 0.011); }
+        p.blob_m([0.0, 0.215, 0.07], [0.012, 0.016, 0.008], glow, frost, PLAIN);
     });
-    // Un bras, de l'épaule vers le bas : une manche longue qui s'évase en cloche, frangée de glaçons ; une main pâle aux doigts de glace.
-    m("rnArm", Mat::Cloth, 0.024, &|p| {
-        p.tube([0.0, 0.02, 0.0], [0.0, -0.3, 0.0], [0.055, 0.055], [0.05, 0.05], gl2, gl1); p.column_m(&[(-0.62, 0.13, 0.12), (-0.45, 0.08, 0.08), (-0.3, 0.055, 0.055)], 0.0, deep, gl2, 0.7, Mat::Cloth);
-        for k in 0..6 { let a = k as f64 * std::f64::consts::TAU / 6.0; p.tube_m([a.cos() * 0.12, -0.62, a.sin() * 0.11], [a.cos() * 0.13, -0.74, a.sin() * 0.12], [0.02, 0.02], [0.004, 0.004], gl1, frost, PLAIN); }
-        p.blob_m([0.0, -0.66, 0.02], [0.04, 0.05, 0.035], [0.86, 0.93, 1.0], gl1, Mat::Human);
-        for x in [-0.025, 0.0, 0.025] { p.tube_m([x, -0.7, 0.03], [x * 1.2, -0.8, 0.05], [0.009, 0.009], [0.003, 0.003], gl1, frost, PLAIN); }
+    // Un bras, de l'épaule vers le bas : un bras mince, un poignet fin, une main aux longs doigts ; et la manche d'ange, un voile
+    // de givre qui s'ouvre au coude et pend jusqu'aux genoux.
+    m("rnArm", Mat::Human, 0.012, &|p| {
+        rod(p, [0.0, 0.0, 0.0], [0.0, -0.3, 0.0], 0.032, 0.027, gl1, gl3, 4); rod(p, [0.0, -0.3, 0.0], [0.0, -0.56, 0.02], 0.024, 0.019, pale, pale, 4);
+        p.blob_m([0.0, -0.6, 0.025], [0.022, 0.035, 0.016], pale, pale, Mat::Human); for x in [-0.014, -0.004, 0.006, 0.016] { rod(p, [x, -0.62, 0.03], [x * 1.3, -0.7, 0.04], 0.005, 0.003, pale, gl1, 2); }
+        rod(p, [0.0, -0.53, 0.0], [0.0, -0.57, 0.0], 0.028, 0.028, frost, frost, 1); // un bracelet de givre
+        slab(p, [0.0, -0.22, -0.02], [0.0, -0.98, -0.16], 0.1, 0.24, 0.012, [0.0, 0.0, -1.0], mix(gl3, gl1, 0.3), gl2, 8);
+        for k in 0..5 { let x = -0.11 + k as f64 * 0.055; rod(p, [x, -0.96, -0.16], [x, -1.04, -0.17], 0.008, 0.002, gl1, frost, 2); }
     });
     m("rnLeg", PLAIN, 0.05, &|p| { p.bx([-0.01, -0.02, -0.01, 0.01, 0.0, 0.01], deep); }); // (sous la robe)
-    // Le sceptre : une longue hampe de glace annelée d'argent, couronnée d'un astre de cristaux qui luit en son cœur.
-    m("rnStaff", PLAIN, 0.024, &|p| {
-        p.tube_m([0.0, -0.9, 0.0], [0.0, 0.9, 0.0], [0.022, 0.022], [0.026, 0.026], gl2, gl1, PLAIN); for y in [-0.6, -0.1, 0.4, 0.85] { p.bm([-0.034, y, -0.034, 0.034, y + 0.04, 0.034], [0.85, 0.88, 0.95], Mat::Metal); }
-        p.tube_m([0.0, -0.9, 0.0], [0.0, -1.05, 0.0], [0.03, 0.03], [0.004, 0.004], gl1, frost, PLAIN);
-        p.blob_m([0.0, 1.05, 0.0], [0.07, 0.09, 0.07], glow, frost, PLAIN);
-        for (x, y, z) in [(0.0, 1.0, 0.0), (0.7, 0.4, 0.0), (-0.7, 0.4, 0.0), (0.0, 0.4, 0.7), (0.0, 0.4, -0.7), (0.5, -0.4, 0.5), (-0.5, -0.4, -0.5), (0.5, -0.4, -0.5), (-0.5, -0.4, 0.5)] { spike(p, [0.0, 1.05, 0.0], [x * 0.24, 1.05 + y * 0.26, z * 0.24], 0.035); }
-        for sx in [-1.0f64, 1.0] { p.tube_m([0.0, 0.88, 0.0], [sx * 0.12, 1.0, 0.0], [0.015, 0.015], [0.015, 0.015], [0.85, 0.88, 0.95], frost, Mat::Metal); }
+    // Le sceptre : une hampe fine de glace, cerclée d'argent, couronnée d'un astre de cristaux qui luit en son cœur.
+    m("rnStaff", PLAIN, 0.016, &|p| {
+        rod(p, [0.0, -0.95, 0.0], [0.0, 0.9, 0.0], 0.013, 0.016, gl2, gl1, 6); for y in [-0.5, 0.2, 0.86] { rod(p, [0.0, y, 0.0], [0.0, y + 0.03, 0.0], 0.022, 0.022, [0.85, 0.88, 0.95], [0.85, 0.88, 0.95], 1); }
+        rod(p, [0.0, -0.95, 0.0], [0.0, -1.08, 0.0], 0.014, 0.002, gl1, frost, 2);
+        for sx in [-1.0f64, 1.0] { rod(p, [0.0, 0.86, 0.0], [sx * 0.1, 1.0, 0.0], 0.008, 0.008, [0.85, 0.88, 0.95], frost, 3); rod(p, [sx * 0.1, 1.0, 0.0], [sx * 0.05, 1.16, 0.0], 0.008, 0.005, frost, frost, 3); }
+        p.blob_m([0.0, 1.05, 0.0], [0.045, 0.06, 0.045], glow, frost, PLAIN);
+        for (x, y, z) in [(0.0, 1.0, 0.0), (0.7, 0.4, 0.0), (-0.7, 0.4, 0.0), (0.0, 0.4, 0.7), (0.0, 0.4, -0.7), (0.5, -0.3, 0.5), (-0.5, -0.3, -0.5), (0.5, -0.3, -0.5), (-0.5, -0.3, 0.5)] { spike(p, [0.0, 1.05, 0.0], [x * 0.2, 1.05 + y * 0.22, z * 0.2], 0.02); }
     });
-    // Un éclat de glace qui tournoie autour d'elle : un losange allongé.
-    m("rnShard", PLAIN, 0.02, &|p| { p.tube_m([0.0, -0.16, 0.0], [0.0, 0.0, 0.0], [0.004, 0.004], [0.05, 0.05], frost, gl1, PLAIN); p.tube_m([0.0, 0.0, 0.0], [0.0, 0.2, 0.0], [0.05, 0.05], [0.004, 0.004], gl1, frost, PLAIN); });
+    // Un éclat de glace qui tournoie autour d'elle : un fuseau effilé aux deux bouts.
+    m("rnShard", PLAIN, 0.012, &|p| { rod(p, [0.0, -0.14, 0.0], [0.0, 0.0, 0.0], 0.002, 0.032, frost, gl1, 3); rod(p, [0.0, 0.0, 0.0], [0.0, 0.2, 0.0], 0.032, 0.002, gl1, frost, 3); });
 
     // Noyé : la peau turquoise des fonds, des yeux qui luisent, la tête et les épaules coiffées d'algues qui dégoulinent,
     // une tunique brune trouée et effilochée, des bernacles ; il tient un trident.
