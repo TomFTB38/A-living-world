@@ -85,7 +85,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
                 for z in -5..=5 { let st = rel(l.rooms[0].at([-5, 6 + z, z])); assert!(name(st).starts_with("stone_bricks_stairs"), "la marche {z} du grand escalier : {}", name(st)); }
                 let e = l.rooms[0]; let zt = (6..=13).find(|z| name(rel(e.at([-6, 6 + z + 1, z + 1]))) == "column_base").expect("les colonnes du portail");
                 assert!(name(rel(e.at([-5, 6 + zt + 6, zt + 1]))).starts_with("lintel"), "le linteau du portail"); assert!(name(rel(e.at([-8, 6 + zt + 2, zt + 1]))).starts_with("statue_top"), "un gardien du portail en {} {} {} : {}", pl.x, pl.y, pl.z, name(rel(e.at([-8, 6 + zt + 2, zt + 1]))));
-                for r in &l.rooms { assert_eq!(rel(r.at([0, 3, -3])), 0, "{:?} creusée", r.kind); let c = r.c; let g = w_ground(&w, pl.x + c.0, pl.z + c.1); assert!(g >= f + r.y + r.kind.h() + 2, "la voûte de {:?} reste sous terre", r.kind); }
+                for r in &l.rooms { assert_eq!(rel(r.at([0, 3, if r.kind == alw_core::donjons::Kind::Labyrinthe { -4 } else { -3 }])), 0, "{:?} creusée", r.kind); let c = r.c; let g = w_ground(&w, pl.x + c.0, pl.z + c.1); assert!(g >= f + r.y + r.kind.h() + 2, "la voûte de {:?} reste sous terre", r.kind); }
             }
             Lieu::Camp => {
                 assert_eq!(count(&|n| n == "campfire", 1, 2), 1, "le feu"); assert!(count(&|n| n == "oak_log", 11, 5) > 150, "la palissade"); assert!(count(&|n| n.starts_with("thatch_slope"), 9, 4) >= 60, "les tentes"); assert_eq!(count(&|n| n == "bedroll", 9, 2), 4);
