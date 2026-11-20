@@ -49,7 +49,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
             Lieu::Epave => {
                 // la coque, la brèche, la cale, les canons, le grand mât et sa voile roulée, la porte de la cabine, le coffre
                 use alw_core::epave as ep; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, pl.y + 1 + v, pl.z + w);
-                assert!(name(rel(7, 3, 0)) == "wreck_planks" || name(rel(7, 3, 0)) == "planks_dark", "le flanc"); assert_eq!(rel(ep::BREACH.0, 2, ep::BREACH.1), 0, "la brèche"); assert_eq!(rel(0, 2, -6), 0, "la cale");
+                assert!(name(rel(7, 4, 0)) == "wreck_planks", "le flanc"); assert_eq!(rel(ep::BREACH.0, 2, ep::BREACH.1), 0, "la brèche"); assert_eq!(rel(0, 2, -6), 0, "la cale");
                 assert_eq!(name(rel(ep::beam(ep::CANNONS[0]), ep::GUN + 1, ep::CANNONS[0])), "cannon"); assert_eq!(name(rel(0, ep::YARD, 0)), "spruce_log", "le grand mât"); assert_eq!(name(rel(0, ep::YARD - 1, ep::YARD_W + 1)), "sail", "la voile roulée");
                 assert_eq!(name(rel(0, 10, 12)), "great_chain", "la porte de la cabine");
             }

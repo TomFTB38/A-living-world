@@ -678,7 +678,7 @@ fn capture(a: &[String]) {
         let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false); s.hour = 11.0;
         s.build_wreck(o); pump(&mut s, &mut g); let f = o[1] + 1;
         // la marée haute pour la cale ; la voile déployée pour le pont
-        if vw == "cale" { if let Some(t) = s.mech.tides.last_mut() { t.t = alw_core::epave::TIDE_PERIOD - 1.0; t.period = 1e9; } for _ in 0..120 { s.tick(1.0 / 60.0, none, Actions::default()); } }
+        if vw == "cale" { if let Some(t) = s.mech.tides.last_mut() { t.high = 1.0; } for _ in 0..120 { s.tick(1.0 / 60.0, none, Actions::default()); } }
         if vw == "voile" { let k = s.mech.dials.iter().position(|d| d.name.ends_with("voile")).unwrap(); s.dial_set(k, 1, false); }
         let (eye, look): ([f64; 3], [f64; 3]) = match vw { "greve" => ([-24.5, 6.0, -30.5], [0.5, 8.0, 0.0]), "cale" => ([-5.5, 4.6, -12.5], [1.0, 3.0, 2.0]),
             "canons" => ([0.5, 6.5, 9.5], [0.5, 6.5, -8.0]), "voile" => ([-9.5, 15.0, -11.5], [0.5, 15.0, 2.0]), _ => ([4.5, 10.5, 13.5], [0.5, 10.5, 18.0]) };

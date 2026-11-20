@@ -52,13 +52,13 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     for u in -14..=14i32 { for w in -30..=28i32 { g.n(u, -1, w, "sand"); for v in 0..=4 { g.air(u, v, w); } let r = g.h(u, 0, w, 1); if u.abs() > 9 || w < BOW - 2 || w > STERN + 2 { if r < 0.05 { g.n(u, 0, w, "shell"); } else if r > 0.97 { g.n(u, 0, w, "wreck_planks"); } else if r > 0.955 { g.n(u, 0, w, "kelp"); } } } }
     for (u, w) in [(-11, -18), (10, 8), (-10, 24)] { g.n(u, 0, w, "barrel"); g.n(u + 1, 0, w, "crate"); } g.n(9, 0, -26, "anchor"); g.n(-12, 0, 2, "net_pile");
     // la coque : la quille, les flancs de bois d'épave (des bordés plus sombres), la cale, l'entrepont, le pont ; tout le dedans vide
-    for w in BOW..=STERN { let b = beam(w); let bp = beam((w - 1).max(BOW)).max(beam((w + 1).min(STERN)));
-        for u in -b.max(bp)..=b.max(bp) { let side = u.abs() >= b || w == BOW || w == STERN; let top = if w >= CABIN.0 { POOP + 1 } else { DECK + 1 };
-            for v in -1..=top { let shell = side && u.abs() <= b.max(bp); let floor = v == -1 || v == HOLD || v == GUN || v == DECK || (v == POOP && w >= CABIN.0);
-                if u.abs() > b && !shell { continue; }
-                if shell { g.n(u, v, w, if v % 4 == 3 { "planks_dark" } else { "wreck_planks" }); } else if floor { g.n(u, v, w, if v == -1 { "wreck_planks" } else { "planks" }); } else { g.air(u, v, w); } } } }
+    // la coque se rentre vers la quille (trois blocs de moins au ras du sable) ; à la proue, le bordage se relève en gaillard
+    for w in BOW..=STERN { let (b0, bp0) = (beam(w), beam((w - 1).max(BOW)).max(beam((w + 1).min(STERN)))); let top = if w >= CABIN.0 { POOP + 1 } else if w < BOW + 6 { DECK + 3 } else { DECK + 1 };
+        for v in -1..=top { let tuck = (2 - v).clamp(0, 3); let (b, bp) = (b0 - tuck, bp0 - tuck);
+            for u in -b.max(bp)..=b.max(bp) { let shell = u.abs() >= b || w == BOW || w == STERN; let floor = v == -1 || v == HOLD || v == GUN || v == DECK || (v == POOP && w >= CABIN.0);
+                if shell { g.n(u, v, w, if v == 3 || v == DECK - 1 { "planks_red" } else if v <= 0 { "planks_dark" } else { "wreck_planks" }); } else if floor { g.n(u, v, w, if v == -1 { "wreck_planks" } else { "planks" }); } else { g.air(u, v, w); } } } }
     // la brèche de bâbord, la rampe de sable ; quelques planches arrachées, du varech
-    let (bu, b0, b1) = BREACH; for w in b0..=b1 { for v in 1..=3 { g.air(bu, v, w); g.air(bu - 1, v, w); } g.n(bu - 1, 0, w, "sand"); } g.n(bu - 1, 1, b0 - 1, "wreck_planks");
+    let (bu, b0, b1) = BREACH; for w in b0..=b1 { for v in 1..=3 { for u in bu - 1..=bu + 1 { g.air(u, v, w); } } for u in bu - 1..=bu + 1 { g.n(u, 0, w, "sand"); } } g.n(bu - 1, 1, b0 - 1, "wreck_planks");
     for (u, w) in [(-5, -8), (4, 3), (-2, 12), (5, -15), (2, -4)] { g.n(u, HOLD + 1, w, "kelp"); } for (u, w) in [(-4, 0), (3, -10), (5, 14)] { g.n(u, HOLD + 1, w, "coral"); }
     // la cale : des caisses, des tonneaux, des chaînes, des os ; l'écoutille de l'entrepont
     for (u, w) in [(5, -6), (5, -5), (-5, 6), (4, 10), (-3, -14), (3, 16)] { g.n(u, HOLD + 1, w, if (u + w) % 2 == 0 { "crate" } else { "barrel" }); }
