@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_horloge_tour plat_horloge_facade plat_horloge_rouages plat_horloge_cadran plat_horloge_balancier plat_horloge_beffroi plat_boss_automate
+spawn jeu plat_observatoire_cour plat_observatoire_rotonde plat_observatoire_planetaire plat_observatoire_coupole plat_boss_astronome

@@ -462,6 +462,8 @@ for (const f of ['', '@1', '@2', '@3']) defs.push([`ossuary_wall${f}`, 'deco', n
 for (const f of ['', '@1', '@2', '@3']) for (const [n, drop] of [['statue_base', 'stone'], ['statue_top', 'stone'], ['tomb_head', 'stone'], ['tomb_foot', 'stone'], ['wall_relief', 'wall_relief'], ['lintel', 'lintel'], ['altar', 'altar']]) defs.push([`${n}${f}`, 'deco', null, 2.2, { model: n, solid: true, cat: 'rock', drop }]);
 // la Tour de l'Horloge : le laiton des rouages (clair, sombre) et l'émail du cadran
 cube('brass', 'marble', 2.5, 'rock', { tint: [0.98, 0.74, 0.32], drop: 'iron_ingot' }); cube('brass_dark', 'polished_stone', 2.5, 'rock', { tint: [0.86, 0.58, 0.26], drop: 'iron_ingot' }); cube('clock_face', 'marble', 1.8, 'rock', { tint: [1.0, 0.95, 0.84], drop: 'marble' });
+// l'Observatoire céleste : l'étoile allumée, l'étoile éteinte, la pierre de nuit du dôme
+cube('star_lit', 'marble', 2.0, 'rock', { tint: [1.0, 0.94, 0.62], light: 13, drop: 'marble' }); cube('star_dark', 'polished_stone', 2.0, 'rock', { tint: [0.32, 0.36, 0.6], drop: 'stone' }); cube('night_stone', 'polished_stone', 2.0, 'rock', { tint: [0.24, 0.27, 0.5], drop: 'stone' });
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,

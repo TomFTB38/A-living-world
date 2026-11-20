@@ -4,7 +4,7 @@ use crate::blocks::{Block, Shape};
 pub const VARIANTS: u32 = 4;
 pub const MATERIALS: [&str; 113] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm", "ore_copper", "ore_tin", "ore_iron", "ore_coal", "clay", "stone_bricks", "bricks", "thatch", "planks_birch", "planks_spruce", "cobble", "farmland_top", "plaster", "dark_timber", "roof_tiles", "slate", "marble", "ashlar", "fieldstone", "setts", "polished_stone", "checker", "terracotta", "parquet", "shingles", "wool", "rug", "frame_square", "frame_cross", "frame_diag", "wattle", "books", "hay", "crate", "chiseled", "stained_glass", "iron_plate", "verdigris", "coral", "planks_wreck", "lime_masonry", "rubble", "beam_end", "boards", "tiles_moss", "path_top", "flowstone", "basalt", "obsidian", "lava", "magma", "crystal_violet", "crystal_blue", "crystal_pink", "crystal_white", "abyss_rock", "glow_moss", "mycelium", "mushroom_stem", "cap_red", "cap_violet", "cap_blue", "gills", "ice_blue", "rail_bed"];
 
-pub const BLOCKS: [Block; 1234] = [
+pub const BLOCKS: [Block; 1237] = [
     Block { id: 0, name: "air", shape: Shape::Air, hardness: 0.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "decor", drop: Some("air") },
     Block { id: 1, name: "grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
     Block { id: 2, name: "dirt", shape: Shape::Cube, hardness: 0.45, faces: [8,8,8], dir_faces: [8,8,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
@@ -1239,6 +1239,9 @@ pub const BLOCKS: [Block; 1234] = [
     Block { id: 1231, name: "brass", shape: Shape::Cube, hardness: 2.5, faces: [256,256,256], dir_faces: [256,256,256,256], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.98,0.74,0.32], model: None, cat: "rock", drop: Some("iron_ingot") },
     Block { id: 1232, name: "brass_dark", shape: Shape::Cube, hardness: 2.5, faces: [272,272,272], dir_faces: [272,272,272,272], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.86,0.58,0.26], model: None, cat: "rock", drop: Some("iron_ingot") },
     Block { id: 1233, name: "clock_face", shape: Shape::Cube, hardness: 1.8, faces: [256,256,256], dir_faces: [256,256,256,256], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,0.95,0.84], model: None, cat: "rock", drop: Some("marble") },
+    Block { id: 1234, name: "star_lit", shape: Shape::Cube, hardness: 2.0, faces: [256,256,256], dir_faces: [256,256,256,256], grain: [0,0,0,0], solid: true, opaque: true, light: 13, tint: [1.0,0.94,0.62], model: None, cat: "rock", drop: Some("marble") },
+    Block { id: 1235, name: "star_dark", shape: Shape::Cube, hardness: 2.0, faces: [272,272,272], dir_faces: [272,272,272,272], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.32,0.36,0.6], model: None, cat: "rock", drop: Some("stone") },
+    Block { id: 1236, name: "night_stone", shape: Shape::Cube, hardness: 2.0, faces: [272,272,272], dir_faces: [272,272,272,272], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.24,0.27,0.5], model: None, cat: "rock", drop: Some("stone") },
 ];
 
 #[allow(non_snake_case)]
@@ -2312,4 +2315,7 @@ pub mod B {
     pub const BRASS: crate::blocks::Id = 1231;
     pub const BRASS_DARK: crate::blocks::Id = 1232;
     pub const CLOCK_FACE: crate::blocks::Id = 1233;
+    pub const STAR_LIT: crate::blocks::Id = 1234;
+    pub const STAR_DARK: crate::blocks::Id = 1235;
+    pub const NIGHT_STONE: crate::blocks::Id = 1236;
 }

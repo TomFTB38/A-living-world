@@ -93,7 +93,8 @@ pub struct Pulse { pub spikes: Vec<[i32; 3]>, pub darts: Vec<[i32; 3]>, /** s */
 /// `goal`. Des leviers le font tourner (`levers` : le levier et son nombre de crans) ; ou il tourne seul d'un cran toutes les
 /// `auto` secondes (`swing` : en aller-retour). `hit` : les dégâts de ce qu'il dessine sur le joueur, qui est projeté.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Dial { pub name: String, pub n: u8, pub state: u8, pub goal: u8, pub draw: Vec<Vec<([i32; 3], Id)>>, pub levers: Vec<([i32; 3], u8)>, pub auto: f64, pub swing: bool, pub hit: f64, /** état : le temps avant le prochain cran, le sens du balancier */ pub t: f64, pub back: bool }
+pub struct Dial { pub name: String, pub n: u8, pub state: u8, pub goal: u8, pub draw: Vec<Vec<([i32; 3], Id)>>, pub levers: Vec<([i32; 3], u8)>, pub auto: f64, pub swing: bool, pub hit: f64, /** `carry` : il emporte qui se tient dessus (les planètes d'un planétaire) ; dans chaque cran, la case `i` du dessin
+    est la même pièce, déplacée */ pub carry: bool, /** état : le temps avant le prochain cran, le sens du balancier */ pub t: f64, pub back: bool }
 impl Dial {
     /// Le cran suivant (du balancier : en aller-retour) et le nouveau sens.
     pub fn next(&self) -> (u8, bool) { if !self.swing || self.n < 2 { return ((self.state + 1) % self.n.max(1), false); }
@@ -261,6 +262,9 @@ impl Session {
     pub fn dial_set(&mut self, k: usize, to: u8, back: bool) {
         let d = self.mech.dials[k].clone(); if to == d.state { self.mech.dials[k].back = back; return; }
         let (old, new) = (d.draw.get(d.state as usize).cloned().unwrap_or_default(), d.draw.get(to as usize).cloned().unwrap_or_default());
+        // une plate-forme qui emporte : le joueur debout sur la pièce `i` suit cette pièce
+        if d.carry && self.dead.is_none() { let feet = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.05).floor() as i32 - 1, self.player.p[2].floor() as i32];
+            if let Some(i) = old.iter().position(|(q, _)| *q == feet) { if let Some((q, _)) = new.get(i) { for a in 0..3 { self.player.p[a] += (q[a] - feet[a]) as f64; } } } }
         let me = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.05).floor() as i32, self.player.p[2].floor() as i32]; let mine = |c: &[i32; 3]| c[0] == me[0] && c[2] == me[2] && (c[1] == me[1] || c[1] == me[1] + 1);
         let mut e: Vec<(i32, i32, i32, Id)> = Vec::new();
         for (c, b) in &old { if !new.iter().any(|(q, _)| q == c) && self.world.get(c[0], c[1], c[2]) == Some(*b) { e.push((c[0], c[1], c[2], 0)); } }
@@ -367,7 +371,7 @@ impl Session {
         for l in &self.mech.lifts { o += &format!("lift {} {} {} {} {} {} {} {} {}\n", l.cols.iter().map(|c| format!("{},{}", c[0], c[1])).collect::<Vec<_>>().join(";"), l.base, l.per, l.max, pts(&l.plates), word(&l.lock), name(l.block), name(l.fill), l.level); }
         for d in &self.mech.dials { let lv = if d.levers.is_empty() { "-".to_string() } else { d.levers.iter().map(|(p, s)| format!("{},{},{},{s}", p[0], p[1], p[2])).collect::<Vec<_>>().join(";") };
             let dr = d.draw.iter().map(|st| if st.is_empty() { "-".to_string() } else { st.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") }).collect::<Vec<_>>().join("|");
-            o += &format!("dial {} {} {} {} {} {} {} {} {} {}\n", word(&d.name), d.n, d.state, d.goal, d.auto, d.swing as u8, d.hit, d.back as u8, lv, dr); }
+            o += &format!("dial {} {} {} {} {} {} {} {} {} {} {}\n", word(&d.name), d.n, d.state, d.goal, d.auto, d.swing as u8, d.hit, d.back as u8, lv, dr, d.carry as u8); }
         if !self.mech.chests.is_empty() { o += &format!("mchest {}\n", pts(&self.mech.chests)); }
         if !self.mech.secrets.is_empty() { o += &format!("msecret {}\n", pts(&self.mech.secrets)); }
         if !self.mech.vaults.is_empty() { o += &format!("mvault {}\n", pts(&self.mech.vaults)); }
@@ -426,7 +430,7 @@ impl Session {
         let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 10 { return; }
         let levers = if a[8] == "-" { Vec::new() } else { a[8].split(';').filter_map(|c| { let v: Vec<i32> = c.split(',').filter_map(|x| x.parse().ok()).collect(); (v.len() == 4).then(|| ([v[0], v[1], v[2]], v[3] as u8)) }).collect() };
         let draw = a[9].split('|').map(|st| if st == "-" { Vec::new() } else { st.split(';').filter_map(|c| { let v: Vec<&str> = c.splitn(4, ',').collect(); if v.len() < 4 { return None; } Some(([v[0].parse().ok()?, v[1].parse().ok()?, v[2].parse().ok()?], by_name(v[3])?)) }).collect() }).collect();
-        self.mech.dials.push(Dial { name: if a[0] == "-" { String::new() } else { a[0].to_string() }, n: a[1].parse().unwrap_or(1), state: a[2].parse().unwrap_or(0), goal: a[3].parse().unwrap_or(0), auto: a[4].parse().unwrap_or(0.0), swing: a[5] == "1", hit: a[6].parse().unwrap_or(0.0), back: a[7] == "1", levers, draw, t: 0.0 });
+        self.mech.dials.push(Dial { name: if a[0] == "-" { String::new() } else { a[0].to_string() }, n: a[1].parse().unwrap_or(1), state: a[2].parse().unwrap_or(0), goal: a[3].parse().unwrap_or(0), auto: a[4].parse().unwrap_or(0.0), swing: a[5] == "1", hit: a[6].parse().unwrap_or(0.0), back: a[7] == "1", levers, draw, carry: a.get(10) == Some(&"1"), t: 0.0 });
     }
 }
 fn pts(s: &str) -> Vec<[i32; 3]> { if s == "-" { return Vec::new(); } s.split(';').filter_map(|c| { let v: Vec<i32> = c.split(',').filter_map(|x| x.parse().ok()).collect(); (v.len() == 3).then(|| [v[0], v[1], v[2]]) }).collect() }

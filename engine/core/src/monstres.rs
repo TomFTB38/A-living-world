@@ -619,6 +619,54 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
         p.blob_m([0.0, 1.12, 0.0], [0.045, 0.045, 0.02], brd, brd, Mat::Metal); for sx in [-1.0f64, 1.0] { arc(p, [sx * 0.06, 1.1, 0.0], 0.03, 0.0, std::f64::consts::TAU, 0.0, 0.006, brd, brd, 6, 1.0); }
     });
 
+    // ---- L'Astronome : un vieillard long et maigre, dans une robe bleu de nuit semée d'étoiles d'or, une cape étoilée, un capuchon
+    // bordé d'or, une longue barbe blanche, une lunette d'oculaire vissée à l'œil, des yeux qui luisent ; pour bâton, une sphère
+    // armillaire (trois anneaux croisés autour d'une étoile).
+    let (nv1, nv2, nv3, gld, gld2, skn, bea, eye) = ([0.1, 0.12, 0.3], [0.17, 0.2, 0.45], [0.06, 0.07, 0.18], [0.95, 0.78, 0.35], [0.7, 0.52, 0.2], [0.85, 0.76, 0.68], [0.92, 0.92, 0.9], [0.75, 0.9, 1.0]);
+    // un anneau vertical (dans le plan qui contient `n0` et l'axe vertical) fait de petits tubes
+    let ring = |p: &mut Pen, c: V, r: f64, n0: V, th: f64, col: C, k: usize| { for i in 0..k { let (a0, a1) = (i as f64 / k as f64 * std::f64::consts::TAU, (i + 1) as f64 / k as f64 * std::f64::consts::TAU);
+        let pt = |a: f64| [c[0] + n0[0] * a.cos() * r, c[1] + a.sin() * r, c[2] + n0[2] * a.cos() * r]; rod(p, pt(a0), pt(a1), th, th, col, col, 1); } };
+    let stars = |p: &mut Pen, pts: &[V]| { for q in pts { p.blob_m(*q, [0.014, 0.014, 0.01], gld, [1.0, 0.95, 0.7], PLAIN); } };
+    m("astTorso", Mat::Cloth, 0.014, &|p| {
+        // la robe : un buste étroit, une jupe longue qui s'évase jusqu'aux chevilles ; galons d'or, ceinture, l'astrolabe à la ceinture
+        shell(p, [0.0, 0.0, 0.0], &[(-0.62, 0.27, 0.24, 0.0), (-0.3, 0.22, 0.19, 0.0), (0.0, 0.16, 0.13, 0.0), (0.3, 0.19, 0.15, 0.0), (0.56, 0.21, 0.15, 0.0), (0.66, 0.08, 0.08, 0.0)], 12, nv3, nv1, 0.03);
+        for y in [-0.6, -0.56] { arc(p, [0.0, 0.0, 0.0], 0.272, 0.0, std::f64::consts::TAU, y, 0.012, gld, gld2, 16, 0.89); } arc(p, [0.0, 0.0, 0.0], 0.165, 0.0, std::f64::consts::TAU, 0.02, 0.022, gld2, gld, 12, 0.8);
+        slab(p, [0.0, 0.6, 0.14], [0.0, -0.6, 0.235], 0.05, 0.08, 0.012, [0.0, 0.0, 1.0], gld, gld2, 6);
+        ring(p, [0.1, -0.04, 0.15], 0.055, [0.8, 0.0, 0.6], 0.01, gld, 10); p.blob_m([0.1, -0.04, 0.15], [0.03, 0.03, 0.01], gld2, gld, Mat::Metal);
+        stars(p, &[[0.12, -0.3, 0.18], [-0.15, -0.45, 0.21], [0.2, 0.3, 0.12], [-0.17, 0.2, 0.12], [-0.08, -0.2, 0.17], [0.18, -0.52, 0.22], [-0.2, -0.12, 0.15]]);
+        // la cape étoilée, du col aux talons, et son col haut doré
+        for k in 0..5 { let x = (k as f64 - 2.0) * 0.1; slab(p, [x * 0.8, 0.6, -0.15], [x * 1.3, -0.64, -0.3 - (k as f64 - 2.0).abs() * 0.02], 0.12, 0.17, 0.02, [x, 0.0, -1.0], nv2, nv3, 6); }
+        stars(p, &[[0.1, 0.3, -0.21], [-0.12, -0.1, -0.27], [0.18, -0.4, -0.31], [-0.05, 0.45, -0.18], [0.0, -0.3, -0.29], [-0.2, 0.15, -0.23], [0.22, 0.05, -0.25]]);
+        for k in 0..7 { let a = (k as f64 - 3.0) * 0.42 + std::f64::consts::PI; slab(p, [a.sin() * 0.12, 0.6, a.cos() * 0.1], [a.sin() * 0.16, 0.76, a.cos() * 0.14], 0.07, 0.08, 0.014, [a.sin(), 0.0, a.cos()], gld2, gld, 2); }
+    });
+    m("astHead", Mat::Cloth, 0.012, &|p| {
+        // un visage long et pâle, une barbe blanche en pointe, le capuchon bleu de nuit bordé d'or ; la lunette d'oculaire à l'œil droit
+        egg(p, [0.0, 0.12, 0.01], [0.08, 0.11, 0.09], skn, mix(skn, [0.6, 0.5, 0.45], 0.4), 10); p.blob_m([0.0, 0.12, 0.095], [0.016, 0.03, 0.02], skn, skn, PLAIN);
+        for sx in [-1.0f64, 1.0] { p.blob_m([sx * 0.032, 0.15, 0.085], [0.016, 0.01, 0.008], eye, [1.0, 1.0, 1.0], PLAIN); slab(p, [sx * 0.05, 0.18, 0.08], [sx * 0.015, 0.175, 0.09], 0.012, 0.01, 0.01, [0.0, 0.0, 1.0], bea, bea, 1); }
+        for k in 0..5 { let x = (k as f64 - 2.0) * 0.022; slab(p, [x * 1.6, 0.08, 0.075], [x * 0.5, -0.12 - (2.0 - (k as f64 - 2.0).abs()) * 0.025, 0.06], 0.04, 0.012, 0.016, [0.0, 0.0, 1.0], bea, mix(bea, [0.7, 0.72, 0.75], 0.5), 4); }
+        rod(p, [0.032, 0.15, 0.09], [0.032, 0.15, 0.15], 0.022, 0.018, gld2, gld, 3); p.blob_m([0.032, 0.15, 0.152], [0.016, 0.016, 0.006], eye, [1.0, 1.0, 1.0], PLAIN);
+        shell(p, [0.0, 0.0, -0.01], &[(0.0, 0.11, 0.12, -0.01), (0.14, 0.12, 0.13, -0.01), (0.24, 0.09, 0.1, -0.03), (0.3, 0.05, 0.06, -0.06), (0.33, 0.01, 0.01, -0.1)], 12, nv2, nv1, 0.02);
+        for k in 0..9 { let a = (k as f64 - 4.0) * 0.3; let (x, z) = (a.sin() * 0.12, a.cos() * 0.12 - 0.01); rod(p, [x, 0.0, z], [x * 0.95, 0.2, z * 0.9], 0.012, 0.01, gld, gld2, 2); }
+    });
+    m("astArm", Mat::Cloth, 0.014, &|p| {
+        // une manche large qui s'évase jusqu'au poignet, un revers d'or, une main maigre
+        rod(p, [0.0, 0.0, 0.0], [0.0, -0.32, 0.0], 0.06, 0.07, nv1, nv2, 4); rod(p, [0.0, -0.3, 0.0], [0.0, -0.52, 0.03], 0.07, 0.11, nv2, nv1, 4); rod(p, [0.0, -0.5, 0.03], [0.0, -0.54, 0.035], 0.112, 0.112, gld, gld2, 1);
+        stars(p, &[[0.06, -0.2, 0.03], [-0.05, -0.42, 0.06]]); egg(p, [0.0, -0.6, 0.04], [0.035, 0.05, 0.035], skn, mix(skn, [0.6, 0.5, 0.45], 0.4), 8);
+        for k in 0..4 { let x = (k as f64 - 1.5) * 0.017; rod(p, [x, -0.63, 0.05], [x, -0.7, 0.07], 0.008, 0.007, skn, skn, 2); }
+    });
+    m("astLeg", Mat::Cloth, 0.014, &|p| {
+        // sous la robe, des chausses sombres et des souliers pointus à boucle d'or
+        rod(p, [0.0, -0.4, 0.0], [0.0, -0.72, 0.0], 0.045, 0.04, nv3, nv1, 3); crate::mesher::obox(p.q, [0.0, -0.77, 0.04], [[0.045, 0.0, 0.0], [0.0, 0.03, 0.0], [0.0, 0.0, 0.11]], nv3, -1.0, 255.0, 0.0);
+        rod(p, [0.0, -0.77, 0.13], [0.0, -0.74, 0.2], 0.03, 0.006, nv3, nv1, 2); p.blob_m([0.0, -0.74, 0.08], [0.02, 0.015, 0.01], gld, gld, Mat::Metal);
+    });
+    m("astStaff", Mat::Metal, 0.012, &|p| {
+        // un bâton d'ébène cerclé d'or, la sphère armillaire au sommet : trois anneaux croisés, l'écliptique penchée, une étoile au cœur
+        rod(p, [0.0, -0.75, 0.0], [0.0, 0.85, 0.0], 0.02, 0.016, [0.12, 0.08, 0.06], [0.2, 0.14, 0.1], 8); for y in [-0.4, 0.0, 0.4, 0.82] { rod(p, [0.0, y, 0.0], [0.0, y + 0.03, 0.0], 0.026, 0.026, gld, gld2, 1); }
+        let c = [0.0, 1.05, 0.0]; ring(p, c, 0.17, [1.0, 0.0, 0.0], 0.01, gld, 18); ring(p, c, 0.17, [0.0, 0.0, 1.0], 0.01, gld, 18); arc(p, c, 0.17, 0.0, std::f64::consts::TAU, 0.0, 0.01, gld2, gld, 18, 1.0);
+        ring(p, c, 0.13, [0.7, 0.0, 0.7], 0.008, gld2, 14); egg(p, c, [0.05, 0.05, 0.05], [1.0, 0.95, 0.6], [1.0, 1.0, 0.85], 8); rod(p, [0.0, 0.85, 0.0], [0.0, 1.25, 0.0], 0.006, 0.006, gld2, gld2, 1);
+        for sx in [-1.0f64, 1.0] { p.blob_m([sx * 0.12, 1.12, 0.06], [0.02, 0.02, 0.02], [0.6, 0.7, 0.95], [0.9, 0.95, 1.0], PLAIN); }
+    });
+
     // Noyé : la peau turquoise des fonds, des yeux qui luisent, la tête et les épaules coiffées d'algues qui dégoulinent,
     // une tunique brune trouée et effilochée, des bernacles ; il tient un trident.
     let (teal, teal2, teal3) = ([0.3, 0.68, 0.68], [0.16, 0.44, 0.48], [0.42, 0.82, 0.8]); let (alg, alg2, rag, rag2) = ([0.36, 0.5, 0.14], [0.2, 0.34, 0.12], [0.44, 0.25, 0.14], [0.28, 0.16, 0.1]);
