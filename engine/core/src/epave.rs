@@ -18,7 +18,7 @@ use crate::session::Session;
 use crate::sites::{Place, Plan};
 
 /// La coque : de la proue (w) à la poupe ; les ponts : le sol de la cale, l'entrepont, le pont, la dunette (le bloc).
-pub const BOW: i32 = -22; pub const STERN: i32 = 21; pub const HOLD: i32 = 0; pub const GUN: i32 = 5; pub const DECK: i32 = 9; pub const POOP: i32 = 13;
+pub const BOW: i32 = -22; pub const STERN: i32 = 21; pub const HOLD: i32 = 0; pub const GUN: i32 = 5; pub const DECK: i32 = 9; pub const POOP: i32 = 14;
 /// La cabine du capitaine sous la dunette (de w à w) ; sa porte (le mur du devant).
 pub const CABIN: (i32, i32) = (13, 20); pub const CABIN_DOOR: [[i32; 3]; 4] = [[-1, 10, 12], [0, 10, 12], [-1, 11, 12], [0, 11, 12]];
 /// La brèche (u, de w à w) ; l'écoutille de la cale (u, w : deux sur deux) ; la marée : son cycle, sa part de mer haute.
@@ -34,7 +34,7 @@ pub const BOSS: &str = "capitaine_fantome"; pub const BOSS_AT: [f64; 3] = [0.5, 
 pub fn half(w: i32, v: i32) -> f64 {
     if v < -1 || w < BOW || w > STERN { return 0.0; } let t = (w - BOW) as f64 / (STERN - BOW) as f64;
     let plan = if t < 0.4 { (7.6 * (t / 0.4 * std::f64::consts::FRAC_PI_2).sin().powf(0.6)).max(1.4) } else if t > 0.86 { 7.6 - (t - 0.86) / 0.14 * 1.8 } else { 7.6 };
-    plan * match v { -1 => 0.35, 0 => 0.6, 1 => 0.78, 2 => 0.9, 3..=5 => 1.0, _ => (1.0 - 0.025 * (v - 5) as f64).max(0.86) }
+    plan * match v { -1 => 0.3, 0 => 0.5, 1 => 0.66, 2 => 0.79, 3 => 0.89, 4 => 0.96, 5 | 6 => 1.0, _ => (1.0 - 0.035 * (v - 6) as f64).max(0.8) }
 }
 /// La paroi de la coque à ce niveau : |u| jusqu'à `shell_r` est de la coque ou du dedans.
 pub fn shell_r(w: i32, v: i32) -> i32 { (half(w, v).round() as i32).max(1) }
@@ -46,7 +46,9 @@ pub fn interior(u: i32, w: i32, v: i32) -> bool {
 /// La paroi au niveau de l'entrepont (là où sont les canons).
 pub fn beam(w: i32) -> i32 { shell_r(w, GUN + 1) }
 /// Le haut du bordage : il se relève vers la proue ; la dunette, à la poupe.
-pub fn top(w: i32) -> i32 { if w >= CABIN.0 { POOP + 1 } else if w < BOW + 8 { DECK + 1 + (BOW + 8 - w + 1) / 3 } else { DECK + 1 } }
+pub fn top(w: i32) -> i32 { if w >= STERN - 1 { POOP + 3 } else if w >= CABIN.0 { POOP + 1 } else if w <= FORE { DECK + 4 } else if w <= FORE + 3 { DECK + 2 } else { DECK + 1 } }
+/// Le gaillard d'avant : un pont surélevé à la proue, jusqu'à `FORE` (w).
+pub const FORE: i32 = -16;
 /// La grand-voile : roulée sous la vergue (0), ou déployée (1).
 pub fn sail(k: u8) -> Vec<([i32; 3], &'static str)> {
     let mut o = Vec::new(); for u in -6..=6i32 { if k == 0 { o.push(([u, YARD - 1, YARD_W + 1], "sail")); } else { for v in DECK + 3..YARD { let belly = u.abs() < 4 && v > DECK + 4 && v < YARD - 2; o.push(([u, v, YARD_W + 1 + belly as i32], "sail")); } } } o
@@ -73,12 +75,15 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     // la coque : la quille, des fonds sombres, une préceinte rouge, des bordés d'épave, des œuvres mortes peintes en bleu ; des
     // planches arrachées sur tribord ; dedans, la cale, l'entrepont, le pont, la dunette
     for w in BOW..=STERN { for v in -1..=top(w) { let r = shell_r(w, v); for u in -r..=r {
-        let floor = v == HOLD || v == GUN || v == DECK || (v == POOP && w >= CABIN.0);
+        let floor = v == HOLD || v == GUN || v == DECK || (v == POOP && w >= CABIN.0) || (v == DECK + 3 && w <= FORE);
         if interior(u, w, v) { if floor { g.n(u, v, w, "planks"); } else { g.air(u, v, w); } continue; }
-        if v > DECK && u.abs() < r && w > BOW && w < STERN && !(w >= CABIN.0 && v <= POOP) { g.air(u, v, w); continue; }
+        if v > DECK && u.abs() < r && w > BOW && w < STERN && !(w >= CABIN.0 && v <= POOP) && !(w <= FORE && v == DECK + 3) { g.air(u, v, w); continue; }
         let hole = u > 0 && (2..=4).contains(&v) && g.h(u, v, w, 3) < 0.06 && w > BOW + 4 && w < STERN - 3;
         if hole { g.air(u, v, w); continue; }
-        g.n(u, v, w, if v <= 2 { "planks_dark" } else if v == 3 || v == DECK - 2 { "planks_red" } else if v >= DECK - 1 && (w >= CABIN.0 || v == DECK + 3) { if v == top(w) { "wool_yellow" } else { "planks_blue" } } else if v >= DECK - 1 { "planks_blue" } else if g.h(u, v, w, 4) < 0.15 { "planks_dark" } else { "wreck_planks" }); } } }
+        // les couleurs : des fonds goudronnés, une préceinte rouge, la batterie en bois d'épave, un liseré d'or, des œuvres mortes
+        // bleues (les châteaux, en panneaux bleus entre des pilastres dorés), un plat-bord doré
+        let castle = (w >= CABIN.0 || w <= FORE) && v > DECK;
+        g.n(u, v, w, if v <= 4 { if g.h(u, v, w, 5) < 0.1 { "wreck_planks" } else { "planks_dark" } } else if v == 5 { "planks_red" } else if v == DECK - 1 || v == top(w) { "brass" } else if castle && (u.abs() == r && w.rem_euclid(3) == 0 || w == STERN && u.rem_euclid(3) == 0) { "brass" } else if v >= DECK { "planks_blue" } else if g.h(u, v, w, 4) < 0.15 { "planks_dark" } else { "wreck_planks" }); } } }
     // la brèche de bâbord, sa rampe de sable ; du varech, du corail
     let (_, b0, b1) = BREACH; for w in b0..=b1 { for v in 1..=3 { for u in -9..0 { if !interior(u, w, v) && -u <= shell_r(w, v) { g.air(u, v, w); } } } for u in -9..=-(shell_r(w, 0) + 1) { g.n(u, 0, w, "sand"); } }
     for (u, w) in [(-3, -8), (3, 3), (-2, 12), (2, -15), (2, -4)] { g.n(u, HOLD + 1, w, "kelp"); } for (u, w) in [(-3, 0), (3, -10), (3, 14)] { g.n(u, HOLD + 1, w, "coral"); }
@@ -89,37 +94,46 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     // l'entrepont : les canons sur leurs affûts, aux sabords des deux flancs ; l'échelle de la proue
     for v in GUN + 1..=DECK { g.t(BOW_LADDER.0, v, BOW_LADDER.1, "ladder", 0, -1); } g.n(BOW_LADDER.0, GUN + 1, BOW_LADDER.1 - 1, "planks_dark"); for v in GUN + 2..DECK { g.n(BOW_LADDER.0, v, BOW_LADDER.1 - 1, "planks_dark"); }
     for (u, w) in [(-4, -12), (4, 0), (-4, 10)] { g.n(u, GUN + 1, w, "lantern"); }
-    // les mâts : le mât de misaine brisé et sa voile en lambeaux ; le grand mât, sa vergue (une planche manque), son échelle, sa
-    // hune, son mât de hune et son hunier déchiré, le pavillon noir ; le mât d'artimon et sa voile latine
-    let rag = |g: &G, u: i32, v: i32, w: i32| g.h(u, v, w, 7) < 0.22;
-    for v in HOLD + 1..DECK + 11 { g.n(0, v, -13, "spruce_log"); } g.n(1, DECK + 11, -13, "spruce_log"); g.n(0, DECK + 11, -12, "spruce_log_z");
-    for u in -5..=5 { g.n(u, DECK + 9, -13, "spruce_log_x"); } for u in -5..=5i32 { for v in DECK + 3..DECK + 9 { if !rag(&g, u, v, -12) && !(v < DECK + 5 && (u + v).rem_euclid(3) == 0) { g.n(u, v, -12, "sail"); } } }
-    for v in HOLD + 1..YARD + 10 { g.n(0, v, MAST_W, "spruce_log"); }
+    // les mâts : chacun ses vergues, ses voiles grises en lambeaux, gonflées par un vent qui ne souffle plus ; la misaine avec sa
+    // hune ; le grand mât, sa vergue basse (une planche manque, la grand-voile roulée dessous), sa hune, son hunier, son perroquet,
+    // le pavillon noir ; l'artimon et sa voile latine
+    let rag = |g: &G, u: i32, v: i32, w: i32| g.h(u, v, w, 7) < 0.16;
+    let sheet = |g: &mut G, mw: i32, half: i32, v0: i32, v1: i32, skip0: bool| { for u in -half..=half { for v in v0..=v1 { if (skip0 && u == 0) || rag(g, u, v, mw) || (v == v0 && (u + mw).rem_euclid(3) == 0) { continue; }
+        let belly = ((1.0 - (u as f64 / (half as f64 + 1.0)).powi(2)) * ((v - v0) as f64 / (v1 - v0 + 1) as f64 * std::f64::consts::PI).sin() * 2.2).round() as i32; g.n(u, v, mw + 1 + belly, "sail"); } } };
+    let fm = -13; for v in HOLD + 1..DECK + 19 { g.n(0, v, fm, "spruce_log"); }
+    for (vy, hw) in [(DECK + 10, 6), (DECK + 17, 4)] { for u in -hw..=hw { if u != 0 { g.n(u, vy, fm, "spruce_log_x"); } } } sheet(&mut g, fm, 5, DECK + 5, DECK + 9, false); sheet(&mut g, fm, 3, DECK + 13, DECK + 16, false);
+    for du in -1..=1 { for dw in -1..=1 { if (du, dw) != (0, 0) { g.n(du, DECK + 11, fm + dw, "planks_dark"); } } }
+    for v in HOLD + 1..YARD + 14 { g.n(0, v, MAST_W, "spruce_log"); }
     for u in -7..=7 { if u != 0 && u != YARD_GAP { g.n(u, YARD, YARD_W, "spruce_log_x"); } } g.t(YARD_LEVER[0], YARD_LEVER[1], YARD_LEVER[2], "lever", 0, 1);
     for v in DECK + 1..=YARD { g.t(0, v, YARD_W, "ladder", 0, -1); }
     for du in -1..=1 { for dw in -1..=1 { if (du, dw) != (0, 0) { g.n(du, YARD + 5, MAST_W + dw, "planks_dark"); g.n(du, YARD + 6, MAST_W + dw, if du == 0 || dw == 0 { "rope_rail" } else { "planks_dark" }); } } }
-    for u in -4..=4 { g.n(u, YARD + 8, YARD_W, "spruce_log_x"); } for u in -4..=4i32 { for v in YARD + 6..YARD + 8 { if !rag(&g, u, v, YARD_W + 1) && u != 0 { g.n(u, v, YARD_W + 1, "sail"); } } }
-    for (du, dv) in [(1, 0), (2, 0), (3, 0), (1, -1), (2, -1)] { g.n(du, YARD + 9 + dv, MAST_W, "wool_black"); }
+    for (vy, hw) in [(YARD + 9, 5), (YARD + 13, 3)] { for u in -hw..=hw { if u != 0 { g.n(u, vy, YARD_W, "spruce_log_x"); } } } sheet(&mut g, YARD_W, 4, YARD + 7, YARD + 8, true); sheet(&mut g, YARD_W, 2, YARD + 10, YARD + 12, true);
+    for (du, dv) in [(1, 0), (2, 0), (3, 0), (1, -1), (2, -1), (3, -1)] { g.n(du, YARD + 14 + dv, MAST_W, "wool_black"); } g.n(0, YARD + 14, MAST_W, "lantern");
     g.draw(&sail(0));
-    for v in POOP + 1..POOP + 10 { g.n(0, v, 17, "spruce_log"); } for k in 0..10 { let (v, w) = (POOP + 2 + k * 8 / 10, 21 - k); g.n(0, v, w, "spruce_log_z"); }
-    for k in 0..10 { let (vt, w) = (POOP + 2 + k * 8 / 10, 21 - k); for v in POOP + 2..vt { if !rag(&g, 1, v, w) && w != 17 { g.n(1, v, w, "sail"); } } }
-    // les haubans : des chaînes tendues du bordage aux mâts
+    for v in POOP + 1..POOP + 12 { g.n(0, v, 17, "spruce_log"); } for k in 0..12 { let (v, w) = (POOP + 2 + k * 10 / 12, 22 - k); g.n(0, v, w, "spruce_log_z"); }
+    for k in 0..12 { let (vt, w) = (POOP + 2 + k * 10 / 12, 22 - k); for v in POOP + 3..vt { if !rag(&g, 1, v, w) && w != 17 { g.n(1, v, w, "sail"); } } }
+    // les haubans : des chaînes tendues du bordage aux hunes
     let line = |g: &mut G, a: [i32; 3], b: [i32; 3]| { let n = (b[0] - a[0]).abs().max((b[1] - a[1]).abs()).max((b[2] - a[2]).abs()).max(1); for k in 0..=n { let t = k as f64 / n as f64; let c = [a[0] + ((b[0] - a[0]) as f64 * t).round() as i32, a[1] + ((b[1] - a[1]) as f64 * t).round() as i32, a[2] + ((b[2] - a[2]) as f64 * t).round() as i32]; if c[0] != 0 && (c[1] > top(c[2]) || c[0].abs() > shell_r(c[2], c[1])) { g.n(c[0], c[1], c[2], "chain"); } } };
-    for (mw, mv) in [(-13, DECK + 8), (MAST_W, YARD + 4), (17, POOP + 7)] { for s in [-1, 1] { for dw in [-2, 0, 2] { let w = mw + dw - 1; let v0 = top(w) + 1; let b = shell_r(w, v0 - 1); line(&mut g, [s * b, v0, w], [s, mv, mw]); } } }
-    // le bastingage du pont, la dunette et son escalier, la barre ; la cabine (sa porte barrée), ses fenêtres de poupe
-    for w in BOW + 1..CABIN.0 { let b = shell_r(w, DECK + 1); for s in [-1, 1] { if (w + s).rem_euclid(3) != 0 && w > BOW + 6 { g.n(s * (b - 1), DECK + 1, w, "rope_rail"); } } }
-    for k in 0..4 { for u in [-5, 5] { g.t(u, DECK + 1 + k, CABIN.0 - 4 + k, "planks_stairs", 0, 1); for v in DECK + 1..=DECK + k { g.n(u, v, CABIN.0 - 4 + k, "planks"); } } }
-    for u in -6..=6 { for v in DECK + 1..POOP { if interior(u, CABIN.0 - 1, v) || u.abs() < shell_r(CABIN.0 - 1, v) { g.n(u, v, CABIN.0 - 1, if v == DECK + 3 { "planks_dark" } else { "wreck_planks" }); } } } for c in CABIN_DOOR { g.n(c[0], c[1], c[2], "great_chain"); }
+    for (mw, mv) in [(fm, DECK + 10), (MAST_W, YARD + 4), (17, POOP + 7)] { for s in [-1, 1] { for dw in [-3, -1, 1] { let w = mw + dw; let v0 = top(w) + 1; let b = shell_r(w, v0 - 1); line(&mut g, [s * b, v0, w], [s, mv, mw]); } } }
+    // les étais : du beaupré à la misaine, de la misaine au grand mât, du grand mât à l'artimon
+    line(&mut g, [1, DECK + 7, BOW - 8], [1, DECK + 17, fm]); line(&mut g, [1, DECK + 17, fm], [1, YARD + 9, MAST_W]); line(&mut g, [1, YARD + 9, MAST_W], [1, POOP + 10, 17]);
+    // le bastingage du pont, le gaillard d'avant, la dunette et son escalier, la barre ; la cabine (sa porte barrée)
+    for w in FORE + 1..CABIN.0 { let b = shell_r(w, DECK + 1); for s in [-1, 1] { if (w + s).rem_euclid(3) != 0 { g.n(s * (b - 1), DECK + 1, w, "rope_rail"); } } }
+    for u in -3..=3i32 { if u.abs() >= 2 { g.n(u, DECK + 4, FORE, "rope_rail"); } }
+    for k in 0..5 { for u in [-5, 5] { g.t(u, DECK + 1 + k, CABIN.0 - 5 + k, "planks_stairs", 0, 1); for v in DECK + 1..=DECK + k { g.n(u, v, CABIN.0 - 5 + k, "planks"); } } }
+    for u in -6..=6 { for v in DECK + 1..POOP { if interior(u, CABIN.0 - 1, v) || u.abs() < shell_r(CABIN.0 - 1, v) { g.n(u, v, CABIN.0 - 1, if v == DECK + 4 { "brass" } else if (u + 7).rem_euclid(3) == 0 { "planks_dark" } else { "planks_blue" }); } } } for c in CABIN_DOOR { g.n(c[0], c[1], c[2], "great_chain"); }
+    for u in [-3, 3] { g.n(u, DECK + 1, CABIN.0 - 2, "lantern"); }
     g.n(0, POOP + 1, 19, "spinning_wheel"); for (u, w) in [(-4, 14), (4, 14), (-3, 19), (3, 19)] { g.n(u, DECK + 1, w, "lantern"); } g.n(CHEST[0], CHEST[1], CHEST[2], "chest"); g.n(2, DECK + 1, 18, "barrel"); g.n(-2, DECK + 1, 18, "fish_crate");
-    // la poupe : le tableau et ses fenêtres, le balcon, les fanaux ; les bouteilles de poupe sur les flancs
-    for u in -4..=4i32 { for v in [DECK + 1, DECK + 2] { if u.abs() % 2 == 0 { g.n(u, v, STERN, "stained_glass"); } } g.n(u, DECK, STERN + 1, "planks_dark"); if u.abs() == 4 || u % 2 == 0 { g.n(u, DECK + 1, STERN + 1, "rope_rail"); } }
-    for u in [-3, 0, 3] { g.n(u, POOP + 2, STERN, "lantern"); } for u in -5..=5 { g.n(u, POOP + 1, STERN, "wool_yellow"); }
-    for s in [-1, 1] { for w in 16..=19 { let b = shell_r(w, DECK + 1); for v in DECK..=POOP { g.n(s * (b + 1), v, w, if v == DECK || v == POOP { "wool_yellow" } else if w == 17 || w == 18 { "stained_glass" } else { "planks_blue" }); } } }
-    // la proue : la figure dorée, le beaupré et ses étais ; les ancres aux bossoirs ; les sabords et leurs canons ; le gouvernail
-    for k in 0..10 { let c = [0, DECK + 1 + k / 2, BOW - k]; g.n(c[0], c[1], c[2], "spruce_log_z"); } line(&mut g, [0, DECK + 5, BOW - 8], [0, DECK + 10, -13]);
-    for v in DECK - 3..=DECK + 1 { g.n(0, v, BOW - 1, "wool_yellow"); } g.n(0, DECK + 2, BOW - 2, "wool_yellow"); g.n(0, DECK, BOW - 2, "wool_yellow");
+    // la poupe : le tableau et ses deux rangs de fenêtres, le balcon, la couronne dorée et ses trois fanaux ; les bouteilles de poupe
+    for u in -4..=4i32 { for v in [DECK + 1, DECK + 2, DECK + 4] { if u.abs() % 2 == 1 { g.n(u, v, STERN, "stained_glass"); } } g.n(u, DECK, STERN + 1, "planks_dark"); g.n(u, DECK + 1, STERN + 1, if u.abs() == 4 || u % 2 == 0 { "rope_rail" } else { "air" }); }
+    for u in -3..=3 { g.n(u, POOP + 4, STERN, if u.abs() == 3 { "lantern" } else { "brass" }); } g.n(0, POOP + 5, STERN, "brass"); g.n(0, POOP + 6, STERN, "lantern");
+    for s in [-1, 1] { for w in 15..=19 { let b = shell_r(w, DECK + 2); for v in DECK..=POOP + 1 { g.n(s * (b + 1), v, w, if v == DECK || v == POOP + 1 { "brass" } else if (w == 16 || w == 18) && v < POOP { "stained_glass" } else { "planks_blue" }); } } }
+    // la proue : la figure dorée, le beaupré, les ancres aux bossoirs ; les sabords et leurs canons ; le gouvernail
+    for k in 0..12 { let c = [0, DECK + 2 + k / 2, BOW - k]; g.n(c[0], c[1], c[2], "spruce_log_z"); } for k in 0..5 { for v in DECK + 3..DECK + 3 + k { if !rag(&g, 1, v, BOW - 7 + k) { g.n(1, v, BOW - 7 + k, "sail"); } } }
+    for v in DECK - 3..=DECK + 2 { g.n(0, v, BOW - 1, "brass"); } g.n(0, DECK + 3, BOW - 2, "brass"); g.n(0, DECK + 1, BOW - 2, "brass");
     for s in [-1, 1] { g.n(s * (shell_r(BOW + 4, DECK - 1) + 1), DECK - 1, BOW + 4, "anchor"); }
     for w in CANNONS { for s in [-1, 1] { let b = beam(w); g.n(s * b, GUN + 1, w, "cannon"); g.air(s * b, GUN + 2, w); g.n(s * (b - 1), GUN + 1, w + 1, "planks_dark"); g.n(s * (b - 1), GUN + 1, w - 1, "planks_dark"); g.n(s * b, GUN + 3, w, "planks_red"); } }
+    for w in (-12..=10).step_by(4) { for s in [-1, 1] { let b = shell_r(w + 2, DECK + 1); g.n(s * b, DECK + 1, w + 2, "planks_red"); } }
     for v in -1..=DECK - 2 { g.n(0, v, STERN + 1, "planks_dark"); }
 }
 

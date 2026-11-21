@@ -313,7 +313,7 @@ impl Session {
         let Some((dir, _)) = best else { return };
         let from = [p[0] as f64 + 0.5 + dir[0] * 0.6, p[1] as f64 + 0.5, p[2] as f64 + 0.5 + dir[2] * 0.6];
         // un canon (de l'épave) tire un boulet : plus lent, deux fois plus lourd
-        if self.world.get(p[0], p[1], p[2]) == crate::blocks::by_name("cannon") { self.horde.shots.push((from, [dir[0] * 18.0, 0.8, dir[2] * 18.0], 0.0, DART_DMG * 2.0, "Un boulet de canon fantôme")); self.sound.place("iron_bars"); return; }
+        if self.world.get(p[0], p[1], p[2]) == crate::blocks::by_name("cannon") { self.horde.shots.push((from, [dir[0] * 20.0, 2.2, dir[2] * 20.0], 0.0, DART_DMG * 2.0, "Un boulet de canon fantôme")); self.sound.place("iron_bars"); return; }
         self.horde.shots.push((from, [dir[0] * 24.0, 0.6, dir[2] * 24.0], 0.0, DART_DMG, "Une fléchette piégée")); self.sound.swing(None, 0.6);
     }
     /// Clic droit sur un levier : il bascule. Rend vrai si c'en était un.

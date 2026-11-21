@@ -682,7 +682,7 @@ fn capture(a: &[String]) {
         // la marée haute pour la cale ; la voile déployée pour le pont
         if vw == "cale" { if let Some(t) = s.mech.tides.last_mut() { t.high = 1.0; } for _ in 0..120 { s.tick(1.0 / 60.0, none, Actions::default()); } }
         if vw == "voile" { let k = s.mech.dials.iter().position(|d| d.name.ends_with("voile")).unwrap(); s.dial_set(k, 1, false); }
-        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "greve" => ([-30.5, 9.0, -34.5], [0.5, 9.0, 0.0]), "cale" => ([-5.5, 4.6, -12.5], [1.0, 3.0, 2.0]),
+        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "greve" => ([-36.5, 9.0, -14.5], [0.5, 12.0, 0.0]), "poupe" => ([24.5, 12.0, 40.5], [0.5, 13.0, 10.0]), "cale" => ([-5.5, 4.6, -12.5], [1.0, 3.0, 2.0]),
             "canons" => ([0.5, 6.5, 9.5], [0.5, 6.5, -8.0]), "voile" => ([-9.5, 15.0, -11.5], [0.5, 15.0, 2.0]), _ => ([4.5, 10.5, 13.5], [0.5, 10.5, 18.0]) };
         s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }

@@ -178,6 +178,7 @@ jobs:
           shot plat_serre_racine -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_serre_racine
           shot plat_boss_mere_racine -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_mere_racine
           shot plat_epave_greve -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_epave_greve
+          shot plat_epave_poupe -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_epave_poupe
           shot plat_epave_cale -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_epave_cale
           shot plat_epave_canons -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_epave_canons
           shot plat_epave_voile -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_epave_voile

@@ -20,7 +20,7 @@ fn water(s: &Session, o: [i32; 3], v: i32) -> bool { name(s, at(o, [2, v, -6])) 
 
 #[test]
 fn la_coque_est_close() {
-    assert!(ep::beam(ep::BOW + 1) <= 2, "une proue fine"); assert_eq!(ep::beam(0), 7, "un maître-couple large"); assert!((5..=6).contains(&ep::beam(ep::STERN)), "une poupe carrée");
+    assert!(ep::beam(ep::BOW + 1) <= 2, "une proue fine"); assert!((7..=8).contains(&ep::beam(0)), "un maître-couple large"); assert!((5..=6).contains(&ep::beam(ep::STERN)), "une poupe carrée");
     assert!(ep::shell_r(0, -1) < ep::shell_r(0, 0) && ep::shell_r(0, 0) < ep::shell_r(0, 3), "des fonds qui se rentrent vers la quille");
     // étanche : chaque case du dedans ne touche que du dedans ou la coque (jusqu'au pont ; au-dessus, il est à ciel ouvert)
     for w in ep::BOW..=ep::STERN { for v in 0..=ep::DECK { for u in -9..=9 { if !ep::interior(u, w, v) { continue; }
@@ -50,6 +50,7 @@ fn maree_canons_vergue_et_le_capitaine() {
     assert!(ep::CABIN_DOOR.iter().all(|c| name(&s, at(o, *c)) == "great_chain")); put(&mut s, o, tip); assert!(s.lever_at(at(o, ep::YARD_LEVER))); run(&mut s, 0.2);
     for (c, b) in ep::sail(1) { assert_eq!(name(&s, at(o, c)), b, "la voile déployée"); } assert!(ep::CABIN_DOOR.iter().all(|c| name(&s, at(o, *c)) == "air"), "la porte de la cabine cède");
     assert!(look(&s, o, deck).contains(&at(o, [0, ep::DECK + 1, 15])), "dans la cabine");
+    for v in ep::DECK + 1..ep::POOP { assert_eq!(name(&s, at(o, [0, v, 16])), "air", "une cabine haute de quatre blocs : le Capitaine y tient debout"); }
     // — le Capitaine —
     let sp = alw_core::hostile::species(ep::BOSS).unwrap(); s.horde.foes.clear(); put(&mut s, o, [-3, ep::DECK + 1, 14]); run(&mut s, 0.3);
     let k = s.horde.foes.iter().position(|f| f.sp == sp && f.dead == 0.0).expect("le Capitaine se lève"); println!("{:?} — {:.0} PV", s.notes.last(), s.horde.foes[k].hp);
