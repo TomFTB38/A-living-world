@@ -760,6 +760,39 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
         let mut q = [0.0, 0.05, 0.0]; for i in 0..8 { let t = (i + 1) as f64 / 8.0; let n = [0.0, 0.05 + t * 0.7, -0.15 * t * t]; slab(p, q, n, 0.045 - t * 0.012, 0.045 - (t + 0.125) * 0.012, 0.006, [1.0, 0.0, 0.0], [0.75, 0.82, 0.85], [0.92, 0.96, 1.0], 1); q = n; }
     });
 
+    // ---- Le Gardien chacal : le gardien de la tombe du Pharaon, à tête de chacal noir. De hautes oreilles pointues, un long museau,
+    // des yeux d'or ; le némès rayé bleu et or qui retombe sur les épaules ; un large collier ousekh de perles ; un torse sombre et
+    // sec ; un pagne blanc plissé, une ceinture d'or ; des bracelets d'or. Au poing, un khépesh : l'épée-faucille de bronze.
+    let (jk, jk2, gd, gd2, lap, lin, eye) = ([0.16, 0.15, 0.17], [0.1, 0.09, 0.11], [0.95, 0.76, 0.3], [0.7, 0.5, 0.15], [0.18, 0.32, 0.72], [0.93, 0.9, 0.82], [1.0, 0.82, 0.25]);
+    m("jacTorso", Mat::Human, 0.016, &|p| {
+        shell(p, [0.0, 0.0, 0.0], &[(-0.04, 0.15, 0.11, 0.0), (0.15, 0.16, 0.11, 0.0), (0.38, 0.2, 0.12, 0.0), (0.56, 0.22, 0.12, 0.0), (0.66, 0.1, 0.08, 0.0)], 12, jk2, jk, 0.03);
+        // le collier ousekh : des rangs de perles bleues et d'or en demi-cercle sur la poitrine
+        for (k, col) in [(0, gd), (1, lap), (2, gd), (3, lap)].into_iter() { let r = 0.12 + k as f64 * 0.035; for i in 0..11 { let a = -1.25 + i as f64 * 0.25; p.blob_m([a.sin() * r, 0.62 - a.cos() * r * 0.75, 0.12 + 0.02 * (1.0 - a.abs())], [0.02, 0.016, 0.012], col, mix(col, [1.0, 1.0, 1.0], 0.3), if col == gd { Mat::Metal } else { PLAIN }); } }
+        arc(p, [0.0, 0.0, 0.0], 0.17, 0.0, std::f64::consts::TAU, 0.05, 0.04, gd2, gd, 14, 0.75);
+        slab(p, [0.0, 0.0, 0.12], [0.0, -0.34, 0.15], 0.16, 0.2, 0.015, [0.0, 0.0, 1.0], lin, mix(lin, [0.6, 0.58, 0.5], 0.5), 5); slab(p, [0.0, 0.0, -0.12], [0.0, -0.3, -0.13], 0.18, 0.2, 0.015, [0.0, 0.0, -1.0], lin, mix(lin, [0.6, 0.58, 0.5], 0.5), 5);
+        slab(p, [0.0, 0.03, 0.14], [0.0, -0.3, 0.16], 0.04, 0.05, 0.01, [0.0, 0.0, 1.0], gd, lap, 3);
+    });
+    m("jacHead", Mat::Human, 0.012, &|p| {
+        // la tête de chacal : un crâne fin, le long museau, la truffe, les hautes oreilles ; le némès rayé derrière
+        egg(p, [0.0, 0.1, -0.01], [0.085, 0.09, 0.1], jk2, jk, 10); rod(p, [0.0, 0.08, 0.06], [0.0, 0.05, 0.22], 0.05, 0.025, jk, jk2, 6); egg(p, [0.0, 0.055, 0.225], [0.018, 0.015, 0.015], [0.03, 0.03, 0.03], [0.05, 0.05, 0.05], 6);
+        for sx in [-1.0f64, 1.0] { slab(p, [sx * 0.05, 0.15, -0.02], [sx * 0.07, 0.34, -0.04], 0.045, 0.006, 0.015, [0.0, 0.0, 1.0], jk, [0.5, 0.25, 0.2], 3); p.blob_m([sx * 0.045, 0.115, 0.075], [0.014, 0.008, 0.008], eye, [1.0, 1.0, 0.7], PLAIN); }
+        for k in 0..7 { let c = if k % 2 == 0 { gd } else { lap }; let y = 0.16 - k as f64 * 0.045; slab(p, [-0.11, y, -0.06], [0.11, y, -0.06], 0.02, 0.02, 0.05, [0.0, 0.0, -1.0], c, mix(c, [0.0, 0.0, 0.0], 0.2), 4); for sx in [-1.0f64, 1.0] { slab(p, [sx * 0.1, y, 0.0], [sx * 0.1, y, -0.1], 0.02, 0.02, 0.015, [sx, 0.0, 0.0], c, c, 2); } }
+    });
+    m("jacArm", Mat::Human, 0.012, &|p| {
+        rod(p, [0.0, 0.0, 0.0], [0.0, -0.3, 0.02], 0.06, 0.05, jk, jk2, 4); for y in [-0.08, -0.4, -0.5] { arc(p, [0.0, y, 0.02], 0.058, 0.0, std::f64::consts::TAU, 0.0, 0.02, gd, gd2, 10, 1.0); }
+        rod(p, [0.0, -0.3, 0.02], [0.0, -0.55, 0.04], 0.05, 0.045, jk2, jk, 4); egg(p, [0.0, -0.6, 0.05], [0.04, 0.045, 0.04], jk, jk2, 8);
+    });
+    m("jacLeg", Mat::Human, 0.012, &|p| {
+        rod(p, [0.0, 0.0, 0.0], [0.0, -0.4, 0.02], 0.07, 0.055, jk, jk2, 4); rod(p, [0.0, -0.4, 0.02], [0.0, -0.74, 0.0], 0.05, 0.04, jk2, jk, 3); arc(p, [0.0, -0.7, 0.0], 0.045, 0.0, std::f64::consts::TAU, 0.0, 0.02, gd, gd2, 10, 1.0);
+        crate::mesher::obox(p.q, [0.0, -0.78, 0.04], [[0.05, 0.0, 0.0], [0.0, 0.02, 0.0], [0.0, 0.0, 0.1]], [0.6, 0.45, 0.25], -1.0, 255.0, 0.0);
+    });
+    m("jacKhopesh", Mat::Metal, 0.012, &|p| {
+        // le khépesh : une poignée noire, une lame droite puis recourbée en faucille, de bronze doré
+        rod(p, [0.0, -0.14, 0.0], [0.0, 0.02, 0.0], 0.02, 0.02, [0.12, 0.1, 0.1], [0.2, 0.18, 0.16], 3); egg(p, [0.0, -0.15, 0.0], [0.025, 0.02, 0.025], gd, gd2, 6);
+        slab(p, [0.0, 0.02, 0.0], [0.0, 0.32, 0.0], 0.03, 0.03, 0.01, [0.0, 0.0, 1.0], [0.78, 0.6, 0.3], [0.9, 0.72, 0.4], 2);
+        for i in 0..8 { let (a0, a1) = (i as f64 / 8.0 * 2.4, (i + 1) as f64 / 8.0 * 2.4); let c = |a: f64| [0.0, 0.32 + a.sin() * 0.16, 0.16 - a.cos() * 0.16]; slab(p, c(a0), c(a1), 0.035 - i as f64 * 0.003, 0.032 - i as f64 * 0.003, 0.01, [1.0, 0.0, 0.0], [0.82, 0.64, 0.3], [0.95, 0.78, 0.45], 1); }
+    });
+
     // ---- Le Champion de l'arène : un gladiateur colossal. Un casque de bronze à grande crête de crin rouge et à visière grillagée ;
     // le torse nu, hâlé, couturé de cicatrices, barré d'un baudrier de cuir ; un pagne et une large ceinture de bronze ; aux bras, des
     // manches de cuir lacées, une épaulière de bronze ; des jambières de bronze, des sandales lacées. Au poing, un glaive lourd.

@@ -125,6 +125,14 @@ pub const CART_T: f64 = 0.16;
 pub struct Arena { pub name: String, pub min: [i32; 3], pub max: [i32; 3], pub waves: Vec<Vec<(String, [f64; 3])>>, pub doors: Vec<([i32; 3], Id)>, /** état : 0 au repos, k la vague k (à partir de 1), 255 conquise ; le délai avant la vague ; la vague est-elle sortie */ pub state: u8, pub t: f64, pub out: bool }
 /// Le temps de souffler entre deux vagues.
 pub const WAVE_PAUSE: f64 = 3.0;
+/// Un rocher roulant : une idole sur son socle (`idol`) ; qu'on la prenne, le sol gronde, et `BOULDER_DELAY` plus tard un rocher
+/// (une boule de trois de large) se met en route le long de `path` (son centre, case par case, un pas tous les `BOULDER_STEP`) ;
+/// il écrase qui se trouve sur son passage. Au bout, il se brise contre le mur fragile (`breaks`), qui s'effondre.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Boulder { pub name: String, pub idol: [i32; 3], pub path: Vec<[i32; 3]>, pub breaks: Vec<[i32; 3]>, /** 0 l'idole en place, 1 le grondement, 2 il roule, 3 brisé */ pub state: u8, pub pos: usize, pub t: f64 }
+pub const BOULDER_DELAY: f64 = 0.6; pub const BOULDER_STEP: f64 = 0.1; pub const BOULDER_DMG: f64 = 70.0;
+/// Les cases d'un rocher centré en `c` : un cube de trois sans ses huit coins.
+pub fn boulder_cells(c: [i32; 3]) -> Vec<[i32; 3]> { let mut v = vec![]; for dx in -1..=1i32 { for dy in -1..=1i32 { for dz in -1..=1i32 { if dx.abs() + dy.abs() + dz.abs() < 3 { v.push([c[0] + dx, c[1] + dy, c[2] + dz]); } } } } v }
 /// Un sceau : de `min` à `max`, on ne creuse ni ne bâtit, tant que le fil `until` n'est pas enclenché (vide : pour toujours).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Seal { pub min: [i32; 3], pub max: [i32; 3], pub until: String }
@@ -141,7 +149,7 @@ pub struct Hint { pub min: [i32; 3], pub max: [i32; 3], pub text: String, pub sh
 pub struct Guard { pub min: [i32; 3], pub max: [i32; 3], pub species: String, pub at: [f64; 3], pub doors: Vec<([i32; 3], Id)>, /** 0 endormi, 1 au combat, 2 vaincu */ pub state: u8 }
 /// Tous les mécanismes du monde.
 #[derive(Clone, Debug, Default)]
-pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, pub dials: Vec<Dial>, pub miasmas: Vec<Miasma>, pub tides: Vec<Tide>, pub carts: Vec<Cart>, pub arenas: Vec<Arena>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
+pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, pub dials: Vec<Dial>, pub miasmas: Vec<Miasma>, pub tides: Vec<Tide>, pub carts: Vec<Cart>, pub arenas: Vec<Arena>, pub boulders: Vec<Boulder>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
 
 /// Les dégâts des pics (par atteinte), d'une fléchette, et le temps que tient le sol friable.
 pub const SPIKE_DMG: f64 = 5.0; pub const DART_DMG: f64 = 7.0; pub const CRUMBLE_T: f64 = 0.6;
@@ -156,10 +164,10 @@ fn free(b: Id) -> bool { matches!(split(name(b)).0, "lever" | "lever_on" | "pres
 impl Mech {
     pub fn wire(&self, n: &str) -> Option<&Wire> { self.wires.iter().find(|w| w.name == n) }
     /// Un fil enclenché, ou un rouage sur son bon cran.
-    fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) || self.dials.iter().any(|d| d.name == n && d.state == d.goal) || self.tides.iter().any(|t| t.name == n && t.up()) || self.arenas.iter().any(|a| a.name == n && a.state == 255) }
+    fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) || self.dials.iter().any(|d| d.name == n && d.state == d.goal) || self.tides.iter().any(|t| t.name == n && t.up()) || self.arenas.iter().any(|a| a.name == n && a.state == 255) || self.boulders.iter().any(|b| b.name == n && b.state == 3) }
     pub fn dial(&self, n: &str) -> Option<&Dial> { self.dials.iter().find(|d| d.name == n) }
     /// Ajoute les mécanismes d'un donjon.
-    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.dials.extend(o.dials); self.miasmas.extend(o.miasmas); self.tides.extend(o.tides); self.arenas.extend(o.arenas); self.carts.extend(o.carts); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
+    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.dials.extend(o.dials); self.miasmas.extend(o.miasmas); self.tides.extend(o.tides); self.arenas.extend(o.arenas); self.boulders.extend(o.boulders); self.carts.extend(o.carts); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
 }
 fn at_f(a: [i32; 3], b: [i32; 3]) -> [f64; 3] { [(a[0] + b[0]) as f64 * 0.5, (a[1] + b[1]) as f64 * 0.5, (a[2] + b[2]) as f64 * 0.5] }
 fn inside(p: [i32; 3], min: [i32; 3], max: [i32; 3], m: i32) -> bool { (0..3).all(|i| p[i] >= min[i] - m && p[i] <= max[i] + m) }
@@ -274,6 +282,18 @@ impl Session {
         // les inscriptions, lues en entrant
         let me = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.1).floor() as i32, self.player.p[2].floor() as i32];
         for k in 0..self.mech.hints.len() { let h = &self.mech.hints[k]; if !h.shown && self.dead.is_none() && inside(me, h.min, h.max, 0) { let (t, xp) = (h.text.clone(), h.xp); self.mech.hints[k].shown = true; self.dirty = true; self.notes.push(t); if xp > 0.0 { self.earn(xp, "salle secrète découverte"); } } }
+        // les rochers roulants
+        for k in 0..self.mech.boulders.len() { let b = self.mech.boulders[k].clone(); if b.state == 0 || b.state == 3 || b.path.is_empty() { continue; }
+            self.mech.boulders[k].t -= dt; if self.mech.boulders[k].t > 0.0 { continue; }
+            let (rock, air) = (id("boulder"), 0); let draw = |s: &mut Session, c: [i32; 3], on: bool| { let cells: Vec<(i32, i32, i32, Id)> = boulder_cells(c).into_iter().filter(|q| s.world.get(q[0], q[1], q[2]) == Some(if on { air } else { rock })).map(|q| (q[0], q[1], q[2], if on { rock } else { air })).collect(); s.world.edit_many(&cells); };
+            if b.state == 1 { self.mech.boulders[k].state = 2; self.mech.boulders[k].pos = 0; self.mech.boulders[k].t = BOULDER_STEP; draw(self, b.path[0], true); self.sound.place("boulder"); self.dirty = true; continue; }
+            if b.pos + 1 >= b.path.len() { draw(self, b.path[b.pos], false); let e: Vec<(i32, i32, i32, Id)> = b.breaks.iter().map(|q| (q[0], q[1], q[2], 0)).collect(); self.world.edit_many(&e);
+                let bb = &mut self.mech.boulders[k]; bb.state = 3; self.dirty = true; self.sound.place("cracked_wall"); self.notes.push("Le rocher se fracasse contre le mur fragile, qui s'effondre dans un nuage de poussière !".into()); continue; }
+            draw(self, b.path[b.pos], false); let n = b.path[b.pos + 1]; draw(self, n, true); { let bb = &mut self.mech.boulders[k]; bb.pos += 1; bb.t += BOULDER_STEP; }
+            // qui est sur son passage est écrasé, et projeté devant lui
+            let (p, d) = (self.player.p, [n[0] - b.path[b.pos][0], n[2] - b.path[b.pos][2]]);
+            let hit = self.dead.is_none() && boulder_cells(n).iter().any(|q| p[0] + 0.3 > q[0] as f64 && p[0] - 0.3 < q[0] as f64 + 1.0 && p[2] + 0.3 > q[2] as f64 && p[2] - 0.3 < q[2] as f64 + 1.0 && p[1] + 1.7 > q[1] as f64 && p[1] < q[1] as f64 + 1.0);
+            if hit { self.harm(BOULDER_DMG, "Un rocher roulant", false); self.player.p[0] += d[0] as f64 * 1.6; self.player.p[2] += d[1] as f64 * 1.6; self.player.v = [d[0] as f64 * 8.0, 3.0, d[1] as f64 * 8.0]; self.notes.push("Le rocher vous écrase !".into()); } }
         // les arènes et leurs vagues
         for k in 0..self.mech.arenas.len() { let ar = self.mech.arenas[k].clone(); if ar.state == 255 { continue; }
             let here = self.dead.is_none() && inside(me, ar.min, ar.max, 0); let foe_in = |f: &crate::hostile::Foe| f.dead == 0.0 && inside([f.p[0].floor() as i32, f.p[1].floor() as i32, f.p[2].floor() as i32], ar.min, ar.max, 2);
@@ -408,6 +428,14 @@ impl Session {
         let to = match n { "lever" => "lever_on", "lever_on" => "lever", _ => return false };
         self.world.edit(p[0], p[1], p[2], with_face(to, f)); self.sound.place("lever"); self.dirty = true; true
     }
+    /// Clic droit sur l'idole d'un rocher roulant : on la prend (elle passe dans le sac), et le rocher se met en route. Rend vrai
+    /// si c'en était une.
+    pub fn idol_at(&mut self, p: [i32; 3]) -> bool {
+        let Some(k) = self.mech.boulders.iter().position(|b| b.idol == p && b.state == 0) else { return false }; if self.world.get(p[0], p[1], p[2]) != Some(id("gold_idol")) { return false; }
+        self.world.edit(p[0], p[1], p[2], 0); let left = self.add_item("scarabee_or", 1); if left > 0 { self.spill("scarabee_or", left, [p[0] as f64 + 0.5, p[1] as f64 + 0.5, p[2] as f64 + 0.5]); }
+        let b = &mut self.mech.boulders[k]; b.state = 1; b.t = BOULDER_DELAY; self.dirty = true; self.sound.pickup();
+        self.notes.push("Vous prenez le Scarabée d'or… Le sol tremble, un grondement roule au-dessus de vous : courez !".into()); true
+    }
     /// Clic droit sur un bloc à pousser : il glisse d'une case, droit devant soi (et tombe s'il n'a plus de sol). Rend vrai si
     /// c'en était un.
     pub fn push_at(&mut self, p: [i32; 3]) -> bool {
@@ -451,6 +479,7 @@ impl Session {
             let dr = d.draw.iter().map(|st| if st.is_empty() { "-".to_string() } else { st.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") }).collect::<Vec<_>>().join("|");
             o += &format!("dial {} {} {} {} {} {} {} {} {} {} {} {}\n", word(&d.name), d.n, d.state, d.goal, d.auto, d.swing as u8, d.hit, d.back as u8, lv, dr, d.carry as u8, word(&d.grow)); }
         for c in &self.mech.carts { o += &format!("cart {} {} {} {} {} {}\n", word(&c.name), c.pos, c.route, c.state, if c.switches.is_empty() { "-".to_string() } else { c.switches.join(",") }, c.routes.iter().map(|r| pts(r)).collect::<Vec<_>>().join("|")); }
+        for b in &self.mech.boulders { o += &format!("boulder {} {} {} {} {} {}\n", word(&b.name), b.state, b.pos, pts(&[b.idol]), if b.breaks.is_empty() { "-".into() } else { pts(&b.breaks) }, pts(&b.path)); }
         for a in &self.mech.arenas { let doors = if a.doors.is_empty() { "-".to_string() } else { a.doors.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") };
             let waves = a.waves.iter().map(|w| w.iter().map(|(id, p)| format!("{id}@{},{},{}", p[0], p[1], p[2])).collect::<Vec<_>>().join(";")).collect::<Vec<_>>().join("|");
             o += &format!("arena {} {} {} {} {} {}\n", word(&a.name), if a.state == 255 { 255 } else { 0 }, pts(&[a.min]), pts(&[a.max]), doors, if waves.is_empty() { "-".into() } else { waves }); }
@@ -479,6 +508,11 @@ impl Session {
         let mut c = Cart { name: a[0].to_string(), pos: a[1].parse().unwrap_or(0), route: a[2].parse().unwrap_or(0), state: a[3].parse().unwrap_or(0), switches: if a[4] == "-" { Vec::new() } else { a[4].split(',').map(|s| s.to_string()).collect() }, routes: a[5].split('|').map(pts).collect(), t: 0.0 };
         // un wagonnet en route au moment de la sauvegarde repart de là, vers le quai
         if c.state == 1 { c.state = 2; } if c.route >= c.routes.len() { c.route = 0; c.pos = 0; c.state = 0; } self.mech.carts.push(c);
+    }
+    /// Un rocher roulant sauvé : où il en était (en route, il reprend sa course).
+    pub(crate) fn boulder_load(&mut self, rest: &str) {
+        let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 6 { return; } let idol = pts(a[3]); if idol.is_empty() { return; }
+        let state: u8 = a[1].parse().unwrap_or(0); self.mech.boulders.push(Boulder { name: a[0].to_string(), state, pos: a[2].parse().unwrap_or(0), idol: idol[0], breaks: if a[4] == "-" { vec![] } else { pts(a[4]) }, path: pts(a[5]), t: if state == 1 { BOULDER_DELAY } else { BOULDER_STEP } });
     }
     /// Une arène sauvée : conquise, ou au repos (un combat en cours au moment de la sauvegarde est à refaire).
     pub(crate) fn arena_load(&mut self, rest: &str) {

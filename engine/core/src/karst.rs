@@ -491,7 +491,7 @@ impl WorldGen {
     /// Le couloir de `from` à `to` passerait-il à moins de 64 blocs d'un donjon enterré ?
     fn crosses_dungeon(&self, from: [f64; 3], to: [f64; 3]) -> bool {
         let (mx, mz) = ((from[0] + to[0]) / 2.0, (from[2] + to[2]) / 2.0); let half = (to[0] - from[0]).hypot(to[2] - from[2]) / 2.0;
-        self.places_near(mx, mz, half + 64.0).iter().any(|p| matches!(p.kind, crate::sites::Lieu::Sanctuaire | crate::sites::Lieu::Ruines | crate::sites::Lieu::Grotte | crate::sites::Lieu::Catacombes | crate::sites::Lieu::Forge | crate::sites::Lieu::Mine | crate::sites::Lieu::Arene)
+        self.places_near(mx, mz, half + 64.0).iter().any(|p| matches!(p.kind, crate::sites::Lieu::Sanctuaire | crate::sites::Lieu::Ruines | crate::sites::Lieu::Grotte | crate::sites::Lieu::Catacombes | crate::sites::Lieu::Forge | crate::sites::Lieu::Mine | crate::sites::Lieu::Arene | crate::sites::Lieu::Tombeau)
             && (0..=32).any(|k| { let t = k as f64 / 32.0; (from[0] + (to[0] - from[0]) * t - p.x as f64).hypot(from[2] + (to[2] - from[2]) * t - p.z as f64) < 64.0 }))
     }
     /// Une bouche naturelle (un boyau sinueux) ou une vieille mine (droite, boisée, rails et lanternes), en pente douce.

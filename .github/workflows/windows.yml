@@ -197,6 +197,12 @@ jobs:
           shot plat_arene_loge -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_arene_loge
           shot plat_arene_hypogee -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_arene_hypogee
           shot plat_boss_champion -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_champion
+          shot plat_tombeau_pylone -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_tombeau_pylone
+          shot plat_tombeau_hypostyle -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_tombeau_hypostyle
+          shot plat_tombeau_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_tombeau_idole
+          shot plat_tombeau_rocher -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_tombeau_rocher
+          shot plat_tombeau_crypte -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_tombeau_crypte
+          shot plat_boss_gardien_chacal -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_gardien_chacal
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

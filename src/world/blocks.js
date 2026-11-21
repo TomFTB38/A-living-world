@@ -470,6 +470,10 @@ cube('liana', 'bark_oak', 0.8, 'wood', { tint: [0.62, 0.95, 0.45], drop: 'stick'
 cube('cannon', 'iron_plate', 3.0, 'rock', { tint: [0.42, 0.42, 0.45], drop: 'iron_ingot' });
 // la Mine des nains : le wagonnet (sa caisse de fer rouillé)
 cube('minecart', 'iron_plate', 2.0, 'rock', { tint: [0.62, 0.42, 0.3], drop: 'iron_ingot' });
+// le Tombeau du Pharaon : l'idole d'or qui luit sur son socle, le rocher roulant, les murs peints, le mur fragile
+cube('gold_idol', 'marble', 1.5, 'rock', { tint: [1.0, 0.8, 0.28], light: 8, drop: 'sandstone' }); cube('boulder', 'cobble', 4.0, 'rock', { tint: [0.78, 0.7, 0.58], drop: 'cobblestone' });
+cube('painted_blue', 'sandstone', 2.0, 'rock', { tint: [0.42, 0.6, 0.95], drop: 'sandstone' }); cube('painted_red', 'sandstone', 2.0, 'rock', { tint: [0.95, 0.5, 0.36], drop: 'sandstone' }); cube('painted_green', 'sandstone', 2.0, 'rock', { tint: [0.5, 0.78, 0.55], drop: 'sandstone' });
+cube('cracked_wall', 'cobble', 1.0, 'rock', { tint: [0.98, 0.88, 0.68], drop: 'cobblestone' });
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,
