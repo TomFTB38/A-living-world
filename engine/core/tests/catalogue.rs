@@ -29,3 +29,23 @@ fn chaque_piece_se_dessine_dans_son_bloc() {
             for v in o.data.chunks_exact(VSIZE) { let g = |i: usize| i16::from_le_bytes([v[i], v[i + 1]]) as f64 / o.scale; for (i, c) in [(0, 'x'), (2, 'y'), (4, 'z')] { assert!((-0.02..=1.02).contains(&g(i)), "{name} déborde de son bloc en {c} : {:.3}", g(i)); } } }
     }
 }
+
+#[test]
+fn les_barrieres_se_raccordent_aux_angles() {
+    use alw_core::shapes::{cell_boxes, railing_joins}; use alw_core::player::Voxels;
+    struct W(std::collections::HashMap<(i32, i32, i32), Id>); impl Voxels for W { fn get(&self, x: i32, y: i32, z: i32) -> Option<Id> { Some(*self.0.get(&(x, y, z)).unwrap_or(&0)) } }
+    for n in meubles::RAILINGS {
+        let b = by_name(n).unwrap();
+        // un angle : une voisine à l'est, une au sud ; la pièce d'angle a ses deux bras, et rien vers l'ouest ni le nord
+        let w = W([((1, 0, 0), b), ((0, 0, 1), by_name(&format!("{n}@1")).unwrap())].into_iter().collect());
+        let bx = cell_boxes(&w, 0, 0, 0, b, true).expect("des boîtes"); let reach = |f: &dyn Fn(&[f64; 6]) -> bool| bx.iter().any(f);
+        assert!(reach(&|q| q[3] >= 1.0), "{n} : un bras vers l'est"); assert!(reach(&|q| q[5] >= 1.0), "{n} : un bras vers le sud");
+        assert!(!reach(&|q| q[0] <= 0.0), "{n} : rien vers l'ouest"); assert!(!reach(&|q| q[2] <= 0.0), "{n} : rien vers le nord");
+        // les quatre bras, toutes les combinaisons : le dessin reste dans son bloc
+        for m in 0..16u8 { let sides = [m & 1 != 0, m & 2 != 0, m & 4 != 0, m & 8 != 0]; let mut o = VBuf::new(4000); meubles::railing(&mut o, n, 0.0, 0.0, 0.0, 1.0, 1.0, meubles::railing_sides(sides, 0));
+            assert!(o.n > 0); for v in o.data.chunks_exact(VSIZE) { let g = |i: usize| i16::from_le_bytes([v[i], v[i + 1]]) as f64 / o.scale; for i in [0, 2, 4] { assert!((-0.02..=1.1).contains(&g(i)), "{n} {sides:?} déborde : {:.3}", g(i)); } } }
+        // seule, elle court selon son sens ; au bout d'une ligne, elle a sa longueur entière
+        assert_eq!(meubles::railing_sides([false; 4], 1), [false, false, true, true]); assert_eq!(meubles::railing_sides([true, false, false, false], 0), [true, true, false, false]);
+        assert!(railing_joins(by_name("fence").unwrap()) && railing_joins(by_name("garden_gate").unwrap()) && railing_joins(by_name("stone_bricks").unwrap()), "la clôture, le portillon, un mur la tiennent");
+    }
+}

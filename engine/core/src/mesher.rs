@@ -255,6 +255,10 @@ impl Mesher {
         let voxel = |dx: i32, dy: i32, dz: i32| self.vk(at(xi + dx, yi + dy, zi + dz));
         match m {
             // Meubles et objets de décor : meubles.rs, tournés vers celui qui les a posés.
+            // Les barrières (balustrades, garde-corps, palissade) se raccordent à leurs voisines : angles, T, croix.
+            _ if crate::meubles::is_railing(m) => { let j = |dx: i32, dz: i32| crate::shapes::railing_joins(voxel(dx, 0, dz));
+                let f = BLOCKS[b as usize].name.rsplit_once('@').and_then(|(_, d)| d.parse().ok()).unwrap_or(0u8);
+                crate::meubles::railing(o, m, x, y, z, s, l, crate::meubles::railing_sides([j(1, 0), j(-1, 0), j(0, 1), j(0, -1)], f)); return; }
             _ if crate::meubles::has(m) => { crate::meubles::draw(o, m, BLOCKS[b as usize].name, x, y, z, s, l, r_); return; }
             // Construction : la géométrie vient de shapes.rs (la même que les collisions), texturée dans sa matière.
             "slab" | "stairs" | "pillar" | "wall" | "dripstone" => {

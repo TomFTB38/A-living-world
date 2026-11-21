@@ -206,7 +206,9 @@ use crate::player::Voxels;
 use crate::blocks::{is_solid, is_log, is_branch, is_leaf, Shape, B};
 
 /// Une clôture se lie à une autre clôture, à un bloc plein, à un rondin, à une poutre, à un pilier, à un mur.
-pub fn fence_joins(b: Id) -> bool { b == B::FENCE || BLOCKS[b as usize].opaque || is_log(b) || info(b).is_some_and(|i| matches!(i.kind, Kind::Post | Kind::Elbow | Kind::Pillar | Kind::Wall)) }
+/// Ce qui tient une barrière raccordée : une autre barrière, la clôture de bois, un portillon, et tout ce qui tient la clôture.
+pub fn railing_joins(b: Id) -> bool { let m = BLOCKS[b as usize].model.unwrap_or(""); crate::meubles::is_railing(m) || m == "garden_gate" || fence_joins(b) }
+pub fn fence_joins(b: Id) -> bool { crate::meubles::is_railing(BLOCKS[b as usize].model.unwrap_or("")) || BLOCKS[b as usize].model == Some("garden_gate") || b == B::FENCE || BLOCKS[b as usize].opaque || is_log(b) || info(b).is_some_and(|i| matches!(i.kind, Kind::Post | Kind::Elbow | Kind::Pillar | Kind::Wall)) }
 
 /// La boîte englobante du dessin d'un bloc de décor sans forme, dans sa case (plusieurs tirages : certains modèles varient
 /// d'une case à l'autre). Un dessin trop mince pour être visé garde au moins un huitième de bloc d'épaisseur.
@@ -241,6 +243,13 @@ pub fn cell_boxes(w: &impl Voxels, x: i32, y: i32, z: i32, b: Id, solid: bool) -
             let mut v = vec![[0.39, 0.0, 0.39, 0.61, 1.0, 0.61]];
             for (dx, dz, bb) in [(1, 0, [0.61, 0.34, 0.43, 1.0, 0.85, 0.57]), (-1, 0, [0.0, 0.34, 0.43, 0.39, 0.85, 0.57]), (0, 1, [0.43, 0.34, 0.61, 0.57, 0.85, 1.0]), (0, -1, [0.43, 0.34, 0.0, 0.57, 0.85, 0.39])] {
                 if fence_joins(nb(dx, 0, dz)) { v.push(bb); } }
+            Some(v)
+        }
+        Some(m) if crate::meubles::is_railing(m) => {
+            let f = BLOCKS[b as usize].name.rsplit_once('@').and_then(|(_, d)| d.parse().ok()).unwrap_or(0u8);
+            let sd = crate::meubles::railing_sides([railing_joins(nb(1, 0, 0)), railing_joins(nb(-1, 0, 0)), railing_joins(nb(0, 0, 1)), railing_joins(nb(0, 0, -1))], f);
+            let mut v = vec![[0.3, 0.0, 0.3, 0.7, 1.0, 0.7]];
+            for (k, bb) in [[0.7, 0.0, 0.3, 1.0, 1.0, 0.7], [0.0, 0.0, 0.3, 0.3, 1.0, 0.7], [0.3, 0.0, 0.7, 0.7, 1.0, 1.0], [0.3, 0.0, 0.0, 0.7, 1.0, 0.3]].into_iter().enumerate() { if sd[k] { v.push(bb); } }
             Some(v)
         }
         Some("branch") => {

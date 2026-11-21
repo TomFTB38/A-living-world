@@ -205,6 +205,62 @@ fn ancient(k: &mut K, m: &str, r: &mut Rng) {
     }
 }
 
+/// Les barrières qui se raccordent : balustrades, garde-corps, palissade. Dans le monde, chacune a un poteau (ou un balustre) en
+/// son centre et un bras vers chaque voisine qui la tient (une autre barrière, la clôture de bois, un portillon, un bloc plein,
+/// un pilier) ; les angles, les T et les croix se font tout seuls.
+pub const RAILINGS: [&str; 4] = ["balustrade_stone", "balustrade_wood", "iron_railing", "picket_fence"];
+pub fn is_railing(model: &str) -> bool { RAILINGS.contains(&model) }
+/// Les bras d'une barrière (+x, -x, +z, -z) selon ses voisines ; seule, elle court selon son sens ; au bout d'une ligne, elle
+/// garde aussi le bras d'en face (une fin de barrière a sa longueur entière).
+pub fn railing_sides(joins: [bool; 4], facing: u8) -> [bool; 4] {
+    let n = joins.iter().filter(|j| **j).count();
+    if n == 0 { return if facing % 2 == 0 { [true, true, false, false] } else { [false, false, true, true] }; }
+    if n == 1 { let mut s = joins; if joins[0] || joins[1] { s[0] = true; s[1] = true; } else { s[2] = true; s[3] = true; } return s; }
+    joins
+}
+/// Dessine une barrière raccordée : le centre, puis un demi-bras par côté (dessiné vers +x, tourné vers son côté).
+#[allow(clippy::too_many_arguments)]
+pub fn railing(o: &mut VBuf, model: &str, x: f64, y: f64, z: f64, s: f64, l: f64, sides: [bool; 4]) {
+    let straight = sides == [true, true, false, false] || sides == [false, false, true, true];
+    // le centre : un pilier aux angles et aux bouts, un balustre (ou un piquet) au milieu d'une ligne droite
+    let mut k = K { o: VBuf::new(200), s, l }; k.o.scale = o.scale;
+    let white = [0.92, 0.9, 0.84];
+    match model {
+        "balustrade_stone" => if straight { let z_line = sides[2]; let (a, b) = if z_line { ([0.3, 0.0, 0.3, 0.7, 0.14, 0.7], [0.26, 0.84, 0.26, 0.74, 1.0, 0.74]) } else { ([0.3, 0.0, 0.3, 0.7, 0.14, 0.7], [0.26, 0.84, 0.26, 0.74, 1.0, 0.74]) }; k.b(a, STONE2); k.b(b, STONE);
+                k.lathe(0.5, 0.5, &[(0.14, 0.07), (0.22, 0.1), (0.36, 0.13), (0.5, 0.08), (0.6, 0.06), (0.7, 0.09), (0.84, 0.07)], STONE); }
+            else { k.b([0.28, 0.0, 0.28, 0.72, 0.92, 0.72], STONE); k.b([0.24, 0.92, 0.24, 0.76, 1.02, 0.76], STONE2); }
+        "balustrade_wood" => if straight { k.b([0.46, 0.16, 0.46, 0.54, 0.84, 0.54], tone(WOOD, 0.9)); k.b([0.38, 0.84, 0.38, 0.62, 0.96, 0.62], WOOD); k.b([0.42, 0.08, 0.42, 0.58, 0.16, 0.58], DARK); }
+            else { k.b([0.38, 0.0, 0.38, 0.62, 1.04, 0.62], DARK); k.b([0.35, 1.04, 0.35, 0.65, 1.08, 0.65], WOOD); }
+        "iron_railing" => { k.b([0.47, 0.0, 0.47, 0.53, 0.96, 0.53], IRON); k.b([0.45, 0.96, 0.45, 0.55, 1.0, 0.55], IRON); if !straight { k.b([0.44, 0.0, 0.44, 0.56, 0.1, 0.56], IRON); } }
+        _ => { k.b([0.45, 0.0, 0.45, 0.55, 0.8, 0.55], white); k.b([0.465, 0.8, 0.465, 0.535, 0.86, 0.535], white); k.b([0.485, 0.86, 0.485, 0.515, 0.9, 0.515], white); }
+    }
+    emit(o, &k.o, x, y, z, 0);
+    for (side, turns) in [(0usize, 0u8), (3, 1), (1, 2), (2, 3)] { if !sides[side] { continue; }
+        let mut k = K { o: VBuf::new(300), s, l }; k.o.scale = o.scale;
+        match model {
+            "balustrade_stone" => { k.b([0.5, 0.0, 0.3, 1.0, 0.14, 0.7], STONE2); k.b([0.5, 0.84, 0.26, 1.0, 1.0, 0.74], STONE); k.b([0.5, 0.8, 0.3, 1.0, 0.84, 0.7], STONE2);
+                k.lathe(0.8, 0.5, &[(0.14, 0.07), (0.22, 0.1), (0.36, 0.13), (0.5, 0.08), (0.6, 0.06), (0.7, 0.09), (0.8, 0.07)], STONE); }
+            "balustrade_wood" => { k.b([0.5, 0.08, 0.42, 1.0, 0.16, 0.58], DARK); k.b([0.5, 0.84, 0.38, 1.0, 0.96, 0.62], WOOD); for x in [0.7, 0.9] { k.b([x - 0.03, 0.16, 0.46, x + 0.03, 0.84, 0.54], tone(WOOD, 0.9)); } }
+            "iron_railing" => { k.b([0.5, 0.12, 0.47, 1.0, 0.17, 0.53], IRON); k.b([0.5, 0.78, 0.47, 1.0, 0.83, 0.53], IRON);
+                for x in [0.625, 0.75, 0.875] { k.b([x - 0.014, 0.0, 0.485, x + 0.014, 0.92, 0.515], IRON); k.b([x - 0.03, 0.92, 0.48, x + 0.03, 0.95, 0.52], IRON); k.b([x - 0.012, 0.95, 0.488, x + 0.012, 1.0, 0.512], IRON); }
+                k.b([0.69, 0.4, 0.49, 0.81, 0.43, 0.51], IRON); k.b([0.69, 0.55, 0.49, 0.81, 0.58, 0.51], IRON); }
+            _ => { k.b([0.5, 0.2, 0.47, 1.0, 0.28, 0.53], tone(white, 0.85)); k.b([0.5, 0.6, 0.47, 1.0, 0.68, 0.53], tone(white, 0.85));
+                for x in [0.75] { k.b([x - 0.05, 0.0, 0.46, x + 0.05, 0.8, 0.54], white); k.b([x - 0.035, 0.8, 0.46, x + 0.035, 0.86, 0.54], white); k.b([x - 0.015, 0.86, 0.46, x + 0.015, 0.9, 0.54], white); } }
+        }
+        emit(o, &k.o, x, y, z, turns);
+    }
+}
+/// Recopie un dessin fait dans le cube unité, tourné de `turns` quarts de tour, en (x, y, z).
+fn emit(o: &mut VBuf, src: &VBuf, x: f64, y: f64, z: f64, turns: u8) {
+    for v in src.data.chunks_exact(VSIZE) {
+        let mut v = v.to_vec(); let g = |v: &[u8], i: usize| i16::from_le_bytes([v[i], v[i + 1]]) as f64 / o.scale;
+        let (mut px, py, mut pz) = (g(&v, 0), g(&v, 2), g(&v, 4)); let (mut nx, mut nz) = (v[8] as i8 as i32, v[10] as i8 as i32);
+        for _ in 0..turns % 4 { (px, pz) = (pz, 1.0 - px); (nx, nz) = (nz, -nx); }
+        for (i, val) in [(0, px + x), (2, py + y), (4, pz + z)] { v[i..i + 2].copy_from_slice(&((val * o.scale).round() as i16).to_le_bytes()); }
+        v[8] = nx as i8 as u8; v[10] = nz as i8 as u8; o.data.extend_from_slice(&v); o.n += 1;
+    }
+}
+
 /// Dessine le meuble `model` du bloc `name` en (x, y, z). Rend faux si ce n'est pas un modèle de ce module.
 #[allow(clippy::too_many_arguments)]
 pub fn draw(o: &mut VBuf, model: &str, name: &str, x: f64, y: f64, z: f64, s: f64, l: f64, r: &mut Rng) -> bool {
