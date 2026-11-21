@@ -1,7 +1,7 @@
 //! Survie : besoins, endurance, dégâts, mort et sac, nourriture, chasse, fabrication.
 use alw_core::{blocks::*, player::*, session::*, stream::*, survival::*};
 fn ready(s: &mut Session) { for _ in 0..4000 { let p = s.player.p; s.world.update(p[0], p[2]); if s.world.waiting() == 0 && s.world.loaded() > 0 { return; } std::thread::sleep(std::time::Duration::from_millis(3)); } panic!("trop long"); }
-fn dry() -> [f64; 3] { let g = alw_core::gen::WorldGen::new(20261104); for k in 0..400 { let x = -38.5 + k as f64 * 3.0; let z = 0.5 + k as f64; let c = g.column(x, z); let flat = (0..8).all(|a| { let t = a as f64 * 0.785; let o = g.column(x + t.cos() * 8.0, z + t.sin() * 8.0); o.water == 0.0 && (o.h - c.h).abs() < 2.0 }); if c.water == 0.0 && c.bank == 0.0 && flat { return [x, c.h + 2.0, z]; } } panic!("aucun terrain plat") }
+fn dry() -> [f64; 3] { let g = alw_core::gen::WorldGen::new(20261104); for k in 0..400 { let x = -38.5 + k as f64 * 3.0; let z = 0.5 + k as f64; let c = g.column(x, z); let flat = (0..8).all(|a| { let t = a as f64 * 0.785; let o = g.column(x + t.cos() * 8.0, z + t.sin() * 8.0); o.water == 0.0 && (o.h - c.h).abs() < 2.0 }); if c.water == 0.0 && c.bank == 0.0 && flat && c.forest < 0.15 && g.places_near(x, z, 70.0).is_empty() { return [x, c.h + 2.0, z]; } } panic!("aucun terrain plat") }
 const DT: f64 = 1.0 / 60.0;
 fn none() -> Input { Input::default() }
 fn idle(s: &mut Session, sec: f64) { for _ in 0..(sec / DT) as usize { s.tick(DT, none(), Actions::default()); } }
