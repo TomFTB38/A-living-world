@@ -709,7 +709,7 @@ fn capture(a: &[String]) {
         // la deuxième vague, au sortir des cages ; le Champion debout dans l'hypogée
         if vw == "vague" { for (id, (u, w)) in &alw_core::arene::waves()[1] { let sp = alw_core::hostile::species(id).unwrap_or(0); let i = s.horde.put(sp, [o[0] as f64 + *u as f64 + 0.5, f as f64 + sand, o[2] as f64 + *w as f64 + 0.5], (-*u as f64).atan2(-*w as f64), false); s.horde.foes[i].kept = true; } }
         if vw == "hypogee" { let sp = alw_core::hostile::species("champion").unwrap_or(0); let b = alw_core::arene::BOSS_AT; let i = s.horde.put(sp, [o[0] as f64 + b[0], f as f64 + b[1], o[2] as f64 + b[2]], std::f64::consts::PI, true); s.horde.foes[i].kept = true; }
-        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "plaine" => ([-30.5, 14.0, -40.5], [0.0, 3.0, 0.0]), "gradins" => ([-15.5, 6.0, -13.5], [4.0, -1.0, 6.0]), "vague" => ([0.5, sand + 0.5, -13.5], [0.0, sand + 1.0, 6.0]),
+        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "plaine" => ([-30.5, 14.0, -40.5], [0.0, 3.0, 0.0]), "gradins" => ([-14.5, 9.0, -12.5], [4.0, -1.0, 6.0]), "vague" => ([0.5, sand + 0.5, -13.5], [0.0, sand + 1.0, 6.0]),
             "loge" => ([4.5, 3.0, 9.5], [16.5, 5.0, 0.0]), _ => ([0.5, -8.0, 25.0], [0.5, -7.5, 30.0]) };
         s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
