@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_mine_porte plat_mine_gare plat_mine_pont plat_mine_marteaux plat_mine_runes plat_mine_trone plat_boss_golem_minerai
+spawn jeu plat_boss_golem_minerai plat_mine_trone plat_mine_gare

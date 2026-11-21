@@ -764,7 +764,7 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
     // blocs empilés ; des veines de fer rouille et de cuivre vert-de-gris ; dans la poitrine, une fente où brûle un cœur de cristal ;
     // une tête basse et carrée enfoncée entre les épaules, deux yeux de braise ; des runes naines gravées, qui luisent ; des
     // poings comme des rochers, et au poing droit une masse : un manche de fer cerclé, une tête de minerai.
-    let (rk1, rk2, rk3, fe, cu, gem, gem2, ember, rune) = ([0.43, 0.41, 0.4], [0.3, 0.29, 0.29], [0.55, 0.53, 0.5], [0.66, 0.42, 0.3], [0.32, 0.62, 0.52], [0.35, 0.75, 1.0], [0.8, 0.95, 1.0], [1.0, 0.62, 0.2], [0.45, 0.85, 1.0]);
+    let (rk1, rk2, rk3, fe, cu, gem, gem2, ember, rune) = ([0.66, 0.63, 0.58], [0.5, 0.48, 0.45], [0.78, 0.75, 0.69], [0.66, 0.42, 0.3], [0.32, 0.62, 0.52], [0.35, 0.75, 1.0], [0.8, 0.95, 1.0], [1.0, 0.62, 0.2], [0.45, 0.85, 1.0]);
     let boulder = |p: &mut Pen, c: V, r: V, k: usize| { let h = |i: usize| ((k * 7 + i * 13) % 11) as f64 / 11.0; let col = mix(rk1, if h(0) < 0.5 { rk2 } else { rk3 }, 0.5 * h(1)); egg(p, c, r, col, mix(col, rk2, 0.4), 6); };
     m("gmiTorso", Mat::Bone, 0.02, &|p| {
         // le tronc : une coque trapue, plus large aux épaules ; des blocs de roche en saillie partout
@@ -774,8 +774,8 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
         // des mousses de lichen, les veines de fer et de cuivre
         for (c, col) in [([0.25, 0.47, 0.13], fe), ([-0.07, 0.2, 0.18], fe), ([0.28, 0.3, -0.05], cu), ([-0.28, 0.5, 0.05], cu), ([0.08, 0.66, 0.1], fe), ([-0.18, 0.1, 0.12], cu)] { p.blob_m(c, [0.045, 0.035, 0.03], col, mix(col, [1.0, 1.0, 1.0], 0.25), Mat::Metal); p.blob_m([c[0] * 1.05, c[1] - 0.05, c[2]], [0.025, 0.02, 0.02], col, col, Mat::Metal); }
         // la fente de la poitrine et son cœur de cristal qui brûle
-        slab(p, [0.0, 0.56, 0.205], [0.0, 0.3, 0.215], 0.07, 0.04, 0.02, [0.0, 0.0, 1.0], [0.08, 0.07, 0.08], [0.08, 0.07, 0.08], 3);
-        for (c, r) in [([0.0, 0.45, 0.2], [0.04, 0.07, 0.03]), ([0.02, 0.36, 0.2], [0.025, 0.04, 0.02]), ([-0.02, 0.52, 0.2], [0.02, 0.035, 0.02])] { p.blob_m(c, r, gem, gem2, PLAIN); }
+        slab(p, [0.0, 0.58, 0.2], [0.0, 0.28, 0.21], 0.13, 0.08, 0.02, [0.0, 0.0, 1.0], [0.08, 0.07, 0.08], [0.08, 0.07, 0.08], 3);
+        for (c, r) in [([0.0, 0.45, 0.215], [0.06, 0.1, 0.04]), ([0.03, 0.34, 0.21], [0.035, 0.05, 0.03]), ([-0.03, 0.53, 0.21], [0.03, 0.045, 0.03])] { p.blob_m(c, r, gem, gem2, PLAIN); }
         // une ceinture de fer à rivets, les runes du dos
         arc(p, [0.0, 0.0, 0.0], 0.215, 0.0, std::f64::consts::TAU, 0.06, 0.035, [0.25, 0.24, 0.26], [0.36, 0.34, 0.36], 14, 0.85);
         for k in 0..6 { let a = k as f64 * 1.047; p.blob_m([a.sin() * 0.22, 0.06, a.cos() * 0.19], [0.016, 0.016, 0.016], [0.55, 0.55, 0.58], [0.7, 0.7, 0.72], Mat::Metal); }
