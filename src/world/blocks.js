@@ -474,6 +474,14 @@ cube('minecart', 'iron_plate', 2.0, 'rock', { tint: [0.62, 0.42, 0.3], drop: 'ir
 cube('gold_idol', 'marble', 1.5, 'rock', { tint: [1.0, 0.8, 0.28], light: 8, drop: 'sandstone' }); cube('boulder', 'cobble', 4.0, 'rock', { tint: [0.78, 0.7, 0.58], drop: 'cobblestone' });
 cube('painted_blue', 'sandstone', 2.0, 'rock', { tint: [0.42, 0.6, 0.95], drop: 'sandstone' }); cube('painted_red', 'sandstone', 2.0, 'rock', { tint: [0.95, 0.5, 0.36], drop: 'sandstone' }); cube('painted_green', 'sandstone', 2.0, 'rock', { tint: [0.5, 0.78, 0.55], drop: 'sandstone' });
 cube('cracked_wall', 'cobble', 1.0, 'rock', { tint: [0.98, 0.88, 0.68], drop: 'cobblestone' });
+// Le catalogue des bâtisseurs : balustrades, garde-corps, palissade, portillon, jardinière, auvents, lanterne murale, fenêtre cintrée,
+// console, souche de cheminée, arc de pierre, treillis fleuri, descente d'eau, enseigne ; et quatre vitraux de couleur.
+for (const [n, h, cat, p] of [['balustrade_stone', 1.6, 'rock', { solid: true }], ['balustrade_wood', 0.6, 'wood', { solid: true }], ['iron_railing', 2.0, 'rock', { solid: true }], ['picket_fence', 0.6, 'wood', { solid: true }],
+  ['garden_gate', 0.6, 'wood', { solid: true }], ['flower_box', 0.5, 'wood', {}], ['awning_red', 0.4, 'wood', {}], ['awning_blue', 0.4, 'wood', {}], ['wall_lantern', 0.5, 'light', { light: 13 }],
+  ['window_arched', 1.6, 'rock', { solid: true }], ['corbel', 1.6, 'rock', { solid: true }], ['stone_arch', 1.6, 'rock', { solid: true }], ['lattice_roses', 0.4, 'wood', {}],
+  ['drainpipe', 0.8, 'rock', {}], ['hanging_sign', 0.6, 'wood', {}]]) turner(n, h, cat, p);
+deco('chimney_pot', 1.6, 'rock', { solid: true });
+for (const [n, t] of [['stained_glass_blue', [0.55, 0.7, 1.15]], ['stained_glass_red', [1.2, 0.55, 0.5]], ['stained_glass_green', [0.6, 1.1, 0.6]], ['stained_glass_amber', [1.2, 0.95, 0.45]]]) cube(n, 'stained_glass', 0.5, 'rock', { tint: t });
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,

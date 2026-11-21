@@ -9,12 +9,13 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 102] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 118] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket",
     "lever", "lever_on", "spikes", "spikes_down", "dart_trap",
     "column_base", "column_shaft", "column_capital", "statue_base", "statue_top", "tomb_head", "tomb_foot", "wall_relief", "lintel", "funeral_urn", "altar", "brazier_stand", "great_chain",
-    "sun_mirror", "sun_disc", "sun_receptor", "sun_receptor_on", "light_beam", "ossuary_wall", "bone_pile"];
+    "sun_mirror", "sun_disc", "sun_receptor", "sun_receptor_on", "light_beam", "ossuary_wall", "bone_pile",
+    "balustrade_stone", "balustrade_wood", "iron_railing", "picket_fence", "garden_gate", "flower_box", "awning_red", "awning_blue", "wall_lantern", "window_arched", "corbel", "chimney_pot", "stone_arch", "lattice_roses", "drainpipe", "hanging_sign"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
 /// La couche de texture d'une matière (« rug », « hay »…) ou, à défaut, de la face d'un bloc du même nom.
 fn layer(n: &str) -> f64 {
@@ -230,6 +231,93 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
         else { k.b([x - 0.13, y, z - 0.035, x + 0.1, y + 0.05, z + 0.035], bc); k.b([x - 0.1, y + 0.05, z - 0.02, x + 0.08, y + 0.06, z + 0.02], bd); k.b([x + 0.1, y + 0.005, z - 0.05, x + 0.16, y + 0.04, z + 0.05], bd); k.b([x - 0.12, y + 0.02, z - 0.036, x - 0.1, y + 0.035, z - 0.03], [0.05, 0.05, 0.05]); }
     };
     match m {
+        // Le catalogue des bâtisseurs : balustrades, garde-corps, clôtures, jardinières, auvents, lanternes murales, fenêtre cintrée,
+        // console, souche de cheminée, arc de pierre, treillis fleuri, descente d'eau, enseigne. Les pièces de façade sont plaquées
+        // contre la face +z (le mur), les pièces de clôture courent selon x au milieu du bloc.
+        "balustrade_stone" => { // une plinthe, une main courante, trois balustres tournés en vase
+            k.b([0.0, 0.0, 0.3, 1.0, 0.14, 0.7], STONE2); k.b([0.0, 0.84, 0.26, 1.0, 1.0, 0.74], STONE); k.b([0.0, 0.8, 0.3, 1.0, 0.84, 0.7], STONE2);
+            for x in [0.17, 0.5, 0.83] { k.lathe(x, 0.5, &[(0.14, 0.07), (0.22, 0.1), (0.36, 0.13), (0.5, 0.08), (0.6, 0.06), (0.7, 0.09), (0.8, 0.07)], STONE); }
+        }
+        "balustrade_wood" => { // une lisse basse, une main courante, des balustres carrés, un poteau à chaque bout
+            k.b([0.0, 0.08, 0.42, 1.0, 0.16, 0.58], DARK); k.b([0.0, 0.84, 0.38, 1.0, 0.96, 0.62], WOOD);
+            for i in 0..5 { let x = 0.1 + i as f64 * 0.2; k.b([x - 0.03, 0.16, 0.46, x + 0.03, 0.84, 0.54], tone(WOOD, 0.9)); }
+        }
+        "iron_railing" => { // un garde-corps de fer forgé : des barreaux à pointe de lance, deux traverses, des volutes
+            k.b([0.0, 0.12, 0.47, 1.0, 0.17, 0.53], IRON); k.b([0.0, 0.78, 0.47, 1.0, 0.83, 0.53], IRON);
+            for i in 0..8 { let x = 0.0625 + i as f64 * 0.125; k.b([x - 0.014, 0.0, 0.485, x + 0.014, 0.92, 0.515], IRON); k.b([x - 0.03, 0.92, 0.48, x + 0.03, 0.95, 0.52], IRON); k.b([x - 0.012, 0.95, 0.488, x + 0.012, 1.0, 0.512], IRON); }
+            for i in 0..4 { let x = 0.125 + i as f64 * 0.25; k.b([x - 0.06, 0.4, 0.49, x + 0.06, 0.43, 0.51], IRON); k.b([x - 0.06, 0.55, 0.49, x + 0.06, 0.58, 0.51], IRON); k.b([x - 0.06, 0.43, 0.49, x - 0.03, 0.55, 0.51], IRON); k.b([x + 0.03, 0.43, 0.49, x + 0.06, 0.55, 0.51], IRON); }
+        }
+        "picket_fence" => { // la palissade blanche : quatre piquets pointus sur deux lisses
+            let white = [0.92, 0.9, 0.84]; k.b([0.0, 0.2, 0.53, 1.0, 0.28, 0.58], tone(white, 0.85)); k.b([0.0, 0.6, 0.53, 1.0, 0.68, 0.58], tone(white, 0.85));
+            for i in 0..4 { let x = 0.125 + i as f64 * 0.25; k.b([x - 0.05, 0.0, 0.47, x + 0.05, 0.8, 0.53], white); k.b([x - 0.035, 0.8, 0.47, x + 0.035, 0.86, 0.53], white); k.b([x - 0.015, 0.86, 0.47, x + 0.015, 0.9, 0.53], white); }
+        }
+        "garden_gate" => { // le portillon : deux montants, des planches, une écharpe en Z, un loquet de fer
+            k.b([0.0, 0.0, 0.44, 0.08, 1.0, 0.56], DARK); k.b([0.92, 0.0, 0.44, 1.0, 1.0, 0.56], DARK);
+            for i in 0..5 { let x = 0.13 + i as f64 * 0.165; k.b([x - 0.07, 0.06, 0.47, x + 0.07, 0.82 + 0.04 * (1.0 - ((x - 0.5) * 2.0).powi(2)), 0.53], WOOD); }
+            k.b([0.08, 0.14, 0.53, 0.92, 0.22, 0.57], DARK); k.b([0.08, 0.64, 0.53, 0.92, 0.72, 0.57], DARK);
+            let (dx, dy) = (0.76f64, 0.46f64); let l = (dx * dx + dy * dy).sqrt(); k.r([0.5, 0.43, 0.55], [[dx * 0.5, dy * 0.5, 0.0], [-dy / l * 0.035, dx / l * 0.035, 0.0], [0.0, 0.0, 0.02]], DARK);
+            k.b([0.8, 0.42, 0.57, 0.88, 0.48, 0.6], IRON);
+        }
+        "flower_box" => { // la jardinière sous la fenêtre : une caisse peinte, la terre, des fleurs et du feuillage qui débordent
+            k.b([0.04, 0.0, 0.7, 0.96, 0.22, 1.0], [0.36, 0.5, 0.34]); k.b([0.02, 0.18, 0.68, 0.98, 0.24, 1.0], tone([0.36, 0.5, 0.34], 0.8)); k.b([0.07, 0.2, 0.73, 0.93, 0.23, 0.97], [0.25, 0.17, 0.1]);
+            let cols = [[0.85, 0.15, 0.15], [0.95, 0.8, 0.2], [0.92, 0.5, 0.7], [0.95, 0.95, 0.92]];
+            for i in 0..9 { let x = 0.1 + i as f64 * 0.1 + r.range(-0.02, 0.02); let zc = 0.8 + r.range(-0.05, 0.08); let h = r.range(0.32, 0.46);
+                k.b([x - 0.008, 0.22, zc - 0.008, x + 0.008, h, zc + 0.008], [0.22, 0.45, 0.16]); k.b([x - 0.045, 0.24, zc - 0.04, x + 0.045, 0.3, zc + 0.04], [0.28, 0.55, 0.2]);
+                let c = cols[(r.next() * 4.0) as usize % 4]; k.b([x - 0.035, h, zc - 0.035, x + 0.035, h + 0.05, zc + 0.035], c); k.b([x - 0.012, h + 0.05, zc - 0.012, x + 0.012, h + 0.06, zc + 0.012], [0.95, 0.85, 0.3]); }
+            for i in 0..6 { let x = 0.1 + i as f64 * 0.16; k.b([x - 0.04, 0.02, 0.66, x + 0.04, 0.22, 0.7], [0.24, 0.48, 0.18]); }
+        }
+        "awning_red" | "awning_blue" => { // l'auvent de toile rayée, tendu du mur vers l'avant, festonné, sur deux tringles de fer
+            let c = if m == "awning_red" { [0.72, 0.14, 0.12] } else { [0.15, 0.3, 0.62] }; let white = [0.93, 0.9, 0.82];
+            let (dy, dz) = (-0.42f64, -0.85f64); let l = (dy * dy + dz * dz).sqrt();
+            for i in 0..8 { let x0 = i as f64 * 0.125; k.r([x0 + 0.0625, 1.0 + dy * 0.5, 1.0 + dz * 0.5], [[0.0625, 0.0, 0.0], [0.0, dy * 0.5, dz * 0.5], [0.0, -dz / l * 0.012, dy / l * 0.012]], if i % 2 == 0 { c } else { white }); }
+            for i in 0..8 { let x = i as f64 * 0.125 + 0.0625; k.b([x - 0.06, 0.48, 0.12, x + 0.06, 0.58, 0.16], if i % 2 == 0 { c } else { white }); k.b([x - 0.035, 0.44, 0.12, x + 0.035, 0.48, 0.16], if i % 2 == 0 { c } else { white }); }
+            for x in [0.06, 0.94] { k.r([x, 0.6, 0.55], [[0.012, 0.0, 0.0], [0.0, 0.2, 0.42], [0.0, 0.011, -0.005]], IRON); }
+        }
+        "wall_lantern" => { // la lanterne murale : une potence de fer à volute, une cage à quatre vitres, une flamme, un chapeau
+            k.b([0.46, 0.74, 0.62, 0.54, 0.78, 1.0], IRON); k.b([0.47, 0.5, 0.94, 0.53, 0.8, 1.0], IRON); k.b([0.47, 0.6, 0.8, 0.53, 0.63, 0.92], IRON);
+            k.b([0.49, 0.62, 0.48, 0.51, 0.74, 0.5], IRON);
+            k.b([0.38, 0.3, 0.36, 0.62, 0.33, 0.6], IRON); for (x, z) in [(0.38, 0.36), (0.6, 0.36), (0.38, 0.58), (0.6, 0.58)] { k.b([x, 0.33, z, x + 0.02, 0.56, z + 0.02], IRON); }
+            k.e([0.4, 0.33, 0.38, 0.6, 0.56, 0.58], [1.6, 1.15, 0.55]); k.candle(0.5, 0.33, 0.48, 0.08);
+            k.b([0.36, 0.56, 0.34, 0.64, 0.59, 0.62], IRON); k.b([0.41, 0.59, 0.39, 0.59, 0.62, 0.57], IRON); k.b([0.46, 0.62, 0.44, 0.54, 0.64, 0.52], IRON);
+        }
+        "window_arched" => { // la fenêtre cintrée : un encadrement de pierre, un appui, l'arc en plein cintre, un vitrail au plomb
+            let glass = [0.5, 0.66, 0.74]; let lead = [0.16, 0.16, 0.18];
+            k.b([0.0, 0.0, 0.25, 1.0, 0.1, 0.75], STONE2); k.b([0.0, 0.1, 0.3, 0.16, 1.0, 0.7], STONE); k.b([0.84, 0.1, 0.3, 1.0, 1.0, 0.7], STONE);
+            for i in 0..10 { let y0 = 0.6 + i as f64 * 0.04; let yc = y0 + 0.02 - 0.6; let hw = (0.34f64 * 0.34 - yc * yc).max(0.0).sqrt(); if hw < 0.34 { k.b([0.16, y0, 0.3, 0.5 - hw, y0 + 0.04, 0.7], STONE); k.b([0.5 + hw, y0, 0.3, 0.84, y0 + 0.04, 0.7], STONE); } }
+            k.b([0.44, 0.9, 0.28, 0.56, 1.0, 0.72], STONE2);
+            for i in 0..12 { let y0 = 0.1 + i as f64 * 0.075; let yc = (y0 + 0.0375 - 0.6).max(0.0); let hw = (0.34f64 * 0.34 - yc * yc).max(0.0).sqrt(); if hw > 0.0 { k.b([0.5 - hw, y0, 0.49, 0.5 + hw, y0 + 0.075, 0.51], glass); } }
+            k.b([0.49, 0.1, 0.48, 0.51, 0.92, 0.52], lead); for y in [0.3, 0.5, 0.7] { k.b([0.16, y, 0.48, 0.84, y + 0.015, 0.52], lead); }
+        }
+        "corbel" => { // la console de pierre sous un balcon ou une poutre : trois ressauts et une moulure
+            k.b([0.25, 0.78, 0.35, 0.75, 1.0, 1.0], STONE); k.b([0.28, 0.56, 0.55, 0.72, 0.78, 1.0], STONE2); k.b([0.32, 0.36, 0.72, 0.68, 0.56, 1.0], STONE); k.b([0.36, 0.2, 0.84, 0.64, 0.36, 1.0], STONE2);
+            k.b([0.24, 0.74, 0.33, 0.76, 0.78, 1.0], tone(STONE, 1.1));
+        }
+        "chimney_pot" => { // la souche de cheminée : un fût de brique, un bandeau, deux mitrons de terre cuite
+            let brick = [0.6, 0.3, 0.22]; k.b([0.15, 0.0, 0.15, 0.85, 0.72, 0.85], brick); for j in 0..6 { let y = 0.1 + j as f64 * 0.12; k.b([0.14, y, 0.14, 0.86, y + 0.012, 0.86], [0.72, 0.66, 0.58]); }
+            k.b([0.1, 0.72, 0.1, 0.9, 0.8, 0.9], STONE2); for x in [0.33, 0.67] { k.lathe(x, 0.5, &[(0.8, 0.1), (0.92, 0.085), (0.97, 0.1), (1.0, 0.1)], CLAY); k.b([x - 0.05, 0.99, 0.45, x + 0.05, 1.0, 0.55], [0.08, 0.06, 0.05]); }
+        }
+        "stone_arch" => { // l'arc de pierre au-dessus d'une baie : des claveaux autour d'un plein cintre, la clé au sommet
+            for i in 0..10 { let y0 = i as f64 * 0.1; let yc = y0 + 0.05; let hw = (0.25 - yc * yc).max(0.0).sqrt(); let c = if i % 2 == 0 { STONE } else { tone(STONE, 0.93) };
+                if hw > 0.0 { k.b([0.0, y0, 0.15, 0.5 - hw, y0 + 0.1, 0.85], c); k.b([0.5 + hw, y0, 0.15, 1.0, y0 + 0.1, 0.85], c); } else { k.b([0.0, y0, 0.15, 1.0, y0 + 0.1, 0.85], c); } }
+            k.b([0.42, 0.48, 0.12, 0.58, 0.8, 0.88], STONE2);
+        }
+        "lattice_roses" => { // le treillis contre le mur, en losanges, et le rosier grimpant qui s'y accroche
+            let lat = [0.62, 0.5, 0.34];
+            for i in 0..5 { let c = 0.1 + i as f64 * 0.2; k.b([c - 0.015, 0.0, 0.93, c + 0.015, 1.0, 0.96], lat); k.b([0.0, c - 0.015, 0.92, 1.0, c + 0.015, 0.95], lat); }
+            k.b([0.0, 0.0, 0.93, 0.03, 1.0, 0.97], lat); k.b([0.97, 0.0, 0.93, 1.0, 1.0, 0.97], lat);
+            for _ in 0..22 { let (x, y) = (r.range(0.08, 0.92), r.range(0.05, 0.95)); k.b([x - 0.04, y - 0.03, 0.86, x + 0.04, y + 0.03, 0.92], [0.24, 0.46, 0.18]); }
+            for _ in 0..12 { let (x, y) = (r.range(0.1, 0.9), r.range(0.3, 0.95)); k.b([x - 0.035, y - 0.035, 0.84, x + 0.035, y + 0.035, 0.9], [0.8, 0.12, 0.2]); k.b([x - 0.015, y - 0.015, 0.83, x + 0.015, y + 0.015, 0.84], [0.55, 0.05, 0.1]); }
+        }
+        "drainpipe" => { // la descente d'eau de zinc, ses colliers, et le dauphin qui la termine en bas
+            let zinc = [0.55, 0.57, 0.58]; k.cy([0.5, 0.12, 0.9], [0.5, 1.0, 0.9], 0.05, 0.05, 0.0, zinc);
+            for y in [0.3, 0.8] { k.b([0.43, y, 0.84, 0.57, y + 0.04, 1.0], tone(zinc, 0.7)); } k.cy([0.5, 0.14, 0.9], [0.5, 0.07, 0.8], 0.05, 0.055, 0.0, zinc);
+        }
+        "hanging_sign" => { // l'enseigne : une potence de fer, deux chaînettes, un panneau peint (une chope d'or) encadré
+            k.b([0.47, 0.86, 0.2, 0.53, 0.9, 1.0], IRON); k.b([0.47, 0.7, 0.94, 0.53, 0.9, 1.0], IRON); k.r([0.5, 0.79, 0.86], [[0.03, 0.0, 0.0], [0.0, 0.09, -0.08], [0.0, 0.004, 0.004]], IRON);
+            for z in [0.3, 0.7] { k.b([0.495, 0.68, z - 0.005, 0.505, 0.86, z + 0.005], IRON); }
+            k.b([0.47, 0.2, 0.18, 0.53, 0.68, 0.82], DARK); k.b([0.465, 0.24, 0.22, 0.535, 0.64, 0.78], [0.2, 0.32, 0.18]);
+            k.b([0.46, 0.34, 0.4, 0.54, 0.54, 0.56], GOLD); k.b([0.46, 0.38, 0.56, 0.54, 0.5, 0.62], GOLD); k.b([0.46, 0.54, 0.38, 0.54, 0.58, 0.58], [0.95, 0.95, 0.9]);
+        }
         // Patrons médiévaux : cloche, chaîne, horloge murale, croix, drapeau, cuves du tanneur, peaux qui sèchent, chevalet, billot.
         "bell" => { // cloche de bronze tournée sous son joug de chêne, lèvre évasée, battant de fer
             let bz = [0.72, 0.5, 0.24]; k.b([0.05, 0.9, 0.44, 0.95, 1.0, 0.56], DARK); k.b([0.44, 0.8, 0.46, 0.56, 0.9, 0.54], IRON);

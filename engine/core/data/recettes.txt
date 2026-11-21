@@ -403,3 +403,25 @@ acacia_post_diag 1 | etabli | acacia_post 1 | batir
 acacia_post_angle 1 | etabli | acacia_post 1 | batir
 rope 1 | main | silk 3 | matieres
 glow_jar 1 | main | glowbug 1, glass 1 | ateliers
+
+# --- Le catalogue des bâtisseurs : façades, balcons, jardins ---
+balustrade_stone 2 | taille | cut 3, !hammer 1 | batir
+balustrade_wood 3 | etabli | plank 3, stick 2 | batir
+iron_railing 3 | enclume | iron_ingot 2, !hammer 1 | batir
+picket_fence 4 | etabli | plank 2, stick 1, limestone 1 | batir
+garden_gate 1 | etabli | plank 3, stick 2, iron_ingot 1 | batir
+flower_box 1 | etabli | plank 2, dirt 1, daisy 1, yellow_flower 1 | decor
+awning_red 2 | etabli | wool_red 2, wool_white 1, iron_ingot 1 | batir
+awning_blue 2 | etabli | wool_blue 2, wool_white 1, iron_ingot 1 | batir
+wall_lantern 1 | enclume | iron_ingot 1, glass 1, candle 1, !hammer 1 | decor
+window_arched 1 | taille | cut 3, glass 2, !hammer 1 | batir
+corbel 2 | taille | cut 2, !hammer 1 | batir
+chimney_pot 1 | four | brick 6, clay 2, fuel 1 | batir
+stone_arch 2 | taille | cut 4, !hammer 1 | batir
+lattice_roses 1 | etabli | stick 6, pink_flower 2, fiber 2 | decor
+drainpipe 4 | enclume | iron_ingot 1, !hammer 1 | batir
+hanging_sign 1 | enclume | plank 2, iron_ingot 1, chain 1, !hammer 1 | decor
+stained_glass_blue 2 | four | glass 2, glowcap_blue 1 | batir
+stained_glass_red 2 | four | glass 2, berries 2 | batir
+stained_glass_green 2 | four | glass 2, fiber 2 | batir
+stained_glass_amber 2 | four | glass 2, yellow_flower 1 | batir

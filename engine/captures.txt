@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_archimage_tour plat_archimage_hall plat_archimage_bibliotheque plat_archimage_cachot plat_archimage_sanctuaire plat_boss_archimage
+spawn jeu plat_catalogue_facade plat_catalogue_balcon plat_catalogue_jardin

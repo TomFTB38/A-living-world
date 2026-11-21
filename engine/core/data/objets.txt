@@ -366,6 +366,26 @@ terracotta_floor | Tomettes | batir | 1.2 | 64 | Carreaux de terre cuite : le so
 stone_bricks_dark | Pierre de taille sombre | batir | 1.2 | 64 | La pierre des donjons. |
 bricks_dark | Briques brunes | batir | 1.2 | 64 | Des briques cuites longtemps, presque noires. |
 stained_glass | Vitrail | batir | 1.2 | 64 | Des verres colorés sertis de plomb : la lumière des chapelles. |
+balustrade_stone | Balustrade de pierre | batir | 8.0 | 16 | Une main courante sur trois balustres tournés en vase : pour un balcon, une terrasse, un escalier de perron. |
+balustrade_wood | Balustrade de bois | batir | 2.5 | 16 | Des balustres carrés sous une main courante de chêne : une galerie, une mezzanine. |
+iron_railing | Garde-corps de fer forgé | batir | 4.0 | 16 | Des barreaux à pointe de lance, des volutes : la grille d'un jardin bourgeois, un balcon de ville. |
+picket_fence | Palissade blanche | batir | 1.5 | 32 | Quatre piquets pointus peints en blanc : le jardin de devant. |
+garden_gate | Portillon | batir | 2.0 | 16 | Un portillon de planches à écharpe en Z et son loquet. |
+flower_box | Jardinière | decor | 3.0 | 16 | Une caisse peinte qui déborde de fleurs, à poser sous une fenêtre. |
+awning_red | Auvent rouge | batir | 1.5 | 16 | Une toile rayée rouge et blanc tendue au-dessus d'une échoppe ou d'une porte. |
+awning_blue | Auvent bleu | batir | 1.5 | 16 | Une toile rayée bleu et blanc tendue au-dessus d'une fenêtre. |
+wall_lantern | Lanterne murale | decor | 1.0 | 16 | Une lanterne à quatre vitres sur sa potence de fer forgé : elle éclaire une porte, une ruelle. |
+window_arched | Fenêtre cintrée | batir | 6.0 | 16 | Un encadrement de pierre en plein cintre et son vitrail au plomb. |
+corbel | Console de pierre | batir | 5.0 | 16 | Trois ressauts de pierre sous un balcon, une poutre, un encorbellement. |
+chimney_pot | Souche de cheminée | batir | 9.0 | 16 | Un fût de brique coiffé de deux mitrons de terre cuite, à poser au faîte du toit. |
+stone_arch | Arc de pierre | batir | 8.0 | 16 | Des claveaux en plein cintre et leur clé : au-dessus d'une porte, d'une arcade. |
+lattice_roses | Treillis fleuri | decor | 1.5 | 16 | Un treillis en losanges contre le mur, et le rosier grimpant qui s'y accroche. |
+drainpipe | Descente d'eau | batir | 1.5 | 32 | Un tuyau de zinc à colliers, du chéneau jusqu'au sol. |
+hanging_sign | Enseigne | decor | 2.0 | 16 | Un panneau peint qui pend à sa potence : une chope d'or, pour l'auberge. |
+stained_glass_blue | Vitrail bleu | batir | 0.8 | 64 | Du verre teinté de bleu, serti de plomb. |
+stained_glass_red | Vitrail rouge | batir | 0.8 | 64 | Du verre teinté de rouge, serti de plomb. |
+stained_glass_green | Vitrail vert | batir | 0.8 | 64 | Du verre teinté de vert, serti de plomb. |
+stained_glass_amber | Vitrail ambré | batir | 0.8 | 64 | Du verre teinté d'ambre, serti de plomb. |
 iron_block | Tôle de fer | batir | 1.2 | 64 | Des plaques rivetées : portes de coffre-fort, armureries. |
 copper_roof | Toit de cuivre | batir | 1.2 | 64 | Des feuilles de cuivre vert-de-grisé, pour les clochers et les tours. |
 shingles | Bardeaux | batir | 1.2 | 64 | Des tuiles de bois fendu : toits de montagne et de forêt. |

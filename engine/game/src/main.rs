@@ -702,6 +702,39 @@ fn capture(a: &[String]) {
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // Le catalogue des bâtisseurs : une maison de ville bâtie avec les nouvelles pièces (fenêtres cintrées et jardinières, auvent,
+    // lanternes, enseigne, balcon sur consoles, vitraux, terrasse à garde-corps, souche de cheminée, treillis, descente d'eau) et son
+    // jardin clos d'une palissade et d'un portillon.
+    if let Some(vw) = scene.strip_prefix("plat_catalogue_") {
+        let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(true); s.hour = 10.5;
+        let y0 = o[1] + 1; let mut e: Vec<(i32, i32, i32, u16)> = Vec::new();
+        let mut put = |u: i32, v: i32, w: i32, n: &str| { if let Some(b) = alw_core::blocks::by_name(n) { e.push((o[0] + u, y0 + v, o[2] + w, b)); } };
+        // le corps de la maison : un rez-de-chaussée de pierre, un étage enduit, un toit-terrasse
+        for u in -6..=6 { for w in 0..=6 { for v in 0..=8 { let edge = u.abs() == 6 || w == 0 || w == 6; if edge || v == 8 { put(u, v, w, if v < 4 { "stone_bricks" } else if v == 4 { "stone_bricks_dark" } else { "plaster" }); } } } }
+        for u in -6..=6 { put(u, -1, -1, "setts"); }
+        // la porte sous son arc et son auvent, deux lanternes, l'enseigne
+        put(0, 0, 0, "air"); put(0, 1, 0, "air"); put(0, 2, 0, "stone_arch"); put(0, 2, -1, "awning_red"); put(-1, 1, -1, "wall_lantern"); put(1, 1, -1, "wall_lantern"); put(2, 2, -1, "hanging_sign");
+        // deux fenêtres cintrées et leurs jardinières
+        for u in [-3, 3] { put(u, 1, 0, "window_arched"); put(u, 1, -1, "flower_box"); }
+        // le balcon de l'étage : une dalle sur cinq consoles, une balustrade de pierre, la porte-fenêtre et ses vitraux
+        for u in -2..=2 { put(u, 3, -1, "corbel"); put(u, 4, -1, "polished_stone"); put(u, 5, -1, "balustrade_stone"); }
+        put(0, 5, 0, "air"); put(0, 6, 0, "air"); for (u, c) in [(-1, "stained_glass_blue"), (1, "stained_glass_red"), (0, "stained_glass_amber")] { put(u, 7, 0, c); } put(-1, 6, 0, "stained_glass_green"); put(1, 6, 0, "stained_glass_green");
+        for u in [-4, 4] { put(u, 5, 0, "window_arched"); put(u, 5, -1, "flower_box"); }
+        // le toit-terrasse : un garde-corps de fer forgé, la souche de cheminée
+        for u in -6..=6 { put(u, 9, 0, "iron_railing"); } put(4, 9, 4, "chimney_pot"); put(-3, 9, 5, "chimney_pot");
+        // le treillis fleuri et la descente d'eau
+        for v in 0..=2 { put(-5, v, -1, "lattice_roses"); } for v in 0..=8 { put(6, v, -1, "drainpipe"); }
+        // le jardin : une palissade blanche, le portillon, deux balustrades de bois autour d'un banc
+        for u in -6..=6 { put(u, 0, -7, if u == 0 { "garden_gate" } else { "picket_fence" }); } for w in -6..=-2 { put(-6, 0, w, "picket_fence@1"); put(6, 0, w, "picket_fence@1"); }
+        for u in -5..=5 { for w in -6..=-2 { put(u, -1, w, if u == 0 { "setts" } else { "grass" }); } }
+        for u in [-4, -3, 3, 4] { put(u, 0, -4, "balustrade_wood"); } put(-4, 0, -3, "bench"); put(4, 0, -3, "bench"); for u in [-2, 2] { put(u, 0, -5, "flower_pot"); }
+        put(-6, 1, -3, "awning_blue@1");
+        s.world.edit_many(&e); pump(&mut s, &mut g); let f = y0;
+        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "facade" => ([-7.5, 3.5, -16.5], [0.0, 3.5, 0.0]), "balcon" => ([3.5, 5.0, -5.5], [-1.0, 4.0, 0.0]), _ => ([8.5, 3.0, -11.5], [0.0, 0.5, -3.0]) };
+        s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
+        for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     // La Tour de l'Archimage : la tour en ruine et sa dalle, le hall des portails, la bibliothèque, le cachot, le Sanctuaire et l'Archimage.
     if let Some(vw) = scene.strip_prefix("plat_archimage_") {
         use alw_core::archimage as am; let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false); s.hour = 11.0;
