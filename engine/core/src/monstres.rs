@@ -760,6 +760,41 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
         let mut q = [0.0, 0.05, 0.0]; for i in 0..8 { let t = (i + 1) as f64 / 8.0; let n = [0.0, 0.05 + t * 0.7, -0.15 * t * t]; slab(p, q, n, 0.045 - t * 0.012, 0.045 - (t + 0.125) * 0.012, 0.006, [1.0, 0.0, 0.0], [0.75, 0.82, 0.85], [0.92, 0.96, 1.0], 1); q = n; }
     });
 
+    // ---- L'Archimage : un vieux mage immense, drapé d'une robe indigo semée d'étoiles d'argent qui tombe jusqu'aux pieds ; une ceinture
+    // d'or à boucle de cristal ; un grand col relevé ; une longue barbe blanche qui descend sur la poitrine ; un chapeau pointu à
+    // larges bords, cerclé d'une bande d'étoiles ; des manches évasées. Au poing, un bâton noueux couronné d'un cristal qui luit.
+    let (rb, rb2, sil, gdm, skm, brd, hat, crys) = ([0.2, 0.17, 0.46], [0.12, 0.1, 0.3], [0.85, 0.88, 0.95], [0.92, 0.75, 0.3], [0.82, 0.68, 0.58], [0.93, 0.93, 0.9], [0.16, 0.13, 0.38], [0.65, 0.5, 1.0]);
+    m("magTorso", Mat::Cloth, 0.016, &|p| {
+        // la robe : un cône qui s'évase jusqu'aux chevilles (elle cache les jambes), le col relevé derrière la tête
+        shell(p, [0.0, 0.0, 0.0], &[(-0.82, 0.3, 0.26, 0.0), (-0.5, 0.25, 0.21, 0.0), (-0.1, 0.18, 0.14, 0.0), (0.2, 0.19, 0.13, 0.0), (0.45, 0.22, 0.14, 0.0), (0.62, 0.21, 0.13, 0.0), (0.7, 0.1, 0.08, 0.0)], 14, rb2, rb, 0.03);
+        for k in 0..26 { let a = k as f64 * 2.39996; let y = -0.78 + (k as f64 / 26.0) * 1.35; let r = 0.3 - (y + 0.82) * 0.1; let rr = r.max(0.15) + 0.005; p.blob_m([a.sin() * rr, y, a.cos() * rr * 0.85], [0.016, 0.016, 0.008], sil, [1.0, 1.0, 1.0], PLAIN); }
+        arc(p, [0.0, 0.0, 0.0], 0.19, 0.0, std::f64::consts::TAU, 0.04, 0.035, gdm, [0.7, 0.55, 0.2], 14, 0.65); p.blob_m([0.0, 0.0, 0.145], [0.03, 0.035, 0.02], crys, [0.9, 0.85, 1.0], PLAIN);
+        arc(p, [0.0, 0.6, -0.02], 0.2, 1.6, 4.7, 0.0, 0.18, rb, rb2, 12, 0.6);
+        // la barbe, qui descend sur la poitrine
+        for k in 0..5 { let x = (k as f64 - 2.0) * 0.035; rod(p, [x, 0.66, 0.12], [x * 0.6, 0.3 - (2.0 - (k as f64 - 2.0).abs()) * 0.05, 0.16], 0.03, 0.008, brd, [0.8, 0.8, 0.78], 4); }
+    });
+    m("magHead", Mat::Human, 0.012, &|p| {
+        // le visage ridé, le nez long, des sourcils broussailleux, la barbe ; le chapeau pointu à larges bords, sa bande d'étoiles
+        egg(p, [0.0, 0.1, 0.0], [0.08, 0.1, 0.085], skm, [0.7, 0.56, 0.47], 10); rod(p, [0.0, 0.1, 0.07], [0.0, 0.06, 0.11], 0.018, 0.012, skm, skm, 3);
+        for sx in [-1.0f64, 1.0] { p.blob_m([sx * 0.032, 0.125, 0.075], [0.012, 0.008, 0.006], [0.15, 0.2, 0.45], [0.3, 0.4, 0.8], PLAIN); slab(p, [sx * 0.015, 0.145, 0.08], [sx * 0.06, 0.15, 0.07], 0.012, 0.01, 0.012, [0.0, 0.0, 1.0], brd, brd, 1); }
+        egg(p, [0.0, 0.0, 0.06], [0.08, 0.08, 0.05], brd, [0.82, 0.82, 0.78], 8); egg(p, [0.0, 0.05, 0.09], [0.06, 0.02, 0.03], brd, brd, 6);
+        arc(p, [0.0, 0.17, 0.0], 0.0, 0.0, std::f64::consts::TAU, 0.2, 0.012, hat, rb, 18, 1.0);
+        for i in 0..7 { let t0 = i as f64 / 7.0; let t1 = (i + 1) as f64 / 7.0; let c = |t: f64| [0.03 * t * t, 0.18 + t * 0.38, -0.06 * t * t]; let r = |t: f64| 0.1 * (1.0 - t) + 0.006; rod(p, c(t0), c(t1), r(t0), r(t1), hat, rb, 1); }
+        arc(p, [0.0, 0.2, 0.0], 0.1, 0.0, std::f64::consts::TAU, 0.0, 0.03, gdm, gdm, 14, 1.0); for k in 0..6 { let a = k as f64 * 1.047; p.blob_m([a.sin() * 0.103, 0.215, a.cos() * 0.103], [0.012, 0.012, 0.008], sil, [1.0, 1.0, 1.0], PLAIN); }
+    });
+    m("magArm", Mat::Cloth, 0.012, &|p| {
+        // la manche évasée, la main osseuse qui en sort
+        rod(p, [0.0, 0.0, 0.0], [0.0, -0.3, 0.02], 0.06, 0.07, rb, rb2, 5); shell(p, [0.0, -0.3, 0.02], &[(0.0, 0.07, 0.07, 0.0), (-0.2, 0.11, 0.1, 0.0), (-0.26, 0.12, 0.11, 0.0)], 10, rb, rb2, 0.01);
+        arc(p, [0.0, -0.55, 0.02], 0.115, 0.0, std::f64::consts::TAU, 0.0, 0.02, sil, sil, 12, 1.0); egg(p, [0.0, -0.6, 0.04], [0.035, 0.045, 0.035], skm, [0.7, 0.56, 0.47], 8);
+    });
+    m("magLeg", Mat::Cloth, 0.012, &|p| { rod(p, [0.0, -0.4, 0.0], [0.0, -0.72, 0.0], 0.06, 0.06, rb2, rb2, 3); crate::mesher::obox(p.q, [0.0, -0.77, 0.05], [[0.05, 0.0, 0.0], [0.0, 0.025, 0.0], [0.0, 0.0, 0.1]], [0.25, 0.18, 0.12], -1.0, 255.0, 0.0); });
+    m("magStaff", Mat::Bone, 0.012, &|p| {
+        // le bâton noueux, sa tête en griffe qui serre un cristal violet
+        for i in 0..6 { let y0 = -0.4 + i as f64 * 0.22; rod(p, [0.012 * ((i % 2) as f64 - 0.5), y0, 0.0], [0.012 * (((i + 1) % 2) as f64 - 0.5), y0 + 0.22, 0.0], 0.025, 0.022, [0.32, 0.22, 0.14], [0.45, 0.32, 0.2], 3); }
+        for k in 0..3 { let a = k as f64 * 2.094; rod(p, [a.sin() * 0.02, 0.9, a.cos() * 0.02], [a.sin() * 0.06, 1.06, a.cos() * 0.06], 0.014, 0.008, [0.32, 0.22, 0.14], [0.45, 0.32, 0.2], 2); }
+        p.blob_m([0.0, 1.03, 0.0], [0.05, 0.08, 0.05], crys, [0.95, 0.9, 1.0], PLAIN);
+    });
+
     // ---- Le Gardien chacal : le gardien de la tombe du Pharaon, à tête de chacal noir. De hautes oreilles pointues, un long museau,
     // des yeux d'or ; le némès rayé bleu et or qui retombe sur les épaules ; un large collier ousekh de perles ; un torse sombre et
     // sec ; un pagne blanc plissé, une ceinture d'or ; des bracelets d'or. Au poing, un khépesh : l'épée-faucille de bronze.

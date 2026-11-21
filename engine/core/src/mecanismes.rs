@@ -131,6 +131,12 @@ pub const WAVE_PAUSE: f64 = 3.0;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Boulder { pub name: String, pub idol: [i32; 3], pub path: Vec<[i32; 3]>, pub breaks: Vec<[i32; 3]>, /** 0 l'idole en place, 1 le grondement, 2 il roule, 3 brisé */ pub state: u8, pub pos: usize, pub t: f64 }
 pub const BOULDER_DELAY: f64 = 0.6; pub const BOULDER_STEP: f64 = 0.1; pub const BOULDER_DMG: f64 = 70.0;
+/// Un portail : une dalle de cristal (`pad`) ; qui s'y tient `PORTAL_T` est emporté vers `to[k]`, où `k` est l'état du rouage
+/// `dial` (toujours 0 sans rouage). Une destination peut demander qu'un fil soit enclenché (`locked[k]`, vide sinon) : sans lui, le
+/// portail vacille et ne vous prend pas.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Portal { pub name: String, pub pad: [i32; 3], pub to: Vec<[f64; 3]>, pub dial: String, pub locked: Vec<String>, pub t: f64 }
+pub const PORTAL_T: f64 = 0.6;
 /// Les cases d'un rocher centré en `c` : un cube de trois sans ses huit coins.
 pub fn boulder_cells(c: [i32; 3]) -> Vec<[i32; 3]> { let mut v = vec![]; for dx in -1..=1i32 { for dy in -1..=1i32 { for dz in -1..=1i32 { if dx.abs() + dy.abs() + dz.abs() < 3 { v.push([c[0] + dx, c[1] + dy, c[2] + dz]); } } } } v }
 /// Un sceau : de `min` à `max`, on ne creuse ni ne bâtit, tant que le fil `until` n'est pas enclenché (vide : pour toujours).
@@ -149,7 +155,7 @@ pub struct Hint { pub min: [i32; 3], pub max: [i32; 3], pub text: String, pub sh
 pub struct Guard { pub min: [i32; 3], pub max: [i32; 3], pub species: String, pub at: [f64; 3], pub doors: Vec<([i32; 3], Id)>, /** 0 endormi, 1 au combat, 2 vaincu */ pub state: u8 }
 /// Tous les mécanismes du monde.
 #[derive(Clone, Debug, Default)]
-pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, pub dials: Vec<Dial>, pub miasmas: Vec<Miasma>, pub tides: Vec<Tide>, pub carts: Vec<Cart>, pub arenas: Vec<Arena>, pub boulders: Vec<Boulder>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
+pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, pub dials: Vec<Dial>, pub miasmas: Vec<Miasma>, pub tides: Vec<Tide>, pub carts: Vec<Cart>, pub arenas: Vec<Arena>, pub boulders: Vec<Boulder>, pub portals: Vec<Portal>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
 
 /// Les dégâts des pics (par atteinte), d'une fléchette, et le temps que tient le sol friable.
 pub const SPIKE_DMG: f64 = 5.0; pub const DART_DMG: f64 = 7.0; pub const CRUMBLE_T: f64 = 0.6;
@@ -167,7 +173,7 @@ impl Mech {
     fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) || self.dials.iter().any(|d| d.name == n && d.state == d.goal) || self.tides.iter().any(|t| t.name == n && t.up()) || self.arenas.iter().any(|a| a.name == n && a.state == 255) || self.boulders.iter().any(|b| b.name == n && b.state == 3) }
     pub fn dial(&self, n: &str) -> Option<&Dial> { self.dials.iter().find(|d| d.name == n) }
     /// Ajoute les mécanismes d'un donjon.
-    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.dials.extend(o.dials); self.miasmas.extend(o.miasmas); self.tides.extend(o.tides); self.arenas.extend(o.arenas); self.boulders.extend(o.boulders); self.carts.extend(o.carts); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
+    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.dials.extend(o.dials); self.miasmas.extend(o.miasmas); self.tides.extend(o.tides); self.arenas.extend(o.arenas); self.boulders.extend(o.boulders); self.portals.extend(o.portals); self.carts.extend(o.carts); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
 }
 fn at_f(a: [i32; 3], b: [i32; 3]) -> [f64; 3] { [(a[0] + b[0]) as f64 * 0.5, (a[1] + b[1]) as f64 * 0.5, (a[2] + b[2]) as f64 * 0.5] }
 fn inside(p: [i32; 3], min: [i32; 3], max: [i32; 3], m: i32) -> bool { (0..3).all(|i| p[i] >= min[i] - m && p[i] <= max[i] + m) }
@@ -282,6 +288,15 @@ impl Session {
         // les inscriptions, lues en entrant
         let me = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.1).floor() as i32, self.player.p[2].floor() as i32];
         for k in 0..self.mech.hints.len() { let h = &self.mech.hints[k]; if !h.shown && self.dead.is_none() && inside(me, h.min, h.max, 0) { let (t, xp) = (h.text.clone(), h.xp); self.mech.hints[k].shown = true; self.dirty = true; self.notes.push(t); if xp > 0.0 { self.earn(xp, "salle secrète découverte"); } } }
+        // les portails : on s'y tient un instant, on est ailleurs
+        let feet = [self.player.p[0].floor() as i32, (self.player.p[1] - 0.05).floor() as i32, self.player.p[2].floor() as i32];
+        for k in 0..self.mech.portals.len() { let pt = self.mech.portals[k].clone(); if pt.to.is_empty() { continue; }
+            if self.dead.is_some() || feet != pt.pad { self.mech.portals[k].t = 0.0; continue; }
+            self.mech.portals[k].t += dt; if self.mech.portals[k].t < PORTAL_T { continue; }
+            let i = if pt.dial.is_empty() { 0 } else { self.mech.dials.iter().find(|d| d.name == pt.dial).map_or(0, |d| d.state as usize) }.min(pt.to.len() - 1);
+            let need = pt.locked.get(i).cloned().unwrap_or_default();
+            if !need.is_empty() && !self.mech.is_on(&need) { self.mech.portals[k].t = -1.5; self.notes.push("Le portail d'or vacille et s'éteint : il lui manque la formule.".into()); continue; }
+            self.player.p = pt.to[i]; self.player.v = [0.0; 3]; self.mech.portals[k].t = 0.0; self.sound.place("crystal_white"); self.notes.push("Le portail vous emporte dans un éclair de lumière !".into()); break; }
         // les rochers roulants
         for k in 0..self.mech.boulders.len() { let b = self.mech.boulders[k].clone(); if b.state == 0 || b.state == 3 || b.path.is_empty() { continue; }
             self.mech.boulders[k].t -= dt; if self.mech.boulders[k].t > 0.0 { continue; }
@@ -479,6 +494,8 @@ impl Session {
             let dr = d.draw.iter().map(|st| if st.is_empty() { "-".to_string() } else { st.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") }).collect::<Vec<_>>().join("|");
             o += &format!("dial {} {} {} {} {} {} {} {} {} {} {} {}\n", word(&d.name), d.n, d.state, d.goal, d.auto, d.swing as u8, d.hit, d.back as u8, lv, dr, d.carry as u8, word(&d.grow)); }
         for c in &self.mech.carts { o += &format!("cart {} {} {} {} {} {}\n", word(&c.name), c.pos, c.route, c.state, if c.switches.is_empty() { "-".to_string() } else { c.switches.join(",") }, c.routes.iter().map(|r| pts(r)).collect::<Vec<_>>().join("|")); }
+        for pt in &self.mech.portals { let to = pt.to.iter().map(|p| format!("{},{},{}", p[0], p[1], p[2])).collect::<Vec<_>>().join(";"); let lk = pt.locked.iter().map(|l| if l.is_empty() { "-".to_string() } else { word(l) }).collect::<Vec<_>>().join(";");
+            o += &format!("portal {} {} {} {} {}\n", word(&pt.name), pts(&[pt.pad]), if pt.dial.is_empty() { "-".into() } else { word(&pt.dial) }, to, if lk.is_empty() { "-".into() } else { lk }); }
         for b in &self.mech.boulders { o += &format!("boulder {} {} {} {} {} {}\n", word(&b.name), b.state, b.pos, pts(&[b.idol]), if b.breaks.is_empty() { "-".into() } else { pts(&b.breaks) }, pts(&b.path)); }
         for a in &self.mech.arenas { let doors = if a.doors.is_empty() { "-".to_string() } else { a.doors.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") };
             let waves = a.waves.iter().map(|w| w.iter().map(|(id, p)| format!("{id}@{},{},{}", p[0], p[1], p[2])).collect::<Vec<_>>().join(";")).collect::<Vec<_>>().join("|");
@@ -508,6 +525,13 @@ impl Session {
         let mut c = Cart { name: a[0].to_string(), pos: a[1].parse().unwrap_or(0), route: a[2].parse().unwrap_or(0), state: a[3].parse().unwrap_or(0), switches: if a[4] == "-" { Vec::new() } else { a[4].split(',').map(|s| s.to_string()).collect() }, routes: a[5].split('|').map(pts).collect(), t: 0.0 };
         // un wagonnet en route au moment de la sauvegarde repart de là, vers le quai
         if c.state == 1 { c.state = 2; } if c.route >= c.routes.len() { c.route = 0; c.pos = 0; c.state = 0; } self.mech.carts.push(c);
+    }
+    /// Un portail sauvé.
+    pub(crate) fn portal_load(&mut self, rest: &str) {
+        let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 5 { return; } let pad = pts(a[1]); if pad.is_empty() { return; }
+        let to = a[3].split(';').filter_map(|e| { let v: Vec<f64> = e.split(',').filter_map(|x| x.parse().ok()).collect(); (v.len() == 3).then(|| [v[0], v[1], v[2]]) }).collect();
+        let locked = if a[4] == "-" { vec![] } else { a[4].split(';').map(|l| if l == "-" { String::new() } else { l.to_string() }).collect() };
+        self.mech.portals.push(Portal { name: a[0].to_string(), pad: pad[0], dial: if a[2] == "-" { String::new() } else { a[2].to_string() }, to, locked, t: 0.0 });
     }
     /// Un rocher roulant sauvé : où il en était (en route, il reprend sa course).
     pub(crate) fn boulder_load(&mut self, rest: &str) {

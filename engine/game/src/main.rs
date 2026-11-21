@@ -702,6 +702,17 @@ fn capture(a: &[String]) {
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // La Tour de l'Archimage : la tour en ruine et sa dalle, le hall des portails, la bibliothèque, le cachot, le Sanctuaire et l'Archimage.
+    if let Some(vw) = scene.strip_prefix("plat_archimage_") {
+        use alw_core::archimage as am; let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false); s.hour = 11.0;
+        s.build_mage_tower(o); pump(&mut s, &mut g); let f = o[1] + 1; let d = -(am::DEPTH as f64); let fl = o[1] - am::DEPTH;
+        if vw == "sanctuaire" { let sp = alw_core::hostile::species(am::BOSS).unwrap_or(0); let b = am::BOSS_AT; let i = s.horde.put(sp, [o[0] as f64 + b[0], fl as f64 + b[1], o[2] as f64 + b[2]], std::f64::consts::PI, true); s.horde.foes[i].kept = true; }
+        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "tour" => ([-11.5, 4.0, -15.5], [0.0, 2.0, 0.0]), "hall" => ([4.5, d + 3.5, 5.5], [-1.0, d + 0.5, -2.0]), "bibliotheque" => ([-19.5, d + 3.0, 5.5], [-28.0, d + 2.0, -2.0]),
+            "cachot" => ([20.5, d + 1.5, -4.5], [28.0, d + 1.0, 3.0]), _ => ([-1.5, d + 2.0, 20.5], [0.5, d + 2.5, 27.0]) };
+        s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
+        for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     // Le Tombeau du Pharaon : le pylône et ses obélisques, la salle hypostyle, l'idole, le rocher qui dévale le couloir, la chambre funéraire et son Gardien.
     if let Some(vw) = scene.strip_prefix("plat_tombeau_") {
         use alw_core::tombeau as tb; let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false); s.hour = 11.0;

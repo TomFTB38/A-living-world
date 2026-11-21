@@ -707,6 +707,7 @@ impl Session {
                 Some("dial") => self.dial_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("miasma") => self.miasma_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("tide") => self.tide_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
+                Some("portal") => self.portal_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("boulder") => self.boulder_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("arena") => self.arena_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
                 Some("cart") => self.cart_load(&a.by_ref().collect::<Vec<_>>().join(" ")),
