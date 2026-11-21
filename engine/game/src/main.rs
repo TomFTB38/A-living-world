@@ -710,7 +710,7 @@ fn capture(a: &[String]) {
         let y0 = o[1] + 1; let mut e: Vec<(i32, i32, i32, u16)> = Vec::new();
         let mut put = |u: i32, v: i32, w: i32, n: &str| { if let Some(b) = alw_core::blocks::by_name(n) { e.push((o[0] + u, y0 + v, o[2] + w, b)); } };
         // le corps de la maison : un rez-de-chaussée de pierre, un étage enduit, un toit-terrasse
-        for u in -6..=6 { for w in 0..=6 { for v in 0..=8 { let edge = u.abs() == 6 || w == 0 || w == 6; if edge || v == 8 { put(u, v, w, if v < 4 { "stone_bricks" } else if v == 4 { "stone_bricks_dark" } else { "plaster" }); } } } }
+        for u in -6..=6i32 { for w in 0..=6 { for v in 0..=8 { let edge = u.abs() == 6 || w == 0 || w == 6; if edge || v == 8 { put(u, v, w, if v < 4 { "stone_bricks" } else if v == 4 { "stone_bricks_dark" } else { "plaster" }); } } } }
         for u in -6..=6 { put(u, -1, -1, "setts"); }
         // la porte sous son arc et son auvent, deux lanternes, l'enseigne
         put(0, 0, 0, "air"); put(0, 1, 0, "air"); put(0, 2, 0, "stone_arch"); put(0, 2, -1, "awning_red"); put(-1, 1, -1, "wall_lantern"); put(1, 1, -1, "wall_lantern"); put(2, 2, -1, "hanging_sign");
