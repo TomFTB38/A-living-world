@@ -61,8 +61,10 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     // — LES GRADINS — six rangs qui montent d'une marche ; le mur extérieur et ses arcades sur deux étages, rongé par le temps
     for u in -21..=21 { for w in -24..=24 { let Some(j) = row(u, w) else { continue };
         if j < ROWS { for v in -1..=j { let s = g.stone(u, v, w); g.n(u, v, w, if v == j { if (j + u.abs()) % 7 == 0 { "sandstone_slab_top" } else { "sandstone" } } else { s }); } for v in j + 1..=j + 4 { g.air(u, v, w); } continue; }
-        let a = (u as f64 / ou).atan2(w as f64 / ow); let bay = ((a + std::f64::consts::PI) / std::f64::consts::TAU * 48.0).floor() as i32; let ruined = g.h(bay, 0, 0, 7) < 0.4;
-        for v in -1..=WALL_H { let arch = bay % 2 == 0 && ((0..=2).contains(&v) || (5..=7).contains(&v)); if ruined && v > 4 + (g.h(bay, v, 0, 8) * 6.0) as i32 { break; }
+        let a = (u as f64 / ou).atan2(w as f64 / ow); let bay = ((a + std::f64::consts::PI) / std::f64::consts::TAU * 48.0).floor() as i32; let top = |b: i32| { let b = b.rem_euclid(48); if g.h(b, 0, 0, 7) < 0.4 { 4 + (g.h(b, 0, 0, 8) * 6.0) as i32 } else { WALL_H } };
+        // une arcade ne tient que si ses deux piliers tiennent : au-dessus du plus bas des deux, elle est tombée
+        let top = if bay % 2 == 0 { top(bay).min(top(bay - 1)).min(top(bay + 1)) } else { top(bay) };
+        for v in -1..=top { let arch = bay % 2 == 0 && ((0..=2).contains(&v) || (5..=7).contains(&v));
             if arch { g.air(u, v, w); } else { let s = g.stone(u, v, w); g.n(u, v, w, if v == 3 || v == 8 { "sandstone_slab_top" } else if v == WALL_H { "sandstone_slab" } else { s }); } } } }
     // — LE TUNNEL DU NORD — il traverse les gradins, puis descend sur le sable sous la grille de l'entrée
     for w in -24..NORTH_GATE { for u in -1..=1 { g.n(u, -1, w, "sandstone"); for v in 0..=2 { g.air(u, v, w); } } for u in [-2, 2] { if row(u, w).is_some_and(|j| j > 2) { for v in 0..=2 { g.n(u, v, w, "sandstone"); } g.n(u, 3, w, "sandstone_slab_top"); } } }
