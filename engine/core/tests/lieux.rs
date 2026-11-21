@@ -6,7 +6,7 @@ fn ready(s: &mut Session) { for _ in 0..8000 { let p = s.player.p; s.world.updat
 
 #[test]
 fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
-    let w = WorldGen::new(SEED); let all = w.places_near(-38.0, 0.0, 3200.0); let mut seen = [0usize; 15];
+    let w = WorldGen::new(SEED); let all = w.places_near(-38.0, 0.0, 3200.0); let mut seen = [0usize; 16];
     let name = |b: u16| BLOCKS[b as usize].name;
     for pl in &all {
         let k = LIEUX.iter().position(|l| *l == pl.kind).unwrap(); seen[k] += 1; if seen[k] > 3 { continue; } // trois de chaque sorte, bloc à bloc
@@ -83,6 +83,14 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
                 for r in [&gl::WEST, &gl::EAST, &gl::MID] { for c in r.blocks { let q = r.cell(*c); assert_eq!(name(rel(q[0], 0, q[2])), "push_block"); } let q = r.cell((0, 0)); assert!(matches!(name(rel(q[0], -1, q[2])), "ice" | "crystal_blue"), "la glace du bassin"); }
                 assert!(name(rel(gl::LEVER[0], gl::LEVER[1], gl::LEVER[2])).starts_with("lever")); assert_eq!(name(rel(0, 2, gl::CHAINS_W)), "great_chain"); assert!(name(rel(0, 2, gl::GATE_W)).starts_with("iron_bars"));
             }
+            Lieu::Arene => {
+                // le sable sous les gradins, le mur du podium, le dernier gradin, le mur extérieur, les deux grilles, l'hypogée
+                use alw_core::arene::{self as ar, DROP}; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, pl.y + 1 + v, pl.z + w);
+                assert_eq!(name(rel(0, -DROP, 0)), "sand", "le sable"); assert_eq!(rel(0, 1 - DROP, 0), 0); assert!(name(rel(13, 0, 0)).starts_with("sandstone"), "le podium");
+                assert!(name(rel(0, ar::ROWS - 1, -16 - ar::ROWS)).starts_with("sandstone") || name(rel(0, ar::ROWS - 1, -16 - ar::ROWS)) == "air", "le haut des gradins");
+                assert!(name(rel(0, 2 - DROP, ar::SOUTH_GATE)).starts_with("iron_bars"), "la herse du sud"); assert_eq!(rel(0, 2 - DROP, ar::NORTH_GATE), 0, "l'entrée");
+                assert_eq!(rel(0, ar::CRYPT.4 + 2, 28), 0, "l'hypogée"); assert!(name(rel(-5, ar::CRYPT.4 + 3, 26)).starts_with("column"), "ses colonnes");
+            }
             Lieu::Mine => {
                 // la porte des nains et son chevalement, les trois volées de l'escalier, la gare et son wagonnet, le gouffre, la porte runique ; la voûte reste sous terre
                 use alw_core::mine::{self as mi, DEPTH}; let f = pl.y - DEPTH; let rel = |u: i32, v: i32, w: i32| at(pl.x + u, f + v, pl.z + w);
@@ -136,7 +144,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
         // les gardiens ont les pieds sur du plein et la tête à l'air
         for (id, g) in pl.guards() { assert!(alw_core::hostile::species(id).is_some(), "{id}"); let (x, y, z) = (g[0].floor() as i32, g[1].floor() as i32, g[2].floor() as i32); assert!(is_solid(at(x, y - 1, z)), "{id} de {:?} n'a rien sous les pieds en {x} {y} {z}", pl.kind); assert!(!is_solid(at(x, y + 1, z)), "{id} de {:?} emmuré", pl.kind); }
     }
-    println!("lieux : {} tours, {} cimetières, {} camps, {} sanctuaires, {} ruines, {} grottes, {} temples du soleil, {} catacombes, {} forges, {} temples de glace, {} tours de l'horloge, {} observatoires, {} serres, {} épaves, {} mines", seen[0], seen[1], seen[2], seen[3], seen[4], seen[5], seen[6], seen[7], seen[8], seen[9], seen[10], seen[11], seen[12], seen[13], seen[14]); assert!(seen.iter().all(|n| *n >= 6), "chaque sorte de lieu existe : {seen:?}"); assert!(seen[0] * 10 < seen.iter().sum::<usize>() * 6, "les tours ne prennent pas toute la place");
+    println!("lieux : {} tours, {} cimetières, {} camps, {} sanctuaires, {} ruines, {} grottes, {} temples du soleil, {} catacombes, {} forges, {} temples de glace, {} tours de l'horloge, {} observatoires, {} serres, {} épaves, {} mines, {} colisées", seen[0], seen[1], seen[2], seen[3], seen[4], seen[5], seen[6], seen[7], seen[8], seen[9], seen[10], seen[11], seen[12], seen[13], seen[14], seen[15]); assert!(seen.iter().all(|n| *n >= 6), "chaque sorte de lieu existe : {seen:?}"); assert!(seen[0] * 10 < seen.iter().sum::<usize>() * 6, "les tours ne prennent pas toute la place");
     assert!(WorldGen::new(alw_core::gen::FLAT).places_near(0.0, 0.0, 800.0).is_empty(), "rien dans le monde plat");
 }
 
@@ -144,7 +152,7 @@ fn chaque_lieu_existe_est_bati_et_garde_son_coffre() {
 fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
     let w = WorldGen::new(SEED); let mut s = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [-38.5, 51.4, 0.5]); ready(&mut s); s.hour = 12.0; let sp = |id: &str| alw_core::hostile::species(id).unwrap();
     assert!(s.command("/lieu chateau").contains("inconnu"));
-    for (key, who, n, loot) in [("tour", "archer", 4, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("sanctuaire", "noye", 3, "idole_engloutie"), ("ruines", "rodeur", 2, "worn_coin"), ("grotte", "noye", 3, "worn_coin"), ("soleil", "rodeur", 2, "worn_coin"), ("catacombes", "archer", 2, "worn_coin"), ("forge", "brigand", 2, "worn_coin"), ("glace", "rodeur", 3, "worn_coin"), ("horloge", "brigand", 2, "worn_coin"), ("observatoire", "rodeur", 2, "worn_coin"), ("serre", "rodeur", 2, "worn_coin"), ("epave", "brigand", 2, "worn_coin"), ("mine", "brigand", 2, "worn_coin"), ("cimetiere", "archer", 3, "worn_coin")] {
+    for (key, who, n, loot) in [("tour", "archer", 4, "arrow"), ("brigands", "brigand", 6, "worn_coin"), ("sanctuaire", "noye", 3, "idole_engloutie"), ("ruines", "rodeur", 2, "worn_coin"), ("grotte", "noye", 3, "worn_coin"), ("soleil", "rodeur", 2, "worn_coin"), ("catacombes", "archer", 2, "worn_coin"), ("forge", "brigand", 2, "worn_coin"), ("glace", "rodeur", 3, "worn_coin"), ("horloge", "brigand", 2, "worn_coin"), ("observatoire", "rodeur", 2, "worn_coin"), ("serre", "rodeur", 2, "worn_coin"), ("epave", "brigand", 2, "worn_coin"), ("mine", "brigand", 2, "worn_coin"), ("arene", "brigand", 2, "worn_coin"), ("cimetiere", "archer", 3, "worn_coin")] {
         s.horde.foes.clear(); let msg = s.command(&format!("/lieu {key}")); ready(&mut s); let pl = w.places_near(s.player.p[0], s.player.p[2], 40.0).into_iter().next().unwrap_or_else(|| panic!("{key} : {msg}")); assert_eq!(pl.kind.key(), key, "{msg}");
         s.notes.clear(); for _ in 0..3 { s.tick(0.05, Input::default(), Actions::default()); }
         assert!(s.horde.foes.iter().filter(|f| f.sp == sp(who)).count() >= n, "{key} : {n} {who} attendus, on a {:?}", s.horde.foes.iter().map(|f| (alw_core::hostile::bestiary().species[f.sp].id, f.p.map(|v| v.round()), f.hp)).collect::<Vec<_>>()); assert!(s.notes.iter().any(|t| t.contains("en vue")), "{key} : annoncé");
@@ -155,6 +163,7 @@ fn on_y_va_les_gardiens_sortent_le_coffre_est_garni() {
         s.open_chest(pl.chest()); let got = &s.chests[&pl.chest()]; assert!(got.iter().flatten().any(|st| st.item == loot), "{key} : {loot} dans le coffre, on a {:?}", got.iter().flatten().map(|st| st.item).collect::<Vec<_>>()); s.close_chest(); s.inv_open = false;
         if key == "ruines" { assert!(s.mech.wires.iter().any(|w| w.name.starts_with(&format!("d{}:{}:", pl.x, pl.z))), "les fils des ruines"); assert_eq!(s.mech.guards.len(), 2, "le colosse du sanctuaire et le gardien des ruines"); }
         if key == "soleil" { assert!(s.mech.beams.len() == 1 && s.mech.wires.iter().any(|w| w.name.starts_with(&format!("t{}:{}:", pl.x, pl.z))), "le rayon et les fils du temple"); }
+        if key == "arene" { let t = format!("a{}:{}:", pl.x, pl.z); assert_eq!(s.mech.arenas.iter().filter(|a| a.name.starts_with(&t)).count(), 1, "l'arène"); }
         if key == "mine" { let t = format!("m{}:{}:", pl.x, pl.z); assert_eq!(s.mech.carts.iter().filter(|c| c.name.starts_with(&t)).count(), 1, "le wagonnet"); assert_eq!(s.mech.dials.iter().filter(|d| d.name.starts_with(&t)).count(), 6, "trois marteaux, trois roues"); }
         if key == "epave" { let t = format!("n{}:{}:", pl.x, pl.z); assert_eq!(s.mech.tides.iter().filter(|m| m.name.starts_with(&t)).count(), 1, "la marée"); assert_eq!(s.mech.pools.iter().filter(|p| p.by.starts_with(&t)).count(), 1, "la cale"); }
         if key == "serre" { let t = format!("e{}:{}:", pl.x, pl.z); assert_eq!(s.mech.dials.iter().filter(|d| d.name.starts_with(&t)).count(), 2, "la liane, le pont"); assert_eq!(s.mech.miasmas.len(), 1, "les spores"); }

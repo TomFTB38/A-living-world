@@ -191,6 +191,12 @@ jobs:
           shot plat_mine_runes -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_mine_runes
           shot plat_mine_trone -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_mine_trone
           shot plat_boss_golem_minerai -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_golem_minerai
+          shot plat_arene_plaine -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_arene_plaine
+          shot plat_arene_gradins -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_arene_gradins
+          shot plat_arene_vague -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_arene_vague
+          shot plat_arene_loge -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_arene_loge
+          shot plat_arene_hypogee -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_arene_hypogee
+          shot plat_boss_champion -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_champion
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

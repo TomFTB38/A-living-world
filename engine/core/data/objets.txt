@@ -219,6 +219,7 @@ coeur_glace | Cœur de glace | matieres | 0.5 | 1 | Un cristal de glace éternel
 coeur_horloge | Cœur d'horloge | matieres | 0.6 | 1 | Le mouvement de laiton qui faisait vivre l'Automate de l'horloger. Il bat encore, très doucement, comme une montre qu'on porte à l'oreille. |
 astrolabe | Astrolabe de l'Astronome | matieres | 0.5 | 1 | Un disque d'or gravé d'étoiles, ses aiguilles ajourées. Tenu à bout de bras, on y lit l'heure de la nuit et la route du nord. |
 graine_mere | Graine-Mère | matieres | 0.3 | 1 | La graine qui battait au cœur de la Mère-Racine. Elle est tiède, et l'on jurerait qu'elle respire. |
+couronne_laurier | Couronne de laurier | matieres | 0.2 | 1 | La couronne de laurier d'or que portait le Champion invaincu. Des siècles de victoires : la vôtre est la dernière. |
 pierre_coeur | Pierre-Cœur | matieres | 0.6 | 1 | Le cristal qui brûlait dans la poitrine du Golem de minerai. Les nains y avaient enfermé le battement de la montagne ; il bat encore, tout doucement. |
 boussole_capitaine | Boussole du Capitaine | matieres | 0.4 | 1 | Une boussole de cuivre au verre fêlé. Son aiguille ne montre pas le nord : elle tremble vers quelque chose, au loin, que le Capitaine cherchait encore. |
 marteau_forge | Marteau du Maître de forge | outils | 2.2 | 1 | Le marteau de guerre du Maître de forge, forgé dans un acier noir qui garde la chaleur de la lave. Il écrase les armures. | outil=marteau mat=maitre
@@ -510,6 +511,7 @@ egg_astronome | Œuf : Astronome | oeufs | 0.1 | 64 | Clic droit sur un bloc pou
 egg_mere_racine | Œuf : Mère-Racine | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : la Mère-Racine. Pour essayer les créatures en créatif. |
 egg_capitaine_fantome | Œuf : Capitaine fantôme | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : le Capitaine fantôme. Pour essayer les créatures en créatif. |
 egg_golem_minerai | Œuf : Golem de minerai | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : le Golem de minerai. Pour essayer les créatures en créatif. |
+egg_champion | Œuf : Champion de l'arène | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : le Champion de l'arène. Pour essayer les créatures en créatif. |
 egg_rodeuse | Œuf : bête rôdeuse | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : bête rôdeuse. Pour essayer les créatures en créatif. |
 egg_rampant | Œuf : rampant nocturne | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : rampant nocturne. Pour essayer les créatures en créatif. |
 egg_deer | Œuf : cerf | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cerf. Pour essayer les créatures en créatif. |

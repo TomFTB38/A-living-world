@@ -117,6 +117,14 @@ impl Tide { pub fn up(&self) -> bool { self.t.rem_euclid(self.period.max(0.1)) >
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Cart { pub name: String, pub routes: Vec<Vec<[i32; 3]>>, pub switches: Vec<String>, /** état : la case, la voie, 0 à quai, 1 à l'aller, 2 au bout, 3 au retour */ pub pos: usize, pub route: usize, pub state: u8, pub t: f64 }
 pub const CART_T: f64 = 0.16;
+/// Une arène : qu'on entre dans l'enceinte (`min`..`max`), les grilles (`doors`) retombent et les vagues d'adversaires (`waves` :
+/// des espèces et leurs places) sortent l'une après l'autre, chacune quand la précédente est tombée. Toutes vaincues, les grilles
+/// se relèvent et l'arène est conquise (son nom compte alors comme un fil enclenché). Qu'on en sorte (ou qu'on y meure), les
+/// adversaires restants disparaissent et tout est à refaire.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Arena { pub name: String, pub min: [i32; 3], pub max: [i32; 3], pub waves: Vec<Vec<(String, [f64; 3])>>, pub doors: Vec<([i32; 3], Id)>, /** état : 0 au repos, k la vague k (à partir de 1), 255 conquise ; le délai avant la vague ; la vague est-elle sortie */ pub state: u8, pub t: f64, pub out: bool }
+/// Le temps de souffler entre deux vagues.
+pub const WAVE_PAUSE: f64 = 3.0;
 /// Un sceau : de `min` à `max`, on ne creuse ni ne bâtit, tant que le fil `until` n'est pas enclenché (vide : pour toujours).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Seal { pub min: [i32; 3], pub max: [i32; 3], pub until: String }
@@ -133,7 +141,7 @@ pub struct Hint { pub min: [i32; 3], pub max: [i32; 3], pub text: String, pub sh
 pub struct Guard { pub min: [i32; 3], pub max: [i32; 3], pub species: String, pub at: [f64; 3], pub doors: Vec<([i32; 3], Id)>, /** 0 endormi, 1 au combat, 2 vaincu */ pub state: u8 }
 /// Tous les mécanismes du monde.
 #[derive(Clone, Debug, Default)]
-pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, pub dials: Vec<Dial>, pub miasmas: Vec<Miasma>, pub tides: Vec<Tide>, pub carts: Vec<Cart>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
+pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, pub dials: Vec<Dial>, pub miasmas: Vec<Miasma>, pub tides: Vec<Tide>, pub carts: Vec<Cart>, pub arenas: Vec<Arena>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
 
 /// Les dégâts des pics (par atteinte), d'une fléchette, et le temps que tient le sol friable.
 pub const SPIKE_DMG: f64 = 5.0; pub const DART_DMG: f64 = 7.0; pub const CRUMBLE_T: f64 = 0.6;
@@ -148,11 +156,12 @@ fn free(b: Id) -> bool { matches!(split(name(b)).0, "lever" | "lever_on" | "pres
 impl Mech {
     pub fn wire(&self, n: &str) -> Option<&Wire> { self.wires.iter().find(|w| w.name == n) }
     /// Un fil enclenché, ou un rouage sur son bon cran.
-    fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) || self.dials.iter().any(|d| d.name == n && d.state == d.goal) || self.tides.iter().any(|t| t.name == n && t.up()) }
+    fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) || self.dials.iter().any(|d| d.name == n && d.state == d.goal) || self.tides.iter().any(|t| t.name == n && t.up()) || self.arenas.iter().any(|a| a.name == n && a.state == 255) }
     pub fn dial(&self, n: &str) -> Option<&Dial> { self.dials.iter().find(|d| d.name == n) }
     /// Ajoute les mécanismes d'un donjon.
-    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.dials.extend(o.dials); self.miasmas.extend(o.miasmas); self.tides.extend(o.tides); self.carts.extend(o.carts); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
+    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.dials.extend(o.dials); self.miasmas.extend(o.miasmas); self.tides.extend(o.tides); self.arenas.extend(o.arenas); self.carts.extend(o.carts); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
 }
+fn at_f(a: [i32; 3], b: [i32; 3]) -> [f64; 3] { [(a[0] + b[0]) as f64 * 0.5, (a[1] + b[1]) as f64 * 0.5, (a[2] + b[2]) as f64 * 0.5] }
 fn inside(p: [i32; 3], min: [i32; 3], max: [i32; 3], m: i32) -> bool { (0..3).all(|i| p[i] >= min[i] - m && p[i] <= max[i] + m) }
 
 impl Session {
@@ -265,6 +274,20 @@ impl Session {
         // les inscriptions, lues en entrant
         let me = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.1).floor() as i32, self.player.p[2].floor() as i32];
         for k in 0..self.mech.hints.len() { let h = &self.mech.hints[k]; if !h.shown && self.dead.is_none() && inside(me, h.min, h.max, 0) { let (t, xp) = (h.text.clone(), h.xp); self.mech.hints[k].shown = true; self.dirty = true; self.notes.push(t); if xp > 0.0 { self.earn(xp, "salle secrète découverte"); } } }
+        // les arènes et leurs vagues
+        for k in 0..self.mech.arenas.len() { let ar = self.mech.arenas[k].clone(); if ar.state == 255 { continue; }
+            let here = self.dead.is_none() && inside(me, ar.min, ar.max, 0); let foe_in = |f: &crate::hostile::Foe| f.dead == 0.0 && inside([f.p[0].floor() as i32, f.p[1].floor() as i32, f.p[2].floor() as i32], ar.min, ar.max, 2);
+            let doors = |s: &mut Session, shut: bool| { for (p, b) in &ar.doors { let now = s.world.get(p[0], p[1], p[2]); if shut && now == Some(0) { s.world.edit(p[0], p[1], p[2], *b); } else if !shut && now == Some(*b) { s.world.edit(p[0], p[1], p[2], 0); } } s.sound.place("iron_bars"); };
+            if ar.state == 0 { if here && !ar.waves.is_empty() { doors(self, true); let a = &mut self.mech.arenas[k]; a.state = 1; a.t = 2.0; a.out = false; self.dirty = true; self.notes.push(format!("Les grilles de l'arène retombent ! La foule gronde : {} vagues vous attendent", ar.waves.len())); } continue; }
+            if !here { self.horde.foes.retain(|f| !foe_in(f)); doors(self, false); let a = &mut self.mech.arenas[k]; a.state = 0; a.out = false; a.t = 0.0; self.dirty = true; continue; }
+            if !ar.out { self.mech.arenas[k].t -= dt; if self.mech.arenas[k].t > 0.0 { continue; }
+                let me_f = self.player.p; let wave = ar.waves[(ar.state as usize - 1).min(ar.waves.len() - 1)].clone();
+                for (id, at) in &wave { let Some(sp) = crate::hostile::species(id) else { continue }; let i = self.horde.put(sp, *at, (me_f[0] - at[0]).atan2(me_f[2] - at[2]), false); let f = &mut self.horde.foes[i]; f.kept = true; f.alert = 1.0; f.seen = Some(me_f); f.state = crate::hostile::Ai::Poursuite; }
+                self.mech.arenas[k].out = true; self.sound.fox_scream(at_f(ar.min, ar.max)); self.notes.push(format!("Vague {} sur {} : les cages s'ouvrent !", ar.state, ar.waves.len())); continue; }
+            if self.horde.foes.iter().any(|f| foe_in(f)) { continue; }
+            let a = &mut self.mech.arenas[k]; self.dirty = true;
+            if ar.state as usize >= ar.waves.len() { a.state = 255; doors(self, false); self.notes.push("L'arène est conquise : la foule acclame le vainqueur, les grilles se relèvent".into()); self.earn(40.0, "arène conquise"); }
+            else { a.state += 1; a.out = false; a.t = WAVE_PAUSE; self.notes.push(format!("Vague {} vaincue ! Reprenez votre souffle…", ar.state)); } }
         // les gardiens des salles
         for k in 0..self.mech.guards.len() { let g = self.mech.guards[k].clone(); let Some(sp) = crate::hostile::species(&g.species) else { continue };
             let here = self.dead.is_none() && inside(me, g.min, g.max, 0);
@@ -428,6 +451,9 @@ impl Session {
             let dr = d.draw.iter().map(|st| if st.is_empty() { "-".to_string() } else { st.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") }).collect::<Vec<_>>().join("|");
             o += &format!("dial {} {} {} {} {} {} {} {} {} {} {} {}\n", word(&d.name), d.n, d.state, d.goal, d.auto, d.swing as u8, d.hit, d.back as u8, lv, dr, d.carry as u8, word(&d.grow)); }
         for c in &self.mech.carts { o += &format!("cart {} {} {} {} {} {}\n", word(&c.name), c.pos, c.route, c.state, if c.switches.is_empty() { "-".to_string() } else { c.switches.join(",") }, c.routes.iter().map(|r| pts(r)).collect::<Vec<_>>().join("|")); }
+        for a in &self.mech.arenas { let doors = if a.doors.is_empty() { "-".to_string() } else { a.doors.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") };
+            let waves = a.waves.iter().map(|w| w.iter().map(|(id, p)| format!("{id}@{},{},{}", p[0], p[1], p[2])).collect::<Vec<_>>().join(";")).collect::<Vec<_>>().join("|");
+            o += &format!("arena {} {} {} {} {} {}\n", word(&a.name), if a.state == 255 { 255 } else { 0 }, pts(&[a.min]), pts(&[a.max]), doors, if waves.is_empty() { "-".into() } else { waves }); }
         for t in &self.mech.tides { o += &format!("tide {} {} {} {} {}\n", word(&t.name), t.period, t.high, t.t, pts(&[t.near])); }
         for m in &self.mech.miasmas { o += &format!("miasma {} {} {} {}\n", pts(&[m.min]), pts(&[m.max]), m.dps, word(&m.until)); }
         if !self.mech.chests.is_empty() { o += &format!("mchest {}\n", pts(&self.mech.chests)); }
@@ -453,6 +479,13 @@ impl Session {
         let mut c = Cart { name: a[0].to_string(), pos: a[1].parse().unwrap_or(0), route: a[2].parse().unwrap_or(0), state: a[3].parse().unwrap_or(0), switches: if a[4] == "-" { Vec::new() } else { a[4].split(',').map(|s| s.to_string()).collect() }, routes: a[5].split('|').map(pts).collect(), t: 0.0 };
         // un wagonnet en route au moment de la sauvegarde repart de là, vers le quai
         if c.state == 1 { c.state = 2; } if c.route >= c.routes.len() { c.route = 0; c.pos = 0; c.state = 0; } self.mech.carts.push(c);
+    }
+    /// Une arène sauvée : conquise, ou au repos (un combat en cours au moment de la sauvegarde est à refaire).
+    pub(crate) fn arena_load(&mut self, rest: &str) {
+        let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 6 { return; } let (m, n) = (pts(a[2]), pts(a[3])); if m.is_empty() || n.is_empty() { return; }
+        let doors = if a[4] == "-" { Vec::new() } else { a[4].split(';').filter_map(|c| { let v: Vec<&str> = c.splitn(4, ',').collect(); if v.len() < 4 { return None; } Some(([v[0].parse().ok()?, v[1].parse().ok()?, v[2].parse().ok()?], by_name(v[3])?)) }).collect() };
+        let waves = if a[5] == "-" { Vec::new() } else { a[5].split('|').map(|w| w.split(';').filter_map(|e| { let (id, p) = e.split_once('@')?; let v: Vec<f64> = p.split(',').filter_map(|x| x.parse().ok()).collect(); (v.len() == 3).then(|| (id.to_string(), [v[0], v[1], v[2]])) }).collect()).collect() };
+        self.mech.arenas.push(Arena { name: a[0].to_string(), state: if a[1] == "255" { 255 } else { 0 }, min: m[0], max: n[0], doors, waves, t: 0.0, out: false });
     }
     pub(crate) fn tide_load(&mut self, rest: &str) {
         let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 5 { return; } let n = pts(a[4]);

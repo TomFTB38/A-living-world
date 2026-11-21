@@ -760,6 +760,47 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
         let mut q = [0.0, 0.05, 0.0]; for i in 0..8 { let t = (i + 1) as f64 / 8.0; let n = [0.0, 0.05 + t * 0.7, -0.15 * t * t]; slab(p, q, n, 0.045 - t * 0.012, 0.045 - (t + 0.125) * 0.012, 0.006, [1.0, 0.0, 0.0], [0.75, 0.82, 0.85], [0.92, 0.96, 1.0], 1); q = n; }
     });
 
+    // ---- Le Champion de l'arène : un gladiateur colossal. Un casque de bronze à grande crête de crin rouge et à visière grillagée ;
+    // le torse nu, hâlé, couturé de cicatrices, barré d'un baudrier de cuir ; un pagne et une large ceinture de bronze ; aux bras, des
+    // manches de cuir lacées, une épaulière de bronze ; des jambières de bronze, des sandales lacées. Au poing, un glaive lourd.
+    let (skn, skn2, brz, brz2, lth, lth2, crest, scar) = ([0.72, 0.5, 0.36], [0.6, 0.4, 0.28], [0.8, 0.58, 0.28], [0.55, 0.38, 0.17], [0.42, 0.27, 0.15], [0.3, 0.19, 0.1], [0.75, 0.12, 0.1], [0.82, 0.6, 0.5]);
+    m("chpTorso", Mat::Human, 0.016, &|p| {
+        // le torse nu, les pectoraux, les abdominaux, quelques cicatrices ; le baudrier ; la ceinture de bronze ; le pagne
+        shell(p, [0.0, 0.0, 0.0], &[(-0.04, 0.17, 0.13, 0.0), (0.15, 0.18, 0.13, 0.0), (0.38, 0.23, 0.15, 0.01), (0.56, 0.25, 0.14, 0.0), (0.66, 0.12, 0.09, 0.0)], 12, skn2, skn, 0.03);
+        for sx in [-1.0f64, 1.0] { egg(p, [sx * 0.09, 0.47, 0.11], [0.09, 0.06, 0.04], skn, skn2, 8); for k in 0..2 { egg(p, [sx * 0.045, 0.3 - k as f64 * 0.08, 0.13], [0.04, 0.035, 0.02], skn, skn2, 6); } }
+        for (a, b) in [([-0.12, 0.5, 0.15], [0.02, 0.4, 0.16]), ([0.06, 0.28, 0.14], [0.14, 0.22, 0.13])] { rod(p, a, b, 0.006, 0.006, scar, scar, 2); }
+        slab(p, [0.17, 0.6, 0.0], [-0.17, 0.08, 0.0], 0.06, 0.06, 0.24, [0.0, 0.0, 1.0], lth, lth2, 6);
+        arc(p, [0.0, 0.0, 0.0], 0.185, 0.0, std::f64::consts::TAU, 0.06, 0.05, brz2, brz, 14, 0.75); for k in 0..5 { p.blob_m([(k as f64 - 2.0) * 0.05, 0.06, 0.14], [0.016, 0.03, 0.01], brz, [1.0, 0.85, 0.5], Mat::Metal); }
+        slab(p, [0.0, 0.02, 0.14], [0.0, -0.3, 0.16], 0.2, 0.17, 0.015, [0.0, 0.0, 1.0], [0.85, 0.82, 0.72], [0.7, 0.66, 0.55], 4);
+        slab(p, [0.0, 0.02, -0.14], [0.0, -0.28, -0.15], 0.24, 0.2, 0.015, [0.0, 0.0, -1.0], [0.85, 0.82, 0.72], [0.7, 0.66, 0.55], 4);
+    });
+    m("chpHead", Mat::Metal, 0.012, &|p| {
+        // le casque de bronze qui couvre toute la tête : un timbre rond, de larges bords, la visière en grille, la grande crête rouge
+        egg(p, [0.0, 0.12, 0.0], [0.11, 0.12, 0.11], brz2, brz, 12); arc(p, [0.0, 0.0, 0.0], 0.15, 0.0, std::f64::consts::TAU, 0.06, 0.02, brz, brz2, 16, 1.0);
+        crate::mesher::obox(p.q, [0.0, 0.11, 0.105], [[0.07, 0.0, 0.0], [0.0, 0.06, 0.0], [0.0, 0.0, 0.01]], [0.08, 0.06, 0.05], -1.0, 255.0, 0.0);
+        for k in 0..4 { let x = (k as f64 - 1.5) * 0.035; rod(p, [x, 0.05, 0.118], [x, 0.17, 0.118], 0.007, 0.007, brz, brz, 1); } for y in [0.08, 0.14] { rod(p, [-0.07, y, 0.118], [0.07, y, 0.118], 0.006, 0.006, brz, brz, 2); }
+        for k in 0..9 { let t = k as f64 / 8.0; let a = -1.2 + t * 2.4; let (z, y) = (a.sin() * 0.13, 0.22 + a.cos() * 0.08); slab(p, [0.0, y - 0.02, z], [0.0, y + 0.07 + 0.03 * (1.0 - (t - 0.5).abs() * 2.0), z - 0.01], 0.04, 0.02, 0.05, [1.0, 0.0, 0.0], crest, [0.95, 0.3, 0.2], 1); }
+    });
+    m("chpArm", Mat::Human, 0.014, &|p| {
+        // l'épaulière de bronze, le bras nu et musclé, la manche de cuir lacée de l'avant-bras, un poing bandé
+        egg(p, [0.0, 0.02, 0.0], [0.1, 0.06, 0.1], brz, brz2, 10); for k in 0..3 { arc(p, [0.0, -0.04 - k as f64 * 0.035, 0.0], 0.1 - k as f64 * 0.005, 0.0, std::f64::consts::TAU, 0.0, 0.012, brz2, brz, 10, 1.0); }
+        rod(p, [0.0, -0.02, 0.0], [0.0, -0.3, 0.02], 0.07, 0.06, skn, skn2, 4); egg(p, [0.0, -0.15, 0.04], [0.06, 0.08, 0.05], skn, skn2, 6);
+        rod(p, [0.0, -0.3, 0.02], [0.0, -0.55, 0.05], 0.062, 0.055, lth2, lth, 4); for k in 0..4 { let y = -0.33 - k as f64 * 0.06; arc(p, [0.0, y, 0.035], 0.064, 0.0, std::f64::consts::TAU, 0.0, 0.006, lth, lth, 8, 1.0); }
+        egg(p, [0.0, -0.6, 0.06], [0.045, 0.05, 0.045], [0.85, 0.8, 0.7], [0.7, 0.65, 0.55], 8);
+    });
+    m("chpLeg", Mat::Human, 0.014, &|p| {
+        // la cuisse nue, la jambière de bronze sur le tibia, la sandale lacée
+        rod(p, [0.0, 0.0, 0.0], [0.0, -0.38, 0.02], 0.085, 0.065, skn, skn2, 4); egg(p, [0.0, -0.4, 0.04], [0.06, 0.05, 0.06], brz, brz2, 8);
+        shell(p, [0.0, -0.4, 0.02], &[(0.0, 0.06, 0.07, 0.0), (-0.18, 0.065, 0.075, 0.0), (-0.34, 0.05, 0.06, 0.0)], 10, brz, brz2, 0.015); rod(p, [0.0, -0.4, -0.02], [0.0, -0.74, -0.01], 0.05, 0.045, skn2, skn, 3);
+        crate::mesher::obox(p.q, [0.0, -0.78, 0.04], [[0.055, 0.0, 0.0], [0.0, 0.02, 0.0], [0.0, 0.0, 0.11]], lth2, -1.0, 255.0, 0.0); for k in 0..3 { arc(p, [0.0, -0.68 - k as f64 * 0.03, -0.01], 0.05, 0.0, std::f64::consts::TAU, 0.0, 0.006, lth, lth, 8, 1.0); }
+    });
+    m("chpSword", Mat::Metal, 0.012, &|p| {
+        // le glaive lourd : une lame large et droite à pointe en feuille, la garde de bronze, la poignée de bois, le pommeau rond
+        rod(p, [0.0, -0.13, 0.0], [0.0, 0.0, 0.0], 0.022, 0.02, [0.45, 0.3, 0.18], [0.35, 0.22, 0.12], 3); egg(p, [0.0, -0.15, 0.0], [0.035, 0.03, 0.035], brz, brz2, 8);
+        crate::mesher::obox(p.q, [0.0, 0.015, 0.0], [[0.07, 0.0, 0.0], [0.0, 0.02, 0.0], [0.0, 0.0, 0.03]], brz, -1.0, 255.0, 0.0);
+        for i in 0..8 { let t0 = i as f64 / 8.0; let t1 = (i + 1) as f64 / 8.0; let wd = |t: f64| if t < 0.8 { 0.065 + 0.012 * (t * 3.0).sin() } else { 0.065 * (1.0 - t) / 0.2 + 0.004 }; slab(p, [0.0, 0.03 + t0 * 0.75, 0.0], [0.0, 0.03 + t1 * 0.75, 0.0], wd(t0), wd(t1), 0.012, [0.0, 0.0, 1.0], [0.78, 0.8, 0.82], [0.92, 0.94, 0.96], 1); }
+    });
+
     // ---- Le Golem de minerai : le gardien des rois nains, taillé dans le cœur de la montagne. Un torse énorme de roche brute, fait de
     // blocs empilés ; des veines de fer rouille et de cuivre vert-de-gris ; dans la poitrine, une fente où brûle un cœur de cristal ;
     // une tête basse et carrée enfoncée entre les épaules, deux yeux de braise ; des runes naines gravées, qui luisent ; des
