@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_epave_greve plat_epave_poupe plat_epave_cale plat_epave_canons plat_epave_voile plat_epave_cabine plat_boss_capitaine_fantome
+spawn jeu plat_mine_porte plat_mine_gare plat_mine_pont plat_mine_marteaux plat_mine_runes plat_mine_trone plat_boss_golem_minerai

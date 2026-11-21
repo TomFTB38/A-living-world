@@ -760,6 +760,54 @@ fn surface(out: &mut Vec<(&'static str, VBuf)>) {
         let mut q = [0.0, 0.05, 0.0]; for i in 0..8 { let t = (i + 1) as f64 / 8.0; let n = [0.0, 0.05 + t * 0.7, -0.15 * t * t]; slab(p, q, n, 0.045 - t * 0.012, 0.045 - (t + 0.125) * 0.012, 0.006, [1.0, 0.0, 0.0], [0.75, 0.82, 0.85], [0.92, 0.96, 1.0], 1); q = n; }
     });
 
+    // ---- Le Golem de minerai : le gardien des rois nains, taillé dans le cœur de la montagne. Un torse énorme de roche brute, fait de
+    // blocs empilés ; des veines de fer rouille et de cuivre vert-de-gris ; dans la poitrine, une fente où brûle un cœur de cristal ;
+    // une tête basse et carrée enfoncée entre les épaules, deux yeux de braise ; des runes naines gravées, qui luisent ; des
+    // poings comme des rochers, et au poing droit une masse : un manche de fer cerclé, une tête de minerai.
+    let (rk1, rk2, rk3, fe, cu, gem, gem2, ember, rune) = ([0.43, 0.41, 0.4], [0.3, 0.29, 0.29], [0.55, 0.53, 0.5], [0.66, 0.42, 0.3], [0.32, 0.62, 0.52], [0.35, 0.75, 1.0], [0.8, 0.95, 1.0], [1.0, 0.62, 0.2], [0.45, 0.85, 1.0]);
+    let boulder = |p: &mut Pen, c: V, r: V, k: usize| { let h = |i: usize| ((k * 7 + i * 13) % 11) as f64 / 11.0; let col = mix(rk1, if h(0) < 0.5 { rk2 } else { rk3 }, 0.5 * h(1)); egg(p, c, r, col, mix(col, rk2, 0.4), 6); };
+    m("gmiTorso", Mat::Bone, 0.02, &|p| {
+        // le tronc : une coque trapue, plus large aux épaules ; des blocs de roche en saillie partout
+        shell(p, [0.0, 0.0, 0.0], &[(-0.05, 0.2, 0.16, 0.0), (0.15, 0.25, 0.19, 0.0), (0.4, 0.33, 0.23, 0.0), (0.6, 0.35, 0.22, -0.02), (0.72, 0.18, 0.13, 0.0)], 10, rk2, rk1, 0.05);
+        for (k, (c, r)) in [([0.0, 0.62, -0.08], [0.24, 0.1, 0.16]), ([0.22, 0.62, -0.02], [0.13, 0.1, 0.14]), ([-0.22, 0.62, -0.02], [0.13, 0.1, 0.14]), ([0.14, 0.38, 0.14], [0.13, 0.12, 0.08]), ([-0.15, 0.36, 0.14], [0.12, 0.13, 0.08]),
+            ([0.0, 0.12, 0.13], [0.16, 0.09, 0.07]), ([0.0, 0.42, -0.2], [0.22, 0.2, 0.08]), ([0.2, 0.2, -0.12], [0.1, 0.12, 0.08]), ([-0.2, 0.22, -0.12], [0.1, 0.12, 0.08])].into_iter().enumerate() { boulder(p, c, r, k); }
+        // des mousses de lichen, les veines de fer et de cuivre
+        for (c, col) in [([0.25, 0.47, 0.13], fe), ([-0.07, 0.2, 0.18], fe), ([0.28, 0.3, -0.05], cu), ([-0.28, 0.5, 0.05], cu), ([0.08, 0.66, 0.1], fe), ([-0.18, 0.1, 0.12], cu)] { p.blob_m(c, [0.045, 0.035, 0.03], col, mix(col, [1.0, 1.0, 1.0], 0.25), Mat::Metal); p.blob_m([c[0] * 1.05, c[1] - 0.05, c[2]], [0.025, 0.02, 0.02], col, col, Mat::Metal); }
+        // la fente de la poitrine et son cœur de cristal qui brûle
+        slab(p, [0.0, 0.56, 0.205], [0.0, 0.3, 0.215], 0.07, 0.04, 0.02, [0.0, 0.0, 1.0], [0.08, 0.07, 0.08], [0.08, 0.07, 0.08], 3);
+        for (c, r) in [([0.0, 0.45, 0.2], [0.04, 0.07, 0.03]), ([0.02, 0.36, 0.2], [0.025, 0.04, 0.02]), ([-0.02, 0.52, 0.2], [0.02, 0.035, 0.02])] { p.blob_m(c, r, gem, gem2, PLAIN); }
+        // une ceinture de fer à rivets, les runes du dos
+        arc(p, [0.0, 0.0, 0.0], 0.215, 0.0, std::f64::consts::TAU, 0.06, 0.035, [0.25, 0.24, 0.26], [0.36, 0.34, 0.36], 14, 0.85);
+        for k in 0..6 { let a = k as f64 * 1.047; p.blob_m([a.sin() * 0.22, 0.06, a.cos() * 0.19], [0.016, 0.016, 0.016], [0.55, 0.55, 0.58], [0.7, 0.7, 0.72], Mat::Metal); }
+        for (x, y) in [(-0.08, 0.5), (0.0, 0.5), (0.08, 0.5), (0.0, 0.42), (0.0, 0.34), (-0.08, 0.26), (0.08, 0.26)] { p.blob_m([x, y, -0.29], [0.022, 0.022, 0.012], rune, [1.0, 1.0, 1.0], PLAIN); }
+    });
+    m("gmiHead", Mat::Bone, 0.018, &|p| {
+        // une tête basse et carrée, un front proéminent ; deux yeux de braise sous l'arcade ; une barbe de stalactites
+        boulder(p, [0.0, 0.08, 0.02], [0.13, 0.11, 0.12], 3); boulder(p, [0.0, 0.16, 0.06], [0.14, 0.05, 0.08], 5);
+        for sx in [-1.0f64, 1.0] { p.blob_m([sx * 0.05, 0.1, 0.13], [0.03, 0.018, 0.012], [0.1, 0.05, 0.02], [0.1, 0.05, 0.02], PLAIN); p.blob_m([sx * 0.05, 0.1, 0.138], [0.02, 0.012, 0.008], ember, [1.0, 0.95, 0.7], PLAIN); }
+        for k in 0..5 { let x = (k as f64 - 2.0) * 0.045; let l = 0.08 + (2.0 - (k as f64 - 2.0).abs()) * 0.04; rod(p, [x, 0.0, 0.1], [x * 0.8, -l, 0.12], 0.03, 0.006, rk1, rk2, 3); }
+        // une couronne de cristaux bleus, comme poussés dans la pierre
+        for (k, (x, z, h)) in [(-0.08, 0.0, 0.1), (0.0, -0.02, 0.15), (0.08, 0.0, 0.11), (-0.04, -0.07, 0.08), (0.05, -0.07, 0.09)].into_iter().enumerate() { let tip = [x * 1.4, 0.18 + h, z - 0.02]; rod(p, [x, 0.17, z], tip, 0.03 - k as f64 * 0.002, 0.006, gem, gem2, 3); }
+    });
+    m("gmiArm", Mat::Bone, 0.02, &|p| {
+        // l'épaule : un gros bloc ; le bras, fait de pierres empilées ; un poing comme un rocher, ses phalanges de cuivre
+        boulder(p, [0.0, 0.02, 0.0], [0.14, 0.12, 0.13], 1); rod(p, [0.0, -0.05, 0.0], [0.0, -0.32, 0.02], 0.1, 0.085, rk2, rk1, 3); boulder(p, [0.0, -0.33, 0.02], [0.1, 0.07, 0.1], 7);
+        rod(p, [0.0, -0.34, 0.02], [0.0, -0.52, 0.05], 0.09, 0.1, rk1, rk2, 3); boulder(p, [0.0, -0.6, 0.06], [0.12, 0.1, 0.12], 9);
+        for k in 0..4 { let x = (k as f64 - 1.5) * 0.05; p.blob_m([x, -0.62, 0.17], [0.03, 0.03, 0.025], cu, mix(cu, fe, 0.4), Mat::Metal); }
+        p.blob_m([0.09, -0.2, 0.05], [0.03, 0.04, 0.03], fe, fe, Mat::Metal); for y in [-0.12, -0.24] { p.blob_m([0.0, y, -0.1], [0.018, 0.018, 0.01], rune, [1.0, 1.0, 1.0], PLAIN); }
+    });
+    m("gmiLeg", Mat::Bone, 0.02, &|p| {
+        // des jambes courtes comme des piliers, de larges pieds plats
+        rod(p, [0.0, 0.0, 0.0], [0.0, -0.42, 0.02], 0.12, 0.11, rk2, rk1, 3); boulder(p, [0.0, -0.42, 0.04], [0.11, 0.08, 0.11], 4); rod(p, [0.0, -0.44, 0.03], [0.0, -0.72, 0.0], 0.11, 0.12, rk1, rk2, 3);
+        crate::mesher::obox(p.q, [0.0, -0.78, 0.05], [[0.13, 0.0, 0.0], [0.0, 0.06, 0.0], [0.0, 0.0, 0.17]], rk2, -1.0, 255.0, 0.0); p.blob_m([0.06, -0.6, 0.1], [0.03, 0.03, 0.02], cu, cu, Mat::Metal);
+    });
+    m("gmiMaul", Mat::Metal, 0.014, &|p| {
+        // la masse des rois nains : un manche de fer cerclé de cuivre, une tête de minerai brut serrée de deux bandes de fer
+        rod(p, [0.0, -0.15, 0.0], [0.0, 0.85, 0.0], 0.03, 0.03, [0.3, 0.29, 0.3], [0.4, 0.39, 0.4], 4); for y in [0.0, 0.3, 0.6] { rod(p, [0.0, y, 0.0], [0.0, y + 0.04, 0.0], 0.04, 0.04, cu, cu, 1); }
+        boulder(p, [0.0, 0.95, 0.0], [0.2, 0.15, 0.15], 2); for (c, col) in [([0.12, 1.0, 0.1], fe), ([-0.1, 0.9, 0.11], cu), ([0.0, 1.06, -0.1], gem)] { p.blob_m(c, [0.04, 0.035, 0.03], col, mix(col, [1.0, 1.0, 1.0], 0.3), if col == gem { PLAIN } else { Mat::Metal }); }
+        for x in [-0.08, 0.08] { crate::mesher::obox(p.q, [x, 0.95, 0.0], [[0.02, 0.0, 0.0], [0.0, 0.16, 0.0], [0.0, 0.0, 0.16]], [0.3, 0.29, 0.3], -1.0, 255.0, 0.0); }
+    });
+
     // Noyé : la peau turquoise des fonds, des yeux qui luisent, la tête et les épaules coiffées d'algues qui dégoulinent,
     // une tunique brune trouée et effilochée, des bernacles ; il tient un trident.
     let (teal, teal2, teal3) = ([0.3, 0.68, 0.68], [0.16, 0.44, 0.48], [0.42, 0.82, 0.8]); let (alg, alg2, rag, rag2) = ([0.36, 0.5, 0.14], [0.2, 0.34, 0.12], [0.44, 0.25, 0.14], [0.28, 0.16, 0.1]);

@@ -184,6 +184,13 @@ jobs:
           shot plat_epave_voile -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_epave_voile
           shot plat_epave_cabine -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_epave_cabine
           shot plat_boss_capitaine_fantome -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_capitaine_fantome
+          shot plat_mine_porte -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_mine_porte
+          shot plat_mine_gare -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_mine_gare
+          shot plat_mine_pont -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_mine_pont
+          shot plat_mine_marteaux -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_mine_marteaux
+          shot plat_mine_runes -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_mine_runes
+          shot plat_mine_trone -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_mine_trone
+          shot plat_boss_golem_minerai -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_boss_golem_minerai
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

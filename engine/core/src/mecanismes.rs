@@ -110,6 +110,13 @@ pub struct Miasma { pub min: [i32; 3], pub max: [i32; 3], pub dps: f64, pub unti
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Tide { pub name: String, pub period: f64, pub high: f64, pub near: [i32; 3], /** état : le temps écoulé, la mer haute au pas précédent */ pub t: f64, pub was: bool }
 impl Tide { pub fn up(&self) -> bool { self.t.rem_euclid(self.period.max(0.1)) >= self.period * (1.0 - self.high) } }
+/// Un wagonnet sur ses rails : il attend à quai (la première case de chaque voie). Qu'on monte dessus (et qu'on y reste une
+/// seconde), il part sur la voie que désignent les aiguillages (`switches` : des fils ; la voie `routes[k]`, où le bit i de k dit si l'aiguillage i est enclenché),
+/// d'une case toutes les `CART_T` secondes, en emportant le joueur. Au bout, il attend ; qu'on y reste une seconde et demie, il
+/// revient à quai, toujours avec qui est dessus ; et y attend trois secondes avant de repartir, le temps de changer d'aiguillage.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Cart { pub name: String, pub routes: Vec<Vec<[i32; 3]>>, pub switches: Vec<String>, /** état : la case, la voie, 0 à quai, 1 à l'aller, 2 au bout, 3 au retour */ pub pos: usize, pub route: usize, pub state: u8, pub t: f64 }
+pub const CART_T: f64 = 0.16;
 /// Un sceau : de `min` à `max`, on ne creuse ni ne bâtit, tant que le fil `until` n'est pas enclenché (vide : pour toujours).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Seal { pub min: [i32; 3], pub max: [i32; 3], pub until: String }
@@ -126,7 +133,7 @@ pub struct Hint { pub min: [i32; 3], pub max: [i32; 3], pub text: String, pub sh
 pub struct Guard { pub min: [i32; 3], pub max: [i32; 3], pub species: String, pub at: [f64; 3], pub doors: Vec<([i32; 3], Id)>, /** 0 endormi, 1 au combat, 2 vaincu */ pub state: u8 }
 /// Tous les mécanismes du monde.
 #[derive(Clone, Debug, Default)]
-pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, pub dials: Vec<Dial>, pub miasmas: Vec<Miasma>, pub tides: Vec<Tide>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
+pub struct Mech { pub wires: Vec<Wire>, pub pulses: Vec<Pulse>, pub seals: Vec<Seal>, pub homes: Vec<Home>, pub hints: Vec<Hint>, pub guards: Vec<Guard>, pub pools: Vec<Pool>, pub beams: Vec<Beam>, pub lifts: Vec<Lift>, pub dials: Vec<Dial>, pub miasmas: Vec<Miasma>, pub tides: Vec<Tide>, pub carts: Vec<Cart>, /** les coffres au trésor d'un donjon, et ceux de ses salles secrètes */ pub chests: Vec<[i32; 3]>, pub secrets: Vec<[i32; 3]>, /** les coffres au trésor des donjons assemblés */ pub vaults: Vec<[i32; 3]>, crumble: BTreeMap<[i32; 3], f64>, hurt_t: f64, clock: f64, home_t: f64 }
 
 /// Les dégâts des pics (par atteinte), d'une fléchette, et le temps que tient le sol friable.
 pub const SPIKE_DMG: f64 = 5.0; pub const DART_DMG: f64 = 7.0; pub const CRUMBLE_T: f64 = 0.6;
@@ -144,7 +151,7 @@ impl Mech {
     fn is_on(&self, n: &str) -> bool { self.wire(n).is_some_and(|w| w.on) || self.dials.iter().any(|d| d.name == n && d.state == d.goal) || self.tides.iter().any(|t| t.name == n && t.up()) }
     pub fn dial(&self, n: &str) -> Option<&Dial> { self.dials.iter().find(|d| d.name == n) }
     /// Ajoute les mécanismes d'un donjon.
-    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.dials.extend(o.dials); self.miasmas.extend(o.miasmas); self.tides.extend(o.tides); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
+    pub fn absorb(&mut self, o: Mech) { self.wires.extend(o.wires); self.pulses.extend(o.pulses); self.seals.extend(o.seals); self.homes.extend(o.homes); self.hints.extend(o.hints); self.guards.extend(o.guards); self.pools.extend(o.pools); self.beams.extend(o.beams); self.lifts.extend(o.lifts); self.dials.extend(o.dials); self.miasmas.extend(o.miasmas); self.tides.extend(o.tides); self.carts.extend(o.carts); self.chests.extend(o.chests); self.secrets.extend(o.secrets); self.vaults.extend(o.vaults); }
 }
 fn inside(p: [i32; 3], min: [i32; 3], max: [i32; 3], m: i32) -> bool { (0..3).all(|i| p[i] >= min[i] - m && p[i] <= max[i] + m) }
 
@@ -165,6 +172,17 @@ impl Session {
         // les dalles des fils s'enfoncent ou remontent
         let plates: Vec<[i32; 3]> = self.mech.wires.iter().flat_map(|w| w.inputs.iter().copied()).chain(self.mech.lifts.iter().flat_map(|l| l.plates.iter().copied())).filter(|p| self.world.get(p[0], p[1], p[2]).is_some_and(|b| split(name(b)).0.starts_with("pressure_plate"))).collect();
         for p in plates { let down = self.weighs(p); if down != self.input_on(p) { self.world.edit(p[0], p[1], p[2], id(if down { "pressure_plate_on" } else { "pressure_plate" })); self.sound.place("stone"); } }
+        // les wagonnets roulent
+        for k in 0..self.mech.carts.len() { let c = self.mech.carts[k].clone(); let Some(path) = c.routes.get(c.route) else { continue }; let Some(here) = path.get(c.pos).copied() else { continue };
+            let feet = [self.player.p[0].floor() as i32, (self.player.p[1] + 0.05).floor() as i32 - 1, self.player.p[2].floor() as i32]; let on = feet == here && self.dead.is_none();
+            match c.state {
+                0 => if !on { self.mech.carts[k].t = 0.0; } else if c.t + dt < 1.0 { self.mech.carts[k].t += dt; } else { let r = c.switches.iter().enumerate().map(|(i, w)| (self.mech.is_on(w) as usize) << i).sum::<usize>().min(c.routes.len() - 1);
+                    let cart = &mut self.mech.carts[k]; cart.route = r; cart.state = 1; cart.t = 0.3; self.notes.push("Le wagonnet s'ébranle dans un grincement".into()); self.sound.place("iron_bars"); },
+                1 | 3 => { let cart = &mut self.mech.carts[k]; cart.t -= dt; if cart.t > 0.0 { continue; } cart.t += CART_T;
+                    let next = if c.state == 1 { (c.pos + 1 < path.len()).then_some(c.pos + 1) } else { c.pos.checked_sub(1) };
+                    match next { Some(n) => self.cart_step(k, n, on), None => { let cart = &mut self.mech.carts[k]; cart.state = if c.state == 1 { 2 } else { 0 }; cart.t = if c.state == 1 { 0.0 } else { -2.0 }; if c.state == 1 { self.notes.push("Le wagonnet cogne le butoir et s'arrête".into()); } } } }
+                _ => { let cart = &mut self.mech.carts[k]; if on { cart.t += dt; if cart.t > 1.5 { cart.state = 3; cart.t = 0.0; } } else { cart.t = 0.0; } }
+            } }
         // les marées montent et descendent
         for k in 0..self.mech.tides.len() { let td = &mut self.mech.tides[k]; td.t += dt; let (up, was, near) = (td.up(), td.was, td.near); td.was = up;
             if up != was { let me = self.player.p; if ((me[0] - near[0] as f64).powi(2) + (me[2] - near[2] as f64).powi(2)).sqrt() < 40.0 { self.notes.push(if up { "La marée monte : l'eau envahit la cale" } else { "La marée se retire" }.into()); } } }
@@ -297,7 +315,19 @@ impl Session {
         self.world.edit_many(&e); self.dirty = true; let dd = &mut self.mech.dials[k]; dd.state = to; dd.back = back;
         if struck && !self.player.fly { let mid = |l: &[([i32; 3], Id)]| { let n = l.len().max(1) as f64; [l.iter().map(|c| c.0[0] as f64).sum::<f64>() / n, l.iter().map(|c| c.0[2] as f64).sum::<f64>() / n] };
             let (a, b) = (mid(&old), mid(&new)); let (dx, dz) = (b[0] - a[0], b[1] - a[1]); let l = dx.hypot(dz).max(1e-6);
-            self.harm(d.hit, "Le balancier de l'horloge", false); self.player.v = [dx / l * 9.0, 5.0, dz / l * 9.0]; self.player.p[0] += dx / l * 0.6; self.player.p[2] += dz / l * 0.6; self.notes.push("Le balancier vous fauche !".into()); }
+            if d.name.contains("marteau") { // un marteau-pilon : il tombe droit ; il écrase, et rejette vers l'arrière (d'où l'on venait)
+                let (vx, vz) = (self.player.v[0], self.player.v[2]); let (bx, bz) = if vx.hypot(vz) > 0.5 { (-vx / vx.hypot(vz), -vz / vx.hypot(vz)) } else { (0.0, -1.0) };
+                self.harm(d.hit, "Un marteau-pilon des nains", false); self.player.v = [bx * 7.0, 3.0, bz * 7.0]; self.player.p[0] += bx * 0.6; self.player.p[2] += bz * 0.6; self.notes.push("Le marteau-pilon vous écrase !".into());
+            } else { self.harm(d.hit, "Le balancier de l'horloge", false); self.player.v = [dx / l * 9.0, 5.0, dz / l * 9.0]; self.player.p[0] += dx / l * 0.6; self.player.p[2] += dz / l * 0.6; self.notes.push("Le balancier vous fauche !".into()); } }
+    }
+    /// Le wagonnet `k` avance (ou recule) d'une case : les rails reviennent où il était, il emporte qui est dessus.
+    fn cart_step(&mut self, k: usize, n: usize, on: bool) {
+        let c = &self.mech.carts[k]; let path = &c.routes[c.route]; let (a, b) = (path[c.pos], path[n]);
+        let rail = |i: usize| { let p = path[i]; let q = if i + 1 < path.len() { path[i + 1] } else if i > 0 { path[i - 1] } else { p }; if q[0] != p[0] { "rail_x" } else { "rail_z" } };
+        let (ra, cart) = (crate::blocks::by_name(rail(c.pos)).unwrap_or(0), crate::blocks::by_name("minecart").unwrap_or(0));
+        self.world.edit_many(&[(a[0], a[1], a[2], ra), (b[0], b[1], b[2], cart)]); self.dirty = true;
+        if on { for i in 0..3 { self.player.p[i] += (b[i] - a[i]) as f64; } self.player.v = [0.0; 3]; }
+        self.mech.carts[k].pos = n;
     }
     fn near(&self, l: &[[i32; 3]], r: f64) -> bool { l.iter().any(|p| (p[0] as f64 + 0.5 - self.player.p[0]).hypot(p[2] as f64 + 0.5 - self.player.p[2]) < r) }
     /// Une case scellée : on n'y creuse ni n'y bâtit (sauf ce qui est fait pour être manipulé, et en créatif).
@@ -397,6 +427,7 @@ impl Session {
         for d in &self.mech.dials { let lv = if d.levers.is_empty() { "-".to_string() } else { d.levers.iter().map(|(p, s)| format!("{},{},{},{s}", p[0], p[1], p[2])).collect::<Vec<_>>().join(";") };
             let dr = d.draw.iter().map(|st| if st.is_empty() { "-".to_string() } else { st.iter().map(|(p, b)| format!("{},{},{},{}", p[0], p[1], p[2], name(*b))).collect::<Vec<_>>().join(";") }).collect::<Vec<_>>().join("|");
             o += &format!("dial {} {} {} {} {} {} {} {} {} {} {} {}\n", word(&d.name), d.n, d.state, d.goal, d.auto, d.swing as u8, d.hit, d.back as u8, lv, dr, d.carry as u8, word(&d.grow)); }
+        for c in &self.mech.carts { o += &format!("cart {} {} {} {} {} {}\n", word(&c.name), c.pos, c.route, c.state, if c.switches.is_empty() { "-".to_string() } else { c.switches.join(",") }, c.routes.iter().map(|r| pts(r)).collect::<Vec<_>>().join("|")); }
         for t in &self.mech.tides { o += &format!("tide {} {} {} {} {}\n", word(&t.name), t.period, t.high, t.t, pts(&[t.near])); }
         for m in &self.mech.miasmas { o += &format!("miasma {} {} {} {}\n", pts(&[m.min]), pts(&[m.max]), m.dps, word(&m.until)); }
         if !self.mech.chests.is_empty() { o += &format!("mchest {}\n", pts(&self.mech.chests)); }
@@ -416,6 +447,12 @@ impl Session {
     pub(crate) fn pulse_load(&mut self, rest: &str) {
         let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 7 { return; } let w = |s: &str| if s == "-" { String::new() } else { s.to_string() };
         self.mech.pulses.push(Pulse { period: a[0].parse().unwrap_or(2.0), up: a[1].parse().unwrap_or(0.5), phase: a[2].parse().unwrap_or(0.0), off_by: w(a[3]), on_by: w(a[4]), spikes: pts(a[5]), darts: pts(a[6]), ..Default::default() });
+    }
+    pub(crate) fn cart_load(&mut self, rest: &str) {
+        let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 6 { return; }
+        let mut c = Cart { name: a[0].to_string(), pos: a[1].parse().unwrap_or(0), route: a[2].parse().unwrap_or(0), state: a[3].parse().unwrap_or(0), switches: if a[4] == "-" { Vec::new() } else { a[4].split(',').map(|s| s.to_string()).collect() }, routes: a[5].split('|').map(pts).collect(), t: 0.0 };
+        // un wagonnet en route au moment de la sauvegarde repart de là, vers le quai
+        if c.state == 1 { c.state = 2; } if c.route >= c.routes.len() { c.route = 0; c.pos = 0; c.state = 0; } self.mech.carts.push(c);
     }
     pub(crate) fn tide_load(&mut self, rest: &str) {
         let a: Vec<&str> = rest.split_whitespace().collect(); if a.len() < 5 { return; } let n = pts(a[4]);

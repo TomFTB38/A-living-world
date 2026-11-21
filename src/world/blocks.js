@@ -468,6 +468,8 @@ cube('star_lit', 'marble', 2.0, 'rock', { tint: [1.0, 0.94, 0.62], light: 13, dr
 cube('liana', 'bark_oak', 0.8, 'wood', { tint: [0.62, 0.95, 0.45], drop: 'stick' });
 // l'Épave du navire-fantôme : le canon (sa culasse de fonte noire)
 cube('cannon', 'iron_plate', 3.0, 'rock', { tint: [0.42, 0.42, 0.45], drop: 'iron_ingot' });
+// la Mine des nains : le wagonnet (sa caisse de fer rouillé)
+cube('minecart', 'iron_plate', 2.0, 'rock', { tint: [0.62, 0.42, 0.3], drop: 'iron_ingot' });
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,
   faces: mats ? mats.map(matLayer) : null,

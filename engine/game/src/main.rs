@@ -688,6 +688,20 @@ fn capture(a: &[String]) {
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // La Mine des nains : la porte et son chevalement, la gare et son gouffre, le wagonnet sur le pont, les marteaux-pilons, la porte runique, le Golem.
+    if let Some(vw) = scene.strip_prefix("plat_mine_") {
+        let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(false); s.hour = 11.0;
+        s.build_dwarf_mine(o); pump(&mut s, &mut g); let f = o[1] + 1; let d = -(alw_core::mine::DEPTH as f64);
+        // les marteaux arrêtés à trois hauteurs ; le wagonnet au milieu du pont ; le Golem debout devant son trône
+        for k in 0..3 { if let Some(i) = s.mech.dials.iter().position(|dl| dl.name.ends_with(&format!("marteau{k}"))) { s.mech.dials[i].auto = 0.0; s.dial_set(i, [0u8, 1, 2][k], false); } }
+        if vw == "pont" { let id = |n: &str| alw_core::blocks::by_name(n).unwrap_or(0); let (st, c) = (alw_core::mine::STATION, [10, 1, -2]); s.world.edit_many(&[(o[0] + st[0], o[1] - alw_core::mine::DEPTH + st[1], o[2] + st[2], id("rail_z")), (o[0] + c[0], o[1] - alw_core::mine::DEPTH + c[1], o[2] + c[2], id("minecart"))]); }
+        if vw == "trone" { let sp = alw_core::hostile::species("golem_minerai").unwrap_or(0); let b = alw_core::mine::BOSS_AT; let i = s.horde.put(sp, [o[0] as f64 + b[0], o[1] as f64 - alw_core::mine::DEPTH as f64 + b[1], o[2] as f64 + b[2]], std::f64::consts::PI, true); s.horde.foes[i].kept = true; }
+        let (eye, look): ([f64; 3], [f64; 3]) = match vw { "porte" => ([-15.5, 5.0, -47.5], [3.0, 6.0, -29.0]), "gare" => ([16.5, d + 5.0, -16.5], [-3.0, d + 0.5, 3.0]), "pont" => ([12.5, d + 2.5, -10.5], [9.0, d + 1.0, 8.0]),
+            "marteaux" => ([0.5, d + 1.0, 9.5], [0.0, d + 2.5, 20.0]), "runes" => ([6.0, d + 1.0, 20.5], [-2.0, d + 3.5, 24.5]), _ => ([-1.5, d + 2.0, 26.5], [0.5, d + 3.0, 31.0]) };
+        s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
+        for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     // La galerie des boss : chacun posé devant l'objectif, de trois quarts, sur une herbe rase, en plein jour.
     if let Some(id) = scene.strip_prefix("plat_boss_") {
         let y = alw_core::gen::FLAT_Y as f64 + 1.0; let (x, z) = (-41.5, -40.5); s.wild.all.clear(); s.horde.foes.clear(); s.third = false; s.sel = 8; s.player.fly = true; s.set_creative(true); s.hour = 11.0;
