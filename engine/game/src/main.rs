@@ -713,7 +713,7 @@ fn capture(a: &[String]) {
         if vw == "crypte" { let e: Vec<(i32, i32, i32, u16)> = tb::weak_wall().into_iter().map(|q| (o[0] + q[0], fl + q[1], o[2] + q[2], 0)).collect(); s.world.edit_many(&e);
             let sp = alw_core::hostile::species(tb::BOSS).unwrap_or(0); let b = tb::BOSS_AT; let i = s.horde.put(sp, [o[0] as f64 + b[0], fl as f64 + b[1], o[2] as f64 + b[2]], std::f64::consts::FRAC_PI_2, true); s.horde.foes[i].kept = true; }
         let (eye, look): ([f64; 3], [f64; 3]) = match vw { "pylone" => ([-13.5, 3.0, -46.5], [0.0, 5.0, -29.0]), "hypostyle" => ([8.5, d + 4.0, -15.5], [-6.0, d + 1.5, -6.0]), "idole" => ([25.5, d + 1.5, -12.5], [28.5, d + 1.5, -9.0]),
-            "rocher" => ([12.5, d + 1.0, -9.5], [18.0, d + 1.5, -9.0]), _ => ([-9.5, d + 1.5, -9.5], [-16.0, d + 1.5, -9.0]) };
+            "rocher" => ([12.5, d + 1.0, -9.5], [18.0, d + 1.5, -9.0]), _ => ([-12.5, d + 1.0, -12.5], [-16.0, d + 2.0, -8.5]) };
         s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
