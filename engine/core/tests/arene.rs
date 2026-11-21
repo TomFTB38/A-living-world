@@ -29,6 +29,7 @@ fn plans_vagues_et_empreinte() {
     let w = ar::waves(); assert_eq!(w.len(), 3); assert!(w.iter().all(|v| v.len() >= 3), "des vagues de trois au moins");
     for v in &w { for (id, (u, ww)) in v { assert!(alw_core::hostile::species(id).is_some(), "{id}"); assert!(ar::within(*u, *ww, ar::SAND), "{id} sort sur le sable"); } }
     for u in -25..=25 { for ww in -25..=25 { if let Some(j) = ar::row(u, ww) { assert!(!ar::within(u, ww, ar::PODIUM) && j <= ar::ROWS); } } }
+    assert_eq!(ar::floating(), Vec::<[i32; 3]>::new(), "aucune pierre du Colisée ne flotte");
     let (lo, hi) = ar::footprint(); println!("empreinte {lo:?}..{hi:?}"); assert!(lo[0] >= -38 && lo[1] >= -38 && hi[0] <= 38 && hi[1] <= 38, "le Colisée tient dans la portée des empreintes");
 }
 

@@ -60,11 +60,12 @@ pub(crate) fn carve(p: &mut Plan, o: [i32; 3]) {
     for (u, w) in [(-13, 0), (13, 0), (-9, -11), (9, -11), (-9, 11), (9, 11)] { if row(u, w).is_some() || within(u, w, PODIUM) && !within(u, w, SAND) { g.n(u, 1, w, "brazier"); } }
     // — LES GRADINS — six rangs qui montent d'une marche ; le mur extérieur et ses arcades sur deux étages, rongé par le temps
     for u in -21..=21 { for w in -24..=24 { let Some(j) = row(u, w) else { continue };
-        if j < ROWS { for v in -1..=j { let s = g.stone(u, v, w); g.n(u, v, w, if v == j { if (j + u.abs()) % 7 == 0 { "sandstone_slab_top" } else { "sandstone" } } else { s }); } for v in j + 1..=j + 4 { g.air(u, v, w); } continue; }
+        if j < ROWS { for v in -1..=j { let s = g.stone(u, v, w); g.n(u, v, w, if v == j { if (j + u.abs()) % 7 == 0 { "sandstone_slab_top" } else { "sandstone" } } else { s }); } for v in j + 1..=j + 4 { g.air(u, v, w); } if j < ROWS - 1 { continue; } }
+        // le mur extérieur a deux pierres d'épaisseur : la seconde s'élève au-dessus du dernier gradin
         let a = (u as f64 / ou).atan2(w as f64 / ow); let bay = ((a + std::f64::consts::PI) / std::f64::consts::TAU * 48.0).floor() as i32; let top = |b: i32| { let b = b.rem_euclid(48); if g.h(b, 0, 0, 7) < 0.4 { 4 + (g.h(b, 0, 0, 8) * 6.0) as i32 } else { WALL_H } };
         // une arcade ne tient que si ses deux piliers tiennent : au-dessus du plus bas des deux, elle est tombée
         let top = if bay % 2 == 0 { top(bay).min(top(bay - 1)).min(top(bay + 1)) } else { top(bay) };
-        for v in -1..=top { let arch = bay % 2 == 0 && ((0..=2).contains(&v) || (5..=7).contains(&v));
+        for v in if j < ROWS { j + 1 } else { -1 }..=top { let arch = bay % 2 == 0 && ((0..=2).contains(&v) || (5..=7).contains(&v));
             if arch { g.air(u, v, w); } else { let s = g.stone(u, v, w); g.n(u, v, w, if v == 3 || v == 8 { "sandstone_slab_top" } else if v == WALL_H { "sandstone_slab" } else { s }); } } } }
     // — LE TUNNEL DU NORD — il traverse les gradins, puis descend sur le sable sous la grille de l'entrée
     for w in -24..NORTH_GATE { for u in -1..=1 { g.n(u, -1, w, "sandstone"); for v in 0..=2 { g.air(u, v, w); } } for u in [-2, 2] { if row(u, w).is_some_and(|j| j > 2) { for v in 0..=2 { g.n(u, v, w, "sandstone"); } g.n(u, 3, w, "sandstone_slab_top"); } } }
@@ -114,3 +115,9 @@ impl Session {
 
 /// L'étendue du Colisée, de part et d'autre de son centre (x, z) : elle doit tenir dans la portée des empreintes.
 pub fn footprint() -> ([i32; 2], [i32; 2]) { let mut p = Plan::new(); carve(&mut p, [0, 80, 0]); p.m.keys().fold(([i32::MAX; 2], [i32::MIN; 2]), |(lo, hi), &(x, _, z)| ([lo[0].min(x), lo[1].min(z)], [hi[0].max(x), hi[1].max(z)])) }
+
+/// Les pierres du mur extérieur qui ne tiennent à rien (ni dessous, ni à côté) : il ne doit pas y en avoir.
+pub fn floating() -> Vec<[i32; 3]> {
+    let mut p = Plan::new(); carve(&mut p, [0, 80, 0]); let solid = |x: i32, y: i32, z: i32| p.m.get(&(x, y, z)).is_some_and(|b| *b > 0);
+    p.m.iter().filter(|(_, b)| **b > 0).map(|(&(x, y, z), _)| [x, y, z]).filter(|c| c[1] > 82 && !solid(c[0], c[1] - 1, c[2]) && ![(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|(a, b)| solid(c[0] + a, c[1], c[2] + b))).collect()
+}

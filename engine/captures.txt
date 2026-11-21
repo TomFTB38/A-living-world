@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_arene_gradins plat_arene_vague plat_arene_loge
+spawn jeu plat_arene_plaine plat_arene_gradins plat_arene_vague plat_arene_loge
