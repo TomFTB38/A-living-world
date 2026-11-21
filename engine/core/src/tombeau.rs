@@ -27,7 +27,7 @@ pub const IDOL: [i32; 3] = [28, 2, -9]; pub const DOOR_U: i32 = 11; pub const WE
 pub const PLATES: [[i32; 3]; 3] = [[8, 0, -13], [8, 0, -5], [9, 0, -9]]; pub const BLOCKS: [[i32; 3]; 2] = [[-4, 1, -12], [-4, 1, -6]];
 /// Les colonnes de la salle hypostyle (u, w).
 pub const COLUMNS: [(i32, i32); 8] = [(-7, -13), (-3, -13), (3, -13), (7, -13), (-7, -5), (-3, -5), (3, -5), (7, -5)];
-pub const BOSS: &str = "gardien_chacal"; pub const BOSS_AT: [f64; 3] = [-15.5, 1.0, -8.5]; pub const CHEST: [i32; 3] = [-21, 1, -9];
+pub const BOSS: &str = "gardien_chacal"; pub const BOSS_AT: [f64; 3] = [-18.5, 1.0, -11.5]; pub const CHEST: [i32; 3] = [-21, 1, -9];
 
 /// La course du rocher : il tombe du puits, puis roule vers l'ouest le long de l'allée, jusqu'au mur fragile.
 pub fn path() -> Vec<[i32; 3]> { (2..=9).rev().map(|v| [SHAFT_U, v, LANE]).chain((WEAK_U + 2..SHAFT_U).rev().map(|u| [u, 2, LANE])).collect() }
