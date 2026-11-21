@@ -82,7 +82,7 @@ impl Session {
         for (p, row) in &self.shelves { let Some(id) = self.world.get(p[0], p[1], p[2]) else { continue }; let s = slots(id); let yaw = facing(id) as f64 * std::f64::consts::FRAC_PI_2;
             for (k, st) in row.iter().enumerate() { let (Some(st), Some(sl)) = (st, s.get(k)) else { continue }; let Some(h) = md.held(st.item) else { continue };
                 let q = place(*p, id, *sl); let base = trs(q[0], q[1], q[2], yaw + k as f64 * 0.4, 0.0, 1.0);
-                let m = match h.hold { crate::actors::Hold::Tool => mul(&base, &trs(0.0, 0.03, 0.0, 0.0, -std::f64::consts::FRAC_PI_2, 0.5)), _ => mul(&base, &mul(&trs(0.0, 0.0, 0.0, 0.0, 0.0, 0.26), &trs(-0.5, 0.0, -0.5, 0.0, 0.0, 1.0))) };
+                let m = match h.hold { crate::actors::Hold::Tool => mul(&base, &trs(0.0, 0.03, 0.0, 0.0, -std::f64::consts::FRAC_PI_2, 0.62)), _ => mul(&base, &mul(&trs(0.0, 0.0, 0.0, 0.0, 0.0, 0.42), &trs(-0.5, 0.0, -0.5, 0.0, 0.0, 1.0))) };
                 o.push(crate::actors::Draw { m, r: h.r, view: false, local: h.local, hero: false, dynamic: false, hurt: 0.0 }); } }
         o
     }
