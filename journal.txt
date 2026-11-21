@@ -1,0 +1,226 @@
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+Erreur graphique : Validation Error
+
+Caused by:
+  In RenderPass::end
+    In a set_viewport command
+      Viewport has invalid rect Rect { x: 0.0, y: 3072.0, w: 128.0, h: 128.0 }; origin and/or size is less than or equal to 0, and/or is not contained in the render target (3072, 3072, 1)
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In a CommandEncoder
+    Command encoder is invalid
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+
+137 chunks chargés en 3.2 s
+4 images, 5.5 M triangles, 14334 ms par image sur cette carte
+== spawn : code 0 (essai 1)
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+Erreur graphique : Validation Error
+
+Caused by:
+  In RenderPass::end
+    In a set_viewport command
+      Viewport has invalid rect Rect { x: 0.0, y: 3072.0, w: 128.0, h: 128.0 }; origin and/or size is less than or equal to 0, and/or is not contained in the render target (3072, 3072, 1)
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In a CommandEncoder
+    Command encoder is invalid
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+
+69 chunks chargés en 2.5 s
+casse : forest_soil -> Some(0), objets 7 -> 7
+pose : cible None
+4 images, 5.6 M triangles, 16699 ms par image sur cette carte
+== jeu : code 0 (essai 1)
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+Erreur graphique : Validation Error
+
+Caused by:
+  In RenderPass::end
+    In a set_viewport command
+      Viewport has invalid rect Rect { x: 0.0, y: 3072.0, w: 128.0, h: 128.0 }; origin and/or size is less than or equal to 0, and/or is not contained in the render target (3072, 3072, 1)
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In a CommandEncoder
+    Command encoder is invalid
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+
+69 chunks chargés en 0.1 s
+4 images, 0.3 M triangles, 8125 ms par image sur cette carte
+== plat_archimage_tour : code 0 (essai 1)
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+Erreur graphique : Validation Error
+
+Caused by:
+  In RenderPass::end
+    In a set_viewport command
+      Viewport has invalid rect Rect { x: 0.0, y: 3072.0, w: 128.0, h: 128.0 }; origin and/or size is less than or equal to 0, and/or is not contained in the render target (3072, 3072, 1)
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In a CommandEncoder
+    Command encoder is invalid
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+
+69 chunks chargés en 0.1 s
+4 images, 0.2 M triangles, 8276 ms par image sur cette carte
+== plat_archimage_hall : code 0 (essai 1)
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+Erreur graphique : Validation Error
+
+Caused by:
+  In RenderPass::end
+    In a set_viewport command
+      Viewport has invalid rect Rect { x: 0.0, y: 3072.0, w: 128.0, h: 128.0 }; origin and/or size is less than or equal to 0, and/or is not contained in the render target (3072, 3072, 1)
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In a CommandEncoder
+    Command encoder is invalid
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+
+69 chunks chargés en 0.1 s
+4 images, 0.2 M triangles, 8150 ms par image sur cette carte
+== plat_archimage_bibliotheque : code 0 (essai 1)
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+Erreur graphique : Validation Error
+
+Caused by:
+  In RenderPass::end
+    In a set_viewport command
+      Viewport has invalid rect Rect { x: 0.0, y: 3072.0, w: 128.0, h: 128.0 }; origin and/or size is less than or equal to 0, and/or is not contained in the render target (3072, 3072, 1)
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In a CommandEncoder
+    Command encoder is invalid
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+
+69 chunks chargés en 0.1 s
+4 images, 0.4 M triangles, 8411 ms par image sur cette carte
+== plat_archimage_cachot : code 0 (essai 1)
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+Erreur graphique : Validation Error
+
+Caused by:
+  In RenderPass::end
+    In a set_viewport command
+      Viewport has invalid rect Rect { x: 0.0, y: 3072.0, w: 128.0, h: 128.0 }; origin and/or size is less than or equal to 0, and/or is not contained in the render target (3072, 3072, 1)
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In a CommandEncoder
+    Command encoder is invalid
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+
+69 chunks chargés en 0.1 s
+4 images, 0.4 M triangles, 8311 ms par image sur cette carte
+== plat_archimage_sanctuaire : code 0 (essai 1)
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+Erreur graphique : Validation Error
+
+Caused by:
+  In RenderPass::end
+    In a set_viewport command
+      Viewport has invalid rect Rect { x: 0.0, y: 3072.0, w: 128.0, h: 128.0 }; origin and/or size is less than or equal to 0, and/or is not contained in the render target (3072, 3072, 1)
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In a CommandEncoder
+    Command encoder is invalid
+
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
+
+69 chunks chargés en 0.1 s
+4 images, 0.2 M triangles, 8030 ms par image sur cette carte
+== plat_boss_archimage : code 0 (essai 1)
+Erreur graphique : Validation Error
+
+Caused by:
+  In Queue::submit
+    CommandBuffer with '' label is invalid
