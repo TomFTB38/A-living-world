@@ -728,7 +728,7 @@ fn capture(a: &[String]) {
         for u in -6..=6 { put(u, 0, -7, if u == 0 { "garden_gate" } else { "picket_fence" }); } for w in -6..=-2 { put(-6, 0, w, "picket_fence@1"); put(6, 0, w, "picket_fence@1"); }
         for u in -5..=5 { for w in -6..=-2 { put(u, -1, w, if u == 0 { "setts" } else { "grass" }); } }
         for u in [-4, -3, 3, 4] { put(u, 0, -4, "balustrade_wood"); } put(-4, 0, -3, "bench"); put(4, 0, -3, "bench"); for u in [-2, 2] { put(u, 0, -5, "flower_pot"); }
-        put(-6, 1, -3, "awning_blue@1");
+        put(3, 2, -1, "awning_blue"); put(-3, 2, -1, "awning_blue");
         s.world.edit_many(&e); pump(&mut s, &mut g); let f = y0;
         let (eye, look): ([f64; 3], [f64; 3]) = match vw { "facade" => ([-7.5, 3.5, -16.5], [0.0, 3.5, 0.0]), "balcon" => ([3.5, 5.0, -5.5], [-1.0, 4.0, 0.0]), _ => ([8.5, 3.0, -11.5], [0.0, 0.5, -3.0]) };
         s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
