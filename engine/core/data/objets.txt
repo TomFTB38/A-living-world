@@ -487,6 +487,7 @@ weapon_rack | Râtelier d'armes | decor | 1.0 | 16 | Épée, lance et hache, au 
 wall_sconce | Applique | decor | 1.0 | 16 | Un bras de fer et sa bougie, contre le mur. |
 curtain | Tenture | decor | 1.0 | 16 | Un rideau de drap rouge sur sa tringle. |
 wall_shelf | Étagère murale | decor | 1.0 | 16 | Une planche sur deux équerres, quelques pots, quelques livres. |
+shelf | Étagère | mobilier | 4.0 | 16 | Trois planches entre deux montants : on y pose ce qu'on veut, six objets, qui restent en vue. |
 candle | Bougie | decor | 1.0 | 16 | Une chandelle de cire de myrte dans son bougeoir. |
 candelabra | Chandelier | decor | 1.0 | 16 | Trois bougies sur un pied de laiton. |
 chandelier | Lustre | decor | 1.0 | 16 | Une couronne de bois et de fer, huit bougies, pendue au plafond. |

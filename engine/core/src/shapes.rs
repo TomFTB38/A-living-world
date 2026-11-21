@@ -114,6 +114,9 @@ fn turn_boxes(n: &str) -> Vec<Bx> {
         "armchair" | "throne" => vec![[0.1, 0.0, 0.1, 0.9, 0.56, 0.9], [0.1, 0.56, 0.8, 0.9, 1.0, 0.92]], "cupboard" => vec![[0.04, 0.0, 0.16, 0.96, 1.0, 0.98]],
         "spinning_wheel" => vec![[0.1, 0.0, 0.25, 0.9, 0.6, 0.75]], "grindstone" => vec![[0.15, 0.0, 0.2, 0.85, 0.9, 0.8]], "signpost" => vec![[0.42, 0.0, 0.42, 0.58, 1.0, 0.58]],
         "fireplace" | "loom" => vec![[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]], "bed" | "bed_foot" => vec![[0.0, 0.0, 0.0, 1.0, 0.56, 1.0]], "torch_wall" => Vec::new(),
+        // le catalogue des bâtisseurs : les clôtures et balustrades courent au milieu du bloc ; l'arc et la fenêtre emplissent le mur ; l'étagère
+        "balustrade_stone" | "balustrade_wood" | "iron_railing" | "picket_fence" | "garden_gate" => vec![[0.0, 0.0, 0.3, 1.0, 1.0, 0.7]],
+        "window_arched" | "stone_arch" => vec![[0.0, 0.0, 0.15, 1.0, 1.0, 0.85]], "corbel" => vec![[0.25, 0.2, 0.35, 0.75, 1.0, 1.0]], "shelf" => vec![[0.0, 0.0, 0.56, 1.0, 1.0, 1.0]],
         _ => vec![[0.0, 0.0, 0.84, 1.0, 1.0, 1.0]],
     }
 }

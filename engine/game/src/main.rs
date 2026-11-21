@@ -702,6 +702,27 @@ fn capture(a: &[String]) {
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // Le mobilier dont on se sert : une pièce avec une étagère et une table garnies d'objets posés, une armoire, des chaises ; le
+    // joueur assis (vu de dehors).
+    if let Some(vw) = scene.strip_prefix("plat_mobilier_") {
+        let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.sel = 8; s.set_creative(false); s.hour = 11.0;
+        let y0 = o[1] + 1; let mut e: Vec<(i32, i32, i32, u16)> = Vec::new();
+        let mut put = |u: i32, v: i32, w: i32, n: &str| { if let Some(b) = alw_core::blocks::by_name(n) { e.push((o[0] + u, y0 + v, o[2] + w, b)); } };
+        for u in -4..=4i32 { for w in -4..=4i32 { put(u, -1, w, "parquet"); if u.abs() == 4 || w == 4 { for v in 0..=3 { put(u, v, w, "plaster"); } } } }
+        put(0, 0, 3, "shelf"); put(-2, 0, 3, "cupboard"); put(2, 0, 0, "table"); put(2, 0, -1, "chair@2"); put(1, 0, 0, "chair@3"); put(-3, 2, 3, "wall_lantern"); put(3, 2, 3, "wall_lantern");
+        s.world.edit_many(&e); pump(&mut s, &mut g);
+        let at = |u: i32, v: i32, w: i32| [o[0] + u, y0 + v, o[2] + w];
+        let st = |item: &'static str| Some(alw_core::session::Stack { item, n: Some(1), wear: 0 });
+        s.shelves.insert(at(0, 0, 3), vec![st("bread"), st("berries"), st("candle"), st("iron_hammer"), st("glass"), st("books_pile")]);
+        s.shelves.insert(at(2, 0, 0), vec![st("bread"), st("cooked_meat"), st("bottles"), None]);
+        let f = y0; let third = vw == "assis"; s.third = third; s.player.fly = !third;
+        if third { use alw_core::player::Voxels as _; let c = at(2, 0, -1); let id = s.world.get(c[0], c[1], c[2]).unwrap_or(0); s.sit(c, id); }
+        let (eye, look): ([f64; 3], [f64; 3]) = if third { ([2.5, 0.0, -1.5], [0.0, 0.0, 0.0]) } else { ([0.5, 0.2, -1.5], [0.5, 0.3, 3.0]) };
+        if !third { s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin(); }
+        else { s.player.yaw = 2.4; s.player.pitch = -0.25; }
+        for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); if !third { s.player.p = p; } s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     // Le catalogue des bâtisseurs : une maison de ville bâtie avec les nouvelles pièces (fenêtres cintrées et jardinières, auvent,
     // lanternes, enseigne, balcon sur consoles, vitraux, terrasse à garde-corps, souche de cheminée, treillis, descente d'eau) et son
     // jardin clos d'une palissade et d'un portillon.

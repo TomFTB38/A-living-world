@@ -4,7 +4,7 @@ use crate::blocks::{Block, Shape};
 pub const VARIANTS: u32 = 4;
 pub const MATERIALS: [&str; 113] = ["grass_top", "grass_side", "dirt", "path", "stone", "mossy_stone", "limestone", "granite", "gravel", "sand", "bark_oak", "bark_birch", "bark_beech", "leaf_oak", "leaf_birch", "leaf_beech", "planks", "forest_soil", "water_foam", "end_oak", "end_birch", "end_beech", "snow", "snow_side", "ice", "bark_spruce", "end_spruce", "leaf_spruce", "leaf_snow", "grass_dry_top", "grass_dry_side", "dry_earth", "bark_dead", "end_dead", "lichen", "bark_acacia", "end_acacia", "leaf_acacia", "bone", "wood_inner", "sandstone", "sandstone_top", "red_sandstone", "cactus_side", "cactus_top", "bark_palm", "end_palm", "leaf_palm", "ore_copper", "ore_tin", "ore_iron", "ore_coal", "clay", "stone_bricks", "bricks", "thatch", "planks_birch", "planks_spruce", "cobble", "farmland_top", "plaster", "dark_timber", "roof_tiles", "slate", "marble", "ashlar", "fieldstone", "setts", "polished_stone", "checker", "terracotta", "parquet", "shingles", "wool", "rug", "frame_square", "frame_cross", "frame_diag", "wattle", "books", "hay", "crate", "chiseled", "stained_glass", "iron_plate", "verdigris", "coral", "planks_wreck", "lime_masonry", "rubble", "beam_end", "boards", "tiles_moss", "path_top", "flowstone", "basalt", "obsidian", "lava", "magma", "crystal_violet", "crystal_blue", "crystal_pink", "crystal_white", "abyss_rock", "glow_moss", "mycelium", "mushroom_stem", "cap_red", "cap_violet", "cap_blue", "gills", "ice_blue", "rail_bed"];
 
-pub const BLOCKS: [Block; 1311] = [
+pub const BLOCKS: [Block; 1315] = [
     Block { id: 0, name: "air", shape: Shape::Air, hardness: 0.0, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "decor", drop: Some("air") },
     Block { id: 1, name: "grass", shape: Shape::Cube, hardness: 0.5, faces: [0,4,8], dir_faces: [4,0,8,4], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
     Block { id: 2, name: "dirt", shape: Shape::Cube, hardness: 0.45, faces: [8,8,8], dir_faces: [8,8,8,8], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.0,1.0,1.0], model: None, cat: "terrain", drop: Some("dirt") },
@@ -1312,10 +1312,14 @@ pub const BLOCKS: [Block; 1311] = [
     Block { id: 1304, name: "hanging_sign@2", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("hanging_sign"), cat: "wood", drop: Some("hanging_sign") },
     Block { id: 1305, name: "hanging_sign@3", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: false, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("hanging_sign"), cat: "wood", drop: Some("hanging_sign") },
     Block { id: 1306, name: "chimney_pot", shape: Shape::Deco, hardness: 1.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("chimney_pot"), cat: "rock", drop: Some("chimney_pot") },
-    Block { id: 1307, name: "stained_glass_blue", shape: Shape::Cube, hardness: 0.5, faces: [332,332,332], dir_faces: [332,332,332,332], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.55,0.7,1.15], model: None, cat: "rock", drop: Some("stained_glass_blue") },
-    Block { id: 1308, name: "stained_glass_red", shape: Shape::Cube, hardness: 0.5, faces: [332,332,332], dir_faces: [332,332,332,332], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.2,0.55,0.5], model: None, cat: "rock", drop: Some("stained_glass_red") },
-    Block { id: 1309, name: "stained_glass_green", shape: Shape::Cube, hardness: 0.5, faces: [332,332,332], dir_faces: [332,332,332,332], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.6,1.1,0.6], model: None, cat: "rock", drop: Some("stained_glass_green") },
-    Block { id: 1310, name: "stained_glass_amber", shape: Shape::Cube, hardness: 0.5, faces: [332,332,332], dir_faces: [332,332,332,332], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.2,0.95,0.45], model: None, cat: "rock", drop: Some("stained_glass_amber") },
+    Block { id: 1307, name: "shelf", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("shelf"), cat: "wood", drop: Some("shelf") },
+    Block { id: 1308, name: "shelf@1", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("shelf"), cat: "wood", drop: Some("shelf") },
+    Block { id: 1309, name: "shelf@2", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("shelf"), cat: "wood", drop: Some("shelf") },
+    Block { id: 1310, name: "shelf@3", shape: Shape::Deco, hardness: 0.6, faces: [0, 0, 0], dir_faces: [0, 0, 0, 0], grain: [0,0,0,0], solid: true, opaque: false, light: 0, tint: [1.0,1.0,1.0], model: Some("shelf"), cat: "wood", drop: Some("shelf") },
+    Block { id: 1311, name: "stained_glass_blue", shape: Shape::Cube, hardness: 0.5, faces: [332,332,332], dir_faces: [332,332,332,332], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.55,0.7,1.15], model: None, cat: "rock", drop: Some("stained_glass_blue") },
+    Block { id: 1312, name: "stained_glass_red", shape: Shape::Cube, hardness: 0.5, faces: [332,332,332], dir_faces: [332,332,332,332], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.2,0.55,0.5], model: None, cat: "rock", drop: Some("stained_glass_red") },
+    Block { id: 1313, name: "stained_glass_green", shape: Shape::Cube, hardness: 0.5, faces: [332,332,332], dir_faces: [332,332,332,332], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [0.6,1.1,0.6], model: None, cat: "rock", drop: Some("stained_glass_green") },
+    Block { id: 1314, name: "stained_glass_amber", shape: Shape::Cube, hardness: 0.5, faces: [332,332,332], dir_faces: [332,332,332,332], grain: [0,0,0,0], solid: true, opaque: true, light: 0, tint: [1.2,0.95,0.45], model: None, cat: "rock", drop: Some("stained_glass_amber") },
 ];
 
 #[allow(non_snake_case)]
@@ -2417,8 +2421,9 @@ pub mod B {
     pub const DRAINPIPE: crate::blocks::Id = 1298;
     pub const HANGING_SIGN: crate::blocks::Id = 1302;
     pub const CHIMNEY_POT: crate::blocks::Id = 1306;
-    pub const STAINED_GLASS_BLUE: crate::blocks::Id = 1307;
-    pub const STAINED_GLASS_RED: crate::blocks::Id = 1308;
-    pub const STAINED_GLASS_GREEN: crate::blocks::Id = 1309;
-    pub const STAINED_GLASS_AMBER: crate::blocks::Id = 1310;
+    pub const SHELF: crate::blocks::Id = 1307;
+    pub const STAINED_GLASS_BLUE: crate::blocks::Id = 1311;
+    pub const STAINED_GLASS_RED: crate::blocks::Id = 1312;
+    pub const STAINED_GLASS_GREEN: crate::blocks::Id = 1313;
+    pub const STAINED_GLASS_AMBER: crate::blocks::Id = 1314;
 }

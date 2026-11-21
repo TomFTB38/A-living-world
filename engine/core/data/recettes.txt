@@ -425,3 +425,4 @@ stained_glass_blue 2 | four | glass 2, glowcap_blue 1 | batir
 stained_glass_red 2 | four | glass 2, berries 2 | batir
 stained_glass_green 2 | four | glass 2, fiber 2 | batir
 stained_glass_amber 2 | four | glass 2, yellow_flower 1 | batir
+shelf 1 | etabli | plank 4, stick 2 | mobilier

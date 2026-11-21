@@ -480,7 +480,7 @@ for (const [n, h, cat, p] of [['balustrade_stone', 1.6, 'rock', { solid: true }]
   ['garden_gate', 0.6, 'wood', { solid: true }], ['flower_box', 0.5, 'wood', {}], ['awning_red', 0.4, 'wood', {}], ['awning_blue', 0.4, 'wood', {}], ['wall_lantern', 0.5, 'light', { light: 13 }],
   ['window_arched', 1.6, 'rock', { solid: true }], ['corbel', 1.6, 'rock', { solid: true }], ['stone_arch', 1.6, 'rock', { solid: true }], ['lattice_roses', 0.4, 'wood', {}],
   ['drainpipe', 0.8, 'rock', {}], ['hanging_sign', 0.6, 'wood', {}]]) turner(n, h, cat, p);
-deco('chimney_pot', 1.6, 'rock', { solid: true });
+deco('chimney_pot', 1.6, 'rock', { solid: true }); turner('shelf', 0.6, 'wood', { solid: true });
 for (const [n, t] of [['stained_glass_blue', [0.55, 0.7, 1.15]], ['stained_glass_red', [1.2, 0.55, 0.5]], ['stained_glass_green', [0.6, 1.1, 0.6]], ['stained_glass_amber', [1.2, 0.95, 0.45]]]) cube(n, 'stained_glass', 0.5, 'rock', { tint: t });
 export const BLOCKS = defs.map(([name, shape, mats, hardness, p], id) => ({
   id, name, shape, hardness,

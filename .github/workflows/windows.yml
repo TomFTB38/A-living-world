@@ -212,6 +212,8 @@ jobs:
           shot plat_catalogue_facade -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catalogue_facade
           shot plat_catalogue_balcon -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catalogue_balcon
           shot plat_catalogue_jardin -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_catalogue_jardin
+          shot plat_mobilier_etagere -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_mobilier_etagere
+          shot plat_mobilier_assis -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_mobilier_assis
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

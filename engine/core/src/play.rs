@@ -21,7 +21,7 @@ impl Session {
         left
     }
     /// Une pile entière (avec son usure) dans le sac ; ce qui reste.
-    fn add_stack(&mut self, st: Stack) -> Option<Stack> {
+    pub(crate) fn add_stack(&mut self, st: Stack) -> Option<Stack> {
         if st.n.is_none() { if let Some(s) = self.inv.iter_mut().find(|s| s.is_none()) { *s = Some(st); self.seen.insert(st.item); return None; } return Some(st); }
         let left = self.add_item(st.item, st.n.unwrap_or(1)); if left > 0 { Some(Stack { n: Some(left), ..st }) } else { None }
     }
@@ -390,6 +390,8 @@ impl Session {
                     if self.use_t > 0.0 { return true; } self.toggle(p, si); self.use_t = 0.25; return true; } }
                 // la grille d'une porte fortifiée : la herse se baisse ou se lève
                 if name.starts_with("iron_bars") && !self.player.crouch && self.use_t <= 0.0 && self.portcullis_at(p) { self.use_t = 0.5; return true; }
+                // Le mobilier : s'asseoir, ranger, poser un objet sur une étagère ou une table (accroupi, on pose un bloc contre lui).
+                if !self.player.crouch && crate::mobilier::furniture_like(t.id) { if self.use_t > 0.0 { return true; } if self.furniture_at(p, t.id) { self.use_t = 0.25; self.anim.trigger(); return true; } }
                 if is_chest(t.id) && !self.player.crouch { self.open_chest(p); return true; }
                 // Un atelier : son interface, ses recettes, son geste.
                 if let Some(st) = station_of(t.id) { if !self.player.crouch && (st != Station::Fire || !held.is_some_and(|s| matches!(s.item, "torch" | "flint" | "fire_drill") || hd.is_some_and(|d| d.fuel > 0.0))) {
@@ -470,7 +472,7 @@ impl Session {
         } else if si.kind == Kind::Shutter { edits.push((p[0], p[1], p[2], variant(si.base, si.facing, false, open, false))); } else { /* la trappe garde le sens dans lequel on l'a posée : elle se relève toujours du même côté, d'où qu'on clique */ edits.push((p[0], p[1], p[2], variant(si.base, (si.facing + 2) % 4, false, open, false))); }
         self.world.edit_many(&edits); self.sound.place("planks"); self.anim.trigger(); self.dirty = true;
     }
-    pub(crate) fn on_broken(&mut self, p: [i32; 3], id: Id) {
+    pub fn on_broken(&mut self, p: [i32; 3], id: Id) {
         // Un pan de toit retiré : les arêtiers et les noues qu'il justifiait redeviennent des pentes.
         if crate::shapes::is_roof(id) { for (dx, dz) in crate::shapes::DIRS { let q = [p[0] + dx, p[1], p[2] + dz]; let Some(b) = self.world.get(q[0], q[1], q[2]) else { continue }; let w = &self.world;
             let nb = |a: i32, c: i32| w.get(q[0] + a, q[1], q[2] + c).unwrap_or(0); let was = |a: i32, c: i32| if (q[0] + a, q[2] + c) == (p[0], p[2]) { id } else { nb(a, c) };
@@ -486,7 +488,9 @@ impl Session {
             if si.upper && !self.creative { self.add_item("door", 1); }
         }
         if self.chest == Some(p) || self.chest2 == Some(p) { self.close_chest(); }
-        if is_chest(id) { if let Some(items) = self.chests.remove(&p) { let mut rest = Vec::new(); for st in items.into_iter().flatten() { if let Some(r) = self.add_stack(st) { rest.push(r); } } if !rest.is_empty() { self.stashes.push(Stash { p: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], items: rest, born: self.hours }); self.notes.push("Le sac est plein : le reste du coffre attend dans un sac posé là".into()); } } if self.chest == Some(p) { self.chest = None; } }
+        if self.seated == Some(p) { self.seated = None; }
+        if let Some(row) = self.shelves.remove(&p) { for st in row.into_iter().flatten() { if let Some(r) = self.add_stack(st) { self.spill_worn(r.item, r.n.unwrap_or(1), r.wear, [p[0] as f64 + 0.5, p[1] as f64 + 0.5, p[2] as f64 + 0.5]); } } }
+        if is_chest(id) || crate::mobilier::storage(id) { if let Some(items) = self.chests.remove(&p) { let mut rest = Vec::new(); for st in items.into_iter().flatten() { if let Some(r) = self.add_stack(st) { rest.push(r); } } if !rest.is_empty() { self.stashes.push(Stash { p: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], items: rest, born: self.hours }); self.notes.push("Le sac est plein : le reste du coffre attend dans un sac posé là".into()); } } if self.chest == Some(p) { self.chest = None; } }
         if id == B::CAMPFIRE || id == B::CAMPFIRE_OUT { self.fires.remove(&p); }
         self.crops.retain(|c| c.0 != p);
         if self.bed == Some(p) { self.bed = None; self.notes.push("Votre lit est détruit : vous réapparaîtrez au point de départ".into()); }
@@ -675,6 +679,8 @@ impl Session {
         let mut fires: Vec<_> = self.fires.iter().collect(); fires.sort_by_key(|f| *f.0); for (p, t) in fires { s += &format!("fire {} {} {} {}\n", p[0], p[1], p[2], t); }
         let mut chests: Vec<_> = self.chests.iter().collect(); chests.sort_by_key(|c| *c.0);
         for (p, items) in chests { s += &format!("chest {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
+        let mut shelves: Vec<_> = self.shelves.iter().collect(); shelves.sort_by_key(|c| *c.0);
+        for (p, items) in shelves { s += &format!("shelf {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
         s += &self.loose_save(); s += &self.regions_save(); s += &self.pets_save(); s += &self.econ_save(); s += &self.camps_save();
         for stv in &self.stashes { s += &format!("stash {} {} {} {}", stv.p[0], stv.p[1], stv.p[2], stv.born); for v in &stv.items { s += &format!(" {}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } s.push('\n'); }
         for (k, e) in self.world.edits() { s += &format!("chunk {} {}", k.0, k.1); let mut l: Vec<_> = e.into_iter().collect(); l.sort(); for (i, id) in l { s += &format!(" {i}:{id}"); } s.push('\n'); }
@@ -733,6 +739,9 @@ impl Session {
                 Some("chest") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; let mut v = vec![None; CHEST_SIZE];
                     for c in a { let f: Vec<&str> = c.split(':').collect(); if f.len() == 4 { if let (Ok(i), Ok(n), Ok(w)) = (f[0].parse::<usize>(), f[2].parse::<f64>(), f[3].parse::<f64>()) { if i < CHEST_SIZE { v[i] = stack(f[1], n, w); } } } }
                     self.chests.insert(p, v); }
+                Some("shelf") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; let mut v = vec![None; 6];
+                    for c in a { let f: Vec<&str> = c.split(':').collect(); if f.len() == 4 { if let (Ok(i), Ok(n), Ok(w)) = (f[0].parse::<usize>(), f[2].parse::<f64>(), f[3].parse::<f64>()) { if i < 6 { v[i] = stack(f[1], n, w); } } } }
+                    self.shelves.insert(p, v); }
                 Some("spawn") => { for k in 0..3 { self.spawn[k] = num(a.next())?; } }
                 Some("sol") => { let v: Vec<&str> = a.collect(); self.loose_load(&v); }
                 Some("pet") => { let v: Vec<&str> = a.collect(); self.pet_load(&v); }

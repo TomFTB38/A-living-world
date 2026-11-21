@@ -9,13 +9,13 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 118] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 119] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket",
     "lever", "lever_on", "spikes", "spikes_down", "dart_trap",
     "column_base", "column_shaft", "column_capital", "statue_base", "statue_top", "tomb_head", "tomb_foot", "wall_relief", "lintel", "funeral_urn", "altar", "brazier_stand", "great_chain",
     "sun_mirror", "sun_disc", "sun_receptor", "sun_receptor_on", "light_beam", "ossuary_wall", "bone_pile",
-    "balustrade_stone", "balustrade_wood", "iron_railing", "picket_fence", "garden_gate", "flower_box", "awning_red", "awning_blue", "wall_lantern", "window_arched", "corbel", "chimney_pot", "stone_arch", "lattice_roses", "drainpipe", "hanging_sign"];
+    "balustrade_stone", "balustrade_wood", "iron_railing", "picket_fence", "garden_gate", "flower_box", "awning_red", "awning_blue", "wall_lantern", "window_arched", "corbel", "chimney_pot", "stone_arch", "lattice_roses", "drainpipe", "hanging_sign", "shelf"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
 /// La couche de texture d'une matière (« rug », « hay »…) ou, à défaut, de la face d'un bloc du même nom.
 fn layer(n: &str) -> f64 {
@@ -575,6 +575,10 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
             k.b([0.0, 0.94, 0.86, 1.0, 0.98, 0.9], IRON); let c = [0.5, 0.1, 0.1];
             for i in 0..10 { let x = i as f64 * 0.1; let d = if i % 2 == 0 { 0.82 } else { 0.86 }; k.b([x, 0.02, d, x + 0.1, 0.94, d + 0.05], tone(c, if i % 2 == 0 { 1.0 } else { 0.78 })); }
             k.b([0.0, 0.5, 0.8, 0.2, 0.56, 0.92], GOLD);
+        }
+        "shelf" => { // l'étagère vide, pour y poser ce qu'on veut : deux montants, trois planches, un fond
+            for x in [0.0, 0.94] { k.b([x, 0.0, 0.56, x + 0.06, 1.0, 1.0], DARK); } k.b([0.06, 0.02, 0.96, 0.94, 0.98, 1.0], tone(WOOD, 0.8));
+            for y in [0.06, 0.52, 0.94] { k.t([0.06, y, 0.56, 0.94, y + 0.06, 0.96], "planks", [0.95, 0.9, 0.85]); }
         }
         "wall_shelf" => {
             k.t([0.02, 0.48, 0.66, 0.98, 0.54, 1.0], "planks", [0.8, 0.75, 0.7]); for a in [0.12, 0.84] { k.b([a, 0.3, 0.9, a + 0.04, 0.48, 1.0], IRON); }
