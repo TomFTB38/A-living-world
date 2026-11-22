@@ -777,6 +777,21 @@ fn capture(a: &[String]) {
         }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // Le dromadaire : sur un sol de sable, une petite harde et un dromadaire sellé ; vu de côté, puis monté (de dos).
+    if scene == "plat_dromadaire" || scene == "plat_dromadaire_monte" {
+        let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.set_creative(true); s.skip_guide(); s.hour = 16.0; s.sel = 8;
+        let sand = alw_core::blocks::B::SAND; let mut e: Vec<(i32, i32, i32, u16)> = Vec::new(); for x in -30..=30i32 { for z in -12..=40i32 { e.push((o[0] + x, o[1], o[2] + z, sand)); e.push((o[0] + x, o[1] + 1, o[2] + z, 0)); } }
+        s.world.edit_many(&e); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); let y = o[1] as f64 + 1.0;
+        use alw_core::wild::Kind;
+        for (dx, dz, yaw, col) in [(6.0, 14.0, 2.4, 0u8), (9.5, 17.0, 2.0, 1), (4.0, 19.0, 2.9, 2)] { s.wild.put(Kind::Camel, [o[0] as f64 + dx, y, o[2] as f64 + dz], yaw, false); if let Some(c) = s.wild.all.last_mut() { c.color = col; } }
+        s.wild.put(Kind::Camel, [o[0] as f64 + 0.5, y, o[2] as f64 + 6.0], 1.4, false); let id = { let c = s.wild.all.last_mut().unwrap(); c.farm.tame = true; c.farm.saddle = true; c.color = 0; c.farm.id };
+        if scene == "plat_dromadaire_monte" { s.ride = Some(id); s.third = true; s.player.yaw = 1.4; s.player.pitch = -0.15; }
+        else { s.third = false; s.player.fly = true; let (eye, look) = ([o[0] as f64 + 2.0, y + 2.0, o[2] as f64 - 0.5], [o[0] as f64 + 1.5, y + 1.2, o[2] as f64 + 7.5]); s.player.p = [eye[0], eye[1] - 1.6, eye[2]];
+            let d = view::norm([look[0] - eye[0], look[1] - eye[1], look[2] - eye[2]]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin(); }
+        let walk = Input { z: 1.0, ..none };
+        for _ in 0..40 { let (q, y0, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, if s.ride.is_some() { walk } else { none }, Actions::default()); if s.ride.is_none() { s.player.p = q; } s.player.yaw = y0; s.player.pitch = pi; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     // Le mobilier dont on se sert : une pièce avec une étagère et une table garnies d'objets posés, une armoire, des chaises ; le
     // joueur assis (vu de dehors).
     if let Some(vw) = scene.strip_prefix("plat_mobilier_") {

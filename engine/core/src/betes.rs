@@ -378,5 +378,47 @@ pub fn farm() -> Vec<(&'static str, VBuf)> {
         for sx in [-1.0f64, 1.0] { p.bx([sx * 0.12 - 0.012, -0.16, -0.08, sx * 0.12 + 0.012, 0.02, 0.08], lth); p.bm([sx * 0.13 - 0.005, -0.36, -0.005, sx * 0.13 + 0.005, -0.16, 0.005], dark, Mat::Leather); p.bm([sx * 0.13 - 0.02, -0.38, -0.03, sx * 0.13 + 0.02, -0.36, 0.03], [0.55, 0.55, 0.58], Mat::Metal); } }
     let mut collar = VBuf::new(800); { let mut p = Pen::new(&mut collar, Mat::Leather, 0.015); for (x0, x1, z0, z1) in [(-0.09, 0.09, 0.07, 0.09), (-0.09, 0.09, -0.09, -0.07), (-0.09, -0.07, -0.07, 0.07), (0.07, 0.09, -0.07, 0.07)] { p.bx([x0, -0.02, z0, x1, 0.02, z1], [0.75, 0.12, 0.1]); } p.bm([-0.015, -0.05, 0.085, 0.015, -0.02, 0.1], [0.85, 0.75, 0.3], Mat::Metal); }
     out.extend([("saddle", saddle), ("collar", collar)]);
+    out.extend(camel());
+    out
+}
+
+/// Le dromadaire : sable, brun, crème. Une bosse haute au milieu du dos, de longues pattes fines aux genoux calleux et aux
+/// pieds larges et plats, une encolure basse qui plonge puis remonte vers une tête allongée aux lèvres pendantes, de petites
+/// oreilles, de longs cils ; une queue fine à houppe. Repère : l'origine au niveau des hanches (voir `wild::CAMEL_HIP`).
+pub fn camel() -> Vec<(&'static str, VBuf)> {
+    let mut out = Vec::new(); const PAD: C = [0.24, 0.2, 0.17];
+    for (k, coat) in [[0.76, 0.6, 0.4], [0.52, 0.37, 0.24], [0.86, 0.78, 0.62]].into_iter().enumerate() {
+        let (back, belly, dark) = (dk(coat, 0.93), mix(coat, WHITE, 0.18), dk(coat, 0.7));
+        let mut body = VBuf::new(12000); { let mut p = Pen::new(&mut body, Mat::Coat, 0.03);
+            // le tronc, plus étroit aux hanches, le poitrail profond devant
+            p.body(&[(-0.42, 0.08, 0.16, -0.02), (-0.36, 0.12, 0.2, -0.08), (-0.18, 0.14, 0.22, -0.12), (0.06, 0.15, 0.23, -0.15), (0.26, 0.14, 0.22, -0.16), (0.38, 0.11, 0.2, -0.1), (0.44, 0.07, 0.17, -0.02)], back, coat, belly);
+            p.blob([0.0, 0.3, -0.03], [0.11, 0.13, 0.19], back, coat); p.blob([0.0, 0.37, -0.04], [0.075, 0.07, 0.12], dk(back, 0.95), back); // la bosse, et son sommet
+            for sx in [-1.0f64, 1.0] { p.blob([sx * 0.09, 0.07, -0.33], [0.05, 0.11, 0.09], coat, coat); p.blob([sx * 0.09, 0.06, 0.32], [0.05, 0.1, 0.08], coat, coat); } // cuisses et épaules
+            p.blob_m([0.0, -0.17, 0.25], [0.05, 0.03, 0.05], PAD, PAD, Mat::Skin); // le coussinet du poitrail
+            p.tube([0.0, 0.14, -0.43], [0.0, -0.12, -0.47], [0.014, 0.014], [0.01, 0.01], coat, coat); p.blob_m([0.0, -0.15, -0.47], [0.022, 0.05, 0.022], dark, dark, Mat::Hair); } // la queue à houppe
+        let mut head = VBuf::new(12000); { let mut p = Pen::new(&mut head, Mat::Coat, 0.022);
+            // l'encolure : elle part du garrot vers l'avant en plongeant, puis remonte, épaisse en bas
+            p.tube([0.0, 0.0, -0.02], [0.0, -0.05, 0.16], [0.075, 0.1], [0.06, 0.075], coat, coat);
+            p.tube([0.0, -0.05, 0.16], [0.0, 0.08, 0.3], [0.06, 0.075], [0.048, 0.055], coat, coat);
+            p.tube([0.0, 0.08, 0.3], [0.0, 0.25, 0.36], [0.048, 0.055], [0.042, 0.048], coat, back);
+            p.blob([0.0, -0.06, 0.12], [0.05, 0.06, 0.08], belly, belly); // le dessous de l'encolure, plus clair
+            // la tête : le crâne rond, le chanfrein long, le museau et ses lèvres qui pendent
+            p.blob([0.0, 0.29, 0.38], [0.055, 0.05, 0.065], back, coat); p.tube([0.0, 0.29, 0.41], [0.0, 0.25, 0.54], [0.045, 0.045], [0.035, 0.038], coat, coat);
+            p.blob([0.0, 0.235, 0.555], [0.036, 0.03, 0.035], coat, belly); p.blob([0.0, 0.205, 0.54], [0.03, 0.02, 0.035], belly, belly); // les lèvres
+            for sx in [-1.0f64, 1.0] { p.bm([sx * 0.016 - 0.006, 0.245, 0.585, sx * 0.016 + 0.006, 0.255, 0.59], NOSE, Mat::Plain); // les naseaux, fendus
+                eye(&mut p, sx * 0.05, 0.305, 0.42, 0.011, [0.08, 0.05, 0.03]); p.bm([sx * 0.05 - 0.004, 0.318, 0.408, sx * 0.05 + 0.04 * sx.max(0.0) + 0.004, 0.322, 0.432], dark, Mat::Plain); // œil et cils
+                ear(&mut p, sx * 0.04, 0.33, 0.35, 0.018, 0.035, 0.01, coat, dark, dark); } }
+        // une patte : la cuisse, le genou calleux, le long canon fin, le boulet, le pied large et plat à deux doigts
+        let legs = |hind: bool| { let mut leg = VBuf::new(6000); { let mut p = Pen::new(&mut leg, Mat::Coat, 0.02);
+            let (bend, knee) = if hind { (-0.035, -0.3) } else { (0.0, -0.3) };
+            p.tube([0.0, 0.04, 0.0], [0.0, knee, bend], [0.045, 0.06], [0.028, 0.032], coat, coat);
+            p.blob_m([0.0, knee, bend + if hind { -0.01 } else { 0.012 }], [0.03, 0.032, 0.033], PAD, coat, Mat::Skin); // le genou calleux
+            p.tube([0.0, knee - 0.01, bend], [0.0, -0.58, 0.01], [0.022, 0.024], [0.018, 0.02], coat, dk(coat, 0.9));
+            p.blob([0.0, -0.6, 0.015], [0.024, 0.022, 0.026], dk(coat, 0.9), dk(coat, 0.9)); // le boulet
+            p.blob_m([0.0, -0.635, 0.04], [0.042, 0.02, 0.055], PAD, PAD, Mat::Skin); for sx in [-1.0f64, 1.0] { p.bm([sx * 0.02 - 0.012, -0.645, 0.08, sx * 0.02 + 0.012, -0.625, 0.1], dark, Mat::Plain); } } // le pied et ses deux ongles
+            leg };
+        let (fore, hind) = (legs(false), legs(true));
+        out.extend([(["camel0", "camel1", "camel2"][k], body), (["camelHead0", "camelHead1", "camelHead2"][k], head), (["camelLeg0", "camelLeg1", "camelLeg2"][k], fore), (["camelHind0", "camelHind1", "camelHind2"][k], hind)]);
+    }
     out
 }

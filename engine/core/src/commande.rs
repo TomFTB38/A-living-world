@@ -19,7 +19,7 @@ pub const EGGS: [(&str, &str); 58] = [
 ];
 fn kind_of(mob: &str) -> Option<Kind> {
     Some(match mob { "fox" => Kind::Fox, "hare" => Kind::Hare, "crow" => Kind::Crow, "wolf" => Kind::Wolf, "boar" => Kind::Boar, "bear" => Kind::Bear, "ibex" => Kind::Ibex, "lizard" => Kind::Lizard, "bat" => Kind::Bat, "glowbug" => Kind::Glowbug,
-        "mackerel" => Kind::Fish, "reef" => Kind::Reef, "dolphin" => Kind::Dolphin, "crab" => Kind::Crab, "gull" => Kind::Gull, "shark" => Kind::Shark, "whale" => Kind::Whale, "cow" => Kind::Cow, "sheep" => Kind::Sheep, "pig" => Kind::Pig, "horse" => Kind::Horse, "chicken" => Kind::Chicken, _ => return None })
+        "mackerel" => Kind::Fish, "reef" => Kind::Reef, "dolphin" => Kind::Dolphin, "crab" => Kind::Crab, "gull" => Kind::Gull, "shark" => Kind::Shark, "whale" => Kind::Whale, "cow" => Kind::Cow, "sheep" => Kind::Sheep, "pig" => Kind::Pig, "horse" => Kind::Horse, "camel" | "dromadaire" => Kind::Camel, "chicken" => Kind::Chicken, _ => return None })
 }
 /// Retire accents et majuscules.
 fn plain(s: &str) -> String { s.to_lowercase().chars().map(|c| match c { 'é' | 'è' | 'ê' | 'ë' => 'e', 'à' | 'â' => 'a', 'î' | 'ï' => 'i', 'ô' => 'o', 'ù' | 'û' => 'u', 'ç' => 'c', c => c }).collect() }
