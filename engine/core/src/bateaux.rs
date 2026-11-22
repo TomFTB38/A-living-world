@@ -86,7 +86,7 @@ impl Session {
     }
     /// Les barques, à dessiner.
     pub fn boat_draws(&self, md: &Models) -> Vec<Draw> {
-        self.boats.iter().map(|bt| Draw { m: crate::view::trs(bt.p[0], bt.p[1] - 0.32 + bt.bob, bt.p[2], bt.yaw, bt.bob * 2.0, 1.0), r: md.part("boat"), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 }).collect()
+        self.boats.iter().map(|bt| Draw { m: crate::view::trs(bt.p[0], bt.p[1] + 0.03 + bt.bob, bt.p[2], bt.yaw, bt.bob * 2.0, 1.0), r: md.part("boat"), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 }).collect()
     }
     pub(crate) fn boats_save(&self) -> String { self.boats.iter().map(|b| format!("boat {} {} {} {}\n", b.p[0], b.p[1], b.p[2], b.yaw)).collect() }
 }
@@ -102,11 +102,12 @@ pub fn boat_ray(bt: &Boat, o: [f64; 3], d: [f64; 3]) -> Option<f64> {
 /// La barque : une coque de planches en fuseau (fond, bordages qui se relèvent aux deux bouts), une étrave et un tableau,
 /// deux bancs, deux rames posées dans leurs dames de nage. Longue de 2,9 m, large de 1,3 m ; le haut du bord est à +0,32.
 pub fn parts() -> Vec<(&'static str, VBuf)> {
-    let mut o = VBuf::new(2000); let (wood, wood2, dark, oar) = ([0.55, 0.38, 0.22], [0.47, 0.31, 0.17], [0.3, 0.19, 0.1], [0.68, 0.55, 0.36]);
+    let mut o = VBuf::new(2000); let (wood, wood2, dark, oar) = ([0.5, 0.33, 0.18], [0.42, 0.27, 0.14], [0.27, 0.17, 0.09], [0.52, 0.4, 0.24]);
     let n = 16; let half = |z: f64| HALF_W * (1.0 - (z / HALF_L).abs().powf(2.2)).max(0.0).sqrt();
     for k in 0..n { let (z0, z1) = (-HALF_L + 2.0 * HALF_L * k as f64 / n as f64, -HALF_L + 2.0 * HALF_L * (k + 1) as f64 / n as f64); let zm = 0.5 * (z0 + z1);
         let w = half(zm).max(0.08); let sheer = 0.3 + 0.12 * (zm / HALF_L).powi(2); let col = if k % 2 == 0 { wood } else { wood2 };
-        b(&mut o, [-w + 0.06, -0.06, z0, w - 0.06, 0.0, z1], dark); // le fond
+        b(&mut o, [-w + 0.06, -0.06, z0, w - 0.06, 0.0, z1], dark); // le fond, au-dessus de l'eau
+        b(&mut o, [-w * 0.75, -0.24, z0, w * 0.75, -0.04, z1], wood2); b(&mut o, [-0.05, -0.3, z0, 0.05, -0.2, z1], dark); // la carène et la quille, dans l'eau
         b(&mut o, [-w, -0.02, z0, -w + 0.07, sheer, z1], col); b(&mut o, [w - 0.07, -0.02, z0, w, sheer, z1], col); // les bordages
         b(&mut o, [-w - 0.01, sheer - 0.04, z0, -w + 0.09, sheer + 0.02, z1], dark); b(&mut o, [w - 0.09, sheer - 0.04, z0, w + 0.01, sheer + 0.02, z1], dark); } // le plat-bord
     b(&mut o, [-0.06, -0.04, HALF_L - 0.12, 0.06, 0.5, HALF_L + 0.04], dark); // l'étrave
