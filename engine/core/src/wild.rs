@@ -443,7 +443,7 @@ impl Wild {
                     let nod = if c.state == State::Idle && !c.farm.tame { 0.55 } else if c.speed > 0.0 { sin(c.phase) * 0.08 } else { 0.0 };
                     put(["camelHead0", "camelHead1", "camelHead2"][v], mul(&base, &trs(0.0, hip + 0.1, 0.4, 0.0, nod, 1.0)));
                     for (k, ((x, z), a)) in [(-0.085, 0.3), (0.085, 0.3), (-0.085, -0.3), (0.085, -0.3)].into_iter().zip(legs).enumerate() { put(if k < 2 { ["camelLeg0", "camelLeg1", "camelLeg2"][v] } else { ["camelHind0", "camelHind1", "camelHind2"][v] }, mul(&base, &trs(x, hip, z, 0.0, a, 1.0))); }
-                    if c.farm.saddle { put("saddle", mul(&base, &trs(0.0, hip + CAMEL_HUMP - 0.33 * (HORSE / CAMEL) + 0.02, -0.04, 0.0, 0.0, HORSE / CAMEL))); } // la selle du cheval, juchée sur la bosse
+                    if c.farm.saddle { put("saddle", mul(&base, &trs(0.0, hip + CAMEL_HUMP - 0.05, -0.04, 0.0, 0.0, HORSE / CAMEL))); } // la selle du cheval, juchée sur la bosse
                 }
                 Kind::Chicken => { let peck = if c.state == State::Idle { (sin(c.life * 0.0 + c.t * 5.0)).max(0.0) * 0.4 } else { 0.0 }; let hop = if c.speed > 0.0 { sin(c.phase).abs() * 0.04 } else { 0.0 };
                     put(["hen0", "hen1", "hen2"][(c.color % 3) as usize], trs(c.p[0], c.p[1] + hop + flinch(c.hit) * 0.3, c.p[2], c.yaw, peck, HEN)); }

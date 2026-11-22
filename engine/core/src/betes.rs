@@ -387,7 +387,7 @@ pub fn farm() -> Vec<(&'static str, VBuf)> {
 /// oreilles, de longs cils ; une queue fine à houppe. Repère : l'origine au niveau des hanches (voir `wild::CAMEL_HIP`).
 pub fn camel() -> Vec<(&'static str, VBuf)> {
     let mut out = Vec::new(); const PAD: C = [0.24, 0.2, 0.17];
-    for (k, coat) in [[0.76, 0.6, 0.4], [0.52, 0.37, 0.24], [0.86, 0.78, 0.62]].into_iter().enumerate() {
+    for (k, coat) in [[0.76, 0.6, 0.4], [0.52, 0.37, 0.24], [0.82, 0.7, 0.52]].into_iter().enumerate() {
         let (back, belly, dark) = (dk(coat, 0.93), mix(coat, WHITE, 0.18), dk(coat, 0.7));
         let mut body = VBuf::new(12000); { let mut p = Pen::new(&mut body, Mat::Coat, 0.03);
             // le tronc, plus étroit aux hanches, le poitrail profond devant
