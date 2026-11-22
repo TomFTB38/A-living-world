@@ -613,6 +613,13 @@ impl WorldGen {
     /// Le sommet d'un point de vue dans cette case : la plus haute de 81 colonnes de la case, si elle domine nettement ses
     /// alentours (18 blocs au-dessus de la moyenne de la case), au sec, loin des villages et des lieux. (x, y du dallage, z).
     pub fn viewpoint(&self, gx: i32, gz: i32) -> Option<[i32; 3]> {
+        // deux sommets voisins trop proches (la même montagne de part et d'autre d'un bord de case) : seul le plus haut garde son belvédère
+        let me = self.view_raw(gx, gz)?;
+        for dx in -1..=1 { for dz in -1..=1 { if (dx, dz) == (0, 0) { continue; } if let Some(o) = self.view_raw(gx + dx, gz + dz) {
+            if ((o[0] - me[0]) as f64).hypot((o[2] - me[2]) as f64) < 220.0 && (o[1], -(gx + dx), -(gz + dz)) > (me[1], -gx, -gz) { return None; } } } }
+        Some(me)
+    }
+    fn view_raw(&self, gx: i32, gz: i32) -> Option<[i32; 3]> {
         if self.flat { return None; } let s = self.seed; if hash_float(gx, gz, s, 181) > 0.55 { return None; }
         let (mut best, mut sum) = ((f64::MIN, 0.0, 0.0), 0.0);
         for i in 0..9 { for j in 0..9 { let (x, z) = ((gx as f64 + (i as f64 + 0.5) / 9.0) * VIEW_CELL as f64, (gz as f64 + (j as f64 + 0.5) / 9.0) * VIEW_CELL as f64);

@@ -9,6 +9,7 @@ fn block_at(g: &WorldGen, p: [i32; 3]) -> Id { let v = g.gen_world(p[0].div_eucl
 #[test]
 fn des_belvederes_sur_les_sommets() {
     let g = WorldGen::new(SEED); let all = g.viewpoints_near(0.0, 0.0, 5000.0); println!("{} points de vue à moins de 5 km", all.len()); assert!(all.len() >= 6, "assez de points de vue : {}", all.len());
+    for (i, a) in all.iter().enumerate() { for b in &all[i + 1..] { assert!(((a.1[0] - b.1[0]) as f64).hypot((a.1[2] - b.1[2]) as f64) >= 220.0, "deux belvédères trop proches : {:?} {:?}", a, b); } }
     for (cell, p) in all.iter().take(6) {
         assert_eq!(block_at(&g, *p), by_name("stone_bricks").unwrap(), "le dallage en {p:?}"); assert_eq!(block_at(&g, [p[0] - 1, p[1], p[2] + 1]), by_name("stone_bricks").unwrap());
         for dy in 1..=3 { assert_eq!(block_at(&g, [p[0] + 1, p[1] + dy, p[2] + 1]), by_name("fence").unwrap(), "le mât"); { let b = block_at(&g, [p[0], p[1] + dy, p[2]]); assert!(!is_solid(b), "de l'air au-dessus du dallage : {}", BLOCKS[b as usize].name); } }
