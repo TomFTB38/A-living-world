@@ -372,6 +372,7 @@ impl Session {
         if self.tend() { return true; } // traire, tondre, apprivoiser, seller, monter
         if self.greet() { return true; } // on parle aux villageois
         let held = self.inv[self.sel]; let hd = held.and_then(|s| def(s.item));
+        if let Some(r) = self.boat_click() { return r; } // une barque : la poser, y monter, la ranger
         if held.is_some_and(|s| s.item == "treasure_map") { return self.read_treasure_map(); } // la carte au trésor se lit
         // Un œuf d'apparition : la créature naît sur le bloc visé (dans l'eau pour les bêtes de mer).
         if let (Some(st), Some(t)) = (held, self.target) { if st.item.starts_with("egg_") {
@@ -680,6 +681,7 @@ impl Session {
         let mut fires: Vec<_> = self.fires.iter().collect(); fires.sort_by_key(|f| *f.0); for (p, t) in fires { s += &format!("fire {} {} {} {}\n", p[0], p[1], p[2], t); }
         let mut chests: Vec<_> = self.chests.iter().collect(); chests.sort_by_key(|c| *c.0);
         for (p, items) in chests { s += &format!("chest {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
+        s += &self.boats_save();
         for p in &self.treasure_marks { s += &format!("treasure {} {} {}\n", p[0], p[1], p[2]); }
         let mut shelves: Vec<_> = self.shelves.iter().collect(); shelves.sort_by_key(|c| *c.0);
         for (p, items) in shelves { s += &format!("shelf {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
@@ -741,6 +743,7 @@ impl Session {
                 Some("chest") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; let mut v = vec![None; CHEST_SIZE];
                     for c in a { let f: Vec<&str> = c.split(':').collect(); if f.len() == 4 { if let (Ok(i), Ok(n), Ok(w)) = (f[0].parse::<usize>(), f[2].parse::<f64>(), f[3].parse::<f64>()) { if i < CHEST_SIZE { v[i] = stack(f[1], n, w); } } } }
                     self.chests.insert(p, v); }
+                Some("boat") => { let (x, y, z, w) = (num(a.next())?, num(a.next())?, num(a.next())?, num(a.next())?); self.boats.push(crate::bateaux::Boat { p: [x, y, z], yaw: w, v: 0.0, bob: 0.0 }); }
                 Some("treasure") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; if !self.treasure_marks.contains(&p) { self.treasure_marks.push(p); } }
                 Some("shelf") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; let mut v = vec![None; 6];
                     for c in a { let f: Vec<&str> = c.split(':').collect(); if f.len() == 4 { if let (Ok(i), Ok(n), Ok(w)) = (f[0].parse::<usize>(), f[2].parse::<f64>(), f[3].parse::<f64>()) { if i < 6 { v[i] = stack(f[1], n, w); } } } }

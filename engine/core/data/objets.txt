@@ -620,6 +620,7 @@ cooked_egg | Œuf au plat | vivres | 0.06 | 16 | Cuit sur le feu : un petit repa
 feather | Plume | matieres | 0.01 | 64 | Une plume de poule : pour empenner les flèches. |
 shears | Cisailles | outils | 0.4 | 1 | Clic droit sur un mouton pour le tondre : de la laine, qui repousse en quelques jours. | usages=120
 saddle | Selle | outils | 3.0 | 1 | Clic droit sur un loup ou un cheval apprivoisé pour le seller, puis clic droit pour monter ; accroupi pour descendre. |
+boat | Barque | outils | 25.0 | 1 | Une barque de planches et ses deux rames. Clic droit sur une eau assez large pour la poser, clic droit dessus pour monter ; avancez pour ramer, gauche et droite pour virer, accroupi pour descendre. Accroupi, clic droit : elle retourne dans le sac. |
 egg_cow | Œuf : vache | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : vache. Pour essayer les créatures en créatif. |
 egg_sheep | Œuf : mouton | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : mouton. Pour essayer les créatures en créatif. |
 egg_pig | Œuf : cochon | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : cochon. Pour essayer les créatures en créatif. |

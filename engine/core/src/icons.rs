@@ -204,6 +204,11 @@ pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
         // Plaque de chitine : un écusson sombre et luisant, en segments, un reflet violet.
         "chitin_plate" => { let (dx, dy) = ((x - 0.5).abs(), y - 0.5); if dx > 0.32 - (dy.abs() * 0.4) || dy.abs() > 0.3 { return None; } let seg = ((y * 7.0).fract() < 0.12) as i32;
             let gl = (dx < 0.12 && dy < -0.05) as i32 as f64; Some((if seg == 1 { [0.06, 0.05, 0.08] } else { [0.2 + 0.2 * gl, 0.14 + 0.12 * gl, 0.26 + 0.25 * gl] }, FAT)) }
+        // Barque : une coque de bois vue de côté, son plat-bord sombre, une rame en travers.
+        "boat" => { let (dx, dy) = (x - 0.5, y - 0.6); let oar = { let t = (x - 0.2) / 0.62; (0.0..=1.0).contains(&t) && (y - (0.22 + 0.5 * t)).abs() < (if t > 0.78 { 0.06 } else { 0.022 }) };
+            let hull = dy > -0.1 && dy < 0.16 && dx.abs() < 0.42 - (dy + 0.1) * 0.9 * (dx.signum() * 0.0 + 1.0) * 0.6;
+            if oar && !hull { return Some(([0.7, 0.56, 0.36], TH)); } if !hull { return None; }
+            Some((if dy < -0.05 { [0.3, 0.19, 0.1] } else if ((dy + 0.1) * 30.0) as i64 % 2 == 0 { [0.56, 0.38, 0.22] } else { [0.47, 0.31, 0.17] }, FAT)) }
         // Carte au trésor : un parchemin roulé aux deux bouts, une côte, un chemin en pointillés jusqu'à une croix rouge.
         "treasure_map" => { let (dx, dy) = (x - 0.5, y - 0.5); if dx.abs() > 0.36 || dy.abs() > 0.27 { return None; }
             if dx.abs() > 0.31 { return Some((if dy.abs() > 0.24 { [0.5, 0.36, 0.2] } else { [0.72, 0.58, 0.38] }, FAT)); } // les rouleaux
