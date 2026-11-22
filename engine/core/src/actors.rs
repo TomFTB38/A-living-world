@@ -454,7 +454,7 @@ impl Anim {
                 out.push(hand(arm)); out.push(Draw { m: mul(&arm, &mul(&hold_m(Hold::Tool), &trs(0.0, 0.0, 0.0, 0.0, 0.0, 0.8))), r: h.r, view: true, local: h.local, hero: true, dynamic: false, hurt: 0.0 });
             }
             Some(h) => {
-                let sc = if h.hold == Hold::Block { 0.17 } else { 0.31 }; // petit, bas à droite : il ne cache pas ce qu'on bâtit
+                let sc = if h.hold == Hold::Block { 0.11 } else { 0.2 }; // petit, bas à droite : il ne cache pas ce qu'on bâtit
                 let base = mul(&v, &trs(-0.29 + bx_ + 0.05 * strike, -0.2 + by - 0.1 * strike + 0.03 * push, 0.52 + 0.12 * push + 0.08 * strike, 0.62 + 0.25 * strike, 0.26 + 0.6 * strike - 0.3 * push, sc));
                 out.push(Draw { m: mul(&base, &trs(-0.5, if h.hold == Hold::Block { -0.5 } else { -0.4 }, -0.5, 0.0, 0.0, 1.0)), r: h.r, view: true, local: h.local, hero: true, dynamic: false, hurt: 0.0 });
             }
