@@ -277,7 +277,7 @@ impl Session {
         self.mine_t += dt * rate; self.dig_t -= dt;
         if self.dig_t <= 0.0 && !self.creative { self.dig_t = 0.3; self.sound.dig(b.name, v); if self.mine_need > 0.25 { self.spend(STAMINA_SWING); } }
         if self.mine_t >= self.mine_need {
-            if self.world.edit(t.x, t.y, t.z, 0) { self.flow.touch(t.x, t.y, t.z); self.sound.break_block(b.name, v); self.drop_attached(t.x, t.y, t.z); self.on_broken([t.x, t.y, t.z], t.id); if !self.creative { self.drops(b, t, fit); } self.dirty = true;
+            if self.world.edit(t.x, t.y, t.z, 0) { self.flow.touch(t.x, t.y, t.z); self.sound.break_block(b.name, v); self.drop_attached(t.x, t.y, t.z); self.on_broken([t.x, t.y, t.z], t.id); self.record(vec![([t.x, t.y, t.z], t.id, self.world.get(t.x, t.y, t.z).unwrap_or(0))]); if !self.creative { self.drops(b, t, fit); } self.dirty = true;
                 if tool.is_some() && self.mine_need > 0.25 { self.wear_tool(1); } if b.cat == "rock" || b.cat == "wood" { self.skills[if b.cat == "wood" { 0 } else { 1 }] += 1.0; } }
             self.mine_key = None; self.mine_t = 0.0;
         }

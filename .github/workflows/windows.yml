@@ -218,6 +218,8 @@ jobs:
           shot plat_civ_port -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_civ_port
           shot plat_civ_nord -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_civ_nord
           shot plat_civ_medieval -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_civ_medieval
+          shot plat_outils_village -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_outils_village
+          shot plat_outils_boite -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_outils_boite
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

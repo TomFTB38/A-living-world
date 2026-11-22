@@ -306,7 +306,7 @@ impl ApplicationHandler for App {
                     return;
                 }
                 if !g.grabbed { if down { g.grab(true); } return; }
-                match button { MouseButton::Left => g.lmb = down, MouseButton::Right => { g.rmb = down; if down { g.place_t = 0.0; } } _ => {} }
+                match button { MouseButton::Left => g.lmb = down, MouseButton::Right => { g.rmb = down; if down { g.place_t = 0.0; } } MouseButton::Middle => if down { let m = g.s.pick_block(); if !m.is_empty() { g.say(m); } }, _ => {} } // molette : la pipette
             }
             WindowEvent::CursorMoved { position, .. } => { let m0 = g.mouse; g.mouse = [position.x as f32, position.y as f32]; if let Some(i) = g.drag { g.slide(i); }
                 if g.map_drag.is_some() { if g.s.map.open { let hh = g.window.inner_size().height.max(1) as f32; g.s.pan_map([(g.mouse[0] - m0[0]) as f64, (g.mouse[1] - m0[1]) as f64], hud::map_px(hh) as f64); } else { g.map_drag = None; } } }
@@ -361,6 +361,8 @@ impl ApplicationHandler for App {
                     _ if g.menu.open || g.s.dead.is_some() => {}
                     KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::Digit7 | KeyCode::Digit8 | KeyCode::Digit9 if g.s.town.talk.is_some() => { g.s.choose(c as usize - KeyCode::Digit1 as usize); if g.s.town.talk.is_none() { g.grab(true); } }
                     _ if g.s.town.talk.is_some() => {}
+                    // Ctrl+Z, Ctrl+Y : défaire et refaire les derniers gestes de bâtisseur (la lettre écrite sur la touche, AZERTY compris)
+                    _ if (name == "Z" || name == "Y") && (g.keys.contains(&KeyCode::ControlLeft) || g.keys.contains(&KeyCode::ControlRight)) && !g.s.inv_open => { let m = if name == "Z" { g.s.undo_last() } else { g.s.redo_last() }; g.say(m); }
                     _ if g.menu.is(hud::A_MAP, &name) => { g.s.toggle_map(); g.grab(!g.s.map.open); }
                     _ if g.s.map.open => {}
                     _ if g.menu.is(hud::A_JOURNAL, &name) => { g.s.town.journal = !g.s.town.journal; }
@@ -719,6 +721,30 @@ fn capture(a: &[String]) {
         }
         s.world.edit_many(&e); pump(&mut s, &mut g); let f = y0;
         let (eye, look): ([f64; 3], [f64; 3]) = ([0.5, 3.2, -5.5], [0.5, 0.0, 2.0]);
+        s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
+        for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
+    // Les outils du bâtisseur : une cabane montée à la commande (/sol, /murs, /remplir, /vider pour la porte et les fenêtres),
+    // copiée puis collée trois fois, chaque fois d'un quart de tour de plus ; à droite, une boîte marquée, la main vide.
+    if let Some(vw) = scene.strip_prefix("plat_outils_") {
+        let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.set_creative(true); s.hour = 10.5; s.third = false; s.player.fly = true;
+        let y0 = o[1] + 1; let c = |u: i32, v: i32, w: i32| [o[0] + u, y0 + v, o[2] + w];
+        pump(&mut s, &mut g); let cmd = |s: &mut Session, a: [i32; 3], b: [i32; 3], line: &str| { s.coins = [Some(a), Some(b)]; let _ = s.command(line); };
+        // la cabane : 5 × 5, un sol de planches, des murs de pierre, une porte et deux fenêtres, un toit de planches de sapin
+        cmd(&mut s, c(-9, -1, 2), c(-5, -1, 6), "/sol planks"); cmd(&mut s, c(-9, 0, 2), c(-5, 2, 6), "/murs stone_bricks"); cmd(&mut s, c(-9, 3, 1), c(-5, 3, 7), "/remplir spruce_planks");
+        cmd(&mut s, c(-9, 4, 2), c(-5, 4, 6), "/remplir spruce_planks"); cmd(&mut s, c(-8, 5, 3), c(-6, 5, 5), "/remplir spruce_planks");
+        cmd(&mut s, c(-7, 0, 2), c(-7, 1, 2), "/vider"); cmd(&mut s, c(-9, 1, 4), c(-9, 1, 4), "/remplir stained_glass_blue"); cmd(&mut s, c(-5, 1, 4), c(-5, 1, 4), "/remplir stained_glass_blue");
+        cmd(&mut s, c(-6, 0, 3), c(-6, 0, 3), "/remplir barrel");
+        // copiée, puis collée trois fois, d'un quart de tour de plus à chaque fois
+        s.coins = [Some(c(-9, -1, 1)), Some(c(-5, 5, 7))]; let _ = s.copy_box();
+        for (k, (u, w)) in [(-1, 1), (7, 1), (-1, 10)].iter().enumerate() { let q = c(*u, -1, *w); s.turn = k as u8 + 1;
+            s.target = Some(alw_core::session::Target { x: q[0], y: q[1] - 1, z: q[2], px: q[0], py: q[1], pz: q[2], id: 1, bx: [0.0, 0.0, 0.0, 1.0, 1.0, 1.0] }); let _ = s.paste(); }
+        s.turn = 0; s.inv[s.sel] = None;
+        // une boîte marquée, vide : son aperçu translucide et sa taille sous le réticule
+        if vw == "boite" { s.coins = [Some(c(-9, 0, 11)), Some(c(-5, 3, 15))]; } else { s.coins = [None; 2]; }
+        pump(&mut s, &mut g); let f = y0;
+        let (eye, look): ([f64; 3], [f64; 3]) = if vw == "boite" { ([-3.0, 6.0, 3.0], [-7.0, 1.0, 13.0]) } else { ([-1.5, 10.0, -9.0], [0.0, 1.0, 6.0]) };
         s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());

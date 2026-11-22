@@ -856,6 +856,8 @@ impl Ui {
         if let (Some(v), None) = (s.marked_village(), &s.dead) { let c = [v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5]; u.pin(s, c, &v.name, [0.55, 0.75, 0.95, 0.9], w, k); }
         // Un villageois sous le réticule : on peut lui parler.
         if s.town.talk.is_none() && !s.inv_open { if let Some(f) = s.aim_folk().and_then(|i| s.town.folk.get(i)) { let t = format!("Clic droit : parler à {}{}", f.name, f.craft.and_then(alw_core::village::craftsman).map_or(String::new(), |c| format!(" ({})", c.name.to_lowercase()))); let z = 17.0 * k; u.text(&t, (w - Ui::text_width(&t, z)) * 0.5, h * 0.5 + 26.0 * k, z, w1); } }
+        // La boîte des coins, montrée la main vide : sa taille et ce qu'on peut en faire.
+        if s.town.talk.is_none() && !s.inv_open { if let Some((lo, hi)) = s.select_box() { let t = format!("Boîte {} × {} × {}  ·  /remplir  /vider  /murs  /sol  /copier  /oublier", hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1); let z = 16.0 * k; u.text(&t, (w - Ui::text_width(&t, z)) * 0.5, h * 0.5 + 48.0 * k, z, w1); } }
         if s.town.journal && s.town.talk.is_none() && !s.inv_open { u.journal(s, w, h); }
         if s.town.talk.is_some() { u.dialog(s, w, h, mouse); }
         if s.inv_open { u.inventory(s, w, h, mouse); }

@@ -38,9 +38,12 @@ impl Session {
             "lieu" | "lieux" => self.goto_place(arg),
             "fils" | "mecanismes" => self.wires_report(48.0).join("\n"),
             "coin1" => self.set_corner(0), "coin2" => self.set_corner(1),
+            "annuler" | "undo" => self.undo_last(), "retablir" | "refaire" | "redo" => self.redo_last(),
+            "remplir" | "fill" => self.fill_box("remplir", arg), "vider" => self.fill_box("vider", None), "murs" => self.fill_box("murs", arg), "sol" => self.fill_box("sol", arg),
+            "copier" | "copy" => self.copy_box(), "coller" | "paste" => self.paste(), "miroir" => self.mirror_clip(), "oublier" | "deselectionner" => self.clear_corners(),
             "exporter" | "export" => self.export(arg),
             "structures" => { let v = crate::structures::names(); if v.is_empty() { "Aucune structure exportée pour l'instant : /coin1, /coin2 puis /exporter nom".into() } else { format!("Structures : {}", v.join(", ")) } }
-            "aide" | "help" | "?" => "Commandes : /jour /midi /soir /nuit /heure <h> /avance [h] /vitesse <x> /figer /survie /creatif /vol ; construction : /coin1 /coin2 /exporter [nom] /structures ; village pilote : /village, /brigands ; exploration : /lieu [tour|cimetiere|brigands|sanctuaire|ruines|grotte|soleil], /grotte [biome], /grotte mine, /grotte bouche, /grotte camp, /grotte autel, /grotte caveau".into(),
+            "aide" | "help" | "?" => "Commandes : /jour /midi /soir /nuit /heure <h> /avance [h] /vitesse <x> /figer /survie /creatif /vol ; construction : /coin1 /coin2 puis /remplir [bloc] /vider /murs /sol /copier /coller /miroir /oublier, /annuler /retablir (Ctrl+Z, Ctrl+Y), /exporter [nom] /structures ; village pilote : /village, /brigands ; exploration : /lieu [tour|cimetiere|brigands|sanctuaire|ruines|grotte|soleil], /grotte [biome], /grotte mine, /grotte bouche, /grotte camp, /grotte autel, /grotte caveau".into(),
             "jour" | "matin" => at(self, 7.0, "le jour se lève"), "midi" => at(self, 12.0, "plein jour"), "soir" => at(self, 19.0, "le soir tombe"), "nuit" => at(self, 22.0, "la nuit"),
             "heure" | "temps" => match num(arg) { Some(h) => at(self, h.rem_euclid(24.0), "c'est fait"), None => format!("Il est {}h{:02}. Exemple : /heure 18", self.hour as i32, ((self.hour.fract()) * 60.0) as i32) },
             "avance" | "passer" => { let h = num(arg).unwrap_or(1.0).clamp(0.0, 240.0); self.pass_hours(h); format!("{h} heure(s) passent : il est {}h{:02}", self.hour as i32, (self.hour.fract() * 60.0) as i32) }
