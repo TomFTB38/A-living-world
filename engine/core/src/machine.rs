@@ -4,7 +4,7 @@
 //! lancée, sauter la décolle. En l'air : sauter fait battre les ailes et monter (au prix du souffle), sans battre on plane en
 //! descendant doucement, reculer fait piquer ; trop lente, elle décroche. Gauche et droite virent. Elle se pose seule en
 //! touchant le sol ; accroupi, on descend (une fois posé). Vérifié par `tests/machine.rs`.
-use crate::actors::{b, Draw, Models};
+use crate::actors::{Draw, Models};
 use crate::blocks::is_solid;
 use crate::mesher::VBuf;
 use crate::player::{Input, Voxels};
@@ -27,7 +27,9 @@ pub struct Flyer { /** le dessous des patins, au milieu */ pub p: [f64; 3], pub 
 impl Flyer { pub fn new(p: [f64; 3], yaw: f64) -> Self { Flyer { p, yaw, v: 0.0, vy: 0.0, ground: true, flap: 0.0, beat: 0.0 } } }
 
 /// L'angle des ailes (relevées si positif) pour un battement donné : au repos, un peu tombantes.
-pub fn wing_angle(f: &Flyer) -> f64 { -0.08 + f.beat * 0.45 * f.flap.sin() }
+pub fn wing_angle(f: &Flyer) -> f64 { -0.05 + f.beat * 0.2 * f.flap.sin() }
+/// La partie extérieure de l'aile plie un peu plus, avec un léger retard : le battement ondule jusqu'au bout.
+pub fn tip_angle(f: &Flyer) -> f64 { 0.03 + f.beat * 0.16 * (f.flap - 0.6).sin() }
 
 /// Quelque chose de solide là où passerait la machine (le berceau et le bout des ailes) ?
 fn blocked(w: &impl Voxels, p: [f64; 3], yaw: f64) -> bool {
@@ -78,8 +80,8 @@ impl Session {
             if can_flap && !self.creative { spent = FLAP_COST * dt; }
         }
         // les ailes : elles battent quand on pédale (au sol pour l'élan, en l'air pour monter), à peine en planant
-        let beat = if can_flap { 1.0 } else if f.ground && i.z > 0.0 { 0.5 } else if !f.ground { 0.12 } else { 0.0 }; f.beat += (beat - f.beat).clamp(-2.0 * dt, 4.0 * dt);
-        f.flap = (f.flap + dt * (2.0 + 7.0 * f.beat)).rem_euclid(std::f64::consts::TAU);
+        let beat = if can_flap { 1.0 } else if f.ground && i.z > 0.0 { 0.4 } else if !f.ground { 0.35 } else { 0.0 }; f.beat += (beat - f.beat).clamp(-2.0 * dt, 4.0 * dt);
+        f.flap = (f.flap + dt * (2.2 + 3.6 * f.beat)).rem_euclid(std::f64::consts::TAU); // un battement ample et lent, pas un frétillement
         // le déplacement : arrêté net par un mur, posé par le sol
         let (fx, fz) = (f.yaw.sin(), f.yaw.cos()); let next = [f.p[0] + fx * f.v * dt, (f.p[1] + f.vy * dt).min(CEILING), f.p[2] + fz * f.v * dt];
         if !blocked(w, [next[0], f.p[1], next[2]], f.yaw) { f.p[0] = next[0]; f.p[2] = next[2]; } else { f.v = 0.0; }
@@ -101,7 +103,9 @@ impl Session {
         use crate::view::{mul, roll_z, trs}; let mut o = Vec::new();
         for f in &self.flyers { let tilt = if f.ground { 0.0 } else { (-f.vy * 0.06).clamp(-0.2, 0.25) }; let body = trs(f.p[0], f.p[1], f.p[2], f.yaw, tilt, 1.0);
             let d = |m, r| Draw { m, r, view: false, local: false, hero: false, dynamic: false, hurt: 0.0 }; o.push(d(body, md.part("flyer"))); let a = wing_angle(f);
-            for (sd, part) in [(-1.0f64, "wing_l"), (1.0, "wing_r")] { o.push(d(mul(&mul(&body, &trs(sd * HINGE[0], HINGE[1], HINGE[2], 0.0, 0.0, 1.0)), &roll_z(sd * a)), md.part(part))); } }
+            let a2 = tip_angle(f);
+            for (sd, inner, outer) in [(-1.0f64, "wing_l", "wing_l2"), (1.0, "wing_r", "wing_r2")] { let root = mul(&mul(&body, &trs(sd * HINGE[0], HINGE[1], HINGE[2], 0.0, 0.0, 1.0)), &roll_z(sd * a)); o.push(d(root, md.part(inner)));
+                o.push(d(mul(&mul(&root, &trs(sd * JOINT, rise(JOINT), 0.0, 0.0, 0.0, 1.0)), &roll_z(sd * a2)), md.part(outer))); } }
         o
     }
     pub(crate) fn flyers_save(&self) -> String { self.flyers.iter().map(|f| format!("flyer {} {} {} {}\n", f.p[0], f.p[1], f.p[2], f.yaw)).collect() }
@@ -115,31 +119,61 @@ pub fn flyer_ray(f: &Flyer, o: [f64; 3], d: [f64; 3]) -> Option<f64> {
     match (body, wings) { (Some(a), Some(b2)) => Some(a.min(b2)), (a, b2) => a.or(b2) }
 }
 
-/// Le modèle : patins, berceau de planches, siège, pédalier, mât et haubans, queue en éventail ; les ailes à part (nervures
-/// de bois en éventail depuis le longeron, toile tendue entre elles), pour battre.
+/// La jointure des ailes, à mi-envergure : la partie extérieure plie un peu plus que l'intérieure, comme une aile de chauve-souris.
+pub const JOINT: f64 = 1.25;
+fn span() -> f64 { HALF_SPAN - HINGE[0] }
+/// Le profil d'une aile le long de l'envergure x (depuis l'articulation) : bord d'attaque (z), corde, flèche (y, relevée vers le bout).
+fn lead(x: f64) -> f64 { 0.28 + 0.2 * (x / span()) - 0.18 * (x / span()).powi(2) }
+fn chord(x: f64) -> f64 { 1.5 * (1.0 - 0.8 * (x / span()).powf(1.6)).max(0.12) }
+fn rise(x: f64) -> f64 { 0.16 * (x / span()).powi(2) }
+
+/// Le modèle, en volumes galbés de couleur unie : un berceau en forme de nacelle sur deux patins recourbés, un siège, un
+/// pédalier, un mât et ses haubans, une poutre de queue et son éventail ; les ailes à part, en deux pièces chacune (le
+/// longeron en arc, des nervures effilées en éventail, une toile bombée qui se creuse en festons entre elles), pour battre.
 pub fn parts() -> Vec<(&'static str, VBuf)> {
-    let (wood, wood2, dark, rope, cloth, cloth2) = ([0.56, 0.4, 0.23], [0.47, 0.33, 0.18], [0.3, 0.2, 0.11], [0.72, 0.64, 0.46], [0.88, 0.82, 0.67], [0.8, 0.73, 0.58]);
-    let mut o = VBuf::new(1500);
-    for sd in [-1.0, 1.0] { b(&mut o, [sd * 0.55 - 0.05, 0.0, -1.2, sd * 0.55 + 0.05, 0.09, 1.25], dark); b(&mut o, [sd * 0.55 - 0.05, 0.03, 1.2, sd * 0.55 + 0.05, 0.2, 1.38], dark); // les patins, relevés devant
-        for z in [-0.9, 0.0, 0.9] { b(&mut o, [sd * 0.5 - 0.035, 0.05, z - 0.035, sd * 0.5 + 0.035, 0.5, z + 0.035], wood2); } // les montants
-        b(&mut o, [sd * 0.42 - 0.03, 0.42, -1.05, sd * 0.42 + 0.03, 0.62, 1.05], wood); } // les flancs du berceau
-    b(&mut o, [-0.45, 0.4, -1.05, 0.45, 0.46, 1.05], wood2); // le plancher
-    b(&mut o, [-0.25, 0.46, -0.35, 0.25, 0.56, 0.1], dark); b(&mut o, [-0.25, 0.56, -0.38, 0.25, 0.95, -0.32], dark); // le siège et son dossier
-    b(&mut o, [-0.18, 0.52, 0.62, 0.18, 0.56, 0.66], dark); for sd in [-1.0, 1.0] { b(&mut o, [sd * 0.14 - 0.04, 0.5, 0.55, sd * 0.14 + 0.04, 0.62, 0.72], wood); } // le pédalier
-    b(&mut o, [-0.05, 0.46, 0.15, 0.05, 1.42, 0.25], wood); b(&mut o, [-0.4, 1.28, 0.12, 0.4, 1.36, 0.28], dark); // le mât et la traverse des ailes
-    for (x, z) in [(-0.42, -1.0), (0.42, -1.0), (-0.42, 1.0), (0.42, 1.0)] { let n = 8; for k in 0..n { let t = k as f64 / n as f64; let q = [x + (0.0 - x) * t, 0.6 + 0.8 * t, z + (0.2 - z) * t]; b(&mut o, [q[0] - 0.012, q[1] - 0.05, q[2] - 0.012, q[0] + 0.012, q[1] + 0.05, q[2] + 0.012], rope); } } // les haubans
-    b(&mut o, [-0.04, 0.85, -2.6, 0.04, 0.93, -1.0], wood); // la poutre de queue
-    for k in 0..6 { let a = -0.75 + 0.3 * k as f64; let (dx, dz) = (a.sin() * 0.8, -a.cos() * 0.8); let n = 5;
-        for s in 0..n { let t = (s as f64 + 0.5) / n as f64; let q = [dx * t, 0.89, -2.55 + dz * t]; b(&mut o, [q[0] - 0.13 * t - 0.02, q[1] - 0.012, q[2] - 0.1, q[0] + 0.13 * t + 0.02, q[1] + 0.012, q[2] + 0.1], if k % 2 == 0 { cloth } else { cloth2 }); }
-        b(&mut o, [dx * 0.5 - 0.015, 0.9, -2.55 + dz * 0.5 - 0.015, dx * 0.5 + 0.015, 0.92, -2.55 + dz * 0.5 + 0.015], dark); } // l'éventail de queue
-    // Une aile : le long de +x depuis l'articulation ; le longeron en arc, six nervures vers l'arrière, la toile entre elles.
-    let wing = |sd: f64| { let mut q = VBuf::new(1200); let span = HALF_SPAN - HINGE[0]; let m = |x0: f64, x1: f64| if sd > 0.0 { (x0, x1) } else { (-x1, -x0) };
-        let chord = |x: f64| 1.45 * (1.0 - (x / span).powi(2) * 0.75); let lead = |x: f64| 0.25 + 0.15 * (x / span); let lift = |x: f64| 0.12 * (x / span).powi(2);
-        let n = 14; for k in 0..n { let (x0, x1) = (span * k as f64 / n as f64, span * (k + 1) as f64 / n as f64); let xm = 0.5 * (x0 + x1); let (a, c) = m(x0, x1);
-            b(&mut q, [a, lift(xm) - 0.03, lead(xm) - 0.04, c, lift(xm) + 0.03, lead(xm) + 0.04], wood); // le longeron
-            let ch = chord(xm); let rows = 6; for r in 0..rows { let z0 = lead(xm) - ch * (r as f64) / rows as f64; let z1 = lead(xm) - ch * (r + 1) as f64 / rows as f64; let sag = -0.03 * ((r as f64 + 0.5) / rows as f64 * std::f64::consts::PI).sin();
-                b(&mut q, [a, lift(xm) + sag - 0.008, z1, c, lift(xm) + sag + 0.008, z0], if (k + r) % 2 == 0 { cloth } else { cloth2 }); } }
-        for k in 0..6 { let x = span * (0.08 + 0.17 * k as f64); let (a, c) = m(x - 0.025, x + 0.025); let ch = chord(x); b(&mut q, [a, lift(x) - 0.02, lead(x) - ch - 0.02, c, lift(x) + 0.03, lead(x)], dark); } // les nervures
-        q };
-    vec![("flyer", o), ("wing_r", wing(1.0)), ("wing_l", wing(-1.0))]
+    use crate::hostile::Mat; use crate::sculpt::Pen;
+    let (wood, wood_l, dark, rope, iron) = ([0.5, 0.34, 0.19], [0.62, 0.45, 0.27], [0.28, 0.18, 0.1], [0.74, 0.66, 0.48], [0.36, 0.36, 0.38]);
+    let mut o = VBuf::new(6000);
+    { let mut p = Pen::new(&mut o, Mat::Plain, 0.05);
+        // la nacelle : un fuseau de bois, plus large au milieu, quille relevée aux deux bouts
+        p.body(&[(-1.15, 0.12, 0.66, 0.5), (-0.8, 0.34, 0.64, 0.36), (-0.1, 0.43, 0.62, 0.3), (0.6, 0.38, 0.63, 0.33), (1.05, 0.18, 0.66, 0.45), (1.25, 0.05, 0.7, 0.58)], wood_l, wood, dark);
+        p.tube([0.0, 0.67, -1.12], [0.0, 0.68, 1.22], [0.03, 0.03], [0.03, 0.03], dark, dark); // le plat-bord central
+        p.tube([-0.24, 0.68, -0.4], [0.24, 0.68, -0.4], [0.12, 0.05], [0.12, 0.05], dark, dark); // le siège
+        p.tube([0.0, 0.7, -0.52], [0.0, 1.05, -0.58], [0.2, 0.03], [0.17, 0.03], dark, wood); // le dossier
+        for sd in [-1.0, 1.0] { p.tube([sd * 0.16, 0.66, 0.7], [sd * 0.16, 0.74, 0.82], [0.03, 0.03], [0.03, 0.03], iron, iron); p.tube([sd * 0.22, 0.72, 0.76], [sd * 0.1, 0.72, 0.76], [0.06, 0.025], [0.06, 0.025], dark, dark); } // le pédalier
+        // les patins recourbés devant, et leurs jambes de force
+        for sd in [-1.0f64, 1.0] { let x = sd * 0.58;
+            p.tube([x, 0.05, -1.25], [x, 0.05, 1.05], [0.045, 0.045], [0.045, 0.045], dark, dark); p.tube([x, 0.05, 1.05], [x, 0.14, 1.32], [0.045, 0.045], [0.04, 0.04], dark, dark); p.tube([x, 0.14, 1.32], [x, 0.3, 1.42], [0.04, 0.04], [0.035, 0.035], dark, dark);
+            for z in [-0.85f64, 0.0, 0.85] { p.tube([x, 0.08, z], [sd * 0.36, 0.46, z * 0.9], [0.035, 0.035], [0.03, 0.03], wood, wood); } }
+        // le mât, la traverse qui porte les ailes, les haubans
+        p.tube([0.0, 0.62, 0.2], [0.0, 1.5, 0.2], [0.06, 0.06], [0.04, 0.04], wood, wood_l); p.blob([0.0, 1.52, 0.2], [0.06, 0.06, 0.06], iron, iron);
+        p.tube([-HINGE[0] - 0.08, HINGE[1], HINGE[2]], [HINGE[0] + 0.08, HINGE[1], HINGE[2]], [0.05, 0.05], [0.05, 0.05], dark, dark);
+        for (x, z) in [(-0.4, -1.0), (0.4, -1.0), (-0.4, 1.0), (0.4, 1.0)] { p.tube([x, 0.64, z], [0.0, 1.46, 0.2], [0.012, 0.012], [0.012, 0.012], rope, rope); }
+        // la queue : une poutre effilée, l'éventail de toile tendu sur ses baguettes
+        p.tube([0.0, 0.62, -1.05], [0.0, 0.95, -2.5], [0.045, 0.045], [0.03, 0.03], wood, wood);
+        let cloth = [0.9, 0.84, 0.7]; for k in 0..7 { let a = -0.8 + 0.8 * k as f64 / 3.0; let tip = [a.sin() * 0.85, 0.97, -2.5 - a.cos() * 0.85];
+            p.tube([0.0, 0.95, -2.5], tip, [0.018, 0.018], [0.012, 0.012], dark, dark);
+            if k < 6 { let a2 = -0.8 + 0.8 * (k + 1) as f64 / 3.0; let n = 6; for s2 in 0..n { let t = (s2 as f64 + 0.5) / n as f64; let r = 0.85 * t; let (ca, cb) = ((a + a2) * 0.5, (a2 - a).abs() * 0.5);
+                let c = [ca.sin() * r, 0.955, -2.5 - ca.cos() * r]; let w = r * cb.sin() + 0.02; p.tube([c[0] - w * ca.cos(), c[1], c[2] - w * ca.sin()], [c[0] + w * ca.cos(), c[1], c[2] + w * ca.sin()], [0.008, 0.075], [0.008, 0.075], cloth, cloth); } } }
+    }
+    // Une moitié d'aile, de x0 à x1 le long de l'envergure, ramenée à sa propre articulation (en x0), du côté `sd`.
+    let wing = |sd: f64, x0: f64, x1: f64| { let mut q = VBuf::new(6000); { let mut p = Pen::new(&mut q, Mat::Plain, 0.04);
+        let (cloth_in, cloth_out, spar) = ([0.92, 0.86, 0.72], [0.86, 0.78, 0.62], [0.42, 0.28, 0.15]);
+        let at = |x: f64, z: f64, y: f64| [sd * (x - x0), rise(x) - rise(x0) + y, z];
+        // le longeron : un arc de bois qui s'affine vers le bout
+        let n = 10; for k in 0..n { let (xa, xb) = (x0 + (x1 - x0) * k as f64 / n as f64, x0 + (x1 - x0) * (k + 1) as f64 / n as f64); let r = |x: f64| 0.05 - 0.028 * (x / span());
+            p.tube(at(xa, lead(xa), 0.0), at(xb, lead(xb), 0.0), [r(xa), r(xa)], [r(xb), r(xb)], spar, spar); }
+        // les nervures, effilées, en éventail vers l'arrière ; la toile tendue entre elles, bombée, festonnée au bord de fuite
+        let ribs: Vec<f64> = (0..=8).map(|k| span() * (0.02 + 0.125 * k as f64)).filter(|x| *x >= x0 - 1e-9 && *x <= x1 + 1e-9).collect();
+        for &x in &ribs { let (z0, z1) = (lead(x), lead(x) - chord(x)); p.tube(at(x, z0, 0.0), at(x, z1, -0.02), [0.026, 0.03], [0.012, 0.014], spar, spar); }
+        let cols = 18; let rows = 9;
+        for c in 0..cols { let (xa, xb) = (x0 + (x1 - x0) * c as f64 / cols as f64, x0 + (x1 - x0) * (c + 1) as f64 / cols as f64); let xm = 0.5 * (xa + xb);
+            // le feston : entre deux nervures, la toile recule un peu au bord de fuite
+            let pitch = span() * 0.125; let ph = ((xm - span() * 0.02) / pitch).fract(); let scallop = 0.16 * (ph * std::f64::consts::PI).sin() * (0.4 + 0.6 * xm / span());
+            let ch = (chord(xm) - scallop).max(0.08); let col = crate::sculpt::mix(cloth_in, cloth_out, xm / span());
+            for r in 0..rows { let (ua, ub) = (r as f64 / rows as f64, (r + 1) as f64 / rows as f64); let um = 0.5 * (ua + ub); let camber = 0.07 * (um * std::f64::consts::PI).sin() * (1.0 - 0.5 * xm / span());
+                let (za, zb) = (lead(xm) - ch * ua, lead(xm) - ch * ub); let a = at(xa, 0.0, camber); let b2 = at(xb, 0.0, camber);
+                p.bx([a[0].min(b2[0]), a[1].min(b2[1]) - 0.01, zb, a[0].max(b2[0]), a[1].max(b2[1]) + 0.01, za], col); } }
+    } q };
+    vec![("flyer", o), ("wing_r", wing(1.0, 0.0, JOINT)), ("wing_l", wing(-1.0, 0.0, JOINT)), ("wing_r2", wing(1.0, JOINT, span())), ("wing_l2", wing(-1.0, JOINT, span()))]
 }

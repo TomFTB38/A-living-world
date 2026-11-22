@@ -26,7 +26,7 @@ fn voler_planer_se_poser() {
     go(&mut s, fw(), 2.0); assert!(s.flyers[0].ground && s.flyers[0].v > machine::TAKEOFF, "elle roule : {:.1} m/s", s.flyers[0].v);
     let st0 = s.stamina; go(&mut s, Input { z: 1.0, jump: true, ..Default::default() }, 4.0); let f = s.flyers[0]; println!("après 4 s de battements : {:.1} m au-dessus du sol, {:.1} m/s, souffle {:.0} → {:.0}", f.p[1] - y, f.v, st0, s.stamina);
     assert!(!f.ground && f.p[1] > y + 6.0, "elle monte : {:.1} m", f.p[1] - y); assert!(s.stamina < st0 - 40.0, "battre des ailes essouffle : {:.0} → {:.0}", st0, s.stamina);
-    assert!((s.player.p[1] - (f.p[1] + 0.42)).abs() < 1e-9, "le pilote est à bord"); assert!(machine::wing_angle(&f).abs() <= 0.55);
+    assert!((s.player.p[1] - (f.p[1] + 0.42)).abs() < 1e-9, "le pilote est à bord"); assert!(machine::wing_angle(&f).abs() <= 0.3 && machine::tip_angle(&f).abs() <= 0.25, "un battement léger");
     // Sans battre : on plane, en descendant doucement, en gardant de la vitesse ; accroupi en l'air, on reste à bord.
     let h0 = s.flyers[0].p[1]; let x0 = s.flyers[0].p[2]; go(&mut s, fw(), 2.0); let f = s.flyers[0]; let sink = (h0 - f.p[1]) / 2.0; let run = (x0 - f.p[2]).abs() / 2.0;
     println!("plané : {sink:.2} m/s de chute pour {run:.1} m/s d'avance"); assert!(sink > 0.3 && sink < 2.0 && run > 8.0, "un vrai plané");
@@ -65,7 +65,7 @@ fn decrochage_mur_et_souffle() {
 
 #[test]
 fn la_machine_se_dessine_et_se_fabrique() {
-    let md = alw_core::actors::Models::build(); for p in ["flyer", "wing_l", "wing_r"] { assert!(md.part(p).count > 300, "{p} : {}", md.part(p).count); }
+    let md = alw_core::actors::Models::build(); for p in ["flyer", "wing_l", "wing_r", "wing_l2", "wing_r2"] { assert!(md.part(p).count > 300, "{p} : {}", md.part(p).count); }
     let px = (0..56 * 56).filter(|k| alw_core::icons::look("flying_machine", (k % 56) as f64 / 56.0, (k / 56) as f64 / 56.0).is_some()).count(); assert!(px > 500, "l'icône : {px}");
     assert!(alw_core::survival::recipes().iter().any(|r| r.out == "flying_machine"));
     let f = Flyer::new([0.0, 0.0, 0.0], 0.4); assert!(machine::flyer_ray(&f, [2.5 * 0.4f64.cos(), 5.0, -2.5 * 0.4f64.sin()], [0.0, -1.0, 0.0]).is_some(), "le bout d'une aile se vise"); assert!(machine::flyer_ray(&f, [6.0, 5.0, 0.0], [0.0, -1.0, 0.0]).is_none());

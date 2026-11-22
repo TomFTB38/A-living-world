@@ -771,7 +771,7 @@ fn capture(a: &[String]) {
             let flap = Input { z: 1.0, jump: true, ..none }; for _ in 0..52 { let (y0, pi) = (s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, flap, Actions::default()); s.player.yaw = y0; s.player.pitch = pi; s.vit = [100.0; 3]; }
         } else {
             s.flyers = vec![alw_core::machine::Flyer::new([o[0] as f64 + 0.5, y, o[2] as f64 + 4.0], 1.2)]; s.third = false; s.player.fly = true;
-            let (eye, look) = ([o[0] as f64 - 3.5, y + 1.9, o[2] as f64 - 1.5], [o[0] as f64 + 0.5, y + 0.9, o[2] as f64 + 4.0]); s.player.p = [eye[0], eye[1] - 1.6, eye[2]];
+            let (eye, look) = ([o[0] as f64 - 2.6, y + 2.4, o[2] as f64 + 0.2], [o[0] as f64 + 0.5, y + 0.8, o[2] as f64 + 4.0]); s.player.p = [eye[0], eye[1] - 1.6, eye[2]];
             let d = view::norm([look[0] - eye[0], look[1] - eye[1], look[2] - eye[2]]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin();
             for _ in 0..30 { let (q, y0, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y0; s.player.pitch = pi; }
         }
