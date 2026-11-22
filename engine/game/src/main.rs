@@ -712,7 +712,7 @@ fn capture(a: &[String]) {
         for u in -4..=4i32 { for w in -4..=4i32 { put(u, -1, w, floor); if u.abs() == 4 || w == 4 { for v in 0..=3 { put(u, v, w, wall); } } } }
         match vw {
             "desert" => { for u in -3..=3 { put(u, 0, 3, "sedari"); } put(-3, 0, 2, "sedari@1"); put(3, 0, 2, "sedari@3"); put(0, 0, 1, "tray_table"); put(-1, 0, 0, "pouf"); put(1, 0, 0, "pouf");
-                for u in -2..=2 { for w in -1..=2 { if !(u == 0 && w == 1) && !(w == 0 && u.abs() == 1) { put(u, 0, w, "berber_rug"); } } } put(-3, 0, -2, "moroccan_lantern"); put(3, 0, -2, "moroccan_lantern"); for u in [-2, 2] { put(u, 1, 4, "mashrabiya@2"); } }
+                for u in -2..=2i32 { for w in -1..=2i32 { if !(u == 0 && w == 1) && !(w == 0 && u.abs() == 1) { put(u, 0, w, "berber_rug"); } } } put(-3, 0, -2, "moroccan_lantern"); put(3, 0, -2, "moroccan_lantern"); for u in [-2, 2] { put(u, 1, 4, "mashrabiya@2"); } }
             "port" => { put(-3, 0, 3, "sea_chest@2"); put(0, 2, 3, "ship_wheel@2"); put(2, 0, 3, "rope_coil"); put(3, 0, 3, "barrel"); put(0, 0, 1, "table"); put(-1, 0, 1, "stool"); put(1, 0, 1, "stool"); put(0, 1, 1, "storm_lantern"); put(-3, 0, -1, "fishing_net@3"); put(3, 0, 0, "sea_chest@3"); }
             "nord" => { put(0, 0, 0, "long_hearth"); put(0, 0, 1, "long_hearth"); for w in -2..=2 { put(-3, 0, w, "fur_bench@3"); put(3, 0, w, "fur_bench@1"); } for u in [-2, 0, 2] { put(u, 2, 3, "round_shield@2"); } put(0, 3, 3, "antlers@2"); put(-3, 0, 3, "rune_chest@2"); put(3, 0, 3, "rune_chest@2"); }
             _ => { put(-3, 0, 3, "wardrobe@2"); put(-1, 0, 3, "dresser@2"); put(2, 0, 3, "writing_desk@2"); put(2, 0, 2, "chair@2"); put(3, 0, 0, "wine_rack@1"); put(0, 0, 0, "carpet_red"); put(-3, 2, 3, "wall_lantern@2"); }
