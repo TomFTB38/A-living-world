@@ -1,6 +1,6 @@
 //! Les outils du bâtisseur, pour construire sans peine :
 //! - la pipette (clic molette) : le bloc visé passe en main (en survie, s'il est dans le sac) ;
-//! - annuler et rétablir (Ctrl+Z, Ctrl+Y, ou /annuler, /retablir) : les dernières poses et casses, une à une ;
+//! - annuler et rétablir (/annuler, /retablir, depuis le chat) : les dernières poses et casses, une à une ;
 //! - entre les deux coins (/coin1, /coin2) : /remplir, /vider, /murs, /sol remplissent la boîte d'un coup (créatif) ;
 //! - /copier la boîte, puis /coller là où l'on vise, tournée des quarts de tour de R ; /miroir retourne la copie.
 //! Chaque outil qui touche plusieurs blocs ne fait qu'un seul pas d'annulation. Tout est vérifié par `tests/outils.rs`.
@@ -89,12 +89,12 @@ impl Session {
         }
         let list: Vec<([i32; 3], Id)> = todo.iter().map(|(p, _, to)| (*p, *to)).collect(); let n = self.apply(&list).len(); Ok(n)
     }
-    /// Ctrl+Z, /annuler : le dernier geste de bâtisseur défait.
+    /// /annuler : le dernier geste de bâtisseur défait.
     pub fn undo_last(&mut self) -> String {
         let Some(step) = self.undo.pop() else { return "Rien à annuler".into() };
         match self.replay(&step, true) { Ok(n) => { self.redo.push(step); self.sound.place("planks"); format!("Annulé : {n} bloc(s)") } Err(e) => { self.undo.push(step); e } }
     }
-    /// Ctrl+Y, /retablir : le geste annulé refait.
+    /// /retablir : le geste annulé refait.
     pub fn redo_last(&mut self) -> String {
         let Some(step) = self.redo.pop() else { return "Rien à rétablir".into() };
         match self.replay(&step, false) { Ok(n) => { self.undo.push(step); self.sound.place("planks"); format!("Rétabli : {n} bloc(s)") } Err(e) => { self.redo.push(step); e } }
@@ -131,7 +131,7 @@ impl Session {
         let ch = self.apply(&list); let n = ch.len(); self.record(ch);
         if id != 0 { self.sound.place(BLOCKS[id as usize].name); }
         let verb = match what { "vider" => "Vidé", "murs" => "Murs montés", "sol" => "Sol posé", _ => "Rempli" };
-        format!("{verb} : {n} bloc(s) — Ctrl+Z pour annuler")
+        format!("{verb} : {n} bloc(s) — /annuler pour défaire")
     }
     /// /copier : la boîte des deux coins, telle quelle.
     pub fn copy_box(&mut self) -> String {
@@ -163,6 +163,6 @@ impl Session {
         if self.clip.is_none() { return "Rien de copié : /coin1, /coin2 puis /copier".into(); }
         let Some(list) = self.paste_plan() else { return "Visez l'endroit où coller".into() };
         let ch = self.apply(&list); let n = ch.len(); self.record(ch); self.sound.place("planks");
-        format!("Collé : {n} bloc(s), tourné de {} ° — Ctrl+Z pour annuler", self.turn as u32 * 90)
+        format!("Collé : {n} bloc(s), tourné de {} ° — /annuler pour défaire", self.turn as u32 * 90)
     }
 }

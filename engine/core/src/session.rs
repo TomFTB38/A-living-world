@@ -170,7 +170,7 @@ impl Session {
         for (p, id) in &plan { self.flow.touch(p[0], p[1], p[2]); self.on_placed(*p, *id); }
         // un pan de toit posé : lui et ses voisins prennent la forme qu'ils appellent (arêtier, noue), sans vide entre les pans
         for (p, id) in &plan { if crate::shapes::is_roof(*id) { self.join_roofs_at(*p); } }
-        let step = plan.iter().zip(&before).map(|((p, _), was)| (*p, *was, self.world.get(p[0], p[1], p[2]).unwrap_or(0))).collect(); self.record(step); // Ctrl+Z la défait
+        let step = plan.iter().zip(&before).map(|((p, _), was)| (*p, *was, self.world.get(p[0], p[1], p[2]).unwrap_or(0))).collect(); self.record(step); // /annuler la défait
         if !self.creative { let n = st.n.unwrap_or(0) - 1; self.inv[self.sel] = if n == 0 { None } else { Some(Stack { n: Some(n), ..st }) }; }
         self.sound.place(BLOCKS[plan[0].1 as usize].name); self.built.push(self.elapsed); self.dirty = true; true
     }

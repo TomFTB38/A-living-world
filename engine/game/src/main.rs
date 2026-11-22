@@ -361,8 +361,6 @@ impl ApplicationHandler for App {
                     _ if g.menu.open || g.s.dead.is_some() => {}
                     KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::Digit7 | KeyCode::Digit8 | KeyCode::Digit9 if g.s.town.talk.is_some() => { g.s.choose(c as usize - KeyCode::Digit1 as usize); if g.s.town.talk.is_none() { g.grab(true); } }
                     _ if g.s.town.talk.is_some() => {}
-                    // Ctrl+Z, Ctrl+Y : défaire et refaire les derniers gestes de bâtisseur (la lettre écrite sur la touche, AZERTY compris)
-                    _ if (name == "Z" || name == "Y") && (g.keys.contains(&KeyCode::ControlLeft) || g.keys.contains(&KeyCode::ControlRight)) && !g.s.inv_open => { let m = if name == "Z" { g.s.undo_last() } else { g.s.redo_last() }; g.say(m); }
                     _ if g.menu.is(hud::A_MAP, &name) => { g.s.toggle_map(); g.grab(!g.s.map.open); }
                     _ if g.s.map.open => {}
                     _ if g.menu.is(hud::A_JOURNAL, &name) => { g.s.town.journal = !g.s.town.journal; }
@@ -740,7 +738,7 @@ fn capture(a: &[String]) {
         s.coins = [Some(c(-9, -1, 1)), Some(c(-5, 5, 7))]; let _ = s.copy_box();
         for (k, (u, w)) in [(-1, 1), (7, 1), (-1, 10)].iter().enumerate() { let q = c(*u, -1, *w); s.turn = k as u8 + 1;
             s.target = Some(alw_core::session::Target { x: q[0], y: q[1] - 1, z: q[2], px: q[0], py: q[1], pz: q[2], id: 1, bx: [0.0, 0.0, 0.0, 1.0, 1.0, 1.0] }); let _ = s.paste(); }
-        s.turn = 0; s.inv[s.sel] = None;
+        s.turn = 0; s.inv[s.sel] = if vw == "boite" { None } else { Some(alw_core::session::Stack::new("stone_bricks", Some(64))) }; // un bloc en main, à sa nouvelle taille
         // une boîte marquée, vide : son aperçu translucide et sa taille sous le réticule
         if vw == "boite" { s.coins = [Some(c(-9, 0, 11)), Some(c(-5, 3, 15))]; } else { s.coins = [None; 2]; }
         pump(&mut s, &mut g); let f = y0;
