@@ -204,6 +204,13 @@ pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
         // Plaque de chitine : un écusson sombre et luisant, en segments, un reflet violet.
         "chitin_plate" => { let (dx, dy) = ((x - 0.5).abs(), y - 0.5); if dx > 0.32 - (dy.abs() * 0.4) || dy.abs() > 0.3 { return None; } let seg = ((y * 7.0).fract() < 0.12) as i32;
             let gl = (dx < 0.12 && dy < -0.05) as i32 as f64; Some((if seg == 1 { [0.06, 0.05, 0.08] } else { [0.2 + 0.2 * gl, 0.14 + 0.12 * gl, 0.26 + 0.25 * gl] }, FAT)) }
+        // Carte au trésor : un parchemin roulé aux deux bouts, une côte, un chemin en pointillés jusqu'à une croix rouge.
+        "treasure_map" => { let (dx, dy) = (x - 0.5, y - 0.5); if dx.abs() > 0.36 || dy.abs() > 0.27 { return None; }
+            if dx.abs() > 0.31 { return Some((if dy.abs() > 0.24 { [0.5, 0.36, 0.2] } else { [0.72, 0.58, 0.38] }, FAT)); } // les rouleaux
+            let cross = { let (u, v) = (x - 0.64, y - 0.38); (u - v).abs() < 0.03 && u.abs() < 0.06 || (u + v).abs() < 0.03 && u.abs() < 0.06 };
+            let path = { let t = ((x - 0.24) / 0.38).clamp(0.0, 1.0); let py = 0.66 - 0.28 * t + 0.06 * (t * 9.0).sin(); (y - py).abs() < 0.018 && x > 0.24 && x < 0.6 && ((x * 30.0) as i64 & 1) == 0 };
+            let coast = (y - (0.24 + 0.05 * (x * 14.0).sin())).abs() < 0.015;
+            Some((if cross { [0.78, 0.12, 0.08] } else if path { [0.35, 0.22, 0.12] } else if coast { [0.3, 0.42, 0.5] } else if (x * 23.0 + y * 17.0).sin() > 0.93 { [0.78, 0.66, 0.46] } else { [0.9, 0.81, 0.6] }, TH)) }
         // Pièce usée : un disque de bronze terni, un cercle gravé, une effigie effacée, un éclat de lumière.
         "worn_coin" => { let r = disc(x, y, 0.5, 0.5, 0.26, 0.26); if r >= 1.0 { return None; } let ring = (r - 0.72).abs() < 0.08; let mark = disc(x, y, 0.5, 0.48, 0.09, 0.12) < 1.0;
             let glint = (x - 0.38).hypot(y - 0.36) < 0.05; Some((if glint { [0.96, 0.84, 0.5] } else if ring || mark { [0.48, 0.36, 0.16] } else { [0.7, 0.55, 0.26] }, FAT)) }

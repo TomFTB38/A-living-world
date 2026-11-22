@@ -480,7 +480,7 @@ for (const [n, h, cat, p] of [['balustrade_stone', 1.6, 'rock', { solid: true }]
   ['garden_gate', 0.6, 'wood', { solid: true }], ['flower_box', 0.5, 'wood', {}], ['awning_red', 0.4, 'wood', {}], ['awning_blue', 0.4, 'wood', {}], ['wall_lantern', 0.5, 'light', { light: 13 }],
   ['window_arched', 1.6, 'rock', { solid: true }], ['corbel', 1.6, 'rock', { solid: true }], ['stone_arch', 1.6, 'rock', { solid: true }], ['lattice_roses', 0.4, 'wood', {}],
   ['drainpipe', 0.8, 'rock', {}], ['hanging_sign', 0.6, 'wood', {}]]) turner(n, h, cat, p);
-deco('chimney_pot', 1.6, 'rock', { solid: true }); turner('shelf', 0.6, 'wood', { solid: true });
+deco('chimney_pot', 1.6, 'rock', { solid: true }); deco('cairn', 1.4, 'rock', { solid: true }); turner('shelf', 0.6, 'wood', { solid: true });
 // Le mobilier des civilisations : le désert, la côte, la montagne viking, le médiéval.
 for (const [n, h, cat, p] of [['sedari', 0.5, 'wood', { solid: true }], ['tray_table', 0.8, 'rock', { solid: true }], ['mashrabiya', 0.5, 'wood', {}], ['sea_chest', 0.8, 'wood', { solid: true }], ['ship_wheel', 0.6, 'wood', {}],
   ['fur_bench', 0.6, 'wood', { solid: true }], ['rune_chest', 0.8, 'wood', { solid: true }], ['round_shield', 0.6, 'wood', {}], ['antlers', 0.4, 'wood', {}], ['wardrobe', 0.8, 'wood', { solid: true }],

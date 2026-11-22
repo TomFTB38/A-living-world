@@ -1126,6 +1126,20 @@ fn capture(a: &[String]) {
         if scene == "epave" { s.wild.put_swim(K::Shark, at(6.0, 2.5, 1.0), s.player.yaw + 1.3, 43, 0); }
         s.tick(0.0, none, Actions::default());
     }
+    if scene == "tresor" || scene == "tresor_coffre" {
+        // Une cachette révélée par une carte au trésor : le cairn dans le paysage, la croix sur la mini-carte et la boussole ;
+        // puis le trou creusé sous le cairn et le coffre ouvert, son butin.
+        let w = WorldGen::new(SEED); s.sel = 8; s.third = false; s.player.fly = true; s.hour = 10.0; s.set_creative(false);
+        if let Some(p) = w.caches_near(0.0, 0.0, 4000.0).into_iter().next() {
+            println!("cachette : {p:?}"); let c = [p[0] as f64 + 0.5, p[1] as f64 + 3.0, p[2] as f64 + 0.5]; s.treasure_marks = vec![p];
+            let (from, to) = if scene == "tresor" { ([c[0] + 7.0, c[1] + 2.4, c[2] + 9.0], [c[0], c[1] + 0.3, c[2]]) } else { ([c[0] + 1.6, c[1] + 0.6, c[2] + 1.6], [c[0], c[1] - 3.0, c[2]]) };
+            s.player.p = from; let f = view::norm([to[0] - from[0], to[1] - from[1] - 1.6, to[2] - from[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
+            g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
+            if scene == "tresor_coffre" { let e: Vec<(i32, i32, i32, u16)> = (1..=3).map(|dy| (p[0], p[1] + dy, p[2], 0)).chain((0..=3).map(|dy| (p[0] + 1, p[1] + dy, p[2], 0))).collect(); s.world.edit_many(&e); pump(&mut s, &mut g); s.open_chest(p); }
+            for _ in 0..30 { let (q, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y; s.player.pitch = pi; }
+            pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+        }
+    }
     if scene == "cactus" {
         // Le grand cactus le plus proche du cœur du désert, vu de près.
         use alw_core::blocks::{idx, B, CH, CX}; let w = WorldGen::new(SEED); let mut core = None; 'p: for r in 8..700 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); if w.column(x, z).mix.strong(alw_core::biome::Biome::Desert) > 0.97 { core = Some(((x / 32.0).floor() as i32, (z / 32.0).floor() as i32)); break 'p; } } }

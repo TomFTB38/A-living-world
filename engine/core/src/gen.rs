@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
-const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const BONE_CELL: i32 = 96; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38; const CORAL_CELL: i32 = 17; const WRECK_CELL: i32 = 260; /** maille des lieux de surface (tour de guet, cimetière, camp de brigands) */ pub(crate) const SITE_CELL: i32 = 168;
+const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const BONE_CELL: i32 = 96; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38; const CORAL_CELL: i32 = 17; const WRECK_CELL: i32 = 260; /** une cachette de trésor (cairn sur un coffre enfoui) au plus par case de ce côté */ pub const CACHE_CELL: i32 = 180; /** maille des lieux de surface (tour de guet, cimetière, camp de brigands) */ pub(crate) const SITE_CELL: i32 = 168;
 
 #[derive(Clone, Copy, Default, Debug)]
 pub struct Column { pub mix: Mix, pub wet: bool, pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
@@ -471,10 +471,13 @@ impl WorldGen {
         for gz in fdiv(z0, SITE_CELL)..=fdiv(z1, SITE_CELL) { for gx in fdiv(x0, SITE_CELL)..=fdiv(x1, SITE_CELL) {
             if let Some(st) = self.cached(5, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
         } }
+        for gz in fdiv(z0, CACHE_CELL)..=fdiv(z1, CACHE_CELL) { for gx in fdiv(x0, CACHE_CELL)..=fdiv(x1, CACHE_CELL) {
+            if let Some(st) = self.cached(6, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
+        } }
     }
     pub(crate) fn cached(&self, kind: u8, gx: i32, gz: i32) -> Option<Rc<Stamp>> {
         if let Some(s) = self.stamps.borrow().get(&(kind, gx, gz)) { return s.clone(); }
-        let st = match kind { 0 => self.rock_stamp(gx, gz), 1 => self.tree_stamp(gx, gz), 3 => self.coral_stamp(gx, gz), 4 => self.wreck_stamp(gx, gz), 5 => self.site_stamp(gx, gz), _ => self.bone_stamp(gx, gz) }.map(Rc::new);
+        let st = match kind { 0 => self.rock_stamp(gx, gz), 1 => self.tree_stamp(gx, gz), 3 => self.coral_stamp(gx, gz), 4 => self.wreck_stamp(gx, gz), 5 => self.site_stamp(gx, gz), 6 => self.cache_stamp(gx, gz), _ => self.bone_stamp(gx, gz) }.map(Rc::new);
         let mut m = self.stamps.borrow_mut();
         if m.len() > 6000 { m.clear(); }
         m.insert((kind, gx, gz), st.clone());
@@ -591,6 +594,30 @@ impl WorldGen {
     pub fn wreck_chest(&self, p: [i32; 3]) -> bool {
         let (gx, gz) = (fdiv(p[0], WRECK_CELL), fdiv(p[2], WRECK_CELL));
         (-1..=1).any(|i| (-1..=1).any(|j| self.cached(4, gx + i, gz + j).is_some_and(|st| st.data.iter().any(|d| d[0] == p[0] && d[1] == p[1] && d[2] == p[2] && d[3] == B::CHEST as i32))))
+    }
+    /// Une cachette de trésor : un cairn de pierres sèches sur la terre ferme, loin des villages et des lieux, et deux blocs
+    /// plus bas, sous lui, un coffre enfoui. Une carte au trésor en révèle une ; on peut aussi tomber dessus en chemin.
+    fn cache_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
+        let s = self.seed; if self.flat || hash_float(gx, gz, s, 171) > 0.55 { return None; }
+        let (x, z) = (((gx as f64 + 0.2 + 0.6 * hash_float(gx, gz, s, 172)) * CACHE_CELL as f64).floor(), ((gz as f64 + 0.2 + 0.6 * hash_float(gx, gz, s, 173)) * CACHE_CELL as f64).floor());
+        let c = self.column(x, z); if c.water != 0.0 || c.wet || c.path > 0.0 || c.bank > 0.0 || c.cliff > 0.3 || c.h < SEA + 2.0 || c.h > 150.0 { return None; }
+        // sur du plat : le cairn ne pend pas au bord d'une marche
+        for (a, b) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)] { if (self.column(x + a, z + b).h.floor() - c.h.floor()).abs() > 0.0 { return None; } }
+        if !self.places_near(x, z, 48.0).is_empty() || !self.villages_near(x, z, 90.0).is_empty() { return None; }
+        let (xi, zi, y0) = (x as i32, z as i32, c.h.floor() as i32); let cairn = crate::blocks::by_name("cairn")? as i32;
+        Some(Stamp { data: vec![[xi, y0 + 1, zi, cairn], [xi, y0 - 2, zi, B::CHEST as i32]], force: true, ground: false })
+    }
+    /// Les coffres de cachette à moins de `r` blocs, du plus proche au plus lointain.
+    pub fn caches_near(&self, x: f64, z: f64, r: f64) -> Vec<[i32; 3]> {
+        if self.flat { return Vec::new(); }
+        let (g0, g1) = (fdiv((x - r) as i32, CACHE_CELL), fdiv((x + r) as i32, CACHE_CELL)); let (h0, h1) = (fdiv((z - r) as i32, CACHE_CELL), fdiv((z + r) as i32, CACHE_CELL));
+        let mut o: Vec<[i32; 3]> = Vec::new();
+        for gx in g0..=g1 { for gz in h0..=h1 { if let Some(st) = self.cached(6, gx, gz) { for d in st.data.iter().filter(|d| d[3] == B::CHEST as i32) { if ((d[0] as f64 - x).hypot(d[2] as f64 - z)) <= r { o.push([d[0], d[1], d[2]]); } } } } }
+        o.sort_by(|a, b| (a[0] as f64 - x).hypot(a[2] as f64 - z).total_cmp(&(b[0] as f64 - x).hypot(b[2] as f64 - z))); o
+    }
+    /// Le coffre d'une cachette est-il ici ?
+    pub fn cache_chest(&self, p: [i32; 3]) -> bool {
+        self.cached(6, fdiv(p[0], CACHE_CELL), fdiv(p[2], CACHE_CELL)).is_some_and(|st| st.data.iter().any(|d| d[0] == p[0] && d[1] == p[1] && d[2] == p[2] && d[3] == B::CHEST as i32))
     }
     fn bone_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
         let s = self.seed; if hash_float(gx, gz, s, 61) > 0.7 { return None; }

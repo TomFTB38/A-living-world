@@ -417,6 +417,7 @@ wall_lantern 1 | enclume | iron_ingot 1, glass 1, candle 1, !hammer 1 | decor
 window_arched 1 | taille | cut 3, glass 2, !hammer 1 | batir
 corbel 2 | taille | cut 2, !hammer 1 | batir
 chimney_pot 1 | four | brick 6, clay 2, fuel 1 | batir
+cairn 1 | main | cobblestone 4 | batir
 stone_arch 2 | taille | cut 4, !hammer 1 | batir
 lattice_roses 1 | etabli | stick 6, pink_flower 2, fiber 2 | decor
 drainpipe 4 | enclume | iron_ingot 1, !hammer 1 | batir

@@ -372,6 +372,7 @@ impl Session {
         if self.tend() { return true; } // traire, tondre, apprivoiser, seller, monter
         if self.greet() { return true; } // on parle aux villageois
         let held = self.inv[self.sel]; let hd = held.and_then(|s| def(s.item));
+        if held.is_some_and(|s| s.item == "treasure_map") { return self.read_treasure_map(); } // la carte au trésor se lit
         // Un œuf d'apparition : la créature naît sur le bloc visé (dans l'eau pour les bêtes de mer).
         if let (Some(st), Some(t)) = (held, self.target) { if st.item.starts_with("egg_") {
             if self.use_t > 0.0 { return true; } let wet = crate::blocks::is_water(t.id); let p = [t.x as f64 + 0.5, (t.y + if wet { 0 } else { 1 }) as f64, t.z as f64 + 0.5];
@@ -502,7 +503,7 @@ impl Session {
     /// Ouvre un coffre (et son voisin : un grand coffre) ; les couvercles se lèvent.
     pub fn open_chest(&mut self, p: [i32; 3]) {
         let pair = self.chest_pair(p); let (a, b) = match pair { Some(q) if q < p => (q, Some(p)), Some(q) => (p, Some(q)), None => (p, None) };
-        for c in [Some(a), b].into_iter().flatten() { if !self.chests.contains_key(&c) { let l = self.village_loot(c); self.chests.insert(c, l); }
+        for c in [Some(a), b].into_iter().flatten() { self.treasure_found(c); if !self.chests.contains_key(&c) { let l = self.village_loot(c); self.chests.insert(c, l); }
             if let Some(b) = self.world.get(c[0], c[1], c[2]).filter(|b| is_chest_shut(*b)) { if self.world.edit(c[0], c[1], c[2], chest_flip(b)) { self.lids.push(c); } } }
         self.econ_fill(a); /* la réserve du village pilote montre ses vrais stocks */
         self.chest = Some(a); self.chest2 = b; self.at_station = None; self.inv_open = true; self.sound.place("chest"); self.sound.creak();
@@ -679,6 +680,7 @@ impl Session {
         let mut fires: Vec<_> = self.fires.iter().collect(); fires.sort_by_key(|f| *f.0); for (p, t) in fires { s += &format!("fire {} {} {} {}\n", p[0], p[1], p[2], t); }
         let mut chests: Vec<_> = self.chests.iter().collect(); chests.sort_by_key(|c| *c.0);
         for (p, items) in chests { s += &format!("chest {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
+        for p in &self.treasure_marks { s += &format!("treasure {} {} {}\n", p[0], p[1], p[2]); }
         let mut shelves: Vec<_> = self.shelves.iter().collect(); shelves.sort_by_key(|c| *c.0);
         for (p, items) in shelves { s += &format!("shelf {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
         s += &self.loose_save(); s += &self.regions_save(); s += &self.pets_save(); s += &self.econ_save(); s += &self.camps_save();
@@ -739,6 +741,7 @@ impl Session {
                 Some("chest") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; let mut v = vec![None; CHEST_SIZE];
                     for c in a { let f: Vec<&str> = c.split(':').collect(); if f.len() == 4 { if let (Ok(i), Ok(n), Ok(w)) = (f[0].parse::<usize>(), f[2].parse::<f64>(), f[3].parse::<f64>()) { if i < CHEST_SIZE { v[i] = stack(f[1], n, w); } } } }
                     self.chests.insert(p, v); }
+                Some("treasure") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; if !self.treasure_marks.contains(&p) { self.treasure_marks.push(p); } }
                 Some("shelf") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; let mut v = vec![None; 6];
                     for c in a { let f: Vec<&str> = c.split(':').collect(); if f.len() == 4 { if let (Ok(i), Ok(n), Ok(w)) = (f[0].parse::<usize>(), f[2].parse::<f64>(), f[3].parse::<f64>()) { if i < 6 { v[i] = stack(f[1], n, w); } } } }
                     self.shelves.insert(p, v); }

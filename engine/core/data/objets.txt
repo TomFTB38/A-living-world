@@ -378,6 +378,7 @@ wall_lantern | Lanterne murale | decor | 1.0 | 16 | Une lanterne à quatre vitre
 window_arched | Fenêtre cintrée | batir | 6.0 | 16 | Un encadrement de pierre en plein cintre et son vitrail au plomb. |
 corbel | Console de pierre | batir | 5.0 | 16 | Trois ressauts de pierre sous un balcon, une poutre, un encorbellement. |
 chimney_pot | Souche de cheminée | batir | 9.0 | 16 | Un fût de brique coiffé de deux mitrons de terre cuite, à poser au faîte du toit. |
+cairn | Cairn | batir | 12.0 | 16 | Un tas de pierres sèches empilées, que les voyageurs dressent pour marquer un lieu… ou un trésor enfoui. |
 stone_arch | Arc de pierre | batir | 8.0 | 16 | Des claveaux en plein cintre et leur clé : au-dessus d'une porte, d'une arcade. |
 lattice_roses | Treillis fleuri | decor | 1.5 | 16 | Un treillis en losanges contre le mur, et le rosier grimpant qui s'y accroche. |
 drainpipe | Descente d'eau | batir | 1.5 | 32 | Un tuyau de zinc à colliers, du chéneau jusqu'au sol. |
@@ -533,6 +534,7 @@ beast_fang | Croc de bête | matieres | 0.04 | 64 | Long et tranchant : une bonn
 chitin_plate | Plaque de chitine | matieres | 0.15 | 64 | La carapace d'un rampant nocturne, légère et dure. |
 chitin_vest | Carapace de chitine | habits | 2.2 | 1 | Des plaques de chitine chevauchées sur du cuir, épines d'os le long du dos. | porte=torse armure=6 chaud=1
 worn_coin | Pièce usée | matieres | 0.01 | 99 | Une vieille pièce au profil effacé, trouvée sur un rôdeur. Les villageois la prennent encore en échange. |
+treasure_map | Carte au trésor | matieres | 0.05 | 1 | Un vieux parchemin taché : une côte, un chemin en pointillés, une croix rouge. Clic droit pour la lire : la croix s'inscrit sur votre carte. Cherchez le cairn, creusez dessous. |
 
 # Œufs d'apparition (mode créatif) : clic droit sur un bloc pour faire naître la créature.
 egg_rodeur | Œuf : rôdeur décharné | oeufs | 0.1 | 64 | Clic droit sur un bloc pour y faire apparaître : rôdeur décharné. Pour essayer les créatures en créatif. |
