@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_barque plat_barque_cote
+spawn jeu plat_machine plat_machine_sol

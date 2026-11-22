@@ -761,6 +761,22 @@ fn capture(a: &[String]) {
         s.boats[0].pull = [1.0; 2];
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // La machine volante : en vol au-dessus de la plaine, ailes battantes (vue de dos) ; puis posée au sol, vue de côté.
+    if scene == "plat_machine" || scene == "plat_machine_sol" {
+        let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.set_creative(true); s.skip_guide(); s.hour = 10.5; s.sel = 8;
+        let y = o[1] as f64 + 1.0; pump(&mut s, &mut g);
+        if scene == "plat_machine" {
+            let mut f = alw_core::machine::Flyer::new([o[0] as f64 + 0.5, y + 14.0, o[2] as f64 - 10.0], 0.35); f.ground = false; f.v = 10.0; s.flyers = vec![f]; s.flyer = Some(0); s.third = true;
+            s.player.p = [f.p[0], f.p[1] + 0.42, f.p[2]]; s.player.yaw = 0.35; s.player.pitch = -0.28;
+            let flap = Input { z: 1.0, jump: true, ..none }; for _ in 0..52 { let (y0, pi) = (s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, flap, Actions::default()); s.player.yaw = y0; s.player.pitch = pi; s.vit = [100.0; 3]; }
+        } else {
+            s.flyers = vec![alw_core::machine::Flyer::new([o[0] as f64 + 0.5, y, o[2] as f64 + 4.0], 1.2)]; s.third = false; s.player.fly = true;
+            let (eye, look) = ([o[0] as f64 - 3.5, y + 1.9, o[2] as f64 - 1.5], [o[0] as f64 + 0.5, y + 0.9, o[2] as f64 + 4.0]); s.player.p = [eye[0], eye[1] - 1.6, eye[2]];
+            let d = view::norm([look[0] - eye[0], look[1] - eye[1], look[2] - eye[2]]); s.player.yaw = d[0].atan2(d[2]); s.player.pitch = d[1].asin();
+            for _ in 0..30 { let (q, y0, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y0; s.player.pitch = pi; }
+        }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     // Le mobilier dont on se sert : une pièce avec une étagère et une table garnies d'objets posés, une armoire, des chaises ; le
     // joueur assis (vu de dehors).
     if let Some(vw) = scene.strip_prefix("plat_mobilier_") {

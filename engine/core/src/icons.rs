@@ -204,6 +204,13 @@ pub fn look(name: &str, x: f64, y: f64) -> Option<(C, f64)> {
         // Plaque de chitine : un écusson sombre et luisant, en segments, un reflet violet.
         "chitin_plate" => { let (dx, dy) = ((x - 0.5).abs(), y - 0.5); if dx > 0.32 - (dy.abs() * 0.4) || dy.abs() > 0.3 { return None; } let seg = ((y * 7.0).fract() < 0.12) as i32;
             let gl = (dx < 0.12 && dy < -0.05) as i32 as f64; Some((if seg == 1 { [0.06, 0.05, 0.08] } else { [0.2 + 0.2 * gl, 0.14 + 0.12 * gl, 0.26 + 0.25 * gl] }, FAT)) }
+        // Machine volante : deux ailes de toile en arc, leurs nervures sombres, le berceau de bois au milieu.
+        "flying_machine" => { let (dx, dy) = (x - 0.5, y - 0.5); let ax = dx.abs();
+            if ax < 0.09 && dy > -0.05 && dy < 0.3 { return Some(([0.47, 0.33, 0.18], FAT)); } // le berceau
+            let top = -0.12 - 0.16 * (ax / 0.46).powi(2) + 0.08 * (ax / 0.46); let bot = top + 0.3 * (1.0 - (ax / 0.46).powi(2)) + 0.02;
+            if ax > 0.46 || dy < top || dy > bot { return None; }
+            if (dy - top) < 0.03 || ((ax * 14.0).fract() < 0.12) { return Some(([0.3, 0.2, 0.11], TH)); }
+            Some((if (ax * 7.0) as i64 % 2 == 0 { [0.88, 0.82, 0.67] } else { [0.8, 0.73, 0.58] }, TH)) }
         // Barque : une coque de bois vue de côté, son plat-bord sombre, une rame en travers.
         "boat" => { let (dx, dy) = (x - 0.5, y - 0.6); let oar = { let t = (x - 0.2) / 0.62; (0.0..=1.0).contains(&t) && (y - (0.22 + 0.5 * t)).abs() < (if t > 0.78 { 0.06 } else { 0.022 }) };
             let hull = dy > -0.1 && dy < 0.16 && dx.abs() < 0.42 - (dy + 0.1) * 0.9 * (dx.signum() * 0.0 + 1.0) * 0.6;

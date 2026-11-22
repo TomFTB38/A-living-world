@@ -54,7 +54,7 @@ impl Session {
     /// Le clic droit : poser une barque sur l'eau, monter dans celle qu'on vise, ou (accroupi) la ranger. Rend `Some` si
     /// la barque a pris le clic.
     pub fn boat_click(&mut self) -> Option<bool> {
-        if self.boat.is_some() || self.use_t > 0.0 { return None; }
+        if self.boat.is_some() || self.flyer.is_some() || self.use_t > 0.0 { return None; }
         let (o, d) = (self.eye, self.look);
         // la barque visée, la plus proche, avant le bloc visé
         let block = self.target.map(|t| ((t.x as f64 + 0.5 - o[0]).powi(2) + (t.y as f64 + 0.5 - o[1]).powi(2) + (t.z as f64 + 0.5 - o[2]).powi(2)).sqrt()).unwrap_or(f64::INFINITY);
@@ -62,7 +62,7 @@ impl Session {
         if let Some((k, _)) = hit {
             self.use_t = 0.4;
             if self.player.crouch { let bt = self.boats.remove(k); if self.add_item("boat", 1) > 0 { self.spill("boat", 1, bt.p); } self.notes.push("La barque est rangée dans votre sac".into()); self.dirty = true; return Some(true); }
-            self.boat = Some(k); self.boats[k].v = 0.0; self.ride = None; self.seated = None; self.notes.push("Dans la barque : avancez pour ramer, gauche et droite pour virer, accroupi pour descendre".into()); return Some(true);
+            self.boat = Some(k); self.boats[k].v = 0.0; self.ride = None; self.seated = None; let q = self.boats[k].p; self.player.p = [q[0], q[1] - 0.2, q[2]]; self.player.v = [0.0; 3]; self.notes.push("Dans la barque : avancez pour ramer, gauche et droite pour virer, accroupi pour descendre".into()); return Some(true);
         }
         if self.inv[self.sel].map(|s| s.item) != Some("boat") { return None; }
         // poser : la première eau libre sous le regard, à six mètres au plus
