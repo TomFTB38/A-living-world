@@ -1126,13 +1126,13 @@ fn capture(a: &[String]) {
         if scene == "epave" { s.wild.put_swim(K::Shark, at(6.0, 2.5, 1.0), s.player.yaw + 1.3, 43, 0); }
         s.tick(0.0, none, Actions::default());
     }
-    if scene == "tresor" || scene == "tresor_coffre" {
+    if scene == "tresor" || scene == "tresor_coffre" || scene == "tresor_loin" {
         // Une cachette révélée par une carte au trésor : le cairn dans le paysage, la croix sur la mini-carte et la boussole ;
         // puis le trou creusé sous le cairn et le coffre ouvert, son butin.
         let w = WorldGen::new(SEED); s.sel = 8; s.third = false; s.player.fly = true; s.hour = 12.5; s.set_creative(false); s.skip_guide();
         if let Some(p) = w.caches_near(0.0, 0.0, 4000.0).into_iter().next() {
             println!("cachette : {p:?}"); let c = [p[0] as f64 + 0.5, p[1] as f64 + 3.0, p[2] as f64 + 0.5]; s.treasure_marks = vec![p];
-            let (from, to) = if scene == "tresor" { ([c[0] + 2.6, c[1] + 0.9, c[2] + 3.4], [c[0], c[1] + 0.2, c[2]]) } else { ([c[0] + 2.4, c[1] + 0.2, c[2] + 2.6], [c[0], c[1] - 3.0, c[2]]) };
+            let (from, to) = if scene == "tresor" { ([c[0] + 2.6, c[1] + 0.9, c[2] + 3.4], [c[0], c[1] + 0.2, c[2]]) } else if scene == "tresor_loin" { ([c[0] - 24.0, c[1] + 2.0, c[2] + 18.0], [c[0] - 4.0, c[1] + 1.0, c[2] + 40.0]) } else { ([c[0] + 2.4, c[1] + 0.2, c[2] + 2.6], [c[0], c[1] - 3.0, c[2]]) };
             s.player.p = from; let f = view::norm([to[0] - from[0], to[1] - from[1] - 1.6, to[2] - from[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
             g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
             if scene == "tresor_coffre" { let mut e: Vec<(i32, i32, i32, u16)> = Vec::new(); for dx in -1..=1i32 { for dz in -1..=1i32 { for dy in 0..=5 { if (dx, dz, dy) != (0, 0, 0) && (dy > 0 || dx.abs() + dz.abs() < 2) { e.push((p[0] + dx, p[1] + dy, p[2] + dz, 0)); } } } } s.world.edit_many(&e); pump(&mut s, &mut g); }
