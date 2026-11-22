@@ -37,7 +37,7 @@ pub fn palette() -> &'static [[u8; 3]; BLOCKS.len()] {
         p
     })
 }
-fn pack(c: [u8; 3], h: i32) -> u32 { (c[0] as u32) << 24 | (c[1] as u32) << 16 | ((c[2] | 1) as u32) << 8 | h.clamp(0, 255) as u32 }
+pub(crate) fn pack(c: [u8; 3], h: i32) -> u32 { (c[0] as u32) << 24 | (c[1] as u32) << 16 | ((c[2] | 1) as u32) << 8 | h.clamp(0, 255) as u32 }
 /// Un pixel découvert : sa couleur et la hauteur du dessus.
 pub fn unpack(v: u32) -> Option<([u8; 3], u8)> { (v != 0).then_some(([(v >> 24) as u8, (v >> 16) as u8, (v >> 8) as u8], v as u8)) }
 
@@ -47,7 +47,7 @@ impl Atlas {
         let (r, l) = ((px.div_euclid(REGION), pz.div_euclid(REGION)), (px.rem_euclid(REGION) + pz.rem_euclid(REGION) * REGION) as usize);
         self.regions.get(&r).map_or(0, |v| v[l])
     }
-    fn set(&mut self, px: i32, pz: i32, v: u32) {
+    pub(crate) fn set(&mut self, px: i32, pz: i32, v: u32) {
         let (r, l) = ((px.div_euclid(REGION), pz.div_euclid(REGION)), (px.rem_euclid(REGION) + pz.rem_euclid(REGION) * REGION) as usize);
         self.regions.entry(r).or_insert_with(|| vec![0; (REGION * REGION) as usize])[l] = v;
     }

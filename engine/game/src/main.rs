@@ -1171,6 +1171,20 @@ fn capture(a: &[String]) {
         if scene == "epave" { s.wild.put_swim(K::Shark, at(6.0, 2.5, 1.0), s.player.yaw + 1.3, 43, 0); }
         s.tick(0.0, none, Actions::default());
     }
+    if scene == "panorama" || scene == "panorama_carte" {
+        // Un point de vue : debout sur le belvédère, le pays à perte de vue ; puis la carte, dessinée à 250 m à la ronde.
+        let w = WorldGen::new(SEED); s.sel = 8; s.third = false; s.hour = 9.5; s.set_creative(false); s.skip_guide();
+        if let Some((cell, top)) = w.viewpoints_near(0.0, 0.0, 5000.0).into_iter().next() {
+            println!("point de vue : {cell:?} {top:?}"); s.player.p = [top[0] as f64 + 0.5, top[1] as f64 + 1.0, top[2] as f64 + 0.5];
+            // regarder vers le plus bas des alentours : là où la vue porte le plus loin
+            let mut best = (f64::MAX, 0.0); for k in 0..16 { let a = k as f64 / 16.0 * std::f64::consts::TAU; let h = w.column(top[0] as f64 + 120.0 * a.sin(), top[2] as f64 + 120.0 * a.cos()).h; if h < best.0 { best = (h, a); } }
+            s.player.yaw = best.1 + 0.35; s.player.pitch = -0.12;
+            g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
+            for _ in 0..30 { let (y0, pi) = (s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.yaw = y0; s.player.pitch = pi; }
+            if scene == "panorama_carte" { s.map.open = true; s.map.anim = 1.0; s.map.zoom = 1; }
+            pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+        }
+    }
     if scene == "tresor" || scene == "tresor_coffre" || scene == "tresor_loin" {
         // Une cachette révélée par une carte au trésor : le cairn dans le paysage, la croix sur la mini-carte et la boussole ;
         // puis le trou creusé sous le cairn et le coffre ouvert, son butin.

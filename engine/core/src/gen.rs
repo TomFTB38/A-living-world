@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
-const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const BONE_CELL: i32 = 96; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38; const CORAL_CELL: i32 = 17; const WRECK_CELL: i32 = 260; /** une cachette de trésor (cairn sur un coffre enfoui) au plus par case de ce côté */ pub const CACHE_CELL: i32 = 180; /** maille des lieux de surface (tour de guet, cimetière, camp de brigands) */ pub(crate) const SITE_CELL: i32 = 168;
+const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const BONE_CELL: i32 = 96; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38; const CORAL_CELL: i32 = 17; const WRECK_CELL: i32 = 260; /** une cachette de trésor (cairn sur un coffre enfoui) au plus par case de ce côté */ pub const CACHE_CELL: i32 = 180; /** un point de vue (belvédère sur un sommet) au plus par case de ce côté */ pub const VIEW_CELL: i32 = 420; /** maille des lieux de surface (tour de guet, cimetière, camp de brigands) */ pub(crate) const SITE_CELL: i32 = 168;
 
 #[derive(Clone, Copy, Default, Debug)]
 pub struct Column { pub mix: Mix, pub wet: bool, pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
@@ -474,10 +474,13 @@ impl WorldGen {
         for gz in fdiv(z0, CACHE_CELL)..=fdiv(z1, CACHE_CELL) { for gx in fdiv(x0, CACHE_CELL)..=fdiv(x1, CACHE_CELL) {
             if let Some(st) = self.cached(6, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
         } }
+        for gz in fdiv(z0, VIEW_CELL)..=fdiv(z1, VIEW_CELL) { for gx in fdiv(x0, VIEW_CELL)..=fdiv(x1, VIEW_CELL) {
+            if let Some(st) = self.cached(7, gx, gz) { Self::apply(&st, v, ox, oz, heights); }
+        } }
     }
     pub(crate) fn cached(&self, kind: u8, gx: i32, gz: i32) -> Option<Rc<Stamp>> {
         if let Some(s) = self.stamps.borrow().get(&(kind, gx, gz)) { return s.clone(); }
-        let st = match kind { 0 => self.rock_stamp(gx, gz), 1 => self.tree_stamp(gx, gz), 3 => self.coral_stamp(gx, gz), 4 => self.wreck_stamp(gx, gz), 5 => self.site_stamp(gx, gz), 6 => self.cache_stamp(gx, gz), _ => self.bone_stamp(gx, gz) }.map(Rc::new);
+        let st = match kind { 0 => self.rock_stamp(gx, gz), 1 => self.tree_stamp(gx, gz), 3 => self.coral_stamp(gx, gz), 4 => self.wreck_stamp(gx, gz), 5 => self.site_stamp(gx, gz), 6 => self.cache_stamp(gx, gz), 7 => self.view_stamp(gx, gz), _ => self.bone_stamp(gx, gz) }.map(Rc::new);
         let mut m = self.stamps.borrow_mut();
         if m.len() > 6000 { m.clear(); }
         m.insert((kind, gx, gz), st.clone());
@@ -606,6 +609,32 @@ impl WorldGen {
         if !self.places_near(x, z, 48.0).is_empty() || !self.villages_near(x, z, 90.0).is_empty() { return None; }
         let (xi, zi, y0) = (x as i32, z as i32, c.h.floor() as i32); let cairn = crate::blocks::by_name("cairn")? as i32;
         Some(Stamp { data: vec![[xi, y0 + 1, zi, cairn], [xi, y0 - 2, zi, B::CHEST as i32]], force: true, ground: false })
+    }
+    /// Le sommet d'un point de vue dans cette case : la plus haute de 81 colonnes de la case, si elle domine nettement ses
+    /// alentours (18 blocs au-dessus de la moyenne de la case), au sec, loin des villages et des lieux. (x, y du dallage, z).
+    pub fn viewpoint(&self, gx: i32, gz: i32) -> Option<[i32; 3]> {
+        if self.flat { return None; } let s = self.seed; if hash_float(gx, gz, s, 181) > 0.55 { return None; }
+        let (mut best, mut sum) = ((f64::MIN, 0.0, 0.0), 0.0);
+        for i in 0..9 { for j in 0..9 { let (x, z) = ((gx as f64 + (i as f64 + 0.5) / 9.0) * VIEW_CELL as f64, (gz as f64 + (j as f64 + 0.5) / 9.0) * VIEW_CELL as f64);
+            let c = self.column(x, z); let h = if c.water != 0.0 { SEA } else { c.h }; sum += h; if h > best.0 { best = (h, x, z); } } }
+        let (mut h, mut x, mut z) = best; if h - sum / 81.0 < 22.0 || h < SEA + 25.0 { return None; }
+        // affiner : le point le plus haut autour, au bloc près
+        for _ in 0..3 { let mut b = (h, x, z); for dx in -4..=4 { for dz in -4..=4 { let (qx, qz) = (x + dx as f64 * 3.0, z + dz as f64 * 3.0); let c = self.column(qx, qz); if c.water == 0.0 && c.h > b.0 { b = (c.h, qx, qz); } } } (h, x, z) = b; }
+        let c = self.column(x, z); if c.water != 0.0 || c.wet || h > 200.0 { return None; }
+        if !self.places_near(x, z, 40.0).is_empty() || !self.villages_near(x, z, 70.0).is_empty() { return None; }
+        Some([x.floor() as i32, h.floor() as i32, z.floor() as i32])
+    }
+    /// Le belvédère : un dallage de pierre de 3 × 3 au sommet, et dans un coin un mât de trois poteaux sous un drapeau.
+    fn view_stamp(&self, gx: i32, gz: i32) -> Option<Stamp> {
+        let p = self.viewpoint(gx, gz)?; let (slab, post, flag) = (crate::blocks::by_name("stone_bricks")? as i32, crate::blocks::by_name("fence")? as i32, crate::blocks::by_name("flag")? as i32);
+        let mut d = Vec::new(); for dx in -1..=1 { for dz in -1..=1 { d.push([p[0] + dx, p[1], p[2] + dz, slab]); for dy in 1..=3 { if (dx, dz) != (1, 1) { d.push([p[0] + dx, p[1] + dy, p[2] + dz, -1]); } /* dégagé : herbes, branches */ } } }
+        for dy in 1..=3 { d.push([p[0] + 1, p[1] + dy, p[2] + 1, post]); } d.push([p[0] + 1, p[1] + 4, p[2] + 1, flag]);
+        Some(Stamp { data: d, force: true, ground: false })
+    }
+    /// Les points de vue à moins de `r` blocs : (case, sommet).
+    pub fn viewpoints_near(&self, x: f64, z: f64, r: f64) -> Vec<((i32, i32), [i32; 3])> {
+        let (g0, g1, h0, h1) = (fdiv((x - r) as i32, VIEW_CELL), fdiv((x + r) as i32, VIEW_CELL), fdiv((z - r) as i32, VIEW_CELL), fdiv((z + r) as i32, VIEW_CELL)); let mut o = Vec::new();
+        for gx in g0..=g1 { for gz in h0..=h1 { if let Some(st) = self.cached(7, gx, gz) { let q = st.data[0]; let p = [q[0] + 1, q[1], q[2] + 1]; /* le dallage commence au coin -1, -1 */ if (p[0] as f64 - x).hypot(p[2] as f64 - z) <= r { o.push(((gx, gz), p)); } } } } o
     }
     /// Les coffres de cachette à moins de `r` blocs, du plus proche au plus lointain.
     pub fn caches_near(&self, x: f64, z: f64, r: f64) -> Vec<[i32; 3]> {

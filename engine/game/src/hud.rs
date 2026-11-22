@@ -755,6 +755,7 @@ impl Ui {
             else if m { let p = to(dx / d * (R_BLOCKS - 5.0), dz / d * (R_BLOCKS - 5.0)); self.diamond(p[0], p[1], 6.5 * k, [0.1, 0.08, 0.05, 0.95]); self.diamond(p[0], p[1], 4.5 * k, GOLD); }
         }
         for st in &s.stashes { let (dx, dz) = (st.p[0] - me[0], st.p[2] - me[1]); if dx.hypot(dz) < R_BLOCKS - 3.0 { let p = to(dx, dz); self.diamond(p[0], p[1], 5.0 * k, BAD); } }
+        for (q, done) in s.known_views(R_BLOCKS) { let (dx, dz) = (q[0] - me[0], q[2] - me[1]); if dx.hypot(dz) < R_BLOCKS - 3.0 { let p = to(dx, dz); self.diamond(p[0], p[1], 5.0 * k, if done { [0.95, 0.75, 0.2, 1.0] } else { [0.85, 0.85, 0.85, 1.0] }); } }
         // Les trésors marqués par une carte : une croix rouge ; hors de portée, au bord, dans leur direction.
         for t in s.treasure_targets() { let (dx, dz) = (t[0] - me[0], t[2] - me[1]); let d = dx.hypot(dz); let p = if d < R_BLOCKS - 4.0 { to(dx, dz) } else { to(dx / d * (R_BLOCKS - 5.0), dz / d * (R_BLOCKS - 5.0)) };
             self.cross(p[0], p[1], 6.0 * k, 2.6 * k, [0.12, 0.06, 0.03, 0.95]); self.cross(p[0], p[1], 5.0 * k, 1.4 * k, [0.92, 0.18, 0.1, 1.0]); }
@@ -796,6 +797,9 @@ impl Ui {
             self.diamond(p[0], p[1], 8.0 * k, [0.22, 0.15, 0.08, t2]); self.diamond(p[0], p[1], 5.5 * k, if m { [0.95, 0.75, 0.2, t2] } else { [0.95, 0.9, 0.78, t2] });
             self.text(&v.name, p[0] - Ui::text_width(&v.name, z) * 0.5, p[1] + 9.0 * k, z, ink);
         } }
+        // les lieux repérés, et les points de vue (dorés une fois faits)
+        for (q, name) in s.known_places(2000.0) { if let Some(p) = Ui::on_map(inner, me, cell, px, q) { self.diamond(p[0], p[1], 5.0 * k, [0.25, 0.16, 0.1, t2]); self.text(name, p[0] + 8.0 * k, p[1] - 7.0 * k, z * 0.85, ink); } }
+        for (q, done) in s.known_views(2000.0) { if let Some(p) = Ui::on_map(inner, me, cell, px, [q[0], q[2]]) { self.diamond(p[0], p[1], 7.0 * k, [0.15, 0.1, 0.05, t2]); self.diamond(p[0], p[1], 5.0 * k, if done { [0.95, 0.75, 0.2, t2] } else { [0.7, 0.7, 0.7, t2] }); if !done { self.text("Point de vue", p[0] + 9.0 * k, p[1] - 7.0 * k, z * 0.85, ink); } } }
         for t in s.treasure_targets() { if let Some(p) = Ui::on_map(inner, me, cell, px, [t[0], t[2]]) { self.cross(p[0], p[1], 9.0 * k, 2.4 * k, [0.75, 0.12, 0.08, t2]); self.text("Trésor", p[0] + 11.0 * k, p[1] - 8.0 * k, z, ink); } }
         for st in &s.stashes { if let Some(p) = Ui::on_map(inner, me, cell, px, [st.p[0], st.p[2]]) { self.diamond(p[0], p[1], 6.0 * k, [0.75, 0.15, 0.1, t2]); self.text("Dépouille", p[0] + 8.0 * k, p[1] - 8.0 * k, z, ink); } }
         if let Some(c) = Ui::on_map(inner, me, cell, px, you) { self.arrow(c, s.player.yaw, 13.0 * k, [0.22, 0.15, 0.08, t2]); self.arrow(c, s.player.yaw, 9.0 * k, [1.0, 1.0, 1.0, t2]); }
@@ -863,6 +867,8 @@ impl Ui {
         if s.dead.is_none() && !menu.open && !s.inv_open && s.town.talk.is_none() && s.map.anim <= 0.0 { u.minimap(s, w, k); }
         if menu.tips && !menu.open && info.is_empty() && s.dead.is_none() && !s.inv_open && s.town.talk.is_none() && s.map.anim <= 0.0 { u.hint(s, k); }
         if let (Some(v), None) = (s.marked_village(), &s.dead) { let c = [v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5]; u.pin(s, c, &v.name, [0.55, 0.75, 0.95, 0.9], w, k); }
+        // Le point de vue aperçu le plus proche qui reste à faire.
+        if s.dead.is_none() { let me = s.player.p; if let Some((q, _)) = s.known_views(alw_core::panoramas::VIEW_PIN).into_iter().filter(|v| !v.1).min_by(|a, b| (a.0[0] - me[0]).hypot(a.0[2] - me[2]).total_cmp(&(b.0[0] - me[0]).hypot(b.0[2] - me[2]))) { u.pin(s, [q[0], q[2]], "Point de vue", [0.95, 0.78, 0.3, 0.9], w, k); } }
         // Le trésor marqué le plus proche, sur l'arc de la boussole.
         if s.dead.is_none() { let me = s.player.p; if let Some(t) = s.treasure_targets().into_iter().min_by(|a, b| (a[0] - me[0]).hypot(a[2] - me[2]).total_cmp(&(b[0] - me[0]).hypot(b[2] - me[2]))) { u.pin(s, [t[0], t[2]], "Trésor", [0.92, 0.25, 0.14, 0.95], w, k); } }
         // Un villageois sous le réticule : on peut lui parler.

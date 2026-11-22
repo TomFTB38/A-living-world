@@ -682,6 +682,7 @@ impl Session {
         let mut chests: Vec<_> = self.chests.iter().collect(); chests.sort_by_key(|c| *c.0);
         for (p, items) in chests { s += &format!("chest {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
         s += &self.boats_save(); s += &self.flyers_save();
+        for v in &self.views { s += &format!("view {} {}\n", v.0, v.1); }
         for p in &self.treasure_marks { s += &format!("treasure {} {} {}\n", p[0], p[1], p[2]); }
         let mut shelves: Vec<_> = self.shelves.iter().collect(); shelves.sort_by_key(|c| *c.0);
         for (p, items) in shelves { s += &format!("shelf {} {} {}", p[0], p[1], p[2]); for (i, v) in items.iter().enumerate() { if let Some(v) = v { s += &format!(" {i}:{}:{}:{}", v.item, v.n.map_or(-1, |n| n as i64), v.wear); } } s.push('\n'); }
@@ -745,6 +746,7 @@ impl Session {
                     self.chests.insert(p, v); }
                 Some("flyer") => { let (x, y, z, w) = (num(a.next())?, num(a.next())?, num(a.next())?, num(a.next())?); self.flyers.push(crate::machine::Flyer::new([x, y, z], w)); }
                 Some("boat") => { let (x, y, z, w) = (num(a.next())?, num(a.next())?, num(a.next())?, num(a.next())?); self.boats.push(crate::bateaux::Boat::new([x, y, z], w)); }
+                Some("view") => { let c = (num(a.next())? as i32, num(a.next())? as i32); self.views.insert(c); }
                 Some("treasure") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; if !self.treasure_marks.contains(&p) { self.treasure_marks.push(p); } }
                 Some("shelf") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; let mut v = vec![None; 6];
                     for c in a { let f: Vec<&str> = c.split(':').collect(); if f.len() == 4 { if let (Ok(i), Ok(n), Ok(w)) = (f[0].parse::<usize>(), f[2].parse::<f64>(), f[3].parse::<f64>()) { if i < 6 { v[i] = stack(f[1], n, w); } } } }

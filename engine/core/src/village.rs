@@ -857,7 +857,7 @@ impl Session {
         if self.world.get(low[0], low[1] + 1, low[2]).and_then(crate::shapes::info).is_some_and(|u| u.kind == crate::shapes::Kind::Door) { e.push((low[0], low[1] + 1, low[2], variant(i.base, i.facing, false, open, true))); }
         self.world.edit_many(&e); self.sound.place("planks");
     }
-    fn discover(&mut self, v: &Village) { if !self.town.known.contains(&v.id) { self.town.known.push(v.id); } self.town.atlas.insert(v.id, v.clone()); self.dirty = true; }
+    pub(crate) fn discover(&mut self, v: &Village) { if !self.town.known.contains(&v.id) { self.town.known.push(v.id); } self.town.atlas.insert(v.id, v.clone()); self.dirty = true; }
     /// Le villageois sous le réticule, à portée de voix et devant le bloc visé.
     pub fn aim_folk(&self) -> Option<usize> {
         let (o, d) = (self.eye, self.look); let block_t = if self.target.is_some() { self.ray_t } else { f64::INFINITY }; let head = self.player.eye();
