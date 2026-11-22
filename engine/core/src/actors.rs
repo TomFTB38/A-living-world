@@ -343,7 +343,7 @@ impl Models {
 #[derive(Clone, Copy, Debug)] pub struct Draw { pub m: M4, pub r: Range, pub view: bool, pub local: bool, pub hero: bool, pub dynamic: bool, /** coup reçu, de 0 à 1 : la bête rougit */ pub hurt: f32 }
 pub(crate) fn hold_m(h: Hold) -> M4 { match h { Hold::Tool => mul(&trs(0.0, -0.58, 0.02, -std::f64::consts::FRAC_PI_2, 0.0, 1.0), &roll_z(-std::f64::consts::FRAC_PI_4)), Hold::Block => trs(-0.14, -0.76, -0.14, 0.0, 0.0, 0.28), Hold::Deco => trs(-0.28, -0.72, -0.1, 0.0, 0.0, 0.55) } }
 #[derive(Default, Clone, Copy)] pub struct AnimIn { pub speed: f64, pub ground: bool, pub vy: f64, pub crouch: bool, /** en selle : assis, jambes de part et d'autre */ pub seated: bool, pub fly: bool, pub mining: bool, pub guard: bool }
-#[derive(Default)] pub struct Anim { /** ouvrage à l'atelier : (atelier, temps du geste de 0 à 1) */ pub work: Option<(u8, f64)>, /** arc bandé, de 0 à 1 */ pub bow: f64, phase: f64, walk: f64, run: f64, low: f64, sit: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64, /** garde levée, de 0 à 1 */ pub guard: f64 }
+#[derive(Default)] pub struct Anim { /** à la rame : coup de rame (gauche, droite) et engagement (gauche, droite), voir `bateaux::oar_pose` */ pub row: Option<[f64; 4]>, /** ouvrage à l'atelier : (atelier, temps du geste de 0 à 1) */ pub work: Option<(u8, f64)>, /** arc bandé, de 0 à 1 */ pub bow: f64, phase: f64, walk: f64, run: f64, low: f64, sit: f64, air: f64, rise: f64, pub swing: f64, punch: f64, landed: f64, /** garde levée, de 0 à 1 */ pub guard: f64 }
 impl Anim {
     pub fn update(&mut self, dt: f64, s: AnimIn) {
         let ease = |c: f64, t: f64, k: f64| c + (t - c) * (dt * k).min(1.0); let was = self.air;
@@ -377,8 +377,13 @@ impl Anim {
         if bb > 0.0 { arm_l += (-1.55 - arm_l) * bb; elbow_l += (-0.08 - elbow_l) * bb; arm_r += (-1.62 - arm_r) * bb; elbow_r += (-2.25 - elbow_r) * bb; }
         // En selle : cuisses écartées qui serrent les flancs, genoux pliés, pieds ramenés sous le ventre de la monture.
         let sit = self.sit; for (h, k) in [(&mut hip_l, &mut knee_l), (&mut hip_r, &mut knee_r)] { *h += (-0.75 - *h) * sit; *k += (1.05 - *k) * sit; }
+        // À la rame (face à l'avant, on pousse) : à l'attaque, pale devant, la poignée est contre la poitrine, coudes pliés ;
+        // en poussant, les bras se tendent vers l'avant, le buste suit un peu.
+        let mut row_lean = 0.0;
+        if let Some(r) = self.row { for (arm, elbow, ph, k) in [(&mut arm_l, &mut elbow_l, r[0], r[2]), (&mut arm_r, &mut elbow_r, r[1], r[3])] {
+            let u = 0.5 - 0.5 * cos(ph); let k = k.clamp(0.0, 1.0); *arm += (-0.55 - 0.75 * u - *arm) * k; *elbow += (-1.45 + 1.15 * u - *elbow) * k; row_lean += 0.06 * (u - 0.5) * k; } }
         let g = self.guard; arm_l += (-1.25 - arm_l) * g; elbow_l += (-1.35 - elbow_l) * g; // garde : l'avant-bras gauche et le bouclier devant la poitrine
-        let mut hip_y = 0.8 + c.abs() * 0.05 * w * ground - 0.27 * low - 0.15 * land + 0.03 * a; let mut lean = 0.05 * w + 0.26 * run + 0.46 * low + 0.16 * land - 0.08 * a * rise; let mut base = mul(&trs(p[0], p[1], p[2], yaw, 0.0, 1.0), &BULK);
+        let mut hip_y = 0.8 + c.abs() * 0.05 * w * ground - 0.27 * low - 0.15 * land + 0.03 * a; let mut lean = 0.05 * w + 0.26 * run + 0.46 * low + 0.16 * land - 0.08 * a * rise + row_lean; let mut base = mul(&trs(p[0], p[1], p[2], yaw, 0.0, 1.0), &BULK);
         if let Some((t, d)) = roll {
             // Roulade : le corps se ramasse, puis tourne d'un tour complet autour de son centre, dans le sens de la fuite.
             let tuck = (t * 6.0).min(1.0).min((1.0 - t) * 6.0); let e = t * t * (3.0 - 2.0 * t); let mix = |x: f64, y: f64| x + (y - x) * tuck;

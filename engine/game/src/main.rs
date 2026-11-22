@@ -748,14 +748,17 @@ fn capture(a: &[String]) {
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
     // Les barques : un lac, une barque vide amarrée près de la berge, et le joueur qui rame dans l'autre (vu de dos).
-    if scene == "plat_barque" {
+    if scene == "plat_barque" || scene == "plat_barque_cote" {
         let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.set_creative(false); s.skip_guide(); s.hour = 16.5; s.third = true; s.sel = 8;
         let mut e: Vec<(i32, i32, i32, u16)> = Vec::new();
         for x in -14..=14i32 { for z in -6..=30i32 { let r = ((x * x) as f64 / 196.0 + ((z - 12) * (z - 12)) as f64 / 324.0).sqrt(); if r < 1.0 { for dy in -2..=0 { e.push((o[0] + x, o[1] + dy, o[2] + z, alw_core::blocks::B::WATER)); } for dy in 1..=3 { e.push((o[0] + x, o[1] + dy, o[2] + z, 0)); } } } }
         s.world.edit_many(&e); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
-        let y = o[1] as f64 + 0.9; s.boats = vec![alw_core::bateaux::Boat { p: [o[0] as f64 + 0.5, y, o[2] as f64 + 6.0], yaw: 0.25, v: 0.0, bob: 0.0 }, alw_core::bateaux::Boat { p: [o[0] as f64 - 7.5, y, o[2] as f64 + 3.0], yaw: 1.2, v: 0.0, bob: 0.0 }];
-        s.boat = Some(0); s.player.p = [o[0] as f64 + 0.5, y - 0.2, o[2] as f64 + 6.0]; s.player.yaw = 0.25; s.player.pitch = -0.12;
-        for _ in 0..40 { let (y0, pi) = (s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.yaw = y0; s.player.pitch = pi; s.vit = [100.0; 3]; }
+        let y = o[1] as f64 + 0.9; s.boats = vec![alw_core::bateaux::Boat::new([o[0] as f64 + 0.5, y, o[2] as f64 + 6.0], 0.25), alw_core::bateaux::Boat::new([o[0] as f64 - 7.5, y, o[2] as f64 + 3.0], 1.2)];
+        // on rame : la scène de dos s'arrête en fin de poussée, celle de côté au milieu, pales dans l'eau
+        let side = scene == "plat_barque_cote"; s.boat = Some(0); s.player.p = [o[0] as f64 + 0.5, y - 0.2, o[2] as f64 + 6.0]; s.player.yaw = if side { 0.25 - 1.45 } else { 0.25 }; s.player.pitch = if side { -0.2 } else { -0.12 };
+        let rowing = Input { z: 1.0, ..none }; let n = if side { 15 } else { 27 };
+        for k in 0..(40 + n) { let (y0, pi) = (s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, if k >= 40 { rowing } else { none }, Actions::default()); s.player.yaw = y0; s.player.pitch = pi; s.vit = [100.0; 3]; }
+        s.boats[0].pull = [1.0; 2];
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
     // Le mobilier dont on se sert : une pièce avec une étagère et une table garnies d'objets posés, une armoire, des chaises ; le

@@ -12,11 +12,30 @@ use crate::session::Session;
 pub const ROW_SPEED: f64 = 6.5; pub const BACK_SPEED: f64 = 2.2; const ACCEL: f64 = 3.0;
 /// Vitesse de virage (radians par seconde).
 pub const TURN: f64 = 1.7;
+/// Les rames : dame de nage (dans le repère de la coque, côté droit ; le gauche en miroir), longueur du manche à
+/// l'intérieur et de la rame entière au-delà, cadence (coups par seconde).
+pub const OARLOCK: [f64; 3] = [0.6, 0.39, 0.45]; pub const OAR_IN: f64 = 0.55; pub const OAR_OUT: f64 = 1.75; pub const STROKES: f64 = 0.85;
+/// La pose d'une rame : (balayage, la pale vers l'avant si positif ; plongée, la pale vers le bas si positive), radians.
+/// En nageant : la pale entre dans l'eau devant, pousse vers l'arrière en plongeant, ressort et revient par les airs.
+/// Au repos : rentrée le long de la coque, pale relevée, vers l'arrière.
+pub fn oar_pose(phase: f64, pull: f64) -> (f64, f64) {
+    let (sweep, dip) = (0.55 * phase.cos(), 0.3 + 0.14 * phase.sin()); let k = pull.clamp(0.0, 1.0);
+    (-1.0 + (sweep + 1.0) * k, 0.12 + (dip - 0.12) * k)
+}
+/// Le bout de la pale d'une rame (0 : bâbord, à gauche ; 1 : tribord, à droite), dans le monde.
+pub fn blade_tip(bt: &Boat, side: usize) -> [f64; 3] {
+    let sd = if side == 1 { 1.0 } else { -1.0 }; let (a, d) = oar_pose(bt.oar[side], bt.pull[side]);
+    // dans le repère de la coque : la rame part de la dame de nage, vers l'extérieur, tournée de `a`, plongée de `d`
+    let (h, y) = (OAR_OUT * d.cos(), -OAR_OUT * d.sin()); let local = [sd * (OARLOCK[0] + h * a.cos()), OARLOCK[1] + y, OARLOCK[2] + h * a.sin()];
+    let (s, c) = (bt.yaw.sin(), bt.yaw.cos()); [bt.p[0] + local[0] * c + local[2] * s, bt.p[1] + 0.03 + bt.bob + local[1], bt.p[2] - local[0] * s + local[2] * c]
+}
 /// Demi-longueur et demi-largeur de la coque (m).
 pub const HALF_L: f64 = 1.45; pub const HALF_W: f64 = 0.66;
 
 #[derive(Clone, Copy, Debug)]
-pub struct Boat { /** le milieu de la coque, au ras de l'eau */ pub p: [f64; 3], pub yaw: f64, /** vitesse le long de la coque */ pub v: f64, /** tangage léger, pour le dessin */ pub bob: f64 }
+pub struct Boat { /** le milieu de la coque, au ras de l'eau */ pub p: [f64; 3], pub yaw: f64, /** vitesse le long de la coque */ pub v: f64, /** tangage léger, pour le dessin */ pub bob: f64,
+    /** le coup de rame de chaque bord (gauche, droite), en radians : 0 l'attaque, pale devant ; π le dégagé, pale derrière */ pub oar: [f64; 2], /** de 0 (rames rentrées, au repos) à 1 (on rame) */ pub pull: [f64; 2] }
+impl Boat { pub fn new(p: [f64; 3], yaw: f64) -> Self { Boat { p, yaw, v: 0.0, bob: 0.0, oar: [0.0; 2], pull: [0.0; 2] } } }
 
 /// La surface de l'eau sous (x, z), près de la hauteur `near` : le haut du dernier bloc d'eau qui a de l'air au-dessus.
 pub fn surface(w: &impl Voxels, x: f64, z: f64, near: f64) -> Option<f64> {
@@ -51,7 +70,7 @@ impl Session {
         let mut t = 0.3; while t < 6.0 { let q = [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t]; let id = self.world.get(q[0].floor() as i32, q[1].floor() as i32, q[2].floor() as i32).unwrap_or(0);
             if is_water(id) { if let Some(y) = surface(&self.world, q[0], q[2], q[1]) { let yaw = self.player.yaw;
                     if afloat(&self.world, q[0], q[2], yaw, y) && !self.boats.iter().any(|bt| (bt.p[0] - q[0]).hypot(bt.p[2] - q[2]) < 2.0) {
-                        self.boats.push(Boat { p: [q[0], y, q[2]], yaw, v: 0.0, bob: 0.0 }); self.consume_held(); self.dirty = true; self.sound.place("planks"); self.notes.push("La barque flotte : clic droit pour monter dedans".into()); return Some(true); } }
+                        self.boats.push(Boat::new([q[0], y, q[2]], yaw)); self.consume_held(); self.dirty = true; self.sound.place("planks"); self.notes.push("La barque flotte : clic droit pour monter dedans".into()); return Some(true); } }
                 break; }
             if is_solid(id) { break; } t += 0.1; }
         self.notes.push("Une barque se pose sur une eau assez large".into()); Some(true)
@@ -60,7 +79,7 @@ impl Session {
     /// suivent le niveau de l'eau. Rend vrai tant qu'on est dans une barque (le joueur est alors porté).
     pub(crate) fn boat_step(&mut self, dt: f64, i: Input) -> bool {
         // les barques vides : au fil de l'eau, elles ralentissent et suivent son niveau
-        for (k, bt) in self.boats.iter_mut().enumerate() { if Some(k) == self.boat { continue; } bt.v *= (1.0 - 2.0 * dt).max(0.0); if let Some(y) = surface(&self.world, bt.p[0], bt.p[2], bt.p[1]) { bt.p[1] = y; } }
+        self.anim.row = None; for (k, bt) in self.boats.iter_mut().enumerate() { if Some(k) == self.boat { continue; } bt.v *= (1.0 - 2.0 * dt).max(0.0); for q in bt.pull.iter_mut() { *q = (*q - 3.0 * dt).max(0.0); } if let Some(y) = surface(&self.world, bt.p[0], bt.p[2], bt.p[1]) { bt.p[1] = y; } }
         let Some(k) = self.boat else { return false }; if k >= self.boats.len() { self.boat = None; return false; }
         // emporté ailleurs (une commande, la mort) : on n'est plus dans la barque
         if (self.player.p[0] - self.boats[k].p[0]).hypot(self.player.p[2] - self.boats[k].p[2]) > 4.0 { self.boat = None; return false; }
@@ -71,7 +90,14 @@ impl Session {
         let (fx, fz) = (bt.yaw.sin(), bt.yaw.cos()); let (nx, nz) = (bt.p[0] + fx * bt.v * dt, bt.p[2] + fz * bt.v * dt);
         if afloat(w, nx, nz, bt.yaw, bt.p[1]) { bt.p[0] = nx; bt.p[2] = nz; } else { bt.v = 0.0; } // la rive arrête la barque
         if let Some(y) = surface(w, bt.p[0], bt.p[2], bt.p[1]) { bt.p[1] += (y - bt.p[1]).clamp(-2.0 * dt, 2.0 * dt); }
-        bt.bob = (self.elapsed * 1.7).sin() * 0.02 + bt.v.abs() * 0.004; let p = bt.p;
+        // Les rames : chaque bord nage selon ce qu'on demande (en avant, les deux ; pour virer à droite, le bord gauche pousse
+        // et le droit recule ; pour virer en reculant, l'inverse), au rythme d'un coup par seconde environ ; sans ordre, elles se
+        // rentrent le long de la coque.
+        for (k, act) in [(i.z + i.x).clamp(-1.0, 1.0), (i.z - i.x).clamp(-1.0, 1.0)].into_iter().enumerate() {
+            if act.abs() > 0.05 { bt.oar[k] = (bt.oar[k] + act * std::f64::consts::TAU * STROKES * dt).rem_euclid(std::f64::consts::TAU); }
+            let want = if act.abs() > 0.05 { 1.0 } else { 0.0 }; bt.pull[k] += (want - bt.pull[k]).clamp(-3.0 * dt, 4.0 * dt); }
+        bt.bob = (self.elapsed * 1.7).sin() * 0.02 + bt.v.abs() * 0.004; let (p, oar, pull) = (bt.p, bt.oar, bt.pull);
+        self.anim.row = Some([oar[0], oar[1], pull[0], pull[1]]);
         self.player.p = [p[0], p[1] - 0.2, p[2]]; self.player.v = [0.0; 3]; self.player.ground = true; self.player.speed = 0.0; self.player.in_water = false; true
     }
     /// Quitter la barque : sur la rive la plus proche si un pas suffit, sinon à l'eau, à côté.
@@ -86,7 +112,13 @@ impl Session {
     }
     /// Les barques, à dessiner.
     pub fn boat_draws(&self, md: &Models) -> Vec<Draw> {
-        self.boats.iter().map(|bt| Draw { m: crate::view::trs(bt.p[0], bt.p[1] + 0.03 + bt.bob, bt.p[2], bt.yaw, bt.bob * 2.0, 1.0), r: md.part("boat"), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 }).collect()
+        use crate::view::{mul, roll_z, trs}; let mut o = Vec::new();
+        for bt in &self.boats { let hull = trs(bt.p[0], bt.p[1] + 0.03 + bt.bob, bt.p[2], bt.yaw, 0.0, 1.0); let d = |m, r| Draw { m, r, view: false, local: false, hero: false, dynamic: false, hurt: 0.0 };
+            o.push(d(hull, md.part("boat")));
+            // chaque rame tourne dans sa dame de nage : balayage autour de la verticale, puis plongée
+            for (side, sd, part) in [(0usize, -1.0f64, "oar_l"), (1, 1.0, "oar_r")] { let (a, dip) = oar_pose(bt.oar[side], bt.pull[side]);
+                let m = mul(&mul(&hull, &trs(sd * OARLOCK[0], OARLOCK[1], OARLOCK[2], -sd * a, 0.0, 1.0)), &roll_z(-sd * dip)); o.push(d(m, md.part(part))); } }
+        o
     }
     pub(crate) fn boats_save(&self) -> String { self.boats.iter().map(|b| format!("boat {} {} {} {}\n", b.p[0], b.p[1], b.p[2], b.yaw)).collect() }
 }
@@ -114,8 +146,14 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
     b(&mut o, [-0.18, -0.04, -HALF_L - 0.02, 0.18, 0.44, -HALF_L + 0.08], wood2); // le tableau
     for z in [-0.35, 0.45] { let w = half(z); b(&mut o, [-w + 0.05, 0.16, z - 0.13, w - 0.05, 0.21, z + 0.13], wood); }
     for sd in [-1.0, 1.0] { let w = half(0.45); b(&mut o, [sd * w - 0.04, 0.32, 0.4, sd * w + 0.04, 0.4, 0.5], dark); // dame de nage
-        let (a, c) = ([sd * (w - 0.35), 0.36, 0.2], [sd * (w + 0.85), -0.05, 1.05]); let steps = 10;
-        for s in 0..steps { let t0 = s as f64 / steps as f64; let q = [a[0] + (c[0] - a[0]) * t0, a[1] + (c[1] - a[1]) * t0, a[2] + (c[2] - a[2]) * t0];
-            let r = if s >= steps - 3 { 0.09 } else { 0.03 }; b(&mut o, [q[0] - r, q[1] - 0.025, q[2] - 0.06, q[0] + r, q[1] + 0.025, q[2] + 0.06], oar); } }
-    vec![("boat", o)]
+ }
+    // Une rame, le long de +x depuis la dame de nage : la poignée à l'intérieur, le manche, la pale plate au bout ; la
+    // gauche est son miroir.
+    let oar_mesh = |sd: f64| { let mut q = VBuf::new(200); let x = |a: f64, b2: f64| if sd > 0.0 { (a, b2) } else { (-b2, -a) };
+        let (a0, a1) = x(-OAR_IN, -OAR_IN + 0.16); b(&mut q, [a0, -0.03, -0.03, a1, 0.03, 0.03], dark); // la poignée
+        let (a0, a1) = x(-OAR_IN + 0.16, OAR_OUT - 0.45); b(&mut q, [a0, -0.022, -0.022, a1, 0.022, 0.022], oar); // le manche
+        let (a0, a1) = x(OAR_OUT - 0.45, OAR_OUT - 0.3); b(&mut q, [a0, -0.02, -0.05, a1, 0.02, 0.05], oar);
+        let (a0, a1) = x(OAR_OUT - 0.3, OAR_OUT); b(&mut q, [a0, -0.015, -0.09, a1, 0.015, 0.09], oar); // la pale
+        let (a0, a1) = x(-0.04, 0.04); b(&mut q, [a0, -0.035, -0.035, a1, 0.035, 0.035], dark); q }; // le taquet contre la dame
+    vec![("boat", o), ("oar_r", oar_mesh(1.0)), ("oar_l", oar_mesh(-1.0))]
 }

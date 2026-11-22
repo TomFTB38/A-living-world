@@ -743,7 +743,7 @@ impl Session {
                 Some("chest") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; let mut v = vec![None; CHEST_SIZE];
                     for c in a { let f: Vec<&str> = c.split(':').collect(); if f.len() == 4 { if let (Ok(i), Ok(n), Ok(w)) = (f[0].parse::<usize>(), f[2].parse::<f64>(), f[3].parse::<f64>()) { if i < CHEST_SIZE { v[i] = stack(f[1], n, w); } } } }
                     self.chests.insert(p, v); }
-                Some("boat") => { let (x, y, z, w) = (num(a.next())?, num(a.next())?, num(a.next())?, num(a.next())?); self.boats.push(crate::bateaux::Boat { p: [x, y, z], yaw: w, v: 0.0, bob: 0.0 }); }
+                Some("boat") => { let (x, y, z, w) = (num(a.next())?, num(a.next())?, num(a.next())?, num(a.next())?); self.boats.push(crate::bateaux::Boat::new([x, y, z], w)); }
                 Some("treasure") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; if !self.treasure_marks.contains(&p) { self.treasure_marks.push(p); } }
                 Some("shelf") => { let p = [num(a.next())? as i32, num(a.next())? as i32, num(a.next())? as i32]; let mut v = vec![None; 6];
                     for c in a { let f: Vec<&str> = c.split(':').collect(); if f.len() == 4 { if let (Ok(i), Ok(n), Ok(w)) = (f[0].parse::<usize>(), f[2].parse::<f64>(), f[3].parse::<f64>()) { if i < 6 { v[i] = stack(f[1], n, w); } } } }
