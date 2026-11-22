@@ -9,13 +9,14 @@ const WOOD: C = [0.46, 0.31, 0.17]; const DARK: C = [0.3, 0.19, 0.1]; const IRON
 const FLAME: C = [2.6, 1.4, 0.4]; const CORE: C = [2.9, 2.1, 0.9]; const WAX: C = [0.92, 0.88, 0.76]; const CLAY: C = [0.66, 0.36, 0.22];
 
 /// Les modèles de ce module.
-pub const MODELS: [&str; 119] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
+pub const MODELS: [&str; 138] = ["sapling", "chest", "gravestone", "grave_cross", "bell", "chain", "wall_clock", "cross", "flag", "tanning_vat", "lime_vat", "hides", "sawhorse", "chopping_block", "cart", "trough", "coal_heap", "tool_rack", "fishing_net", "fish_rack", "creel", "mooring_post", "buoy", "net_pile", "anchor", "oars", "rope_rail", "sail", "pennant", "fish_crate", "boat_bench", "chest_open", "bed", "bed_foot", "torch_wall", "chair", "bench", "armchair", "cupboard", "fireplace", "painting", "banner_red", "banner_blue", "banner_green", "banner_gold", "weapon_rack", "wall_sconce",
     "loom", "spinning_wheel", "grindstone", "signpost", "throne", "curtain", "wall_shelf", "table", "round_table", "stool", "candle", "candelabra", "chandelier", "brazier", "sack",
     "amphora", "flower_pot", "cauldron", "bucket", "log_pile", "carpet_red", "carpet_blue", "carpet_green", "iron_bars", "potted_fern", "books_pile", "bottles", "beehive", "cheese", "bread_basket",
     "lever", "lever_on", "spikes", "spikes_down", "dart_trap",
     "column_base", "column_shaft", "column_capital", "statue_base", "statue_top", "tomb_head", "tomb_foot", "wall_relief", "lintel", "funeral_urn", "altar", "brazier_stand", "great_chain",
     "sun_mirror", "sun_disc", "sun_receptor", "sun_receptor_on", "light_beam", "ossuary_wall", "bone_pile",
-    "balustrade_stone", "balustrade_wood", "iron_railing", "picket_fence", "garden_gate", "flower_box", "awning_red", "awning_blue", "wall_lantern", "window_arched", "corbel", "chimney_pot", "stone_arch", "lattice_roses", "drainpipe", "hanging_sign", "shelf"];
+    "balustrade_stone", "balustrade_wood", "iron_railing", "picket_fence", "garden_gate", "flower_box", "awning_red", "awning_blue", "wall_lantern", "window_arched", "corbel", "chimney_pot", "stone_arch", "lattice_roses", "drainpipe", "hanging_sign", "shelf",
+    "pouf", "sedari", "tray_table", "moroccan_lantern", "berber_rug", "mashrabiya", "sea_chest", "ship_wheel", "storm_lantern", "rope_coil", "fur_bench", "rune_chest", "round_shield", "long_hearth", "antlers", "wardrobe", "dresser", "writing_desk", "wine_rack"];
 pub fn has(model: &str) -> bool { MODELS.contains(&model) }
 /// La couche de texture d'une matière (« rug », « hay »…) ou, à défaut, de la face d'un bloc du même nom.
 fn layer(n: &str) -> f64 {
@@ -287,6 +288,63 @@ fn build(k: &mut K, m: &str, r: &mut Rng) {
         else { k.b([x - 0.13, y, z - 0.035, x + 0.1, y + 0.05, z + 0.035], bc); k.b([x - 0.1, y + 0.05, z - 0.02, x + 0.08, y + 0.06, z + 0.02], bd); k.b([x + 0.1, y + 0.005, z - 0.05, x + 0.16, y + 0.04, z + 0.05], bd); k.b([x - 0.12, y + 0.02, z - 0.036, x - 0.1, y + 0.035, z - 0.03], [0.05, 0.05, 0.05]); }
     };
     match m {
+        // ---- Le mobilier des civilisations. Le désert : pouf de cuir, banquette à coussins (sedari), table basse au plateau de
+        // cuivre ciselé, lanterne ajourée, tapis berbère, moucharabieh.
+        "pouf" => { let lth = [0.62, 0.36, 0.18]; k.lathe(0.5, 0.5, &[(0.0, 0.26), (0.06, 0.3), (0.2, 0.32), (0.3, 0.3), (0.36, 0.24), (0.37, 0.0)], lth);
+            for i in 0..8 { let a = i as f64 * 0.785; k.b([0.5 + a.cos() * 0.31 - 0.02, 0.1, 0.5 + a.sin() * 0.31 - 0.02, 0.5 + a.cos() * 0.31 + 0.02, 0.26, 0.5 + a.sin() * 0.31 + 0.02], [0.85, 0.7, 0.3]); } }
+        "sedari" => { let (wd, cu, cu2) = ([0.45, 0.28, 0.15], [0.62, 0.12, 0.14], [0.18, 0.3, 0.55]);
+            k.b([0.0, 0.0, 0.1, 1.0, 0.28, 0.98], wd); k.b([0.02, 0.28, 0.1, 0.98, 0.42, 0.9], cu); k.b([0.0, 0.42, 0.06, 1.0, 0.45, 0.94], [0.85, 0.7, 0.3]);
+            for x in [0.05, 0.52] { k.b([x, 0.42, 0.72, x + 0.43, 0.82, 0.98], if x < 0.3 { cu2 } else { cu }); k.b([x + 0.03, 0.45, 0.7, x + 0.4, 0.78, 0.72], [0.9, 0.78, 0.4]); } }
+        "tray_table" => { let cop = [0.82, 0.48, 0.24]; k.cy([0.5, 0.36, 0.5], [0.5, 0.4, 0.5], 0.42, 0.42, 0.0, cop); k.cy([0.5, 0.4, 0.5], [0.5, 0.42, 0.5], 0.42, 0.4, 0.36, tone(cop, 1.15));
+            for i in 0..6 { let a = i as f64 * 1.047; k.b([0.5 + a.cos() * 0.2 - 0.03, 0.399, 0.5 + a.sin() * 0.2 - 0.03, 0.5 + a.cos() * 0.2 + 0.03, 0.402, 0.5 + a.sin() * 0.2 + 0.03], tone(cop, 0.7)); }
+            for (a, b) in [(0.22, 0.22), (0.72, 0.22), (0.22, 0.72), (0.72, 0.72)] { k.b([a, 0.0, b, a + 0.06, 0.36, b + 0.06], [0.35, 0.2, 0.1]); } k.b([0.25, 0.14, 0.25, 0.75, 0.17, 0.75], [0.35, 0.2, 0.1]); }
+        "moroccan_lantern" => { let br = [0.78, 0.6, 0.3]; k.b([0.4, 0.0, 0.4, 0.6, 0.04, 0.6], br);
+            for i in 0..6 { let y = 0.06 + i as f64 * 0.1; let w = 0.14 + 0.05 * (1.0 - ((i as f64 - 2.5) / 2.5).powi(2)); k.b([0.5 - w, y, 0.5 - w, 0.5 + w, y + 0.02, 0.5 + w], br); for (dx, dz) in [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] { k.b([0.5 + dx * w - 0.012, y, 0.5 + dz * w - 0.012, 0.5 + dx * w + 0.012, y + 0.1, 0.5 + dz * w + 0.012], br); } }
+            k.e([0.4, 0.08, 0.4, 0.6, 0.6, 0.6], [1.7, 1.0, 0.45]); for (cx, c) in [(0.36, [1.4, 0.4, 0.3]), (0.64, [0.4, 0.7, 1.4])] { k.e([cx - 0.02, 0.2, 0.37, cx + 0.02, 0.45, 0.39], c); }
+            k.lathe(0.5, 0.5, &[(0.66, 0.16), (0.74, 0.08), (0.8, 0.03), (0.92, 0.01)], br); }
+        "berber_rug" => { let cols = [[0.72, 0.16, 0.12], [0.92, 0.82, 0.6], [0.18, 0.22, 0.45], [0.85, 0.55, 0.15]];
+            k.b([0.0, 0.0, 0.0, 1.0, 0.03, 1.0], cols[0]); for i in 0..5 { let c = 0.1 + i as f64 * 0.2; k.b([c - 0.08, 0.03, 0.42, c + 0.08, 0.035, 0.58], cols[1 + i % 3]); k.b([c - 0.04, 0.03, 0.2, c + 0.04, 0.035, 0.28], cols[1]); k.b([c - 0.04, 0.03, 0.72, c + 0.04, 0.035, 0.8], cols[1]); }
+            for z in [0.04, 0.94] { k.b([0.0, 0.03, z, 1.0, 0.035, z + 0.02], cols[2]); } }
+        "mashrabiya" => { let wd = [0.4, 0.24, 0.12]; k.b([0.0, 0.0, 0.88, 1.0, 0.06, 1.0], wd); k.b([0.0, 0.94, 0.88, 1.0, 1.0, 1.0], wd); k.b([0.0, 0.0, 0.88, 0.06, 1.0, 1.0], wd); k.b([0.94, 0.0, 0.88, 1.0, 1.0, 1.0], wd);
+            for i in 0..8 { for j in 0..8 { let (x, y) = (0.1 + i as f64 * 0.115, 0.1 + j as f64 * 0.115); k.b([x - 0.02, y - 0.02, 0.9, x + 0.02, y + 0.02, 0.98], tone(wd, 1.1)); } }
+            for i in 0..9 { let c = 0.06 + i as f64 * 0.11; k.b([c - 0.008, 0.06, 0.92, c + 0.008, 0.94, 0.96], wd); k.b([0.06, c - 0.008, 0.92, 0.94, c + 0.008, 0.96], wd); } }
+        // La côte : coffre de marin (on s'y assied, on y range), barre de navire au mur, lampe tempête, rouleau de cordage.
+        "sea_chest" => { let wd = [0.32, 0.42, 0.5]; k.b([0.08, 0.0, 0.2, 0.92, 0.46, 0.8], wd); k.b([0.06, 0.46, 0.18, 0.94, 0.58, 0.82], tone(wd, 1.15));
+            for x in [0.2, 0.8] { k.b([x - 0.03, 0.0, 0.19, x + 0.03, 0.58, 0.81], IRON); } k.b([0.46, 0.34, 0.17, 0.54, 0.46, 0.19], GOLD); for x in [0.08, 0.92] { k.b([x - 0.02, 0.3, 0.45, x + 0.02, 0.34, 0.55], [0.6, 0.5, 0.35]); } }
+        "ship_wheel" => { k.cy([0.5, 0.55, 0.92], [0.5, 0.55, 0.98], 0.32, 0.32, 0.27, WOOD); k.cy([0.5, 0.55, 0.9], [0.5, 0.55, 1.0], 0.07, 0.07, 0.0, GOLD);
+            for i in 0..8 { let a = i as f64 * 0.785; let (c, s2) = (a.cos(), a.sin()); k.r([0.5 + c * 0.22, 0.55 + s2 * 0.22, 0.95], [[c * 0.22, s2 * 0.22, 0.0], [-s2 * 0.018, c * 0.018, 0.0], [0.0, 0.0, 0.018]], WOOD);
+                k.r([0.5 + c * 0.38, 0.55 + s2 * 0.38, 0.95], [[c * 0.05, s2 * 0.05, 0.0], [-s2 * 0.022, c * 0.022, 0.0], [0.0, 0.0, 0.022]], DARK); } }
+        "storm_lantern" => { let red = [0.62, 0.14, 0.1]; k.b([0.34, 0.0, 0.34, 0.66, 0.08, 0.66], red); k.e([0.37, 0.08, 0.37, 0.63, 0.42, 0.63], [1.5, 1.05, 0.5]); k.candle(0.5, 0.08, 0.5, 0.12);
+            for (x, z) in [(0.34, 0.34), (0.62, 0.34), (0.34, 0.62), (0.62, 0.62)] { k.b([x, 0.08, z, x + 0.04, 0.42, z + 0.04], red); } k.b([0.32, 0.42, 0.32, 0.68, 0.48, 0.68], red); k.b([0.4, 0.48, 0.4, 0.6, 0.54, 0.6], red);
+            k.b([0.49, 0.54, 0.36, 0.51, 0.7, 0.38], IRON); k.b([0.49, 0.54, 0.62, 0.51, 0.7, 0.64], IRON); k.b([0.49, 0.68, 0.36, 0.51, 0.7, 0.64], IRON); }
+        "rope_coil" => { for i in 0..5 { let y = 0.03 + i as f64 * 0.055; k.cy([0.5, y, 0.5], [0.5, y + 0.05, 0.5], 0.34 - i as f64 * 0.012, 0.34 - i as f64 * 0.012, 0.18, if i % 2 == 0 { ROPE } else { ROPE2 }); } k.r([0.78, 0.18, 0.5], [[0.12, 0.08, 0.0], [0.0, 0.0, 0.03], [-0.02, 0.03, 0.0]], ROPE); }
+        // La montagne viking : banc couvert de fourrures, coffre runique, bouclier rond au mur, foyer long, bois de cerf.
+        "fur_bench" => { let wd = [0.36, 0.24, 0.14]; k.b([0.0, 0.34, 0.2, 1.0, 0.42, 0.8], wd); for x in [0.08, 0.82] { k.b([x, 0.0, 0.24, x + 0.1, 0.34, 0.76], DARK); }
+            k.b([0.05, 0.42, 0.18, 0.95, 0.5, 0.82], [0.55, 0.45, 0.35]); for i in 0..6 { let x = 0.08 + i as f64 * 0.15; k.b([x, 0.38, 0.16, x + 0.12, 0.5, 0.2], [0.5, 0.4, 0.3]); } k.b([0.3, 0.42, 0.3, 0.7, 0.53, 0.7], [0.82, 0.8, 0.76]); }
+        "rune_chest" => { let wd = [0.38, 0.26, 0.15]; k.b([0.08, 0.0, 0.2, 0.92, 0.5, 0.8], wd); k.b([0.06, 0.5, 0.18, 0.94, 0.6, 0.82], tone(wd, 0.85));
+            for x in [0.1, 0.88] { k.b([x - 0.02, 0.0, 0.19, x + 0.02, 0.6, 0.81], IRON); } for (x, y) in [(0.3, 0.3), (0.38, 0.22), (0.46, 0.3), (0.56, 0.24), (0.64, 0.32), (0.7, 0.22)] { k.b([x - 0.015, y, 0.185, x + 0.015, y + 0.12, 0.2], [0.7, 0.6, 0.35]); } }
+        "round_shield" => { let (c1, c2) = if r.next() < 0.5 { ([0.62, 0.14, 0.1], [0.9, 0.85, 0.7]) } else { ([0.2, 0.3, 0.55], [0.9, 0.85, 0.7]) };
+            for i in 0..8 { let (a0, a1) = (i as f64 * 0.785, (i + 1) as f64 * 0.785); let am = (a0 + a1) * 0.5; k.r([0.5 + am.cos() * 0.2, 0.55 + am.sin() * 0.2, 0.95], [[am.cos() * 0.2, am.sin() * 0.2, 0.0], [-am.sin() * 0.08, am.cos() * 0.08, 0.0], [0.0, 0.0, 0.02]], if i % 2 == 0 { c1 } else { c2 }); }
+            k.cy([0.5, 0.55, 0.93], [0.5, 0.55, 0.99], 0.43, 0.43, 0.4, IRON); k.cy([0.5, 0.55, 0.9], [0.5, 0.55, 0.95], 0.08, 0.06, 0.0, IRON); }
+        "long_hearth" => { let st = [0.5, 0.48, 0.45]; k.b([0.0, 0.0, 0.0, 1.0, 0.12, 1.0], [0.3, 0.28, 0.27]); for (a, b) in [(0.0, 0.0), (0.0, 0.88), (0.0, 0.12), (0.88, 0.12)] { let _ = (a, b); }
+            for (bb, c) in [([0.0, 0.12, 0.0, 1.0, 0.3, 0.12], st), ([0.0, 0.12, 0.88, 1.0, 0.3, 1.0], st), ([0.0, 0.12, 0.12, 0.12, 0.3, 0.88], tone(st, 0.9)), ([0.88, 0.12, 0.12, 1.0, 0.3, 0.88], tone(st, 0.9))] { k.b(bb, c); }
+            for (x, z, a) in [(0.3, 0.5, 0.4f64), (0.5, 0.4, -0.5), (0.65, 0.58, 1.2)] { k.r([x, 0.17, z], [[a.cos() * 0.2, 0.0, a.sin() * 0.2], [0.0, 0.04, 0.0], [-a.sin() * 0.04, 0.0, a.cos() * 0.04]], [0.3, 0.18, 0.1]); }
+            k.flame(0.45, 0.16, 0.5, 0.3); k.flame(0.6, 0.16, 0.45, 0.22); k.e([0.2, 0.12, 0.25, 0.8, 0.14, 0.75], [1.2, 0.35, 0.08]); }
+        "antlers" => { let bn = [0.86, 0.8, 0.68]; k.b([0.38, 0.28, 0.9, 0.62, 0.54, 1.0], WOOD); k.b([0.44, 0.34, 0.84, 0.56, 0.48, 0.9], [0.5, 0.38, 0.26]);
+            for sx in [-1.0f64, 1.0] { let mut p0 = [0.5 + sx * 0.05, 0.48, 0.86]; for (k2, d) in [[0.14, 0.12], [0.1, 0.12], [0.06, 0.1]].iter().enumerate() { let p1 = [p0[0] + sx * d[0], p0[1] + d[1], 0.84]; k.cy(p0, p1, 0.025 - k2 as f64 * 0.005, 0.02 - k2 as f64 * 0.005, 0.0, bn); k.cy(p1, [p1[0] - sx * 0.02, p1[1] + 0.1, 0.8], 0.015, 0.008, 0.0, bn); p0 = p1; } } }
+        // Le médiéval : grande armoire, vaisselier (on y range, on pose sur son plateau), écritoire, casier à vin.
+        "wardrobe" => { k.t([0.02, 0.0, 0.12, 0.98, 0.98, 0.98], "planks", [0.7, 0.62, 0.56]); k.b([0.0, 0.96, 0.08, 1.0, 1.0, 1.0], DARK); k.b([0.0, 0.0, 0.1, 1.0, 0.06, 1.0], DARK);
+            for (x0, x1) in [(0.06, 0.49), (0.51, 0.94)] { k.t([x0, 0.08, 0.1, x1, 0.92, 0.12], "planks", [0.85, 0.76, 0.66]); k.b([x0 + 0.05, 0.14, 0.09, x1 - 0.05, 0.86, 0.1], tone(WOOD, 0.75)); k.b([x0 + 0.08, 0.5, 0.085, x1 - 0.08, 0.52, 0.09], tone(WOOD, 0.6)); }
+            for x in [0.44, 0.53] { k.b([x, 0.48, 0.07, x + 0.03, 0.58, 0.09], GOLD); } }
+        "dresser" => { k.t([0.02, 0.0, 0.5, 0.98, 0.5, 0.98], "planks", [0.8, 0.7, 0.6]); k.b([0.0, 0.5, 0.46, 1.0, 0.55, 1.0], DARK); for x in [0.04, 0.5] { k.b([x + 0.04, 0.08, 0.48, x + 0.42, 0.42, 0.5], tone(WOOD, 0.8)); k.b([x + 0.2, 0.24, 0.46, x + 0.26, 0.28, 0.48], IRON); }
+            k.b([0.02, 0.55, 0.9, 0.98, 1.0, 0.98], tone(WOOD, 0.85)); for x in [0.02, 0.92] { k.b([x, 0.55, 0.6, x + 0.06, 1.0, 0.98], DARK); } k.b([0.02, 0.76, 0.6, 0.98, 0.79, 0.98], DARK); k.b([0.02, 0.96, 0.6, 0.98, 1.0, 0.98], DARK);
+            for i in 0..4 { let x = 0.17 + i as f64 * 0.22; k.cy([x, 0.68, 0.88], [x, 0.68, 0.9], 0.08, 0.08, 0.0, [0.9, 0.9, 0.86]); k.cy([x, 0.68, 0.875], [x, 0.68, 0.88], 0.05, 0.05, 0.0, [0.25, 0.4, 0.7]); }
+            for i in 0..5 { let x = 0.14 + i as f64 * 0.18; k.lathe(x, 0.8, &[(0.79, 0.04), (0.84, 0.05), (0.88, 0.03), (0.9, 0.03)], if i % 2 == 0 { CLAY } else { [0.9, 0.88, 0.82] }); } }
+        "writing_desk" => { k.t([0.0, 0.78, 0.1, 1.0, 0.84, 0.9], "planks", [1.0; 3]); for (a, b) in [(0.04, 0.12), (0.88, 0.12), (0.04, 0.8), (0.88, 0.8)] { k.b([a, 0.0, b, a + 0.08, 0.78, b + 0.08], DARK); }
+            k.b([0.1, 0.6, 0.6, 0.9, 0.78, 0.88], tone(WOOD, 0.85)); k.b([0.4, 0.66, 0.59, 0.6, 0.7, 0.6], IRON);
+            k.b([0.62, 0.84, 0.7, 0.68, 0.9, 0.76], [0.1, 0.1, 0.12]); k.r([0.66, 0.91, 0.73], [[0.004, 0.0, 0.0], [0.025, 0.06, 0.0], [0.0, 0.0, 0.01]], [0.95, 0.95, 0.9]); k.b([0.2, 0.84, 0.3, 0.5, 0.845, 0.55], [0.9, 0.85, 0.7]); }
+        "wine_rack" => { k.t([0.02, 0.0, 0.3, 0.98, 1.0, 1.0], "planks", [0.6, 0.48, 0.38]);
+            for i in 0..3 { for j in 0..3 { let (x, y) = (0.2 + i as f64 * 0.3, 0.18 + j as f64 * 0.3); k.cy([x, y, 0.29], [x, y, 0.31], 0.12, 0.12, 0.0, [0.2, 0.14, 0.1]); k.cy([x, y, 0.26], [x, y, 0.29], 0.09, 0.09, 0.0, [0.12, 0.25, 0.12]); k.cy([x, y, 0.2], [x, y, 0.26], 0.035, 0.03, 0.0, [0.12, 0.25, 0.12]); } } }
         // Le catalogue des bâtisseurs : balustrades, garde-corps, clôtures, jardinières, auvents, lanternes murales, fenêtre cintrée,
         // console, souche de cheminée, arc de pierre, treillis fleuri, descente d'eau, enseigne. Les pièces de façade sont plaquées
         // contre la face +z (le mur), les pièces de clôture courent selon x au milieu du bloc.

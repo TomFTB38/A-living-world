@@ -132,7 +132,7 @@ impl Plan {
 
 pub(crate) struct B<'a> { pub k: &'a mut Work, pub lot: Lot, pub w: i32, pub d: i32, pub s: Style, pub gaps: Vec<Gap>, pub paint: C3, pub h: f64 }
 impl B<'_> {
-    pub(crate) fn put(&mut self, u: i32, y: i32, ww: i32, b: Id) { let c = self.lot.cell(u, y, ww); self.k.put(c, b); }
+    pub(crate) fn put(&mut self, u: i32, y: i32, ww: i32, b: Id) { let c = self.lot.cell(u, y, ww); let b = civ_furniture(&self.s, b); self.k.put(c, b); }
     pub(crate) fn len(&self, side: u8) -> i32 { if side % 2 == 0 { self.w } else { self.d } }
     /// Le point (t, y) d'un mur vu de dehors, décollé de `out` de sa face.
     pub(crate) fn on(&self, side: u8, t: f64, y: f64, out: f64) -> C3 {
@@ -614,6 +614,18 @@ pub(crate) fn garden(k: &mut Work, lot: Lot, w: i32, _d: i32, du: i32, y0: i32, 
         for du2 in [-0.45, 0.45] { k.solid(at, lot.p(du as f64 - 1.4 + du2, y0 as f64 + 1.21, -0.3), [lot.v(0.04, 0.0, 0.0), [0.0, 0.21, 0.0], lot.v(0.0, 0.0, 0.13)], wood, -1.0, 0); } }
 }
 
+/// La civilisation d'un style : 0 médiévale, 1 du désert, 2 de la côte, 3 nordique.
+pub fn civ(s: &Style) -> u8 { match s.arch { 1 => 1, 2 => 3, _ if s.ground == id("fieldstone") && s.upper == id("spruce_planks") => 2, _ => 0 } }
+/// Le mobilier d'une maison selon sa civilisation : au désert des poufs, des tables basses de cuivre, des tapis berbères, des
+/// lanternes ajourées ; au port des coffres de marin, des lampes tempête, une barre de navire au mur ; dans le Nord des bancs aux
+/// fourrures, des coffres runiques, des boucliers au mur, un foyer long. Le même meuble garde son sens.
+pub fn civ_furniture(s: &Style, b: Id) -> Id {
+    let c = civ(s); if c == 0 { return b; } let name = BLOCKS[b as usize].name; let (base, f) = name.split_once('@').map_or((name, ""), |(a, f)| (a, f));
+    let to = match (c, base) { (1, "chair" | "stool") => "pouf", (1, "table" | "round_table") => "tray_table", (1, "carpet_red" | "carpet_green" | "carpet_blue") => "berber_rug", (1, "lantern") => "moroccan_lantern",
+        (2, "cupboard") => "sea_chest", (2, "lantern") => "storm_lantern", (2, "wall_shelf") => "ship_wheel",
+        (3, "chair") => "fur_bench", (3, "cupboard") => "rune_chest", (3, "wall_shelf") => "round_shield", (3, "fireplace") => "long_hearth", _ => return b };
+    let turned = if f.is_empty() || by_name(&format!("{to}@1")).is_none() { to.to_string() } else { format!("{to}@{f}") }; by_name(&turned).unwrap_or(b)
+}
 /// Un meuble orientable dans le sens `f` (son dos vers cette direction).
 pub(crate) fn turned(n: &str, f: u8) -> Id { crate::shapes::variant(id(n), f % 4, false, false, false) }
 /// L'intérieur : table et bougie, chaise, armoire, tapis ; à l'auberge des tables rondes, des tabourets, un lustre ;

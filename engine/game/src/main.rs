@@ -702,6 +702,27 @@ fn capture(a: &[String]) {
         for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // Le mobilier des civilisations : une pièce du désert, une du port, une longue maison du Nord, une chambre médiévale, meublées
+    // chacune des pièces de sa civilisation. Le toit est ouvert, la lumière vient d'en haut et des lampes.
+    if let Some(vw) = scene.strip_prefix("plat_civ_") {
+        let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.sel = 8; s.set_creative(true); s.hour = 11.0; s.third = false; s.player.fly = true;
+        let y0 = o[1] + 1; let mut e: Vec<(i32, i32, i32, u16)> = Vec::new();
+        let mut put = |u: i32, v: i32, w: i32, n: &str| { if let Some(b) = alw_core::blocks::by_name(n) { e.push((o[0] + u, y0 + v, o[2] + w, b)); } };
+        let (floor, wall) = match vw { "desert" => ("sandstone", "plaster_ochre"), "port" => ("spruce_planks", "fieldstone"), "nord" => ("spruce_planks", "spruce_log"), _ => ("parquet", "plaster") };
+        for u in -4..=4i32 { for w in -4..=4i32 { put(u, -1, w, floor); if u.abs() == 4 || w == 4 { for v in 0..=3 { put(u, v, w, wall); } } } }
+        match vw {
+            "desert" => { for u in -3..=3 { put(u, 0, 3, "sedari"); } put(-3, 0, 2, "sedari@1"); put(3, 0, 2, "sedari@3"); put(0, 0, 1, "tray_table"); put(-1, 0, 0, "pouf"); put(1, 0, 0, "pouf");
+                for u in -2..=2 { for w in -1..=2 { if !(u == 0 && w == 1) && !(w == 0 && u.abs() == 1) { put(u, 0, w, "berber_rug"); } } } put(-3, 0, -2, "moroccan_lantern"); put(3, 0, -2, "moroccan_lantern"); for u in [-2, 2] { put(u, 1, 4, "mashrabiya@2"); } }
+            "port" => { put(-3, 0, 3, "sea_chest@2"); put(0, 2, 3, "ship_wheel@2"); put(2, 0, 3, "rope_coil"); put(3, 0, 3, "barrel"); put(0, 0, 1, "table"); put(-1, 0, 1, "stool"); put(1, 0, 1, "stool"); put(0, 1, 1, "storm_lantern"); put(-3, 0, -1, "fishing_net@3"); put(3, 0, 0, "sea_chest@3"); }
+            "nord" => { put(0, 0, 0, "long_hearth"); put(0, 0, 1, "long_hearth"); for w in -2..=2 { put(-3, 0, w, "fur_bench@3"); put(3, 0, w, "fur_bench@1"); } for u in [-2, 0, 2] { put(u, 2, 3, "round_shield@2"); } put(0, 3, 3, "antlers@2"); put(-3, 0, 3, "rune_chest@2"); put(3, 0, 3, "rune_chest@2"); }
+            _ => { put(-3, 0, 3, "wardrobe@2"); put(-1, 0, 3, "dresser@2"); put(2, 0, 3, "writing_desk@2"); put(2, 0, 2, "chair@2"); put(3, 0, 0, "wine_rack@1"); put(0, 0, 0, "carpet_red"); put(-3, 2, 3, "wall_lantern@2"); }
+        }
+        s.world.edit_many(&e); pump(&mut s, &mut g); let f = y0;
+        let (eye, look): ([f64; 3], [f64; 3]) = ([0.5, 3.2, -5.5], [0.5, 0.0, 2.0]);
+        s.player.p = [o[0] as f64 + eye[0], f as f64 + eye[1], o[2] as f64 + eye[2]]; let dd = view::norm([look[0] - eye[0], look[1] - eye[1] - 1.6, look[2] - eye[2]]); s.player.yaw = dd[0].atan2(dd[2]); s.player.pitch = dd[1].asin();
+        for _ in 0..40 { let (p, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = p; s.player.yaw = y; s.player.pitch = pi; s.vit = [100.0; 3]; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     // Le mobilier dont on se sert : une pièce avec une étagère et une table garnies d'objets posés, une armoire, des chaises ; le
     // joueur assis (vu de dehors).
     if let Some(vw) = scene.strip_prefix("plat_mobilier_") {

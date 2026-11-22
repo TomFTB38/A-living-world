@@ -488,6 +488,25 @@ wall_sconce | Applique | decor | 1.0 | 16 | Un bras de fer et sa bougie, contre 
 curtain | Tenture | decor | 1.0 | 16 | Un rideau de drap rouge sur sa tringle. |
 wall_shelf | Étagère murale | decor | 1.0 | 16 | Une planche sur deux équerres, quelques pots, quelques livres. |
 shelf | Étagère | mobilier | 4.0 | 16 | Trois planches entre deux montants : on y pose ce qu'on veut, six objets, qui restent en vue. |
+pouf | Pouf de cuir | mobilier | 2.0 | 16 | Un pouf de cuir teint, cousu de fil d'or : on s'y assied à la mode du désert. |
+sedari | Banquette à coussins | mobilier | 6.0 | 16 | Une banquette basse le long du mur, ses coussins rouges et bleus : on s'y assied. |
+tray_table | Table basse de cuivre | mobilier | 4.0 | 16 | Un plateau de cuivre ciselé sur un piétement bas : on y pose le thé, les dattes. |
+moroccan_lantern | Lanterne ajourée | decor | 1.5 | 16 | Une lanterne de laiton ajouré aux verres de couleur : elle sème des taches de lumière. |
+berber_rug | Tapis berbère | decor | 2.0 | 16 | Un tapis de laine rouge à losanges, tissé dans l'Atlas. |
+mashrabiya | Moucharabieh | batir | 2.5 | 16 | Un panneau de bois tourné en treillis serré : on voit sans être vu. |
+sea_chest | Coffre de marin | mobilier | 6.0 | 16 | Un coffre peint, cerclé de fer, à poignées de corde : on y range, on s'y assied. |
+ship_wheel | Barre de navire | decor | 4.0 | 16 | La barre d'un vieux navire, pendue au mur de la taverne du port. |
+storm_lantern | Lampe tempête | decor | 1.2 | 16 | Une lampe de fer rouge qui ne s'éteint pas au vent. |
+rope_coil | Rouleau de cordage | decor | 3.0 | 16 | Un cordage de chanvre lové sur le quai. |
+fur_bench | Banc aux fourrures | mobilier | 5.0 | 16 | Un banc de sapin couvert de peaux de loup et de mouton : on s'y assied près du feu. |
+rune_chest | Coffre runique | mobilier | 6.0 | 16 | Un coffre de chêne gravé de runes, cerclé de fer : on y range ses trésors. |
+round_shield | Bouclier rond | decor | 3.0 | 16 | Un bouclier de tilleul peint, à umbo de fer, accroché au mur de la longue maison. |
+long_hearth | Foyer long | decor | 20.0 | 8 | Le foyer de pierres au milieu de la longue maison, ses bûches et ses braises. |
+antlers | Bois de cerf | decor | 2.0 | 16 | Des bois de cerf sur leur écusson, trophée de chasse au-dessus de la porte. |
+wardrobe | Grande armoire | mobilier | 12.0 | 8 | Une armoire à deux battants et ferrures de laiton : on y range. |
+dresser | Vaisselier | mobilier | 12.0 | 8 | Un buffet bas, ses assiettes peintes et ses pots : on y range, on pose sur son plateau. |
+writing_desk | Écritoire | mobilier | 6.0 | 16 | Une table à écrire, son encrier, sa plume, son parchemin : on y pose ce qu'on veut. |
+wine_rack | Casier à vin | mobilier | 8.0 | 8 | Neuf bouteilles couchées dans leur casier : on y range. |
 candle | Bougie | decor | 1.0 | 16 | Une chandelle de cire de myrte dans son bougeoir. |
 candelabra | Chandelier | decor | 1.0 | 16 | Trois bougies sur un pied de laiton. |
 chandelier | Lustre | decor | 1.0 | 16 | Une couronne de bois et de fer, huit bougies, pendue au plafond. |

@@ -117,6 +117,8 @@ fn turn_boxes(n: &str) -> Vec<Bx> {
         // le catalogue des bâtisseurs : les clôtures et balustrades courent au milieu du bloc ; l'arc et la fenêtre emplissent le mur ; l'étagère
         "balustrade_stone" | "balustrade_wood" | "iron_railing" | "picket_fence" | "garden_gate" => vec![[0.0, 0.0, 0.3, 1.0, 1.0, 0.7]],
         "window_arched" | "stone_arch" => vec![[0.0, 0.0, 0.15, 1.0, 1.0, 0.85]], "corbel" => vec![[0.25, 0.2, 0.35, 0.75, 1.0, 1.0]], "shelf" => vec![[0.0, 0.0, 0.56, 1.0, 1.0, 1.0]],
+        "sedari" => vec![[0.0, 0.0, 0.1, 1.0, 0.45, 0.98]], "tray_table" => vec![[0.1, 0.0, 0.1, 0.9, 0.42, 0.9]], "sea_chest" | "rune_chest" => vec![[0.08, 0.0, 0.2, 0.92, 0.6, 0.8]],
+        "fur_bench" => vec![[0.0, 0.0, 0.2, 1.0, 0.5, 0.8]], "wardrobe" | "wine_rack" => vec![[0.0, 0.0, 0.1, 1.0, 1.0, 1.0]], "dresser" => vec![[0.0, 0.0, 0.46, 1.0, 1.0, 1.0]], "writing_desk" => vec![[0.0, 0.0, 0.1, 1.0, 0.84, 0.9]],
         _ => vec![[0.0, 0.0, 0.84, 1.0, 1.0, 1.0]],
     }
 }

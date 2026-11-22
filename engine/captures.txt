@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu plat_mobilier_etagere
+spawn jeu plat_civ_desert plat_civ_port plat_civ_nord plat_civ_medieval

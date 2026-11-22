@@ -55,3 +55,27 @@ fn poser_sur_une_etagere_et_une_table() {
     let q = [p[0] + 3, p[1], p[2]]; let tid = put(&mut s, q, "table"); hand(&mut s, "berries", 2); for _ in 0..2 { assert!(s.furniture_at(q, tid)); } assert_eq!(s.shelves[&q].iter().flatten().count(), 2);
     let before = count(&s, "berries"); s.world.edit(q[0], q[1], q[2], 0); s.on_broken(q, tid); assert_eq!(count(&s, "berries"), before + 2, "la table cassée rend ses baies"); assert!(!s.shelves.contains_key(&q));
 }
+
+#[test]
+fn le_mobilier_des_civilisations() {
+    use alw_core::{batisse, data::def, mesher::{VBuf, VSIZE}, meubles, noise::Rng, survival::recipes};
+    let all = ["pouf", "sedari", "tray_table", "moroccan_lantern", "berber_rug", "mashrabiya", "sea_chest", "ship_wheel", "storm_lantern", "rope_coil",
+        "fur_bench", "rune_chest", "round_shield", "long_hearth", "antlers", "wardrobe", "dresser", "writing_desk", "wine_rack"];
+    for n in all { let b = by_name(n).unwrap_or_else(|| panic!("le bloc {n}")); assert_eq!(def(n).and_then(|d| d.block), Some(b), "l'objet {n}"); assert!(recipes().iter().any(|r| r.out == n), "la recette de {n}");
+        let m = BLOCKS[b as usize].model.unwrap(); let mut o = VBuf::new(4000); assert!(meubles::draw(&mut o, m, n, 0.0, 0.0, 0.0, 1.0, 1.0, &mut Rng::new(3))); assert!(o.n >= 24, "{n} se dessine");
+        for v in o.data.chunks_exact(VSIZE) { let g = |i: usize| i16::from_le_bytes([v[i], v[i + 1]]) as f64 / o.scale; for i in [0, 2, 4] { assert!((-0.02..=1.02).contains(&g(i)), "{n} déborde : {:.3}", g(i)); } } }
+    // ce qu'on en fait : s'asseoir, ranger, poser
+    for n in ["pouf", "sedari", "fur_bench"] { assert!(mb::seat(by_name(n).unwrap()).is_some(), "on s'assied sur {n}"); }
+    for n in ["sea_chest", "rune_chest", "wardrobe", "dresser", "wine_rack"] { assert!(mb::storage(by_name(n).unwrap()), "on range dans {n}"); }
+    for n in ["tray_table", "writing_desk", "dresser"] { assert!(!mb::slots(by_name(n).unwrap()).is_empty(), "on pose sur {n}"); }
+    for n in ["moroccan_lantern", "storm_lantern", "long_hearth"] { assert!(BLOCKS[by_name(n).unwrap() as usize].light >= 12, "{n} éclaire"); }
+    // les maisons des villages se meublent selon leur civilisation, et le meuble garde son sens
+    let sw = |kind: &str, n: &str| BLOCKS[batisse::civ_furniture(&batisse::style(kind), by_name(n).unwrap()) as usize].name;
+    assert_eq!(sw("desert", "chair@2"), "pouf"); assert_eq!(sw("desert", "table"), "tray_table"); assert_eq!(sw("desert", "lantern"), "moroccan_lantern"); assert_eq!(sw("desert", "carpet_red"), "berber_rug");
+    assert_eq!(sw("port", "cupboard@3"), "sea_chest@3"); assert_eq!(sw("port", "lantern"), "storm_lantern"); assert_eq!(sw("port", "wall_shelf@1"), "ship_wheel@1");
+    assert_eq!(sw("taiga", "chair@1"), "fur_bench@1"); assert_eq!(sw("montagne", "cupboard"), "rune_chest"); assert_eq!(sw("taiga", "wall_shelf@2"), "round_shield@2");
+    assert_eq!(sw("prairie", "chair@2"), "chair@2", "le médiéval garde ses chaises"); assert_eq!(sw("desert", "chest"), "chest", "le coffre reste un coffre");
+    // et l'on s'en sert : un pouf, un coffre de marin
+    let (mut s, p) = world(); let id = put(&mut s, p, "pouf"); assert!(s.furniture_at(p, id)); assert_eq!(s.seated, Some(p)); s.stand_up();
+    let q = [p[0] + 2, p[1], p[2]]; let id = put(&mut s, q, "sea_chest@1"); assert!(s.furniture_at(q, id)); assert_eq!(s.chest, Some(q), "le coffre de marin s'ouvre (on y range)");
+}

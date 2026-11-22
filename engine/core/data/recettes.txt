@@ -426,3 +426,24 @@ stained_glass_red 2 | four | glass 2, berries 2 | batir
 stained_glass_green 2 | four | glass 2, fiber 2 | batir
 stained_glass_amber 2 | four | glass 2, yellow_flower 1 | batir
 shelf 1 | etabli | plank 4, stick 2 | mobilier
+
+# --- Le mobilier des civilisations ---
+pouf 1 | etabli | hides 1, fiber 2 | mobilier
+sedari 1 | etabli | plank 3, wool_red 2, wool_blue 1 | mobilier
+tray_table 1 | enclume | copper_ingot 2, plank 1, !hammer 1 | mobilier
+moroccan_lantern 1 | enclume | copper_ingot 1, glass 2, candle 1, !hammer 1 | decor
+berber_rug 2 | etabli | wool_red 2, wool_white 1 | decor
+mashrabiya 2 | etabli | plank 2, stick 6 | batir
+sea_chest 1 | etabli | plank 5, iron_ingot 1, rope 1 | mobilier
+ship_wheel 1 | etabli | plank 3, stick 4, copper_ingot 1 | decor
+storm_lantern 1 | enclume | iron_ingot 1, glass 1, candle 1, !hammer 1 | decor
+rope_coil 1 | main | rope 4 | decor
+fur_bench 1 | etabli | plank 3, hides 2 | mobilier
+rune_chest 1 | etabli | plank 5, iron_ingot 1, !knife 1 | mobilier
+round_shield 1 | etabli | plank 3, iron_ingot 1 | decor
+long_hearth 1 | taille | cut 4, log 2 | decor
+antlers 1 | main | plank 1, bone 2 | decor
+wardrobe 1 | etabli | plank 8, copper_ingot 1 | mobilier
+dresser 1 | etabli | plank 6, clay 2 | mobilier
+writing_desk 1 | etabli | plank 4, stick 4 | mobilier
+wine_rack 1 | etabli | plank 4, glass 3 | mobilier
