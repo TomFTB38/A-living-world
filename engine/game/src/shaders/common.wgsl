@@ -56,7 +56,7 @@ fn sky_color(d: vec3f) -> vec3f {
   if (gold > 0.001) {
     let az = dot(normalize(vec2f(d.x, d.z) + vec2f(1e-5)), normalize(vec2f(u.sun.x, u.sun.z) + vec2f(1e-5)));
     let toward = pow(max(az, 0.0), 2.0); let away = pow(max(-az, 0.0), 1.5); let low = pow(1.0 - y, 7.0); let mid = pow(1.0 - y, 3.0) - low * 0.6;
-    c += (vec3f(1.25, 0.46, 0.14) * low * (0.35 + 0.65 * toward) + vec3f(0.85, 0.38, 0.5) * max(mid, 0.0) * 0.35 * toward + vec3f(0.5, 0.36, 0.62) * mid * 0.25 * away) * gold;
+    c += (vec3f(1.25, 0.46, 0.14) * low * 1.4 * (0.35 + 0.65 * toward) + vec3f(0.85, 0.38, 0.5) * max(mid, 0.0) * 0.35 * toward + vec3f(0.5, 0.36, 0.62) * mid * 0.25 * away) * gold;
   }
   if (d.y < 0.0) { c = mix(c, u.ground.rgb, sat(-d.y * 7.0)); }
   return c;
@@ -91,7 +91,7 @@ fn rainbow(v: vec3f) -> vec3f {
   var c = vec3f(0.0);
   if (f1 > 0.0 && f1 < 1.0) { c += (0.5 + 0.5 * cos(6.2832 * (vec3f(0.0, 0.33, 0.67) + f1 * 0.8 - 0.05))) * sin(f1 * 3.1416) * 0.5; }
   if (f2 > 0.0 && f2 < 1.0) { c += (0.5 + 0.5 * cos(6.2832 * (vec3f(0.0, 0.33, 0.67) + f2 * 0.8 - 0.05))) * sin(f2 * 3.1416) * 0.14; }
-  return c * k * smoothstep(-0.03, 0.06, v.y) * length(u.sun_col.rgb) * 0.12;
+  return c * k * smoothstep(-0.03, 0.06, v.y) * min(length(u.sun_col.rgb), 6.0) * 0.4;
 }
 /// Aurores boréales : des rideaux verts qui ondulent, frangés de violet en hauteur.
 fn aurora(v: vec3f) -> vec3f {

@@ -1224,7 +1224,7 @@ fn capture(a: &[String]) {
         // Le ciel : depuis un point de vue, le soleil couchant (l'horizon embrasé) ; la nuit, les étoiles, la Voie lactée et la
         // lune ; l'après-midi d'une averse, l'arc-en-ciel à l'opposé du soleil.
         let w = WorldGen::new(SEED); s.sel = 8; s.third = false; s.set_creative(true); s.player.fly = true; s.skip_guide();
-        s.hour = match scene.as_str() { "ciel_couchant" => 17.6, "ciel_nuit" => 23.0, _ => 16.6 };
+        s.hour = match scene.as_str() { "ciel_couchant" => 17.6, "ciel_nuit" => 23.0, _ => 16.6 }; if scene == "ciel_nuit" { s.hours = 130.6; } // un premier quartier passé : on voit la phase
         if let Some((_, top)) = w.viewpoints_near(0.0, 0.0, 5000.0).into_iter().next() {
             let d = view::sky_at(s.hour).dir; let (dx, dy, dz) = (d[0] as f64, d[1] as f64, d[2] as f64);
             let (yaw, pitch) = match scene.as_str() { "ciel_couchant" => (dx.atan2(dz), 0.06), "ciel_nuit" => (dx.atan2(dz), dy.asin() - 0.32), _ => ((-dx).atan2(-dz), 0.2) };
