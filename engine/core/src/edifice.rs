@@ -26,11 +26,11 @@ impl Arch {
 
 /// La fiche d'un bâtiment : archétype, variante, dimensions du corps principal, étages, état, graine, richesse, métier.
 #[derive(Clone, Copy, Debug)]
-pub struct Spec { pub arch: Arch, pub var: u8, pub w: i32, pub d: i32, pub floors: i32, pub cond: Cond, pub h: f64, pub rich: f64, pub craft: Option<&'static str>, pub door_side: u8 }
+pub struct Spec { pub arch: Arch, pub var: u8, pub w: i32, pub d: i32, pub floors: i32, pub cond: Cond, pub h: f64, pub rich: f64, pub craft: Option<&'static str>, pub door_side: u8, /** bâti à la manière du désert (`desert`) */ pub desert: bool }
 impl Spec {
     pub fn new(arch: Arch, var: u8, h: f64, rich: f64, craft: Option<&'static str>, cond: Cond) -> Spec {
         let k = |n: i32| (h * 7919.0).floor() as i32 % n; let var = var % arch.variants();
-        if let Some(kd) = arch.patron() { let pl = crate::patrons::plan(kd, var); return Spec { arch, var, w: pl.w, d: pl.d, floors: 1, cond, h, rich, craft, door_side: 0 }; }
+        if let Some(kd) = arch.patron() { let pl = crate::patrons::plan(kd, var); return Spec { arch, var, w: pl.w, d: pl.d, floors: 1, cond, h, rich, craft, door_side: 0, desert: false }; }
         let (w, d, floors, door_side) = match arch {
             Arch::Cottage => (5 + k(3), 6 + k(2) + if var == 1 { 3 } else { 0 }, 1, 0),
             Arch::TimberHouse => match var { 1 => (5, 6 + k(2), 3, 0), 2 => (6 + k(2), 8, 2, 1), _ => (5 + k(3), 6 + k(3), 2, 0) },
@@ -42,12 +42,19 @@ impl Spec {
             Arch::Mill => (3, 3, 1, 0),
             _ => (5, 6, 1, 0),
         };
-        Spec { arch, var, w, d, floors, cond, h, rich, craft, door_side }
+        Spec { arch, var, w, d, floors, cond, h, rich, craft, door_side, desert: false }
     }
+    /// La même fiche, bâtie à la manière du désert : le bâtiment du désert qui tient ce rôle (`desert::kind_of`).
+    pub fn desert(arch: Arch, var: u8, h: f64, rich: f64, craft: Option<&'static str>, cond: Cond) -> Spec {
+        let var = var % 8; let pl = crate::desert::plan(crate::desert::kind_of(arch), var); Spec { arch, var, w: pl.w, d: pl.d, floors: 1, cond, h, rich, craft, door_side: 0, desert: true }
+    }
+    /// La porte : côté et case le long du mur.
+    pub fn door(&self) -> Option<i32> { if self.desert { return Some(crate::desert::plan(crate::desert::kind_of(self.arch), self.var).door); } self.arch.patron().map(|k| crate::patrons::plan(k, self.var).door) }
     /// Habité (un lit, une porte, des habitants) ?
     pub fn dwelling(&self) -> bool { !matches!(self.arch, Arch::Barn | Arch::Chapel | Arch::Mill | Arch::Fold | Arch::Stable | Arch::TownHall | Arch::Hall) && !matches!(self.cond, Cond::Abandoned | Cond::Building) }
     /// L'emprise au sol, débords de toit, annexes et abords compris, en coordonnées du terrain : [u0, w0, u1, w1] inclus.
     pub fn extent(&self) -> [i32; 4] {
+        if self.desert { return crate::desert::plan(crate::desert::kind_of(self.arch), self.var).ext; }
         if let Some(k) = self.arch.patron() { return crate::patrons::plan(k, self.var).ext; }
         let (w, d) = (self.w, self.d); let mut e = [-1, -1, w, d];
         match (self.arch, self.var) {
@@ -119,6 +126,13 @@ fn stair(b: &mut B, u: i32, ww0: i32, y: i32) {
 /// Bâtit la fiche `sp` sur son terrain, le sol à `y0`. Rend la porte, le poste et le lit.
 pub fn raise(k: &mut Work, lot: Lot, sp: &Spec, y0: i32) -> Made {
     const PAINT: [C3; 5] = [[0.24, 0.36, 0.26], [0.22, 0.3, 0.42], [0.5, 0.18, 0.14], [0.38, 0.3, 0.2], [0.3, 0.4, 0.42]];
+    // Le désert : pisé, toits plats, coupoles ; une ruine ensablée quand la maison est abandonnée.
+    if sp.desert {
+        let start = k.blocks.len(); let bt = crate::desert::build(k, lot, y0, crate::desert::kind_of(sp.arch), sp.var, sp.h, sp.rich, sp.craft);
+        if sp.cond == Cond::Building { site(k, lot, sp, y0, start); return Made::default(); }
+        if sp.cond == Cond::Abandoned { ruin(k, lot, sp, y0, start); return Made::default(); }
+        return Made { door: bt.door.map(|x| (0, x)), spot: bt.spot, bed: bt.bed };
+    }
     // Les patrons de construction : chaque bâtiment reproduit sa planche, bloc par bloc.
     if let Some(kind) = sp.arch.patron() {
         let start = k.blocks.len();
@@ -420,6 +434,16 @@ fn wear(b: &mut B, sp: &Spec, y0: i32) {
 
 /// Un bâtiment en construction, à partir de son patron : les murs montés jusqu'à hauteur d'homme, sans toit ni étage ;
 /// un échafaudage de poteaux et de planches le long de la façade, une échelle, des matériaux en tas. Tout en blocs.
+/// Une maison du désert abandonnée : le toit effondré par endroits, le haut des murs écroulé, les meubles emportés, le
+/// sable qui s'amoncelle contre les murs et dans les pièces.
+fn ruin(k: &mut Work, lot: Lot, sp: &Spec, y0: i32, start: usize) {
+    let mut r = crate::noise::Rng::new((sp.h * 7.3e6) as u32 + 11); let sand = id("sand");
+    let keep: Vec<_> = k.blocks.drain(start..).filter(|b| { if b.3 == 0 { return true; } let n = crate::blocks::BLOCKS[b.3 as usize].name;
+        if !crate::blocks::BLOCKS[b.3 as usize].solid || n.starts_with("door") || n.starts_with("bed") || n == "chest" || n == "furnace" || n == "anvil" || n.starts_with("window") || n.starts_with("awning") || n.contains("lantern") || n == "ladder" { return false; }
+        let up = b.1 - y0; !(up >= 4 && r.next() < 0.55 || up == 3 && r.next() < 0.3) }).collect();
+    k.blocks.extend(keep);
+    for u in -1..=sp.w { for ww in -1..=sp.d { if r.next() < 0.35 { k.put(lot.cell(u, y0 + 1, ww), sand); } } }
+}
 fn site(k: &mut Work, lot: Lot, sp: &Spec, y0: i32, start: usize) {
     let top = y0 + 2; let keep: Vec<_> = k.blocks.drain(start..).filter(|b| b.1 <= top || b.3 == 0).filter(|b| { let n = crate::blocks::BLOCKS[b.3 as usize].name; !(b.1 == top && (n.starts_with("window") || n.starts_with("shutter"))) }).collect();
     let cleared: Vec<_> = keep.iter().filter(|b| b.3 == 0).map(|b| (b.0, b.2)).collect(); k.blocks.extend(keep);

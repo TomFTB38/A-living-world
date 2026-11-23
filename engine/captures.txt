@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu ciel_couchant ciel_nuit arc_en_ciel
+spawn jeu desert_vue desert_oasis desert_soir plat_desert_maisons plat_desert_grands

@@ -3,6 +3,7 @@ pub mod blocks;
 mod blocks_data;
 pub mod det;
 pub mod gen;
+pub mod desert;
 pub mod noise;
 pub mod mesher;
 pub mod store;

@@ -1236,6 +1236,35 @@ fn capture(a: &[String]) {
             pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
         }
     }
+    if scene == "desert_vue" || scene == "desert_oasis" || scene == "desert_soir" {
+        // Un village du désert : vu d'en haut (l'oasis, le souk, les toits plats, la palmeraie) ; de plus près, l'oasis et ses
+        // étals ; le soir, ses lanternes.
+        let w = WorldGen::new(SEED); s.sel = 8; s.third = false; s.player.fly = true; s.set_creative(true); s.skip_guide(); s.hour = if scene == "desert_soir" { 19.3 } else { 10.5 };
+        if let Some(v) = w.villages_near(0.0, 0.0, 8000.0).into_iter().find(|v| v.kind == "desert") {
+            let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; println!("{scene} : {} {:?}", v.name, v.c);
+            let (from, to) = if scene == "desert_oasis" { ([c[0] - 9.0, c[1] + 7.5, c[2] - 9.0], [c[0], c[1], c[2]]) } else { ([c[0] - 34.0, c[1] + 30.0, c[2] - 34.0], [c[0], c[1], c[2]]) };
+            s.player.p = from; let f = view::norm([to[0] - from[0], to[1] - from[1] - 1.6, to[2] - from[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
+            g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
+            for _ in 0..240 { let (q, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y; s.player.pitch = pi; }
+            pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+        }
+    }
+    if scene == "plat_desert_maisons" || scene == "plat_desert_grands" {
+        // Les bâtiments du désert alignés dans le monde plat, vus de devant et d'un peu haut.
+        use alw_core::desert::{build, plan, DKind}; let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.set_creative(true); s.skip_guide(); s.hour = 10.0; s.sel = 8; s.third = false; s.player.fly = true;
+        let list: Vec<(DKind, u8, f64)> = if scene == "plat_desert_maisons" { vec![(DKind::Maison, 0, 0.3), (DKind::Maison, 3, 0.8), (DKind::Atelier, 0, 0.5), (DKind::Ferme, 0, 0.4), (DKind::Enclos, 0, 0.4)] } else { vec![(DKind::Caravanserail, 0, 0.5), (DKind::Conseil, 0, 0.5), (DKind::GrandConseil, 0, 0.6)] };
+        let total: i32 = list.iter().map(|(k, v, _)| { let e = plan(*k, *v).ext; e[2] - e[0] + 1 + 3 }).sum(); let mut cursor = o[0] - total / 2; let z0 = o[2] + 8; let mut k = alw_core::batisse::Work::default();
+        for (i, (kind, var, rich)) in list.iter().enumerate() { let e = plan(*kind, *var).ext; let lot = alw_core::batisse::Lot { o: (cursor - e[0], z0 - e[1]), u: (1, 0), w: (0, 1) };
+            let _ = build(&mut k, lot, o[1], *kind, *var, 0.2 + 0.15 * i as f64, *rich, if *kind == DKind::Atelier { Some("forgeron") } else { None }); cursor += e[2] - e[0] + 1 + 3; }
+        let sand = alw_core::blocks::by_name("sand").unwrap_or(0); let mut e: Vec<(i32, i32, i32, u16)> = Vec::new();
+        for x in o[0] - total / 2 - 8..o[0] + total / 2 + 8 { for z in o[2] - 24..o[2] + 30 { e.push((x, o[1], z, sand)); } }
+        e.extend(k.blocks.iter().map(|b| (b.0, b.1, b.2, b.3))); s.world.edit_many(&e); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
+        let (dist, up) = if scene == "plat_desert_maisons" { (34.0, 15.0) } else { (36.0, 19.0) };
+        let from = [o[0] as f64 + 0.5, o[1] as f64 + up, z0 as f64 - dist]; let to = [o[0] as f64 + 0.5, o[1] as f64 + 3.0, z0 as f64 + 6.0];
+        s.player.p = from; let f = view::norm([to[0] - from[0], to[1] - from[1] - 1.6, to[2] - from[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
+        for _ in 0..30 { let (q, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y; s.player.pitch = pi; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     if scene == "tresor" || scene == "tresor_coffre" || scene == "tresor_loin" {
         // Une cachette révélée par une carte au trésor : le cairn dans le paysage, la croix sur la mini-carte et la boussole ;
         // puis le trou creusé sous le cairn et le coffre ouvert, son butin.

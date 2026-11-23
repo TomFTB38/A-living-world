@@ -258,13 +258,13 @@ fn raise(lot: Lot, y: i32, kind: Kind) -> (Vec<(i32, i32, i32, Id)>, House) {
 impl Session {
     /// Le village pilote : le village médiéval le plus proche du point de départ.
     /// (le plus proche qui cherche à s'agrandir : celui-là montre tout, la vie et la croissance)
-    fn pilot(&self) -> Option<Village> { let all: Vec<Village> = self.gen.villages_near(self.spawn[0], self.spawn[2], 1400.0).into_iter().filter(|v| v.ident.is_some() && !v.works.is_empty()).collect(); all.iter().find(|v| ambition(v) > 0).or(all.first()).cloned() }
+    fn pilot(&self) -> Option<Village> { let all: Vec<Village> = self.gen.villages_near(self.spawn[0], self.spawn[2], 1400.0).into_iter().filter(|v| Self::lives(v)).collect(); all.iter().find(|v| ambition(v) > 0).or(all.first()).cloned() }
     pub(crate) fn pilot_village(&self) -> Option<Village> { let id = self.econ.as_ref()?.id; self.gen.site(id.0, id.1).map(|s| s.v.clone()) }
     /// Les maisons bâties depuis la création du monde s'ajoutent au village tracé (leurs habitants avec) — pour tout village qui a
     /// une économie, éveillée ou en sommeil.
     pub(crate) fn econ_extend(&self, v: &mut Village) { if let Some(e) = self.econ.as_ref().filter(|e| e.id == v.id).or_else(|| self.econs.get(&v.id)) { for x in e.extra.iter().filter(|x| x.kind == Kind::Maison) { v.houses.push(raise(x.lot, x.y, x.kind).1); } } }
     /// Un village qui vit de lui-même : un village refondu (une identité), avec ses bâtiments et ses champs.
-    pub(crate) fn lives(v: &Village) -> bool { v.ident.is_some() && !v.works.is_empty() }
+    pub(crate) fn lives(v: &Village) -> bool { v.ident.is_some_and(|i| i.civ == crate::bourg::Civ::Medieval) && !v.works.is_empty() } // l'économie (et ses chantiers de maisons médiévales) : les villages médiévaux, pour l'instant
     /// Le village dont l'économie tourne en ce moment : celui où se trouve le joueur (le plus proche des villages chargés, s'il est
     /// à portée) ; l'économie de l'autre s'endort, celle-ci se réveille (ou naît) et rattrape le temps passé.
     fn econ_focus(&mut self) {

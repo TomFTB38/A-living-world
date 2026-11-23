@@ -11,7 +11,8 @@
 //! ateliers, chapelle), (5) les maisons le long des rues, les granges et les champs en lisière, les métiers odorants
 //! à l'écart ; (6) la validation : pas de chevauchement, pas de bâtiment sur la route ou la place, un terrain assez
 //! plat et sec sous chaque bâtiment, une porte reliée à la rue par un chemin, rien hors de la portée du village.
-//! Seule la civilisation médiévale passe pour l'instant par ce générateur.
+//! Les civilisations médiévale et du désert passent par ce générateur ; au désert, l'oasis remplace le puits, le souk a
+//! plus d'étals, la palmeraie remplace les champs, et il n'y a ni église ni moulin.
 use crate::batisse::{Lot, Work};
 use crate::edifice::{Arch, Cond, Made, Spec};
 use crate::gen::WorldGen;
@@ -64,9 +65,9 @@ struct Want { spec: Spec, pref: u8 }
 struct Placed { spec: Spec, lot: Lot, by: i32, body: [i32; 4], made: Made, road: usize, at: usize, link: Vec<(i32, i32)> }
 
 /// La porte attendue d'une fiche : côté et case le long du mur (pour aligner la façade sur la rue avant de bâtir).
-fn door_of(sp: &Spec) -> (u8, i32) { if let Some(k) = sp.arch.patron() { return (0, crate::patrons::plan(k, sp.var).door); } match sp.arch { Arch::Forge => (0, sp.w - 2), Arch::Mill => (0, 1), Arch::TimberHouse if sp.door_side == 1 => (1, sp.d / 2), _ => (0, sp.w / 2) } }
+fn door_of(sp: &Spec) -> (u8, i32) { if let Some(d) = sp.door() { return (0, d); } match sp.arch { Arch::Forge => (0, sp.w - 2), Arch::Mill => (0, 1), Arch::TimberHouse if sp.door_side == 1 => (1, sp.d / 2), _ => (0, sp.w / 2) } }
 
-/// Trace un village médiéval : identité, routes, bâtiments, champs, décor ; rend le site à poser dans le monde.
+/// Trace un village médiéval (ou du désert, bâti à sa manière : voir `desert`) : identité, routes, bâtiments, champs, décor ; rend le site à poser dans le monde.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, kind: &'static str, crafts: Vec<&'static str>, name: String) -> Site {
     let s = g.seed; let h = |k: i32| hash_float(gx, gz, s, 900 + k); let ident = identity(&h, kind);
@@ -106,16 +107,17 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
     // ---- ce que le village demande, du plus essentiel au plus accessoire
     let mut wants: Vec<Want> = Vec::new(); let mut salt = 200; let mut nh = || { salt += 1; h(salt) };
     let cond = |r: f64| -> Cond { let aged = ident.age as f64 / 400.0; if r < 0.05 * (1.0 - ident.wealth) { Cond::Damaged } else if r < 0.05 + aged * 0.45 { Cond::Old } else if r < 0.12 + aged * 0.45 { Cond::Repaired } else if r < 0.6 { Cond::Kept } else { Cond::New } };
-    let mk = |arch: Arch, hh: f64, craft: Option<&'static str>, c: Cond| Spec::new(arch, (hh * 97.0) as u8, hh, (ident.wealth + (hh - 0.5) * 0.3).clamp(0.0, 1.0), craft, c);
+    let dry = ident.civ == Civ::Desert; // le désert : pisé et toits plats, l'oasis au milieu, la palmeraie autour
+    let mk = |arch: Arch, hh: f64, craft: Option<&'static str>, c: Cond| if dry { Spec::desert(arch, (hh * 97.0) as u8, hh, (ident.wealth + (hh - 0.5) * 0.3).clamp(0.0, 1.0), craft, c) } else { Spec::new(arch, (hh * 97.0) as u8, hh, (ident.wealth + (hh - 0.5) * 0.3).clamp(0.0, 1.0), craft, c) };
     if ident.size >= Size::Small || ident.focus == Focus::Trade { let hh = nh(); wants.push(Want { spec: mk(Arch::Inn, hh, None, cond(nh())), pref: 0 }); }
     for c in &crafts { let hh = nh(); let arch = match *c { "forgeron" | "maitre_forgeron" | "armurier" => Arch::Forge, "tanneur" => Arch::Tannery, "maitre_menuisier" | "menuisier" | "charpentier" | "bucheron" => Arch::Woodshop, _ => Arch::Workshop }; let pref = if *c == "tanneur" { 3 } else if arch == Arch::Forge { 0 } else { 1 };
         wants.push(Want { spec: mk(arch, hh, Some(c), Cond::Kept), pref }); }
-    if ident.size >= Size::Developed || (ident.size == Size::Small && (ident.outlook == Outlook::Tradition || h(70) < 0.35)) { wants.push(Want { spec: mk(Arch::Chapel, nh(), None, Cond::Kept), pref: 0 }); }
+    if !dry && (ident.size >= Size::Developed || (ident.size == Size::Small && (ident.outlook == Outlook::Tradition || h(70) < 0.35))) { wants.push(Want { spec: mk(Arch::Chapel, nh(), None, Cond::Kept), pref: 0 }); }
     // La mairie : la grande pour les bourgs développés, la petite pour les villages.
     match ident.size { Size::Developed | Size::Borough => wants.push(Want { spec: mk(Arch::TownHall, nh(), None, Cond::Kept), pref: 0 }), Size::Small => wants.push(Want { spec: mk(Arch::Hall, nh(), None, Cond::Kept), pref: 0 }), Size::Hamlet => {} }
     let (lo, hi) = ident.size.range(); let target = lo + ((hi - lo + 1) as f64 * h(71)) as usize;
     let barns = match ident.focus { Focus::Farming | Focus::Livestock => 2 + (ident.size >= Size::Developed) as usize * 2, _ => 1 + (ident.size >= Size::Developed) as usize }.min(target / 3).max(1).min(if ident.size == Size::Hamlet { 1 } else { 9 });
-    let mills = (ident.size >= Size::Small && h(72) < 0.6) as usize;
+    let mills = (!dry && ident.size >= Size::Small && h(72) < 0.6) as usize; // pas de moulin au désert : ni vent régulier ni rivière
     let homes = target.saturating_sub(wants.len() + barns + mills).max(2);
     // Les bâtisses rurales : une ferme d'abord, puis étables et écuries selon ce que le village élève.
     for i in 0..barns { let hh = nh(); let arch = match (i, ident.focus) { (0, _) => Arch::Farm, (_, Focus::Livestock) => if hh < 0.5 { Arch::Fold } else { Arch::Stable }, _ => [Arch::Fold, Arch::Farm, Arch::Stable][(hh * 3.0) as usize % 3] }; wants.push(Want { spec: mk(arch, hh, None, cond(nh())), pref: 3 }); }
@@ -167,36 +169,39 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
     for p in &placed { let e = p.spec.extent(); let a = rect(&p.lot, e); pads.push(Pad { c: [(a[0] + a[2] + 1) as f64 * 0.5, (a[1] + a[3] + 1) as f64 * 0.5], half: [(a[2] - a[0] + 1) as f64 * 0.5 + 1.0, (a[3] - a[1] + 1) as f64 * 0.5 + 1.0], round: false, h: p.by }); }
     let nat = |cx: i32, cz: i32| col(cx, cz).0; let gy = |pads: &[Pad], cx: i32, cz: i32| shape(pads, nat(cx, cz), cx as f64 + 0.5, cz as f64 + 0.5).0;
     let mut ground = Work::default(); let mut works = Work::default(); let mut paths: Vec<[i32; 3]> = Vec::new();
-    let pave = id(if ident.wealth > 0.6 { "setts" } else { "cobblestone" }); let trail = id("dirt_path"); let cob = id("cobblestone"); let grass = id("grass");
+    let pave = id(if dry { "sandstone" } else if ident.wealth > 0.6 { "setts" } else { "cobblestone" }); let trail = id(if dry { "sand" } else { "dirt_path" }); let cob = id(if dry { "sandstone" } else { "cobblestone" }); let grass = id(if dry { "red_sandstone" } else { "grass" }); let fill = id(if dry { "sand" } else { "dirt" });
     // Les rues : pavées autour de la place dans un village aisé, en terre battue ailleurs, avec des plaques de pavés usés.
     // Les hauteurs des rues, adoucies : jamais plus d'un bloc d'écart entre deux cases voisines (on remblaie le creux).
     let mut rh: HashMap<(i32, i32), i32> = road_cells.keys().map(|&(cx, cz)| ((cx, cz), gy(&pads, cx, cz))).collect();
     for p in &placed { for &(cx, cz) in &p.link { rh.insert((cx, cz), gy(&pads, cx, cz)); } }
     for _ in 0..6 { let keys: Vec<(i32, i32)> = rh.keys().copied().collect(); for (cx, cz) in keys { let hc = rh[&(cx, cz)]; for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] { if let Some(hn) = rh.get_mut(&(cx + dx, cz + dz)) { if *hn < hc - 1 { *hn = hc - 1; } } } } }
     let mut cells: Vec<(&(i32, i32), &(usize, bool))> = road_cells.iter().collect(); cells.sort();
-    for (&(cx, cz), &(_, main)) in cells { let y = rh[&(cx, cz)]; for f in gy(&pads, cx, cz)..y { ground.put([cx, f, cz], id("dirt")); } let dc = ((cx - x) as f64).hypot((cz - z) as f64);
+    for (&(cx, cz), &(_, main)) in cells { let y = rh[&(cx, cz)]; for f in gy(&pads, cx, cz)..y { ground.put([cx, f, cz], fill); } let dc = ((cx - x) as f64).hypot((cz - z) as f64);
         let b = if main && ident.size >= Size::Small && dc < pr + 6.0 + ident.wealth * 10.0 { pave } else if hash_float(cx, cz, s, 915) < 0.12 && main { cob } else if hash_float(cx, cz, s, 916) < 0.06 { grass } else { trail };
         ground.put([cx, y, cz], b); paths.push([cx, y, cz]); }
     // La place : pavée (en terre battue au hameau), le puits au milieu, des lanternes, les étals du marché.
     let plaza_mat = if ident.size == Size::Hamlet { trail } else { pave };
     let r2 = (pr + 0.6).ceil() as i32; for dx in -r2..=r2 { for dz in -r2..=r2 { if in_plaza(x + dx, z + dz) { ground.put([x + dx, y0, z + dz], plaza_mat); } } }
-    let water = id("water"); for dx in -1..=1 { for dz in -1..=1 { let edge = dx != 0 || dz != 0; for (y, b) in [(y0, if edge { cob } else { water }), (y0 - 1, if edge { cob } else { water }), (y0 - 2, cob)] { ground.put([x + dx, y, z + dz], b); } if edge { ground.put([x + dx, y0 + 1, z + dz], cob); } } }
-    crate::batisse::well(&mut ground, [x, y0, z], id("roof_tiles"));
-    if ident.size >= Size::Small { for (dx, dz) in [(3, 3), (-3, 3), (3, -3), (-3, -3)] { let (cx, cz) = (x + dx + dx.signum(), z + dz + dz.signum()); if !road_cells.contains_key(&(cx, cz)) { ground.put([cx, y0 + 1, cz], id("fence")); ground.put([cx, y0 + 2, cz], id("lantern")); } } }
-    let stalls = match (ident.size, ident.focus) { (Size::Hamlet, _) => 0, (_, Focus::Trade) => 4, (Size::Borough, _) => 4, (Size::Developed, _) => 2, _ => 1 };
-    let stripes = [[[0.62, 0.14, 0.12], [0.9, 0.86, 0.78]], [[0.18, 0.28, 0.5], [0.9, 0.86, 0.78]], [[0.28, 0.42, 0.22], [0.88, 0.82, 0.64]], [[0.7, 0.48, 0.15], [0.38, 0.24, 0.13]]];
-    let road_angles: Vec<f64> = roads.iter().filter(|r| r.parent.is_none()).map(|r| (r.pts[1][1] - fz).atan2(r.pts[1][0] - fx)).collect(); let mut made_stalls = 0;
-    for k in 0..12 { if made_stalls >= stalls { break; } let a = h(80) * TAU + k as f64 * TAU / 12.0; if road_angles.iter().any(|ra| ((a - ra + PI).rem_euclid(TAU) - PI).abs() < 0.55) { continue; }
-        let c = [fx + a.cos() * (pr - 1.4), (y0 + 1) as f64, fz + a.sin() * (pr - 1.4)]; let at = [c[0].floor() as i32, y0, c[2].floor() as i32];
+    let water = id("water");
+    let road_angles: Vec<f64> = roads.iter().filter(|r| r.parent.is_none()).map(|r| (r.pts[1][1] - fz).atan2(r.pts[1][0] - fx)).collect();
+    if dry { oasis(&mut ground, x, y0, z, pr, &road_angles, s, gx, gz); } else {
+    for dx in -1..=1 { for dz in -1..=1 { let edge = dx != 0 || dz != 0; for (y, b) in [(y0, if edge { cob } else { water }), (y0 - 1, if edge { cob } else { water }), (y0 - 2, cob)] { ground.put([x + dx, y, z + dz], b); } if edge { ground.put([x + dx, y0 + 1, z + dz], cob); } } }
+    crate::batisse::well(&mut ground, [x, y0, z], id("roof_tiles")); }
+    if !dry && ident.size >= Size::Small { for (dx, dz) in [(3, 3), (-3, 3), (3, -3), (-3, -3)] { let (cx, cz) = (x + dx + dx.signum(), z + dz + dz.signum()); if !road_cells.contains_key(&(cx, cz)) { ground.put([cx, y0 + 1, cz], id("fence")); ground.put([cx, y0 + 2, cz], id("lantern")); } } }
+    let stalls = match (ident.size, ident.focus) { (Size::Hamlet, _) => dry as usize, (_, Focus::Trade) => 4, (Size::Borough, _) => 4, (Size::Developed, _) => 2, _ => 1 } + if dry && ident.size >= Size::Small { 2 } else { 0 }; // le souk : plus d'étals au désert
+    let stripes = if dry { [[[0.16, 0.2, 0.5], [0.92, 0.84, 0.62]], [[0.86, 0.52, 0.12], [0.95, 0.9, 0.78]], [[0.66, 0.24, 0.14], [0.9, 0.74, 0.46]], [[0.14, 0.42, 0.44], [0.94, 0.88, 0.7]]] } else { [[[0.62, 0.14, 0.12], [0.9, 0.86, 0.78]], [[0.18, 0.28, 0.5], [0.9, 0.86, 0.78]], [[0.28, 0.42, 0.22], [0.88, 0.82, 0.64]], [[0.7, 0.48, 0.15], [0.38, 0.24, 0.13]]] };
+    let mut made_stalls = 0;
+    for k in 0..if dry { 18 } else { 12 } { if made_stalls >= stalls { break; } let a = h(80) * TAU + k as f64 * TAU / if dry { 18.0 } else { 12.0 }; if road_angles.iter().any(|ra| ((a - ra + PI).rem_euclid(TAU) - PI).abs() < 0.55) { continue; }
+        let c = [fx + a.cos() * (pr - 1.4), (y0 + 1) as f64, fz + a.sin() * (pr - 1.4)]; if dry && palm_angles(gx, gz, s, pr, &road_angles).iter().any(|pa| ((a - pa + PI).rem_euclid(TAU) - PI).abs() < 0.5) { continue; } let at = [c[0].floor() as i32, y0, c[2].floor() as i32];
         crate::batisse::stall(&mut ground, at, c, [-a.cos(), 0.0, -a.sin()], stripes[(made_stalls + (h(81) * 4.0) as usize) % 4], h(82 + k)); made_stalls += 1; }
     // Les bâtiments, et leurs chemins jusqu'à la rue.
     for p in placed.iter_mut() { p.made = crate::edifice::raise(&mut works, p.lot, &p.spec, p.by);
-        for &(cx, cz) in &p.link { let y = rh[&(cx, cz)]; for f in gy(&pads, cx, cz)..y { ground.put([cx, f, cz], id("dirt")); } ground.put([cx, y, cz], trail); paths.push([cx, y, cz]); } }
+        for &(cx, cz) in &p.link { let y = rh[&(cx, cz)]; for f in gy(&pads, cx, cz)..y { ground.put([cx, f, cz], fill); } ground.put([cx, y, cz], trail); paths.push([cx, y, cz]); } }
     // Le décor des rues : des lanternes sur poteau le long des grands axes, des bancs près de la place.
     if ident.size >= Size::Small { for r in roads.iter().filter(|r| r.parent.is_none()) { for k in (4..r.pts.len()).step_by(6) { let p = r.pts[k]; let q = r.pts[k - 1]; let t = [p[0] - q[0], p[1] - q[1]]; let l = t[0].hypot(t[1]).max(1e-6); let side = if k % 12 == 4 { 1.0 } else { -1.0 };
         let (cx, cz) = ((p[0] - t[1] / l * side * (r.half + 1.2)).floor() as i32, (p[1] + t[0] / l * side * (r.half + 1.2)).floor() as i32);
         if road_cells.contains_key(&(cx, cz)) || taken.iter().any(|t| cx >= t[0] - 1 && cx <= t[2] + 1 && cz >= t[1] - 1 && cz <= t[3] + 1) || col(cx, cz).1 { continue; }
-        let y = gy(&pads, cx, cz); works.put([cx, y + 1, cz], id("fence")); works.put([cx, y + 2, cz], id("fence")); works.put([cx, y + 3, cz], id("lantern")); } } }
+        let y = gy(&pads, cx, cz); let (post, lamp) = if dry { ("palm_log", "moroccan_lantern") } else { ("fence", "lantern") }; works.put([cx, y + 1, cz], id(post)); works.put([cx, y + 2, cz], id(post)); works.put([cx, y + 3, cz], id(lamp)); } } }
     // ---- les champs, derrière les granges et en lisière
     let fields = match ident.focus { Focus::Farming => 4, Focus::Livestock => 2, _ => 2 } + (ident.size >= Size::Developed) as usize;
     let mut made_fields = 0; let farmland = id("farmland"); let fence = id("fence");
@@ -209,6 +214,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
         if bad { continue; } hs.sort(); let fy = hs[hs.len() / 2]; if hs[hs.len() - 1] - hs[0] > 5 || (fy - y0).abs() > 6 { continue; }
         taken.push(area); pads.push(Pad { c: [(area[0] + area[2] + 1) as f64 * 0.5, (area[1] + area[3] + 1) as f64 * 0.5], half: [(hx + 1) as f64 + 0.5, (hz + 1) as f64 + 0.5], round: false, h: fy });
         let crop = id(["wheat_3", "carrot_3", "potato_3", "wheat_3"][(h(95 + k as i32) * 4.0) as usize % 4]); let (gxx, gzz) = if along_x { (cx, area[1]) } else { (area[0], cz) };
+        if dry { palm_garden(&mut works, area, fy, along_x, (cx, cz), (gxx, gzz), crop, s, k as i32 + gx * 13 + gz * 7); made_fields += 1; continue; }
         for a in area[0]..=area[2] { for b in area[1]..=area[3] { let edge = a == area[0] || a == area[2] || b == area[1] || b == area[3];
             if edge { works.put([a, fy, b], id("dirt")); if (a, b) != (gxx, gzz) { works.put([a, fy + 1, b], fence); } continue; }
             let mid = if along_x { b == cz } else { a == cx }; if mid { works.put([a, fy, b], water); works.put([a, fy - 1, b], id("dirt")); } else { works.put([a, fy, b], farmland); works.put([a, fy + 1, b], crop); } } }
@@ -235,6 +241,41 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
     // Les artisans d'abord, comme dans les anciens villages.
     v.houses.sort_by_key(|h| h.craft.is_none());
     let mut blocks = ground.blocks; blocks.extend(works.blocks); crate::shapes::join_roofs(&mut blocks); /* les pans de toit qui se croisent font leurs arêtiers et leurs noues */ let mut props = ground.props; props.extend(works.props);
-    for dx in -1..=1 { for dz in -1..=1 { let edge = dx != 0 || dz != 0; if edge { blocks.push((x + dx, y0 + 1, z + dz, cob)); } blocks.push((x + dx, y0, z + dz, if edge { cob } else { water })); } }
+    if !dry { for dx in -1..=1 { for dz in -1..=1 { let edge = dx != 0 || dz != 0; if edge { blocks.push((x + dx, y0 + 1, z + dz, cob)); } blocks.push((x + dx, y0, z + dz, if edge { cob } else { water })); } } }
+    else { oasis_water(&mut blocks, x, y0, z, pr); }
     Site { v, blocks, props, pads, paths }
+}
+
+// ------------------------------------------------------------------ le désert : l'oasis et la palmeraie
+/// Le rayon du bassin de l'oasis, selon celui de la place.
+pub(crate) fn oasis_r(pr: f64) -> f64 { (pr * 0.45).max(1.6) }
+/// Où se dressent les palmiers autour du bassin (en angle) : là où ne passe aucune rue.
+fn palm_angles(gx: i32, gz: i32, s: i32, pr: f64, roads: &[f64]) -> Vec<f64> { let count = 4 + (pr as i32 - 3).max(0); (0..count).map(|i| hash_float(gx, gz, s, 933) * TAU + i as f64 * TAU / count as f64).filter(|a| !roads.iter().any(|ra| ((a - ra + PI).rem_euclid(TAU) - PI).abs() < 0.45)).collect() }
+/// Les cases d'eau de l'oasis : un bassin rond au milieu de la place, profond de deux blocs au centre.
+fn pool(x: i32, z: i32, pr: f64) -> Vec<(i32, i32, i32)> { let r = oasis_r(pr); let n = r.ceil() as i32; let mut o = Vec::new();
+    for dx in -n..=n { for dz in -n..=n { let d = (dx as f64).hypot(dz as f64); if d <= r { o.push((x + dx, z + dz, if d <= r - 1.2 { 2 } else { 1 })); } } } o }
+/// L'oasis au milieu de la place : le bassin bordé de grès, des roseaux, des palmiers tout autour (hors des rues).
+#[allow(clippy::too_many_arguments)]
+fn oasis(k: &mut Work, x: i32, y0: i32, z: i32, pr: f64, roads: &[f64], s: i32, gx: i32, gz: i32) {
+    let r = oasis_r(pr); let sand = id("sand"); let reed = crate::blocks::by_name("tall_grass").unwrap_or(0);
+    for (cx, cz, dep) in pool(x, z, pr) { for dy in 0..=dep { k.put([cx, y0 - dy, cz], id("water")); } k.put([cx, y0 - dep - 1, cz], sand); }
+    // la margelle : du grès autour de l'eau, des touffes au bord
+    let n = (r + 1.5).ceil() as i32; for dx in -n..=n { for dz in -n..=n { let d = (dx as f64).hypot(dz as f64); if d > r && d <= r + 1.0 { k.put([x + dx, y0, z + dz], id("sandstone")); if reed != 0 && hash_float(x + dx, z + dz, s, 931) < 0.25 { k.put([x + dx, y0 + 1, z + dz], reed); } } } }
+    // les palmiers, en couronne, là où ne passe aucune rue
+    let ring = r + 1.3;
+    for (i, a) in palm_angles(gx, gz, s, pr, roads).into_iter().enumerate() { let i = i as i32;
+        let (px, pz) = ((x as f64 + 0.5 + a.cos() * ring).floor() as i32, (z as f64 + 0.5 + a.sin() * ring).floor() as i32);
+        for b in crate::gen::palm_blocks(px as f64 + 0.5, (y0 + 1) as f64, pz as f64 + 0.5, (hash_float(gx + i, gz, s, 934) * 1e6) as u32, 0.3 + 0.5 * hash_float(gx, gz + i, s, 935)) { if b[1] > y0 { k.put([b[0], b[1], b[2]], b[3] as crate::blocks::Id); } } }
+}
+/// L'eau de l'oasis, reposée en dernier : rien ne la recouvre.
+fn oasis_water(blocks: &mut Vec<(i32, i32, i32, crate::blocks::Id)>, x: i32, y0: i32, z: i32, pr: f64) { let w = id("water"); for (cx, cz, dep) in pool(x, z, pr) { for dy in 0..=dep { blocks.push((cx, y0 - dy, cz, w)); } blocks.push((cx, y0 + 1, cz, 0)); } }
+/// Un jardin de la palmeraie : un muret de grès bas, une rigole d'irrigation au milieu, des cultures, un palmier dattier à
+/// deux angles.
+#[allow(clippy::too_many_arguments)]
+fn palm_garden(k: &mut Work, area: [i32; 4], fy: i32, along_x: bool, mid: (i32, i32), gate: (i32, i32), crop: crate::blocks::Id, s: i32, salt: i32) {
+    for a in area[0]..=area[2] { for b in area[1]..=area[3] { let edge = a == area[0] || a == area[2] || b == area[1] || b == area[3];
+        if edge { k.put([a, fy, b], id("sandstone")); if (a, b) != gate { k.put([a, fy + 1, b], id("sandstone_slab")); } continue; }
+        let m = if along_x { b == mid.1 } else { a == mid.0 }; if m { k.put([a, fy, b], id("water")); k.put([a, fy - 1, b], id("sandstone")); } else { k.put([a, fy, b], id("farmland")); k.put([a, fy + 1, b], crop); } } }
+    for (i, (a, b)) in [(area[0] + 1, area[1] + 1), (area[2] - 1, area[3] - 1)].into_iter().enumerate() {
+        for bl in crate::gen::palm_blocks(a as f64 + 0.5, (fy + 1) as f64, b as f64 + 0.5, (hash_float(salt, i as i32, s, 937) * 1e6) as u32, 0.45) { if bl[1] > fy { k.put([bl[0], bl[1], bl[2]], bl[3] as crate::blocks::Id); } } }
 }

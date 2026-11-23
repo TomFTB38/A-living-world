@@ -34,7 +34,7 @@ pub fn parts() -> Vec<(&'static str, VBuf)> {
 #[derive(Clone, Copy, Debug)] pub enum Ev { /** cri de goéland */ Cry([f64; 3]), /** un dauphin replonge */ Splash([f64; 3]), /** la baleine souffle en surface */ Blow([f64; 3]), /** chant de baleine, grave et lointain */ Song([f64; 3]), Caw([f64; 3]), Bark([f64; 3]), Scream([f64; 3]), Thump([f64; 3]), Rustle([f64; 3]), Bite([f64; 3], f64, &'static str), Howl([f64; 3]), Grunt([f64; 3]), /** une poule pond */ Lay([f64; 3]), /** meuglement, bêlement, grognement, hennissement, caquet */ Moo([f64; 3], Kind), /** un loup apprivoisé mord le monstre n° i */ Defend(usize, f64) }
 /// Une empreinte posée sur la neige.
 #[derive(Clone, Copy, Debug)] pub struct Print { pub p: [f64; 3], pub yaw: f64, pub age: f64, pub small: bool }
-pub struct Wild { next_id: u32, /** monstres proches : un loup apprivoisé les attaque */ pub threats: Vec<(usize, [f64; 3])>, cold: f64, dry: f64, pub night: bool, rng: Rng, /** tirages des bêtes de ferme, à part : la faune sauvage garde les siens */ farm_rng: Rng, pub all: Vec<Critter>, pub prints: Vec<Print>, pub ev: Vec<Ev>, pub wind: f64, t: f64, last_print: Option<[f64; 3]>, left: bool }
+pub struct Wild { /** le village le plus proche est un village du désert : ses bêtes sont des dromadaires */ pub dry_town: bool, next_id: u32, /** monstres proches : un loup apprivoisé les attaque */ pub threats: Vec<(usize, [f64; 3])>, cold: f64, dry: f64, pub night: bool, rng: Rng, /** tirages des bêtes de ferme, à part : la faune sauvage garde les siens */ farm_rng: Rng, pub all: Vec<Critter>, pub prints: Vec<Print>, pub ev: Vec<Ev>, pub wind: f64, t: f64, last_print: Option<[f64; 3]>, left: bool }
 
 /// Hauteur de la surface de neige à cet endroit, si l'on marche dans la neige.
 /// Dessus du sol le plus haut sous `from` : le premier bloc plein en descendant (feuillage et bois compris). Rien sur l'eau.
@@ -97,7 +97,7 @@ impl Wild {
     pub fn stagger(&mut self, i: usize, from: [f64; 3], secs: f64) { if let Some(c) = self.all.get_mut(i) { let (dx, dz) = (c.p[0] - from[0], c.p[2] - from[2]); let d = dx.hypot(dz).max(0.1); c.v = [dx / d * 6.0, 0.0, dz / d * 6.0]; c.cd = c.cd.max(secs); c.hit = 0.3; } }
     /// La bête la plus proche d'un point (celle qui vient de mordre).
     pub fn nearest(&self, p: [f64; 3]) -> Option<usize> { self.all.iter().enumerate().map(|(i, c)| (i, (c.p[0] - p[0]).hypot(c.p[2] - p[2]))).filter(|x| x.1 < 3.0).min_by(|a, b| a.1.total_cmp(&b.1)).map(|x| x.0) }
-    pub fn new(seed: i32) -> Self { Wild { next_id: 1, threats: Vec::new(), cold: 0.0, dry: 0.0, night: false, rng: Rng::new((seed ^ 0x2f0c) as u32), farm_rng: Rng::new((seed ^ 0x6a51) as u32), all: Vec::new(), prints: Vec::new(), ev: Vec::new(), wind: 0.7, t: 0.0, last_print: None, left: false } }
+    pub fn new(seed: i32) -> Self { Wild { dry_town: false, next_id: 1, threats: Vec::new(), cold: 0.0, dry: 0.0, night: false, rng: Rng::new((seed ^ 0x2f0c) as u32), farm_rng: Rng::new((seed ^ 0x6a51) as u32), all: Vec::new(), prints: Vec::new(), ev: Vec::new(), wind: 0.7, t: 0.0, last_print: None, left: false } }
     /// Pose un animal ou un virevoltant à un endroit précis (bancs d'essai, captures).
     pub fn put(&mut self, kind: Kind, p: [f64; 3], yaw: f64, flying: bool) { self.next_id += 1; self.all.push(Critter { farm: Farm { id: self.next_id, lay: 200.0, ..Default::default() }, kind, color: if kind == Kind::Hare { 2 } else { 0 }, p, gy: p[1], yaw, state: if flying { State::Fly } else { State::Idle }, t: 30.0, phase: 0.6, speed: 0.0, v: [0.0; 3], spin: 0.7, axis: [0.6, 0.0, 0.8], step: 0.0, foot: false, life: 0.0, hp: hp_of(kind), hit: 0.0, cd: 0.0, school: 0 }); }
     /// Pose un nageur dans un banc donné (bancs d'essai, captures) ; `color` choisit le poisson de récif.
@@ -130,7 +130,9 @@ impl Wild {
         // Bêtes de ferme : nombreuses autour des villages (près des fermes, étables et écuries), quelques-unes dans les prés.
         let wild_n = |s: &Self, k: Kind| s.all.iter().filter(|c| c.kind == k && !c.farm.tame).count();
         std::mem::swap(&mut self.rng, &mut self.farm_rng);
-        for (k, near, meadow) in [(Kind::Cow, 3.0, 1.0), (Kind::Sheep, 4.0, 1.6), (Kind::Pig, 2.0, 0.0), (Kind::Horse, 2.0, 0.8), (Kind::Chicken, 5.0, 0.0)] {
+        // au désert, autour des villages : des dromadaires et des poules plutôt que des vaches et des cochons
+        let dry = self.dry_town || wild[2] > 0.5; let herd: &[(Kind, f64, f64)] = if dry { &[(Kind::Camel, 3.0, 0.0), (Kind::Chicken, 3.0, 0.0)] } else { &[(Kind::Cow, 3.0, 1.0), (Kind::Sheep, 4.0, 1.6), (Kind::Pig, 2.0, 0.0), (Kind::Horse, 2.0, 0.8), (Kind::Chicken, 5.0, 0.0)] };
+        for &(k, near, meadow) in herd {
             if wild_n(self, k) < (farm * near + open * meadow * (1.0 - farm)).round() as usize && self.rng.next() < dt * 0.5 { let n = self.all.len(); self.spawn(k, w, p);
                 if self.all.len() > n && matches!(k, Kind::Cow | Kind::Sheep | Kind::Chicken) { let (q, col) = (self.all[n].p, self.all[n].color); for _ in 0..self.rng.int(1, 2) { let o = [q[0] + self.rng.range(-2.5, 2.5), q[1], q[2] + self.rng.range(-2.5, 2.5)]; if fits(w, o[0], o[1], o[2], 0.0, 1) { let yaw = self.rng.range(0.0, 6.28); self.put(k, o, yaw, false); if let Some(c) = self.all.last_mut() { c.color = col; } } } } } // en petit troupeau
         }

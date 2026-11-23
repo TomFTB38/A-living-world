@@ -932,6 +932,8 @@ fn grow_cactus(x: f64, y: f64, z: f64, r: &mut Rng) -> Stamp {
         for k in 1..=out { data.push([cx + d.0 * k, y0 + at, cz + d.1 * k, B::CACTUS as i32]); } for k in 1..=r.int(1, 3).min(h - at) { data.push([cx + d.0 * out, y0 + at + k, cz + d.1 * out, B::CACTUS as i32]); } } }
     Stamp { data, force: false, ground: false }
 }
+/// Un palmier tout fait (pour les oasis des villages) : ses blocs, en coordonnées du monde, le pied en (x, y, z).
+pub(crate) fn palm_blocks(x: f64, y: f64, z: f64, seed: u32, age: f64) -> Vec<[i32; 4]> { let mut r = Rng::new(seed); grow_palm(x, y, z, &mut r, age).data }
 /// Palmier : un stipe fin qui s'incline et se courbe, couronné de longues palmes qui retombent en étoile.
 fn grow_palm(x: f64, y: f64, z: f64, r: &mut Rng, age: f64) -> Stamp {
     let mut g = Grower::default(); let a = r.range(0.0, 6.283); let lean = r.range(0.15, 0.4);

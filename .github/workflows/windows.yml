@@ -240,6 +240,11 @@ jobs:
           shot ciel_couchant -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 ciel_couchant
           shot ciel_nuit -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 ciel_nuit
           shot arc_en_ciel -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 arc_en_ciel
+          shot desert_vue -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 desert_vue
+          shot desert_oasis -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 desert_oasis
+          shot desert_soir -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 desert_soir
+          shot plat_desert_maisons -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_desert_maisons
+          shot plat_desert_grands -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_desert_grands
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte
