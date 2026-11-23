@@ -23,7 +23,7 @@ export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'm
   'coral', 'planks_wreck',
   // Refonte des villages : pierre calcaire appareillée, moellons gris, bout de poutre, bardage de grange, tuiles moussues, chemin de terre.
   'lime_masonry', 'rubble', 'beam_end', 'boards', 'tiles_moss', 'path_top', 'flowstone',
-  'basalt', 'obsidian', 'lava', 'magma', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white', 'abyss_rock', 'glow_moss', 'mycelium', 'mushroom_stem', 'cap_red', 'cap_violet', 'cap_blue', 'gills', 'ice_blue', 'rail_bed', 'leaf_cherry', 'leaf_maple_red', 'leaf_maple_orange'];
+  'basalt', 'obsidian', 'lava', 'magma', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white', 'abyss_rock', 'glow_moss', 'mycelium', 'mushroom_stem', 'cap_red', 'cap_violet', 'cap_blue', 'gills', 'ice_blue', 'rail_bed', 'leaf_cherry', 'leaf_maple_red', 'leaf_maple_orange', 'leaf_birch_gold'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -135,7 +135,7 @@ const defs = [
   ['acacia_log_z', 'cube', ['bark_acacia', 'bark_acacia', 'end_acacia'], 1.0, { cat: 'wood', drop: 'acacia_log', axis: 'z' }],
   ['acacia_leaves', 'leaf', ['leaf_acacia', 'leaf_acacia', 'leaf_acacia'], 0.12, { cat: 'foliage', drop: null, tint: [0.66, 0.66, 0.46] }],
   ['bone', 'cube', ['bone', 'bone', 'bone'], 0.9, { cat: 'rock' }],
-  ['birch_leaves_gold', 'leaf', ['leaf_birch', 'leaf_birch', 'leaf_birch'], 0.12, { cat: 'foliage', drop: null, tint: [1.45, 1.05, 0.35] }],
+  ['birch_leaves_gold', 'leaf', ['leaf_birch_gold', 'leaf_birch_gold', 'leaf_birch_gold'], 0.12, { cat: 'foliage', drop: null }],
   // Branches fines : une section plus petite qu'un bloc, reliée aux bois et aux feuillages voisins
   ['oak_branch', 'deco', null, 0.4, { model: 'branch', solid: true, cat: 'wood', drop: 'oak_log' }],
   ['birch_branch', 'deco', null, 0.4, { model: 'branch', solid: true, cat: 'wood', drop: 'birch_log' }],

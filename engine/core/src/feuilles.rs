@@ -10,9 +10,9 @@ use crate::player::Voxels;
 use crate::session::Session;
 
 /// Combien en même temps, au plus ; combien il en naît par seconde sous un feuillage ; à quelle distance du joueur.
-pub const MAX: usize = 300; pub const RATE: f64 = 80.0; pub const NEAR: f64 = 22.0;
+pub const MAX: usize = 400; pub const RATE: f64 = 80.0; pub const NEAR: f64 = 22.0;
 /// Le temps qu'une feuille reste posée au sol avant de s'effacer.
-pub const REST: f64 = 7.0;
+pub const REST: f64 = 3.5;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Sorte { Rouge, Orange, Or, Petale }
