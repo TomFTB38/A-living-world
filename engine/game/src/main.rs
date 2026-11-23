@@ -1180,7 +1180,7 @@ fn capture(a: &[String]) {
             g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
             if sol {
                 // au sol, dans le monde chargé : le premier endroit dégagé près du cœur, et la direction où la vue porte (de l'air à hauteur d'yeux sur dix pas)
-                let ground = |s: &Session, xi: i32, zi: i32| (0..200).rev().find(|y| s.world.get(xi, *y, zi).is_some_and(|b| alw_core::blocks::is_solid(b) && !alw_core::blocks::is_leaf(b)));
+                use alw_core::player::Voxels as _; let ground = |s: &Session, xi: i32, zi: i32| (0..200).rev().find(|y| s.world.get(xi, *y, zi).is_some_and(|b| alw_core::blocks::is_solid(b) && !alw_core::blocks::is_leaf(b)));
                 let mut best = (0, [x, h, z], 0.0);
                 for dx in (-12..=12i32).step_by(3) { for dz in (-12..=12i32).step_by(3) { let (xi, zi) = (x as i32 + dx, z as i32 + dz); let Some(gy) = ground(&s, xi, zi) else { continue };
                     for k in 0..8 { let a = k as f64 * 0.785; let free = (1..=10).take_while(|d| { let (qx, qz) = ((xi as f64 + 0.5 + a.sin() * *d as f64).floor() as i32, (zi as f64 + 0.5 + a.cos() * *d as f64).floor() as i32); [2, 3].iter().all(|e| s.world.get(qx, gy + e, qz) == Some(0)) }).count();
