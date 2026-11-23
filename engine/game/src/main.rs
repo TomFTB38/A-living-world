@@ -792,6 +792,21 @@ fn capture(a: &[String]) {
         for _ in 0..40 { let (q, y0, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, if s.ride.is_some() { walk } else { none }, Actions::default()); if s.ride.is_none() { s.player.p = q; } s.player.yaw = y0; s.player.pitch = pi; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    // Les feuilles qui tombent : sur un tapis de feuilles mortes (ou de pétales), des érables rouges et orangés (ou des
+    // cerisiers en fleur) plantés à la main ; on attend qu'elles tombent, on regarde à hauteur d'homme.
+    if scene == "plat_feuilles" || scene == "plat_petales" {
+        let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.set_creative(true); s.skip_guide(); s.hour = 15.5; s.sel = 8; s.third = false; s.player.fly = true;
+        let id = |n: &str| alw_core::blocks::by_name(n).unwrap_or(0); let cherry = scene == "plat_petales"; let y0 = o[1] + 1; let mut e: Vec<(i32, i32, i32, u16)> = Vec::new();
+        for x in -16..=16i32 { for z in -4..=26i32 { if (x * 7 + z * 13).rem_euclid(5) != 0 { e.push((o[0] + x, y0, o[2] + z, id(if cherry { "petals" } else { "fallen_leaves" }))); } } }
+        let trees: [(i32, i32, u8); 9] = [(-7, 6, 0), (6, 8, 1), (-2, 13, 2), (9, 16, 0), (-10, 15, 1), (2, 20, 0), (-6, 22, 2), (12, 22, 1), (-13, 9, 0)];
+        for (tx, tz, k) in trees { let leaf = if cherry { "cherry_leaves" } else { ["maple_leaves_red", "maple_leaves_orange", "birch_leaves_gold"][k as usize] }; let hgt = 4 + (k as i32);
+            for dy in 0..hgt { e.push((o[0] + tx, y0 + dy, o[2] + tz, id("oak_log"))); }
+            for dx in -2..=2i32 { for dz in -2..=2i32 { for dy in 0..3i32 { if dx * dx + dz * dz + (dy - 1) * (dy - 1) * 2 <= 6 && !(dx == 0 && dz == 0 && dy == 0) { e.push((o[0] + tx + dx, y0 + hgt - 1 + dy, o[2] + tz + dz, id(leaf))); } } } } }
+        s.world.edit_many(&e); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
+        s.player.p = [o[0] as f64 + 0.5, y0 as f64 + 0.2, o[2] as f64 - 1.5]; s.player.yaw = 0.0; s.player.pitch = 0.05;
+        for _ in 0..360 { let (q, y1, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y1; s.player.pitch = pi; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     // Le mobilier dont on se sert : une pièce avec une étagère et une table garnies d'objets posés, une armoire, des chaises ; le
     // joueur assis (vu de dehors).
     if let Some(vw) = scene.strip_prefix("plat_mobilier_") {

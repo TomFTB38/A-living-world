@@ -1,7 +1,7 @@
 //! Les feuilles qui tombent : dans une forêt d'automne, des feuilles rouges, orangées et dorées se détachent des érables et
 //! des hêtres ; sous les cerisiers en fleur, ce sont des pétales roses. Elles tombent en tourbillonnant, poussées par le
 //! vent, se posent au sol, y restent un moment puis disparaissent. Elles ne naissent que sous un vrai feuillage de la
-//! bonne sorte, autour du joueur. Vérifié par `tests/feuilles.rs`.
+//! bonne sorte, autour du joueur (les biomes rares surtout, et çà et là un bouleau doré dans une forêt ordinaire). Vérifié par `tests/feuilles.rs`.
 use crate::actors::{b, Draw, Models};
 use crate::blocks::{is_solid, B};
 use crate::mesher::VBuf;
@@ -29,7 +29,7 @@ impl Session {
     pub(crate) fn leaves_tick(&mut self, dt: f64) {
         let p = self.player.p; let t = self.elapsed;
         // naître : des points au hasard autour du joueur ; sous chacun, on cherche un feuillage qui en lâche, et la feuille part de dessous
-        if self.leaves_fall.len() < MAX && self.gen.rare_at(p[0], p[2]).is_some() {
+        if self.leaves_fall.len() < MAX { // partout où il y a de ces feuillages (les biomes rares, et çà et là un bouleau doré)
             let mut r = Rng::new(((t * 1000.0) as u32) ^ 0x5eed); let n = (RATE * dt + r.next()).floor() as usize;
             for _ in 0..n { if self.leaves_fall.len() >= MAX { break; } let (a, d) = (r.next() * std::f64::consts::TAU, NEAR * r.next().sqrt()); let (x, z) = (p[0] + a.cos() * d, p[2] + a.sin() * d);
                 let (xi, zi) = (x.floor() as i32, z.floor() as i32);

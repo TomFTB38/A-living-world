@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu rare_automne_sol rare_cerisiers_sol
+spawn jeu plat_feuilles plat_petales
