@@ -7,7 +7,10 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
-const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const BONE_CELL: i32 = 96; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38; const CORAL_CELL: i32 = 17; const WRECK_CELL: i32 = 260; /** une cachette de trésor (cairn sur un coffre enfoui) au plus par case de ce côté */ pub const CACHE_CELL: i32 = 180; /** un point de vue (belvédère sur un sommet) au plus par case de ce côté */ pub const VIEW_CELL: i32 = 420; /** maille des lieux de surface (tour de guet, cimetière, camp de brigands) */ pub(crate) const SITE_CELL: i32 = 168;
+const TREE_CELL: i32 = 13; const ROCK_CELL: i32 = 19; const BONE_CELL: i32 = 96; const POND_CELL: i32 = 96; const STAMP_REACH: i32 = 38; const CORAL_CELL: i32 = 17; const WRECK_CELL: i32 = 260; /** une cachette de trésor (cairn sur un coffre enfoui) au plus par case de ce côté */ pub const CACHE_CELL: i32 = 180; /** un point de vue (belvédère sur un sommet) au plus par case de ce côté */ pub const VIEW_CELL: i32 = 420; /** une tache de biome rare au plus par case de ce côté */ pub const RARE_CELL: i32 = 1100;
+/// Les biomes rares : des taches au milieu des pays tempérés.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)] pub enum Rare { /** cerisiers en fleur, pétales au sol */ Cerisiers, /** érables rouges et orangés, feuilles mortes au sol */ Automne }
+impl Rare { pub fn name(self) -> &'static str { match self { Rare::Cerisiers => "Bois de cerisiers en fleur", Rare::Automne => "Forêt d'automne" } } pub fn bit(self) -> u16 { match self { Rare::Cerisiers => 1 << 12, Rare::Automne => 1 << 13 } } } /** maille des lieux de surface (tour de guet, cimetière, camp de brigands) */ pub(crate) const SITE_CELL: i32 = 168;
 
 #[derive(Clone, Copy, Default, Debug)]
 pub struct Column { pub mix: Mix, pub wet: bool, pub h: f64, pub water: f64, pub still: bool, pub forest: f64, pub path: f64, pub bank: f64, pub cliff: f64 }
@@ -373,6 +376,9 @@ impl WorldGen {
                 continue;
             }
             if !is_grass(ground) && ground != B::FOREST_SOIL && ground != B::MOSSY_STONE { continue; }
+            // Biome rare : une nappe de pétales roses sous les cerisiers, une litière de feuilles mortes sous les érables.
+            if let Some((rare, k)) = self.rare_at(wx, wz) { if k > 0.3 && (is_grass(ground) || ground == B::FOREST_SOIL) && r < 0.62 * k {
+                v[idx(x, y, z)] = match rare { Rare::Cerisiers => if r < 0.05 * k { B::PINK_FLOWER } else if r < 0.12 * k { B::TALL_GRASS } else { B::PETALS }, Rare::Automne => if r < 0.08 * k { B::TALL_GRASS } else { B::FALLEN_LEAVES } }; continue; } }
             if path > 0.02 && path < 0.4 && nd.n2(wx / 40.0 - 9.0, wz / 40.0 + 5.0) > 0.2 {
                 v[idx(x, y, z)] = B::FENCE;
                 if hash_float(wxi, wzi, s, 8) < 0.07 { v[idx(x, y + 1, z)] = B::FENCE; v[idx(x, y + 2, z)] = B::FENCE; v[idx(x, y + 3, z)] = B::LANTERN; }
@@ -643,6 +649,21 @@ impl WorldGen {
         let (g0, g1, h0, h1) = (fdiv((x - r) as i32, VIEW_CELL), fdiv((x + r) as i32, VIEW_CELL), fdiv((z - r) as i32, VIEW_CELL), fdiv((z + r) as i32, VIEW_CELL)); let mut o = Vec::new();
         for gx in g0..=g1 { for gz in h0..=h1 { if let Some(st) = self.cached(7, gx, gz) { let q = st.data[0]; let p = [q[0] + 1, q[1], q[2] + 1]; /* le dallage commence au coin -1, -1 */ if (p[0] as f64 - x).hypot(p[2] as f64 - z) <= r { o.push(((gx, gz), p)); } } } } o
     }
+    /// Un biome rare ici ? Des taches de 120 à 200 blocs de rayon, une au plus par case de 1 100 blocs (une sur trois en a
+    /// une), aux bords déchiquetés : des cerisiers en fleur ou une forêt d'automne, au cœur des pays tempérés seulement
+    /// (ni désert, ni steppe, ni taïga, ni montagne). Rend la sorte et la force (0 au bord, 1 au cœur).
+    pub fn rare_at(&self, x: f64, z: f64) -> Option<(Rare, f64)> {
+        if self.flat { return None; } let s = self.seed; let (gx0, gz0) = (fdiv(x as i32, RARE_CELL), fdiv(z as i32, RARE_CELL)); let mut best: Option<(Rare, f64)> = None;
+        for gx in gx0 - 1..=gx0 + 1 { for gz in gz0 - 1..=gz0 + 1 { if hash_float(gx, gz, s, 191) > 0.36 { continue; }
+            let (cx, cz) = ((gx as f64 + 0.25 + 0.5 * hash_float(gx, gz, s, 192)) * RARE_CELL as f64, (gz as f64 + 0.25 + 0.5 * hash_float(gx, gz, s, 193)) * RARE_CELL as f64);
+            let r = 120.0 + 80.0 * hash_float(gx, gz, s, 194); let edge = 22.0 * self.n_forest.n2(x / 37.0 + 91.0, z / 37.0 - 57.0);
+            let k = smooth(r, r * 0.72, (x - cx).hypot(z - cz) + edge); if k <= 0.0 { continue; }
+            let kind = if hash_float(gx, gz, s, 195) < 0.5 { Rare::Cerisiers } else { Rare::Automne };
+            if best.is_none_or(|b| k > b.1) { best = Some((kind, k)); } } }
+        let (kind, k) = best?; let m = self.climate.at(x, z);
+        let tame = 1.0 - [Biome::Desert, Biome::Steppe, Biome::Taiga, Biome::Mountains, Biome::Highlands].iter().map(|b| m.strong(*b)).fold(0.0, f64::max);
+        let k = k * smooth(0.3, 0.7, tame); (k > 0.01).then_some((kind, k))
+    }
     /// Les coffres de cachette à moins de `r` blocs, du plus proche au plus lointain.
     pub fn caches_near(&self, x: f64, z: f64, r: f64) -> Vec<[i32; 3]> {
         if self.flat { return Vec::new(); }
@@ -701,6 +722,18 @@ impl WorldGen {
             return Some(grow_spruce(x, y, z, &mut r, age * (0.35 + 0.65 * line), c.h > 72.0));
         }
         if c.mix.strong(Biome::Highlands) > 0.5 { if pick > 0.04 { return None; } let mut r = Rng::new(hash_int(gx, gz, s, 34)); let age = 0.15 * r.next(); return Some(grow_birch(x, c.h.floor(), z, &mut r, age)); } // hautes terres : presque aucun arbre, un bouleau rabougri de loin en loin
+        // Biome rare : un bois clair de cerisiers en fleur, ou une forêt d'érables rouges et orangés (des chênes et des hêtres
+        // dorés parmi eux) ; plus dense que la campagne alentour, sans clairières.
+        if let Some((rare, k)) = self.rare_at(x, z) { if k > 0.45 {
+            let dense = if rare == Rare::Cerisiers { 0.32 } else { 0.5 }; if pick > dense * k { return None; }
+            let mut r = Rng::new(hash_int(gx, gz, s, 196)); let (y, age, roll) = (c.h.floor(), r.next(), r.next());
+            let (mut st, leaf) = match rare {
+                Rare::Cerisiers => (grow_oak(x, y, z, &mut r, 0.18 + 0.3 * age), B::CHERRY_LEAVES),
+                Rare::Automne => { let leaf = if roll < 0.45 { B::MAPLE_LEAVES_RED } else if roll < 0.8 { B::MAPLE_LEAVES_ORANGE } else { B::BIRCH_LEAVES_GOLD };
+                    (if roll < 0.7 { grow_oak(x, y, z, &mut r, 0.3 + 0.5 * age) } else { grow_beech(x, y, z, &mut r, 0.4 + 0.5 * age) }, leaf) } };
+            for d in &mut st.data { if [B::OAK_LEAVES, B::BEECH_LEAVES, B::BIRCH_LEAVES].contains(&(d[3] as Id)) { d[3] = leaf as i32; } }
+            return Some(st);
+        } }
         let steppe = c.mix.strong(Biome::Steppe); if steppe > 0.5 { if pick > 0.075 { return None; } } // steppe : un arbre isolé de loin en loin
         else if pick > (0.08 + 0.56 * smooth(0.25, 0.55, c.forest)) * (1.0 - 0.85 * glade) * (1.0 - 0.8 * c.mix.strong(Biome::Meadow)) * (1.0 + 0.8 * c.mix.strong(Biome::DeepForest)) * (1.0 - 0.86 * c.mix.strong(Biome::Steppe)) { return None; }
         let mut r = Rng::new(hash_int(gx, gz, s, 34));

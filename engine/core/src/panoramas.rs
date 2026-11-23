@@ -22,6 +22,7 @@ pub fn sketch(g: &crate::gen::WorldGen, x: f64, z: f64) -> u32 {
     let dark = 1.0 - 0.25 * c.forest.clamp(0.0, 1.0); for v in col.iter_mut() { *v *= dark; }
     if c.cliff > 0.4 { col = [126.0, 122.0, 114.0]; }
     if c.h > 150.0 { let k = ((c.h - 150.0) / 20.0).clamp(0.0, 1.0); for (i, s) in [236.0, 240.0, 246.0].iter().enumerate() { col[i] += (s - col[i]) * k; } }
+    if let Some((rare, k)) = g.rare_at(x, z) { let t = match rare { crate::gen::Rare::Cerisiers => [226.0, 168.0, 190.0], crate::gen::Rare::Automne => [196.0, 96.0, 44.0] }; for i in 0..3 { col[i] += (t[i] - col[i]) * 0.75 * k; } }
     if c.path > 0.3 { col = [150.0, 124.0, 86.0]; }
     for v in col.iter_mut() { *v += (200.0 - *v) * 0.12; } // le croquis : un peu pâli
     pack([col[0] as u8, col[1] as u8, col[2] as u8], c.h as i32)

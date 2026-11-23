@@ -23,7 +23,7 @@ export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'm
   'coral', 'planks_wreck',
   // Refonte des villages : pierre calcaire appareillée, moellons gris, bout de poutre, bardage de grange, tuiles moussues, chemin de terre.
   'lime_masonry', 'rubble', 'beam_end', 'boards', 'tiles_moss', 'path_top', 'flowstone',
-  'basalt', 'obsidian', 'lava', 'magma', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white', 'abyss_rock', 'glow_moss', 'mycelium', 'mushroom_stem', 'cap_red', 'cap_violet', 'cap_blue', 'gills', 'ice_blue', 'rail_bed'];
+  'basalt', 'obsidian', 'lava', 'magma', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white', 'abyss_rock', 'glow_moss', 'mycelium', 'mushroom_stem', 'cap_red', 'cap_violet', 'cap_blue', 'gills', 'ice_blue', 'rail_bed', 'leaf_cherry'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -164,6 +164,9 @@ const defs = [
   ['cactus', 'deco', null, 0.5, { model: 'cactus', solid: true, cat: 'foliage', drop: 'cactus' }], // un fût côtelé plus fin qu'un bloc, relié à ses voisins
   ['palm_log', 'cube', ['end_palm', 'bark_palm', 'end_palm'], 0.9, { cat: 'wood' }],
   ['palm_leaves', 'leaf', ['leaf_palm', 'leaf_palm', 'leaf_palm'], 0.12, { cat: 'foliage', drop: null, tint: [0.8, 0.86, 0.6] }],
+  ['cherry_leaves', 'leaf', ['leaf_cherry', 'leaf_cherry', 'leaf_cherry'], 0.12, { cat: 'foliage', drop: null }],
+  ['maple_leaves_red', 'leaf', ['leaf_oak', 'leaf_oak', 'leaf_oak'], 0.12, { cat: 'foliage', drop: null, tint: [1.85, 0.62, 0.3] }],
+  ['maple_leaves_orange', 'leaf', ['leaf_oak', 'leaf_oak', 'leaf_oak'], 0.12, { cat: 'foliage', drop: null, tint: [1.8, 1.02, 0.28] }],
   // Hautes terres
   ['moor_grass', 'cube', ['grass_top', 'grass_side', 'dirt'], 0.5, { drop: 'dirt', cat: 'terrain' }],
   ['heather', 'deco', null, 0.04, { model: 'heather' }],
@@ -173,6 +176,8 @@ const defs = [
   ['workbench', 'deco', null, 0.8, { model: 'workbench', solid: true, cat: 'wood', drop: 'workbench' }],
   // Survie : ce qui traîne au sol et se ramasse à la main ; buissons cueillis, qui repoussent en un jour
   ['twigs', 'deco', null, 0.05, { model: 'twigs', drop: 'stick' }],
+  ['petals', 'deco', null, 0.05, { model: 'petals', drop: null }],
+  ['fallen_leaves', 'deco', null, 0.05, { model: 'fallen_leaves', drop: null }],
   ['pebbles', 'deco', null, 0.05, { model: 'pebbles', drop: 'pebble' }],
   ['blueberry_picked', 'deco', null, 0.03, { model: 'blueberry', drop: 'blueberry' }],
   ['rowan_picked', 'deco', null, 0.06, { model: 'rowan', drop: 'rowan' }],

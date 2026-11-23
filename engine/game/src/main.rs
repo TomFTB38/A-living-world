@@ -1171,6 +1171,17 @@ fn capture(a: &[String]) {
         if scene == "epave" { s.wild.put_swim(K::Shark, at(6.0, 2.5, 1.0), s.player.yaw + 1.3, 43, 0); }
         s.tick(0.0, none, Actions::default());
     }
+    if scene == "rare_cerisiers" || scene == "rare_automne" {
+        // Les biomes rares : au cœur d'un bois de cerisiers en fleur, ou d'une forêt d'automne, à hauteur d'homme puis un peu au-dessus.
+        let w = WorldGen::new(SEED); let want = if scene == "rare_cerisiers" { alw_core::gen::Rare::Cerisiers } else { alw_core::gen::Rare::Automne }; s.sel = 8; s.third = false; s.hour = 10.0; s.skip_guide(); s.set_creative(true); s.player.fly = true;
+        let mut at = None; 'f: for i in -90..=90 { for j in -90..=90 { let (x, z) = (i as f64 * 48.0, j as f64 * 48.0); if let Some((k, st)) = w.rare_at(x, z) { if k == want && st > 0.99 && w.column(x, z).water == 0.0 { at = Some((x, z)); break 'f; } } } }
+        if let Some((x, z)) = at { println!("{scene} : {x} {z}"); let h = w.column(x, z).h.floor();
+            s.player.p = [x + 0.5, h + 4.5, z + 0.5]; s.player.yaw = 0.7; s.player.pitch = -0.18;
+            g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
+            for _ in 0..30 { let (q, y0, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y0; s.player.pitch = pi; }
+            pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+        }
+    }
     if scene == "panorama" || scene == "panorama_carte" {
         // Un point de vue : debout sur le belvédère, le pays à perte de vue ; puis la carte, dessinée à 250 m à la ronde.
         let w = WorldGen::new(SEED); s.sel = 8; s.third = false; s.hour = 9.5; s.set_creative(false); s.skip_guide();

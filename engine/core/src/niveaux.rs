@@ -113,6 +113,9 @@ impl Session {
     }
     /// L'explorateur découvre : un biome qu'il n'avait jamais foulé (le premier, celui du départ, ne compte pas).
     pub(crate) fn explore_tick(&mut self) {
+        // un biome rare, au cœur de sa tache : une découverte qui compte double, annoncée par son nom
+        let p = self.player.p; if let Some((rare, k)) = self.gen.rare_at(p[0], p[2]) { if k > 0.6 && self.prog.biomes & rare.bit() == 0 {
+            self.prog.biomes |= rare.bit(); self.dirty = true; self.notes.push(format!("Biome rare : {}", rare.name())); self.earn(2.0 * XP_BIOME, &format!("biome rare : {}", rare.name())); } }
         let b = self.mix().main(); let bit = 1u16 << b; if self.prog.biomes & bit != 0 { return; }
         let first = self.prog.biomes == 0; self.prog.biomes |= bit; self.dirty = true;
         if !first { self.earn(XP_BIOME, &format!("nouveau biome : {}", crate::biome::NAMES[b])); }
