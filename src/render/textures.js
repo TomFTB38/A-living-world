@@ -134,7 +134,7 @@ const GEN = {
   bark_oak: (t, x, y) => bark(t, x, y, OAK),
   bark_birch: birch,
   bark_beech: (t, x, y) => bark(t, x, y, BEECH, 0.28),
-  leaf_oak: (t, x, y) => leaf(t, x, y, [1, 1, 1]), leaf_cherry: (t, x, y) => leaf(t, x, y, [1.7, 0.95, 1.1]), leaf_birch: (t, x, y) => leaf(t, x, y, [1.2, 1.12, 0.9]), leaf_beech: (t, x, y) => leaf(t, x, y, [0.86, 1, 0.82]),
+  leaf_oak: (t, x, y) => leaf(t, x, y, [1, 1, 1]), leaf_cherry: (t, x, y) => leaf(t, x, y, [1.7, 0.95, 1.1]), leaf_maple_red: (t, x, y) => leaf(t, x, y, [2, 0.6, 0.3]), leaf_maple_orange: (t, x, y) => leaf(t, x, y, [2, 1.1, 0.3]), leaf_birch: (t, x, y) => leaf(t, x, y, [1.2, 1.12, 0.9]), leaf_beech: (t, x, y) => leaf(t, x, y, [0.86, 1, 0.82]),
   end_oak: (t, x, y) => woodEnd(t, x, y, OAK_W, 0.78, (a, b, c) => bark(a, b, c, OAK)), end_birch: (t, x, y) => woodEnd(t, x, y, BIRCH_W, 0.95, birch), end_beech: (t, x, y) => woodEnd(t, x, y, BEECH_W, 0.85, (a, b, c) => bark(a, b, c, BEECH, 0.28)),
   planks, water_foam: (t, x, y) => { const f = t.fbm(x, y, 8, 3); return { c: [f, f, f], h: f, r: 0.3 }; },
 };

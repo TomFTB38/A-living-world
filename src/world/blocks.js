@@ -23,7 +23,7 @@ export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'm
   'coral', 'planks_wreck',
   // Refonte des villages : pierre calcaire appareillée, moellons gris, bout de poutre, bardage de grange, tuiles moussues, chemin de terre.
   'lime_masonry', 'rubble', 'beam_end', 'boards', 'tiles_moss', 'path_top', 'flowstone',
-  'basalt', 'obsidian', 'lava', 'magma', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white', 'abyss_rock', 'glow_moss', 'mycelium', 'mushroom_stem', 'cap_red', 'cap_violet', 'cap_blue', 'gills', 'ice_blue', 'rail_bed', 'leaf_cherry'];
+  'basalt', 'obsidian', 'lava', 'magma', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white', 'abyss_rock', 'glow_moss', 'mycelium', 'mushroom_stem', 'cap_red', 'cap_violet', 'cap_blue', 'gills', 'ice_blue', 'rail_bed', 'leaf_cherry', 'leaf_maple_red', 'leaf_maple_orange'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -165,8 +165,8 @@ const defs = [
   ['palm_log', 'cube', ['end_palm', 'bark_palm', 'end_palm'], 0.9, { cat: 'wood' }],
   ['palm_leaves', 'leaf', ['leaf_palm', 'leaf_palm', 'leaf_palm'], 0.12, { cat: 'foliage', drop: null, tint: [0.8, 0.86, 0.6] }],
   ['cherry_leaves', 'leaf', ['leaf_cherry', 'leaf_cherry', 'leaf_cherry'], 0.12, { cat: 'foliage', drop: null }],
-  ['maple_leaves_red', 'leaf', ['leaf_oak', 'leaf_oak', 'leaf_oak'], 0.12, { cat: 'foliage', drop: null, tint: [1.85, 0.62, 0.3] }],
-  ['maple_leaves_orange', 'leaf', ['leaf_oak', 'leaf_oak', 'leaf_oak'], 0.12, { cat: 'foliage', drop: null, tint: [1.8, 1.02, 0.28] }],
+  ['maple_leaves_red', 'leaf', ['leaf_maple_red', 'leaf_maple_red', 'leaf_maple_red'], 0.12, { cat: 'foliage', drop: null }],
+  ['maple_leaves_orange', 'leaf', ['leaf_maple_orange', 'leaf_maple_orange', 'leaf_maple_orange'], 0.12, { cat: 'foliage', drop: null }],
   // Hautes terres
   ['moor_grass', 'cube', ['grass_top', 'grass_side', 'dirt'], 0.5, { drop: 'dirt', cat: 'terrain' }],
   ['heather', 'deco', null, 0.04, { model: 'heather' }],

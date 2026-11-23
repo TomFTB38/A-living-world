@@ -643,12 +643,20 @@ fn ice(t: &Tile, x: f64, y: f64) -> S {
     let (d1, d2, _) = t.vor(x, y, 5); let crack = smooth(0.06, 0.0, d2 - d1); let (n, s) = (t.fbm(x, y, 3, 3), t.val(x, y, 16)); let bub = if t.val(x, y, 48) > 0.82 { 0.12 } else { 0.0 };
     S { c: mul(pal(&ICE, 0.25 + 0.5 * n + 0.2 * (s - 0.5) + bub + 0.35 * crack), 1.0), h: 0.6 - 0.5 * crack, r: 0.12 + 0.3 * crack }
 }
+/// Feuillage d'automne : les mêmes feuilles serrées que le chêne, chacune de sa couleur entre deux teintes vives (rouge sang
+/// et vermillon, ou orange et or), quelques-unes déjà brunies.
+fn autumn(t: &Tile, x: f64, y: f64, a: C, b: C) -> S {
+    let (d1, d2, id) = t.vor(x, y, 11); let rim = smooth(0.0, 0.14, d2 - d1); let vein = smooth(0.26, 0.05, d1); let (m, g) = (t.fbm(x, y, 5, 2), t.val(x, y, 32)); let pi = t.pi(id);
+    let f = (0.15 + 0.7 * pi + 0.25 * (m - 0.5)).clamp(0.0, 1.0); let mut c = [lerp(a[0], b[0], f), lerp(a[1], b[1], f), lerp(a[2], b[2], f)];
+    if pi > 0.9 { c = [0.42, 0.24, 0.1]; } let k = (0.6 + 0.4 * rim) * (0.9 + 0.12 * vein + 0.08 * (g - 0.5));
+    S { c: [c[0] * k, c[1] * k, c[2] * k], h: rim * (0.5 + 0.5 * pi), r: 0.5 }
+}
 /// Cerisier en fleur : des grappes de fleurs roses et blanches serrées, cinq pétales pâles autour d'un cœur plus vif, et çà
 /// et là une jeune feuille vert tendre entre elles.
 fn leaf_cherry(t: &Tile, x: f64, y: f64) -> S {
     let (d1, d2, id) = t.vor(x, y, 9); let rim = smooth(0.0, 0.16, d2 - d1); let heart = smooth(0.18, 0.04, d1); let (m, g) = (t.fbm(x, y, 5, 2), t.val(x, y, 32)); let pi = t.pi(id);
     if pi < 0.12 { let l = leaf(t, x, y, [1.05, 1.2, 0.8]); return S { c: l.c, h: l.h, r: 0.5 }; } // une jeune feuille
-    let pink = [0.97 - 0.1 * m, 0.74 - 0.2 * pi + 0.1 * g, 0.84 - 0.1 * pi]; let white = [0.98, 0.93, 0.95]; let w = smooth(0.55, 0.95, pi) * 0.7;
+    let pink = [0.98 - 0.06 * m, 0.52 - 0.14 * pi + 0.08 * g, 0.72 - 0.08 * pi]; let white = [0.99, 0.86, 0.92]; let w = smooth(0.7, 0.98, pi) * 0.5;
     let c = [lerp(pink[0], white[0], w), lerp(pink[1], white[1], w), lerp(pink[2], white[2], w)]; let core = [0.82, 0.36, 0.5]; let k = 0.62 + 0.38 * rim;
     S { c: [lerp(c[0], core[0], heart * 0.6) * k, lerp(c[1], core[1], heart * 0.6) * k, lerp(c[2], core[2], heart * 0.6) * k], h: rim * (0.6 + 0.4 * pi), r: 0.45 }
 }
@@ -664,7 +672,7 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "grass_top" => grass_top(t, x, y), "grass_side" => grass_side(t, x, y), "dirt" => dirt(t, x, y, &DIRT), "path" => dirt(t, x, y, &PATH), "forest_soil" => dirt(t, x, y, &SOIL),
         "stone" => stone(t, x, y, &STONE, 5), "mossy_stone" => mossy(t, x, y), "limestone" => limestone(t, x, y), "flowstone" => flowstone(t, x, y), "granite" => granite(t, x, y), "gravel" => gravel(t, x, y), "sand" => dirt(t, x, y, &SAND),
         "bark_oak" => b_oak(t, x, y), "bark_birch" => birch(t, x, y), "bark_beech" => b_beech(t, x, y),
-        "leaf_oak" => leaf(t, x, y, [1.0, 1.0, 1.0]), "leaf_cherry" => leaf_cherry(t, x, y), "leaf_birch" => leaf(t, x, y, [1.2, 1.12, 0.9]), "leaf_beech" => leaf(t, x, y, [0.86, 1.0, 0.82]),
+        "leaf_oak" => leaf(t, x, y, [1.0, 1.0, 1.0]), "leaf_cherry" => leaf_cherry(t, x, y), "leaf_maple_red" => autumn(t, x, y, [0.78, 0.14, 0.06], [0.93, 0.36, 0.1]), "leaf_maple_orange" => autumn(t, x, y, [0.92, 0.46, 0.08], [0.98, 0.72, 0.18]), "leaf_birch" => leaf(t, x, y, [1.2, 1.12, 0.9]), "leaf_beech" => leaf(t, x, y, [0.86, 1.0, 0.82]),
         "end_oak" => wood_end(t, x, y, &OAK_W, 0.78, &b_oak), "end_birch" => wood_end(t, x, y, &BIRCH_W, 0.95, &birch), "end_beech" => wood_end(t, x, y, &BEECH_W, 0.85, &b_beech),
         "planks" => planks(t, x, y, &PLANKS), "planks_birch" => planks(t, x, y, &PLANKS_BIRCH), "planks_spruce" => planks(t, x, y, &PLANKS_SPRUCE),
         "ore_copper" => ore(t, x, y, [0.32, 0.62, 0.48], [0.78, 0.46, 0.24]), "ore_tin" => ore(t, x, y, [0.8, 0.82, 0.84], [0.58, 0.6, 0.62]), "ore_iron" => ore(t, x, y, [0.7, 0.42, 0.28], [0.52, 0.28, 0.18]), "ore_coal" => ore(t, x, y, [0.07, 0.07, 0.08], [0.16, 0.16, 0.17]),
