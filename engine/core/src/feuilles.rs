@@ -57,8 +57,8 @@ impl Session {
     pub fn leaves_draws(&self, md: &Models) -> Vec<Draw> {
         use crate::view::{mul, roll_z, trs};
         self.leaves_fall.iter().map(|f| { let part = match f.kind { Sorte::Rouge => "leaf_red", Sorte::Orange => "leaf_orange", Sorte::Or => "leaf_gold", Sorte::Petale => "petal" };
-            let m = match f.rest { None => mul(&trs(f.p[0], f.p[1], f.p[2], f.phase * f.spin * 0.4, 0.7 * f.phase.sin(), 1.0), &roll_z(0.5 * (f.phase * 1.3).cos())),
-                Some(r) => { let s = (1.0 - ((r - (REST - 1.0)).max(0.0))).clamp(0.05, 1.0); trs(f.p[0], f.p[1] - 0.01, f.p[2], f.spin, 0.0, s) } };
+            let m = match f.rest { None => mul(&trs(f.p[0], f.p[1], f.p[2], f.phase * f.spin * 0.4, 0.7 * f.phase.sin(), 1.6), &roll_z(0.5 * (f.phase * 1.3).cos())),
+                Some(r) => { let s = (1.0 - ((r - (REST - 1.0)).max(0.0))).clamp(0.05, 1.0); trs(f.p[0], f.p[1] - 0.01, f.p[2], f.spin, 0.0, 1.6 * s) } }; // un peu plus grandes que nature, pour qu'on les voie tomber
             Draw { m, r: md.part(part), view: false, local: false, hero: false, dynamic: false, hurt: 0.0 } }).collect()
     }
 }

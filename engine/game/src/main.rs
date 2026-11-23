@@ -1176,8 +1176,17 @@ fn capture(a: &[String]) {
         let w = WorldGen::new(SEED); let want = if scene.starts_with("rare_cerisiers") { alw_core::gen::Rare::Cerisiers } else { alw_core::gen::Rare::Automne }; s.sel = 8; s.third = false; s.hour = 10.0; s.skip_guide(); s.set_creative(true); s.player.fly = true;
         let mut at = None; 'f: for i in -90..=90 { for j in -90..=90 { let (x, z) = (i as f64 * 48.0, j as f64 * 48.0); if let Some((k, st)) = w.rare_at(x, z) { let c = w.column(x, z); if k == want && st > 0.99 && c.water == 0.0 && c.h > alw_core::gen::SEA + 3.0 && w.places_near(x, z, 90.0).is_empty() { at = Some((x, z)); break 'f; } } } }
         if let Some((x, z)) = at { println!("{scene} : {x} {z}"); let h = w.column(x, z).h.floor();
-            let sol = scene.ends_with("_sol"); s.player.p = [x + 0.5, if sol { h + 1.0 } else { h + 26.0 }, z + 0.5]; s.player.yaw = 0.7; s.player.pitch = if sol { -0.08 } else { -0.42 }; // au-dessus des cimes, ou sous les arbres, les feuilles qui tombent
+            let sol = scene.ends_with("_sol"); s.player.p = [x + 0.5, h + 26.0, z + 0.5]; s.player.yaw = 0.7; s.player.pitch = -0.42; // au-dessus des cimes, ou sous les arbres, les feuilles qui tombent
             g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
+            if sol {
+                // au sol, dans le monde chargé : le premier endroit dégagé près du cœur, et la direction où la vue porte (de l'air à hauteur d'yeux sur dix pas)
+                let ground = |s: &Session, xi: i32, zi: i32| (0..200).rev().find(|y| s.world.get(xi, *y, zi).is_some_and(|b| alw_core::blocks::is_solid(b) && !alw_core::blocks::is_leaf(b)));
+                let mut best = (0, [x, h, z], 0.0);
+                for dx in (-12..=12i32).step_by(3) { for dz in (-12..=12i32).step_by(3) { let (xi, zi) = (x as i32 + dx, z as i32 + dz); let Some(gy) = ground(&s, xi, zi) else { continue };
+                    for k in 0..8 { let a = k as f64 * 0.785; let free = (1..=10).take_while(|d| { let (qx, qz) = ((xi as f64 + 0.5 + a.sin() * *d as f64).floor() as i32, (zi as f64 + 0.5 + a.cos() * *d as f64).floor() as i32); [2, 3].iter().all(|e| s.world.get(qx, gy + e, qz) == Some(0)) }).count();
+                        if free > best.0 { best = (free, [xi as f64 + 0.5, gy as f64 + 1.0, zi as f64 + 0.5], a); } } } }
+                s.player.p = [best.1[0], best.1[1] + 0.6, best.1[2]]; s.player.yaw = best.2; s.player.pitch = 0.06;
+            }
             for _ in 0..(if sol { 300 } else { 30 }) { let (q, y0, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y0; s.player.pitch = pi; }
             pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
         }
