@@ -25,7 +25,14 @@ impl Weather {
     pub fn snap(&mut self, k: Kind) { self.forced = Some(k); self.kind = k; self.state = target(k); }
 }
 /// Ce que le rendu reçoit en plus du ciel.
-#[derive(Clone, Copy, Debug)] pub struct Env { pub cloud: f32, pub fog_k: f32, pub rain: f32, pub mist: f32, pub covered: bool, pub bright: f32, pub under: bool, pub flies: f32, pub snow: f32, pub valley: f32, pub aurora: f32, /** sous terre, de 0 (à l'air libre) à 1 (au fond d'une grotte) */ pub cave: f32 }
+#[derive(Clone, Copy, Debug)] pub struct Env { pub cloud: f32, pub fog_k: f32, pub rain: f32, pub mist: f32, pub covered: bool, pub bright: f32, pub under: bool, pub flies: f32, pub snow: f32, pub valley: f32, pub aurora: f32, /** la phase de la lune (0 à 1) */ pub moon: f32, /** l'arc-en-ciel, 0 à 1 */ pub rainbow: f32, /** sous terre, de 0 (à l'air libre) à 1 (au fond d'une grotte) */ pub cave: f32 }
+/// Un arc-en-ciel : pendant une averse légère quand le soleil perce, plutôt bas sur l'horizon (le matin, la fin d'après-midi) ;
+/// ni sous un ciel couvert, ni sous une pluie battante, ni la nuit.
+pub fn rainbow(w: State, sun_y: f32) -> f32 {
+    let (r, c, f) = (w.rain as f32, w.cloud as f32, w.fog as f32);
+    let shower = (r / 0.08).clamp(0.0, 1.0) * (1.0 - ((r - 0.45) / 0.3).clamp(0.0, 1.0)); let gap = 1.0 - ((c - 0.82) / 0.15).clamp(0.0, 1.0);
+    let low = ((sun_y - 0.04) / 0.12).clamp(0.0, 1.0) * (1.0 - ((sun_y - 0.55) / 0.2).clamp(0.0, 1.0)); (shower * gap * low * (1.0 - f)).clamp(0.0, 1.0)
+}
 /// La météo agit sur l'astre, le ciel et la densité de la brume.
 pub fn apply(s: &mut Sky, w: State, covered: bool) -> Env {
     let (r, f, c) = (w.rain as f32, w.fog as f32, w.cloud as f32);
@@ -33,5 +40,5 @@ pub fn apply(s: &mut Sky, w: State, covered: bool) -> Env {
     for i in 0..3 { s.col[i] *= dim; }
     let grey = |c: [f32; 3], g: [f32; 3]| [c[0] + (g[0] * day - c[0]) * k, c[1] + (g[1] * day - c[1]) * k, c[2] + (g[2] * day - c[2]) * k];
     s.top = grey(s.top, [0.42, 0.47, 0.54]); s.hor = grey(s.hor, [0.72, 0.76, 0.8]);
-    Env { cloud: c, fog_k: 1.0 + 1.6 * r + 5.5 * f, rain: r, mist: 0.0045 * r + 0.024 * f, covered, bright: 1.0, under: false, flies: 0.0, snow: 0.0, valley: 0.0, aurora: 0.0, cave: 0.0 }
+    Env { cloud: c, fog_k: 1.0 + 1.6 * r + 5.5 * f, rain: r, mist: 0.0045 * r + 0.024 * f, covered, bright: 1.0, under: false, flies: 0.0, snow: 0.0, valley: 0.0, aurora: 0.0, moon: 0.0, rainbow: rainbow(w, s.dir[1]), cave: 0.0 }
 }

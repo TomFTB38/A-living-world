@@ -6,8 +6,8 @@ struct F {
 // cam.w temps · sun.w exposition · sun_col.w couverture nuageuse · top.w texel d'ombre · hor.w nuit · ground.w brume
 // jit.xy gigue · jit.zw taille · misc : image, voile, trou de l'horizon lointain, remise à zéro du TAA
 // weather : densification de la brume, pluie, luminosité choisie par le joueur, sous l'eau
-// extra.x : lucioles · extra.y : nombre de lumières colorées (position, couleur) · extra.z : neige
-// extra2.x : brume de vallée · extra2.y : aurores boréales · extra2.z : sous terre (0 à l'air libre, 1 au fond d'une grotte)
+// extra.x : lucioles · extra.y : nombre de lumières colorées (position, couleur) · extra.z : neige · extra.w : phase de la lune
+// extra2.x : brume de vallée · extra2.y : aurores boréales · extra2.z : sous terre (0 à l'air libre, 1 au fond d'une grotte) · extra2.w : arc-en-ciel
 @group(0) @binding(0) var<uniform> u: F;
 @group(0) @binding(1) var t_noise: texture_3d<f32>;
 @group(0) @binding(2) var s_rep: sampler;
@@ -50,8 +50,48 @@ fn sky_color(d: vec3f) -> vec3f {
   let y = max(d.y, 0.0); let t = pow(1.0 - y, 3.6); let mu = sat(dot(d, u.sun.xyz));
   var c = mix(u.top.rgb, u.hor.rgb, t);
   c += u.sun_col.rgb * (0.0035 / (1.02 - mu * 0.985) + 0.05 * pow(mu, 8.0)) * (0.25 + 0.75 * t);
+  // L'heure dorée : quand le soleil est bas, l'horizon s'embrase de son côté (orange au ras, rose au-dessus), et le côté
+  // opposé se teinte d'une bande mauve (la ceinture de Vénus).
+  let el = u.sun.y; let gold = (1.0 - smoothstep(0.02, 0.42, el)) * smoothstep(-0.14, 0.0, el) * (1.0 - u.hor.w);
+  if (gold > 0.001) {
+    let az = dot(normalize(vec2f(d.x, d.z) + vec2f(1e-5)), normalize(vec2f(u.sun.x, u.sun.z) + vec2f(1e-5)));
+    let toward = pow(max(az, 0.0), 2.0); let away = pow(max(-az, 0.0), 1.5); let low = pow(1.0 - y, 7.0); let mid = pow(1.0 - y, 3.0) - low * 0.6;
+    c += (vec3f(1.25, 0.46, 0.14) * low * (0.35 + 0.65 * toward) + vec3f(0.85, 0.38, 0.5) * max(mid, 0.0) * 0.35 * toward + vec3f(0.5, 0.36, 0.62) * mid * 0.25 * away) * gold;
+  }
   if (d.y < 0.0) { c = mix(c, u.ground.rgb, sat(-d.y * 7.0)); }
   return c;
+}
+/// La nuit : des étoiles qui scintillent (quelques-unes bleutées ou orangées), la Voie lactée, et la lune avec sa phase et
+/// son halo. Rien en plein jour ; l'ensemble pâlit sous la pleine lune.
+fn night_sky(v: vec3f) -> vec3f {
+  let night = sat((u.hor.w - 0.35) / 0.5); if (night <= 0.0 || v.y <= -0.02) { return vec3f(0.0); }
+  let lit = 0.5 - 0.5 * cos(u.extra.w * 6.2832); let t = u.cam.w; var c = vec3f(0.0); let fade = smoothstep(-0.02, 0.18, v.y);
+  // les étoiles : une grille sur la sphère, une étoile par case de loin en loin, au centre décalé
+  for (var l = 0; l < 2; l++) { let sc = select(150.0, 290.0, l == 1); let q = v * sc; let cell = floor(q); let h = hash13(cell + f32(l) * 17.0);
+    if (h > select(0.988, 0.975, l == 1)) { let ofs = vec3f(hash13(cell + 3.1), hash13(cell + 7.7), hash13(cell + 1.3)) * 0.6 + 0.2; let dd = length(q - cell - ofs);
+      let b = (h - 0.97) * 33.0 * select(1.0, 0.45, l == 1); let tw = 0.65 + 0.35 * sin(t * (2.0 + h * 5.0) + h * 91.0);
+      let tint = mix(vec3f(0.75, 0.85, 1.25), vec3f(1.25, 0.9, 0.6), hash13(cell + 5.5)); c += tint * b * tw * (1.0 - smoothstep(0.0, 0.32, dd)); } }
+  // la Voie lactée : une bande pâle et marbrée sur un grand cercle
+  let gal = normalize(vec3f(0.35, 0.52, 0.78)); let bd = dot(v, gal); let band = exp(-bd * bd / 0.018) * (0.4 + 0.6 * noise(v * 3.0 + vec3f(0.0, 0.0, 9.0))) * (0.5 + 0.5 * noise(v * 9.0));
+  c += vec3f(0.55, 0.6, 0.85) * band * 0.06;
+  c *= (1.0 - 0.6 * lit) * fade;
+  // la lune : un disque à la phase du jour, mers sombres, halo
+  let md = normalize(u.sun.xyz); let mu = dot(v, md); let r = 0.024;
+  if (mu > 0.95) { let right = normalize(cross(md, vec3f(0.0, 1.0, 0.0))); let up = cross(right, md); let p = vec2f(dot(v - md * mu, right), dot(v - md * mu, up)) / r; let rr = dot(p, p);
+    if (rr < 1.0) { let edge = sqrt(1.0 - p.y * p.y); let k = cos(u.extra.w * 6.2832); let lx = select(-p.x, p.x, u.extra.w < 0.5); let on = smoothstep(k * edge - 0.08, k * edge + 0.08, lx);
+      let maria = 0.78 + 0.22 * noise(vec3f(p * 1.7, 4.0)); c = mix(c * 0.2, vec3f(1.15, 1.12, 1.0) * maria * 1.6, max(on, 0.04)); }
+    c += vec3f(0.5, 0.56, 0.7) * 0.05 * lit * exp(-(1.0 - mu) * 220.0) * 6.0; }
+  return c * night;
+}
+/// L'arc-en-ciel : à 42° du point opposé au soleil, rouge dehors, violet dedans, et un second arc pâle, inversé, plus loin.
+fn rainbow(v: vec3f) -> vec3f {
+  let k = u.extra2.w; if (k <= 0.01) { return vec3f(0.0); }
+  let th = acos(clamp(dot(v, -normalize(u.sun.xyz)), -1.0, 1.0));
+  let f1 = (th - 0.7) / 0.035; let f2 = (0.905 - th) / 0.04;
+  var c = vec3f(0.0);
+  if (f1 > 0.0 && f1 < 1.0) { c += (0.5 + 0.5 * cos(6.2832 * (vec3f(0.0, 0.33, 0.67) + f1 * 0.8 - 0.05))) * sin(f1 * 3.1416) * 0.5; }
+  if (f2 > 0.0 && f2 < 1.0) { c += (0.5 + 0.5 * cos(6.2832 * (vec3f(0.0, 0.33, 0.67) + f2 * 0.8 - 0.05))) * sin(f2 * 3.1416) * 0.14; }
+  return c * k * smoothstep(-0.03, 0.06, v.y) * length(u.sun_col.rgb) * 0.12;
 }
 /// Aurores boréales : des rideaux verts qui ondulent, frangés de violet en hauteur.
 fn aurora(v: vec3f) -> vec3f {

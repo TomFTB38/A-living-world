@@ -70,6 +70,10 @@ pub fn visible(vp: &M4, min: [f32; 3], max: [f32; 3]) -> bool {
     }
     true
 }
+/// La phase de la lune selon le temps de jeu écoulé (heures) : un cycle de huit jours, 0 nouvelle lune, 0,5 pleine lune.
+pub fn moon_phase(hours: f64) -> f32 { ((hours / 24.0 / 8.0 + 0.5).fract()) as f32 }
+/// La part éclairée du disque (0 nouvelle, 1 pleine) : la clarté des nuits suit la lune.
+pub fn moon_lit(phase: f32) -> f32 { 0.5 - 0.5 * (phase * std::f32::consts::TAU).cos() }
 #[derive(Clone, Copy, Debug)]
 pub struct Sky { pub dir: [f32; 3], pub col: [f32; 3], pub top: [f32; 3], pub hor: [f32; 3], pub ground: [f32; 3], pub night: f32, pub exposure: f32 }
 /// Soleil et ciel selon l'heure, comme le prototype. La lune prend le relais : jamais de lumière par-dessous.

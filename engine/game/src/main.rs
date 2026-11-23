@@ -31,7 +31,7 @@ fn draw(gpu: &mut gpu::Gpu, md: &Models, s: &Session, time: f64, w: f32, h: f32,
     let (proj, vm) = (view::perspective(menu.fov() * (1.0 - 0.12 * s.anim.bow), w as f64 / h as f64, 0.08), view::look_dir(s.eye, s.look)); let vp = view::mul(&proj, &vm);
     let ui = hud::Ui::build(s, w, h, msg, mouse, menu, info); let mut draws = s.draws(md, &vm); if menu.title.is_some() { draws.retain(|d| !d.view); } /* pas de main tendue derrière l'écran titre */ let mut sky = view::sky_at(s.hour); if let Some(f) = &s.falling { gpu.set_fall(s.fall_serial, &f.data); }
     gpu.lights = s.lights(s.eye, gpu.light_cap);
-    let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.bright = hud::bright(menu.vol[3]); env.under = s.under(); env.cave = s.cave as f32; let night = sky.night.clamp(0.0, 1.0); env.flies = s.deep as f32 * (0.55 + 0.9 * night); /* des lucioles aussi dans les grottes vertes, lumineuses et à champignons */ if matches!(s.under_kind, Some(alw_core::karst::Under::Glow | alw_core::karst::Under::Verdant | alw_core::karst::Under::Fungal)) { env.flies = env.flies.max(0.9 * s.cave as f32); } // la nuit, la direction est celle de la lune : elle ne dit pas l'heure
+    let moon = view::moon_phase(s.hours + s.hour); if sky.night > 0.5 { let k = 0.35 + 0.65 * view::moon_lit(moon); for c in &mut sky.col { *c *= k; } } /* la clarté de la nuit suit la lune */ let mut env = weather::apply(&mut sky, s.weather.state, s.covered(s.eye)); env.moon = moon; env.bright = hud::bright(menu.vol[3]); env.under = s.under(); env.cave = s.cave as f32; let night = sky.night.clamp(0.0, 1.0); env.flies = s.deep as f32 * (0.55 + 0.9 * night); /* des lucioles aussi dans les grottes vertes, lumineuses et à champignons */ if matches!(s.under_kind, Some(alw_core::karst::Under::Glow | alw_core::karst::Under::Verdant | alw_core::karst::Under::Fungal)) { env.flies = env.flies.max(0.9 * s.cave as f32); } // la nuit, la direction est celle de la lune : elle ne dit pas l'heure
     // Taïga : ciel froid, soleil pâle, neige qui tombe à la place de la pluie.
     let tg = s.taiga as f32; if tg > 0.01 { for k in 0..3 { sky.top[k] += ([0.5, 0.64, 0.82][k] * (0.3 + 0.7 * (1.0 - night)) - sky.top[k]) * 0.35 * tg; sky.hor[k] += ([0.82, 0.88, 0.95][k] * (0.3 + 0.7 * (1.0 - night)) - sky.hor[k]) * 0.4 * tg; sky.col[k] *= 1.0 + ([0.12, 0.02, -0.16][k]) * tg * (1.0 - night); }
         // Soleil d'hiver : bas sur l'horizon, doré, aux ombres longues ; brume au fond des vallées le matin ; aurores la nuit.
@@ -1217,6 +1217,22 @@ fn capture(a: &[String]) {
             g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
             for _ in 0..30 { let (y0, pi) = (s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.yaw = y0; s.player.pitch = pi; }
             if scene == "panorama_carte" { s.map.open = true; s.map.anim = 1.0; s.map.zoom = 1; }
+            pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+        }
+    }
+    if scene == "ciel_couchant" || scene == "ciel_nuit" || scene == "arc_en_ciel" {
+        // Le ciel : depuis un point de vue, le soleil couchant (l'horizon embrasé) ; la nuit, les étoiles, la Voie lactée et la
+        // lune ; l'après-midi d'une averse, l'arc-en-ciel à l'opposé du soleil.
+        let w = WorldGen::new(SEED); s.sel = 8; s.third = false; s.set_creative(true); s.player.fly = true; s.skip_guide();
+        s.hour = match scene { "ciel_couchant" => 17.6, "ciel_nuit" => 23.0, _ => 16.6 };
+        if let Some((_, top)) = w.viewpoints_near(0.0, 0.0, 5000.0).into_iter().next() {
+            let d = view::sky_at(s.hour).dir; let (dx, dy, dz) = (d[0] as f64, d[1] as f64, d[2] as f64);
+            let (yaw, pitch) = match scene { "ciel_couchant" => (dx.atan2(dz), 0.06), "ciel_nuit" => (dx.atan2(dz), dy.asin() - 0.32), _ => ((-dx).atan2(-dz), 0.2) };
+            println!("{scene} : soleil/lune {d:?}, phase {:.2}", view::moon_phase(s.hours + s.hour));
+            s.player.p = [top[0] as f64 + 0.5, top[1] as f64 + 3.0, top[2] as f64 + 0.5]; s.player.yaw = yaw; s.player.pitch = pitch;
+            g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
+            for _ in 0..30 { let (q, y0, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y0; s.player.pitch = pi; }
+            s.weather.snap(Kind::Clair); if scene == "arc_en_ciel" { s.weather.state = weather::State { cloud: 0.62, rain: 0.28, fog: 0.0 }; } // la fin d'une averse
             pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
         }
     }
