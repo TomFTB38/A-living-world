@@ -46,5 +46,5 @@ pub mod armures;
 pub mod karst; pub mod sites; pub mod economie; pub mod remparts;
 pub mod raids;
 pub mod caravanes;
-pub mod camps; pub mod niveaux; pub mod mecanismes; pub mod sanctuaire; pub mod donjons; pub mod grotte; pub mod soleil; pub mod catacombes; pub mod forge; pub mod glace; pub mod horloge; pub mod observatoire; pub mod serre; pub mod epave; pub mod mine; pub mod arene; pub mod tombeau; pub mod archimage; pub mod mobilier; pub mod outils; pub mod tresors; pub mod bateaux; pub mod machine; pub mod panoramas;
+pub mod camps; pub mod niveaux; pub mod mecanismes; pub mod sanctuaire; pub mod donjons; pub mod grotte; pub mod soleil; pub mod catacombes; pub mod forge; pub mod glace; pub mod horloge; pub mod observatoire; pub mod serre; pub mod epave; pub mod mine; pub mod arene; pub mod tombeau; pub mod archimage; pub mod mobilier; pub mod outils; pub mod tresors; pub mod bateaux; pub mod machine; pub mod panoramas; pub mod feuilles;
 pub mod commande;

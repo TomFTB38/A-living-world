@@ -377,7 +377,7 @@ impl WorldGen {
             }
             if !is_grass(ground) && ground != B::FOREST_SOIL && ground != B::MOSSY_STONE { continue; }
             // Biome rare : une nappe de pétales roses sous les cerisiers, une litière de feuilles mortes sous les érables.
-            if let Some((rare, k)) = self.rare_at(wx, wz) { if k > 0.3 && (is_grass(ground) || ground == B::FOREST_SOIL) && r < 0.62 * k {
+            if let Some((rare, k)) = self.rare_at(wx, wz) { if k > 0.25 && (is_grass(ground) || ground == B::FOREST_SOIL) && r < 0.85 * k {
                 v[idx(x, y, z)] = match rare { Rare::Cerisiers => if r < 0.05 * k { B::PINK_FLOWER } else if r < 0.12 * k { B::TALL_GRASS } else { B::PETALS }, Rare::Automne => if r < 0.08 * k { B::TALL_GRASS } else { B::FALLEN_LEAVES } }; continue; } }
             if path > 0.02 && path < 0.4 && nd.n2(wx / 40.0 - 9.0, wz / 40.0 + 5.0) > 0.2 {
                 v[idx(x, y, z)] = B::FENCE;

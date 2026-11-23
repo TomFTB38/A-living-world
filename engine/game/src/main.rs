@@ -1171,14 +1171,14 @@ fn capture(a: &[String]) {
         if scene == "epave" { s.wild.put_swim(K::Shark, at(6.0, 2.5, 1.0), s.player.yaw + 1.3, 43, 0); }
         s.tick(0.0, none, Actions::default());
     }
-    if scene == "rare_cerisiers" || scene == "rare_automne" {
+    if scene == "rare_cerisiers" || scene == "rare_automne" || scene == "rare_automne_sol" || scene == "rare_cerisiers_sol" {
         // Les biomes rares : au cœur d'un bois de cerisiers en fleur, ou d'une forêt d'automne, à hauteur d'homme puis un peu au-dessus.
-        let w = WorldGen::new(SEED); let want = if scene == "rare_cerisiers" { alw_core::gen::Rare::Cerisiers } else { alw_core::gen::Rare::Automne }; s.sel = 8; s.third = false; s.hour = 10.0; s.skip_guide(); s.set_creative(true); s.player.fly = true;
+        let w = WorldGen::new(SEED); let want = if scene.starts_with("rare_cerisiers") { alw_core::gen::Rare::Cerisiers } else { alw_core::gen::Rare::Automne }; s.sel = 8; s.third = false; s.hour = 10.0; s.skip_guide(); s.set_creative(true); s.player.fly = true;
         let mut at = None; 'f: for i in -90..=90 { for j in -90..=90 { let (x, z) = (i as f64 * 48.0, j as f64 * 48.0); if let Some((k, st)) = w.rare_at(x, z) { let c = w.column(x, z); if k == want && st > 0.99 && c.water == 0.0 && c.h > alw_core::gen::SEA + 3.0 && w.places_near(x, z, 90.0).is_empty() { at = Some((x, z)); break 'f; } } } }
         if let Some((x, z)) = at { println!("{scene} : {x} {z}"); let h = w.column(x, z).h.floor();
-            s.player.p = [x + 0.5, h + 26.0, z + 0.5]; s.player.yaw = 0.7; s.player.pitch = -0.42; // au-dessus des cimes, le bois à perte de vue
+            let sol = scene.ends_with("_sol"); s.player.p = [x + 0.5, if sol { h + 1.0 } else { h + 26.0 }, z + 0.5]; s.player.yaw = 0.7; s.player.pitch = if sol { -0.08 } else { -0.42 }; // au-dessus des cimes, ou sous les arbres, les feuilles qui tombent
             g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
-            for _ in 0..30 { let (q, y0, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y0; s.player.pitch = pi; }
+            for _ in 0..(if sol { 300 } else { 30 }) { let (q, y0, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y0; s.player.pitch = pi; }
             pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
         }
     }

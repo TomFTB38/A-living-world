@@ -320,6 +320,7 @@ impl Models {
         for (name, o) in crate::survival::parts() { parts.insert(name, take(&mut all, o)); }
         for (name, o) in crate::bateaux::parts() { parts.insert(name, take(&mut all, o)); }
         for (name, o) in crate::machine::parts() { parts.insert(name, take(&mut all, o)); }
+        for (name, o) in crate::feuilles::parts() { parts.insert(name, take(&mut all, o)); }
         for (name, o) in crate::village::parts() { parts.insert(name, take(&mut all, o)); }
         let n = all.n; Models { data: all.data, n, char_verts, parts, items }
     }

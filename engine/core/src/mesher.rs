@@ -494,13 +494,13 @@ impl Mesher {
             }
             "petals" => {
                 // Pétales tombés : une jonchée de petits ovales roses et blancs, à plat, en nappe sous les cerisiers.
-                for _ in 0..r_.int(10, 16) { let (a, c) = (x + r_.range(0.05, 0.95), z + r_.range(0.05, 0.95)); let (w, d) = (r_.range(0.025, 0.045), r_.range(0.02, 0.035)); let t = r_.range(0.88, 1.04); let wh = r_.next() * 0.6;
+                for _ in 0..r_.int(16, 24) { let (a, c) = (x + r_.range(0.05, 0.95), z + r_.range(0.05, 0.95)); let (w, d) = (r_.range(0.03, 0.055), r_.range(0.025, 0.045)); let t = r_.range(0.88, 1.04); let wh = r_.next() * 0.6;
                     bx3(o, a - w, y + 0.004, c - d, a + w, y + 0.014, c + d, (0.96 + 0.02 * wh) * t, (0.72 + 0.22 * wh) * t, (0.82 + 0.12 * wh) * t, 0.0, s, l); }
                 return;
             }
             "fallen_leaves" => {
                 // Feuilles mortes : une litière de feuilles rouges, orangées et brunes, à plat, qui se chevauchent.
-                for _ in 0..r_.int(8, 13) { let (a, c) = (x + r_.range(0.06, 0.94), z + r_.range(0.06, 0.94)); let (w, d) = (r_.range(0.05, 0.08), r_.range(0.035, 0.06)); let t = r_.range(0.8, 1.05); let k = r_.next();
+                for _ in 0..r_.int(14, 20) { let (a, c) = (x + r_.range(0.06, 0.94), z + r_.range(0.06, 0.94)); let (w, d) = (r_.range(0.06, 0.1), r_.range(0.045, 0.075)); let t = r_.range(0.8, 1.05); let k = r_.next();
                     let col = if k < 0.4 { [0.72, 0.2, 0.1] } else if k < 0.75 { [0.84, 0.46, 0.12] } else if k < 0.9 { [0.86, 0.66, 0.2] } else { [0.45, 0.28, 0.14] };
                     let h = r_.range(0.004, 0.02); bx3(o, a - w, y + h, c - d, a + w, y + h + 0.01, c + d, col[0] * t, col[1] * t, col[2] * t, 0.0, s, l); }
                 return;
