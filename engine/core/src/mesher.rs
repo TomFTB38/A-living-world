@@ -47,7 +47,7 @@ pub struct Mesh { pub opaque: Vec<u8>, pub deco: Vec<u8>, pub water: Vec<u8>, pu
 /// pour chaque bloc, l'indice de sa teinte dans une petite table sans doublons.
 fn tints() -> &'static (Vec<u16>, Vec<[f64; 3]>) {
     static T: std::sync::OnceLock<(Vec<u16>, Vec<[f64; 3]>)> = std::sync::OnceLock::new();
-    T.get_or_init(|| { let mut list: Vec<[f64; 3]> = vec![[1.0; 3]]; let idx = BLOCKS.iter().map(|b| { if b.shape == Shape::Leaf { return 0; } match list.iter().position(|t| *t == b.tint) { Some(i) => i as u16, None => { list.push(b.tint); (list.len() - 1) as u16 } } }).collect(); (idx, list) })
+    T.get_or_init(|| { let mut list: Vec<[f64; 3]> = vec![[1.0; 3]]; let idx = BLOCKS.iter().map(|b| { /* les feuillages teintés (sombres, dorés, rouges) gardent leur teinte de loin aussi */ match list.iter().position(|t| *t == b.tint) { Some(i) => i as u16, None => { list.push(b.tint); (list.len() - 1) as u16 } } }).collect(); (idx, list) })
 }
 #[inline(always)] fn tint_index(b: Id) -> u16 { tints().0[b as usize] }
 pub struct Mesher { vol: Vec<Id>, sky: Vec<u8>, blk: Vec<u8>, m1: Vec<i64>, m2: Vec<i32> }
