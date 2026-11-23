@@ -265,7 +265,7 @@ fn oasis(k: &mut Work, x: i32, y0: i32, z: i32, pr: f64, roads: &[f64], s: i32, 
     let ring = r + 1.3;
     for (i, a) in palm_angles(gx, gz, s, pr, roads).into_iter().enumerate() { let i = i as i32;
         let (px, pz) = ((x as f64 + 0.5 + a.cos() * ring).floor() as i32, (z as f64 + 0.5 + a.sin() * ring).floor() as i32);
-        for b in crate::gen::palm_blocks(px as f64 + 0.5, (y0 + 1) as f64, pz as f64 + 0.5, (hash_float(gx + i, gz, s, 934) * 1e6) as u32, 0.3 + 0.5 * hash_float(gx, gz + i, s, 935)) { if b[1] > y0 { k.put([b[0], b[1], b[2]], b[3] as crate::blocks::Id); } } }
+        for b in crate::gen::palm_blocks(px as f64 + 0.5, (y0 + 1) as f64, pz as f64 + 0.5, (hash_float(gx + i, gz, s, 934) * 1e6) as u32, 0.1 + 0.25 * hash_float(gx, gz + i, s, 935)) { if b[1] > y0 { k.put([b[0], b[1], b[2]], b[3] as crate::blocks::Id); } } }
 }
 /// L'eau de l'oasis, reposée en dernier : rien ne la recouvre.
 fn oasis_water(blocks: &mut Vec<(i32, i32, i32, crate::blocks::Id)>, x: i32, y0: i32, z: i32, pr: f64) { let w = id("water"); for (cx, cz, dep) in pool(x, z, pr) { for dy in 0..=dep { blocks.push((cx, y0 - dy, cz, w)); } blocks.push((cx, y0 + 1, cz, 0)); } }

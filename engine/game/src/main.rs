@@ -1242,7 +1242,7 @@ fn capture(a: &[String]) {
         let w = WorldGen::new(SEED); s.sel = 8; s.third = false; s.player.fly = true; s.set_creative(true); s.skip_guide(); s.hour = if scene == "desert_soir" { 19.3 } else { 10.5 };
         if let Some(v) = w.villages_near(0.0, 0.0, 8000.0).into_iter().find(|v| v.kind == "desert") {
             let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; println!("{scene} : {} {:?}", v.name, v.c);
-            let (from, to) = if scene == "desert_oasis" { ([c[0] - 9.0, c[1] + 7.5, c[2] - 9.0], [c[0], c[1], c[2]]) } else { ([c[0] - 34.0, c[1] + 30.0, c[2] - 34.0], [c[0], c[1], c[2]]) };
+            let (from, to) = if scene == "desert_oasis" { ([c[0] - 6.0, c[1] + 17.0, c[2] - 13.0], [c[0], c[1], c[2] + 1.0]) } else { ([c[0] - 30.0, c[1] + 26.0, c[2] - 30.0], [c[0], c[1], c[2]]) };
             s.player.p = from; let f = view::norm([to[0] - from[0], to[1] - from[1] - 1.6, to[2] - from[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
             g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
             for _ in 0..240 { let (q, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y; s.player.pitch = pi; }
