@@ -248,7 +248,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
 
 // ------------------------------------------------------------------ le désert : l'oasis et la palmeraie
 /// Le rayon du bassin de l'oasis, selon celui de la place.
-pub(crate) fn oasis_r(pr: f64) -> f64 { (pr * 0.45).max(1.6) }
+pub(crate) fn oasis_r(pr: f64) -> f64 { (pr * 0.55).max(1.6) }
 /// Où se dressent les palmiers autour du bassin (en angle) : là où ne passe aucune rue.
 fn palm_angles(gx: i32, gz: i32, s: i32, pr: f64, roads: &[f64]) -> Vec<f64> { let count = 4 + (pr as i32 - 3).max(0); (0..count).map(|i| hash_float(gx, gz, s, 933) * TAU + i as f64 * TAU / count as f64).filter(|a| !roads.iter().any(|ra| ((a - ra + PI).rem_euclid(TAU) - PI).abs() < 0.45)).collect() }
 /// Les cases d'eau de l'oasis : un bassin rond au milieu de la place, profond de deux blocs au centre.
@@ -265,7 +265,12 @@ fn oasis(k: &mut Work, x: i32, y0: i32, z: i32, pr: f64, roads: &[f64], s: i32, 
     let ring = r + 1.3;
     for (i, a) in palm_angles(gx, gz, s, pr, roads).into_iter().enumerate() { let i = i as i32;
         let (px, pz) = ((x as f64 + 0.5 + a.cos() * ring).floor() as i32, (z as f64 + 0.5 + a.sin() * ring).floor() as i32);
-        for b in crate::gen::palm_blocks(px as f64 + 0.5, (y0 + 1) as f64, pz as f64 + 0.5, (hash_float(gx + i, gz, s, 934) * 1e6) as u32, 0.1 + 0.25 * hash_float(gx, gz + i, s, 935)) { if b[1] > y0 { k.put([b[0], b[1], b[2]], b[3] as crate::blocks::Id); } } }
+        small_palm(k, px, y0, pz, 4 + (hash_float(gx + i, gz, s, 934) * 3.0) as i32); }
+}
+/// Un palmier d'oasis, sage : un stipe droit, une couronne de palmes courtes qui retombent (elles ne couvrent pas l'eau).
+fn small_palm(k: &mut Work, x: i32, y0: i32, z: i32, h: i32) {
+    let (log, leaf) = (id("palm_log"), id("palm_leaves")); for y in y0 + 1..=y0 + h { k.put([x, y, z], log); } let t = y0 + h;
+    k.put([x, t + 1, z], leaf); for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)] { k.put([x + dx, t + 1, z + dz], leaf); if dx * dz == 0 { k.put([x + 2 * dx, t, z + 2 * dz], leaf); } }
 }
 /// L'eau de l'oasis, reposée en dernier : rien ne la recouvre.
 fn oasis_water(blocks: &mut Vec<(i32, i32, i32, crate::blocks::Id)>, x: i32, y0: i32, z: i32, pr: f64) { let w = id("water"); for (cx, cz, dep) in pool(x, z, pr) { for dy in 0..=dep { blocks.push((cx, y0 - dy, cz, w)); } blocks.push((cx, y0 + 1, cz, 0)); } }
