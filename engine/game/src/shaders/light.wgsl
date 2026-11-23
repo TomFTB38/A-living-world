@@ -7,7 +7,7 @@
   let px = vec2i(i.pos.xy); let d = textureLoad(t_d, px, 0);
   let wp = world_from(i.uv, max(d, 1e-7)); let vv = normalize(wp - u.cam.xyz);
   if (d <= 0.0) {
-    var s = sky_color(vv); let mu = dot(vv, u.sun.xyz); s += u.sun_col.rgb * 22.0 * smoothstep(0.99955, 0.99985, mu);
+    var s = sky_color(vv); let mu = dot(vv, u.sun.xyz); s += u.sun_col.rgb * 22.0 * smoothstep(0.99955, 0.99985, mu) * sat(1.0 - (u.hor.w - 0.35) / 0.5); /* la nuit, c'est la lune de `night_sky`, avec sa phase */
     if (u.hor.w > 0.0 && vv.y > 0.0) { let g = floor(vv * 520.0); s += vec3f(0.8, 0.87, 1.0) * step(0.9985, hash13(g)) * (0.25 + 0.75 * hash13(g + vec3f(2.0))) * 0.8 * u.hor.w * smoothstep(0.0, 0.15, vv.y); }
     return vec4f(s, 1.0);
   }
