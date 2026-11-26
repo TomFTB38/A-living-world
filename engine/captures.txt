@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu desert_vue desert_oasis desert_soir plat_desert_maisons plat_desert_grands
+spawn jeu cote_vue cote_port cote_soir plat_cote

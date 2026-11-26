@@ -1249,6 +1249,33 @@ fn capture(a: &[String]) {
             pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
         }
     }
+    if scene == "cote_vue" || scene == "cote_port" || scene == "cote_soir" {
+        // Un village côtier : vu de la terre vers la mer (les maisons de pêcheurs, le port, le phare) ; de plus près, le port ;
+        // le soir, le phare et les lanternes.
+        let w = WorldGen::new(SEED); s.sel = 8; s.third = false; s.player.fly = true; s.set_creative(true); s.skip_guide(); s.hour = if scene == "cote_soir" { 19.4 } else { 10.0 };
+        if let Some(v) = w.villages_near(0.0, 0.0, 8000.0).into_iter().find(|v| v.kind == "port") {
+            let sa = w.sea_dir(v.c[0], v.c[2]).map_or(0.0, |s| s.0); let (dx, dz) = (sa.cos(), sa.sin()); let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; println!("{scene} : {} {:?} mer {sa:.2}", v.name, v.c);
+            let (back, up, ahead) = if scene == "cote_port" { (-2.0, 16.0, 26.0) } else { (30.0, 30.0, 14.0) };
+            let from = [c[0] - dx * back, c[1] + up, c[2] - dz * back]; let to = [c[0] + dx * ahead, c[1] - 2.0, c[2] + dz * ahead];
+            s.player.p = from; let f = view::norm([to[0] - from[0], to[1] - from[1] - 1.6, to[2] - from[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
+            g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
+            for _ in 0..240 { let (q, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y; s.player.pitch = pi; }
+            pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+        }
+    }
+    if scene == "plat_cote" {
+        // Les bâtiments de la côte alignés dans le monde plat.
+        use alw_core::cote::{build, plan, CKind}; let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.set_creative(true); s.skip_guide(); s.hour = 10.0; s.sel = 8; s.third = false; s.player.fly = true;
+        let list: Vec<(CKind, u8)> = vec![(CKind::GrandeCapitainerie, 0), (CKind::Auberge, 0), (CKind::Atelier, 0), (CKind::Maison, 2 | 8), (CKind::Maison, 1)];
+        let total: i32 = list.iter().map(|(k, v)| { let e = plan(*k, *v).ext; e[2] - e[0] + 1 + 3 }).sum(); let mut cursor = o[0] - total / 2; let z0 = o[2] + 8; let mut k = alw_core::batisse::Work::default();
+        for (i, (kind, var)) in list.iter().enumerate() { let e = plan(*kind, *var).ext; let lot = alw_core::batisse::Lot { o: (cursor - e[0], z0 - e[1]), u: (1, 0), w: (0, 1) };
+            let _ = build(&mut k, lot, o[1], *kind, *var, 0.2 + 0.15 * i as f64, 0.6, if *kind == CKind::Atelier { Some("forgeron") } else { None }); cursor += e[2] - e[0] + 1 + 3; }
+        let e: Vec<(i32, i32, i32, u16)> = k.blocks.iter().map(|b| (b.0, b.1, b.2, b.3)).collect(); s.world.edit_many(&e); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
+        let from = [o[0] as f64 + 0.5, o[1] as f64 + 16.0, z0 as f64 - 34.0]; let to = [o[0] as f64 + 0.5, o[1] as f64 + 4.0, z0 as f64 + 5.0];
+        s.player.p = from; let f = view::norm([to[0] - from[0], to[1] - from[1] - 1.6, to[2] - from[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
+        for _ in 0..30 { let (q, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y; s.player.pitch = pi; }
+        pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+    }
     if scene == "plat_desert_maisons" || scene == "plat_desert_grands" {
         // Les bâtiments du désert alignés dans le monde plat, vus de devant et d'un peu haut.
         use alw_core::desert::{build, plan, DKind}; let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.set_creative(true); s.skip_guide(); s.hour = 10.0; s.sel = 8; s.third = false; s.player.fly = true;

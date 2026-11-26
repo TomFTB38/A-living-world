@@ -11,7 +11,8 @@
 //! ateliers, chapelle), (5) les maisons le long des rues, les granges et les champs en lisière, les métiers odorants
 //! à l'écart ; (6) la validation : pas de chevauchement, pas de bâtiment sur la route ou la place, un terrain assez
 //! plat et sec sous chaque bâtiment, une porte reliée à la rue par un chemin, rien hors de la portée du village.
-//! Les civilisations médiévale et du désert passent par ce générateur ; au désert, l'oasis remplace le puits, le souk a
+//! Les civilisations médiévale, du désert et de la côte passent par ce générateur (sur la côte : maisons de pêcheurs,
+//! le village tourné vers la mer, le port et son phare) ; au désert, l'oasis remplace le puits, le souk a
 //! plus d'étals, la palmeraie remplace les champs, et il n'y a ni église ni moulin.
 use crate::batisse::{Lot, Work};
 use crate::edifice::{Arch, Cond, Made, Spec};
@@ -67,13 +68,17 @@ struct Placed { spec: Spec, lot: Lot, by: i32, body: [i32; 4], made: Made, road:
 /// La porte attendue d'une fiche : côté et case le long du mur (pour aligner la façade sur la rue avant de bâtir).
 fn door_of(sp: &Spec) -> (u8, i32) { if let Some(d) = sp.door() { return (0, d); } match sp.arch { Arch::Forge => (0, sp.w - 2), Arch::Mill => (0, 1), Arch::TimberHouse if sp.door_side == 1 => (1, sp.d / 2), _ => (0, sp.w / 2) } }
 
-/// Trace un village médiéval (ou du désert, bâti à sa manière : voir `desert`) : identité, routes, bâtiments, champs, décor ; rend le site à poser dans le monde.
+/// Trace un village médiéval (ou du désert, ou de la côte, bâti à sa manière : voir `desert` et `cote`) : identité, routes, bâtiments, champs, décor ; rend le site à poser dans le monde.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, kind: &'static str, crafts: Vec<&'static str>, name: String) -> Site {
     let s = g.seed; let h = |k: i32| hash_float(gx, gz, s, 900 + k); let ident = identity(&h, kind);
     let cache: RefCell<HashMap<(i32, i32), (i32, bool)>> = RefCell::new(HashMap::new());
     let col = |cx: i32, cz: i32| -> (i32, bool) { if let Some(v) = cache.borrow().get(&(cx, cz)) { return *v; } let c = g.column(cx as f64 + 0.5, cz as f64 + 0.5); let v = (c.h.ceil() as i32 - 1, c.water != 0.0 || c.cliff > 0.6); cache.borrow_mut().insert((cx, cz), v); v };
     let (fx, fz) = (x as f64 + 0.5, z as f64 + 0.5); let reach = (SPAN - BLEND - 5) as f64;
+    // La côte : le village tourne le dos à la terre et descend vers la mer ; la grève et le port restent libres.
+    let coast = ident.civ == Civ::Coastal; let sea = if coast { g.sea_dir(x, z) } else { None };
+    let harbour_zone = |cx: i32, cz: i32| -> bool { let Some((sa, sr)) = sea else { return false }; let (rx, rz) = ((cx - x) as f64, (cz - z) as f64); let t = rx * sa.cos() + rz * sa.sin(); let w = -rx * sa.sin() + rz * sa.cos();
+        (t > (sr as f64 - 16.0).max(7.0) && w > -13.0 && w < 11.5) || (t > 5.0 && w.abs() < 4.0) };
     // ---- la place
     let pr = match ident.size { Size::Hamlet => 3.6, Size::Small => 5.6, Size::Developed => 6.6, Size::Borough => 7.6 };
     // ---- les routes : d'abord les grands axes, puis les ruelles
@@ -92,7 +97,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
         }
         pts
     };
-    for i in 0..n_main { let a = a0 + TAU * i as f64 / n_main as f64 + (h(12 + i as i32) - 0.5) * 0.5; let st = [fx + a.cos() * (pr - 0.4), fz + a.sin() * (pr - 0.4)];
+    for i in 0..n_main { let a = if let Some((sa, _)) = sea { sa + PI + ((i as f64 + 0.5) / n_main as f64 - 0.5) * 2.6 + (h(12 + i as i32) - 0.5) * 0.3 } else { a0 + TAU * i as f64 / n_main as f64 + (h(12 + i as i32) - 0.5) * 0.5 }; /* sur la côte, les rues s'en vont vers les terres : le chemin du port descend seul à la mer */ let st = [fx + a.cos() * (pr - 0.4), fz + a.sin() * (pr - 0.4)];
         let pts = trace(st, a, len * (0.75 + 0.35 * h(20 + i as i32)), i as i32 + gx * 31 + gz * 17); if pts.len() >= 4 { roads.push(Road { pts, parent: None, half: if ident.size >= Size::Developed { 1.3 } else { 1.0 } }); } }
     if ident.size >= Size::Developed { let mains = roads.len();
         for r in 0..mains { for k in 0..if ident.size == Size::Borough { 2 } else { 1 } { let n = roads[r].pts.len(); if n < 12 { continue; }
@@ -108,7 +113,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
     let mut wants: Vec<Want> = Vec::new(); let mut salt = 200; let mut nh = || { salt += 1; h(salt) };
     let cond = |r: f64| -> Cond { let aged = ident.age as f64 / 400.0; if r < 0.05 * (1.0 - ident.wealth) { Cond::Damaged } else if r < 0.05 + aged * 0.45 { Cond::Old } else if r < 0.12 + aged * 0.45 { Cond::Repaired } else if r < 0.6 { Cond::Kept } else { Cond::New } };
     let dry = ident.civ == Civ::Desert; // le désert : pisé et toits plats, l'oasis au milieu, la palmeraie autour
-    let mk = |arch: Arch, hh: f64, craft: Option<&'static str>, c: Cond| if dry { Spec::desert(arch, (hh * 97.0) as u8, hh, (ident.wealth + (hh - 0.5) * 0.3).clamp(0.0, 1.0), craft, c) } else { Spec::new(arch, (hh * 97.0) as u8, hh, (ident.wealth + (hh - 0.5) * 0.3).clamp(0.0, 1.0), craft, c) };
+    let mk = |arch: Arch, hh: f64, craft: Option<&'static str>, c: Cond| if coast { Spec::coast(arch, (hh * 97.0) as u8, hh, (ident.wealth + (hh - 0.5) * 0.3).clamp(0.0, 1.0), craft, c) } else if dry { Spec::desert(arch, (hh * 97.0) as u8, hh, (ident.wealth + (hh - 0.5) * 0.3).clamp(0.0, 1.0), craft, c) } else { Spec::new(arch, (hh * 97.0) as u8, hh, (ident.wealth + (hh - 0.5) * 0.3).clamp(0.0, 1.0), craft, c) };
     if ident.size >= Size::Small || ident.focus == Focus::Trade { let hh = nh(); wants.push(Want { spec: mk(Arch::Inn, hh, None, cond(nh())), pref: 0 }); }
     for c in &crafts { let hh = nh(); let arch = match *c { "forgeron" | "maitre_forgeron" | "armurier" => Arch::Forge, "tanneur" => Arch::Tannery, "maitre_menuisier" | "menuisier" | "charpentier" | "bucheron" => Arch::Woodshop, _ => Arch::Workshop }; let pref = if *c == "tanneur" { 3 } else if arch == Arch::Forge { 0 } else { 1 };
         wants.push(Want { spec: mk(arch, hh, Some(c), Cond::Kept), pref }); }
@@ -127,6 +132,8 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
     // L'histoire du village : une maison en chantier quand il s'agrandit, une ruine quand il décline.
     if ident.outlook == Outlook::Expansion || (ident.outlook == Outlook::Prosperity && h(73) < 0.5) { wants.push(Want { spec: mk(Arch::House, nh(), None, Cond::Building), pref: 2 }); }
     if ident.size >= Size::Small && ident.wealth < 0.45 && ident.outlook != Outlook::Expansion && h(75) < 0.6 { wants.push(Want { spec: mk(Arch::Cottage, nh(), None, Cond::Abandoned), pref: 3 }); }
+    // Sur la côte, la place est comptée entre la mer et les terres : les maisons des pêcheurs passent avant les fermes.
+    if coast { wants.sort_by_key(|w| w.spec.arch.rural() as u8); }
     // ---- le placement : pour chaque demande, l'emplacement libre le mieux venu le long des rues
     let total: f64 = roads.iter().map(|r| r.pts.len() as f64 * 2.0).fold(0.0, f64::max) + pr;
     let mut placed: Vec<Placed> = Vec::new(); let mut taken: Vec<[i32; 4]> = Vec::new();
@@ -150,7 +157,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
             let (px, pz) = (p[0].floor() as i32 + nx * off, p[1].floor() as i32 + nz * off);
             let o = if ds == 0 { (px - dt * ux, pz - dt * uz) } else { (px - (sp.w - 1) * ux - dt * wx, pz - (sp.w - 1) * uz - dt * wz) };
             let lot = Lot { o, u: (ux, uz), w: (wx, wz) }; let area = rect(&lot, ext); let body = rect(&lot, [0, 0, sp.w - 1, sp.d - 1]);
-            for (cx, cz) in [(area[0], area[1]), (area[2], area[1]), (area[0], area[3]), (area[2], area[3])] { if ((cx - x) as f64).hypot((cz - z) as f64) > reach { why[0] += 1; continue 'back; } }
+            for (cx, cz) in [(area[0], area[1]), (area[2], area[1]), (area[0], area[3]), (area[2], area[3])] { if ((cx - x) as f64).hypot((cz - z) as f64) > reach || harbour_zone(cx, cz) { why[0] += 1; continue 'back; } }
             if taken.iter().any(|t| area[0] <= t[2] + 1 && area[2] + 1 >= t[0] && area[1] <= t[3] + 1 && area[3] + 1 >= t[1]) { why[1] += 1; continue 'back; }
             for cx in area[0]..=area[2] { for cz in area[1]..=area[3] { if road_cells.contains_key(&(cx, cz)) || in_plaza(cx, cz) { why[2] += 1; continue 'back; } } }
             let mut hs = Vec::new(); for cx in area[0]..=area[2] { for cz in area[1]..=area[3] { let (hh, wet) = col(cx, cz); if wet { why[3] += 1; continue 'back; } if cx >= body[0] && cx <= body[2] && cz >= body[1] && cz <= body[3] { hs.push(hh); } } }
@@ -197,6 +204,8 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
     // Les bâtiments, et leurs chemins jusqu'à la rue.
     for p in placed.iter_mut() { p.made = crate::edifice::raise(&mut works, p.lot, &p.spec, p.by);
         for &(cx, cz) in &p.link { let y = rh[&(cx, cz)]; for f in gy(&pads, cx, cz)..y { ground.put([cx, f, cz], fill); } ground.put([cx, y, cz], trail); paths.push([cx, y, cz]); } }
+    // Le port, tourné vers la mer, et son phare (voir `village::harbour`).
+    let harbour_r = match sea { Some((sa, _)) => g.harbour(x, z, sa, &h, &pads, &mut paths, &mut ground, &mut works, pave, true), None => 0 };
     // Le décor des rues : des lanternes sur poteau le long des grands axes, des bancs près de la place.
     if ident.size >= Size::Small { for r in roads.iter().filter(|r| r.parent.is_none()) { for k in (4..r.pts.len()).step_by(6) { let p = r.pts[k]; let q = r.pts[k - 1]; let t = [p[0] - q[0], p[1] - q[1]]; let l = t[0].hypot(t[1]).max(1e-6); let side = if k % 12 == 4 { 1.0 } else { -1.0 };
         let (cx, cz) = ((p[0] - t[1] / l * side * (r.half + 1.2)).floor() as i32, (p[1] + t[0] / l * side * (r.half + 1.2)).floor() as i32);
@@ -208,7 +217,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
     let anchors: Vec<(f64, f64)> = placed.iter().filter(|p| p.spec.arch.rural()).map(|p| { let c = p.lot.p(p.spec.w as f64 * 0.5, 0.0, p.spec.d as f64 + 6.0); (c[0], c[2]) }).chain((0..12).map(|k| { let a = h(90) * TAU + k as f64 * 0.52; (fx + a.cos() * (total * 0.8), fz + a.sin() * (total * 0.8)) })).collect();
     for (k, (ax, az)) in anchors.iter().enumerate() { if made_fields >= fields { break; }
         let along_x = h(91 + k as i32) < 0.5; let (hx, hz) = if along_x { (4, 3) } else { (3, 4) }; let (cx, cz) = (ax.floor() as i32, az.floor() as i32); let area = [cx - hx, cz - hz, cx + hx, cz + hz];
-        if [(area[0], area[1]), (area[2], area[3]), (area[0], area[3]), (area[2], area[1])].iter().any(|c| ((c.0 - x) as f64).hypot((c.1 - z) as f64) > reach) { continue; }
+        if [(area[0], area[1]), (area[2], area[3]), (area[0], area[3]), (area[2], area[1])].iter().any(|c| ((c.0 - x) as f64).hypot((c.1 - z) as f64) > reach || harbour_zone(c.0, c.1)) { continue; }
         if taken.iter().any(|t| area[0] <= t[2] + 2 && area[2] + 2 >= t[0] && area[1] <= t[3] + 2 && area[3] + 2 >= t[1]) { continue; }
         let mut hs = Vec::new(); let mut bad = false; for a in area[0]..=area[2] { for b in area[1]..=area[3] { let (hh, wet) = col(a, b); bad |= wet || road_cells.contains_key(&(a, b)) || in_plaza(a, b); hs.push(hh); } }
         if bad { continue; } hs.sort(); let fy = hs[hs.len() / 2]; if hs[hs.len() - 1] - hs[0] > 5 || (fy - y0).abs() > 6 { continue; }
@@ -223,7 +232,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
     let mut v = Village { id: (gx, gz), kind, name, c: [x, y0, z], r: 8, crafts: Vec::new(), houses: Vec::new(), works: placed.iter().map(|p| (p.spec.arch, p.body)).collect(), fields: made_fields as u32, ident: Some(ident) };
     for p in &placed { for (cx, cz) in [(p.body[0] - 2, p.body[1] - 2), (p.body[2] + 2, p.body[3] + 2)] { v.r = v.r.max(((cx - x) as f64).hypot((cz - z) as f64).ceil() as i32 + 2); } }
     for t in &taken { for (cx, cz) in [(t[0], t[1]), (t[2], t[3]), (t[0], t[3]), (t[2], t[1])] { v.r = v.r.max(((cx - x) as f64).hypot((cz - z) as f64).ceil() as i32 + 1); } }
-    v.r = v.r.min(SPAN - 6);
+    v.r = v.r.max(harbour_r).min(SPAN - 6);
     for p in &placed {
         if !p.spec.dwelling() { continue; } let Some((ds, dt)) = p.made.door else { continue };
         let lot = p.lot; let fy = (p.by + 1) as f64; let mid = |u: i32, ww: i32| { let c = lot.cell(u, 0, ww); [c[0] as f64 + 0.5, fy, c[2] as f64 + 0.5] };
