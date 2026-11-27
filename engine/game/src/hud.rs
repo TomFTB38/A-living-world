@@ -545,7 +545,7 @@ impl Ui {
         let l = s.quest_lines(); if l.is_empty() { return; } let z = 14.0 * k; let pw = l.iter().fold(170.0 * k, |a, (t, p, _)| a.max(Ui::text_width(t, z)).max(Ui::text_width(p, z))) + 28.0 * k;
         let r = [w - pw - 16.0 * k, 232.0 * k, pw, 30.0 * k + l.len() as f32 * 40.0 * k]; self.panel(r, k, [0.06, 0.08, 0.06, 0.78]); self.rect(r[0] + r[2] - 3.0 * k, r[1], 3.0 * k, r[3], GOLD);
         self.text("Tâches", r[0] + 14.0 * k, r[1] + 8.0 * k, 13.5 * k, GOLD);
-        for (i, (t, p, done)) in l.iter().enumerate() { let y = r[1] + 28.0 * k + i as f32 * 40.0 * k; self.text(t, r[0] + 14.0 * k, y, z, INK); self.text(&if *done { format!("{p} · c'est fait, retournez le voir") } else { p.clone() }, r[0] + 14.0 * k, y + 17.0 * k, 13.0 * k, if *done { GOLD } else { DIM }); }
+        for (i, (t, p, done)) in l.iter().enumerate() { let y = r[1] + 28.0 * k + i as f32 * 40.0 * k; self.text(t, r[0] + 14.0 * k, y, z, INK); self.text(&if *done { format!("{p} · c'est fait : allez rendre la tâche") } else { p.clone() }, r[0] + 14.0 * k, y + 17.0 * k, 13.0 * k, if *done { GOLD } else { DIM }); }
     }
     /// Le conseil de départ en cours, en haut à gauche.
     fn hint(&mut self, s: &Session, k: f32) {
