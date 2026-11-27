@@ -1267,9 +1267,9 @@ fn capture(a: &[String]) {
         // Un village viking : vu d'en haut (les toits de gazon, la palissade), de plus près (le cercle de pierres, la halle),
         // et le soir.
         let w = WorldGen::new(SEED); s.sel = 8; s.third = false; s.player.fly = true; s.set_creative(true); s.skip_guide(); s.hour = if scene == "nord_soir" { 19.2 } else { 10.5 };
-        if let Some(v) = w.villages_near(0.0, 0.0, 8000.0).into_iter().find(|v| matches!(v.kind, "taiga" | "montagne") && v.works.iter().filter(|w| w.0 == alw_core::edifice::Arch::House).count() >= 2) {
+        if let Some(v) = w.villages_near(0.0, 0.0, 8000.0).into_iter().find(|v| matches!(v.kind, "taiga" | "montagne") && v.works.iter().any(|w| matches!(w.0, alw_core::edifice::Arch::Hall | alw_core::edifice::Arch::TownHall))) {
             let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; println!("{scene} : {} {:?}", v.name, v.c);
-            let (from, to) = if scene == "nord_place" { ([c[0] - 9.0, c[1] + 11.0, c[2] - 12.0], [c[0], c[1], c[2] + 2.0]) } else { ([c[0] - 34.0, c[1] + 30.0, c[2] - 34.0], [c[0], c[1], c[2]]) };
+            let (from, to) = if scene == "nord_place" { ([c[0] - 8.0, c[1] + 9.0, c[2] - 11.0], [c[0], c[1], c[2] + 1.0]) } else { ([c[0] - 38.0, c[1] + 34.0, c[2] - 38.0], [c[0], c[1], c[2]]) };
             s.player.p = from; let f = view::norm([to[0] - from[0], to[1] - from[1] - 1.6, to[2] - from[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
             g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g);
             for _ in 0..240 { let (q, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y; s.player.pitch = pi; }

@@ -385,8 +385,8 @@ fn thatch(t: &Tile, x: f64, y: f64) -> S {
 /// et çà et là une petite fleur jaune ou blanche.
 fn turf(t: &Tile, x: f64, y: f64) -> S {
     let n = t.fbm(x, y, 5, 3); let blade = t.val(x * 2.2, y * 0.5, 48); let dry = smooth(0.58, 0.78, t.fbm(x + 31.0, y * 0.8, 3, 2)); let moss = smooth(0.62, 0.8, t.fbm(x * 0.7 + 9.0, y * 0.7, 4, 2));
-    let g = pal(&GRASS, 0.08 + 0.45 * n + 0.3 * (blade - 0.5)); let k = 0.8 + 0.35 * blade; let straw = [0.6 * k, 0.53 * k, 0.29 * k];
-    let mut c = [0.0; 3]; for i in 0..3 { c[i] = g[i] * (1.0 - 0.6 * dry) + straw[i] * 0.6 * dry; c[i] *= 1.0 - 0.3 * moss; }
+    let g = pal(&GRASS, 0.02 + 0.32 * n + 0.25 * (blade - 0.5)); let k = 0.7 + 0.35 * blade; let straw = [0.5 * k, 0.44 * k, 0.24 * k];
+    let mut c = [0.0; 3]; for i in 0..3 { c[i] = (g[i] * 0.68) * (1.0 - 0.65 * dry) + straw[i] * 0.65 * dry; c[i] *= 1.0 - 0.45 * moss; } // sombre et mêlé : de l'herbe, de la paille, de la mousse
     let f = t.val(x, y, 64); if f > 0.955 { c = if t.val(x + 5.0, y, 64) > 0.5 { [0.95, 0.85, 0.3] } else { [0.92, 0.92, 0.86] }; }
     S { c, h: 0.3 + 0.55 * blade - 0.2 * moss, r: 0.9 }
 }
