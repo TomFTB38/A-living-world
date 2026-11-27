@@ -7,6 +7,7 @@ pub mod desert;
 pub mod cote;
 pub mod nord;
 pub mod factions;
+pub mod politique;
 pub mod noise;
 pub mod mesher;
 pub mod store;

@@ -1436,7 +1436,11 @@ fn capture(a: &[String]) {
                 // La réputation : le journal avec les peuples (ami du Royaume, apprécié des ports, mal vu des Clans), ou un village hostile qui vous chasse.
                 use alw_core::factions::Faction; s.set_creative(false); s.sway(Faction::Ports, 12.0); s.sway(Faction::Clans, -14.0);
                 for w in alw_core::gen::WorldGen::new(SEED).villages_near(c[0], c[2], 2500.0).into_iter().take(8) { s.discover(&w); }
-                if scene == "reputation_journal" { s.sway(Faction::Royaume, 45.0); s.town.rep.insert(v.id, 12); s.town.journal = true; s.tick(0.0, none, Actions::default()); }
+                if scene == "reputation_journal" || scene == "reputation_politique" || scene == "reputation_carte" { s.sway(Faction::Royaume, 45.0); s.town.rep.insert(v.id, 12);
+                    if scene != "reputation_journal" { for w in alw_core::gen::WorldGen::new(SEED).villages_near(c[0], c[2], 3000.0) { s.discover(&w); } // les peuples : le Royaume et les Clans en guerre, les ports alliés
+                        for (a, b, r, war) in [(Faction::Royaume, Faction::Clans, -70.0, true), (Faction::Royaume, Faction::Ports, 55.0, false)] { let (i, j) = (a as usize, b as usize); s.politics.rel[i][j] = r; s.politics.rel[j][i] = r; s.politics.war[i][j] = war; s.politics.war[j][i] = war; }
+                        s.politics.news.push((0, "La guerre ! Le Royaume et les Clans du Nord prennent les armes".into())); s.notes.clear(); }
+                    if scene == "reputation_carte" { s.map.zoom = 3; s.toggle_map(); for _ in 0..60 { s.tick(1.0 / 60.0, none, Actions::default()); } } else { s.town.journal = true; } s.tick(0.0, none, Actions::default()); }
                 else { s.sway(Faction::Royaume, -60.0); s.town.rep.insert(v.id, -12); s.notes.clear(); let f = s.town.folk[k].clone(); let e = [f.p[0] + 2.0, f.p[1] + 1.62, f.p[2] + 1.2]; look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default()); s.talk_to(k); s.tick(0.0, none, Actions::default()); }
                 println!("{scene} : {:?} ; {:?}", s.faction_lines(), s.dialog().map(|d| d.said));
             } } else if scene == "villageois_echange" { if let Some(k) = s.town.folk.iter().position(|f| f.craft.is_none()) {

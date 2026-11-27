@@ -35,8 +35,8 @@ fn la_reputation_d_un_peuple() {
     let known = s.town.known.len(); s.sway(f, HERO); assert!(s.town.known.len() > known, "des villages du peuple indiqués : {} → {}", known, s.town.known.len());
     let cheap: Vec<u32> = s.offers(&v).iter().map(|o| o.give.1).collect(); println!("prix : neutre {base:?} → {:?} ({}) {cheap:?}", s.tier(v.id), s.standing(v.id));
     assert!(s.tier(v.id) >= Tier::Ami); assert!(cheap.iter().zip(&base).all(|(a, b)| a <= b) && cheap.iter().zip(&base).any(|(a, b)| a < b), "les prix baissent");
-    // Les autres peuples n'en savent rien.
-    for g in alw_core::factions::ALL { if g != f { assert_eq!(s.faction_rep(g), 0); } }
+    // Les autres peuples n'en savent rien (sauf ses alliés et ses ennemis : voir tests/politique.rs).
+    for g in alw_core::factions::ALL { if g != f && matches!(s.politics.bond(f, g), alw_core::politique::Bond::Paix | alw_core::politique::Bond::Froid) { assert_eq!(s.faction_rep(g), 0); } }
     // Tout se garde avec la partie.
     let t = s.save_text(); let mut l = Session::new(SEED, &Preset { radius: 1, lod1: 1.5, lod2: 2.5 }, 2, [-38.5, 51.4, 0.5]); l.load_text(&t).unwrap();
     assert_eq!(l.faction_rep(f), s.faction_rep(f)); assert_eq!(l.faction_lines(), s.faction_lines()); let n = l.notes.len(); l.sway(f, 1.0); assert_eq!(l.notes.len(), n, "pas deux fois le même présent");

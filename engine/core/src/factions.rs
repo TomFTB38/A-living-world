@@ -56,8 +56,13 @@ impl Session {
     /// La position auprès d'un village : sa réputation propre, plus la moitié de celle de son peuple.
     pub fn standing(&self, v: (i32, i32)) -> i32 { (self.rep(v) + self.faction_of(v).map_or(0, |f| self.faction_rep(f) / 2)).clamp(-100, 150) }
     pub fn tier(&self, v: (i32, i32)) -> Tier { Tier::of(self.standing(v)) }
-    /// La réputation d'un peuple bouge ; franchir un palier vaut un titre, un présent, ou un avertissement.
+    /// La réputation d'un peuple bouge ; ses alliés s'en réjouissent un peu, ses ennemis en guerre s'en fâchent (`politique`).
     pub fn sway(&mut self, f: Faction, n: f64) {
+        self.sway_one(f, n);
+        for g in ALL { if g == f { continue; } match self.politics.bond(f, g) { crate::politique::Bond::Allies => self.sway_one(g, n * crate::politique::ALLY_SHARE), crate::politique::Bond::Guerre => self.sway_one(g, -n * crate::politique::WAR_SHARE), _ => {} } }
+    }
+    /// La réputation d'un seul peuple bouge ; franchir un palier vaut un titre, un présent, ou un avertissement.
+    pub fn sway_one(&mut self, f: Faction, n: f64) {
         let i = f.i(); let was = self.factions.rep[i]; let now = (was + n).clamp(-100.0, 100.0); self.factions.rep[i] = now; self.dirty = true;
         if now >= FRIEND && !self.factions.friend[i] { self.factions.friend[i] = true;
             self.notes.push(format!("{} vous tient pour un ami : vous voilà « {} » (les prix y baissent)", cap(f.name()), f.title(false))); let left = self.add_item(crate::economie::COIN, 20); if left > 0 { self.notes.push("Sac plein".into()); }

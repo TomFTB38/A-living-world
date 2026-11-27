@@ -559,6 +559,12 @@ impl Ui {
     fn quad(&mut self, p: [[f32; 2]; 4], uv: [[f32; 2]; 4], c: C, l: f32) { for i in [0, 1, 2, 0, 2, 3] { self.data.extend_from_slice(&[p[i][0], p[i][1], uv[i][0], uv[i][1], c[0], c[1], c[2], c[3], l]); } }
     pub fn rect(&mut self, x: f32, y: f32, w: f32, h: f32, c: C) { self.quad([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], [[0.0; 2]; 4], c, LAYER_FLAT); }
     /// Une croix de carte au trésor : deux traits en X, sur un contour sombre.
+    /// Un trait en tirets de `a` à `b` : des tirets de longueur `dash`, autant d'espace entre eux.
+    fn dashed(&mut self, a: [f32; 2], b: [f32; 2], w: f32, dash: f32, c: C) {
+        let (dx, dy) = (b[0] - a[0], b[1] - a[1]); let l = dx.hypot(dy); if l < 1.0 { return; } let (ux, uy) = (dx / l, dy / l); let (nx, ny) = (-uy * w * 0.5, ux * w * 0.5);
+        let mut t = 0.0; while t < l { let e = (t + dash).min(l); let (p, q) = ([a[0] + ux * t, a[1] + uy * t], [a[0] + ux * e, a[1] + uy * e]);
+            self.quad([[p[0] + nx, p[1] + ny], [q[0] + nx, q[1] + ny], [q[0] - nx, q[1] - ny], [p[0] - nx, p[1] - ny]], [[0.0; 2]; 4], c, LAYER_FLAT); t += dash * 2.0; }
+    }
     fn cross(&mut self, x: f32, y: f32, r: f32, w: f32, c: C) {
         for (a, b) in [([-1.0f32, -1.0f32], [1.0f32, 1.0f32]), ([-1.0, 1.0], [1.0, -1.0])] { let (ux, uy) = ((b[0] - a[0]) * 0.5, (b[1] - a[1]) * 0.5); let l = ux.hypot(uy); let (nx, ny) = (-uy / l * w, ux / l * w);
             self.quad([[x + a[0] * r + nx, y + a[1] * r + ny], [x + b[0] * r + nx, y + b[1] * r + ny], [x + b[0] * r - nx, y + b[1] * r - ny], [x + a[0] * r - nx, y + a[1] * r - ny]], [[0.0; 2]; 4], c, LAYER_FLAT); }
@@ -664,7 +670,7 @@ impl Ui {
         }
     }
     fn journal(&mut self, s: &Session, w: f32, h: f32) {
-        let k = scale(h); let l = s.journal(); let lh = 46.0 * k; let pw = (760.0 * k).min(w - 40.0); let ph = 104.0 * k + l.len().clamp(1, 9) as f32 * lh; let (x, y) = ((w - pw) * 0.5, h * 0.12);
+        let k = scale(h); let l = s.journal(); let lh = 46.0 * k; let pw = (760.0 * k).min(w - 40.0); let ph = 150.0 * k + l.len().clamp(1, 9) as f32 * lh; let (x, y) = ((w - pw) * 0.5, h * 0.1);
         self.panel([x, y, pw, ph], k, PANEL); self.text("Journal des villages", x + 18.0 * k, y + 14.0 * k, 23.0 * k, INK);
         self.text("Chiffre : marquer le village sur votre route · J pour fermer", x + 18.0 * k, y + 58.0 * k, 14.0 * k, DIM);
         // les peuples : leur réputation, leur regard, le titre qu'on y porte
@@ -677,6 +683,11 @@ impl Ui {
             for (c, met) in crafts { let n = alw_core::village::craftsman(c).map_or(*c, |x| x.name); let z = 14.0 * k; self.text(n, px, yy + 22.0 * k, z, if *met { ACCENT } else { DIM }); px += Ui::text_width(n, z) + 18.0 * k; }
             let r = format!("réputation {} · {}", s.standing(v.id), s.tier(v.id).label()); let z = 14.0 * k; self.text(&r, x + pw - Ui::text_width(&r, z) - 18.0 * k, yy + 22.0 * k, z, DIM);
         }
+        // les peuples entre eux : alliances et guerres, et la dernière nouvelle
+        let yb = y + ph - 50.0 * k; let z = 14.0 * k; let mut fx = x + 18.0 * k; let links = s.politics_lines();
+        if links.is_empty() { self.text("Les peuples sont en paix.", fx, yb, z, DIM); }
+        for (a, b, bond) in links { let t = format!("{} et {} : {}", a.short(), b.short(), bond.label()); let c = match bond { alw_core::politique::Bond::Guerre => BAD, alw_core::politique::Bond::Allies => GOLD, _ => DIM }; self.text(&t, fx, yb, z, c); fx += Ui::text_width(&t, z) + 18.0 * k; }
+        if let Some((_, n)) = s.politics.news.last() { self.text(&format!("Nouvelles : {n}"), x + 18.0 * k, yb + 22.0 * k, z, DIM); }
     }
     /// Repère en haut de l'écran : un losange dans la direction d'un point, avec un nom et la distance.
     fn pin(&mut self, s: &Session, at: [f64; 2], label: &str, c: C, w: f32, k: f32) {
@@ -800,6 +811,9 @@ impl Ui {
             self.text(&v.name, p[0] - Ui::text_width(&v.name, z) * 0.5, p[1] + 9.0 * k, z, ink);
         } }
         // les lieux repérés, et les points de vue (dorés une fois faits)
+        // les routes commerciales : dorées si elles sont ouvertes, rouges si la guerre les coupe
+        for r in s.trade_routes() { let (Some(a), Some(b)) = (Ui::on_map(inner, me, cell, px, r.pa), Ui::on_map(inner, me, cell, px, r.pb)) else { continue };
+            let c = if r.open { [0.62, 0.42, 0.12, 0.85 * t2] } else { [0.72, 0.12, 0.08, 0.85 * t2] }; self.dashed(a, b, 2.2 * k, 9.0 * k, c); }
         for (q, name) in s.known_places(2000.0) { if let Some(p) = Ui::on_map(inner, me, cell, px, q) { self.diamond(p[0], p[1], 5.0 * k, [0.25, 0.16, 0.1, t2]); self.text(name, p[0] + 8.0 * k, p[1] - 7.0 * k, z * 0.85, ink); } }
         for (q, done) in s.known_views(2000.0) { if let Some(p) = Ui::on_map(inner, me, cell, px, [q[0], q[2]]) { self.diamond(p[0], p[1], 7.0 * k, [0.15, 0.1, 0.05, t2]); self.diamond(p[0], p[1], 5.0 * k, if done { [0.95, 0.75, 0.2, t2] } else { [0.7, 0.7, 0.7, t2] }); if !done { self.text("Point de vue", p[0] + 9.0 * k, p[1] - 7.0 * k, z * 0.85, ink); } } }
         for t in s.treasure_targets() { if let Some(p) = Ui::on_map(inner, me, cell, px, [t[0], t[2]]) { self.cross(p[0], p[1], 9.0 * k, 2.4 * k, [0.75, 0.12, 0.08, t2]); self.text("Trésor", p[0] + 11.0 * k, p[1] - 8.0 * k, z, ink); } }

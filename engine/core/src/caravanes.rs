@@ -21,7 +21,9 @@ impl Session {
         let Some(v) = self.gen.site(e.id.0, e.id.1).map(|s| s.v.clone()) else { return }; let ca = e.census(&v);
         let near: Vec<(i32, i32)> = self.econs.keys().copied().filter(|id| self.gen.site(id.0, id.1).is_some_and(|s| ((s.v.c[0] - v.c[0]) as f64).hypot((s.v.c[2] - v.c[2]) as f64) < 1500.0)).take(3).collect();
         for id in near {
-            let Some(w) = self.gen.site(id.0, id.1).map(|s| s.v.clone()) else { continue }; let Some(mut b) = self.econs.remove(&id) else { continue }; let cb = b.census(&w);
+            let Some(w) = self.gen.site(id.0, id.1).map(|s| s.v.clone()) else { continue };
+            if self.politics.bond(crate::factions::Faction::of_kind(v.kind), crate::factions::Faction::of_kind(w.kind)) == crate::politique::Bond::Guerre { e.note(day, format!("pas de caravane de {} : la guerre a coupé la route", w.name)); continue; }
+            let Some(mut b) = self.econs.remove(&id) else { continue }; let cb = b.census(&w);
             let (sold, got) = deal(e, &ca, &mut b, &cb); let (bought, paid) = deal(&mut b, &cb, e, &ca);
             if !sold.is_empty() || !bought.is_empty() {
                 let mut s = format!("une caravane est venue de {}", w.name); if !sold.is_empty() { s += &format!(" ; vendu {} (+{got} pièces)", list(&sold)); } if !bought.is_empty() { s += &format!(" ; acheté {} (−{paid} pièces)", list(&bought)); } e.note(day, s);

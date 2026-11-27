@@ -9,6 +9,7 @@ pub fn hash_int(a: i32, b: i32, c: i32, d: i32) -> u32 {
 #[inline] pub fn hash_float(a: i32, b: i32, c: i32, d: i32) -> f64 { hash_int(a, b, c, d) as f64 / 4294967296.0 }
 
 /// Générateur séquentiel (mulberry32) pour la croissance des arbres.
+#[derive(Clone, Debug)]
 pub struct Rng { s: u32 }
 impl Rng {
     pub fn new(seed: u32) -> Self { Rng { s: seed } }

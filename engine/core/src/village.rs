@@ -922,7 +922,7 @@ impl Session {
     /// Les échanges que propose un villageois. Au village pilote, le marché vient de ses réserves (ce qu'il a de trop, ce qui
     /// lui manque), puis les échanges de son pays, s'il a de quoi ; ailleurs, les échanges de son pays.
     pub fn offers(&self, v: &Village) -> Vec<Offer> {
-        let t = self.tier(v.id); let o = self.offers_raw(v); o.into_iter().map(|mut x| { x.give.1 = t.price(x.give.1); x }).collect() // le prix suit la réputation
+        let t = self.tier(v.id); let war = self.politics.at_war(crate::factions::Faction::of_kind(v.kind)); let o = self.offers_raw(v); o.into_iter().map(|mut x| { x.give.1 = t.price(x.give.1); if war { x.give.1 = (x.give.1 * 5).div_ceil(4); } x }).collect() // le prix suit la réputation ; la guerre renchérit tout
     }
     fn offers_raw(&self, v: &Village) -> Vec<Offer> {
         let base = trades(v.kind).into_iter().map(|t| Offer { give: t.give, get: t.get, can: true, stock: None, tag: 0 });
@@ -1092,7 +1092,7 @@ impl Session {
         for id in &self.town.known { s += &format!("known {} {}\n", id.0, id.1); }
         let mut met: Vec<_> = self.town.met.iter().collect(); met.sort(); for (id, c) in met { s += &format!("met {} {} {c}\n", id.0, id.1); }
         if let Some(id) = self.town.marked { s += &format!("marked {} {}\n", id.0, id.1); }
-        s += &self.factions_save(); s
+        s += &self.factions_save(); s += &self.politics.save(); s
     }
     /// Une ligne de sauvegarde du village ; faux si elle n'en est pas une.
     pub(crate) fn town_load(&mut self, key: &str, a: &[&str]) -> bool {
