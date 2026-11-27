@@ -109,16 +109,22 @@ impl Session {
     /// ouvert là où passent les rues. Rend faux si le terrain n'est pas encore là.
     fn rampart(&mut self, v: &Village) -> bool {
         let rr = v.houses.iter().flat_map(|h| [(h.area[0], h.area[1]), (h.area[2], h.area[3])]).map(|(x, z)| ((x - v.c[0]) as f64).hypot((z - v.c[2]) as f64)).fold(10.0, f64::max) + 4.0;
-        let n = (std::f64::consts::TAU * rr).ceil() as i32; let (cx, cz) = (v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5); let mut e: Vec<(i32, i32, i32, Id)> = Vec::new(); let mut done = std::collections::HashSet::new();
-        let natural = |n: &str| ["grass", "dirt", "sand", "red_sand", "stone", "snow", "gravel", "podzol", "coarse_dirt", "clay", "moss", "mud", "snow_block", "farmland"].iter().any(|k| n == *k || n.starts_with(&format!("{k}_")));
-        let (wall, top, tower, lamp) = (id("stone_bricks"), id("stone_bricks"), id("cobblestone"), id("lantern"));
-        for i in 0..n { let a = i as f64 / n as f64 * std::f64::consts::TAU; let (x, z) = ((cx + a.cos() * rr).floor() as i32, (cz + a.sin() * rr).floor() as i32); if !done.insert((x, z)) { continue; }
-            if self.world.get(x, v.c[1], z).is_none() { return false; }
-            let Some(g) = (v.c[1] - 20..v.c[1] + 30).rev().find(|&y| self.world.get(x, y, z).is_some_and(|b| b != 0 && BLOCKS[b as usize].solid)) else { continue };
-            let gb = self.world.get(x, g, z).unwrap_or(0); if !natural(BLOCKS[gb as usize].name) { continue; } // une rue, une maison, l'eau : on laisse ouvert
-            if (1..=4).any(|k| self.world.get(x, g + k, z).is_some_and(|b| b != 0 && BLOCKS[b as usize].solid)) { continue; }
-            let is_tower = i % 18 == 0; let h = if is_tower { 5 } else { 3 };
-            for k in 1..=h { e.push((x, g + k, z, if is_tower { tower } else { wall })); } if is_tower { e.push((x, g + h + 1, z, lamp)); } else if i % 2 == 0 { e.push((x, g + h + 1, z, top)); } }
+        // ce que le village a bâti (rues, place, maisons, champs) : le rempart s'ouvre là
+        let built: std::collections::HashSet<(i32, i32)> = self.gen.site(v.id.0, v.id.1).map(|s| s.blocks.iter().filter(|b| b.3 != 0).map(|b| (b.0, b.2)).collect()).unwrap_or_default();
+        let (cx, cz) = (v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5); let mut e: Vec<(i32, i32, i32, Id)> = Vec::new(); let mut done = std::collections::HashSet::new();
+        let (wall, tower, lamp) = (id("stone_bricks"), id("cobblestone"), id("lantern")); let n = (std::f64::consts::TAU * (rr + 1.0)).ceil() as i32;
+        let ground = |s: &Session, x: i32, z: i32| -> Option<i32> { (v.c[1] - 20..v.c[1] + 30).rev().find(|&y| s.world.get(x, y, z).is_some_and(|b| b != 0 && BLOCKS[b as usize].solid)) };
+        for i in 0..n { let a = i as f64 / n as f64 * std::f64::consts::TAU; let is_tower = i % 24 == 0;
+            for (ring, outer) in [(rr, false), (rr + 1.0, true)] { let (x, z) = ((cx + a.cos() * ring).floor() as i32, (cz + a.sin() * ring).floor() as i32); if !done.insert((x, z)) { continue; }
+                if self.world.get(x, v.c[1], z).is_none() { return false; } if built.contains(&(x, z)) { continue; }
+                let Some(g) = ground(self, x, z) else { continue }; let gb = self.world.get(x, g, z).unwrap_or(0); let gn = BLOCKS[gb as usize].name;
+                if gn.contains("water") || gn.contains("log") || gn.contains("leaves") || gn.contains("planks") { continue; }
+                if (1..=4).any(|k| self.world.get(x, g + k, z).is_some_and(|b| b != 0 && BLOCKS[b as usize].solid && !BLOCKS[b as usize].name.contains("leaves"))) { continue; }
+                for k in 1..=4 { e.push((x, g + k, z, wall)); } if outer && i % 2 == 0 { e.push((x, g + 5, z, wall)); } } // le chemin de ronde, les merlons dehors
+            if is_tower { // une tour de trois sur trois, plus haute, sa lanterne au sommet
+                let (x, z) = ((cx + a.cos() * (rr + 0.5)).floor() as i32, (cz + a.sin() * (rr + 0.5)).floor() as i32);
+                if (-1..=1).all(|dx| (-1..=1).all(|dz| !built.contains(&(x + dx, z + dz)))) { if let Some(g) = ground(self, x, z) {
+                    for dx in -1..=1 { for dz in -1..=1 { for k in 1..=7 { e.push((x + dx, g + k, z + dz, tower)); } if (dx + dz) % 2 == 0 { e.push((x + dx, g + 8, z + dz, tower)); } } } e.push((x, g + 8, z, lamp)); } } } }
         if e.is_empty() { return false; } self.world.edit_many(&e); true
     }
 }
