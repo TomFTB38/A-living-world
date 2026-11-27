@@ -689,3 +689,12 @@ lintel | Linteau | batir | 2.2 | 16 | Une poutre de pierre à frise de méandres
 funeral_urn | Urne funéraire | batir | 1.2 | 16 | Une urne de pierre à couvercle, sur son socle. |
 altar | Autel | batir | 2.2 | 16 | Un autel sculpté : un soleil cerclé d'or sur sa face. |
 brazier_stand | Brasier sur pied | batir | 1.6 | 16 | Une vasque de bronze sur un fût cannelé : elle éclaire comme un grand feu. |
+turf | Gazon de toit | batir | 0.6 | 64 | Des mottes d'herbe drue sur l'écorce : le toit des maisons longues du Nord, qui garde la chaleur. |
+turf_stairs | Escalier de gazon | batir | 0.5 | 64 | Se pose dans le sens du regard ; contre un plafond, il se renverse. |
+turf_slab | Dalle de gazon | batir | 0.3 | 64 | Un demi-bloc ; deux dalles l'une sur l'autre font un bloc plein. |
+turf_vslab | Dalle verticale de gazon | batir | 0.3 | 64 | Un demi-bloc debout, contre le côté opposé à soi. |
+turf_slope | Pente de gazon | batir | 0.6 | 64 | Une pente de toit à 45°, posée vers où l'on regarde ; sous un plafond, elle se renverse. On y marche. |
+turf_corner | Arêtier de gazon | batir | 0.6 | 64 | L'angle sortant d'une croupe ou d'une pyramide : il monte vers le coin opposé à soi. R : un quart de tour. |
+turf_valley | Noue de gazon | batir | 0.6 | 64 | L'angle rentrant, là où deux pans de toit se rencontrent. R : un quart de tour. |
+turf_ridge | Faîtage de gazon | batir | 0.4 | 64 | Le sommet en Λ d'un toit à deux pans, dans le sens du regard. |
+turf_peak | Épi de gazon | batir | 0.3 | 64 | La pointe qui coiffe un toit en pyramide ou une tour. |

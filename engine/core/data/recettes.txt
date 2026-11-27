@@ -450,3 +450,12 @@ wardrobe 1 | etabli | plank 8, copper_ingot 1 | mobilier
 dresser 1 | etabli | plank 6, clay 2 | mobilier
 writing_desk 1 | etabli | plank 4, stick 4 | mobilier
 wine_rack 1 | etabli | plank 4, glass 3 | mobilier
+turf 4 | etabli | grass 2, planks 1 | batir
+turf_stairs 4 | etabli | turf 3 | batir
+turf_slab 4 | etabli | turf 2 | batir
+turf_vslab 4 | etabli | turf 2 | batir
+turf_slope 4 | etabli | turf 3 | batir
+turf_corner 4 | etabli | turf 3 | batir
+turf_valley 4 | etabli | turf 3 | batir
+turf_ridge 4 | etabli | turf 2 | batir
+turf_peak 2 | etabli | turf 1 | batir
