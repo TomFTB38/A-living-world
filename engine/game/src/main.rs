@@ -1451,9 +1451,10 @@ fn capture(a: &[String]) {
             } } else if scene.starts_with("quete") { let givers: Vec<usize> = (0..s.town.folk.len()).filter(|&k| s.town.folk[k].v == v.id && Session::gives_quests(&v, &s.town.folk[k])).collect(); if let Some(&k) = givers.first() {
                 // Les tâches : un villageois en propose une ; ou, à l'écran, les tâches en cours et la boussole vers la lettre à porter.
                 s.set_creative(false); let f = s.town.folk[k].clone(); let e = [f.p[0] + 2.0, f.p[1] + 1.62, f.p[2] + 1.2]; look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default());
-                if scene == "quete_offre" { s.talk_to(k); }
-                else { let h0 = s.hours; for w in 0..6 { s.hours = h0 + w as f64 * 168.0; for &g in &givers { if s.quests.len() < 3 && !s.quests.iter().any(|q| q.house == s.town.folk[g].house) { s.talk_to(g); if let Some(i) = s.dialog().and_then(|d| d.options.iter().position(|o| o.0.starts_with("Une tâche"))) { s.choose(i); } s.town.talk = None; } } }
-                    s.hours = h0; s.add_item("planks", 9); s.notes.clear(); }
+                if scene == "quete_offre" { s.talk_to(k); if let Some(i) = s.dialog().and_then(|d| d.options.iter().position(|o| o.0.starts_with("Une tâche"))) { s.choose(i); } }
+                else { let h0 = s.hours; for w in 0..6 { s.hours = h0 + w as f64 * 168.0; for &g in &givers { if s.quests.len() < 3 && !s.quests.iter().any(|q| q.house == s.town.folk[g].house) { s.talk_to(g);
+                        if let Some(i) = s.dialog().and_then(|d| d.options.iter().position(|o| o.0.starts_with("Une tâche"))) { s.choose(i); if let Some(i) = s.dialog().and_then(|d| d.options.iter().position(|o| o.0 == "Accepter")) { s.choose(i); } } s.town.talk = None; } } }
+                    s.hours = h0; s.add_item("planks", 16); s.notes.clear(); look(&mut s, [c[0] - 12.0, c[1] + 7.0, c[2] - 12.0], c); s.player.fly = true; pump(&mut s, &mut g); }
                 s.tick(0.0, none, Actions::default()); println!("{scene} : {:?}", s.quest_lines());
             } } else if scene.starts_with("reputation") { if let Some(k) = s.town.folk.iter().position(|f| f.craft.is_none()) {
                 // La réputation : le journal avec les peuples (ami du Royaume, apprécié des ports, mal vu des Clans), ou un village hostile qui vous chasse.

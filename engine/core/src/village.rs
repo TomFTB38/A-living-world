@@ -382,7 +382,7 @@ pub struct Folk { pub v: (i32, i32), pub house: usize, pub craft: Option<&'stati
     pub task: Option<[f64; 3]>, pub aim: [f64; 3], pub task_k: u32, pub work_t: f64,
     /// Un garde sur les remparts : le point de la ronde vers lequel il marche, ou `AT_LOOKOUT` au guet ; `None` au sol.
     pub post: Option<usize> }
-#[derive(Clone, Copy, Debug, PartialEq)] pub enum Page { Main, Order(usize), /** les marchandises, par pages */ Trade(usize), /** chez le maire : les bâtiments que le village peut entreprendre, par pages */ Projects(usize) }
+#[derive(Clone, Copy, Debug, PartialEq)] pub enum Page { Main, Order(usize), /** les marchandises, par pages */ Trade(usize), /** chez le maire : les bâtiments que le village peut entreprendre, par pages */ Projects(usize), /** une tâche proposée (`quetes`) : l'accepter ou non */ Quest }
 #[derive(Clone, Debug)] pub struct Talk { pub who: usize, pub page: Page, pub said: String }
 /// Les villages autour du joueur, leurs habitants, et ce que le joueur en sait.
 #[derive(Default)]
@@ -949,8 +949,9 @@ impl Session {
         if self.tier(v.id) == crate::factions::Tier::Hostile && !self.creative { o.push(("Au revoir".into(), true)); return Some(Dialog { title, sub, said: format!("Passez votre chemin. Ici, on sait ce que vous avez fait contre {}.", crate::factions::Faction::of_kind(v.kind).name()), options: o, kind: DKind::Main, pics: vec![Pic::default()], station: None, mayor: f.job == 9, rep: self.standing(v.id), village: v.name.clone() }); }
         if self.armed() { o.push(("Ranger mon arme".into(), true)); o.push(("Au revoir".into(), true)); let pics = vec![Pic { icon: Some("sword"), ..Default::default() }, Pic::default()]; return Some(Dialog { title, sub, said: "Rangez d'abord votre arme, je vous prie.".into(), options: o, kind: DKind::Main, pics, station: cm.and_then(|c| c.works.first().map(|w| w.0)), mayor: f.job == 9, rep: self.standing(v.id), village: v.name.clone() }); }
         let econ = self.econ.as_ref().filter(|e| e.id == v.id && f.job == 9); let mut pics: Vec<Pic> = Vec::new(); let have = |id: &str| if self.creative { 999 } else { self.count(id) };
-        let kind = match t.page { Page::Main => DKind::Main, Page::Trade(_) => DKind::Trade, Page::Order(_) => DKind::Order, Page::Projects(_) => DKind::Projects };
+        let kind = match t.page { Page::Main => DKind::Main, Page::Trade(_) => DKind::Trade, Page::Order(_) => DKind::Order, Page::Projects(_) => DKind::Projects, Page::Quest => DKind::Main };
         match (t.page, cm) {
+            (Page::Quest, _) => { o.push(("Accepter".into(), self.quests.len() < crate::quetes::MAX)); o.push(("Pas maintenant".into(), true)); }
             (Page::Projects(page), _) => {
                 // chaque bâtiment possible, ce qu'il coûte et ce que la réserve en a déjà ; six par page
                 if let Some(e) = econ { let c = e.census(v); let all = e.options(&c);
@@ -1017,6 +1018,7 @@ impl Session {
         }
         if label.starts_with("Au revoir") { self.town.talk = None; return; }
         match t.page {
+            Page::Quest => { let m = if label.starts_with("Accepter") { self.town.village(vid).cloned().and_then(|v| self.quest_choose("Accepter", &v, &f)) } else { Some("Comme vous voudrez.".into()) }; if let Some(t) = self.town.talk.as_mut() { t.page = Page::Main; } if let Some(m) = m { say(self, m); } }
             Page::Projects(page) => {
                 if label.starts_with("Autres projets") { if let Some(t) = self.town.talk.as_mut() { t.page = Page::Projects(page + 1); } return; }
                 let Some(v) = self.town.village(vid).cloned() else { return }; let Some(mut e) = self.econ.take() else { return }; let c = e.census(&v); let opts = e.options(&c);

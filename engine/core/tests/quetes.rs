@@ -13,7 +13,8 @@ fn at_village() -> (Session, Village) {
     let mut s = Session::new(SEED, &Preset { radius: 2, lod1: 1.5, lod2: 2.5 }, 4, [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 3.5]); ready(&mut s); s.hour = 12.0; idle(&mut s, 40); s.set_creative(false); s.wild.all.clear(); s.horde.foes.clear(); (s, v)
 }
 /// Parle au villageois `k` et choisit l'option qui commence par `start` ; rend ce qu'il répond.
-fn answer(s: &mut Session, k: usize, start: &str) -> Option<String> { s.talk_to(k); let d = s.dialog()?; let i = d.options.iter().position(|o| o.0.starts_with(start))?; s.choose(i); let said = s.dialog().map(|d| d.said); s.town.talk = None; said }
+fn answer(s: &mut Session, k: usize, start: &str) -> Option<String> { s.talk_to(k); let d = s.dialog()?; let i = d.options.iter().position(|o| o.0.starts_with(start))?; s.choose(i);
+    if start == "Une tâche" { let d = s.dialog()?; println!("  proposé : « {} » {:?}", d.said, d.options); let i = d.options.iter().position(|o| o.0 == "Accepter" && o.1)?; s.choose(i); } let said = s.dialog().map(|d| d.said); s.town.talk = None; said }
 
 #[test]
 fn les_taches_des_villageois() {

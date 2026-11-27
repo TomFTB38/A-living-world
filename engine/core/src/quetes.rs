@@ -32,7 +32,7 @@ fn wares(f: Faction) -> &'static [(&'static str, u32)] {
 }
 impl Task {
     pub fn title(&self) -> String {
-        match self { Task::Livrer { item: it, n } => format!("Apporter {} ×{n}", item(it).map_or(it.to_string(), |x| x.label.to_lowercase())), Task::Chasser { group, n, .. } => format!("Abattre {}", group_label(group, *n)), Task::Lettre { to_name, .. } => format!("Porter une lettre à {to_name}") }
+        match self { Task::Livrer { item: it, n } => format!("Apporter {n} {}", item(it).map_or(it.to_string(), |x| x.label.to_lowercase())), Task::Chasser { group, n, .. } => format!("Abattre {}", group_label(group, *n)), Task::Lettre { to_name, .. } => format!("Porter une lettre à {to_name}") }
     }
 }
 
@@ -63,13 +63,16 @@ impl Session {
         if let Some(q) = self.quests.iter().find(|q| q.v == v.id && q.house == f.house) {
             if self.quest_done(q) { o.push((format!("C'est fait : {}", q.task.title()), true)); } else { o.push((format!("Renoncer à : {}", q.task.title()), true)); }
         } else if let Some(q) = self.quest_offer(v, f).filter(|q| !self.quests_done.contains(&(q.v, q.house, q.week))) {
-            o.push((format!("Une tâche : {} ({} pièces)", q.task.title(), q.coins), self.quests.len() < MAX));
+            o.push((format!("Une tâche ? ({} pièces)", q.coins), self.quests.len() < MAX));
         }
         o
     }
     /// Une réponse au sujet des tâches ; rend ce que dit le villageois, si c'en était une.
     pub(crate) fn quest_choose(&mut self, label: &str, v: &Village, f: &Folk) -> Option<String> {
-        if label.starts_with("Une tâche") { let q = self.quest_offer(v, f)?; let say = match &q.task {
+        if label.starts_with("Une tâche") { let q = self.quest_offer(v, f)?; if let Some(t) = self.town.talk.as_mut() { t.page = crate::village::Page::Quest; }
+            let what = match &q.task { Task::Livrer { .. } => format!("J'aurais besoin de quelqu'un pour m'apporter ceci : {}.", q.task.title().replacen("Apporter ", "", 1)), Task::Chasser { group, n, .. } => format!("{} rôdent autour du village. Pourriez-vous les abattre ?", cap(&group_label(group, *n))), Task::Lettre { to_name, .. } => format!("J'ai une lettre pour quelqu'un de {to_name}. Pourriez-vous la porter ?") };
+            return Some(format!("{what} Je vous donnerai {} pièces.", q.coins)); }
+        if label.starts_with("Accepter") { let q = self.quest_offer(v, f)?; let say = match &q.task {
                 Task::Livrer { .. } => format!("Merci ! {} : rapportez-les-moi, je vous paierai {} pièces.", q.task.title(), q.coins),
                 Task::Chasser { group, .. } => format!("Merci ! Ils rôdent autour du village : {}. Revenez me voir ensuite.", group_label(group, match q.task { Task::Chasser { n, .. } => n, _ => 0 })),
                 Task::Lettre { to, to_name } => { if let Some(s) = self.gen.site(to.0, to.1) { let w = s.v.clone(); self.discover(&w); } format!("Merci ! Portez cette lettre à {to_name} : n'importe quel habitant la prendra. Le village est sur votre carte.") } };
@@ -115,3 +118,5 @@ impl Session {
         self.quests.push(Quest { v: id, house: h as usize, giver, village: v.name.clone(), task, coins: coins as u32, week: w });
     }
 }
+
+fn cap(s: &str) -> String { let mut c = s.chars(); c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str()) }
