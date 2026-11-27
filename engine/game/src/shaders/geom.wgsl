@@ -4,7 +4,7 @@
 const STONE0: i32 = 16; const MOSSY0: i32 = 20; const GRAVEL0: i32 = 32; const BARK0: i32 = 40; const BEECH0: i32 = 48; const LEAF0: i32 = 52;
 
 struct VIn { @location(0) pos: vec4i, @location(1) nrm: vec4f, @location(2) lit: vec4f, @location(3) tint: vec4f, @location(4) org: vec4f };
-struct VOut { @builtin(position) clip: vec4f, @location(0) w: vec3f, @location(1) n: vec3f, @location(2) lit: vec3f, @location(3) tint: vec3f, @location(4) @interpolate(flat) data: vec3i, @location(5) local: vec3f, @location(6) nl: vec3f, @location(7) @interpolate(flat) flags: vec3f };
+struct VOut { @builtin(position) clip: vec4f, @location(0) w: vec3f, @location(1) n: vec3f, @location(2) lit: vec3f, @location(3) tint: vec3f, @location(4) @interpolate(flat) data: vec3i, @location(5) local: vec3f, @location(6) nl: vec3f, @location(7) @interpolate(flat) flags: vec3f, @location(8) @interpolate(flat) far: f32 };
 fn wind(p: vec3f, w: f32) -> vec3f {
   if (w <= 0.0) { return vec3f(0.0); }
   let time = u.cam.w; let g = sin(time * 0.7 + p.x * 0.05 + p.z * 0.07) * 0.5 + 0.5; let t = time * 1.8;
@@ -20,8 +20,8 @@ fn wind(p: vec3f, w: f32) -> vec3f {
     let t = u.cam.w; let up = clamp(fract(world.y + 0.001) - 0.4, 0.0, 0.6) * 2.0; let s = floor(world.xz * 3.0);
     world += vec3f(sin(t * 9.0 + s.x * 1.7 + s.y * 0.9) * 0.05, (sin(t * 13.0 + s.y * 2.3) * 0.5 + 0.5) * 0.06, cos(t * 11.0 + s.x * 0.7 + s.y * 1.3) * 0.05) * up;
   }
-  if (v.org.w > 0.1 && length(world.xz - u.cam.xz) < u.misc.z) { world.y -= 90.0; } // horizon : trou sous les chunks chargés
   o.w = world; o.n = v.nrm.xyz; o.lit = v.lit.xyz; o.tint = v.tint.rgb * 2.0; o.local = world; o.nl = o.n; o.flags = vec3f(0.0);
+  o.far = select(0.0, 1.0, v.org.w > 0.1); // relief lointain et ses arbres (les chunks sont au 1/128)
   o.data = vec3i(v.pos.w, i32(v.lit.w * 255.0 + 0.5), i32(v.tint.a * 255.0 + 0.5));
   o.clip = u.vp * vec4f(world, 1.0); let w = o.clip.w; o.clip = vec4f(o.clip.xy + u.jit.xy * w, o.clip.z, w);
   return o;
@@ -37,7 +37,15 @@ struct AIn { @location(0) pos: vec4i, @location(1) nrm: vec4f, @location(2) lit:
   o.clip = vec4f(c.xy + u.jit.xy * w, c.z, w); return o;
 }
 struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4f };
+// Le relief lointain s'efface sur les chunks chargés : un bit par chunk. Le point est pris un peu en retrait de sa face,
+// pour qu'une tranche posée sur la limite de deux chunks appartienne à celui qu'elle borde.
+fn loaded_at(p: vec3f) -> bool {
+  let c = vec2i(floor(p.xz / 32.0)) - vec2i(u.mask[0].xy); if (u.mask[0].z < 0.5 || c.x < 0 || c.y < 0 || c.x >= 40 || c.y >= 40) { return false; }
+  let b = c.x + c.y * 40; let w = b / 20; let f = u.mask[1 + w / 4][w % 4];
+  return ((u32(f) >> u32(b % 20)) & 1u) == 1u;
+}
 @fragment fn fs_geom(i: VOut, @builtin(front_facing) ff: bool) -> GOut {
+  let hide = i.far > 0.5 && loaded_at(i.w - normalize(i.n) * 0.05); // (écarté à la fin : les dérivées veulent tout le monde)
   var n = normalize(i.n); let kind = i.data.y; let layer0 = i.data.x; let rot = i.data.z;
   if (!ff && kind >= 2) { n = vec3f(n.x, abs(n.y), n.z); }
   let held = i.flags.y > 0.5; let pp = select(i.w, i.local, held); let ln = select(n, normalize(i.nl), held); let ax = abs(ln);
@@ -83,6 +91,10 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
       let mm = step(select(0.5, 0.7, bark), mn);
       alb = mix(alb, vec3f(0.13, 0.22, 0.045) * (0.75 + 0.7 * hash13(g + vec3f(3.0))), mm); rough = mix(rough, 0.95, mm);
     }
+  } else if (kind == 5) {
+    /* Relief lointain : la couleur moyenne des blocs qu'il remplace, déjà au carré ; pas de grain, qui fourmillerait au loin.
+       L'eau (rot 1) est lisse et prend le reflet du soleil. */
+    alb = i.tint * i.tint; rough = select(0.95, 0.12, rot == 1);
   } else {
     /* Personnages, bêtes, outils : un grain fin attaché au modèle (toile, cuir, fourrure, métal), pas aux cases du monde. */
     let q = i.local * select(9.0, 34.0, i.flags.z > 0.5 || i.flags.x > 0.5);
@@ -96,5 +108,6 @@ struct GOut { @location(0) a: vec4f, @location(1) n: vec4f, @location(2) l: vec4
     if (kind == 3) { trans = 0.45; alb = mix(vec3f(dot(alb, vec3f(0.3, 0.6, 0.1))), alb, 0.72); }
     if (kind == 4) { let t = u.cam.w; let q = floor(i.w * 2.0); emis = 0.82 + 0.1 * sin(t * 17.0 + q.x * 3.1 + q.z * 1.7) + 0.08 * sin(t * 29.0 + q.y * 5.3); }
   }
+  if (hide) { discard; }
   var o: GOut; o.a = vec4f(alb, i.lit.x); o.n = vec4f(nn * 0.5 + vec3f(0.5), rough); o.l = vec4f(i.lit.y, i.lit.z, trans, max(emis, i.flags.z * 0.4)); return o;
 }

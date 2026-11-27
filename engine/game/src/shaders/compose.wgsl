@@ -9,7 +9,7 @@ fn inv_d(d: f32) -> f32 { return 1.0 / max(d, 1e-6); }
   let mist = sky_color(normalize(vec3f(v.x, max(v.y, 0.03) * 0.25 + 0.03, v.z))); let m = u.misc.y;
   if (d <= 0.0) { let cl = textureSampleLevel(t_cl, s_clamp, i.uv, 0.0); c = c * cl.a + cl.rgb + aurora(v) * max(cl.a, 0.6) + night_sky(v) * cl.a + rainbow(v) * (0.75 + 0.25 * cl.a); /* les aurores percent un ciel voilé ; les étoiles et la lune, seulement entre les nuages ; l'arc, dans la pluie, devant les nuages */ c = mix(c, mist, min(1.0, m * 160.0)); }
   else {
-    let far = max(len - 70.0, 0.0); let a = 1.0 - exp(-far * 0.00052 * (1.0 + exp(-max(wp.y - 50.0, 0.0) * 0.02)));
+    let far = max(len - 70.0, 0.0); let a = 1.0 - exp(-far * 0.00036 * (1.0 + exp(-max(wp.y - 50.0, 0.0) * 0.02))); // assez léger pour voir les montagnes à plusieurs kilomètres
     let air = sky_color(normalize(vec3f(v.x, max(v.y, 0.03), v.z))); let cave = u.extra2.z; c = mix(c, air, a * (1.0 - cave)); c = mix(c, mist, (1.0 - exp(-len * m)) * (1.0 - 0.85 * cave)); /* sous terre, le lointain ne se fond pas dans le ciel */
     // Brume de vallée : une nappe basse et pâle qui remplit les creux, plus dense au loin.
     if (u.extra2.x > 0.01 && cave < 0.5) { let lo = exp(-max(wp.y - 57.0 - 5.0 * noise(wp * 0.004), 0.0) * 0.16); let veil = mix(u.hor.rgb, vec3f(1.0, 0.92, 0.8) * length(u.sun_col.rgb) * 0.5, 0.25); c = mix(c, veil, u.extra2.x * lo * (1.0 - exp(-len * 0.012)) * 0.9); }

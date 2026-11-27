@@ -204,6 +204,69 @@ impl WorldGen {
         let n = self.n_cliff.n3(x / 38.0, y / 14.0, z / 38.0);
         if n > 0.58 { B::GRANITE } else if n < -0.62 { B::LIMESTONE } else { B::STONE }
     }
+    /// Pour le relief lointain : le bloc du dessus d'une colonne (herbe, sable, roche, neige…) et celui juste dessous, d'après
+    /// les mêmes règles que `gen_world`, sans grottes, arbres ni rochers. Le lointain prend ainsi les couleurs du terrain qui
+    /// le remplacera.
+    pub fn far_surface(&self, c: &Column, wx: f64, wz: f64) -> (Id, Id) {
+        let (wxi, wzi) = (wx.floor() as i32, wz.floor() as i32); let s = self.seed; let (hf, water, fr, path, cliff) = (c.h, c.water, c.forest, c.path, c.cliff);
+        let yf = hf.ceil() - 1.0;
+        let deep = c.mix.strong(Biome::DeepForest); let cold = hash_float(wxi, wzi, s, 42) < smooth(0.3, 0.7, c.mix.strong(Biome::Taiga));
+        let dry = hash_float(wxi, wzi, s, 44) < smooth(0.3, 0.7, c.mix.strong(Biome::Steppe)); let moor = hash_float(wxi, wzi, s, 49) < smooth(0.3, 0.7, c.mix.strong(Biome::Highlands));
+        let coast = c.mix.sea > 0.005; let beach = coast && hf <= SEA + 3.0 + 1.5 * self.n_deco.n2(wx / 23.0 + 9.0, wz / 23.0 - 4.0) && cliff < 0.6;
+        let sandy = hash_float(wxi, wzi, s, 48) < smooth(0.3, 0.7, c.mix.strong(Biome::Desert)) || beach;
+        let mtn = c.mix.strong(Biome::Mountains); let alp = hash_float(wxi, wzi, s, 50) < smooth(0.3, 0.7, mtn); let snowl = 101.0 - 8.0 * mtn;
+        let slope = if mtn > 0.05 { let (a, b, d) = (self.raw_height(wx, wz).hs, self.raw_height(wx + 1.0, wz).hs, self.raw_height(wx, wz + 1.0).hs); (b - a).abs().max((d - a).abs()) } else { 0.0 };
+        let top = if path > 0.45 { B::PATH }
+            else if beach || (water != 0.0 && yf < water + 1.0) { B::SAND }
+            else if c.bank > 0.72 && yf <= water + 2.0 { B::GRAVEL }
+            else if alp && yf > snowl + 7.0 && slope < 1.3 { B::SNOW }
+            else if yf > snowl + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0) { self.stone_at(wx, yf, wz) }
+            else if alp { let n = self.n_deco.n2(wx / 8.0 + 17.0, wz / 8.0 - 29.0);
+                if slope > 1.7 { if n > 0.45 { B::LICHEN_STONE } else { self.stone_at(wx, yf, wz) } } else if slope > 0.85 { if n > -0.15 { B::GRAVEL } else { self.stone_at(wx, yf, wz) } }
+                else if yf > 85.0 + 4.0 * n { if n < -0.25 { B::MOOR_GRASS } else if n > 0.3 { B::LICHEN_STONE } else if n > 0.05 { B::GRAVEL } else { self.stone_at(wx, yf, wz) } }
+                else if n < -0.5 { B::MOOR_GRASS } else { B::GRASS } }
+            else if cold { if self.n_deco.n2(wx / 9.0, wz / 9.0) > 0.3 { B::DIRT } else { self.stone_at(wx, yf, wz) } }
+            else if yf > 88.0 + 5.0 * self.n_deco.n2(wx / 17.0, wz / 17.0) { self.stone_at(wx, yf, wz) }
+            else if sandy && c.bank < 0.75 { B::SAND }
+            else if moor && c.bank < 0.6 { let n = self.n_deco.n2(wx / 10.0 + 3.0, wz / 10.0 - 8.0); if cliff > 0.3 && n > 0.15 { self.stone_at(wx, yf, wz) } else if n < -0.55 { B::GRAVEL } else { B::MOOR_GRASS } }
+            else if dry && c.bank < 0.35 { let n = self.n_deco.n2(wx / 14.0 + 5.0, wz / 14.0 - 3.0); if n > 0.4 { B::DRY_EARTH } else if n < -0.62 { B::GRAVEL } else { B::STEPPE_GRASS } }
+            else if fr > 0.72 && self.n_deco.n2(wx / 13.0, wz / 13.0) > 0.25 - 0.9 * deep { B::FOREST_SOIL }
+            else if cliff > 0.45 && !cold && !dry && self.n_deco.n2(wx / 11.0, wz / 11.0) > 0.35 { B::MOSSY_STONE }
+            else if hash_float(wxi, wzi, s, 41) < deep { B::GRASS_DEEP } else { B::GRASS };
+        let under = if sandy { B::SAND } else if cold || alp || [B::STONE, B::GRANITE, B::LIMESTONE, B::LICHEN_STONE, B::MOSSY_STONE, B::SNOW, B::GRAVEL].contains(&top) { self.stone_at(wx, yf - 2.0, wz) } else { B::DIRT };
+        // La pellicule de neige des pays froids et des sommets.
+        let peak = yf > snowl + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0);
+        if (cold || peak) && (water == 0.0 || yf >= water) && top != B::PATH { return (B::SNOW, top); }
+        (top, under)
+    }
+    /// Les arbres d'une zone, résumés pour le lointain : quelques boîtes par arbre (le tronc, puis la couronne en trois
+    /// étages, plus étroits vers le haut chez les sapins), chacune avec le bloc qui la remplit. Coins inclus et exclus, en blocs.
+    pub fn far_trees(&self, x0: i32, z0: i32, x1: i32, z1: i32) -> Vec<([i32; 6], Id)> {
+        let mut out = Vec::new();
+        for gz in fdiv(z0, TREE_CELL)..=fdiv(z1, TREE_CELL) { for gx in fdiv(x0, TREE_CELL)..=fdiv(x1, TREE_CELL) {
+            // Chaque arbre une seule fois : dans la zone où pousse son pied (le même tirage que `tree_stamp`).
+            let tc = TREE_CELL as f64; let bx = ((gx as f64 + 0.15 + 0.7 * hash_float(gx, gz, self.seed, 31)) * tc).floor() as i32; let bz = ((gz as f64 + 0.15 + 0.7 * hash_float(gx, gz, self.seed, 32)) * tc).floor() as i32;
+            if bx < x0 || bz < z0 || bx >= x1 || bz >= z1 { continue; }
+            let Some(st) = self.tree_stamp(gx, gz) else { continue };
+            let (mut leaf, mut cols): (Vec<[i32; 4]>, HashMap<(i32, i32), (i32, i32, Id)>) = (Vec::new(), HashMap::new());
+            for d in &st.data { if d[3] <= 0 { continue; } let b = d[3] as Id;
+                if is_leaf(b) { leaf.push(*d); } else if is_opaque(b) { let e = cols.entry((d[0], d[2])).or_insert((d[1], d[1], b)); e.0 = e.0.min(d[1]); e.1 = e.1.max(d[1]); } }
+            // Le tronc : les colonnes de bois les plus hautes (un pied droit, deux pour les gros, le stipe penché des palmiers).
+            let mut cv: Vec<_> = cols.into_iter().filter(|(_, v)| v.1 > v.0).collect(); cv.sort_by_key(|(k, v)| (-(v.1 - v.0), k.0, k.1)); cv.truncate(6);
+            for ((x, z), (y0, y1, b)) in cv { out.push(([x, y0, z, x + 1, y1 + 1, z + 1], b)); }
+            if leaf.is_empty() { continue; }
+            let (ly0, ly1) = leaf.iter().fold((i32::MAX, i32::MIN), |a, d| (a.0.min(d[1]), a.1.max(d[1]))); let bands = if ly1 - ly0 >= 4 { 3 } else { 1 };
+            for k in 0..bands { let (a, b) = (ly0 + (ly1 - ly0 + 1) * k / bands, ly0 + (ly1 - ly0 + 1) * (k + 1) / bands);
+                let mut bb = [i32::MAX, a, i32::MAX, i32::MIN, b, i32::MIN]; let mut count: HashMap<Id, usize> = HashMap::new();
+                for d in leaf.iter().filter(|d| d[1] >= a && d[1] < b) { bb[0] = bb[0].min(d[0]); bb[2] = bb[2].min(d[2]); bb[3] = bb[3].max(d[0] + 1); bb[5] = bb[5].max(d[2] + 1); *count.entry(d[3] as Id).or_default() += 1; }
+                if bb[0] == i32::MAX { continue; }
+                // Une couronne n'est pas un cube : son étage se resserre d'un bloc quand il est large.
+                if bb[3] - bb[0] >= 5 { bb[0] += 1; bb[3] -= 1; } if bb[5] - bb[2] >= 5 { bb[2] += 1; bb[5] -= 1; }
+                let id = count.into_iter().max_by_key(|(id, n)| (*n, *id)).map_or(B::OAK_LEAVES, |v| v.0); out.push((bb, id));
+            }
+        } }
+        out
+    }
     /// Grès du désert : des lits horizontaux beige et rouge, de quelques blocs d'épaisseur, légèrement ondulés.
     fn sandstone_at(&self, x: f64, y: f64, z: f64) -> Id { let b = ((y + 2.0 * self.n_cliff.n2(x / 50.0, z / 50.0)) / 3.0).floor() as i64; if b.rem_euclid(4) == 1 { B::RED_SANDSTONE } else { B::SANDSTONE } }
     fn is_cave(&self, x: f64, y: f64, z: f64) -> bool {

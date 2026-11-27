@@ -1,7 +1,7 @@
 //! Chargement du monde en arrière-plan : des fils génèrent et maillent les chunks autour du joueur, les plus proches d'abord.
 use crate::blocks::{Id, idx, CH, CX};
 use crate::gen::WorldGen;
-use crate::mesher::{far_mesh, Mesh, Mesher};
+use crate::mesher::{far_mesh, far_trees_mesh, Mesh, Mesher, TREE_TILE};
 use crate::player::Voxels;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,15 +12,19 @@ use std::thread::JoinHandle;
 type Key = (i32, i32);
 /// Niveau spécial : l'anneau de relief lointain, centré sur ce chunk.
 pub const FAR: u8 = 255;
+/// Niveau spécial : une tuile d'arbres lointains (la clé compte en tuiles de `TREE_TILE` blocs). Maillage vide : à oublier.
+pub const TREES: u8 = 254;
+/// Ni chunk ni voxels : le relief lointain ou ses arbres.
+pub fn is_far(lod: u8) -> bool { lod >= TREES }
 pub struct Built { pub key: Key, pub lod: u8, pub mesh: Mesh, pub voxels: Arc<Vec<Id>>, pub ms: f64 }
-struct Shared { queue: Mutex<Vec<(Key, u8)>>, wake: Condvar, voxels: Mutex<HashMap<Key, Arc<Vec<Id>>>>, edits: Mutex<HashMap<Key, HashMap<u32, Id>>>, stop: AtomicBool }
+struct Shared { near: i32, queue: Mutex<Vec<(Key, u8)>>, wake: Condvar, voxels: Mutex<HashMap<Key, Arc<Vec<Id>>>>, edits: Mutex<HashMap<Key, HashMap<u32, Id>>>, stop: AtomicBool }
 pub struct Preset { pub radius: i32, pub lod1: f64, pub lod2: f64 }
 /// Réglages du PC : plus loin que le Haut du prototype, puisque la marge est là.
 pub const HIGH: Preset = Preset { radius: 10, lod1: 2.3, lod2: 4.6 };
 /// Pour les cartes puissantes : 512 blocs de terrain détaillé autour du joueur.
 pub const ULTRA: Preset = Preset { radius: 16, lod1: 3.5, lod2: 8.0 };
 
-pub struct Streamer { sh: Arc<Shared>, rx: Receiver<Built>, threads: Vec<JoinHandle<()>>, pub radius: i32, lods: (f64, f64), loaded: HashMap<Key, u8>, pending: HashSet<(Key, u8)>, vox: HashMap<Key, Arc<Vec<Id>>>, last: Option<Key>, far_at: Option<Key> }
+pub struct Streamer { sh: Arc<Shared>, rx: Receiver<Built>, threads: Vec<JoinHandle<()>>, pub radius: i32, lods: (f64, f64), loaded: HashMap<Key, u8>, pending: HashSet<(Key, u8)>, vox: HashMap<Key, Arc<Vec<Id>>>, last: Option<Key>, far_at: Option<Key>, /** tuiles d'arbres lointains voulues, et si elles sont arrivées */ trees: HashMap<Key, bool>, dropped: Vec<Key> }
 
 fn voxels_of(sh: &Shared, gen: &WorldGen, k: Key) -> Arc<Vec<Id>> {
     if let Some(v) = sh.voxels.lock().unwrap().get(&k) { return v.clone(); }
@@ -37,7 +41,12 @@ fn worker(sh: Arc<Shared>, tx: Sender<Built>, seed: i32) {
         let t = std::time::Instant::now();
         let (key, lod) = job;
         if lod == FAR {
-            let (opaque, n_o) = far_mesh(&gen, key.0, key.1);
+            let (opaque, n_o) = far_mesh(&gen, key.0, key.1, sh.near);
+            if tx.send(Built { key, lod, mesh: Mesh { opaque, n_o, ..Default::default() }, voxels: Arc::new(Vec::new()), ms: t.elapsed().as_secs_f64() * 1000.0 }).is_err() { return; }
+            continue;
+        }
+        if lod == TREES {
+            let (opaque, n_o) = far_trees_mesh(&gen, key.0, key.1);
             if tx.send(Built { key, lod, mesh: Mesh { opaque, n_o, ..Default::default() }, voxels: Arc::new(Vec::new()), ms: t.elapsed().as_secs_f64() * 1000.0 }).is_err() { return; }
             continue;
         }
@@ -49,11 +58,14 @@ fn worker(sh: Arc<Shared>, tx: Sender<Built>, seed: i32) {
 }
 impl Streamer {
     pub fn new(seed: i32, p: &Preset, threads: usize) -> Self {
-        let sh = Arc::new(Shared { queue: Mutex::new(Vec::new()), wake: Condvar::new(), voxels: Mutex::new(HashMap::new()), edits: Mutex::new(HashMap::new()), stop: AtomicBool::new(false) });
+        let sh = Arc::new(Shared { near: Self::near_of(p.radius), queue: Mutex::new(Vec::new()), wake: Condvar::new(), voxels: Mutex::new(HashMap::new()), edits: Mutex::new(HashMap::new()), stop: AtomicBool::new(false) });
         let (tx, rx) = channel();
         let threads = (0..threads.max(1)).map(|_| { let (s, t) = (sh.clone(), tx.clone()); std::thread::Builder::new().name("generation".into()).stack_size(16 << 20).spawn(move || worker(s, t, seed)).expect("fil de génération") }).collect();
-        Streamer { sh, rx, threads, radius: p.radius, lods: (p.lod1, p.lod2), loaded: HashMap::new(), pending: HashSet::new(), vox: HashMap::new(), last: None, far_at: None }
+        Streamer { sh, rx, threads, radius: p.radius, lods: (p.lod1, p.lod2), loaded: HashMap::new(), pending: HashSet::new(), vox: HashMap::new(), last: None, far_at: None, trees: HashMap::new(), dropped: Vec::new() }
     }
+    /// Demi-côté de l'anneau de colonnes du relief lointain : les chunks chargés, plus de quoi marcher quatre chunks
+    /// avant qu'il se recentre, plus une marge.
+    pub fn near_of(radius: i32) -> i32 { (radius + 5) * CX as i32 }
     fn lod_for(&self, d: f64) -> u8 { if d < self.lods.0 { 0 } else if d < self.lods.1 { 1 } else { 2 } }
     /// À appeler chaque image. Rend les chunks prêts, et ceux à oublier parce que trop loin.
     pub fn update(&mut self, x: f64, z: f64) -> (Vec<Built>, Vec<Key>) {
@@ -66,6 +78,23 @@ impl Streamer {
                 let k = (c.0 + dx, c.1 + dz); let lod = self.lod_for(d);
                 if self.loaded.get(&k) != Some(&lod) && !self.pending.contains(&(k, lod)) { jobs.push((d, k, lod)); }
             } }
+            // Les arbres lointains : les tuiles comprises dans l'anneau de colonnes (autour du centre qu'il aura), sauf celles que
+            // les chunks chargés couvriront tout entières. Elles passent dans la file selon leur distance, comme les chunks.
+            let fc = if self.far_at.is_none_or(|f| (f.0 - c.0).abs().max((f.1 - c.1).abs()) >= 4) { c } else { self.far_at.unwrap() };
+            let (near, t, n) = (self.sh.near, TREE_TILE, CX as i32); let (px, pz) = ((c.0 * n + n / 2) as f64, (c.1 * n + n / 2) as f64);
+            let span = |a: i32, b: i32, p: f64| if p < a as f64 { a as f64 - p } else if p > b as f64 { p - b as f64 } else { 0.0 };
+            let inner = (r as f64 - 1.0) * n as f64;
+            let mut want = HashSet::new();
+            for tz in (fc.1 * n - near).div_euclid(t)..=(fc.1 * n + near).div_euclid(t) { for tx in (fc.0 * n - near).div_euclid(t)..=(fc.0 * n + near).div_euclid(t) {
+                let (x0, z0) = (tx * t, tz * t);
+                if x0 < fc.0 * n - near || z0 < fc.1 * n - near || x0 + t > fc.0 * n + near || z0 + t > fc.1 * n + near { continue; }
+                let far_c = ((x0 as f64 - px).abs().max((x0 as f64 + t as f64 - px).abs())).hypot((z0 as f64 - pz).abs().max((z0 as f64 + t as f64 - pz).abs()));
+                if far_c < inner { continue; }
+                want.insert((tx, tz));
+                if !self.trees.contains_key(&(tx, tz)) { self.trees.insert((tx, tz), false); }
+                if self.trees.get(&(tx, tz)) == Some(&false) { let d = span(x0, x0 + t, px).hypot(span(z0, z0 + t, pz)) / n as f64; jobs.push((d, (tx, tz), TREES)); }
+            } }
+            for k in self.trees.keys().filter(|k| !want.contains(k)).copied().collect::<Vec<_>>() { if self.trees.remove(&k) == Some(true) { self.dropped.push(k); } }
             jobs.sort_by(|a, b| b.0.total_cmp(&a.0)); // le plus proche en dernier : il sort le premier
             let far = |k: &Key, m: f64| (((k.0 - c.0).pow(2) + (k.1 - c.1).pow(2)) as f64).sqrt() > m;
             let lim = r as f64 + 1.5;
@@ -82,11 +111,14 @@ impl Streamer {
         while let Ok(b) = self.rx.try_recv() {
             self.pending.remove(&(b.key, b.lod));
             if b.lod == FAR { out.push(b); continue; }
+            if b.lod == TREES { if let Some(v) = self.trees.get_mut(&b.key) { *v = true; out.push(b); } continue; }
             let d = (((b.key.0 - c.0).pow(2) + (b.key.1 - c.1).pow(2)) as f64).sqrt();
             if d > self.radius as f64 + 1.5 { continue; }
             // Une copie déjà modifiée ne doit pas être écrasée par un maillage parti plus tôt.
             self.loaded.insert(b.key, b.lod); self.vox.entry(b.key).or_insert_with(|| b.voxels.clone()); out.push(b);
         }
+        // Les tuiles d'arbres sorties de l'anneau : un maillage vide les fait oublier.
+        for key in self.dropped.drain(..) { out.push(Built { key, lod: TREES, mesh: Mesh::default(), voxels: Arc::new(Vec::new()), ms: 0.0 }); }
         (out, gone)
     }
     /// Pose un bloc. La modification survit au déchargement, et les chunks touchés sont remaillés aussitôt.

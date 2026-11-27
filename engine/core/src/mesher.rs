@@ -12,7 +12,7 @@ pub const GLOW: [[f64; 3]; 11] = [[0.3, 0.85, 0.3], [0.18, 0.42, 0.95], [0.95, 0
 /// La portée d'une lumière colorée (0 : la portée courte des champignons).
 pub fn glow_range(k: usize) -> f32 { match k { 5..=8 => 7.5, 9 | 10 => 4.0, _ => 0.0 } }
 pub fn glow_color(x: i32, y: i32, z: i32) -> [f64; 3] { GLOW[(crate::noise::hash_int(x, y, z, 93) % 5) as usize] }
-pub mod kind { pub const TEX: u8 = 0; pub const LEAF: u8 = 1; pub const FLAT: u8 = 2; pub const FOLIAGE: u8 = 3; pub const EMIT: u8 = 4; }
+pub mod kind { pub const TEX: u8 = 0; pub const LEAF: u8 = 1; pub const FLAT: u8 = 2; pub const FOLIAGE: u8 = 3; pub const EMIT: u8 = 4; /** relief lointain : couleur unie déjà au carré, sans grain ; `rot` 1 pour l'eau */ pub const FAR: u8 = 5; }
 use kind::*;
 const PAD: i32 = 8; const W: i32 = CX as i32 + PAD * 2; const WW: i32 = W * W; const CHI: i32 = CH as i32;
 const AO: [f64; 4] = [0.42, 0.62, 0.82, 1.0];
@@ -1026,38 +1026,152 @@ fn leaf_cubes(o: &mut VBuf, b: Id, x: f64, y: f64, z: f64, wx: i32, yi: i32, wz:
     }
 }
 
-/// Anneau de relief lointain : colonnes grossières qui donnent un horizon au-delà des chunks.
-pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32) -> (Vec<u8>, usize) {
-    const CELLS: usize = 110; let n1 = CELLS + 1; let half = CELLS as f64 / 2.0;
-    let mut o = VBuf::new(50000); o.scale = 8.0;
-    // Deux anneaux : 880 m en mailles de 16, puis jusqu'à 3,5 km en mailles de 64, un peu plus bas pour ne jamais percer le premier.
-    for (step, sink, hole) in [(16.0f64, 0.0f64, 0.0f64), (64.0, 1.6, 880.0 - 64.0)] {
-        let mut hs = vec![0f32; n1 * n1]; let mut cols = vec![[0f32; 3]; n1 * n1];
-        let (ox, oz) = (ccx as f64 * CX as f64 - half * step, ccz as f64 * CX as f64 - half * step);
-        for j in 0..n1 { for i in 0..n1 {
-            let (wx, wz) = (ox + i as f64 * step, oz + j as f64 * step); let c = gen.column(wx, wz); let k = i + j * n1;
-            let canopy = if c.water != 0.0 || c.h > 86.0 { 0.0 } else if c.forest > 0.35 { 13.0 * (1f64).min((c.forest - 0.35) * 3.0) } else { 0.0 };
-            hs[k] = ((if c.water != 0.0 { c.water } else { c.h }) + canopy - sink) as f32;
-            let t = (gen.n_deco.n2(wx / 40.0, wz / 40.0) + 1.0) * 0.5;
-            let (tg, dp, st, de) = (c.mix.strong(crate::biome::Biome::Taiga), c.mix.strong(crate::biome::Biome::DeepForest), c.mix.strong(crate::biome::Biome::Steppe), c.mix.strong(crate::biome::Biome::Desert));
-            let mt = c.mix.strong(crate::biome::Biome::Mountains);
-            let sea_w = c.mix.sea > 0.005 && c.water == crate::gen::SEA; let fond = (c.water - c.h).max(0.0); let warm = crate::noise::smooth(0.2, 0.5, c.mix.temp);
-            cols[k] = if sea_w { let k2 = crate::noise::smooth(2.0, 22.0, fond); let sh = [0.2 + 0.05 * warm, 0.42 + 0.14 * warm, 0.48 + 0.06 * warm]; let dp = [0.08, 0.2, 0.34]; [(sh[0] + (dp[0] - sh[0]) * k2) as f32, (sh[1] + (dp[1] - sh[1]) * k2) as f32, (sh[2] + (dp[2] - sh[2]) * k2) as f32] } // mer : turquoise sur les petits fonds, bleu nuit au large
-            else if c.mix.sea > 0.005 && c.water == 0.0 && c.h < crate::gen::SEA + 3.0 { [0.84, 0.78, 0.6] } // plages
-            else if mt > 0.5 && c.water == 0.0 { if c.h > 92.0 + 4.0 * t { [0.88, 0.91, 0.96] } else if c.h > 83.0 + 4.0 * t { [(0.46 + 0.06 * t) as f32, (0.46 + 0.05 * t) as f32, (0.47 + 0.05 * t) as f32] } else { [(0.3 + 0.08 * t) as f32, (0.44 + 0.06 * t) as f32, (0.22 + 0.04 * t) as f32] } } // montagne : alpages, roche grise, neiges
-            else if c.mix.strong(crate::biome::Biome::Highlands) > 0.5 && c.water == 0.0 && c.h <= 100.0 { [(0.48 + 0.08 * t) as f32, (0.46 + 0.06 * t) as f32, (0.33 + 0.04 * t) as f32] } else if de > 0.5 && c.water == 0.0 && c.h <= 95.0 { [(0.84 + 0.05 * t) as f32, (0.7 + 0.04 * t) as f32, (0.48 + 0.03 * t) as f32] } else if st > 0.5 && c.water == 0.0 && c.h <= 90.0 && canopy <= 3.0 { [(0.56 + 0.08 * t) as f32, (0.5 + 0.06 * t) as f32, (0.3 + 0.04 * t) as f32] } else if tg > 0.5 || c.h > 100.0 { if c.water != 0.0 { [0.7, 0.8, 0.88] } else if canopy > 3.0 { [0.42, 0.5, 0.48] } else { [0.86, 0.9, 0.95] } } else if dp > 0.5 && canopy > 3.0 { [0.1, 0.2, 0.12] } else if c.water != 0.0 { [0.22, 0.36, 0.42] } else if c.h > 90.0 { [(0.42 + 0.1 * t) as f32, (0.4 + 0.1 * t) as f32, (0.37 + 0.09 * t) as f32] } else if canopy > 3.0 { [(0.2 + 0.1 * t) as f32, (0.34 + 0.1 * t) as f32, 0.09] } else { [(0.42 + 0.1 * t) as f32, (0.5 + 0.05 * t) as f32, 0.2] };
+/// Échelle des positions du relief lointain (quarts de bloc) : assez pour porter à 8 km de son centre.
+pub const FAR_SCALE: f64 = 4.0;
+/// Côté des tuiles d'arbres lointains, en blocs ; et l'échelle de leurs positions (huitièmes de bloc).
+pub const TREE_TILE: i32 = 128; pub const TREE_SCALE: f64 = 8.0;
+/// Les anneaux lisses au-delà des colonnes : (maille, demi-côté), le précédent faisant le trou du suivant.
+const FAR_RINGS: [(f64, f64); 3] = [(16.0, 1536.0), (64.0, 4096.0), (256.0, 7936.0)];
+
+/// Une face d'une boîte alignée (0 dessus, 1 dessous, 2 +z, 3 -z, 4 +x, 5 -x), dans le repère du relief lointain.
+#[allow(clippy::too_many_arguments)]
+fn far_face(o: &mut VBuf, f: usize, b: [f64; 6], layer: f64, kd: u8, t: [f64; 3], ao: f64) {
+    let (a, bx, y0, y1, c, d) = (b[0], b[3], b[1], b[4], b[2], b[5]);
+    let (q, n): ([[f64; 3]; 4], [f64; 3]) = match f {
+        0 => ([[a, y1, d], [bx, y1, d], [bx, y1, c], [a, y1, c]], [0.0, 1.0, 0.0]), 1 => ([[a, y0, c], [bx, y0, c], [bx, y0, d], [a, y0, d]], [0.0, -1.0, 0.0]),
+        2 => ([[a, y0, d], [bx, y0, d], [bx, y1, d], [a, y1, d]], [0.0, 0.0, 1.0]), 3 => ([[bx, y0, c], [a, y0, c], [a, y1, c], [bx, y1, c]], [0.0, 0.0, -1.0]),
+        4 => ([[bx, y0, d], [bx, y0, c], [bx, y1, c], [bx, y1, d]], [1.0, 0.0, 0.0]), _ => ([[a, y0, c], [a, y0, d], [a, y1, d], [a, y1, c]], [-1.0, 0.0, 0.0]) };
+    for v in q { o.v(v[0], v[1], v[2], layer, n[0], n[1], n[2], 0.0, ao, 255.0, 0.0, kd, t[0], t[1], t[2]); }
+}
+/// La teinte que le maillage des chunks donne à une face de ce bloc.
+fn block_tint(b: Id) -> [f64; 3] { let t0 = TONES[tone(b) as usize]; let t1 = tints().1[tint_index(b) as usize]; [t0[0] * t1[0], t0[1] * t1[1], t0[2] * t1[2]] }
+/// La couleur moyenne d'une face de bloc, telle que le moteur la montre de loin (albédo² × teinte, un peu désaturé comme
+/// dans le G-buffer) : le relief lisse la reçoit en teinte unie (sa racine, le moteur l'élève au carré), pour que le lointain
+/// et le monde qui le remplace aient les mêmes couleurs.
+fn far_albedo(b: Id, face: usize) -> [f64; 3] {
+    let l = BLOCKS[b as usize].dir_faces[face] as usize; let a = mat_avg2().get(l).copied().unwrap_or([0.25; 3]); let t = block_tint(b);
+    let mut c = [a[0] * t[0], a[1] * t[1], a[2] * t[2]]; let lum = 0.3 * c[0] + 0.6 * c[1] + 0.1 * c[2];
+    let k = if is_leaf(b) { 0.86 * 0.8 } else { 0.86 }; for v in c.iter_mut() { *v = lum + (*v - lum) * k; }
+    if is_leaf(b) { c = [c[0] * 0.74, c[1] * 0.8, c[2] * 0.74]; }
+    if (4..16).contains(&l) { let lum = 0.3 * c[0] + 0.6 * c[1] + 0.1 * c[2]; c = [(lum + (c[0] - lum) * 0.74) * 0.84, (lum + (c[1] - lum) * 0.74) * 0.82, (lum + (c[2] - lum) * 0.74) * 0.86]; }
+    c
+}
+fn far_leaf(c: &crate::gen::Column) -> Id {
+    use crate::biome::Biome as Bi; let n = |s: &str| by_name(s).unwrap_or(B::OAK_LEAVES);
+    if c.mix.strong(Bi::Taiga) > 0.5 { n("spruce_leaves_snow") } else if c.mix.strong(Bi::Mountains) > 0.5 { n("spruce_leaves") } else if c.mix.strong(Bi::DeepForest) > 0.5 { n("oak_leaves_deep") } else { B::OAK_LEAVES }
+}
+/// L'eau de loin : bleu-vert sur les petits fonds, bleu nuit au large.
+fn far_water(c: &crate::gen::Column) -> [f64; 3] {
+    let fond = (c.water - c.h).max(0.0); let warm = crate::noise::smooth(0.2, 0.5, c.mix.temp);
+    if c.mix.sea > 0.005 && c.water == crate::gen::SEA { let k = crate::noise::smooth(2.0, 22.0, fond); let sh = [0.06 + 0.02 * warm, 0.2 + 0.1 * warm, 0.24 + 0.05 * warm]; let dp = [0.012, 0.05, 0.12]; [0, 1, 2].map(|i| sh[i] + (dp[i] - sh[i]) * k) }
+    else { [0.05, 0.12, 0.16] }
+}
+
+/// Le relief lointain, centré sur un chunk : ce qui se voit au-delà des chunks chargés, et à la place de ceux qui ne le
+/// sont pas encore (le moteur l'efface chunk par chunk, là où le vrai terrain est arrivé : il n'y a plus de trou).
+/// - Jusqu'à `near` blocs du centre, des colonnes de 4 × 4 blocs à la hauteur du terrain, avec les vraies textures du
+///   dessus (herbe, sable, roche, neige) et de la tranche (herbe, terre, puis roche) : le monde lui-même, en plus grossier.
+/// - Au-delà, un relief lisse en mailles de 16, 64 puis 256 blocs, jusqu'à près de 8 km, aux couleurs moyennes de ces
+///   mêmes blocs ; les forêts y font un moutonnement de feuillage.
+/// Chaque anneau pend une jupe à son bord intérieur, pour qu'aucun jour ne s'ouvre entre deux finesses.
+pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32, near: i32) -> (Vec<u8>, usize) {
+    let mut o = VBuf::new(400_000); o.scale = FAR_SCALE;
+    let (cx0, cz0) = (ccx as f64 * CX as f64, ccz as f64 * CX as f64);
+    // 1. Les colonnes.
+    const S: i32 = 4; let n = 2 * near / S; let m = (n + 2) as usize; // une case de bord tout autour, pour les voisines
+    let mut top = vec![0f64; m * m]; let mut blk = vec![(0 as Id, 0 as Id); m * m]; let mut wet = vec![None; m * m];
+    for j in 0..m { for i in 0..m {
+        let (wx, wz) = (cx0 - near as f64 + (i as f64 - 1.0) * S as f64 + 2.0, cz0 - near as f64 + (j as f64 - 1.0) * S as f64 + 2.0); let c = gen.column(wx, wz); let k = i + j * m;
+        if c.water != 0.0 && c.water > c.h { top[k] = c.water.floor() + 0.88; wet[k] = Some(far_water(&c)); blk[k] = (B::SAND, B::SAND); }
+        else { top[k] = c.h.ceil(); blk[k] = gen.far_surface(&c, wx, wz); }
+    } }
+    let sf = S as f64; let x_of = |i: i32| -(near as f64) + i as f64 * sf;
+    for j in 0..n { let mut i = 0; while i < n {
+        let k = (i + 1) as usize + (j + 1) as usize * m; let (h, b) = (top[k], blk[k]);
+        // Le dessus : les cases voisines de même hauteur et de même bloc n'en font qu'une.
+        let mut w = 1; while i + w < n { let k2 = (i + w + 1) as usize + (j + 1) as usize * m; if top[k2] != h || blk[k2] != b || wet[k2].is_some() != wet[k].is_some() || wet[k].is_some() { break; } w += 1; }
+        let bx = [x_of(i), 0.0, x_of(j), x_of(i + w), h, x_of(j + 1)];
+        if let Some(col) = wet[k] { for v in [[0usize, 3], [1, 3], [1, 0], [0, 0]] { let (x, z) = (if v[0] == 0 { bx[0] } else { bx[3] }, if v[1] == 0 { bx[2] } else { bx[5] }); o.rot = 1; o.v(x, h, z, 0.0, 0.0, 1.0, 0.0, 0.0, 255.0, 255.0, 0.0, FAR, col[0].sqrt(), col[1].sqrt(), col[2].sqrt()); } o.rot = 0; }
+        else { let kd = if is_leaf(b.0) { LEAF } else { TEX }; far_face(&mut o, 0, bx, BLOCKS[b.0 as usize].dir_faces[1] as f64, kd, block_tint(b.0), 255.0); }
+        i += w;
+    } }
+    // Les tranches : vers chaque voisine plus basse ; aux bords des chunks et de l'anneau, une jupe un peu plus profonde,
+    // qui bouche le jour entre ces colonnes et le vrai terrain, arrivé à côté. Deux pans au plus (le bord du dessus, puis
+    // la terre ou la roche), et les pans pareils côte à côte n'en font qu'un.
+    let side = |i: i32, j: i32, f: usize| -> Option<(i64, i64, Id, Id, bool)> {
+        let (di, dj) = match f { 2 => (0, 1), 3 => (0, -1), 4 => (1, 0), _ => (-1, 0) };
+        let k = (i + 1) as usize + (j + 1) as usize * m; let kn = (i + 1 + di) as usize + (j + 1 + dj) as usize * m; let (h, nh) = (top[k], top[kn]);
+        let edge = match f { 2 => x_of(j + 1), 3 => x_of(j), 4 => x_of(i + 1), _ => x_of(i) };
+        let border = (edge as i64).rem_euclid(CX as i64) == 0; let outer = (i + di) < 0 || (i + di) >= n || (j + dj) < 0 || (j + dj) >= n;
+        let lo = if outer { h.min(nh) - 12.0 } else if border { h.min(nh) - 4.0 } else { nh };
+        if lo >= h { return None; }
+        let wetk = wet[k].is_some(); let lo = if wetk { lo.max(h - 3.0) } else { lo };
+        let (tb, ub) = blk[k]; let low = if h - lo > 5.0 { gen_stone(ub) } else { ub };
+        Some(((h * 8.0) as i64, (lo * 8.0) as i64, tb, low, wetk))
+    };
+    let put_side = |o: &mut VBuf, f: usize, a: f64, b: f64, fix: f64, key: (i64, i64, Id, Id, bool)| {
+        let (h, lo) = (key.0 as f64 / 8.0, key.1 as f64 / 8.0);
+        let plane = |y0: f64, y1: f64| match f { 2 => [a, y0, fix - 1.0, b, y1, fix], 3 => [a, y0, fix, b, y1, fix + 1.0], 4 => [fix - 1.0, y0, a, fix, y1, b], _ => [fix, y0, a, fix + 1.0, y1, b] };
+        let segs: [(f64, f64, Id); 2] = if key.4 { [(lo, h, B::SAND), (0.0, 0.0, 0)] } else { [((h - 1.0).max(lo), h, key.2), (lo, h - 1.0, key.3)] };
+        for (y0, y1, id) in segs { if y1 <= y0 { continue; } far_face(o, f, plane(y0, y1), BLOCKS[id as usize].dir_faces[0] as f64, if is_leaf(id) { LEAF } else { TEX }, block_tint(id), 215.0); }
+    };
+    for f in 2..6usize {
+        let along_x = f < 4; // les faces ±z se rangent le long de x, les faces ±x le long de z
+        for line in 0..n { let mut p = 0; while p < n {
+            let (i, j) = if along_x { (p, line) } else { (line, p) };
+            let Some(key) = side(i, j, f) else { p += 1; continue };
+            let mut w = 1; while p + w < n { let (i2, j2) = if along_x { (p + w, line) } else { (line, p + w) }; if side(i2, j2, f) != Some(key) { break; } w += 1; }
+            let fix = match f { 2 => x_of(line + 1), 3 => x_of(line), 4 => x_of(line + 1), _ => x_of(line) };
+            put_side(&mut o, f, x_of(p), x_of(p + w), fix, key); p += w;
         } }
-        for j in 0..CELLS { for i in 0..CELLS {
-            let (x0, z0) = ((i as f64 - half) * step, (j as f64 - half) * step); let (x1, z1) = (x0 + step, z0 + step);
-            if hole > 0.0 && (x0 + step / 2.0).abs().max((z0 + step / 2.0).abs()) < hole { continue; }
-            // Normales et couleurs par sommet : le relief lointain reste doux, sans grandes facettes.
-            let at = |ii: isize, jj: isize| hs[ii.clamp(0, CELLS as isize) as usize + jj.clamp(0, CELLS as isize) as usize * n1] as f64;
-            for (ci, cj, x, z) in [(i, j + 1, x0, z1), (i + 1, j + 1, x1, z1), (i + 1, j, x1, z0), (i, j, x0, z0)] {
+    }
+    // 2. Les anneaux lisses.
+    let mut hole = near as f64;
+    for (ri, &(step, ext)) in FAR_RINGS.iter().enumerate() {
+        let cells = (2.0 * ext / step) as usize; let n1 = cells + 1; let sink = [0.3, 1.0, 2.5][ri];
+        let mut hs = vec![0f32; n1 * n1]; let mut cols = vec![[0f32; 3]; n1 * n1]; let mut water = vec![false; n1 * n1];
+        for j in 0..n1 { for i in 0..n1 {
+            let (rx, rz) = (-ext + i as f64 * step, -ext + j as f64 * step); let (wx, wz) = (cx0 + rx, cz0 + rz); let c = gen.column(wx, wz); let k = i + j * n1;
+            let canopy = if c.water != 0.0 || c.h > 86.0 || c.mix.strong(crate::biome::Biome::Desert) > 0.5 { 0.0 } else if c.forest > 0.35 { 13.0 * (1f64).min((c.forest - 0.35) * 3.0) } else { 0.0 };
+            let t = (gen.n_deco.n2(wx / 40.0, wz / 40.0) + 1.0) * 0.5; let v = 0.9 + 0.2 * t;
+            let col = if c.water != 0.0 && c.water > c.h { water[k] = true; far_water(&c) } else if canopy > 3.0 { far_albedo(far_leaf(&c), 1) } else { let (b, _) = gen.far_surface(&c, wx, wz); far_albedo(b, 1) };
+            hs[k] = ((if water[k] { c.water.floor() + 0.88 } else { c.h.ceil() }) + canopy - sink) as f32;
+            cols[k] = [0, 1, 2].map(|q| (col[q] * if water[k] { 1.0 } else { v }).sqrt() as f32);
+        } }
+        let at = |ii: isize, jj: isize| hs[ii.clamp(0, cells as isize) as usize + jj.clamp(0, cells as isize) as usize * n1] as f64;
+        let in_hole = |i: isize, j: isize| { if i < 0 || j < 0 || i >= cells as isize || j >= cells as isize { return false; } let (x, z) = (-ext + (i as f64 + 0.5) * step, -ext + (j as f64 + 0.5) * step); x.abs().max(z.abs()) < hole };
+        for j in 0..cells { for i in 0..cells {
+            if in_hole(i as isize, j as isize) { continue; }
+            let (x0, z0) = (-ext + i as f64 * step, -ext + j as f64 * step); let (x1, z1) = (x0 + step, z0 + step);
+            let corners = [(i, j + 1, x0, z1), (i + 1, j + 1, x1, z1), (i + 1, j, x1, z0), (i, j, x0, z0)];
+            for (ci, cj, x, z) in corners {
                 let (p, q) = (ci as isize, cj as isize); let (mut nx, mut nz, mut ny) = (at(p - 1, q) - at(p + 1, q), at(p, q - 1) - at(p, q + 1), 2.0 * step);
-                let l = hypot3(nx, ny, nz); nx /= l; ny /= l; nz /= l; let k = ci + cj * n1; let c = cols[k];
-                o.v(x, hs[k] as f64, z, 0.0, nx, ny, nz, 0.0, 255.0, 255.0, 0.0, FLAT, c[0] as f64, c[1] as f64, c[2] as f64);
+                let l = hypot3(nx, ny, nz); nx /= l; ny /= l; nz /= l; let k = ci + cj * n1; let c = cols[k]; o.rot = water[k] as u8;
+                o.v(x, hs[k] as f64, z, 0.0, nx, ny, nz, 0.0, 255.0, 255.0, 0.0, FAR, c[0] as f64, c[1] as f64, c[2] as f64);
+            }
+            // La jupe : un pan qui descend du bord, face au trou, là où l'anneau plus fin prend le relais.
+            for (di, dj) in [(0isize, 1isize), (0, -1), (1, 0), (-1, 0)] {
+                if !in_hole(i as isize + di, j as isize + dj) { continue; }
+                let (a, b) = match (di, dj) { (0, 1) => ((i, j + 1), (i + 1, j + 1)), (0, _) => ((i + 1, j), (i, j)), (1, _) => ((i + 1, j + 1), (i + 1, j)), _ => ((i, j), (i, j + 1)) };
+                let pos = |c: (usize, usize)| (-ext + c.0 as f64 * step, -ext + c.1 as f64 * step); let (pa, pb) = (pos(a), pos(b)); let (ha, hb) = (hs[a.0 + a.1 * n1] as f64, hs[b.0 + b.1 * n1] as f64);
+                let nn = [di as f64, 0.0, dj as f64]; let (ka, kb) = (cols[a.0 + a.1 * n1], cols[b.0 + b.1 * n1]);
+                for (x, y, z, c) in [(pa.0, ha - 24.0, pa.1, ka), (pb.0, hb - 24.0, pb.1, kb), (pb.0, hb, pb.1, kb), (pa.0, ha, pa.1, ka)] { o.rot = 0; o.v(x, y, z, 0.0, nn[0], 0.0, nn[2], 0.0, 200.0, 255.0, 0.0, FAR, c[0] as f64 * 0.8, c[1] as f64 * 0.8, c[2] as f64 * 0.8); }
             }
         } }
+        hole = ext;
+    }
+    o.rot = 0; let n = o.n; (o.data, n)
+}
+/// Sous la terre d'une tranche : la roche (le grès sous le sable).
+fn gen_stone(under: Id) -> Id { if under == B::SAND { B::SANDSTONE } else if under == B::DIRT { B::STONE } else { under } }
+/// Une tuile d'arbres lointains (`TREE_TILE` blocs de côté, coin en `tx`, `tz` tuiles) : chaque arbre en quelques boîtes
+/// texturées (le tronc, la couronne par étages), là où il poussera. Le moteur l'efface chunk par chunk comme le relief.
+pub fn far_trees_mesh(gen: &WorldGen, tx: i32, tz: i32) -> (Vec<u8>, usize) {
+    let (x0, z0) = (tx * TREE_TILE, tz * TREE_TILE); let mut o = VBuf::new(20_000); o.scale = TREE_SCALE;
+    for (b, id) in gen.far_trees(x0, z0, x0 + TREE_TILE, z0 + TREE_TILE) {
+        let bb = [(b[0] - x0) as f64, b[1] as f64, (b[2] - z0) as f64, (b[3] - x0) as f64, b[4] as f64, (b[5] - z0) as f64];
+        let leaf = is_leaf(id); let kd = if leaf { LEAF } else { TEX }; let t = block_tint(id); let bl = &BLOCKS[id as usize];
+        for f in 0..6 { if f == 1 && !leaf { continue; } let (di, ao) = match f { 0 => (1, 255.0), 1 => (2, 160.0), 2 | 3 => (3, 220.0), _ => (0, 210.0) }; far_face(&mut o, f, bb, bl.dir_faces[di] as f64, kd, t, ao); }
     }
     let n = o.n; (o.data, n)
 }

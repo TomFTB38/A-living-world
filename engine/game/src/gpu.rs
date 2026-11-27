@@ -1,19 +1,24 @@
 //! Pipeline d'image : ombres en cascades, G-buffer, SSAO, lumière, nuages, brume, eau, composition, TAA, bloom, sortie.
 //! Tout ce qui touche à wgpu est ici ; le reste du jeu n'en dépend pas.
-use alw_core::{actors::{Draw, Models}, mesher::VSIZE, session::order, stream::{Built, FAR}, textures, view::{self, Sky, M4}, weather::Env};
+use alw_core::{actors::{Draw, Models}, mesher::VSIZE, session::order, stream::{Built, FAR, TREES}, textures, view::{self, Sky, M4}, weather::Env};
 use std::collections::HashMap;
 use std::sync::Arc;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 use crate::{font_data as fd, hud};
 
-const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; pub const LIGHTS: usize = 48; const FLOATS: usize = 200 + LIGHTS * 8 + 24; /* + les boîtes de l'aperçu de pose */ const MAX_ACTORS: u64 = 512; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 400_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 72.0;
+const MAX_QUADS: u32 = 1_000_000; const MAX_SLOTS: u64 = 2048; pub const LIGHTS: usize = 48; const FLOATS: usize = 200 + LIGHTS * 8 + 24 /* + les boîtes de l'aperçu de pose */ + 4 + MASK_FLOATS; /* + les chunks chargés, que le relief lointain laisse voir */
+/// Les chunks chargés autour de la caméra, un bit chacun, pour que le relief lointain s'efface là où le vrai terrain est arrivé :
+/// une grille de MASK × MASK chunks, 20 bits par nombre (un f32 tient ses entiers exacts).
+const MASK: i32 = 40; const MASK_FLOATS: usize = (MASK * MASK / 20) as usize; const MAX_ACTORS: u64 = 512; const FALL_BYTES: u64 = 1500 * 24 * VSIZE as u64; const UI_VERTS: u64 = 400_000; pub const CASCADES: [f64; 3] = [26.0, 90.0, 300.0]; pub const CASCADES_ULTRA: [f64; 3] = [30.0, 120.0, 440.0]; const DECO_SHADOW: f32 = 72.0;
 pub const ICON_CELL: u32 = 128; pub const ICON_COLS: u32 = 24; // 576 icônes au plus (atlas 3072 × 3072)
 const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float; const LDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm; const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Options { pub shadow: u32, pub fallback: bool, pub hole: f32, pub cascades: [f64; 3] }
 struct Part { buf: wgpu::Buffer, indices: u32 }
 struct ChunkGpu { opaque: Option<Part>, deco: Option<Part>, water: Option<Part>, slot: u64, min: [f32; 3], max: [f32; 3], c: [f32; 2] }
 struct Far { part: Part, slot: u64 }
+/// Une tuile d'arbres lointains.
+struct Grove { part: Part, slot: u64, min: [f32; 3], max: [f32; 3] }
 /// Passe plein écran : son pipeline et le groupe de textures à lier.
 struct Full { pipe: wgpu::RenderPipeline, layout: wgpu::BindGroupLayout }
 struct Pipes { ghost: wgpu::RenderPipeline, rain: wgpu::RenderPipeline, actor: wgpu::RenderPipeline, actor_shadow: wgpu::RenderPipeline, line: wgpu::RenderPipeline, ui: wgpu::RenderPipeline, geom_o: wgpu::RenderPipeline, geom_d: wgpu::RenderPipeline, shadow_o: wgpu::RenderPipeline, shadow_d: wgpu::RenderPipeline, water: wgpu::RenderPipeline, water_layout: wgpu::BindGroupLayout, ssao: Full, blur_h: Full, blur_v: Full, light: Full, clouds: wgpu::RenderPipeline, volume: Full, compose: Full, taa: Full, first: Full, down: Full, up: Full, last: Full }
@@ -29,7 +34,7 @@ pub struct Gpu {
     surface: Option<wgpu::Surface<'static>>, device: wgpu::Device, queue: wgpu::Queue, config: wgpu::SurfaceConfiguration, format: wgpu::TextureFormat,
     p: Pipes, t: Targets, fall_vb: wgpu::Buffer, fall_serial: u64, actor_vb: wgpu::Buffer, actor_inst: wgpu::Buffer, ui_buf: wgpu::Buffer, ui_u: wgpu::Buffer, ui_bind: wgpu::BindGroup, frame0: wgpu::BindGroup, geom1: wgpu::BindGroup, ubuf: wgpu::Buffer, ibuf: wgpu::Buffer, inst: wgpu::Buffer,
     shadow_views: Vec<wgpu::TextureView>, shadow_bind: Vec<wgpu::BindGroup>, shadow_buf: Vec<wgpu::Buffer>, shadow_vp: [M4; 3], shadow_size: u32, hole: f32, cascades: [f64; 3],
-    chunks: HashMap<(i32, i32), ChunkGpu>, far: Option<Far>, free: Vec<u64>, frame: u64, prev_vp: M4, reset: bool, capture: Option<Rt>,
+    chunks: HashMap<(i32, i32), ChunkGpu>, far: Option<Far>, groves: HashMap<(i32, i32), Grove>, free: Vec<u64>, frame: u64, prev_vp: M4, reset: bool, capture: Option<Rt>,
 }
 fn bytes_f32(v: &[f32]) -> Vec<u8> { v.iter().flat_map(|f| f.to_le_bytes()).collect() }
 fn part(d: &wgpu::Device, data: &[u8], n: usize) -> Option<Part> {
@@ -233,7 +238,7 @@ impl Gpu {
         let fall_vb = d.create_buffer(&wgpu::BufferDescriptor { label: Some("arbre qui tombe"), size: FALL_BYTES, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let capture = if surface.is_none() { Some(rt(d, config.width, config.height, LDR, true)) } else { None };
         let free = (1..MAX_SLOTS).rev().collect();
-        Gpu { lights: Vec::new(), light_cap, surface, p, t, fall_vb, fall_serial: 0, actor_vb, actor_inst, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, cascades: o.cascades, chunks: HashMap::new(), far: None, free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
+        Gpu { lights: Vec::new(), light_cap, surface, p, t, fall_vb, fall_serial: 0, actor_vb, actor_inst, ui_buf, ui_u, ui_bind, frame0, geom1, ubuf, ibuf, inst, shadow_views, shadow_bind, shadow_buf, shadow_vp: [[0.0; 16]; 3], shadow_size: o.shadow, hole: o.hole, cascades: o.cascades, chunks: HashMap::new(), far: None, groves: HashMap::new(), free, frame: 0, prev_vp: [0.0; 16], reset: true, capture, device, queue, config, format }
     }
     pub fn resize(&mut self, w: u32, h: u32) {
         if w == 0 || h == 0 { return; }
@@ -247,8 +252,15 @@ impl Gpu {
     pub fn upload(&mut self, b: Built) {
         let m = &b.mesh; let (x, z) = (b.key.0 as f32 * 32.0, b.key.1 as f32 * 32.0);
         if b.lod == FAR {
-            if let Some(part) = part(&self.device, &m.opaque, m.n_o) { self.set_origin(0, [x, 0.0, z, 1.0 / 8.0]); self.far = Some(Far { part, slot: 0 }); self.reset = true; }
+            if let Some(part) = part(&self.device, &m.opaque, m.n_o) { self.set_origin(0, [x, 0.0, z, 1.0 / alw_core::mesher::FAR_SCALE as f32]); self.far = Some(Far { part, slot: 0 }); self.reset = true; }
             return;
+        }
+        if b.lod == TREES {
+            let old = self.groves.remove(&b.key); let Some(part) = part(&self.device, &m.opaque, m.n_o) else { if let Some(g) = old { self.free.push(g.slot); } return; };
+            let slot = match old { Some(g) => g.slot, None => match self.free.pop() { Some(s) => s, None => return } };
+            let t = alw_core::mesher::TREE_TILE as f32; let (x, z) = (b.key.0 as f32 * t, b.key.1 as f32 * t);
+            self.set_origin(slot, [x, 0.0, z, 1.0 / alw_core::mesher::TREE_SCALE as f32]);
+            self.groves.insert(b.key, Grove { part, slot, min: [x - 4.0, 0.0, z - 4.0], max: [x + t + 4.0, 256.0, z + t + 4.0] }); return;
         }
         let old = self.chunks.remove(&b.key); let slot = match old { Some(c) => c.slot, None => match self.free.pop() { Some(s) => s, None => return } };
         self.set_origin(slot, [x, 0.0, z, 1.0 / 128.0]);
@@ -256,7 +268,7 @@ impl Gpu {
     }
     pub fn forget(&mut self, k: (i32, i32)) { if let Some(c) = self.chunks.remove(&k) { self.free.push(c.slot); } }
     /// Oublie tous les chunks : on change de monde.
-    pub fn forget_all(&mut self) { let keys: Vec<(i32, i32)> = self.chunks.keys().copied().collect(); for k in keys { self.forget(k); } self.far = None; self.reset = true; }
+    pub fn forget_all(&mut self) { let keys: Vec<(i32, i32)> = self.chunks.keys().copied().collect(); for k in keys { self.forget(k); } self.far = None; for (_, g) in self.groves.drain() { self.free.push(g.slot); } self.reset = true; }
     /// Une image complète. Rend le nombre de triangles envoyés.
     pub fn render(&mut self, vp: &M4, view_m: &M4, proj: &M4, eye: [f64; 3], time: f64, s: &Sky, env: Env, aim: Option<([i32; 3], f32)>, ghost: Option<([i32; 3], bool)>, gbox: &[[f64; 6]], abox: [f64; 6], draws: &[Draw], ui: &hud::Ui) -> usize {
         let frame = match &self.surface { Some(sf) => match sf.get_current_texture() { Ok(f) => Some(f), Err(_) => { sf.configure(&self.device, &self.config); return 0; } }, None => None };
@@ -297,6 +309,10 @@ impl Gpu {
         for k in 0..2 { let b = gbox.get(k).copied().unwrap_or(if k == 0 { [0.0, 0.0, 0.0, 1.0, 1.0, 1.0] } else { [0.0; 6] }); u.extend_from_slice(&[b[0] as f32, b[1] as f32, b[2] as f32, 0.0, b[3] as f32, b[4] as f32, b[5] as f32, 0.0]); }
         // Contour du bloc visé : le bord de son dessin (une dalle, une poutre, une fleur), pas toute la case.
         u.extend_from_slice(&[abox[0] as f32, abox[1] as f32, abox[2] as f32, 0.0, abox[3] as f32, abox[4] as f32, abox[5] as f32, 0.0]);
+        // Les chunks chargés autour de l'œil : le relief lointain s'efface sur eux, et seulement sur eux.
+        let (mx, mz) = ((eye[0] / 32.0).floor() as i32 - MASK / 2, (eye[2] / 32.0).floor() as i32 - MASK / 2); let mut bits = [0u32; MASK_FLOATS];
+        for k in self.chunks.keys() { let (i, j) = (k.0 - mx, k.1 - mz); if (0..MASK).contains(&i) && (0..MASK).contains(&j) { let b = (i + j * MASK) as usize; bits[b / 20] |= 1 << (b % 20); } }
+        u.extend_from_slice(&[mx as f32, mz as f32, 1.0, 0.0]); u.extend(bits.iter().map(|&b| b as f32));
         self.queue.write_buffer(&self.ubuf, 0, &bytes_f32(&u));
         let list: Vec<&ChunkGpu> = list_all.iter().copied().filter(|c| view::visible(vp, c.min, c.max)).collect();
         let t = &self.t; let g0 = &self.frame0;
@@ -308,6 +324,7 @@ impl Gpu {
             p.set_pipeline(&self.p.geom_o);
             for c in &list { if let Some(q) = &c.opaque { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }
             if let Some(f) = &self.far { p.set_vertex_buffer(0, f.part.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(f.slot * 16..f.slot * 16 + 16)); p.draw_indexed(0..f.part.indices, 0, 0..1); tris += f.part.indices as usize / 3; }
+            for g in self.groves.values() { if !view::visible(vp, g.min, g.max) { continue; } p.set_vertex_buffer(0, g.part.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(g.slot * 16..g.slot * 16 + 16)); p.draw_indexed(0..g.part.indices, 0, 0..1); tris += g.part.indices as usize / 3; }
             if !draws.is_empty() { p.set_pipeline(&self.p.actor); p.set_vertex_buffer(0, self.actor_vb.slice(..)); p.set_vertex_buffer(1, self.actor_inst.slice(..)); for (k, d) in draws.iter().enumerate() { if !d.dynamic { p.draw_indexed(0..d.r.count, (d.r.first / 6 * 4) as i32, k as u32..k as u32 + 1); } } p.set_vertex_buffer(0, self.fall_vb.slice(..)); for (k, d) in draws.iter().enumerate() { if d.dynamic { p.draw_indexed(0..d.r.count, (d.r.first / 6 * 4) as i32, k as u32..k as u32 + 1); } } }
             p.set_pipeline(&self.p.geom_d);
             for c in &list { if let Some(q) = &c.deco { p.set_vertex_buffer(0, q.buf.slice(..)); p.set_vertex_buffer(1, self.inst.slice(c.slot * 16..c.slot * 16 + 16)); p.draw_indexed(0..q.indices, 0, 0..1); tris += q.indices as usize / 3; } }

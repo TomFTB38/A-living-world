@@ -33,7 +33,7 @@ fn parite_avec_le_prototype() {
                 let got = format!("{} {} {} {} {} {} {} {}", r.n_o, r.n_d, r.n_w, fnv(&r.opaque), fnv(&r.deco), fnv(&r.water), r.ymin, r.ymax);
                 assert_eq!(got, a[5..].join(" "), "{l}"); meshes += 1;
             }
-            "far-ancien" => { let g = WorldGen::new(a[1].parse().unwrap()); let (d, n) = far_mesh(&g, 1, -2); assert_eq!(format!("{} {}", n, fnv(&d)), a[2..].join(" ")); }
+            "far-ancien" => { let g = WorldGen::new(a[1].parse().unwrap()); let (d, n) = far_mesh(&g, 1, -2, 480); assert_eq!(format!("{} {}", n, fnv(&d)), a[2..].join(" ")); }
             "character" => { let m = alw_core::actors::Models::build(); let n = m.char_verts; assert_eq!(format!("{} {}", n, fnv(&m.data[..n * 20])), a[1..].join(" "), "personnage"); }
             "item" => { let m = alw_core::actors::Models::build(); let h = m.held(a[1]).unwrap(); let (st, n) = (h.r.first as usize / 6 * 4, h.r.count as usize / 6 * 4); assert_eq!(format!("{} {}", n, fnv(&m.data[st * 20..(st + n) * 20])), a[2..].join(" "), "{}", a[1]); }
             "fauna" => { /* les bêtes sont sculptées depuis (corps galbés, peau en pixels) : seuls leurs maillages non vides comptent */ let m = alw_core::actors::Models::build(); assert!(m.part(a[1]).count > 0, "{}", a[1]); }
