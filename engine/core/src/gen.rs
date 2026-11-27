@@ -199,6 +199,9 @@ impl WorldGen {
         let f = f - 1.1 * mix.strong(Biome::Meadow) + 0.7 * mix.strong(Biome::DeepForest) - 1.6 * steppe - 1.8 * desert - 1.5 * high - 0.7 * mix.strong(Biome::Mountains) - 1.5 * smooth(0.0, 0.12, mix.sea);
         Column { mix, wet, h: h.min(120.0), water, still, forest: clamp(f, 0.0, 1.0), path: path * (1.0 - mix.strong(Biome::Mountains)), /* pas de route tracée à flanc de montagne */ bank, cliff: smooth(0.1, 0.55, self.n_cliff.n2(x / 120.0, z / 120.0)) }
     }
+    /// Le tirage qui décide, aux confins de deux biomes, lequel l'emporte sur une colonne : par plaques de quelques blocs (un
+    /// bruit doux, un soupçon de hasard sur les bords), et non bloc par bloc, ce qui semait le sol de points blancs et gris.
+    fn patch(&self, x: i32, z: i32, salt: i32) -> f64 { let (fx, fz, k) = (x as f64, z as f64, salt as f64 * 17.3); (0.5 + 0.62 * self.n_deco.n2(fx / 6.0 + k, fz / 6.0 - k) + 0.14 * (hash_float(x, z, self.seed, salt) - 0.5)).clamp(0.0, 0.999) } // jamais 1 : au cœur du biome, il gagne partout
     fn stone_at(&self, x: f64, y: f64, z: f64) -> Id {
         // Surtout de la pierre ordinaire ; le granit et le calcaire ne forment que de rares poches.
         let n = self.n_cliff.n3(x / 38.0, y / 14.0, z / 38.0);
@@ -210,11 +213,11 @@ impl WorldGen {
     pub fn far_surface(&self, c: &Column, wx: f64, wz: f64) -> (Id, Id) {
         let (wxi, wzi) = (wx.floor() as i32, wz.floor() as i32); let s = self.seed; let (hf, water, fr, path, cliff) = (c.h, c.water, c.forest, c.path, c.cliff);
         let yf = hf.ceil() - 1.0;
-        let deep = c.mix.strong(Biome::DeepForest); let cold = hash_float(wxi, wzi, s, 42) < smooth(0.3, 0.7, c.mix.strong(Biome::Taiga));
-        let dry = hash_float(wxi, wzi, s, 44) < smooth(0.3, 0.7, c.mix.strong(Biome::Steppe)); let moor = hash_float(wxi, wzi, s, 49) < smooth(0.3, 0.7, c.mix.strong(Biome::Highlands));
+        let deep = c.mix.strong(Biome::DeepForest); let cold = self.patch(wxi, wzi, 42) < smooth(0.3, 0.7, c.mix.strong(Biome::Taiga));
+        let dry = self.patch(wxi, wzi, 44) < smooth(0.3, 0.7, c.mix.strong(Biome::Steppe)); let moor = self.patch(wxi, wzi, 49) < smooth(0.3, 0.7, c.mix.strong(Biome::Highlands));
         let coast = c.mix.sea > 0.005; let beach = coast && hf <= SEA + 3.0 + 1.5 * self.n_deco.n2(wx / 23.0 + 9.0, wz / 23.0 - 4.0) && cliff < 0.6;
-        let sandy = hash_float(wxi, wzi, s, 48) < smooth(0.3, 0.7, c.mix.strong(Biome::Desert)) || beach;
-        let mtn = c.mix.strong(Biome::Mountains); let alp = hash_float(wxi, wzi, s, 50) < smooth(0.3, 0.7, mtn); let snowl = 101.0 - 8.0 * mtn;
+        let sandy = self.patch(wxi, wzi, 48) < smooth(0.3, 0.7, c.mix.strong(Biome::Desert)) || beach;
+        let mtn = c.mix.strong(Biome::Mountains); let alp = self.patch(wxi, wzi, 50) < smooth(0.3, 0.7, mtn); let snowl = 101.0 - 8.0 * mtn;
         let slope = if mtn > 0.05 { let (a, b, d) = (self.raw_height(wx, wz).hs, self.raw_height(wx + 1.0, wz).hs, self.raw_height(wx, wz + 1.0).hs); (b - a).abs().max((d - a).abs()) } else { 0.0 };
         let top = if path > 0.45 { B::PATH }
             else if beach || (water != 0.0 && yf < water + 1.0) { B::SAND }
@@ -284,11 +287,11 @@ impl WorldGen {
         for z in 0..CX { for x in 0..CX {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let c = self.column(wx, wz); let (hf, cliff, fr, path, water) = (c.h, c.cliff, c.forest, c.path, c.water);
-            let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga); let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, taiga); let steppe = c.mix.strong(Biome::Steppe); let dry = hash_float(wxi, wzi, self.seed, 44) < smooth(0.3, 0.7, steppe); let sandy = hash_float(wxi, wzi, self.seed, 48) < smooth(0.3, 0.7, c.mix.strong(Biome::Desert)); let moor = hash_float(wxi, wzi, self.seed, 49) < smooth(0.3, 0.7, c.mix.strong(Biome::Highlands));
+            let mut top: i32 = 0; let deep = c.mix.strong(Biome::DeepForest); let taiga = c.mix.strong(Biome::Taiga); let cold = self.patch(wxi, wzi, 42) < smooth(0.3, 0.7, taiga); let steppe = c.mix.strong(Biome::Steppe); let dry = self.patch(wxi, wzi, 44) < smooth(0.3, 0.7, steppe); let sandy = self.patch(wxi, wzi, 48) < smooth(0.3, 0.7, c.mix.strong(Biome::Desert)); let moor = self.patch(wxi, wzi, 49) < smooth(0.3, 0.7, c.mix.strong(Biome::Highlands));
             // Bord de mer : plages de sable sous la ligne des vagues et un peu au-dessus, dunes basses derrière ; fonds de sable, de gravier et de vase au large.
             let coast = c.mix.sea > 0.005; let beach = coast && hf <= SEA + 3.0 + 1.5 * self.n_deco.n2(wx / 23.0 + 9.0, wz / 23.0 - 4.0) && cliff < 0.6;
             let sandy = sandy || beach;
-            let mtn = c.mix.strong(Biome::Mountains); let alp = hash_float(wxi, wzi, self.seed, 50) < smooth(0.3, 0.7, mtn); let snowl = 101.0 - 8.0 * mtn;
+            let mtn = c.mix.strong(Biome::Mountains); let alp = self.patch(wxi, wzi, 50) < smooth(0.3, 0.7, mtn); let snowl = 101.0 - 8.0 * mtn;
             // Pente de la montagne, lue sur le relief brut : falaises et éboulis là où le sol plonge.
             let slope = if mtn > 0.05 { let (a, b, d) = (self.raw_height(wx, wz).hs, self.raw_height(wx + 1.0, wz).hs, self.raw_height(wx, wz + 1.0).hs); (b - a).abs().max((d - a).abs()) } else { 0.0 };
             // Par endroits, le toit des galeries s'efface : la grotte s'ouvre en surface, jamais sous l'eau ni sous un chemin.
@@ -408,7 +411,7 @@ impl WorldGen {
             // Ce qui traîne au sol et se ramasse : branches tombées (plus sous les arbres), cailloux.
             let k = hash_float(wxi, wzi, s, 61); let litter = |tw: f64, pb: f64| if k < tw { B::TWIGS } else if k < tw + pb { B::PEBBLES } else { 0 };
             // Au froid, sous la future pellicule de neige : quelques herbes givrées et des pommes de pin, rien d'autre.
-            if hash_float(wxi, wzi, s, 42) < smooth(0.3, 0.7, self.climate.at(wx, wz).strong(Biome::Taiga)) { if is_opaque(ground) && ground != B::ICE {
+            if self.patch(wxi, wzi, 42) < smooth(0.3, 0.7, self.climate.at(wx, wz).strong(Biome::Taiga)) { if is_opaque(ground) && ground != B::ICE {
                 // Sous-bois : myrtilliers en tapis, fougères rousses, quelques sorbiers à baies rouges, herbes givrées et pommes de pin.
                 let patch = smooth(-0.1, 0.5, nd.n2(wx / 12.0 - 31.0, wz / 12.0 + 17.0)); let t = hash_float(wxi, wzi, s, 47);
                 v[idx(x, y, z)] = if r < 0.05 { B::FROST_GRASS } else if r < 0.062 { B::PINECONE } else if r < 0.062 + 0.22 * patch { if t < 0.75 { B::BLUEBERRY } else { B::FERN_DRY } } else if r < 0.075 + 0.22 * patch { B::FERN_DRY } else if r < 0.081 + 0.22 * patch { B::ROWAN } else { litter(0.012, 0.005) };
@@ -472,7 +475,7 @@ impl WorldGen {
         for z in 0..CX { for x in 0..CX {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
             let mut y = CH - 2; while y > 1 && v[idx(x, y, z)] == 0 { y -= 1; } let b = v[idx(x, y, z)]; if !is_opaque(b) || b == B::ICE { continue; }
-            let cm = self.climate.at(wx, wz); let cold = hash_float(wxi, wzi, self.seed, 42) < smooth(0.3, 0.7, cm.strong(Biome::Taiga)); let peak = y as f64 > 101.0 - 8.0 * cm.strong(Biome::Mountains) + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0);
+            let cm = self.climate.at(wx, wz); let cold = self.patch(wxi, wzi, 42) < smooth(0.3, 0.7, cm.strong(Biome::Taiga)); let peak = y as f64 > 101.0 - 8.0 * cm.strong(Biome::Mountains) + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0);
             // Épaisseur variable : congères de quelques dixièmes, plus épaisses au cœur de la taïga et en altitude.
             let drift = smooth(-0.2, 0.7, self.n_deco.n2(wx / 15.0 + 19.0, wz / 15.0 - 4.0)) * 0.75 + 0.25 * hash_float(wxi, wzi, self.seed, 43);
             let deep = self.climate.at(wx, wz).strong(Biome::Taiga) + if peak { 0.6 } else { 0.0 };

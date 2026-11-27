@@ -1048,7 +1048,7 @@ fn block_tint(b: Id) -> [f64; 3] { let t0 = TONES[tone(b) as usize]; let t1 = ti
 /// La couleur moyenne d'une face de bloc, telle que le moteur la montre de loin (albédo² × teinte, un peu désaturé comme
 /// dans le G-buffer) : le relief lisse la reçoit en teinte unie (sa racine, le moteur l'élève au carré), pour que le lointain
 /// et le monde qui le remplace aient les mêmes couleurs.
-fn far_albedo(b: Id, face: usize) -> [f64; 3] {
+pub fn far_albedo(b: Id, face: usize) -> [f64; 3] {
     let l = BLOCKS[b as usize].dir_faces[face] as usize; let a = mat_avg2().get(l).copied().unwrap_or([0.25; 3]); let t = block_tint(b);
     let mut c = [a[0] * t[0], a[1] * t[1], a[2] * t[2]]; let lum = 0.3 * c[0] + 0.6 * c[1] + 0.1 * c[2];
     let k = if is_leaf(b) { 0.86 * 0.8 } else { 0.86 }; for v in c.iter_mut() { *v = lum + (*v - lum) * k; }
@@ -1079,20 +1079,20 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32, near: i32) -> (Vec<u8>, usiz
     let (cx0, cz0) = (ccx as f64 * CX as f64, ccz as f64 * CX as f64);
     // 1. Les colonnes.
     const S: i32 = 4; let n = 2 * near / S; let m = (n + 2) as usize; // une case de bord tout autour, pour les voisines
-    let mut top = vec![0f64; m * m]; let mut blk = vec![(0 as Id, 0 as Id); m * m]; let mut wet = vec![None; m * m];
+    let mut top = vec![0f64; m * m]; let mut blk = vec![(0 as Id, 0 as Id); m * m]; let mut wet = vec![None; m * m]; let mut shade = vec![255u8; m * m];
     for j in 0..m { for i in 0..m {
         let (wx, wz) = (cx0 - near as f64 + (i as f64 - 1.0) * S as f64 + 2.0, cz0 - near as f64 + (j as f64 - 1.0) * S as f64 + 2.0); let c = gen.column(wx, wz); let k = i + j * m;
         if c.water != 0.0 && c.water > c.h { top[k] = c.water.floor() + 0.88; wet[k] = Some(far_water(&c)); blk[k] = (B::SAND, B::SAND); }
-        else { top[k] = c.h.ceil(); blk[k] = gen.far_surface(&c, wx, wz); }
+        else { top[k] = c.h.ceil(); blk[k] = gen.far_surface(&c, wx, wz); if c.forest > 0.5 { shade[k] = 185; } } // sous les couronnes, le sol est à l'ombre
     } }
     let sf = S as f64; let x_of = |i: i32| -(near as f64) + i as f64 * sf;
     for j in 0..n { let mut i = 0; while i < n {
         let k = (i + 1) as usize + (j + 1) as usize * m; let (h, b) = (top[k], blk[k]);
         // Le dessus : les cases voisines de même hauteur et de même bloc n'en font qu'une.
-        let mut w = 1; while i + w < n { let k2 = (i + w + 1) as usize + (j + 1) as usize * m; if top[k2] != h || blk[k2] != b || wet[k2].is_some() != wet[k].is_some() || wet[k].is_some() { break; } w += 1; }
+        let mut w = 1; while i + w < n { let k2 = (i + w + 1) as usize + (j + 1) as usize * m; if top[k2] != h || blk[k2] != b || shade[k2] != shade[k] || wet[k2].is_some() != wet[k].is_some() || wet[k].is_some() { break; } w += 1; }
         let bx = [x_of(i), 0.0, x_of(j), x_of(i + w), h, x_of(j + 1)];
         if let Some(col) = wet[k] { for v in [[0usize, 3], [1, 3], [1, 0], [0, 0]] { let (x, z) = (if v[0] == 0 { bx[0] } else { bx[3] }, if v[1] == 0 { bx[2] } else { bx[5] }); o.rot = 1; o.v(x, h, z, 0.0, 0.0, 1.0, 0.0, 0.0, 255.0, 255.0, 0.0, FAR, col[0].sqrt(), col[1].sqrt(), col[2].sqrt()); } o.rot = 0; }
-        else { let kd = if is_leaf(b.0) { LEAF } else { TEX }; far_face(&mut o, 0, bx, BLOCKS[b.0 as usize].dir_faces[1] as f64, kd, block_tint(b.0), 255.0); }
+        else { let kd = if is_leaf(b.0) { LEAF } else { TEX }; far_face(&mut o, 0, bx, BLOCKS[b.0 as usize].dir_faces[1] as f64, kd, block_tint(b.0), shade[k] as f64); }
         i += w;
     } }
     // Les tranches : vers chaque voisine plus basse ; aux bords des chunks et de l'anneau, une jupe un peu plus profonde,
@@ -1134,7 +1134,12 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32, near: i32) -> (Vec<u8>, usiz
             let (rx, rz) = (-ext + i as f64 * step, -ext + j as f64 * step); let (wx, wz) = (cx0 + rx, cz0 + rz); let c = gen.column(wx, wz); let k = i + j * n1;
             let canopy = if c.water != 0.0 || c.h > 86.0 || c.mix.strong(crate::biome::Biome::Desert) > 0.5 { 0.0 } else if c.forest > 0.35 { 13.0 * (1f64).min((c.forest - 0.35) * 3.0) } else { 0.0 };
             let t = (gen.n_deco.n2(wx / 40.0, wz / 40.0) + 1.0) * 0.5; let v = 0.9 + 0.2 * t;
-            let col = if c.water != 0.0 && c.water > c.h { water[k] = true; far_water(&c) } else if canopy > 3.0 { far_albedo(far_leaf(&c), 1) } else { let (b, _) = gen.far_surface(&c, wx, wz); far_albedo(b, 1) };
+            let col = if c.water != 0.0 && c.water > c.h { water[k] = true; far_water(&c) }
+                // Une forêt vue de loin est plus sombre que ses feuilles : leurs ombres mêlées, le sous-bois entre les couronnes.
+                else if canopy > 3.0 { let l = far_albedo(far_leaf(&c), 1); [l[0] * 0.62, l[1] * 0.8, l[2] * 0.5] }
+                else { let (b, _) = gen.far_surface(&c, wx, wz); far_albedo(b, 1) };
+            // Un peu plus de couleur qu'une simple moyenne : la brume du lointain la reprendra.
+            let lum = 0.3 * col[0] + 0.6 * col[1] + 0.1 * col[2]; let col = if water[k] { col } else { col.map(|v| (lum + (v - lum) * 1.25).max(0.0)) };
             hs[k] = ((if water[k] { c.water.floor() + 0.88 } else { c.h.ceil() }) + canopy - sink) as f32;
             cols[k] = [0, 1, 2].map(|q| (col[q] * if water[k] { 1.0 } else { v }).sqrt() as f32);
         } }
@@ -1171,7 +1176,7 @@ pub fn far_trees_mesh(gen: &WorldGen, tx: i32, tz: i32) -> (Vec<u8>, usize) {
     for (b, id) in gen.far_trees(x0, z0, x0 + TREE_TILE, z0 + TREE_TILE) {
         let bb = [(b[0] - x0) as f64, b[1] as f64, (b[2] - z0) as f64, (b[3] - x0) as f64, b[4] as f64, (b[5] - z0) as f64];
         let leaf = is_leaf(id); let kd = if leaf { LEAF } else { TEX }; let t = block_tint(id); let bl = &BLOCKS[id as usize];
-        for f in 0..6 { if f == 1 && !leaf { continue; } let (di, ao) = match f { 0 => (1, 255.0), 1 => (2, 160.0), 2 | 3 => (3, 220.0), _ => (0, 210.0) }; far_face(&mut o, f, bb, bl.dir_faces[di] as f64, kd, t, ao); }
+        for f in 0..6 { if f == 1 && !leaf { continue; } let (di, ao) = match f { 0 => (1, 230.0), 1 => (2, 130.0), 2 | 3 => (3, 180.0), _ => (0, 172.0) }; /* un arbre résumé en boîtes n'a pas les ombres de ses feuilles : on les lui prête */ far_face(&mut o, f, bb, bl.dir_faces[di] as f64, kd, t, ao); }
     }
     let n = o.n; (o.data, n)
 }

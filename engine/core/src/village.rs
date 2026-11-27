@@ -1144,6 +1144,8 @@ fn phare(works: &mut Work, g: i32, tx: i32, tz: i32, ground: &dyn Fn(i32, i32) -
     works.put([tx, g + 1, tz - 2], 0); works.put([tx, g + 2, tz - 2], 0); works.put([tx, g + 1, tz - 2], id("door"));
     for dx in -3i32..=3 { for dz in -3i32..=3 { let r = dx.abs().max(dz.abs()); if r == 3 && !(dx.abs() == 3 && dz.abs() == 3) { works.put([tx + dx, top, tz + dz], id("granite_slab")); works.put([tx + dx, top + 1, tz + dz], id("fence")); } } }
     for dx in -1i32..=1 { for dz in -1i32..=1 { if dx == 0 && dz == 0 { continue; } for y in top + 1..=top + 3 { works.put([tx + dx, y, tz + dz], id(if dx != 0 && dz != 0 { "granite" } else { "window" })); } } }
-    works.put([tx, top + 1, tz], id("lantern")); works.put([tx, top + 2, tz], id("lantern")); works.put([tx, top + 3, tz], id("lantern"));
+    // Le feu du phare : un brasier sous la verrière, des lanternes suspendues au-dessus ; il se voit de loin la nuit.
+    works.put([tx, top + 1, tz], id("brazier")); works.put([tx, top + 3, tz], id("lantern"));
+    for (dx, dz) in [(-1i32, -1i32), (1, -1), (-1, 1), (1, 1)] { works.put([tx + dx, top + 3, tz + dz], id("storm_lantern")); }
     for dx in -1i32..=1 { for dz in -1i32..=1 { works.put([tx + dx, top + 4, tz + dz], id("slate")); } } works.put([tx, top + 5, tz], id("slate_slab")); works.put([tx, top + 6, tz], id("pennant"));
 }

@@ -60,10 +60,10 @@ fn dragons(p: &mut P, w: i32, d: i32, y: i32, ov: i32) {
         for side in [-1.0f64, 1.0] { let z0 = if side < 0.0 { -o } else { df + o }; let dir = [mid - z0, peak - yf]; let l = (dir[0] * dir[0] + dir[1] * dir[1]).sqrt();
             let (z1, y1) = (mid + dir[0] / l * 1.2, peak + 0.2 + dir[1] / l * 1.2);
             p.k.bar(at, lot.p(u, yf + 0.1, z0), lot.p(u, y1, z1), lot.v(1.0, 0.0, 0.0), 0.13, 0.05, beam, -1.0);
-            let hd = lot.p(u, y1 + 0.1, z1 + dir[0] / l * 0.15); p.k.solid(at, hd, [lot.v(0.0, 0.0, 0.16), [0.0, 0.11, 0.0], lot.v(0.07, 0.0, 0.0)], dark, -1.0, 0);
-            let snout = lot.p(u, y1 + 0.08, z1 + dir[0] / l * 0.15 - side * 0.2); p.k.solid(at, snout, [lot.v(0.0, 0.0, 0.12), [0.0, 0.06, 0.0], lot.v(0.06, 0.0, 0.0)], dark, -1.0, 0);
-            for s in [-1.0, 1.0] { let eye = lot.p(u + s * 0.075, y1 + 0.16, z1 + dir[0] / l * 0.15 - side * 0.05); p.k.solid(at, eye, [lot.v(0.0, 0.0, 0.025), [0.0, 0.025, 0.0], lot.v(0.01, 0.0, 0.0)], [0.9, 0.2, 0.1], -1.0, 0); }
-            let horn = lot.p(u, y1 + 0.3, z1 + dir[0] / l * 0.15 + side * 0.08); p.k.solid(at, horn, [lot.v(0.0, 0.0, 0.03), [0.0, 0.1, 0.0], lot.v(0.03, 0.0, 0.0)], dark, -1.0, 0); } }
+            let hd = lot.p(u, y1 + 0.1, z1 + dir[0] / l * 0.15); p.k.solid(at, hd, [lot.v(0.0, 0.0, 0.28), [0.0, 0.19, 0.0], lot.v(0.12, 0.0, 0.0)], dark, -1.0, 0);
+            let snout = lot.p(u, y1 + 0.06, z1 + dir[0] / l * 0.15 - side * 0.38); p.k.solid(at, snout, [lot.v(0.0, 0.0, 0.2), [0.0, 0.1, 0.0], lot.v(0.1, 0.0, 0.0)], dark, -1.0, 0);
+            for s in [-1.0, 1.0] { let eye = lot.p(u + s * 0.125, y1 + 0.24, z1 + dir[0] / l * 0.15 - side * 0.1); p.k.solid(at, eye, [lot.v(0.0, 0.0, 0.04), [0.0, 0.04, 0.0], lot.v(0.012, 0.0, 0.0)], [0.9, 0.2, 0.1], -1.0, 0); }
+            let horn = lot.p(u, y1 + 0.46, z1 + dir[0] / l * 0.15 + side * 0.14); p.k.solid(at, horn, [lot.v(0.0, 0.0, 0.05), [0.0, 0.17, 0.0], lot.v(0.05, 0.0, 0.0)], dark, -1.0, 0); } }
 }
 /// Un foyer long au milieu de la salle : un lit de pierres, des feux, une marmite.
 fn hearth(p: &mut P, x0: i32, x1: i32, z: i32) { for x in x0..=x1 { p.n(x, 0, z, "cobblestone"); p.n(x, 1, z, if (x - x0) % 2 == 0 { "campfire" } else { "cobblestone_slab" }); } p.n(x1 + 1, 1, z, "cauldron"); }

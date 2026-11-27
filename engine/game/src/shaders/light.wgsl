@@ -38,7 +38,11 @@
     let fade = 1.0 - d2 / r2; let face = select(0.35, 0.15, rr > 0.0) + select(0.65, 0.85, rr > 0.0) * sat(dot(n, dv * inverseSqrt(max(d2, 0.01))));
     glow += u.lights[k * 2 + 1].rgb * face * fade * fade / (1.0 + d2 * 27.0 / r2) * select(0.62, 1.0, rr > 0.0); /* les champignons colorent sans saturer la roche */
   }
-  var c = alb * (direct + amb_c + blkc + glow * 3.2 * vao) + bl;
+  // Lumière renvoyée : le sol au soleil éclaire un peu ce qui le regarde de côté ou d'en dessous (pans de dune, murs à
+  // l'ombre, bords de terrasse), teintée par la matière elle-même (le sable renvoie du sable) : des ombres chaudes et
+  // lisibles au lieu de rayures presque noires.
+  let bounce = u.sun_col.rgb * sat(u.sun.y * 1.6) * (1.0 - sat(n.y)) * 0.3 * vis * (1.0 - cave) * sky2 * (alb * 1.4 + vec3f(0.15));
+  var c = alb * (direct + amb_c + bounce + blkc + glow * 3.2 * vao) + bl;
   let hv = normalize(u.sun.xyz - vv); let nh = sat(dot(n, hv));
   let fres = 0.04 + 0.96 * pow(1.0 - sat(dot(n, -vv)), 5.0);
   c += u.sun_col.rgb * pow(nh, mix(140.0, 10.0, rough)) * (1.0 - rough) * (1.0 - rough) * 1.6 * sh * sat(nol) * (0.4 + fres);

@@ -459,7 +459,7 @@ impl Anim {
             }
             Some(h) if h.hold == Hold::Tool => {
                 let arm = mul(&v, &trs(-0.25 + bx_, -0.27 + by - 0.06 * strike, 0.1 + 0.2 * push + 0.12 * strike, 0.22 + 0.3 * strike, -1.72 + 0.22 * self.run + 0.85 * strike - 0.3 * push, 0.46));
-                out.push(hand(arm)); out.push(Draw { m: mul(&arm, &mul(&hold_m(Hold::Tool), &trs(0.0, 0.0, 0.0, 0.0, 0.0, 0.8))), r: h.r, view: true, local: h.local, hero: true, dynamic: false, hurt: 0.0 });
+                out.push(hand(arm)); out.push(Draw { m: mul(&arm, &mul(&hold_m(Hold::Tool), &trs(0.0, 0.0, 0.0, 0.0, 0.0, 0.64))), r: h.r, view: true, local: h.local, hero: true, dynamic: false, hurt: 0.0 });
             }
             Some(h) => {
                 let sc = if h.hold == Hold::Block { 0.11 } else { 0.2 }; // petit, bas à droite : il ne cache pas ce qu'on bâtit
