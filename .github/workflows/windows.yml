@@ -261,6 +261,8 @@ jobs:
           shot destin_ville -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 destin_ville
           shot quete_offre -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 quete_offre
           shot quete_suivi -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 quete_suivi
+          shot lointain -38.5 150 0.5 -20 138 -30 16.4 10 1280 720 2048 lointain
+          shot chargement -38.5 53 0.5 -20 52 -30 16.4 10 1280 720 2048 chargement
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

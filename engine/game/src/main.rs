@@ -950,6 +950,15 @@ fn capture(a: &[String]) {
         if scene == "horizon" { s.player.p[1] = 96.0; let f = view::norm([x - s.player.p[0], -8.0, z - s.player.p[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
         else { let l = (x * x + z * z).sqrt(); let (ex, ez) = (x - x / l * 170.0, z - z / l * 170.0); let h = w.column(ex, ez).h.max(w.column(ex, ez).water); s.player.p = [ex, h + 12.0, ez]; let f = view::norm([x - ex, 20.0, z - ez]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default()); }
     }
+    // Le monde qui se charge : on file à 700 blocs de là et on photographie dès que l'horizon s'est recentré, avec les seuls
+    // chunks arrivés entre-temps ; le relief lointain doit tenir la place de tous les autres.
+    if scene == "chargement" {
+        let w = WorldGen::new(SEED); let (x, z) = (s.player.p[0] + 700.0, s.player.p[2]); let h = w.column(x, z).h.max(w.column(x, z).water);
+        s.player.p = [x, h + 30.0, z]; let f = view::norm([1.0, -0.2, 0.35]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
+        let t = Instant::now(); let mut far = false;
+        while t.elapsed().as_secs_f64() < 10.0 { let (b, gone) = s.sync(); for c in b { if c.lod == alw_core::stream::FAR { far = true; } g.upload(c); } for k in gone { g.forget(k); } if far && t.elapsed().as_secs_f64() > 0.4 { break; } std::thread::sleep(std::time::Duration::from_millis(5)); }
+        println!("chargement : {} chunks prêts, horizon {far}, en attente {}", s.world.loaded(), s.world.waiting()); s.tick(0.0, none, Actions::default());
+    }
     if scene == "taiga" {
         if s.hour > 20.0 { s.weather.snap(Kind::Clair); } // les aurores ne se voient que par ciel dégagé
         let w = WorldGen::new(SEED); let mut found = None; 'p: for r in 8..500 { for k in 0..96 { let a = k as f64 / 96.0 * std::f64::consts::TAU; let (x, z) = (a.cos() * r as f64 * 16.0, a.sin() * r as f64 * 16.0); let c = w.column(x, z); if c.mix.strong(alw_core::biome::Biome::Taiga) > 0.97 && c.water == 0.0 && c.path == 0.0 { found = Some((x, z, a, c.h)); break 'p; } } }
