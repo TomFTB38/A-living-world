@@ -540,6 +540,13 @@ impl Ui {
             }
         }
     }
+    /// Les tâches en cours, à droite sous la boussole : ce qu'on fait pour qui, et où on en est (doré : c'est fait).
+    fn quests(&mut self, s: &Session, w: f32, k: f32) {
+        let l = s.quest_lines(); if l.is_empty() { return; } let z = 14.0 * k; let pw = l.iter().fold(170.0 * k, |a, (t, p, _)| a.max(Ui::text_width(t, z)).max(Ui::text_width(p, z))) + 28.0 * k;
+        let r = [w - pw - 16.0 * k, 232.0 * k, pw, 30.0 * k + l.len() as f32 * 40.0 * k]; self.panel(r, k, [0.06, 0.08, 0.06, 0.78]); self.rect(r[0] + r[2] - 3.0 * k, r[1], 3.0 * k, r[3], GOLD);
+        self.text("Tâches", r[0] + 14.0 * k, r[1] + 8.0 * k, 13.5 * k, GOLD);
+        for (i, (t, p, done)) in l.iter().enumerate() { let y = r[1] + 28.0 * k + i as f32 * 40.0 * k; self.text(t, r[0] + 14.0 * k, y, z, INK); self.text(&if *done { format!("{p} · c'est fait, retournez le voir") } else { p.clone() }, r[0] + 14.0 * k, y + 17.0 * k, 13.0 * k, if *done { GOLD } else { DIM }); }
+    }
     /// Le conseil de départ en cours, en haut à gauche.
     fn hint(&mut self, s: &Session, k: f32) {
         let Some((n, total, t)) = s.hint() else { return }; let z = 16.0 * k; let lines = wrap(&t, z, 400.0 * k); let bw = lines.iter().fold(0.0f32, |a, l| a.max(Ui::text_width(l, z))).max(160.0 * k) + 28.0 * k;
@@ -883,6 +890,8 @@ impl Ui {
         if s.dead.is_none() && !menu.open && !s.inv_open && s.town.talk.is_none() && s.map.anim <= 0.0 { u.minimap(s, w, k); }
         if menu.tips && !menu.open && info.is_empty() && s.dead.is_none() && !s.inv_open && s.town.talk.is_none() && s.map.anim <= 0.0 { u.hint(s, k); }
         if let (Some(v), None) = (s.marked_village(), &s.dead) { let c = [v.c[0] as f64 + 0.5, v.c[2] as f64 + 0.5]; u.pin(s, c, &v.name, [0.55, 0.75, 0.95, 0.9], w, k); }
+        if s.dead.is_none() { for (c, name) in s.letter_targets() { u.pin(s, c, &format!("Lettre · {name}"), [0.95, 0.78, 0.36, 0.9], w, k); } }
+        if !menu.open && s.dead.is_none() && !s.inv_open && s.map.anim <= 0.0 { u.quests(s, w, k); }
         // Le point de vue aperçu le plus proche qui reste à faire.
         if s.dead.is_none() { let me = s.player.p; if let Some((q, _)) = s.known_views(alw_core::panoramas::VIEW_PIN).into_iter().filter(|v| !v.1).min_by(|a, b| (a.0[0] - me[0]).hypot(a.0[2] - me[2]).total_cmp(&(b.0[0] - me[0]).hypot(b.0[2] - me[2]))) { u.pin(s, [q[0], q[2]], "Point de vue", [0.95, 0.78, 0.3, 0.9], w, k); } }
         // Le trésor marqué le plus proche, sur l'arc de la boussole.

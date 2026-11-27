@@ -1436,7 +1436,7 @@ fn capture(a: &[String]) {
             println!("{scene} : {} ({}) {:?}, {} habitants", v.name, v.kind, v.c, s.town.folk.len());
         }
     }
-    if scene == "village" || scene.starts_with("artisan") || scene == "villageois_echange" || scene == "bourg" || scene == "interieur" || scene.starts_with("reputation") {
+    if scene == "village" || scene.starts_with("artisan") || scene == "villageois_echange" || scene == "bourg" || scene == "interieur" || scene.starts_with("reputation") || scene.starts_with("quete") {
         // Le village le plus proche du départ, en milieu de matinée : la place vue d'en haut, ou le forgeron à son poste et la conversation.
         if let Some(v) = s.nearest_village(0.0, 0.0) {
             let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; s.hour = 10.5; s.sel = 8; s.third = false; s.player.fly = true;
@@ -1448,6 +1448,13 @@ fn capture(a: &[String]) {
                 let f = s.town.folk[k].clone(); let h = &v.houses[f.house]; let e = [h.inside[0] + (h.inside[0] - f.p[0]) * 0.2, c[1] + 1.62, h.inside[2] + (h.inside[2] - f.p[2]) * 0.2];
                 look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default()); s.talk_to(k); s.add_item("iron_ingot", 2); s.add_item("coal", 8); s.add_item("stick", 6); s.add_item("planks", 10); s.tick(0.0, none, Actions::default());
                 if scene == "artisan_commande" { if let Some(i) = s.dialog().and_then(|d| d.options.iter().position(|o| o.0.starts_with("Passer commande"))) { s.choose(i); } }
+            } } else if scene.starts_with("quete") { let givers: Vec<usize> = (0..s.town.folk.len()).filter(|&k| s.town.folk[k].v == v.id && Session::gives_quests(&v, &s.town.folk[k])).collect(); if let Some(&k) = givers.first() {
+                // Les tâches : un villageois en propose une ; ou, à l'écran, les tâches en cours et la boussole vers la lettre à porter.
+                s.set_creative(false); let f = s.town.folk[k].clone(); let e = [f.p[0] + 2.0, f.p[1] + 1.62, f.p[2] + 1.2]; look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default());
+                if scene == "quete_offre" { s.talk_to(k); }
+                else { let h0 = s.hours; for w in 0..6 { s.hours = h0 + w as f64 * 168.0; for &g in &givers { if s.quests.len() < 3 && !s.quests.iter().any(|q| q.house == s.town.folk[g].house) { s.talk_to(g); if let Some(i) = s.dialog().and_then(|d| d.options.iter().position(|o| o.0.starts_with("Une tâche"))) { s.choose(i); } s.town.talk = None; } } }
+                    s.hours = h0; s.add_item("planks", 9); s.notes.clear(); }
+                s.tick(0.0, none, Actions::default()); println!("{scene} : {:?}", s.quest_lines());
             } } else if scene.starts_with("reputation") { if let Some(k) = s.town.folk.iter().position(|f| f.craft.is_none()) {
                 // La réputation : le journal avec les peuples (ami du Royaume, apprécié des ports, mal vu des Clans), ou un village hostile qui vous chasse.
                 use alw_core::factions::Faction; s.set_creative(false); s.sway(Faction::Ports, 12.0); s.sway(Faction::Clans, -14.0);

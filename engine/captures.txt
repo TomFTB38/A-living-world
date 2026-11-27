@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu destin_declin destin_ville
+spawn jeu quete_offre quete_suivi

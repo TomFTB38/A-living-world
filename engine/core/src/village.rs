@@ -73,6 +73,8 @@ const NORTH_B: [&str; 8] = ["heim", "vik", "stad", "dal", "borg", "holm", "gard"
 /// Les noms des villages du désert : « le puits », « la source », « le fort », « l'oued »… et un nom de lieu inventé.
 const DRY_A: [&str; 6] = ["Bir", "Aïn", "Ksar", "Oued", "Tin", "Dar"];
 const DRY_B: [&str; 12] = ["Zerga", "Safra", "Imlil", "Tamar", "Amane", "Sahel", "Ouzane", "Tilla", "Akkar", "Meriz", "Taddart", "Ghalis"];
+/// Le prénom du premier habitant d'une maison (le même que lorsqu'il apparaît).
+pub fn folk_name(v: &Village, i: usize) -> String { FIRST[(hash_float(v.id.0 * 7 + i as i32, v.id.1, 0, 92) * FIRST.len() as f64) as usize % FIRST.len()].to_string() }
 const FIRST: [&str; 24] = ["Anselme", "Berthe", "Colin", "Denise", "Étienne", "Fanchon", "Gaspard", "Hélène", "Isidore", "Jeanne", "Léon", "Margot", "Nicolas", "Odile", "Pierre", "Rosalie", "Simon", "Thérèse", "Urbain", "Victor", "Agathe", "Basile", "Clémence", "Firmin"];
 
 impl WorldGen {
@@ -986,6 +988,7 @@ impl Session {
                 if cm.is_none() { o.push(("Échanger des marchandises".into(), !self.offers(v).is_empty())); }
                 let food = self.inv[self.sel].filter(|st| crate::survival::food(st.item).is_some());
                 o.push((match food { Some(st) => format!("Offrir {}", item(st.item).map_or(st.item, |x| x.label).to_lowercase()), None => "Offrir de quoi manger (rien en main)".into() }, food.is_some()));
+                o.extend(self.quest_options(v, &f)); // les tâches (`quetes`)
                 if f.job == 9 { o.push((format!("Faire un don au village ({} pièces)", crate::destin::GIFT), self.count(crate::economie::COIN) >= crate::destin::GIFT)); }
                 o.push(("Des nouvelles d'autres villages ?".into(), true));
                 o.push((if self.town.marked == Some(v.id) { "Ne plus marquer ce village".into() } else { "Marquer ce village sur ma route".into() }, true));
@@ -1064,6 +1067,7 @@ impl Session {
                 else if label.starts_with("Réparer") { let Some(c) = cm else { return }; if let Err(e) = self.pay(c, 1) { say(self, e); return; } if let Some(st) = self.inv[self.sel].as_mut() { st.wear = 0; } self.gain_rep(vid, 2); self.dirty = true; say(self, "Comme neuf. Prenez-en soin.".into()); }
                 else if label.starts_with("Apprendre") { let Some(c) = cm else { return }; if let Err(e) = self.pay(c, 3) { say(self, e); return; } self.learn(c.id); self.gain_rep(vid, 3); say(self, format!("Je vous montre. Vous pourrez faire mes ouvrages vous-même, à {}.", c.works.first().map_or("l'atelier", |w| w.0.name()))); }
                 else if label.starts_with("Offrir") { self.consume_held_one(); self.gain_rep(vid, 3); say(self, "Merci, c'est bien aimable !".into()); }
+                else if let Some(m) = self.town.village(vid).cloned().and_then(|v| self.quest_choose(&label, &v, &f)) { say(self, m); }
                 else if label.starts_with("Des nouvelles") { let m = self.rumor(vid); say(self, m); }
                 else if label.starts_with("Faire un don") { self.take(crate::economie::COIN, crate::destin::GIFT); let Some(v) = self.town.village(vid).cloned() else { return }; let x = (self.fortune(&v) + crate::destin::GIFT_FORTUNE).min(100.0); self.town.fortune.insert(vid, x); self.gain_rep(vid, 2); let st = self.stage(&v).label(); say(self, format!("Merci ! Cela aidera le village ({st}).")); }
                 else if label.starts_with("Marquer") { self.town.marked = Some(vid); self.dirty = true; say(self, "Bon retour, et revenez nous voir.".into()); }
@@ -1104,7 +1108,7 @@ impl Session {
         let mut fo: Vec<_> = self.town.fortune.iter().collect(); fo.sort_by_key(|x| *x.0); for (id, f) in fo { s += &format!("fortune {} {} {f:.1}\n", id.0, id.1); }
         let mut em: Vec<_> = self.town.empty.iter().filter(|x| !x.1.is_empty()).collect(); em.sort_by_key(|x| *x.0); for (id, l) in em { s += &format!("empty {} {} {}\n", id.0, id.1, l.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")); }
         for id in &self.town.walled { s += &format!("walled {} {}\n", id.0, id.1); }
-        s += &self.factions_save(); s += &self.politics.save(); s
+        s += &self.factions_save(); s += &self.politics.save(); s += &self.quests_save(); s
     }
     /// Une ligne de sauvegarde du village ; faux si elle n'en est pas une.
     pub(crate) fn town_load(&mut self, key: &str, a: &[&str]) -> bool {

@@ -737,6 +737,7 @@ impl Session {
                 Some(k @ ("rep" | "known" | "met" | "marked" | "fortune" | "empty" | "walled")) => { let v: Vec<&str> = a.collect(); self.town_load(k, &v); }
                 Some("factions") => { let v: Vec<&str> = a.collect(); self.factions_load(&v); }
                 Some("politique") => { let v: Vec<&str> = a.collect(); self.politics.load(&v); }
+                Some(k @ ("quete" | "quete_faite")) => { let v: Vec<&str> = a.collect(); self.quests_load(k, &v); }
                 Some("camp") => { let v: Vec<&str> = a.collect(); self.camps_load(&v); }
                 Some(k) if k.starts_with("econ") => { let v: Vec<&str> = a.collect(); self.econ_load(k, &v); }
                 Some("fav") => { for id in a { if let Some(d) = def(id) { self.fav.insert(d.id); } } }
