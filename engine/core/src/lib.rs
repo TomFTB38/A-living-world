@@ -5,6 +5,7 @@ pub mod det;
 pub mod gen;
 pub mod desert;
 pub mod cote;
+pub mod nord;
 pub mod noise;
 pub mod mesher;
 pub mod store;

@@ -381,6 +381,15 @@ fn thatch(t: &Tile, x: f64, y: f64) -> S {
     let strand = t.val(x * 3.0, y * 0.25, 64); let n = t.fbm(x, y, 6, 3); let row = (y / 10.0).floor(); let lap = smooth(0.0, 2.5, y - row * 10.0);
     let k = 0.62 + 0.4 * strand + 0.15 * (n - 0.5); S { c: [0.76 * k * (0.7 + 0.3 * lap), 0.62 * k * (0.7 + 0.3 * lap), 0.32 * k * (0.7 + 0.3 * lap)], h: 0.3 + 0.5 * strand * lap, r: 0.95 }
 }
+/// Le gazon d'un toit du Nord : une herbe drue et couchée, des touffes sèches couleur paille, de la mousse sombre au creux,
+/// et çà et là une petite fleur jaune ou blanche.
+fn turf(t: &Tile, x: f64, y: f64) -> S {
+    let n = t.fbm(x, y, 5, 3); let blade = t.val(x * 2.2, y * 0.5, 48); let dry = smooth(0.58, 0.78, t.fbm(x + 31.0, y * 0.8, 3, 2)); let moss = smooth(0.62, 0.8, t.fbm(x * 0.7 + 9.0, y * 0.7, 4, 2));
+    let g = pal(&GRASS, 0.08 + 0.45 * n + 0.3 * (blade - 0.5)); let k = 0.8 + 0.35 * blade; let straw = [0.6 * k, 0.53 * k, 0.29 * k];
+    let mut c = [0.0; 3]; for i in 0..3 { c[i] = g[i] * (1.0 - 0.6 * dry) + straw[i] * 0.6 * dry; c[i] *= 1.0 - 0.3 * moss; }
+    let f = t.val(x, y, 64); if f > 0.955 { c = if t.val(x + 5.0, y, 64) > 0.5 { [0.95, 0.85, 0.3] } else { [0.92, 0.92, 0.86] }; }
+    S { c, h: 0.3 + 0.55 * blade - 0.2 * moss, r: 0.9 }
+}
 fn cobble(t: &Tile, x: f64, y: f64) -> S {
     let (d1, d2, id) = t.vor(x, y, 4); let gap = smooth(0.0, 0.16, d2 - d1); let n = t.fbm(x, y, 8, 3); let tone = 0.3 + 0.45 * t.pi(id) + 0.3 * (n - 0.5);
     S { c: mul(pal(&STONE, tone), 0.35 + 0.65 * gap), h: 0.15 + 0.7 * gap * (0.7 + 0.3 * n), r: 0.85 }
@@ -677,7 +686,7 @@ fn gen(name: &str, t: &Tile, x: f64, y: f64) -> S {
         "planks" => planks(t, x, y, &PLANKS), "planks_birch" => planks(t, x, y, &PLANKS_BIRCH), "planks_spruce" => planks(t, x, y, &PLANKS_SPRUCE),
         "ore_copper" => ore(t, x, y, [0.32, 0.62, 0.48], [0.78, 0.46, 0.24]), "ore_tin" => ore(t, x, y, [0.8, 0.82, 0.84], [0.58, 0.6, 0.62]), "ore_iron" => ore(t, x, y, [0.7, 0.42, 0.28], [0.52, 0.28, 0.18]), "ore_coal" => ore(t, x, y, [0.07, 0.07, 0.08], [0.16, 0.16, 0.17]),
         "clay" => clay(t, x, y), "stone_bricks" => bricks(t, x, y, 16.0, 32.0, &CUT_STONE, [0.36, 0.34, 0.31]), "bricks" => bricks(t, x, y, 8.0, 16.0, &BRICK, [0.74, 0.7, 0.62]),
-        "thatch" => thatch(t, x, y), "cobble" => cobble(t, x, y), "farmland_top" => farmland(t, x, y),
+        "thatch" => thatch(t, x, y), "turf" => turf(t, x, y), "cobble" => cobble(t, x, y), "farmland_top" => farmland(t, x, y),
         "lime_masonry" => lime_masonry(t, x, y), "rubble" => rubble(t, x, y), "beam_end" => beam_end(t, x, y), "boards" => boards(t, x, y), "tiles_moss" => tiles_moss(t, x, y), "path_top" => path_top(t, x, y),
         "plaster" => plaster(t, x, y), "dark_timber" => dark_timber(t, x, y), "roof_tiles" => roof_tiles(t, x, y), "slate" => slate(t, x, y),
         "marble" => marble(t, x, y), "ashlar" => ashlar(t, x, y), "fieldstone" => fieldstone(t, x, y), "setts" => setts(t, x, y), "polished_stone" => polished(t, x, y),

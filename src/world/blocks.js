@@ -23,7 +23,7 @@ export const MATERIALS = ['grass_top', 'grass_side', 'dirt', 'path', 'stone', 'm
   'coral', 'planks_wreck',
   // Refonte des villages : pierre calcaire appareillée, moellons gris, bout de poutre, bardage de grange, tuiles moussues, chemin de terre.
   'lime_masonry', 'rubble', 'beam_end', 'boards', 'tiles_moss', 'path_top', 'flowstone',
-  'basalt', 'obsidian', 'lava', 'magma', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white', 'abyss_rock', 'glow_moss', 'mycelium', 'mushroom_stem', 'cap_red', 'cap_violet', 'cap_blue', 'gills', 'ice_blue', 'rail_bed', 'leaf_cherry', 'leaf_maple_red', 'leaf_maple_orange', 'leaf_birch_gold'];
+  'basalt', 'obsidian', 'lava', 'magma', 'crystal_violet', 'crystal_blue', 'crystal_pink', 'crystal_white', 'abyss_rock', 'glow_moss', 'mycelium', 'mushroom_stem', 'cap_red', 'cap_violet', 'cap_blue', 'gills', 'ice_blue', 'rail_bed', 'leaf_cherry', 'leaf_maple_red', 'leaf_maple_orange', 'leaf_birch_gold', 'turf'];
 export const matLayer = (name) => MATERIALS.indexOf(name) * VARIANTS;
 
 const defs = [
@@ -192,6 +192,8 @@ const defs = [
   ['clay_bricks', 'cube', ['bricks', 'bricks', 'bricks'], 1.5, { cat: 'rock' }],
   ['cobblestone', 'cube', ['cobble', 'cobble', 'cobble'], 1.5, { cat: 'rock' }],
   ['thatch', 'cube', ['thatch', 'thatch', 'thatch'], 0.35, { cat: 'foliage' }],
+  // Le toit de gazon du Nord : des mottes d'herbe drue posées sur l'écorce, avec des touffes sèches et quelques fleurs.
+  ['turf', 'cube', ['turf', 'turf', 'turf'], 0.5, { cat: 'foliage' }],
   ['birch_planks', 'cube', ['planks_birch', 'planks_birch', 'planks_birch'], 0.7, { cat: 'wood' }],
   ['spruce_planks', 'cube', ['planks_spruce', 'planks_spruce', 'planks_spruce'], 0.8, { cat: 'wood' }],
   ['farmland', 'cube', ['farmland_top', 'dirt', 'dirt'], 0.45, { cat: 'terrain', drop: 'dirt' }],
@@ -360,7 +362,8 @@ for (const [n, t] of [['plaster_ochre', [1.0, 0.82, 0.55]], ['plaster_rose', [1.
 for (const [n, t] of [['white', [1, 1, 1]], ['red', [0.75, 0.2, 0.18]], ['blue', [0.28, 0.4, 0.8]], ['green', [0.35, 0.6, 0.3]], ['yellow', [1.0, 0.85, 0.3]], ['black', [0.22, 0.22, 0.24]], ['brown', [0.55, 0.38, 0.25]], ['purple', [0.55, 0.3, 0.65]], ['orange', [1.0, 0.55, 0.22]]]) cube(`wool_${n}`, 'wool', 0.3, 'foliage', { tint: t });
 // Formes (escaliers, dalles, dalles verticales) des matières qui en ont besoin.
 for (const [n, h, c] of [['marble', 1.8, 'rock'], ['ashlar', 1.6, 'rock'], ['fieldstone', 1.5, 'rock'], ['setts', 1.5, 'rock'], ['polished_stone', 1.6, 'rock'], ['shingles', 0.8, 'wood'], ['roof_tiles', 0.9, 'rock'], ['slate', 1.1, 'rock'], ['copper_roof', 1.4, 'rock'], ['plaster', 0.7, 'rock'], ['timber', 0.9, 'wood'], ['limestone_masonry', 1.6, 'rock'], ['rubble_wall', 1.6, 'rock'], ['mossy_roof_tiles', 0.9, 'rock'], ['barn_boards', 0.8, 'wood']]) forms(n, h, c);
-for (const [n, h, c] of [['roof_tiles', 0.9, 'rock'], ['slate', 1.1, 'rock'], ['mossy_roof_tiles', 0.9, 'rock'], ['shingles', 0.8, 'wood'], ['thatch', 0.35, 'foliage'], ['copper_roof', 1.4, 'rock'], ['planks', 0.8, 'wood']]) slopes(n, h, c);
+for (const [n, h, c] of [['roof_tiles', 0.9, 'rock'], ['slate', 1.1, 'rock'], ['mossy_roof_tiles', 0.9, 'rock'], ['shingles', 0.8, 'wood'], ['thatch', 0.35, 'foliage'], ['copper_roof', 1.4, 'rock'], ['planks', 0.8, 'wood'], ['turf', 0.5, 'foliage']]) slopes(n, h, c);
+forms('turf', 0.5, 'foliage');
 // Mobilier : orientable vers celui qui le pose.
 for (const [n, h, p] of [['chair', 0.5, { solid: true }], ['bench', 0.6, { solid: true }], ['armchair', 0.6, { solid: true }], ['throne', 1.2, { solid: true }], ['cupboard', 0.9, { solid: true }],
   ['fireplace', 1.6, { solid: true, light: 13 }], ['loom', 0.8, { solid: true }], ['spinning_wheel', 0.6, { solid: true }], ['grindstone', 1.2, { solid: true }], ['signpost', 0.5, { solid: true }],

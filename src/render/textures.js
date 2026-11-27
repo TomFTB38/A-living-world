@@ -124,6 +124,7 @@ function planks(t, x, y) {
 }
 
 const GEN = {
+  turf: (t, x, y) => { const n = t.fbm(x, y, 5, 3), b = t.val(x * 2.2, y * 0.5, 48), dry = Math.min(1, Math.max(0, (t.fbm(x + 31, y * 0.8, 3, 2) - 0.58) / 0.2)); const g = pal(GRASS, 0.08 + 0.45 * n + 0.3 * (b - 0.5)); const k = 0.8 + 0.35 * b; return { c: [0, 1, 2].map(i => g[i] * (1 - 0.6 * dry) + [0.6, 0.53, 0.29][i] * k * 0.6 * dry), h: 0.3 + 0.55 * b, r: 0.9 }; },
   grass_top: grassTop, grass_side: grassSide, dirt: (t, x, y) => dirt(t, x, y),
   path: (t, x, y) => dirt(t, x, y, ['#7c5b35', '#a07a4c', '#bc9663', '#d2b080'].map(hex)),
   forest_soil: (t, x, y) => { const d = dirt(t, x, y, ['#2f2413', '#4a3a1f', '#5e5127', '#6f6a2f'].map(hex)); return d; },

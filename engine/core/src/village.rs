@@ -67,6 +67,9 @@ pub(crate) fn id(n: &str) -> Id { by_name(n).unwrap_or_else(|| panic!("bloc inco
 fn dir(f: u8) -> (i32, i32) { [(0, 1), (1, 0), (0, -1), (-1, 0)][f as usize % 4] }
 const NAME_A: [&str; 16] = ["Haut", "Bel", "Clair", "Roche", "Val", "Mont", "Pré", "Bois", "Fond", "Gué", "Saule", "Brune", "Vieux", "Grand", "Pierre", "Chêne"];
 const NAME_B: [&str; 12] = ["val", "fort", "mont", "bourg", "lieu", "ville", "champ", "roche", "font", "court", "mesnil", "lande"];
+/// Les noms des villages du Nord : un mot de la forêt, de la montagne ou d'une bête, et « le foyer », « la baie », « le val »…
+const NORTH_A: [&str; 10] = ["Skog", "Fjell", "Ulf", "Hrafn", "Ask", "Stein", "Bjørn", "Is", "Varg", "Ørn"];
+const NORTH_B: [&str; 8] = ["heim", "vik", "stad", "dal", "borg", "holm", "gard", "by"];
 /// Les noms des villages du désert : « le puits », « la source », « le fort », « l'oued »… et un nom de lieu inventé.
 const DRY_A: [&str; 6] = ["Bir", "Aïn", "Ksar", "Oued", "Tin", "Dar"];
 const DRY_B: [&str; 12] = ["Zerga", "Safra", "Imlil", "Tamar", "Amane", "Sahel", "Ouzane", "Tilla", "Akkar", "Meriz", "Taddart", "Ghalis"];
@@ -215,9 +218,9 @@ impl WorldGen {
         let mut crafts: Vec<&'static str> = cand.iter().enumerate().filter(|(i, c)| c.id == "forgeron" || h(*i as i32) < 0.68).map(|(_, c)| c.id).collect();
         for c in &cand { if crafts.len() >= 2 { break; } if !crafts.contains(&c.id) { crafts.push(c.id); } }
         crafts.truncate(if kind == "port" { 2 } else { 4 }); // un port de pêche reste un petit bourg
-        let homes = 2 + (h(10) * 3.0) as usize; let name = if kind == "desert" { format!("{} {}", DRY_A[(h(11) * 6.0) as usize % 6], DRY_B[(h(12) * 12.0) as usize % 12]) } else { format!("{}{}", NAME_A[(h(11) * 16.0) as usize % 16], NAME_B[(h(12) * 12.0) as usize % 12]) };
-        // Les civilisations médiévale, du désert et de la côte passent par le nouveau générateur de plans ; le Nord suivra.
-        if matches!(crate::bourg::civ_of(kind), crate::bourg::Civ::Medieval | crate::bourg::Civ::Desert | crate::bourg::Civ::Coastal) { return crate::bourg::medieval(self, gx, gz, x, y0, z, kind, crafts, name); } // le désert passe aussi par le générateur de plans (bâtiments de `desert`)
+        let homes = 2 + (h(10) * 3.0) as usize; let name = if matches!(kind, "taiga" | "montagne") { format!("{}{}", NORTH_A[(h(11) * 10.0) as usize % 10], NORTH_B[(h(12) * 8.0) as usize % 8]) } else if kind == "desert" { format!("{} {}", DRY_A[(h(11) * 6.0) as usize % 6], DRY_B[(h(12) * 12.0) as usize % 12]) } else { format!("{}{}", NAME_A[(h(11) * 16.0) as usize % 16], NAME_B[(h(12) * 12.0) as usize % 12]) };
+        // Toutes les civilisations (médiévale, désert, côte, Nord) passent maintenant par le nouveau générateur de plans.
+        if matches!(crate::bourg::civ_of(kind), crate::bourg::Civ::Medieval | crate::bourg::Civ::Desert | crate::bourg::Civ::Coastal | crate::bourg::Civ::Nordic) { return crate::bourg::medieval(self, gx, gz, x, y0, z, kind, crafts, name); } // le désert passe aussi par le générateur de plans (bâtiments de `desert`)
         let mut v = Village { id: (gx, gz), kind, name, c: [x, y0, z], r: 8, crafts: crafts.clone(), houses: Vec::new(), works: Vec::new(), fields: 0, ident: None };
         let nat = |x: i32, z: i32| self.column(x as f64 + 0.5, z as f64 + 0.5).h.ceil() as i32 - 1;
         let mut pads = vec![Pad { c: [x as f64 + 0.5, z as f64 + 0.5], half: [7.5, 7.5], round: true, h: y0 }]; let mut paths: Vec<[i32; 3]> = Vec::new();
