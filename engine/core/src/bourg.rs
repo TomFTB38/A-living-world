@@ -134,7 +134,7 @@ pub(crate) fn medieval(g: &WorldGen, gx: i32, gz: i32, x: i32, y0: i32, z: i32, 
     if ident.outlook == Outlook::Expansion || (ident.outlook == Outlook::Prosperity && h(73) < 0.5) { wants.push(Want { spec: mk(Arch::House, nh(), None, Cond::Building), pref: 2 }); }
     if ident.size >= Size::Small && ident.wealth < 0.45 && ident.outlook != Outlook::Expansion && h(75) < 0.6 { wants.push(Want { spec: mk(Arch::Cottage, nh(), None, Cond::Abandoned), pref: 3 }); }
     // Sur la côte, la place est comptée entre la mer et les terres : les maisons des pêcheurs passent avant les fermes.
-    if coast { wants.sort_by_key(|w| w.spec.arch.rural() as u8); }
+    if coast || north { wants.sort_by_key(|w| w.spec.arch.rural() as u8); } // (de même en montagne, où la place manque)
     // ---- le placement : pour chaque demande, l'emplacement libre le mieux venu le long des rues
     let total: f64 = roads.iter().map(|r| r.pts.len() as f64 * 2.0).fold(0.0, f64::max) + pr;
     let mut placed: Vec<Placed> = Vec::new(); let mut taken: Vec<[i32; 4]> = Vec::new();

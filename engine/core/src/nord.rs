@@ -26,7 +26,7 @@ impl NKind {
 /// Corps, porte sur la façade (z = 0) et emprise. Maison : bit 0, plus longue.
 pub fn plan(k: NKind, var: u8) -> Plan {
     let (w, d, door) = match k { NKind::Longue => (if var & 1 != 0 { 11 } else { 9 }, 6, 2), NKind::Atelier => (7, 6, 5), NKind::Hydromel => (13, 8, 6), NKind::Halle => (15, 9, 7), NKind::GrandeHalle => (17, 10, 8), NKind::Etable => (9, 6, 4), NKind::Ferme => (11, 6, 3) };
-    Plan { w, d, door, ext: [-2, -2, w + 1, d + 1], mirror: false }
+    Plan { w, d, door, ext: [-1, -2, w, d], mirror: false }
 }
 
 /// Bâtit un bâtiment du Nord, le sol à y0 ; rend porte, poste et lit en coordonnées du terrain.
@@ -72,7 +72,7 @@ fn shields(p: &mut P, xs: &[i32], y: i32) { for &x in xs { p.turn(x, y, -1, "rou
 
 // ------------------------------------------------------------------ la maison longue
 fn longue(p: &mut P, w: i32, rich: f64) -> Built {
-    let d = 6; p.ground([-2, -2, w + 1, d + 1], 12, [0, 0, w - 1, d - 1], "spruce_planks", "fieldstone");
+    let d = 6; p.ground([-1, -2, w, d], 12, [0, 0, w - 1, d - 1], "spruce_planks", "fieldstone");
     logs(p, (0, w - 1), (0, d - 1), 3); p.roof((0, w - 1), (0, d - 1), 4, 1, false, "turf", Some("spruce_planks")); dragons(p, w, d, 4, 1);
     p.door(2, 1, 0, 0, -1); shields(p, &[1, 3], 2); if rich > 0.5 { shields(p, &[5], 2); } p.win(w - 3, 2, 0, true); p.win(w / 2, 2, d - 1, true);
     // dedans : le foyer au milieu, les bancs de fourrure, le lit, le coffre à runes, le râtelier, les bois de cerf
@@ -86,7 +86,7 @@ fn longue(p: &mut P, w: i32, rich: f64) -> Built {
 
 // ------------------------------------------------------------------ l'atelier de rondins
 fn atelier(p: &mut P, craft: Option<&'static str>) -> Built {
-    let (w, d) = (7, 6); p.ground([-2, -2, w + 1, d + 1], 12, [0, 0, w - 1, d - 1], "spruce_planks", "fieldstone");
+    let (w, d) = (7, 6); p.ground([-1, -2, w, d], 12, [0, 0, w - 1, d - 1], "spruce_planks", "fieldstone");
     logs(p, (0, w - 1), (0, d - 1), 3); for x in 1..=3 { for y in 1..=3 { p.put(x, y, 0, 0); } } for y in 2..=3 { slog(p, 0, y, 0, 'y'); slog(p, 4, y, 0, 'y'); } p.n(4, 1, 0, "fieldstone"); // ouvert sur la rue
     p.roof((0, w - 1), (0, d - 1), 4, 1, false, "turf", Some("spruce_planks")); dragons(p, w, d, 4, 1); p.door(5, 1, 0, 0, -1); p.win(w - 1, 2, 3, false);
     let station = match craft { Some("forgeron" | "maitre_forgeron" | "armurier") => "anvil", Some("tanneur") => "cauldron", Some("tisserand" | "tailleur") => "loom", _ => "workbench" };
@@ -97,7 +97,7 @@ fn atelier(p: &mut P, craft: Option<&'static str>) -> Built {
 
 // ------------------------------------------------------------------ la halle à hydromel
 fn hydromel(p: &mut P) -> Built {
-    let (w, d) = (13, 8); p.ground([-2, -2, w + 1, d + 1], 14, [0, 0, w - 1, d - 1], "spruce_planks", "fieldstone");
+    let (w, d) = (13, 8); p.ground([-1, -2, w, d], 14, [0, 0, w - 1, d - 1], "spruce_planks", "fieldstone");
     logs(p, (0, w - 1), (0, d - 1), 4); p.roof((0, w - 1), (0, d - 1), 5, 1, false, "turf", Some("spruce_planks")); dragons(p, w, d, 5, 1);
     p.door(6, 1, 0, 0, -1); shields(p, &[2, 4, 8, 10], 3); p.turn(5, 3, -1, "banner_red", 0, 1); p.turn(7, 3, -1, "banner_red", 0, 1); for x in [3, 9] { p.win(x, 2, 0, true); p.win(x, 2, d - 1, true); }
     // les longues tables et leurs bancs, le foyer, les tonneaux d'hydromel, les lits des voyageurs
@@ -110,7 +110,7 @@ fn hydromel(p: &mut P) -> Built {
 
 // ------------------------------------------------------------------ la halle du jarl
 fn halle(p: &mut P, w: i32, d: i32) -> Built {
-    let door = w / 2; p.ground([-2, -2, w + 1, d + 1], 20, [0, 0, w - 1, d - 1], "spruce_planks", "fieldstone");
+    let door = w / 2; p.ground([-1, -2, w, d], 20, [0, 0, w - 1, d - 1], "spruce_planks", "fieldstone");
     logs(p, (0, w - 1), (0, d - 1), 5); for x in (2..w - 2).step_by(4) { for y in 2..=5 { slog(p, x, y, 0, 'y'); slog(p, x, y, d - 1, 'y'); } } // les poteaux du mur
     p.roof((0, w - 1), (0, d - 1), 6, 1, false, "turf", Some("spruce_planks")); dragons(p, w, d, 6, 1);
     p.door(door, 1, 0, 0, -1); let sx: Vec<i32> = (1..w - 1).filter(|x| x % 2 == 1 && (x - door).abs() > 1).collect(); shields(p, &sx, 3); p.turn(door - 1, 4, -1, "banner_red", 0, 1); p.turn(door + 1, 4, -1, "banner_red", 0, 1);
@@ -125,7 +125,7 @@ fn halle(p: &mut P, w: i32, d: i32) -> Built {
 
 // ------------------------------------------------------------------ l'étable de gazon (et la ferme-étable)
 fn etable(p: &mut P, w: i32, house: bool) -> Built {
-    let d = 6; let gate = if house { 3 } else { w / 2 }; p.ground([-2, -2, w + 1, d + 1], 10, [0, 0, w - 1, d - 1], "dirt", "fieldstone");
+    let d = 6; let gate = if house { 3 } else { w / 2 }; p.ground([-1, -2, w, d], 10, [0, 0, w - 1, d - 1], "dirt", "fieldstone");
     logs(p, (0, w - 1), (0, d - 1), 3); p.roof((0, w - 1), (0, d - 1), 4, 1, false, "turf", Some("spruce_planks")); dragons(p, w, d, 4, 1);
     for x in gate..=gate + 1 { for y in 1..=2 { p.put(x, y, 0, 0); } } // la grande porte de l'étable
     for x in 1..w - 1 { if house && x >= w - 4 { continue; } if x != gate && x != gate + 1 { p.n(x, 1, d - 2, "hay_bale"); } } p.turn(1, 1, 2, "trough", -1, 0); p.turn(1, 1, 3, "trough", -1, 0); p.n(w - 2, 1, 1, "barrel");

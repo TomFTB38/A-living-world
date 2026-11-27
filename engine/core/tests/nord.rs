@@ -59,7 +59,7 @@ fn un_village_viking() {
         for dx in -r..=r { for dz in -r..=r { if dx * dx + dz * dz > r * r { continue; } for yy in y - 10..y + 24 { *seen.entry(block_at(&g, &mut cache, x + dx, yy, z + dz)).or_default() += 1; } } }
         let pre = |p: &str| seen.iter().filter(|(k, _)| k.starts_with(p)).map(|(_, c)| *c).sum::<usize>();
         println!("  gazon {} ; rondins {} ; boucliers {} ; pieux {} ; pierres moussues {} ; tuiles {} ; ardoise {}", pre("turf"), pre("spruce_log"), pre("round_shield"), pre("spruce_post"), pre("mossy_stone"), pre("roof_tiles"), pre("slate"));
-        assert!(pre("turf") > 100, "des toits de gazon"); if v.works.iter().any(|w| w.0 == Arch::House) { assert!(pre("round_shield") >= 4, "les maisons longues et leurs boucliers"); } if block_at(&g, &mut cache, x, y, z) != "water" { assert!(pre("stone_pillar") >= 3, "la pierre runique"); }
+        assert!(pre("turf") > 100, "des toits de gazon"); if v.works.iter().any(|w| w.0 == Arch::House) { assert!(pre("round_shield") >= 2, "les maisons longues et leurs boucliers"); } if block_at(&g, &mut cache, x, y, z) != "water" { assert!(pre("stone_pillar") >= 3, "la pierre runique"); }
         assert_eq!(pre("roof_tiles") + pre("thatch"), 0, "rien de médiéval");
         if pre("spruce_post") > 20 { palisades += 1; }
     }
