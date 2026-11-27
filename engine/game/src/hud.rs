@@ -681,7 +681,7 @@ impl Ui {
             self.text(&format!("{}. {}{} · {} · {}", i + 1, v.name, if marked { " (marqué)" } else { "" }, alw_core::village::kind_label(v.kind), at), x + 18.0 * k, yy, 17.0 * k, if marked { GOLD } else { INK });
             let mut px = x + 40.0 * k;
             for (c, met) in crafts { let n = alw_core::village::craftsman(c).map_or(*c, |x| x.name); let z = 14.0 * k; self.text(n, px, yy + 22.0 * k, z, if *met { ACCENT } else { DIM }); px += Ui::text_width(n, z) + 18.0 * k; }
-            let r = format!("réputation {} · {}", s.standing(v.id), s.tier(v.id).label()); let z = 14.0 * k; self.text(&r, x + pw - Ui::text_width(&r, z) - 18.0 * k, yy + 22.0 * k, z, DIM);
+            let st = s.stage(v); let r = format!("{}réputation {} · {}", if st != alw_core::destin::Stage::Stable { format!("{} · ", st.label()) } else { String::new() }, s.standing(v.id), s.tier(v.id).label()); let z = 14.0 * k; self.text(&r, x + pw - Ui::text_width(&r, z) - 18.0 * k, yy + 22.0 * k, z, DIM);
         }
         // les peuples entre eux : alliances et guerres, et la dernière nouvelle
         let yb = y + ph - 50.0 * k; let z = 14.0 * k; let mut fx = x + 18.0 * k; let links = s.politics_lines();

@@ -734,7 +734,7 @@ impl Session {
                 Some("taught") => { for id in a.by_ref() { if let Some(c) = crate::data::db().craftsmen.iter().find(|c| c.id == id) { self.taught.insert(c.id); } } }
                 Some("guide") => { self.guide = a.next().and_then(|v| v.parse().ok()).unwrap_or(0); }
                 Some("carte") => { let v: Vec<&str> = a.collect(); self.map.load(&v); }
-                Some(k @ ("rep" | "known" | "met" | "marked")) => { let v: Vec<&str> = a.collect(); self.town_load(k, &v); }
+                Some(k @ ("rep" | "known" | "met" | "marked" | "fortune" | "empty" | "walled")) => { let v: Vec<&str> = a.collect(); self.town_load(k, &v); }
                 Some("factions") => { let v: Vec<&str> = a.collect(); self.factions_load(&v); }
                 Some("politique") => { let v: Vec<&str> = a.collect(); self.politics.load(&v); }
                 Some("camp") => { let v: Vec<&str> = a.collect(); self.camps_load(&v); }

@@ -391,6 +391,8 @@ pub struct Town {
     scan_t: f64,
     /// Ce que disent les villageois en passant (pour les notes), portes qu'ils ont ouvertes (et quand les refermer).
     pub(crate) news: Vec<String>, doors: Vec<([i32; 3], f64)>,
+    /// Le destin des villages (`destin`) : leur fortune, leurs maisons abandonnées, ceux qui ont leur rempart.
+    pub fortune: HashMap<(i32, i32), f64>, pub empty: HashMap<(i32, i32), Vec<usize>>, pub walled: Vec<(i32, i32)>, pub(crate) fate_t: f64,
 }
 impl Folk {
     /// Un marchand d'un village voisin, tiré d'un habitant : il paraît en `at`, une caisse dans les bras, et va en `to` ; il
@@ -509,9 +511,13 @@ impl Town {
             self.folk[k] = f;
         }
     }
-    pub(crate) fn spawn(&mut self, v: &Village, hour: f64) {
-        let mut n = 0u32; let base = self.folk.len();
+    pub(crate) fn spawn(&mut self, v: &Village, hour: f64) { self.spawn_in(v, hour, None); }
+    /// Les habitants de quelques maisons seulement (ceux qui reviennent au village).
+    pub(crate) fn respawn(&mut self, v: &Village, hour: f64, houses: &[usize]) { self.spawn_in(v, hour, Some(houses)); }
+    fn spawn_in(&mut self, v: &Village, hour: f64, only: Option<&[usize]>) {
+        let mut n = 0u32; let base = self.folk.len(); let empty = self.empty.get(&v.id).cloned().unwrap_or_default();
         for (i, h) in v.houses.iter().enumerate() {
+            if empty.contains(&i) || only.is_some_and(|o| !o.contains(&i)) { continue; } // une maison abandonnée (`destin`)
             if self.folk.len() >= 100 { break; } // au plus cent villageois simulés à la fois
             let count = if h.family > 0 { h.family as usize } else if h.craft.is_some() { 1 } else { 1 + (hash_float(v.id.0, v.id.1, i as i32, 91) < 0.6) as usize };
             for j in 0..count {
@@ -922,7 +928,8 @@ impl Session {
     /// Les échanges que propose un villageois. Au village pilote, le marché vient de ses réserves (ce qu'il a de trop, ce qui
     /// lui manque), puis les échanges de son pays, s'il a de quoi ; ailleurs, les échanges de son pays.
     pub fn offers(&self, v: &Village) -> Vec<Offer> {
-        let t = self.tier(v.id); let war = self.politics.at_war(crate::factions::Faction::of_kind(v.kind)); let o = self.offers_raw(v); o.into_iter().map(|mut x| { x.give.1 = t.price(x.give.1); if war { x.give.1 = (x.give.1 * 5).div_ceil(4); } x }).collect() // le prix suit la réputation ; la guerre renchérit tout
+        let t = self.tier(v.id); let war = self.politics.at_war(crate::factions::Faction::of_kind(v.kind)); let st = self.stage(v); let o = self.offers_raw(v);
+        o.into_iter().enumerate().filter(|(i, _)| match st { crate::destin::Stage::Ruine => false, crate::destin::Stage::Declin => i % 2 == 0, _ => true }).map(|(_, mut x)| { x.give.1 = st.price(t.price(x.give.1)); if war { x.give.1 = (x.give.1 * 5).div_ceil(4); } x }).collect() /* le prix suit la réputation, la fortune du village et la guerre ; un village en déclin a moins à vendre */ // le prix suit la réputation ; la guerre renchérit tout
     }
     fn offers_raw(&self, v: &Village) -> Vec<Offer> {
         let base = trades(v.kind).into_iter().map(|t| Offer { give: t.give, get: t.get, can: true, stock: None, tag: 0 });
@@ -979,6 +986,7 @@ impl Session {
                 if cm.is_none() { o.push(("Échanger des marchandises".into(), !self.offers(v).is_empty())); }
                 let food = self.inv[self.sel].filter(|st| crate::survival::food(st.item).is_some());
                 o.push((match food { Some(st) => format!("Offrir {}", item(st.item).map_or(st.item, |x| x.label).to_lowercase()), None => "Offrir de quoi manger (rien en main)".into() }, food.is_some()));
+                if f.job == 9 { o.push((format!("Faire un don au village ({} pièces)", crate::destin::GIFT), self.count(crate::economie::COIN) >= crate::destin::GIFT)); }
                 o.push(("Des nouvelles d'autres villages ?".into(), true));
                 o.push((if self.town.marked == Some(v.id) { "Ne plus marquer ce village".into() } else { "Marquer ce village sur ma route".into() }, true));
                 o.push(("Au revoir".into(), true));
@@ -1057,6 +1065,7 @@ impl Session {
                 else if label.starts_with("Apprendre") { let Some(c) = cm else { return }; if let Err(e) = self.pay(c, 3) { say(self, e); return; } self.learn(c.id); self.gain_rep(vid, 3); say(self, format!("Je vous montre. Vous pourrez faire mes ouvrages vous-même, à {}.", c.works.first().map_or("l'atelier", |w| w.0.name()))); }
                 else if label.starts_with("Offrir") { self.consume_held_one(); self.gain_rep(vid, 3); say(self, "Merci, c'est bien aimable !".into()); }
                 else if label.starts_with("Des nouvelles") { let m = self.rumor(vid); say(self, m); }
+                else if label.starts_with("Faire un don") { self.take(crate::economie::COIN, crate::destin::GIFT); let Some(v) = self.town.village(vid).cloned() else { return }; let x = (self.fortune(&v) + crate::destin::GIFT_FORTUNE).min(100.0); self.town.fortune.insert(vid, x); self.gain_rep(vid, 2); let st = self.stage(&v).label(); say(self, format!("Merci ! Cela aidera le village ({st}).")); }
                 else if label.starts_with("Marquer") { self.town.marked = Some(vid); self.dirty = true; say(self, "Bon retour, et revenez nous voir.".into()); }
                 else if label.starts_with("Ne plus marquer") { self.town.marked = None; self.dirty = true; say(self, "Comme vous voudrez.".into()); }
                 else { self.town.talk = None; }
@@ -1092,16 +1101,22 @@ impl Session {
         for id in &self.town.known { s += &format!("known {} {}\n", id.0, id.1); }
         let mut met: Vec<_> = self.town.met.iter().collect(); met.sort(); for (id, c) in met { s += &format!("met {} {} {c}\n", id.0, id.1); }
         if let Some(id) = self.town.marked { s += &format!("marked {} {}\n", id.0, id.1); }
+        let mut fo: Vec<_> = self.town.fortune.iter().collect(); fo.sort_by_key(|x| *x.0); for (id, f) in fo { s += &format!("fortune {} {} {f:.1}\n", id.0, id.1); }
+        let mut em: Vec<_> = self.town.empty.iter().filter(|x| !x.1.is_empty()).collect(); em.sort_by_key(|x| *x.0); for (id, l) in em { s += &format!("empty {} {} {}\n", id.0, id.1, l.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")); }
+        for id in &self.town.walled { s += &format!("walled {} {}\n", id.0, id.1); }
         s += &self.factions_save(); s += &self.politics.save(); s
     }
     /// Une ligne de sauvegarde du village ; faux si elle n'en est pas une.
     pub(crate) fn town_load(&mut self, key: &str, a: &[&str]) -> bool {
-        let n = |i: usize| a.get(i).and_then(|v| v.parse::<i32>().ok()); let Some(id) = n(0).zip(n(1)) else { return matches!(key, "rep" | "known" | "met" | "marked") };
+        let n = |i: usize| a.get(i).and_then(|v| v.parse::<i32>().ok()); let Some(id) = n(0).zip(n(1)) else { return matches!(key, "rep" | "known" | "met" | "marked" | "fortune" | "empty" | "walled") };
         match key {
             "rep" => { self.town.rep.insert(id, n(2).unwrap_or(0)); }
             "known" => { if let Some(s) = self.gen.site(id.0, id.1) { if !self.town.known.contains(&id) { self.town.known.push(id); } self.town.atlas.insert(id, s.v.clone()); } }
             "met" => { if let Some(c) = a.get(2).and_then(|c| craftsman(c)) { self.town.met.insert((id, c.id)); } }
             "marked" => { self.town.marked = Some(id); }
+            "fortune" => { if let Some(f) = a.get(2).and_then(|v| v.parse::<f64>().ok()) { self.town.fortune.insert(id, f); } }
+            "empty" => { self.town.empty.insert(id, a.get(2).map_or(Vec::new(), |l| l.split(',').filter_map(|x| x.parse().ok()).collect())); }
+            "walled" => { if !self.town.walled.contains(&id) { self.town.walled.push(id); } }
             _ => return false,
         }
         true

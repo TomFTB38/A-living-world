@@ -1289,6 +1289,22 @@ fn capture(a: &[String]) {
         for _ in 0..30 { let (q, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y; s.player.pitch = pi; }
         pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
     }
+    if scene == "destin_declin" || scene == "destin_ville" {
+        // Le destin des villages : un village en déclin (maisons vides, portes arrachées), ou devenu ville (son rempart).
+        let w = WorldGen::new(SEED); s.sel = 8; s.third = false; s.player.fly = true; s.set_creative(true); s.skip_guide(); s.hour = 10.5;
+        let pick = |v: &alw_core::village::Village| if scene == "destin_ville" { v.ident.is_some_and(|i| i.size != alw_core::bourg::Size::Hamlet) && v.kind != "port" } else { true };
+        if let Some(v) = w.villages_near(0.0, 0.0, 2000.0).into_iter().find(|v| pick(v)) {
+            let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; println!("{scene} : {} {:?}", v.name, v.c);
+            let gone = Session::empty_houses(&v, alw_core::destin::Stage::Declin); let target = if scene == "destin_declin" { gone.first().map(|&i| v.houses[i].door).unwrap_or([c[0], c[1], c[2]]) } else { c };
+            let (from, to) = if scene == "destin_declin" { let d = [target[0] - c[0], target[2] - c[2]]; let l = d[0].hypot(d[1]).max(1.0); ([target[0] + d[0] / l * 7.0 - 2.0, target[1] + 3.5, target[2] + d[1] / l * 7.0 - 2.0], [target[0], target[1] + 1.0, target[2]]) } else { ([c[0] - 52.0, c[1] + 40.0, c[2] - 52.0], c) };
+            s.player.p = from; let f = view::norm([to[0] - from[0], to[1] - from[1] - 1.6, to[2] - from[2]]); s.player.yaw = f[0].atan2(f[2]); s.player.pitch = f[1].asin();
+            g.settle(); pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); for _ in 0..60 { s.tick(1.0 / 60.0, none, Actions::default()); }
+            s.town.fortune.insert(v.id, if scene == "destin_ville" { 90.0 } else { -40.0 }); s.set_creative(false);
+            for _ in 0..120 { let (q, y, pi) = (s.player.p, s.player.yaw, s.player.pitch); s.tick(1.0 / 60.0, none, Actions::default()); s.player.p = q; s.player.yaw = y; s.player.pitch = pi; }
+            println!("{scene} : étape {} ; vides {:?} ; rempart {}", s.stage(&v).label(), s.town.empty.get(&v.id), s.town.walled.contains(&v.id)); s.notes.clear();
+            pump(&mut s, &mut g); g.settle(); pump(&mut s, &mut g); s.tick(0.0, none, Actions::default());
+        }
+    }
     if scene == "plat_cote" {
         // Les bâtiments de la côte alignés dans le monde plat.
         use alw_core::cote::{build, plan, CKind}; let o = [-41, alw_core::gen::FLAT_Y, -20]; s.wild.all.clear(); s.horde.foes.clear(); s.set_creative(true); s.skip_guide(); s.hour = 10.0; s.sel = 8; s.third = false; s.player.fly = true;

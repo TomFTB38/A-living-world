@@ -94,6 +94,7 @@ impl Session {
         let mut trade = [[0u32; 4]; 4]; for r in self.trade_routes() { if r.fa != r.fb && r.open { let (i, j) = (r.fa as usize, r.fb as usize); trade[i][j] += 1; trade[j][i] += 1; } }
         for k in 0..n { for line in self.politics.day_passes(trade) { if k == n - 1 || line.starts_with("La guerre") || line.starts_with("Trêve") || line.starts_with("Alliance") { self.notes.push(line.clone()); } self.politics.news.push((day, line)); } }
         let keep = self.politics.news.len().saturating_sub(8); self.politics.news.drain(..keep); self.dirty = true;
+        self.fate_day(n); // et la fortune des villages (`destin`)
     }
     /// Les liens qui ne sont pas une paix ordinaire, pour le journal.
     pub fn politics_lines(&self) -> Vec<(Faction, Faction, Bond)> {
