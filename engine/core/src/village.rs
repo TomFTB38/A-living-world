@@ -437,7 +437,7 @@ pub fn where_is(from: [f64; 3], v: &Village) -> String { let (dx, dz) = (v.c[0] 
 fn inside(h: &House, p: [f64; 3]) -> bool { p[0] > h.area[0] as f64 + 1.0 && p[0] < h.area[2] as f64 && p[2] > h.area[1] as f64 + 1.0 && p[2] < h.area[3] as f64 }
 
 impl Town {
-    fn village(&self, id: (i32, i32)) -> Option<&Village> { self.here.iter().find(|v| v.id == id).or_else(|| self.atlas.get(&id)) }
+    pub(crate) fn village(&self, id: (i32, i32)) -> Option<&Village> { self.here.iter().find(|v| v.id == id).or_else(|| self.atlas.get(&id)) }
     /// Où ce villageois veut être à cette heure : (lieu, numéro qui change quand il doit repartir) et la position.
     /// La nuit au lit. Les artisans à l'atelier, avec une pause à midi. Les autres vont et viennent : chez eux, devant chez un voisin,
     /// le long d'une rue, au marché ; le puits n'est qu'une étape parmi d'autres. Le soir, une partie se retrouve sur la place.
@@ -874,7 +874,7 @@ impl Session {
         if self.world.get(low[0], low[1] + 1, low[2]).and_then(crate::shapes::info).is_some_and(|u| u.kind == crate::shapes::Kind::Door) { e.push((low[0], low[1] + 1, low[2], variant(i.base, i.facing, false, open, true))); }
         self.world.edit_many(&e); self.sound.place("planks");
     }
-    pub(crate) fn discover(&mut self, v: &Village) { if !self.town.known.contains(&v.id) { self.town.known.push(v.id); } self.town.atlas.insert(v.id, v.clone()); self.dirty = true; }
+    pub fn discover(&mut self, v: &Village) { if !self.town.known.contains(&v.id) { self.town.known.push(v.id); } self.town.atlas.insert(v.id, v.clone()); self.dirty = true; }
     /// Le villageois sous le réticule, à portée de voix et devant le bloc visé.
     pub fn aim_folk(&self) -> Option<usize> {
         let (o, d) = (self.eye, self.look); let block_t = if self.target.is_some() { self.ray_t } else { f64::INFINITY }; let head = self.player.eye();
@@ -898,11 +898,12 @@ impl Session {
     }
     pub fn close_talk(&mut self) { self.town.talk = None; }
     pub fn rep(&self, v: (i32, i32)) -> i32 { self.town.rep.get(&v).copied().unwrap_or(0) }
-    fn gain_rep(&mut self, v: (i32, i32), n: i32) { let r = self.town.rep.entry(v).or_insert(0); let was = *r; *r = (*r + n).clamp(-50, 100); let up = *r - was; self.dirty = true; if up > 0 { self.earn(crate::niveaux::XP_REP * up as f64, "réputation au village"); } }
+    pub(crate) fn gain_rep(&mut self, v: (i32, i32), n: i32) { let r = self.town.rep.entry(v).or_insert(0); let was = *r; *r = (*r + n).clamp(-50, 100); let up = *r - was; self.dirty = true; if let Some(f) = self.faction_of(v) { self.sway(f, n as f64 * crate::factions::SPREAD); } /* la nouvelle se répand à tout le peuple */ if up > 0 { self.earn(crate::niveaux::XP_REP * up as f64, "réputation au village"); } }
     /// Le paiement qu'on peut fournir pour un service : la première chose acceptée que l'on a en assez grande quantité.
     pub fn price(&self, c: &Craftsman, times: u32) -> Result<(&'static str, u32), String> {
         if self.creative { return Ok(("", 0)); }
-        c.price.iter().find(|(id, n)| self.count(id) >= n * times).map(|(id, n)| (*id, n * times)).ok_or_else(|| format!("Il demande {}", c.price.iter().map(|(id, n)| format!("{} {}", n * times, item(id).map_or(*id, |i| i.label).to_lowercase())).collect::<Vec<_>>().join(" ou ")))
+        let t = self.town.talk.as_ref().and_then(|t| self.town.folk.get(t.who)).map_or(crate::factions::Tier::Neutre, |f| self.tier(f.v)); let times_n = |n: u32| t.price(n * times); // le prix suit la réputation
+        c.price.iter().map(|(id, n)| (*id, times_n(*n))).find(|(id, n)| self.count(id) >= *n).map(|(id, n)| (id, n)).ok_or_else(|| format!("Il demande {}", c.price.iter().map(|(id, n)| format!("{} {}", times_n(*n), item(id).map_or(*id, |x| x.label).to_lowercase())).collect::<Vec<_>>().join(" ou ")))
     }
     fn pay(&mut self, c: &Craftsman, times: u32) -> Result<(), String> { let (id, n) = self.price(c, times)?; if n > 0 { self.take(id, n); } Ok(()) }
     /// Ce que coûte une commande en matériaux : les ingrédients, sauf les outils (l'artisan a les siens).
@@ -921,6 +922,9 @@ impl Session {
     /// Les échanges que propose un villageois. Au village pilote, le marché vient de ses réserves (ce qu'il a de trop, ce qui
     /// lui manque), puis les échanges de son pays, s'il a de quoi ; ailleurs, les échanges de son pays.
     pub fn offers(&self, v: &Village) -> Vec<Offer> {
+        let t = self.tier(v.id); let o = self.offers_raw(v); o.into_iter().map(|mut x| { x.give.1 = t.price(x.give.1); x }).collect() // le prix suit la réputation
+    }
+    fn offers_raw(&self, v: &Village) -> Vec<Offer> {
         let base = trades(v.kind).into_iter().map(|t| Offer { give: t.give, get: t.get, can: true, stock: None, tag: 0 });
         let Some(e) = self.econ.as_ref().filter(|e| e.id == v.id) else { return base.collect() }; let c = e.census(v);
         let stock = |id: &str| crate::economie::tracked(id).then(|| e.have(id).floor() as u32);
@@ -932,7 +936,9 @@ impl Session {
         let t = self.town.talk.as_ref()?; let f = self.town.folk.get(t.who)?; let v = self.town.village(f.v)?;
         let cm = f.craft.and_then(craftsman); let title = match cm { Some(c) => format!("{} · {}", f.name, c.name), None if f.job == 9 => format!("{} · maire", f.name), None if f.job == 8 => format!("{} · garde", f.name), None if f.job == 7 => f.name.clone(), None => format!("{} · villageois", f.name) };
         let sub = format!("{} · village de {}", v.name, kind_label(v.kind)); let mut o: Vec<(String, bool)> = Vec::new();
-        if self.armed() { o.push(("Ranger mon arme".into(), true)); o.push(("Au revoir".into(), true)); let pics = vec![Pic { icon: Some("sword"), ..Default::default() }, Pic::default()]; return Some(Dialog { title, sub, said: "Rangez d'abord votre arme, je vous prie.".into(), options: o, kind: DKind::Main, pics, station: cm.and_then(|c| c.works.first().map(|w| w.0)), mayor: f.job == 9, rep: self.rep(v.id), village: v.name.clone() }); }
+        // hostile : on vous chasse, sans rien d'autre
+        if self.tier(v.id) == crate::factions::Tier::Hostile && !self.creative { o.push(("Au revoir".into(), true)); return Some(Dialog { title, sub, said: format!("Passez votre chemin. Ici, on sait ce que vous avez fait contre {}.", crate::factions::Faction::of_kind(v.kind).name()), options: o, kind: DKind::Main, pics: vec![Pic::default()], station: None, mayor: f.job == 9, rep: self.standing(v.id), village: v.name.clone() }); }
+        if self.armed() { o.push(("Ranger mon arme".into(), true)); o.push(("Au revoir".into(), true)); let pics = vec![Pic { icon: Some("sword"), ..Default::default() }, Pic::default()]; return Some(Dialog { title, sub, said: "Rangez d'abord votre arme, je vous prie.".into(), options: o, kind: DKind::Main, pics, station: cm.and_then(|c| c.works.first().map(|w| w.0)), mayor: f.job == 9, rep: self.standing(v.id), village: v.name.clone() }); }
         let econ = self.econ.as_ref().filter(|e| e.id == v.id && f.job == 9); let mut pics: Vec<Pic> = Vec::new(); let have = |id: &str| if self.creative { 999 } else { self.count(id) };
         let kind = match t.page { Page::Main => DKind::Main, Page::Trade(_) => DKind::Trade, Page::Order(_) => DKind::Order, Page::Projects(_) => DKind::Projects };
         match (t.page, cm) {
@@ -984,7 +990,7 @@ impl Session {
                 x if x.starts_with("Échanger") => "worn_coin", x if x.starts_with("Offrir") => held.filter(|h| crate::survival::food(h).is_some()).unwrap_or("bread"), x if x.starts_with("Des nouvelles") => "bell", x if x.starts_with("Marquer") || x.starts_with("Ne plus marquer") => "torch", x if x.starts_with("Les projets") => "planks", _ => "" }).filter(|i| !i.is_empty()), ..Default::default() }).collect(); }
         while pics.len() < o.len() { pics.push(Pic::default()); }
         let station = cm.and_then(|c| c.works.first().map(|w| w.0));
-        Some(Dialog { title, sub, said: t.said.clone(), options: o, kind, pics, station, mayor: f.job == 9, rep: self.rep(v.id), village: v.name.clone() })
+        Some(Dialog { title, sub, said: t.said.clone(), options: o, kind, pics, station, mayor: f.job == 9, rep: self.standing(v.id), village: v.name.clone() })
     }
     /// Choisir la réponse `i` (à partir de 0) de la fenêtre de dialogue.
     pub fn choose(&mut self, i: usize) {
@@ -1086,7 +1092,7 @@ impl Session {
         for id in &self.town.known { s += &format!("known {} {}\n", id.0, id.1); }
         let mut met: Vec<_> = self.town.met.iter().collect(); met.sort(); for (id, c) in met { s += &format!("met {} {} {c}\n", id.0, id.1); }
         if let Some(id) = self.town.marked { s += &format!("marked {} {}\n", id.0, id.1); }
-        s
+        s += &self.factions_save(); s
     }
     /// Une ligne de sauvegarde du village ; faux si elle n'en est pas une.
     pub(crate) fn town_load(&mut self, key: &str, a: &[&str]) -> bool {

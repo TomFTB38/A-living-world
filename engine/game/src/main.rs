@@ -1420,7 +1420,7 @@ fn capture(a: &[String]) {
             println!("{scene} : {} ({}) {:?}, {} habitants", v.name, v.kind, v.c, s.town.folk.len());
         }
     }
-    if scene == "village" || scene.starts_with("artisan") || scene == "villageois_echange" || scene == "bourg" || scene == "interieur" {
+    if scene == "village" || scene.starts_with("artisan") || scene == "villageois_echange" || scene == "bourg" || scene == "interieur" || scene.starts_with("reputation") {
         // Le village le plus proche du départ, en milieu de matinée : la place vue d'en haut, ou le forgeron à son poste et la conversation.
         if let Some(v) = s.nearest_village(0.0, 0.0) {
             let c = [v.c[0] as f64 + 0.5, v.c[1] as f64 + 1.0, v.c[2] as f64 + 0.5]; s.hour = 10.5; s.sel = 8; s.third = false; s.player.fly = true;
@@ -1432,6 +1432,13 @@ fn capture(a: &[String]) {
                 let f = s.town.folk[k].clone(); let h = &v.houses[f.house]; let e = [h.inside[0] + (h.inside[0] - f.p[0]) * 0.2, c[1] + 1.62, h.inside[2] + (h.inside[2] - f.p[2]) * 0.2];
                 look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default()); s.talk_to(k); s.add_item("iron_ingot", 2); s.add_item("coal", 8); s.add_item("stick", 6); s.add_item("planks", 10); s.tick(0.0, none, Actions::default());
                 if scene == "artisan_commande" { if let Some(i) = s.dialog().and_then(|d| d.options.iter().position(|o| o.0.starts_with("Passer commande"))) { s.choose(i); } }
+            } } else if scene.starts_with("reputation") { if let Some(k) = s.town.folk.iter().position(|f| f.craft.is_none()) {
+                // La réputation : le journal avec les peuples (ami du Royaume, apprécié des ports, mal vu des Clans), ou un village hostile qui vous chasse.
+                use alw_core::factions::Faction; s.set_creative(false); s.sway(Faction::Ports, 12.0); s.sway(Faction::Clans, -14.0);
+                for w in alw_core::gen::WorldGen::new(SEED).villages_near(c[0], c[2], 2500.0).into_iter().take(8) { s.discover(&w); }
+                if scene == "reputation_journal" { s.sway(Faction::Royaume, 45.0); s.town.rep.insert(v.id, 12); s.town.journal = true; s.tick(0.0, none, Actions::default()); }
+                else { s.sway(Faction::Royaume, -60.0); s.town.rep.insert(v.id, -12); s.notes.clear(); let f = s.town.folk[k].clone(); let e = [f.p[0] + 2.0, f.p[1] + 1.62, f.p[2] + 1.2]; look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default()); s.talk_to(k); s.tick(0.0, none, Actions::default()); }
+                println!("{scene} : {:?} ; {:?}", s.faction_lines(), s.dialog().map(|d| d.said));
             } } else if scene == "villageois_echange" { if let Some(k) = s.town.folk.iter().position(|f| f.craft.is_none()) {
                 let f = s.town.folk[k].clone(); let e = [f.p[0] + 2.0, f.p[1] + 1.62, f.p[2] + 1.2]; look(&mut s, e, [f.p[0], f.p[1] + 1.2, f.p[2]]); s.player.fly = false; s.tick(0.0, none, Actions::default()); for (id, n) in [("berries", 12), ("wheat", 20), ("leather", 3), ("planks", 16)] { s.add_item(id, n); } s.talk_to(k);
                 if let Some(i) = s.dialog().and_then(|d| d.options.iter().position(|o| o.0.starts_with("Échanger"))) { s.choose(i); } s.tick(0.0, none, Actions::default());

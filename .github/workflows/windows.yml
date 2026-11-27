@@ -253,6 +253,8 @@ jobs:
           shot nord_place -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 nord_place
           shot nord_soir -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 nord_soir
           shot plat_nord -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_nord
+          shot reputation_journal -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 reputation_journal
+          shot reputation_hostile -38.5 53 0.5 -20 52 -30 10 4 1280 720 2048 reputation_hostile
           shot plat_sanctuaire_idole -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_sanctuaire_idole
           shot plat_saut_loup -41 56.62 -40 -41 56.2 -30 10 4 1280 720 2048 plat_saut_loup
           shot faune_grotte 0 60 0 0 60 10 12 3 1280 720 2048 faune_grotte

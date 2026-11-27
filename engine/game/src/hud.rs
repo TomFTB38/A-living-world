@@ -588,7 +588,7 @@ impl Ui {
         let (cx, cy, rr) = (r[0] + 52.0 * k, r[1] + 58.0 * k, 34.0 * k); self.rect(cx - rr - 3.0 * k, cy - rr - 3.0 * k, 2.0 * rr + 6.0 * k, 2.0 * rr + 6.0 * k, [0.0, 0.0, 0.0, 0.45]); self.rect(cx - rr, cy - rr, 2.0 * rr, 2.0 * rr, [0.95, 0.88, 0.7, 0.16]);
         let emblem = if d.mayor { "bell" } else { match d.station { Some(st) => station_look(st).1, None => "bread" } }; self.icon(emblem, cx, cy, rr * 0.8);
         let tx = r[0] + 100.0 * k; self.text(&d.title, tx, r[1] + 22.0 * k, 24.0 * k, INK); self.text(&d.sub, tx, r[1] + 56.0 * k, 14.0 * k, DIM);
-        let rep = d.rep.clamp(-50, 100) as f32; let (gx, gy, gw) = (r[0] + r[2] - 200.0 * k, r[1] + 24.0 * k, 170.0 * k); self.text(&format!("Réputation {}{}", if d.rep > 0 { "+" } else { "" }, d.rep), gx, gy - 2.0 * k, 13.0 * k, DIM);
+        let rep = d.rep.clamp(-50, 100) as f32; let (gx, gy, gw) = (r[0] + r[2] - 200.0 * k, r[1] + 24.0 * k, 170.0 * k); self.text(&format!("Réputation {}{} · {}", if d.rep > 0 { "+" } else { "" }, d.rep, alw_core::factions::Tier::of(d.rep).label()), gx, gy - 2.0 * k, 13.0 * k, DIM);
         self.rect(gx, gy + 18.0 * k, gw, 8.0 * k, [0.0, 0.0, 0.0, 0.5]); let z0 = gw * 50.0 / 150.0; if rep >= 0.0 { self.rect(gx + z0, gy + 18.0 * k, gw * rep / 150.0, 8.0 * k, ACCENT); } else { self.rect(gx + z0 + gw * rep / 150.0, gy + 18.0 * k, -gw * rep / 150.0, 8.0 * k, BAD); } self.rect(gx + z0, gy + 15.0 * k, 2.0 * k, 14.0 * k, INK);
         // ce qu'il dit, dans une bulle de parchemin
         let (bx, by, bw) = (r[0] + 18.0 * k, r[1] + 100.0 * k, r[2] - 36.0 * k); self.rect(bx, by, bw, 56.0 * k, [0.93, 0.87, 0.72, 0.94]); self.quad([[bx + 22.0 * k, by], [bx + 38.0 * k, by], [bx + 26.0 * k, by - 12.0 * k], [bx + 26.0 * k, by - 12.0 * k]], [[0.0; 2]; 4], [0.93, 0.87, 0.72, 0.94], LAYER_FLAT);
@@ -667,13 +667,15 @@ impl Ui {
         let k = scale(h); let l = s.journal(); let lh = 46.0 * k; let pw = (760.0 * k).min(w - 40.0); let ph = 104.0 * k + l.len().clamp(1, 9) as f32 * lh; let (x, y) = ((w - pw) * 0.5, h * 0.12);
         self.panel([x, y, pw, ph], k, PANEL); self.text("Journal des villages", x + 18.0 * k, y + 14.0 * k, 23.0 * k, INK);
         self.text("Chiffre : marquer le village sur votre route · J pour fermer", x + 18.0 * k, y + 58.0 * k, 14.0 * k, DIM);
+        // les peuples : leur réputation, leur regard, le titre qu'on y porte
+        { let mut fx = x + 18.0 * k; let z = 13.0 * k; for (f, r, t, title) in s.faction_lines() { let line = format!("{} {}{} · {}{}", f.short(), if r > 0 { "+" } else { "" }, r, t.label(), title.map_or(String::new(), |x| format!(" · {x}"))); let c = match t { alw_core::factions::Tier::Hostile | alw_core::factions::Tier::Mefiant => BAD, alw_core::factions::Tier::Ami | alw_core::factions::Tier::Heros => GOLD, _ => DIM }; self.text(&line, fx, y + 38.0 * k, z, c); fx += Ui::text_width(&line, z) + 16.0 * k; } }
         if l.is_empty() { self.text("Aucun village connu. Suivez les chemins, ou demandez aux voyageurs.", x + 18.0 * k, y + 80.0 * k, 16.0 * k, DIM); }
         for (i, (v, at, crafts)) in l.iter().take(9).enumerate() {
             let yy = y + 90.0 * k + i as f32 * lh; let marked = s.town.marked == Some(v.id);
             self.text(&format!("{}. {}{} · {} · {}", i + 1, v.name, if marked { " (marqué)" } else { "" }, alw_core::village::kind_label(v.kind), at), x + 18.0 * k, yy, 17.0 * k, if marked { GOLD } else { INK });
             let mut px = x + 40.0 * k;
             for (c, met) in crafts { let n = alw_core::village::craftsman(c).map_or(*c, |x| x.name); let z = 14.0 * k; self.text(n, px, yy + 22.0 * k, z, if *met { ACCENT } else { DIM }); px += Ui::text_width(n, z) + 18.0 * k; }
-            let r = format!("réputation {}", s.rep(v.id)); let z = 14.0 * k; self.text(&r, x + pw - Ui::text_width(&r, z) - 18.0 * k, yy + 22.0 * k, z, DIM);
+            let r = format!("réputation {} · {}", s.standing(v.id), s.tier(v.id).label()); let z = 14.0 * k; self.text(&r, x + pw - Ui::text_width(&r, z) - 18.0 * k, yy + 22.0 * k, z, DIM);
         }
     }
     /// Repère en haut de l'écran : un losange dans la direction d'un point, avec un nom et la distance.

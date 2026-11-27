@@ -354,7 +354,7 @@ impl Session {
         // le reste (des pièces, des graines) a été déposé depuis l'ouverture : le village le prend, sa caisse grossit
         for (k, n) in &sum { if !GOODS.iter().any(|g| g.0 == *k) { *e.stock.entry(k).or_insert(0.0) += *n; } }
         // on se sert dans la réserve commune : le village le remarque ; on y dépose : il s'en souvient aussi
-        let delta = total - e.held; if delta <= -6.0 { *self.town.rep.entry(v.id).or_insert(0) -= 1; self.notes.push(format!("{} a vu sa réserve baisser : on vous regarde de travers", v.name)); } else if delta >= 12.0 { *self.town.rep.entry(v.id).or_insert(0) += 1; self.notes.push(format!("{} vous remercie pour ce que vous laissez à la réserve", v.name)); }
+        let delta = total - e.held; if delta <= -6.0 { *self.town.rep.entry(v.id).or_insert(0) -= 1; self.sway(crate::factions::Faction::of_kind(v.kind), -1.0); self.notes.push(format!("{} a vu sa réserve baisser : on vous regarde de travers", v.name)); } else if delta >= 12.0 { *self.town.rep.entry(v.id).or_insert(0) += 1; self.notes.push(format!("{} vous remercie pour ce que vous laissez à la réserve", v.name)); }
         self.dirty = true;
     }
     /// Un terrain libre pour une maison : près des autres, à plat, hors des rues et des champs, la porte vers la place.

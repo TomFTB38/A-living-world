@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu nord_vue nord_place nord_soir plat_nord
+spawn jeu reputation_journal reputation_hostile

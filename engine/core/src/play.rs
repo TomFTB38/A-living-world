@@ -735,6 +735,7 @@ impl Session {
                 Some("guide") => { self.guide = a.next().and_then(|v| v.parse().ok()).unwrap_or(0); }
                 Some("carte") => { let v: Vec<&str> = a.collect(); self.map.load(&v); }
                 Some(k @ ("rep" | "known" | "met" | "marked")) => { let v: Vec<&str> = a.collect(); self.town_load(k, &v); }
+                Some("factions") => { let v: Vec<&str> = a.collect(); self.factions_load(&v); }
                 Some("camp") => { let v: Vec<&str> = a.collect(); self.camps_load(&v); }
                 Some(k) if k.starts_with("econ") => { let v: Vec<&str> = a.collect(); self.econ_load(k, &v); }
                 Some("fav") => { for id in a { if let Some(d) = def(id) { self.fav.insert(d.id); } } }
