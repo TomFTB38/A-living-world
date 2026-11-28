@@ -35,7 +35,10 @@ fn inv_d(d: f32) -> f32 { return 1.0 / max(d, 1e-6); }
         wsum += decay; decay *= 0.94; p += delta;
       }
       let dist = length((i.uv - suv) * vec2f(u.jit.z / u.jit.w, 1.0));
-      let k_ray = acc / wsum * exp(-dist * 2.2) * edge * sat(u.sun.y * 6.0 + 0.3) * (1.0 - u.extra2.z) * (1.0 - 0.6 * sat(u.weather.y));
+      // Plus serrés autour du soleil ; discrets sur le ciel même (il a déjà son halo, sinon le bleu se délave) ; plus francs le
+      // matin et le soir, quand le soleil est bas, qu'en plein midi.
+      let k_ray = acc / wsum * exp(-dist * 3.2) * edge * sat(u.sun.y * 6.0 + 0.3) * (1.0 - u.extra2.z) * (1.0 - 0.6 * sat(u.weather.y))
+        * select(1.0, 0.3, d <= 0.0) * (1.0 - 0.65 * smoothstep(0.25, 0.75, u.sun.y));
       c += u.sun_col.rgb * vec3f(1.0, 0.84, 0.58) * k_ray * 0.12;
     }
   }
