@@ -1,2 +1,2 @@
 # Captures prises par la compilation Windows : contrôle (spawn, jeu, creatif) + ce qui vient de changer.
-spawn jeu lointain horizon chargement nord_vue nord_place taiga
+spawn jeu lointain desert_vue rayons rayons_haut ciel_couchant
