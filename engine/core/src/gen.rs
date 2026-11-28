@@ -263,8 +263,6 @@ impl WorldGen {
                 let mut bb = [i32::MAX, a, i32::MAX, i32::MIN, b, i32::MIN]; let mut count: HashMap<Id, usize> = HashMap::new();
                 for d in leaf.iter().filter(|d| d[1] >= a && d[1] < b) { bb[0] = bb[0].min(d[0]); bb[2] = bb[2].min(d[2]); bb[3] = bb[3].max(d[0] + 1); bb[5] = bb[5].max(d[2] + 1); *count.entry(d[3] as Id).or_default() += 1; }
                 if bb[0] == i32::MAX { continue; }
-                // Une couronne n'est pas un cube : son étage se resserre d'un bloc quand il est large.
-                if bb[3] - bb[0] >= 5 { bb[0] += 1; bb[3] -= 1; } if bb[5] - bb[2] >= 5 { bb[2] += 1; bb[5] -= 1; }
                 let id = count.into_iter().max_by_key(|(id, n)| (*n, *id)).map_or(B::OAK_LEAVES, |v| v.0); out.push((bb, id));
             }
         } }
@@ -472,14 +470,26 @@ impl WorldGen {
     }
     /// Pellicule de neige sur tout ce qui est exposé au ciel froid : sol, rochers, troncs coupés, pas l'eau gelée ni le feuillage.
     fn snow_cover(&self, v: &mut [Id], ox: i32, oz: i32) {
+        // Le haut du sol de chaque colonne, pour savoir de combien chaque marche domine ses voisines.
+        let mut tops = vec![0usize; CX * CX]; for z in 0..CX { for x in 0..CX { let mut y = CH - 2; while y > 1 && v[idx(x, y, z)] == 0 { y -= 1; } tops[x + z * CX] = y; } }
+        // Les lieux (ruines, camps, sanctuaires…) et les villages gardent leur sol : on n'habille de neige que le terrain naturel.
+        let sites = self.places_near(ox as f64 + 16.0, oz as f64 + 16.0, 90.0); let towns = self.villages_near(ox as f64 + 16.0, oz as f64 + 16.0, 260.0);
+        let in_site = |x: i32, z: i32| sites.iter().any(|p| ((p.x - x) as f64).hypot((p.z - z) as f64) < 40.0) || towns.iter().any(|v| ((v.c[0] - x) as f64).hypot((v.c[2] - z) as f64) < v.r as f64 + 12.0);
+        let natural = [B::STONE, B::GRANITE, B::LIMESTONE, B::LICHEN_STONE, B::MOSSY_STONE, B::DIRT, B::GRASS, B::GRASS_DEEP, B::GRAVEL, B::FOREST_SOIL, B::MOOR_GRASS, B::STEPPE_GRASS];
         for z in 0..CX { for x in 0..CX {
             let (wxi, wzi) = (ox + x as i32, oz + z as i32); let (wx, wz) = (wxi as f64, wzi as f64);
-            let mut y = CH - 2; while y > 1 && v[idx(x, y, z)] == 0 { y -= 1; } let b = v[idx(x, y, z)]; if !is_opaque(b) || b == B::ICE { continue; }
+            let y = tops[x + z * CX]; let b = v[idx(x, y, z)]; if !is_opaque(b) || b == B::ICE { continue; }
             let cm = self.climate.at(wx, wz); let cold = self.patch(wxi, wzi, 42) < smooth(0.3, 0.7, cm.strong(Biome::Taiga)); let peak = y as f64 > 101.0 - 8.0 * cm.strong(Biome::Mountains) + 4.0 * self.n_deco.n2(wx / 13.0, wz / 13.0);
-            // Épaisseur variable : congères de quelques dixièmes, plus épaisses au cœur de la taïga et en altitude.
-            let drift = smooth(-0.2, 0.7, self.n_deco.n2(wx / 15.0 + 19.0, wz / 15.0 - 4.0)) * 0.75 + 0.25 * hash_float(wxi, wzi, self.seed, 43);
+            // Épaisseur variable : congères de quelques dixièmes, plus épaisses au cœur de la taïga et en altitude. L'épaisseur suit
+            // un bruit doux, sans tirage bloc par bloc : un manteau qui ondule, et non une neige grêlée de petites marches.
+            let drift = smooth(-0.2, 0.7, self.n_deco.n2(wx / 15.0 + 19.0, wz / 15.0 - 4.0)) * 0.85 + 0.15 * (0.5 + 0.5 * self.n_deco.n2(wx / 6.0 - 7.0, wz / 6.0 + 11.0));
             let deep = self.climate.at(wx, wz).strong(Biome::Taiga) + if peak { 0.6 } else { 0.0 };
-            if cold || peak { v[idx(x, y + 1, z)] = snow_of((1.0 + drift * (2.0 + 4.0 * deep.min(1.0))).floor().min(6.0) as u8); }
+            if cold || peak { v[idx(x, y + 1, z)] = snow_of((1.0 + drift * (2.0 + 4.0 * deep.min(1.0))).floor().min(6.0) as u8);
+                // Les petites marches du sol enneigé sont blanches jusqu'en bas (la neige les habille) ; seules les vraies
+                // falaises, plus de trois blocs, montrent leur roche. Sinon chaque marche découvrait un liseré gris.
+                let mut drop = 0; for (dx, dz) in [(1i32, 0i32), (-1, 0), (0, 1), (0, -1)] { let (nx, nz) = (x as i32 + dx, z as i32 + dz); if nx < 0 || nz < 0 || nx >= CX as i32 || nz >= CX as i32 { continue; } drop = drop.max(y as i32 - tops[nx as usize + nz as usize * CX] as i32); }
+                if drop <= 3 && !in_site(wxi, wzi) { for k in 0..drop.max(1) as usize { if y >= k + 1 && natural.contains(&v[idx(x, y - k, z)]) { v[idx(x, y - k, z)] = B::SNOW; } } }
+            }
         } }
     }
     fn hang_vines(&self, v: &mut [Id], ox: i32, oz: i32) {

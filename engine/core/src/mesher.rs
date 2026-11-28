@@ -1083,7 +1083,7 @@ pub fn far_mesh(gen: &WorldGen, ccx: i32, ccz: i32, near: i32) -> (Vec<u8>, usiz
     for j in 0..m { for i in 0..m {
         let (wx, wz) = (cx0 - near as f64 + (i as f64 - 1.0) * S as f64 + 2.0, cz0 - near as f64 + (j as f64 - 1.0) * S as f64 + 2.0); let c = gen.column(wx, wz); let k = i + j * m;
         if c.water != 0.0 && c.water > c.h { top[k] = c.water.floor() + 0.88; wet[k] = Some(far_water(&c)); blk[k] = (B::SAND, B::SAND); }
-        else { top[k] = c.h.ceil(); blk[k] = gen.far_surface(&c, wx, wz); if c.forest > 0.5 { shade[k] = 185; } } // sous les couronnes, le sol est à l'ombre
+        else { top[k] = c.h.ceil(); blk[k] = gen.far_surface(&c, wx, wz); if c.forest > 0.5 { shade[k] = 150; } } // sous les couronnes, le sol est à l'ombre
     } }
     let sf = S as f64; let x_of = |i: i32| -(near as f64) + i as f64 * sf;
     for j in 0..n { let mut i = 0; while i < n {
