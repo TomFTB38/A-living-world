@@ -1,0 +1,32 @@
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+137 chunks chargés en 4.5 s
+10 images, 5.0 M triangles, 1764 ms par image sur cette carte
+== spawn : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+69 chunks chargés en 3.4 s
+casse : forest_soil -> Some(0), objets 7 -> 7
+pose : cible None
+10 images, 5.0 M triangles, 1665 ms par image sur cette carte
+== jeu : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+69 chunks chargés en 3.4 s
+ciel_couchant : soleil/lune [-0.8193462, 0.11461252, 0.56172574], phase 0.59
+10 images, 4.4 M triangles, 1739 ms par image sur cette carte
+== ciel_couchant : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+69 chunks chargés en 3.4 s
+desert_vue : Oued Ouzane [-1601, 52, 2124]
+10 images, 1.7 M triangles, 1500 ms par image sur cette carte
+== desert_vue : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+349 chunks chargés en 8.4 s
+10 images, 7.5 M triangles, 1945 ms par image sur cette carte
+== lointain : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+137 chunks chargés en 4.6 s
+10 images, 5.4 M triangles, 1981 ms par image sur cette carte
+== rayons : code 0 (essai 1)
+Carte : AdapterInfo { name: "Microsoft Basic Render Driver", vendor: 5140, device: 140, device_type: Cpu, driver: "10.0.26100.33648", driver_info: "", backend: Dx12 }
+137 chunks chargés en 4.5 s
+10 images, 5.8 M triangles, 1776 ms par image sur cette carte
+== rayons_haut : code 0 (essai 1)
