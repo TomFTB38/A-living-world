@@ -17,7 +17,8 @@ fn aces(x: vec3f) -> vec3f { return clamp(x * (2.51 * x + vec3f(0.03)) / (x * (2
   /* Étalonnage film : les verts-jaunes criards se calment, le reste garde sa couleur. */
   let yg = sat((c.g - max(c.r * 0.9, c.b) ) * 4.0) * sat((c.r - c.b) * 3.0);
   c = mix(vec3f(l), c, 1.14 - 0.08 * yg);
-  c *= mix(vec3f(0.95, 0.99, 1.05), vec3f(1.04, 1.0, 0.93), smoothstep(0.08, 0.85, l));
+  /* Lumières chaudes, ombres à peine fraîches : une image plus dorée, qui garde du relief. */
+  c *= mix(vec3f(0.97, 0.99, 1.03), vec3f(1.07, 1.0, 0.88), smoothstep(0.06, 0.8, l));
   c = clamp(c, vec3f(0.0), vec3f(1.0));
   c = mix(c, c * c * (vec3f(3.0) - 2.0 * c), 0.2);
   let e = i.uv - vec2f(0.5); c *= 1.0 - 0.2 * smoothstep(0.2, 0.8, dot(e, e) * 1.6); /* vignetage d'objectif */
